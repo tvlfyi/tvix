@@ -1,0 +1,144 @@
+// SPDX-License-Identifier: MIT
+// Copyright © 2021 The Tvix Authors
+syntax = "proto3";
+
+package tvix.proto.evaluator.v1;
+
+service EvaluatorService {
+  rpc Evaluate(stream EvaluateRequest) returns (stream EvaluateResponse) {}
+}
+
+//
+// Message types for EvaluateRequest
+//
+
+message EvaluateFile {
+  // Absolute path at which the evaluator can find the file to be
+  // evaluated.
+  string file_path = 1;
+
+  // Optional attribute that should be evaluated within the file,
+  // assuming that the value it evaluates to is an attribute set.
+  optional string attribute = 2;
+
+  // Additional arguments to pass into the evaluation, with which the
+  // file's top-level function will be auto-called.
+  map<string, NixValue> arguments = 3;
+}
+
+message EvaluateExpression {
+  // Literal Nix expression to evaluate.
+  string expression = 1;
+
+  // Working directory in which the expression should be evaluated.
+  string working_directory = 2;
+}
+
+message BuildResultChunk {
+  string drv_hash = 1;
+  string output = 2;
+  bytes data = 3;
+
+  // This field may be set on the first build result chunk returned
+  // to the evaluator, indicating the total size of the output that
+  // is going to be streamed in bytes.
+  //
+  // If set, the evaluator can use this to appropriately allocate a
+  // buffer for the output.
+  optional int64 output_size = 4;
+}
+
+// Indicates that a single build has completed successfully. In case
+// that the build outputs were required by the evaluator this also
+// indicates that the output has been returned completely.
+message BuildSuccess {
+  string drv_hash = 1;
+  string output = 2;
+}
+
+// Describes an error that occured during a single build.
+//
+// TODO: We might want a more sophisticated error type.
+message BuildError {
+  string drv_hash = 1;
+  string output = 2;
+  string error = 3;
+}
+
+message BuildResult {
+  oneof build_result {
+    BuildSuccess build_success = 1;
+    BuildError build_error = 2;
+  }
+}
+
+
+/// Messages sent to the evaluator by the build coordinator.
+message EvaluateRequest {
+  oneof message {
+    // Ask the evaluator to evaluate the specified file, and
+    // optionally attribute within that file. Must be the first
+    // message.
+    EvaluateFile evaluate_file = 1;
+
+    // Ask the evaluator to evaluate the specified Nix expression.
+    // Must be the first message.
+    EvaluateExpression evaluate_expression = 2;
+
+    // Send the chunks of a build result, in response to a
+    // BuildRequest.
+    //
+    // Note: This message might change as the store protocol is
+    // designed, as it is possible that mechanisms for transferring
+    // files might be reused between the protocols.
+    BuildResultChunk build_result_chunk = 3;
+
+    // Indicate the result of a single build. See the documentation
+    // for the message types defined above for semantic details.
+    BuildResult build_result = 4;
+  }
+}
+
+//
+// Message types for EvaluateResponse
+//
+
+// TODO: Placeholder type.
+message Derivation {
+  string drv = 1;
+}
+
+// TODO: Placeholder type.
+message NixValue {
+  string value = 1;
+}
+
+// TODO: Placeholder type.
+message NixError {
+  string value = 1;
+}
+
+message BuildRequest {
+  Derivation drv = 1;
+  string output = 2;
+}
+
+// Messages returned to the coordinator by the evaluator.
+message EvaluateResponse {
+  oneof message {
+    // A derivation that was instantiated while reducing the graph,
+    // and whose output is not required by the evaluator.
+    Derivation derivation = 1;
+
+    // A derivation that was instantiated while reducing the graph,
+    // and whose output is required by the evaluator (IFD).
+    BuildRequest build_request = 2;
+
+    // The final value yielded by the evaluation. Stream is closed
+    // after this.
+    NixValue done = 3;
+
+    // Evaluation error. Stream is closed after this.
+    NixError error = 4;
+  }
+}
