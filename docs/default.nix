@@ -19,6 +19,8 @@ in pkgs.stdenv.mkDerivation {
   pname = "tvix-doc";
   version = "0.1";
 
+  outputs = [ "out" "svg" ];
+
   src = lib.cleanSource ./.;
 
   CSL = csl;
@@ -31,8 +33,13 @@ in pkgs.stdenv.mkDerivation {
 
   installPhase = ''
     runHook preInstall
+
     mkdir -p $out
     cp -v *.html $out/
+
+    mkdir -p $svg
+    cp -v *.svg $svg/
+
     runHook postSubmit
   '';
 
