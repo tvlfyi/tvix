@@ -1,0 +1,74 @@
+@startuml
+
+title Tvix build flow
+
+actor User
+participant CLI
+participant "Coordinator" as Coord
+participant "Evaluator" as Eval
+database Store
+participant "Builder" as Build
+
+note over CLI,Eval
+    Typically runs locally on the invoking machine
+end note
+/ note over Store, Build
+    Can be either local or remote
+end note
+
+User-->CLI: User initiates build of `hello` (analogous to `nix-build -f '<nixpkgs>' -A hello`)
+
+CLI-->Coord: CLI invokes coordinator
+
+Coord-->Eval: Sends message to start evaluation of `<nixpkgs>` (path lookup) with attribute `hello`
+note right: The paths to the evaluator are local file system paths
+
+Coord<--Eval: Yields derivations to be built
+note right
+    Immediately starts streaming derivations as they are instantiated across
+    the dependency graph so they can be built while the evaluation is still running.
+
+    There are two types of build requests: One for regular "fire and forget" builds
+    and another for IFD (import from derivation).
+
+    These are distinct because IFD needs to be fed back into the evaluator for
+    further processing while a regular build does not.
+end note
+
+loop while has more derivations
+
+    Coord-->Store: Check if desired paths are in store
+    alt Store has path
+        Coord<--Store: Success response
+    else Store does not have path
+        Coord-->Build: Request derivation to be built
+        note left
+            The build request optionally includes a desired store.
+            If a builder is aware of how to push to the store it will do so
+            directly when the build is finished.
+
+            If the store is not known by the builder results will be streamed
+            back to the coordinator for store addition.
+        end note
+
+        alt Build failure
+            Coord<--Build: Fail response
+            note left: It's up to the coordinator whether to exit on build failure
+        else Build success
+            alt Known store
+                Build-->Store: Push outputs to store
+                Build<--Coord: Send success & pushed response
+            else Unknown store
+                Build<--Coord: Send success & not pushed response
+                Coord<--Build: Stream build outputs
+                Coord-->Store: Push outputs to store
+            end
+        end
+
+    end
+end
+
+CLI<--Coord: Respond success/fail
+User<--CLI: Exit success/fail
+
+@enduml
