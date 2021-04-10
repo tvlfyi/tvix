@@ -6,7 +6,7 @@
 # in //default.nix passes this attribute as the `pkgs` argument to all
 # readTree derivations.
 
-{ depot, ... }:
+{ depot, externalArgs, ... }:
 
 let
   # This provides the sources of nixpkgs. We track both
@@ -25,10 +25,16 @@ let
     sha256 = "073327ris0frqa3kpid3nsjr9w8yx2z83xpsc24w898mrs9r7d5v";
   };
 
-  nixpkgsSrc = fetchTarball {
+  # import the nixos-unstable package set, or optionally use the
+  # source (e.g. a path) specified by the `nixpkgsBisectPath`
+  # argument. This is intended for use-cases where the depot is
+  # bisected against nixpkgs to find the root cause of an issue in a
+  # channel bump.
+  nixpkgsSrc = externalArgs.nixpkgsBisectPath or (fetchTarball {
     url = "https://github.com/NixOS/nixpkgs/archive/${unstableHashes.commit}.tar.gz";
     sha256 = unstableHashes.sha256;
-  };
+  });
+
   stableNixpkgsSrc = fetchTarball {
     url = "https://github.com/NixOS/nixpkgs/archive/${stableHashes.commit}.tar.gz";
     sha256 = stableHashes.sha256;
