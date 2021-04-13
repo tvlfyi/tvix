@@ -58,5 +58,6 @@ in import nixpkgsSrc {
     stableOverlay
     depot.third_party.overlays.tvl
     depot.third_party.overlays.haskell
+    depot.third_party.overlays.emacs
   ];
 }
