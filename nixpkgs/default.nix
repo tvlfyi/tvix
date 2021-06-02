@@ -13,16 +13,16 @@ let
   # nixos-unstable, and the current stable channel of the latest NixOS
   # release.
 
-  # Tracking nixos-unstable as of 2021-05-25.
+  # Tracking nixpkgs-unstable as of 2021-06-05.
   unstableHashes = {
-    commit = "900115a4f7fdd9189e7803ca781a65be663f2c89";
-    sha256 = "11551nawxjbgya8sq1p6ghkbws9qz9fbfq3wqawm3zh8ayr4l13j";
+    commit = "2a1c29ef4bacac06f9b677931027bf053952618c";
+    sha256 = "1gxkvp4bf222v23kpb7di8iay5gl2qyv5qwgmb10nzdr87avbcax";
   };
 
-  # Tracking nixos-20.09 as of 2021-05-25.
+  # Tracking nixos-21.05 as of 2021-06-02.
   stableHashes = {
-    commit = "ac60476ed94fd5424d9f3410c438825f793a8cbb";
-    sha256 = "1dlvpdsy5v09c7rj5f7xgakyj722yqr4415davjpcmrk4n5kw76v";
+    commit = "eaba7870ffc3400eca4407baa24184b7fe337ec1";
+    sha256 = "115disiz4b08iw46cidc7lm0advrxn5g2ldmlrxd53zf03skyb2w";
   };
 
   # import the nixos-unstable package set, or optionally use the
@@ -47,9 +47,7 @@ let
   # Overlay for packages that should come from the stable channel
   # instead (e.g. because something is broken in unstable).
   stableOverlay = self: super: {
-    inherit (stableNixpkgs)
-      awscli # TODO(grfn): Move back to unstable once it is fixed
-      ;
+    # nothing picked from stable currently
   };
 in import nixpkgsSrc {
   config.allowUnfree = true;
