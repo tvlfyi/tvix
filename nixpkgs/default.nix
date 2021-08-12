@@ -49,10 +49,19 @@ let
   stableOverlay = self: super: {
     # nothing picked from stable currently
   };
+
+  # Overlay to expose the nixpkgs commits we are using to other Nix code.
+  commitsOverlay = _: _: {
+    nixpkgsCommits = {
+      unstable = unstableHashes.commit;
+      stable = stableHashes.commit;
+    };
+  };
 in import nixpkgsSrc {
   config.allowUnfree = true;
   config.allowBroken = true;
   overlays = [
+    commitsOverlay
     stableOverlay
     depot.third_party.overlays.tvl
     depot.third_party.overlays.haskell
