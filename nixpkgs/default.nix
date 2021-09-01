@@ -63,9 +63,9 @@ in import nixpkgsSrc {
   overlays = [
     commitsOverlay
     stableOverlay
-    depot.third_party.overlays.tvl
     depot.third_party.overlays.haskell
     depot.third_party.overlays.emacs
+    depot.third_party.overlays.tvl
     depot.third_party.overlays.ecl-static
   ];
 }
