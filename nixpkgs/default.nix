@@ -13,16 +13,16 @@ let
   # nixos-unstable, and the current stable channel of the latest NixOS
   # release.
 
-  # Tracking nixos-unstable as of 2021-09-24.
+  # Tracking nixos-unstable as of 2021-09-27.
   unstableHashes = {
-    commit = "51bcdc4cdaac48535dabf0ad4642a66774c609ed";
-    sha256 = "0zpf159nlpla6qgxfgb2m3c2v09fz8jilc21zwymm59qrq6hxscm";
+    commit = "31ffc50c571e6683e9ecc9dbcbd4a8e9914b4497";
+    sha256 = "1gg87k49rmdylmzxjzmllng78qr6wmssnci05z1kij3715wkqc5j";
   };
 
-  # Tracking nixos-21.05 as of 2021-09-22.
+  # Tracking nixos-21.05 as of 2021-09-30.
   stableHashes = {
-    commit = "83413f47809790e4ca012e314e7782adeae36cf2";
-    sha256 = "0md5ynzxaw9gx81gh4d0120yjb0jrcydvxf0nsym402qfbhpchx0";
+    commit = "ee90403e147b181300dffca5b0afa405e14f1945";
+    sha256 = "1mk3s4ncfa8z8mr6vrgjh74s8dci12yam7plpc1bqgz12wld73ax";
   };
 
   # import the nixos-unstable package set, or optionally use the
@@ -47,8 +47,7 @@ let
   # Overlay for packages that should come from the stable channel
   # instead (e.g. because something is broken in unstable).
   stableOverlay = self: super: {
-    # awscli2 broken in unstable (nixpkgs#138470)
-    awscli2 = stableNixpkgs.awscli2;
+    # Nothing picked from stable presently.
   };
 
   # Overlay to expose the nixpkgs commits we are using to other Nix code.
