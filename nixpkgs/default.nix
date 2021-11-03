@@ -15,14 +15,14 @@ let
 
   # Tracking nixos-unstable as of 2021-10-19.
   unstableHashes = {
-    commit = "5f0194220f2402b06f7f79bba6351895facb5acb";
-    sha256 = "0h2j0ivbp3b84d38h8s06s2yvnwqy80f4i1a75jd11m45m804n3s";
+    commit = "b67e752c29f18a0ca5534a07661366d6a2c2e649";
+    sha256 = "1n47f7r8cm9pcsz7vl4nxjfvs0fgzvcmjda5h0inz3yx9vghp5xm";
   };
 
   # Tracking nixos-21.05 as of 2021-10-21.
   stableHashes = {
-    commit = "70904d4a9927a4d6e05c72c4aaac4370e05107f3";
-    sha256 = "08vvir0npyrdx85ypiannwzvyryqdw3749bghffhdsq2dgz1cx8z";
+    commit = "372e59d2af704bffd133cbe029f1d5efe73ba6fb";
+    sha256 = "1fifb823qvklsn0brvggnaq60zgvi4axmgf6hxbpgz0bna6z6zy9";
   };
 
   # import the nixos-unstable package set, or optionally use the
