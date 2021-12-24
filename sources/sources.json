@@ -34,5 +34,17 @@
         "type": "tarball",
         "url": "https://github.com/NixOS/nixpkgs/archive/7adc9c14ec74b27358a8df9b973087e351425a79.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "rustsec-advisory-db": {
+        "branch": "main",
+        "description": "Security advisory database for Rust crates published through crates.io",
+        "homepage": "https://rustsec.org",
+        "owner": "RustSec",
+        "repo": "advisory-db",
+        "rev": "c9a98f3b3681699f59d84b4f10f14eb07ea6783b",
+        "sha256": "1lb6im1j2nkjp4nza8lj0wyqv6f1wjab21w8lh702pdwd1nfn3zh",
+        "type": "tarball",
+        "url": "https://github.com/RustSec/advisory-db/archive/c9a98f3b3681699f59d84b4f10f14eb07ea6783b.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }
