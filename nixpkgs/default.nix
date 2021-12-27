@@ -57,9 +57,15 @@ let
       stable = stableHashes.commit;
     };
   };
+
 in import nixpkgsSrc {
-  config.allowUnfree = true;
-  config.allowBroken = true;
+  # allow users to inject their config into builds (e.g. to test CA derivations)
+  config =
+    (if externalArgs ? nixpkgsConfig then externalArgs.nixpkgsConfig else { })
+    // {
+      allowUnfree = true;
+      allowBroken = true;
+    };
   overlays = [
     commitsOverlay
     stableOverlay
