@@ -13,16 +13,16 @@ let
   # nixos-unstable, and the current stable channel of the latest NixOS
   # release.
 
-  # Tracking nixos-unstable as of 2021-12-25.
+  # Tracking nixos-unstable as of 2022-01-02.
   unstableHashes = {
-    commit = "cb372c3b8880e504b06946e8fb2ca9777c685505";
-    sha256 = "0m5k2vkhdd3049pcrampw4xb7hvf9f44pp18y765fvdwwvgqasw7";
+    commit = "59bfda72480496f32787cec8c557182738b1bd3f";
+    sha256 = "18akd1chfvniq1q774rigfxgmxwi0wyjljpa1j9ls59szpzr316d";
   };
 
-  # Tracking nixos-21.11 as of 2021-12-23.
+  # Tracking nixos-21.11 as of 2022-01-02.
   stableHashes = {
-    commit = "1158f3463912d54cc981d61213839ec6c02570d3";
-    sha256 = "1v94p8mn3kw3yq79jhmrg0a7zam34v9pvx1sz534y737k2cwbx41";
+    commit = "d1e59cfc49961e121583abe32e2f3db1550fbcff";
+    sha256 = "03ldf1dlxqf3g8qh9x5vp6vd9zvvr481fyjds111imll69y60wpm";
   };
 
   # import the nixos-unstable package set, or optionally use the
