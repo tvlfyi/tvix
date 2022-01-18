@@ -6,7 +6,7 @@
 # in //default.nix passes this attribute as the `pkgs` argument to all
 # readTree derivations.
 
-{ depot, externalArgs, ... }:
+{ depot ? {}, externalArgs ? {}, depotOverlays ? true, ... }:
 
 let
   # This provides the sources of nixpkgs. We track both
@@ -66,12 +66,14 @@ in import nixpkgsSrc {
       allowUnfree = true;
       allowBroken = true;
     };
+
   overlays = [
     commitsOverlay
     stableOverlay
+  ] ++ (if depotOverlays then [
     depot.third_party.overlays.haskell
     depot.third_party.overlays.emacs
     depot.third_party.overlays.tvl
     depot.third_party.overlays.ecl-static
-  ];
+  ] else []);
 }
