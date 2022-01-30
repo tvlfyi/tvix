@@ -4,9 +4,9 @@ let
 
   tl = pkgs.texlive.combine {
     inherit (pkgs.texlive) scheme-medium wrapfig ulem capt-of
-    titlesec preprint enumitem paralist ctex environ svg
-    beamer trimspaces zhnumber changepage framed pdfpages
-    fvextra minted upquote ifplatform xstring;
+      titlesec preprint enumitem paralist ctex environ svg
+      beamer trimspaces zhnumber changepage framed pdfpages
+      fvextra minted upquote ifplatform xstring;
   };
 
   csl = pkgs.fetchurl {
@@ -15,7 +15,8 @@ let
     sha256 = "1yfhhnhbzvhrv93baz98frmgsx5y442nzhb0l956l4j35fb0cc3h";
   };
 
-in pkgs.stdenv.mkDerivation {
+in
+pkgs.stdenv.mkDerivation {
   pname = "tvix-doc";
   version = "0.1";
 
