@@ -25,7 +25,8 @@ pub enum NixResult {
 
 #[cfg(test)]
 mod integration_tests {
-    use std::{collections::VecDeque, io::Write};
+    use std::collections::VecDeque;
+    use std::io::Write;
 
     use super::*;
 
