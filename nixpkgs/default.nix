@@ -24,8 +24,13 @@ let
 
   # Overlay for packages that should come from the stable channel
   # instead (e.g. because something is broken in unstable).
-  stableOverlay = self: super: {
-    # Nothing picked from stable presently.
+  # Use `stableNixpkgs` from above.
+  stableOverlay = _unstableSelf: _unstableSuper: {
+
+    # alacritty on unstable fails because it can’t find the libGLX.
+    # This is too hard to debug right now, let’s hope somebody else solves it for us.
+    alacritty-stable = stableNixpkgs.alacritty;
+
   };
 
   # Overlay to expose the nixpkgs commits we are using to other Nix code.
