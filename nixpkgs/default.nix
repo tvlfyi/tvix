@@ -31,6 +31,10 @@ let
     # This is too hard to debug right now, let’s hope somebody else solves it for us.
     alacritty-stable = stableNixpkgs.alacritty;
 
+    # emacs27 is gone from unstable, but people should upgrade at
+    # their own pace.
+    emacs27 = builtins.trace "emacs27 is deprecated, please migrate to emacs28"
+      stableNixpkgs.emacs27;
   };
 
   # Overlay to expose the nixpkgs commits we are using to other Nix code.
