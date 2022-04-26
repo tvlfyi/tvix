@@ -5,10 +5,10 @@
         "homepage": "",
         "owner": "nix-community",
         "repo": "emacs-overlay",
-        "rev": "34d35051f15a98eddc78378e31ebbf9a82fc1f47",
-        "sha256": "083j3nc0slzblmgaw89bmz3498gc9ixqlrmv0vry7z5z49cwk337",
+        "rev": "5f258dfdab8e58abe2e44b78a3ccf262041f7b74",
+        "sha256": "186rvjsf0q2m9gd45hy3p0wyzyflz1yalhbkwwywagbzav88zbqm",
         "type": "tarball",
-        "url": "https://github.com/nix-community/emacs-overlay/archive/34d35051f15a98eddc78378e31ebbf9a82fc1f47.tar.gz",
+        "url": "https://github.com/nix-community/emacs-overlay/archive/5f258dfdab8e58abe2e44b78a3ccf262041f7b74.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nixpkgs": {
@@ -17,10 +17,10 @@
         "homepage": "",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "1ffba9f2f683063c2b14c9f4d12c55ad5f4ed887",
-        "sha256": "1zx5zvpvqrgk5mfxzmwf8gd270lz7dkfk563sccp1xlhac15cipg",
+        "rev": "87d34a6b8982e901b8e50096b8e79ebc0e66cda0",
+        "sha256": "0dqjw05vbdf6ahy71zag8gsbfcgrf7fxz3xkwqqwapl0qk9xk47a",
         "type": "tarball",
-        "url": "https://github.com/NixOS/nixpkgs/archive/1ffba9f2f683063c2b14c9f4d12c55ad5f4ed887.tar.gz",
+        "url": "https://github.com/NixOS/nixpkgs/archive/87d34a6b8982e901b8e50096b8e79ebc0e66cda0.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nixpkgs-stable": {
@@ -29,10 +29,10 @@
         "homepage": "",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "9887f024766aa27704d1f89f623efd1d063da92a",
-        "sha256": "07fgr087sir8ra1v9icp2011f1s2iqlclyinxy0jrlawyz9rz4h2",
+        "rev": "c254b8c915ac912ae9ee9dc74eac555ccbf33795",
+        "sha256": "10z9zfsj22knf92fm77nw9m5z0h3j0by0va2an3xgmsjfyqcdfrz",
         "type": "tarball",
-        "url": "https://github.com/NixOS/nixpkgs/archive/9887f024766aa27704d1f89f623efd1d063da92a.tar.gz",
+        "url": "https://github.com/NixOS/nixpkgs/archive/c254b8c915ac912ae9ee9dc74eac555ccbf33795.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "rustsec-advisory-db": {
