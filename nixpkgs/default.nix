@@ -27,10 +27,6 @@ let
   # Use `stableNixpkgs` from above.
   stableOverlay = _unstableSelf: _unstableSuper: {
 
-    # alacritty on unstable fails because it can’t find the libGLX.
-    # This is too hard to debug right now, let’s hope somebody else solves it for us.
-    alacritty-stable = stableNixpkgs.alacritty;
-
     # emacs27 is gone from unstable, but people should upgrade at
     # their own pace.
     emacs27 = builtins.trace "emacs27 is deprecated, please migrate to emacs28"
