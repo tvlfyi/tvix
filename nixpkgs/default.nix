@@ -26,11 +26,9 @@ let
   # instead (e.g. because something is broken in unstable).
   # Use `stableNixpkgs` from above.
   stableOverlay = _unstableSelf: _unstableSuper: {
-
-    # emacs27 is gone from unstable, but people should upgrade at
-    # their own pace.
-    emacs27 = builtins.trace "emacs27 is deprecated, please migrate to emacs28"
-      stableNixpkgs.emacs27;
+    # bat syntaxes changed with syntect 5.0, but cheddar is still on 4.x
+    # TODO(tazjin): upgrade cheddar to syntect 5.0
+    bat = stableNixpkgs.bat;
   };
 
   # Overlay to expose the nixpkgs commits we are using to other Nix code.
