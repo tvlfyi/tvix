@@ -23,6 +23,18 @@
         "url": "https://github.com/nix-community/emacs-overlay/archive/fd5baf065e1af4cbb9d40eba66971d31f61d6bd1.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
+    "naersk": {
+        "branch": "master",
+        "description": "Build rust crates in Nix. No configuration, no code generation, no IFD. Sandbox friendly. [maintainer: @Patryk27]",
+        "homepage": "",
+        "owner": "nmattia",
+        "repo": "naersk",
+        "rev": "69daaceebe12c070cd5ae69ba38f277bbf033695",
+        "sha256": "1ip749p9g0prmrwiz0845x9n4j9b39sdrzpi60s4yygy6qgc7262",
+        "type": "tarball",
+        "url": "https://github.com/nmattia/naersk/archive/69daaceebe12c070cd5ae69ba38f277bbf033695.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
     "nixpkgs": {
         "branch": "nixos-unstable",
         "description": "Nix Packages collection",
