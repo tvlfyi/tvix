@@ -41,10 +41,10 @@
         "homepage": "",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "dfd82985c273aac6eced03625f454b334daae2e8",
-        "sha256": "1ipd1k1gvxh9sbg4w4cpa3585q09gvsq8xbjvxnnmfjib6r6xx4i",
+        "rev": "5ce6597eca7d7b518c03ecda57d45f9404b5e060",
+        "sha256": "1hs1lnnbp1dky3nfp7xlricpp5c63sr46jyrnvykci8bl8jnxnl3",
         "type": "tarball",
-        "url": "https://github.com/NixOS/nixpkgs/archive/dfd82985c273aac6eced03625f454b334daae2e8.tar.gz",
+        "url": "https://github.com/NixOS/nixpkgs/archive/5ce6597eca7d7b518c03ecda57d45f9404b5e060.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nixpkgs-stable": {
@@ -53,10 +53,10 @@
         "homepage": "",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "cbd40c72b2603ab54e7208f99f9b35fc158bc009",
-        "sha256": "09ffmjs9lwm97p8v8977p319kc8ys2fjnyv08gb99kgbr7gfiyfd",
+        "rev": "06db2e2197401b74fcf82d4e84be15b0b5851c7b",
+        "sha256": "0p3c9gjjdr1gz55al2s5yhh59kx8fqbgzhw4cab3mqair9h84m4j",
         "type": "tarball",
-        "url": "https://github.com/NixOS/nixpkgs/archive/cbd40c72b2603ab54e7208f99f9b35fc158bc009.tar.gz",
+        "url": "https://github.com/NixOS/nixpkgs/archive/06db2e2197401b74fcf82d4e84be15b0b5851c7b.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "rustsec-advisory-db": {
@@ -65,10 +65,10 @@
         "homepage": "https://rustsec.org",
         "owner": "RustSec",
         "repo": "advisory-db",
-        "rev": "b4d8786707a8bb97b65d02290b5cea3d20be49d8",
-        "sha256": "1xp5wgwcn69v0yaqjwwf27k52avsz2dwrzapsajdgg1cz40ibzgw",
+        "rev": "29281434b74516435cf1c3a79046bbec2cca9ee2",
+        "sha256": "0ma62bf9haacbqc37d11w9c89fi6a7rj0sndnjp9dsfqh25jxrk3",
         "type": "tarball",
-        "url": "https://github.com/RustSec/advisory-db/archive/b4d8786707a8bb97b65d02290b5cea3d20be49d8.tar.gz",
+        "url": "https://github.com/RustSec/advisory-db/archive/29281434b74516435cf1c3a79046bbec2cca9ee2.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }
