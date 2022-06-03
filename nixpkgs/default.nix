@@ -16,6 +16,20 @@
 }:
 
 let
+  # Arguments passed to both the stable nixpkgs and the main, unstable one.
+  # Includes everything but overlays which are only passed to unstable nixpkgs.
+  commonNixpkgsArgs = {
+    # allow users to inject their config into builds (e.g. to test CA derivations)
+    config =
+      (if externalArgs ? nixpkgsConfig then externalArgs.nixpkgsConfig else { })
+      // {
+        allowUnfree = true;
+        allowBroken = true;
+      };
+
+    inherit localSystem;
+  };
+
   # import the nixos-unstable package set, or optionally use the
   # source (e.g. a path) specified by the `nixpkgsBisectPath`
   # argument. This is intended for use-cases where the depot is
@@ -25,7 +39,7 @@ let
 
   # Stable package set is imported, but not exposed, to overlay
   # required packages into the unstable set.
-  stableNixpkgs = import depot.third_party.sources.nixpkgs-stable { };
+  stableNixpkgs = import depot.third_party.sources.nixpkgs-stable commonNixpkgsArgs;
 
   # Overlay for packages that should come from the stable channel
   # instead (e.g. because something is broken in unstable).
@@ -44,17 +58,7 @@ let
     };
   };
 in
-import nixpkgsSrc {
-  # allow users to inject their config into builds (e.g. to test CA derivations)
-  config =
-    (if externalArgs ? nixpkgsConfig then externalArgs.nixpkgsConfig else { })
-    // {
-      allowUnfree = true;
-      allowBroken = true;
-    };
-
-  inherit localSystem;
-
+import nixpkgsSrc (commonNixpkgsArgs // {
   overlays = [
     commitsOverlay
     stableOverlay
@@ -65,4 +69,4 @@ import nixpkgsSrc {
     depot.third_party.overlays.ecl-static
     depot.third_party.overlays.dhall
   ] else [ ]);
-}
+})
