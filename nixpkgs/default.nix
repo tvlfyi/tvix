@@ -8,7 +8,12 @@
 # in //default.nix passes this attribute as the `pkgs` argument to all
 # readTree derivations.
 
-{ depot ? { }, externalArgs ? { }, depotOverlays ? true, ... }:
+{ depot ? { }
+, externalArgs ? { }
+, depotOverlays ? true
+, localSystem ? builtins.currentSystem
+, ...
+}:
 
 let
   # import the nixos-unstable package set, or optionally use the
@@ -47,6 +52,8 @@ import nixpkgsSrc {
       allowUnfree = true;
       allowBroken = true;
     };
+
+  inherit localSystem;
 
   overlays = [
     commitsOverlay
