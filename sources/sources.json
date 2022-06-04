@@ -17,10 +17,10 @@
         "homepage": "",
         "owner": "nix-community",
         "repo": "emacs-overlay",
-        "rev": "9d06bcfc5b5d351ede146d77db7dfdff724d4196",
-        "sha256": "0sjffpqf592r1pgzzdwp2fk2r3czm7k3ar8hkdpvnn885gg5mm59",
+        "rev": "ed4870665719c3d37c5947fc425f8a45716b4ea8",
+        "sha256": "09xdmqv3rd8pnh8snn5l0ss1kfaimnrdgm9napxsc9wczf3mb2fa",
         "type": "tarball",
-        "url": "https://github.com/nix-community/emacs-overlay/archive/9d06bcfc5b5d351ede146d77db7dfdff724d4196.tar.gz",
+        "url": "https://github.com/nix-community/emacs-overlay/archive/ed4870665719c3d37c5947fc425f8a45716b4ea8.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "naersk": {
@@ -41,10 +41,10 @@
         "homepage": "",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "f1c167688a6f81f4a51ab542e5f476c8c595e457",
-        "sha256": "00ac3axj7jdfcajj3macdydf9w9bvqqvgrqkh1xxr3rfi9q2fz1v",
+        "rev": "236cc2971ac72acd90f0ae3a797f9f83098b17ec",
+        "sha256": "06ydhcmzrzbvs675ycv7whhp3sjg3d76pdp27jlhx8vw9izp0ngi",
         "type": "tarball",
-        "url": "https://github.com/NixOS/nixpkgs/archive/f1c167688a6f81f4a51ab542e5f476c8c595e457.tar.gz",
+        "url": "https://github.com/NixOS/nixpkgs/archive/236cc2971ac72acd90f0ae3a797f9f83098b17ec.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nixpkgs-stable": {
@@ -65,10 +65,10 @@
         "homepage": "https://rustsec.org",
         "owner": "RustSec",
         "repo": "advisory-db",
-        "rev": "29281434b74516435cf1c3a79046bbec2cca9ee2",
-        "sha256": "0ma62bf9haacbqc37d11w9c89fi6a7rj0sndnjp9dsfqh25jxrk3",
+        "rev": "f79eb4bad96bc60b816c4e915bfcd836e46ebbf9",
+        "sha256": "0swgh3wlxrpki8n2q061yl0wbymp0bakx6i00lx7aycng54cmvwz",
         "type": "tarball",
-        "url": "https://github.com/RustSec/advisory-db/archive/29281434b74516435cf1c3a79046bbec2cca9ee2.tar.gz",
+        "url": "https://github.com/RustSec/advisory-db/archive/f79eb4bad96bc60b816c4e915bfcd836e46ebbf9.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }
