@@ -11,7 +11,7 @@
 { depot ? { }
 , externalArgs ? { }
 , depotOverlays ? true
-, localSystem ? builtins.currentSystem
+, localSystem ? externalArgs.localSystem or builtins.currentSystem
 , ...
 }:
 
