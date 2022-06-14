@@ -23,6 +23,18 @@
         "url": "https://github.com/nix-community/emacs-overlay/archive/29dcfbc1b29ae7281e95367e0f2358b44224a46e.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
+    "impermanence": {
+        "branch": "master",
+        "description": "Modules to help you handle persistent state on systems with ephemeral root storage [maintainer=@talyz]",
+        "homepage": "",
+        "owner": "nix-community",
+        "repo": "impermanence",
+        "rev": "2f39baeb7d039fda5fc8225111bb79474138e6f4",
+        "sha256": "0x7mwbqj1h3rym93hy1knxd33dzspmy5i7y1k930vg85yp3a1y8q",
+        "type": "tarball",
+        "url": "https://github.com/nix-community/impermanence/archive/2f39baeb7d039fda5fc8225111bb79474138e6f4.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
     "naersk": {
         "branch": "master",
         "description": "Build rust crates in Nix. No configuration, no code generation, no IFD. Sandbox friendly. [maintainer: @Patryk27]",
