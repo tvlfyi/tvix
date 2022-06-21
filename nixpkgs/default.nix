@@ -45,9 +45,13 @@ let
   # instead (e.g. because something is broken in unstable).
   # Use `stableNixpkgs` from above.
   stableOverlay = _unstableSelf: _unstableSuper: {
-    # bat syntaxes changed with syntect 5.0, but cheddar is still on 4.x
-    # TODO(tazjin): upgrade cheddar to syntect 5.0
-    bat = stableNixpkgs.bat;
+    inherit (stableNixpkgs)
+      # bat syntaxes changed with syntect 5.0, but cheddar is still on 4.x
+      # TODO(tazjin): upgrade cheddar to syntect 5.0
+      bat
+      # TODO(sterni): Temporarily use awscli2 from stable, since it broke in unstable
+      awscli2
+      ;
   };
 
   # Overlay to expose the nixpkgs commits we are using to other Nix code.
