@@ -49,8 +49,6 @@ let
       # bat syntaxes changed with syntect 5.0, but cheddar is still on 4.x
       # TODO(tazjin): upgrade cheddar to syntect 5.0
       bat
-      # TODO(sterni): Temporarily use awscli2 from stable, since it broke in unstable
-      awscli2
       ;
   };
 
