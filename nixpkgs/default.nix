@@ -70,5 +70,6 @@ import nixpkgsSrc (commonNixpkgsArgs // {
     depot.third_party.overlays.tvl
     depot.third_party.overlays.ecl-static
     depot.third_party.overlays.dhall
+    (import depot.third_party.sources.rust-overlay)
   ] else [ ]);
 })

@@ -71,6 +71,18 @@
         "url": "https://github.com/NixOS/nixpkgs/archive/573603b7fdb9feb0eb8efc16ee18a015c667ab1b.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
+    "rust-overlay": {
+        "branch": "master",
+        "description": "Pure and reproducible nix overlay of binary distributed rust toolchains",
+        "homepage": "",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "rev": "eb5da5f2f030d144f405b5195c2b688aafce4c88",
+        "sha256": "1c97l2s8zd458qi3k958ighh0y3mhfwp7rlxjbba5qss71q3jmq4",
+        "type": "tarball",
+        "url": "https://github.com/oxalica/rust-overlay/archive/eb5da5f2f030d144f405b5195c2b688aafce4c88.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
     "rustsec-advisory-db": {
         "branch": "main",
         "description": "Security advisory database for Rust crates published through crates.io",
