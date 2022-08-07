@@ -6,6 +6,7 @@ use std::{
 
 mod errors;
 mod eval;
+mod opcode;
 mod value;
 
 fn main() {
