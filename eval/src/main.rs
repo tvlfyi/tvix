@@ -4,6 +4,7 @@ use std::{
     mem, process,
 };
 
+mod chunk;
 mod errors;
 mod eval;
 mod opcode;
