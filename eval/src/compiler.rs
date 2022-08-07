@@ -31,6 +31,11 @@ impl Compiler {
                 self.compile_binop(op)
             }
 
+            rnix::SyntaxKind::NODE_UNARY_OP => {
+                let op = rnix::types::UnaryOp::cast(node).expect("TODO: (should not be possible)");
+                self.compile_unary_op(op)
+            }
+
             kind => {
                 println!("visiting unsupported node: {:?}", kind);
                 Ok(())
@@ -72,6 +77,19 @@ impl Compiler {
             BinOpKind::Div => OpCode::OpDiv,
 
             _ => todo!(),
+        };
+
+        self.chunk.add_op(opcode);
+        Ok(())
+    }
+
+    fn compile_unary_op(&mut self, op: rnix::types::UnaryOp) -> EvalResult<()> {
+        self.compile(op.value().unwrap())?;
+
+        use rnix::types::UnaryOpKind;
+        let opcode = match op.operator() {
+            UnaryOpKind::Invert => OpCode::OpInvert,
+            UnaryOpKind::Negate => OpCode::OpNegate,
         };
 
         self.chunk.add_op(opcode);
