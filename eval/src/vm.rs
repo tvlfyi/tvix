@@ -81,6 +81,11 @@ impl VM {
                     NumberPair::Integer(i1, i2) => self.push(Value::Integer(i1 / i2)),
                 },
 
+                OpCode::OpInvert => {
+                    let v = self.pop().as_bool()?;
+                    self.push(Value::Bool(!v));
+                }
+
                 OpCode::OpNegate => match self.pop() {
                     Value::Integer(i) => self.push(Value::Integer(-i)),
                     Value::Float(f) => self.push(Value::Float(-f)),
@@ -106,7 +111,6 @@ impl VM {
                     self.push(Value::Bool(eq))
                 }
 
-                OpCode::OpInvert => todo!("invert"),
                 OpCode::OpNull => todo!("null"),
                 OpCode::OpTrue => todo!("true"),
                 OpCode::OpFalse => todo!("false"),

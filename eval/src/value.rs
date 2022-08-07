@@ -1,6 +1,8 @@
 //! This module implements the backing representation of runtime
 //! values in the Nix language.
 
+use crate::errors::{Error, EvalResult};
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Value {
     Null,
@@ -24,6 +26,16 @@ impl Value {
             Value::Bool(_) => "bool",
             Value::Integer(_) => "int",
             Value::Float(_) => "float",
+        }
+    }
+
+    pub fn as_bool(self) -> EvalResult<bool> {
+        match self {
+            Value::Bool(b) => Ok(b),
+            other => Err(Error::TypeError {
+                expected: "bool",
+                actual: other.type_of(),
+            }),
         }
     }
 }
