@@ -6,6 +6,7 @@ use std::{
 
 mod errors;
 mod eval;
+mod value;
 
 fn main() {
     let mut args = env::args();
