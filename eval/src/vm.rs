@@ -92,10 +92,24 @@ impl VM {
                     }
                 },
 
-                OpCode::OpInvert => todo!(),
-                OpCode::OpNull => todo!(),
-                OpCode::OpTrue => todo!(),
-                OpCode::OpFalse => todo!(),
+                OpCode::OpEqual => {
+                    let v2 = self.pop();
+                    let v1 = self.pop();
+
+                    let eq = match (v1, v2) {
+                        (Value::Float(f), Value::Integer(i))
+                        | (Value::Integer(i), Value::Float(f)) => f == (i as f64),
+
+                        _ => v2 == v2,
+                    };
+
+                    self.push(Value::Bool(eq))
+                }
+
+                OpCode::OpInvert => todo!("invert"),
+                OpCode::OpNull => todo!("null"),
+                OpCode::OpTrue => todo!("true"),
+                OpCode::OpFalse => todo!("false"),
             }
 
             if self.ip == self.chunk.code.len() {

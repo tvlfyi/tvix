@@ -78,7 +78,7 @@ impl Compiler {
             BinOpKind::Sub => OpCode::OpSub,
             BinOpKind::Mul => OpCode::OpMul,
             BinOpKind::Div => OpCode::OpDiv,
-
+            BinOpKind::Equal => OpCode::OpEqual,
             _ => todo!(),
         };
 

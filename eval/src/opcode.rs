@@ -17,13 +17,16 @@ pub enum OpCode {
     OpTrue,
     OpFalse,
 
+    // Unary operators
+    OpInvert,
+    OpNegate,
+
     // Arithmetic binary operators
     OpAdd,
     OpSub,
     OpMul,
     OpDiv,
 
-    // Unary operators
-    OpInvert,
-    OpNegate,
+    // Logical binary operators
+    OpEqual,
 }
