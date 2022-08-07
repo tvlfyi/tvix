@@ -10,6 +10,7 @@ mod errors;
 mod eval;
 mod opcode;
 mod value;
+mod vm;
 
 fn main() {
     let mut args = env::args();
