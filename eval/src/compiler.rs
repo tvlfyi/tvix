@@ -6,7 +6,7 @@ use crate::errors::EvalResult;
 use crate::opcode::OpCode;
 use crate::value::Value;
 use rnix;
-use rnix::types::TypedNode;
+use rnix::types::{TypedNode, Wrapper};
 
 struct Compiler {
     chunk: Chunk,
@@ -34,6 +34,11 @@ impl Compiler {
             rnix::SyntaxKind::NODE_UNARY_OP => {
                 let op = rnix::types::UnaryOp::cast(node).expect("TODO: (should not be possible)");
                 self.compile_unary_op(op)
+            }
+
+            rnix::SyntaxKind::NODE_PAREN => {
+                let op = rnix::types::Paren::cast(node).unwrap();
+                self.compile(op.inner().unwrap())
             }
 
             kind => {
