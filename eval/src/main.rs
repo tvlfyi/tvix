@@ -48,7 +48,7 @@ fn run_prompt() {
 
 fn run(code: String) {
     match eval::interpret(code) {
-        Ok(result) => println!("=> {:?}", result),
+        Ok(result) => println!("=> {}", result),
         Err(err) => eprintln!("{}", err),
     }
 }
