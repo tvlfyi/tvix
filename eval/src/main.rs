@@ -5,6 +5,7 @@ use std::{
 };
 
 mod chunk;
+mod compiler;
 mod errors;
 mod eval;
 mod opcode;
