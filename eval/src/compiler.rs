@@ -22,8 +22,8 @@ impl Compiler {
             // Literals contain a single token comprising of the
             // literal itself.
             rnix::SyntaxKind::NODE_LITERAL => {
-                let token = node.first_token().expect("TODO");
-                self.compile_literal(token)
+                let value = rnix::types::Value::cast(node).unwrap();
+                self.compile_literal(value.to_value().expect("TODO"))
             }
 
             rnix::SyntaxKind::NODE_BIN_OP => {
@@ -37,8 +37,8 @@ impl Compiler {
             }
 
             rnix::SyntaxKind::NODE_PAREN => {
-                let op = rnix::types::Paren::cast(node).unwrap();
-                self.compile(op.inner().unwrap())
+                let node = rnix::types::Paren::cast(node).unwrap();
+                self.compile(node.inner().unwrap())
             }
 
             kind => {
@@ -48,9 +48,7 @@ impl Compiler {
         }
     }
 
-    fn compile_literal(&mut self, token: rnix::SyntaxToken) -> EvalResult<()> {
-        let value = rnix::value::Value::from_token(token.kind(), token.text()).expect("TODO");
-
+    fn compile_literal(&mut self, value: rnix::value::Value) -> EvalResult<()> {
         match value {
             rnix::NixValue::Float(f) => {
                 let idx = self.chunk.add_constant(Value::Float(f));
