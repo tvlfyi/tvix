@@ -12,7 +12,7 @@ pub fn interpret(code: String) -> EvalResult<String> {
     }
 
     let mut out = String::new();
-    writeln!(out, "{}", ast.root().dump()).ok();
+    println!("{}", ast.root().dump());
 
     let code = crate::compiler::compile(ast)?;
     writeln!(out, "code: {:?}", code).ok();

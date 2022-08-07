@@ -6,23 +6,29 @@ use crate::errors::EvalResult;
 use crate::opcode::OpCode;
 use crate::value::Value;
 use rnix;
+use rnix::types::TypedNode;
 
 struct Compiler {
     chunk: Chunk,
 }
 
 impl Compiler {
-    fn compile(&mut self, node: &rnix::SyntaxNode) -> EvalResult<()> {
+    fn compile(&mut self, node: rnix::SyntaxNode) -> EvalResult<()> {
         match node.kind() {
             // Root of a file contains no content, it's just a marker
             // type.
-            rnix::SyntaxKind::NODE_ROOT => self.compile(&node.first_child().expect("TODO")),
+            rnix::SyntaxKind::NODE_ROOT => self.compile(node.first_child().expect("TODO")),
 
             // Literals contain a single token comprising of the
             // literal itself.
             rnix::SyntaxKind::NODE_LITERAL => {
                 let token = node.first_token().expect("TODO");
                 self.compile_literal(token)
+            }
+
+            rnix::SyntaxKind::NODE_BIN_OP => {
+                let op = rnix::types::BinOp::cast(node).expect("TODO (should not be possible)");
+                self.compile_binop(op)
             }
 
             kind => {
@@ -52,6 +58,25 @@ impl Compiler {
             rnix::NixValue::Path(_, _) => todo!(),
         }
     }
+
+    fn compile_binop(&mut self, op: rnix::types::BinOp) -> EvalResult<()> {
+        self.compile(op.lhs().unwrap())?;
+        self.compile(op.rhs().unwrap())?;
+
+        use rnix::types::BinOpKind;
+
+        let opcode = match op.operator().unwrap() {
+            BinOpKind::Add => OpCode::OpAdd,
+            BinOpKind::Sub => OpCode::OpSub,
+            BinOpKind::Mul => OpCode::OpMul,
+            BinOpKind::Div => OpCode::OpDiv,
+
+            _ => todo!(),
+        };
+
+        self.chunk.add_op(opcode);
+        Ok(())
+    }
 }
 
 pub fn compile(ast: rnix::AST) -> EvalResult<Chunk> {
@@ -59,7 +84,7 @@ pub fn compile(ast: rnix::AST) -> EvalResult<Chunk> {
         chunk: Chunk::default(),
     };
 
-    c.compile(&ast.node())?;
+    c.compile(ast.node())?;
 
     Ok(c.chunk)
 }
