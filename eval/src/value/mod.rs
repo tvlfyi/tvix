@@ -1,18 +1,23 @@
 //! This module implements the backing representation of runtime
 //! values in the Nix language.
 use std::fmt::Display;
-
-use crate::errors::{Error, EvalResult};
+use std::rc::Rc;
 
 mod attrs;
 mod string;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+use crate::errors::{Error, EvalResult};
+use attrs::NixAttrs;
+use string::NixString;
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     Null,
     Bool(bool),
     Integer(i64),
     Float(f64),
+    String(NixString),
+    Attrs(Rc<NixAttrs>),
 }
 
 impl Value {
@@ -30,6 +35,8 @@ impl Value {
             Value::Bool(_) => "bool",
             Value::Integer(_) => "int",
             Value::Float(_) => "float",
+            Value::String(_) => "string",
+            Value::Attrs(_) => "set",
         }
     }
 
@@ -52,6 +59,8 @@ impl Display for Value {
             Value::Bool(false) => f.write_str("false"),
             Value::Integer(num) => f.write_fmt(format_args!("{}", num)),
             Value::Float(num) => f.write_fmt(format_args!("{}", num)),
+            Value::String(s) => s.fmt(f),
+            Value::Attrs(attrs) => attrs.fmt(f),
         }
     }
 }

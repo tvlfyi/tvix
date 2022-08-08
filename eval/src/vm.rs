@@ -36,7 +36,7 @@ impl VM {
 
             (Value::Float(f1), Value::Integer(i2)) => Ok(NumberPair::Floats(f1, i2 as f64)),
 
-            _ => Err(Error::TypeError {
+            (v1, v2) => Err(Error::TypeError {
                 expected: "number (either int or float)",
                 actual: if v1.is_number() {
                     v2.type_of()
@@ -105,7 +105,7 @@ impl VM {
                         (Value::Float(f), Value::Integer(i))
                         | (Value::Integer(i), Value::Float(f)) => f == (i as f64),
 
-                        _ => v2 == v2,
+                        (v1, v2) => v1 == v2,
                     };
 
                     self.push(Value::Bool(eq))

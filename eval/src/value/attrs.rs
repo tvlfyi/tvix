@@ -34,3 +34,9 @@ impl Display for NixAttrs {
         f.write_str("}")
     }
 }
+
+impl PartialEq for NixAttrs {
+    fn eq(&self, _other: &Self) -> bool {
+        todo!("attrset equality")
+    }
+}

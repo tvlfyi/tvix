@@ -3,7 +3,7 @@ use std::fmt::Display;
 /// This module implements Nix language strings and their different
 /// backing implementations.
 
-#[derive(Debug, Hash, PartialEq)]
+#[derive(Clone, Debug, Hash, PartialEq)]
 pub struct NixString(String);
 
 impl Display for NixString {
