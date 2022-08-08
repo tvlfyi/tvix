@@ -1,9 +1,10 @@
 //! This module implements the backing representation of runtime
 //! values in the Nix language.
-
 use std::fmt::Display;
 
 use crate::errors::{Error, EvalResult};
+
+mod string;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Value {
