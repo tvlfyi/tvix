@@ -4,6 +4,7 @@ use std::fmt::Display;
 
 use crate::errors::{Error, EvalResult};
 
+mod attrs;
 mod string;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
