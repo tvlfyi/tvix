@@ -39,9 +39,3 @@ impl Value {
         }
     }
 }
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum NumberPair {
-    Floats(f64, f64),
-    Integer(i64, i64),
-}

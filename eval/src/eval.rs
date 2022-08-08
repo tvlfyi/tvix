@@ -1,7 +1,7 @@
 use rnix::{self, types::TypedNode};
 use std::fmt::Write;
 
-use crate::errors::{Error, EvalResult};
+use crate::errors::EvalResult;
 
 pub fn interpret(code: String) -> EvalResult<String> {
     let ast = rnix::parse(&code);

@@ -5,7 +5,7 @@ use crate::{
     chunk::Chunk,
     errors::{Error, EvalResult},
     opcode::OpCode,
-    value::{NumberPair, Value},
+    value::Value,
 };
 
 pub struct VM {
@@ -121,6 +121,12 @@ impl VM {
             }
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum NumberPair {
+    Floats(f64, f64),
+    Integer(i64, i64),
 }
 
 pub fn run_chunk(chunk: Chunk) -> EvalResult<Value> {
