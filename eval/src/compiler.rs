@@ -6,7 +6,7 @@ use crate::errors::EvalResult;
 use crate::opcode::OpCode;
 use crate::value::Value;
 use rnix;
-use rnix::types::{TypedNode, Wrapper};
+use rnix::types::{TokenWrapper, TypedNode, Wrapper};
 
 struct Compiler {
     chunk: Chunk,
@@ -39,6 +39,11 @@ impl Compiler {
             rnix::SyntaxKind::NODE_PAREN => {
                 let node = rnix::types::Paren::cast(node).unwrap();
                 self.compile(node.inner().unwrap())
+            }
+
+            rnix::SyntaxKind::NODE_IDENT => {
+                let node = rnix::types::Ident::cast(node).unwrap();
+                self.compile_ident(node)
             }
 
             kind => {
@@ -96,6 +101,28 @@ impl Compiler {
         };
 
         self.chunk.add_op(opcode);
+        Ok(())
+    }
+
+    fn compile_ident(&mut self, node: rnix::types::Ident) -> EvalResult<()> {
+        match node.as_str() {
+            // TODO(tazjin): Nix technically allows code like
+            //
+            //   let null = 1; in null
+            //   => 1
+            //
+            // which we do *not* want to check at runtime. Once
+            // scoping is introduced, the compiler should carry some
+            // optimised information about any "weird" stuff that's
+            // happened to the scope (such as overrides of these
+            // literals, or builtins).
+            "true" => self.chunk.add_op(OpCode::OpTrue),
+            "false" => self.chunk.add_op(OpCode::OpFalse),
+            "null" => self.chunk.add_op(OpCode::OpNull),
+
+            _ => todo!("identifier access"),
+        };
+
         Ok(())
     }
 }

@@ -111,9 +111,9 @@ impl VM {
                     self.push(Value::Bool(eq))
                 }
 
-                OpCode::OpNull => todo!("null"),
-                OpCode::OpTrue => todo!("true"),
-                OpCode::OpFalse => todo!("false"),
+                OpCode::OpNull => self.push(Value::Null),
+                OpCode::OpTrue => self.push(Value::Bool(true)),
+                OpCode::OpFalse => self.push(Value::Bool(false)),
             }
 
             if self.ip == self.chunk.code.len() {
