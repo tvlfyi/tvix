@@ -1,6 +1,8 @@
 //! This module implements the backing representation of runtime
 //! values in the Nix language.
 
+use std::fmt::Display;
+
 use crate::errors::{Error, EvalResult};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -36,6 +38,18 @@ impl Value {
                 expected: "bool",
                 actual: other.type_of(),
             }),
+        }
+    }
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Null => f.write_str("null"),
+            Value::Bool(true) => f.write_str("true"),
+            Value::Bool(false) => f.write_str("false"),
+            Value::Integer(num) => f.write_fmt(format_args!("{}", num)),
+            Value::Float(num) => f.write_fmt(format_args!("{}", num)),
         }
     }
 }
