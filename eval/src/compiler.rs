@@ -224,7 +224,7 @@ impl Compiler {
             // otherwise we need to emit an instruction to construct
             // the attribute path.
             if key_count > 1 {
-                todo!("emit OpAttrPath(n) instruction")
+                self.chunk.add_op(OpCode::OpAttrPath(2));
             }
 
             // The value is just compiled as normal so that its

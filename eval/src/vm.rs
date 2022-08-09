@@ -121,6 +121,7 @@ impl VM {
                 OpCode::OpTrue => self.push(Value::Bool(true)),
                 OpCode::OpFalse => self.push(Value::Bool(false)),
                 OpCode::OpAttrs(count) => self.run_attrset(count)?,
+                OpCode::OpAttrPath(count) => self.run_attr_path(count)?,
                 OpCode::OpList(count) => self.run_list(count)?,
                 OpCode::OpInterpolate(count) => self.run_interpolate(count)?,
             }
@@ -215,6 +216,23 @@ impl VM {
         // TODO(tazjin): extend_reserve(count) (rust#72631)
 
         self.push(Value::Attrs(Rc::new(NixAttrs::Map(attrs))));
+        Ok(())
+    }
+
+    // Construct runtime representation of an attr path (essentially
+    // just a list of strings).
+    //
+    // The difference to the list construction operation is that this
+    // forces all elements into strings, as attribute set keys are
+    // required to be strict in Nix.
+    fn run_attr_path(&mut self, count: usize) -> EvalResult<()> {
+        let mut path = vec![NixString(String::new()); count];
+
+        for idx in 0..count {
+            path[count - idx - 1] = self.pop().as_string()?
+        }
+
+        self.push(Value::AttrPath(path));
         Ok(())
     }
 

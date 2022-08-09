@@ -21,6 +21,10 @@ pub enum Value {
     String(NixString),
     Attrs(Rc<NixAttrs>),
     List(NixList),
+
+    // Internal values that, while they technically exist at runtime,
+    // are never returned to or created directly by users.
+    AttrPath(Vec<NixString>),
 }
 
 impl Value {
@@ -41,6 +45,9 @@ impl Value {
             Value::String(_) => "string",
             Value::Attrs(_) => "set",
             Value::List(_) => "list",
+
+            // Internal types
+            Value::AttrPath(_) => "internal",
         }
     }
 
@@ -76,6 +83,9 @@ impl Display for Value {
             Value::String(s) => s.fmt(f),
             Value::Attrs(attrs) => attrs.fmt(f),
             Value::List(list) => list.fmt(f),
+
+            // internal types
+            Value::AttrPath(_) => f.write_str("internal"),
         }
     }
 }

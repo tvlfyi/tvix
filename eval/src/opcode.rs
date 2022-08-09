@@ -32,6 +32,7 @@ pub enum OpCode {
 
     // Attribute sets
     OpAttrs(usize),
+    OpAttrPath(usize),
 
     // Lists
     OpList(usize),
