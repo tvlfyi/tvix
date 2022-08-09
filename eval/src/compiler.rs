@@ -32,6 +32,12 @@ impl Compiler {
                 self.compile_string(op)
             }
 
+            // The interpolation node is just a wrapper around the
+            // inner value of a fragment, it only requires unwrapping.
+            rnix::SyntaxKind::NODE_STRING_INTERPOL => {
+                self.compile(node.first_child().expect("TODO (should not be possible)"))
+            }
+
             rnix::SyntaxKind::NODE_BIN_OP => {
                 let op = rnix::types::BinOp::cast(node).expect("TODO (should not be possible)");
                 self.compile_binop(op)
@@ -112,7 +118,7 @@ impl Compiler {
         }
 
         if count != 1 {
-            todo!("assemble string interpolation instruction")
+            self.chunk.add_op(OpCode::OpInterpolate(count));
         }
 
         Ok(())

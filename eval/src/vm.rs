@@ -118,6 +118,7 @@ impl VM {
                 OpCode::OpFalse => self.push(Value::Bool(false)),
                 OpCode::OpAttrs(count) => self.run_attrset(count)?,
                 OpCode::OpList(count) => self.run_list(count)?,
+                OpCode::OpInterpolate(count) => self.run_interpolate(count)?,
             }
 
             if self.ip == self.chunk.code.len() {
@@ -152,6 +153,20 @@ impl VM {
         }
 
         self.push(Value::List(NixList(list)));
+        Ok(())
+    }
+
+    // Interpolate string fragments by popping the specified number of
+    // fragments of the stack, evaluating them to strings, and pushing
+    // the concatenated result string back on the stack.
+    fn run_interpolate(&mut self, count: usize) -> EvalResult<()> {
+        let mut out = String::new();
+
+        for _ in 0..count {
+            out.push_str(&self.pop().as_string()?.0);
+        }
+
+        self.push(Value::String(NixString(out)));
         Ok(())
     }
 }
