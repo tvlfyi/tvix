@@ -25,6 +25,10 @@ impl VM {
         self.stack.pop().expect("TODO")
     }
 
+    fn peek(&self, at: usize) -> &Value {
+        &self.stack[self.stack.len() - 1 - at]
+    }
+
     fn pop_number_pair(&mut self) -> EvalResult<NumberPair> {
         let v2 = self.pop();
         let v1 = self.pop();
@@ -128,6 +132,79 @@ impl VM {
     }
 
     fn run_attrset(&mut self, count: usize) -> EvalResult<()> {
+        // If the attribute count happens to be 2, we might be able to
+        // create the optimised name/value struct instead.
+        if count == 2 {
+            // When determining whether we are dealing with a
+            // name/value pair, we return the stack locations of name
+            // and value, using `0` as a sentinel value (i.e. if
+            // either is 0, we are dealing with some other attrset).
+            let is_pair = {
+                // The keys are located 1 & 3 values back in the
+                // stack.
+                let k1 = self.peek(1);
+                let k2 = self.peek(3);
+
+                match (k1, k2) {
+                    (Value::String(NixString(s1)), Value::String(NixString(s2)))
+                        if (s1 == "name" && s2 == "value") =>
+                    {
+                        (1, 2)
+                    }
+
+                    (Value::String(NixString(s1)), Value::String(NixString(s2)))
+                        if (s1 == "value" && s2 == "name") =>
+                    {
+                        (2, 1)
+                    }
+
+                    // Technically this branch lets type errors pass,
+                    // but they will be caught during normal attribute
+                    // set construction instead.
+                    _ => (0, 0),
+                }
+            };
+
+            match is_pair {
+                (1, 2) => {
+                    // The value of 'name' is at stack slot 0, the
+                    // value of 'value' is at stack slot 2.
+                    let pair = Value::Attrs(Rc::new(NixAttrs::KV {
+                        name: self.pop(),
+                        value: {
+                            self.pop(); // ignore the key
+                            self.pop()
+                        },
+                    }));
+
+                    // Clean up the last key fragment.
+                    self.pop();
+
+                    self.push(pair);
+                    return Ok(());
+                }
+
+                (2, 1) => {
+                    // The value of 'name' is at stack slot 2, the
+                    // value of 'value' is at stack slot 0.
+                    let pair = Value::Attrs(Rc::new(NixAttrs::KV {
+                        value: self.pop(),
+                        name: {
+                            self.pop(); // ignore the key
+                            self.pop()
+                        },
+                    }));
+
+                    // Clean up the last key fragment.
+                    self.pop();
+
+                    self.push(pair);
+                    return Ok(());
+                }
+                _ => {}
+            }
+        }
+
         let mut attrs: BTreeMap<NixString, Value> = BTreeMap::new();
 
         for _ in 0..count {
