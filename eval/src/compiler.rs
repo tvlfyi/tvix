@@ -27,6 +27,11 @@ impl Compiler {
                 self.compile_literal(value.to_value().expect("TODO"))
             }
 
+            rnix::SyntaxKind::NODE_STRING => {
+                let op = rnix::types::Str::cast(node).unwrap();
+                self.compile_string(op)
+            }
+
             rnix::SyntaxKind::NODE_BIN_OP => {
                 let op = rnix::types::BinOp::cast(node).expect("TODO (should not be possible)");
                 self.compile_binop(op)
@@ -81,6 +86,36 @@ impl Compiler {
             rnix::NixValue::String(_) => todo!(),
             rnix::NixValue::Path(_, _) => todo!(),
         }
+    }
+
+    fn compile_string(&mut self, string: rnix::types::Str) -> EvalResult<()> {
+        let mut count = 0;
+
+        // The string parts are produced in literal order, however
+        // they need to be reversed on the stack in order to
+        // efficiently create the real string in case of
+        // interpolation.
+        for part in string.parts().into_iter().rev() {
+            count += 1;
+
+            match part {
+                // Interpolated expressions are compiled as normal and
+                // dealt with by the VM before being assembled into
+                // the final string.
+                rnix::StrPart::Ast(node) => self.compile(node)?,
+
+                rnix::StrPart::Literal(lit) => {
+                    let idx = self.chunk.add_constant(Value::String(NixString(lit)));
+                    self.chunk.add_op(OpCode::OpConstant(idx));
+                }
+            }
+        }
+
+        if count != 1 {
+            todo!("assemble string interpolation instruction")
+        }
+
+        Ok(())
     }
 
     fn compile_binop(&mut self, op: rnix::types::BinOp) -> EvalResult<()> {
