@@ -7,8 +7,8 @@ mod attrs;
 mod string;
 
 use crate::errors::{Error, EvalResult};
-use attrs::NixAttrs;
-use string::NixString;
+pub use attrs::NixAttrs;
+pub use string::NixString;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
@@ -45,6 +45,16 @@ impl Value {
             Value::Bool(b) => Ok(b),
             other => Err(Error::TypeError {
                 expected: "bool",
+                actual: other.type_of(),
+            }),
+        }
+    }
+
+    pub fn as_string(self) -> EvalResult<NixString> {
+        match self {
+            Value::String(s) => Ok(s),
+            other => Err(Error::TypeError {
+                expected: "string",
                 actual: other.type_of(),
             }),
         }
