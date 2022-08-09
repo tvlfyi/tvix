@@ -7,7 +7,7 @@ use crate::{
     chunk::Chunk,
     errors::{Error, EvalResult},
     opcode::OpCode,
-    value::{NixAttrs, NixString, Value},
+    value::{NixAttrs, NixList, NixString, Value},
 };
 
 pub struct VM {
@@ -117,6 +117,7 @@ impl VM {
                 OpCode::OpTrue => self.push(Value::Bool(true)),
                 OpCode::OpFalse => self.push(Value::Bool(false)),
                 OpCode::OpAttrs(count) => self.run_attrset(count)?,
+                OpCode::OpList(count) => self.run_list(count)?,
             }
 
             if self.ip == self.chunk.code.len() {
@@ -136,6 +137,21 @@ impl VM {
         // TODO(tazjin): extend_reserve(count) (rust#72631)
 
         self.push(Value::Attrs(Rc::new(NixAttrs::Map(attrs))));
+        Ok(())
+    }
+
+    // Construct runtime representation of a list. Because the list
+    // items are on the stack in reverse order, the vector is created
+    // initialised and elements are directly assigned to their
+    // respective indices.
+    fn run_list(&mut self, count: usize) -> EvalResult<()> {
+        let mut list = vec![Value::Null; count];
+
+        for idx in 0..count {
+            list[count - idx - 1] = self.pop();
+        }
+
+        self.push(Value::List(NixList(list)));
         Ok(())
     }
 }
