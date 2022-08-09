@@ -1,5 +1,4 @@
 use rnix::{self, types::TypedNode};
-use std::fmt::Write;
 
 use crate::errors::EvalResult;
 
@@ -11,14 +10,11 @@ pub fn interpret(code: String) -> EvalResult<String> {
         todo!()
     }
 
-    let mut out = String::new();
     println!("{}", ast.root().dump());
 
     let code = crate::compiler::compile(ast)?;
-    writeln!(out, "code: {:?}", code).ok();
+    println!("code: {:?}", code);
 
     let value = crate::vm::run_chunk(code)?;
-    writeln!(out, "value: {:?}", value).ok();
-
-    Ok(out)
+    Ok(format!("value: {:?}", value))
 }
