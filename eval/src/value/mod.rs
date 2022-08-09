@@ -12,7 +12,7 @@ pub use attrs::NixAttrs;
 pub use list::NixList;
 pub use string::NixString;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum Value {
     Null,
     Bool(bool),
@@ -86,6 +86,31 @@ impl Display for Value {
 
             // internal types
             Value::AttrPath(_) => f.write_str("internal"),
+        }
+    }
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            // Trivial comparisons
+            (Value::Null, Value::Null) => true,
+            (Value::Bool(b1), Value::Bool(b2)) => b1 == b2,
+            (Value::List(l1), Value::List(l2)) => l1 == l2,
+            (Value::String(s1), Value::String(s2)) => s1 == s2,
+
+            // Numerical comparisons (they work between float & int)
+            (Value::Integer(i1), Value::Integer(i2)) => i1 == i2,
+            (Value::Integer(i), Value::Float(f)) => *i as f64 == *f,
+            (Value::Float(f1), Value::Float(f2)) => f1 == f2,
+            (Value::Float(f), Value::Integer(i)) => *i as f64 == *f,
+
+            // Optimised attribute set comparison
+            (Value::Attrs(a1), Value::Attrs(a2)) => Rc::ptr_eq(a1, a2) || { a1 == a2 },
+
+            // Everything else is either incomparable (e.g. internal
+            // types) or false.
+            _ => false,
         }
     }
 }
