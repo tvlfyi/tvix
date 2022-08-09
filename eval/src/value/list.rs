@@ -8,7 +8,13 @@ pub struct NixList(pub Vec<Value>);
 
 impl Display for NixList {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // TODO(tazjin): format lists properly
-        f.write_fmt(format_args!("<list({})>", self.0.len()))
+        f.write_str("[ ")?;
+
+        for v in &self.0 {
+            v.fmt(f)?;
+            f.write_str(" ")?;
+        }
+
+        f.write_str("]")
     }
 }
