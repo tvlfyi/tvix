@@ -4,10 +4,12 @@ use std::fmt::Display;
 use std::rc::Rc;
 
 mod attrs;
+mod list;
 mod string;
 
 use crate::errors::{Error, EvalResult};
 pub use attrs::NixAttrs;
+pub use list::NixList;
 pub use string::NixString;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -18,6 +20,7 @@ pub enum Value {
     Float(f64),
     String(NixString),
     Attrs(Rc<NixAttrs>),
+    List(NixList),
 }
 
 impl Value {
@@ -37,6 +40,7 @@ impl Value {
             Value::Float(_) => "float",
             Value::String(_) => "string",
             Value::Attrs(_) => "set",
+            Value::List(_) => "list",
         }
     }
 
@@ -71,6 +75,7 @@ impl Display for Value {
             Value::Float(num) => f.write_fmt(format_args!("{}", num)),
             Value::String(s) => s.fmt(f),
             Value::Attrs(attrs) => attrs.fmt(f),
+            Value::List(list) => list.fmt(f),
         }
     }
 }
