@@ -29,4 +29,7 @@ pub enum OpCode {
 
     // Logical binary operators
     OpEqual,
+
+    // Attribute sets
+    OpAttrs(usize),
 }

@@ -1,11 +1,13 @@
 //! This module implements the virtual (or abstract) machine that runs
 //! Tvix bytecode.
 
+use std::{collections::BTreeMap, rc::Rc};
+
 use crate::{
     chunk::Chunk,
     errors::{Error, EvalResult},
     opcode::OpCode,
-    value::Value,
+    value::{NixAttrs, NixString, Value},
 };
 
 pub struct VM {
@@ -114,12 +116,27 @@ impl VM {
                 OpCode::OpNull => self.push(Value::Null),
                 OpCode::OpTrue => self.push(Value::Bool(true)),
                 OpCode::OpFalse => self.push(Value::Bool(false)),
+                OpCode::OpAttrs(count) => self.run_attrset(count)?,
             }
 
             if self.ip == self.chunk.code.len() {
                 return Ok(self.pop());
             }
         }
+    }
+
+    fn run_attrset(&mut self, count: usize) -> EvalResult<()> {
+        let mut attrs: BTreeMap<NixString, Value> = BTreeMap::new();
+
+        for _ in 0..count {
+            let value = self.pop();
+            let key = self.pop().as_string()?; // TODO(tazjin): attrpath
+            attrs.insert(key, value);
+        }
+        // TODO(tazjin): extend_reserve(count) (rust#72631)
+
+        self.push(Value::Attrs(Rc::new(NixAttrs::Map(attrs))));
+        Ok(())
     }
 }
 

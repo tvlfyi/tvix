@@ -4,9 +4,10 @@
 use crate::chunk::Chunk;
 use crate::errors::EvalResult;
 use crate::opcode::OpCode;
-use crate::value::Value;
+use crate::value::{NixString, Value};
+
 use rnix;
-use rnix::types::{TokenWrapper, TypedNode, Wrapper};
+use rnix::types::{EntryHolder, TokenWrapper, TypedNode, Wrapper};
 
 struct Compiler {
     chunk: Chunk,
@@ -44,6 +45,11 @@ impl Compiler {
             rnix::SyntaxKind::NODE_IDENT => {
                 let node = rnix::types::Ident::cast(node).unwrap();
                 self.compile_ident(node)
+            }
+
+            rnix::SyntaxKind::NODE_ATTR_SET => {
+                let node = rnix::types::AttrSet::cast(node).unwrap();
+                self.compile_attr_set(node)
             }
 
             kind => {
@@ -123,6 +129,65 @@ impl Compiler {
             _ => todo!("identifier access"),
         };
 
+        Ok(())
+    }
+
+    // Compile attribute set literals into equivalent bytecode.
+    //
+    // This is complicated by a number of features specific to Nix
+    // attribute sets, most importantly:
+    //
+    // 1. Keys can be dynamically constructed through interpolation.
+    // 2. Keys can refer to nested attribute sets.
+    // 3. Attribute sets can (optionally) be recursive.
+    fn compile_attr_set(&mut self, node: rnix::types::AttrSet) -> EvalResult<()> {
+        let mut count = 0;
+
+        for kv in node.entries() {
+            count += 1;
+
+            // Because attribute set literals can contain nested keys,
+            // there is potentially more than one key fragment. If
+            // this is the case, a special operation to construct a
+            // runtime value representing the attribute path is
+            // emitted.
+            let mut key_count = 0;
+            for fragment in kv.key().unwrap().path() {
+                key_count += 1;
+
+                match fragment.kind() {
+                    rnix::SyntaxKind::NODE_IDENT => {
+                        let ident = rnix::types::Ident::cast(fragment).unwrap();
+
+                        // TODO(tazjin): intern!
+                        let idx = self
+                            .chunk
+                            .add_constant(Value::String(NixString(ident.as_str().to_string())));
+                        self.chunk.add_op(OpCode::OpConstant(idx));
+                    }
+
+                    // For all other expression types, we simply
+                    // compile them as normal. The operation should
+                    // result in a string value, which is checked at
+                    // runtime on construction.
+                    _ => self.compile(fragment)?,
+                }
+            }
+
+            // We're done with the key if there was only one fragment,
+            // otherwise we need to emit an instruction to construct
+            // the attribute path.
+            if key_count > 1 {
+                todo!("emit OpAttrPath(n) instruction")
+            }
+
+            // The value is just compiled as normal so that its
+            // resulting value is on the stack when the attribute set
+            // is constructed at runtime.
+            self.compile(kv.value().unwrap())?;
+        }
+
+        self.chunk.add_op(OpCode::OpAttrs(count));
         Ok(())
     }
 }
