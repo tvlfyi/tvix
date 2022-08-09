@@ -52,6 +52,11 @@ impl Compiler {
                 self.compile_attr_set(node)
             }
 
+            rnix::SyntaxKind::NODE_LIST => {
+                let node = rnix::types::List::cast(node).unwrap();
+                self.compile_list(node)
+            }
+
             kind => {
                 println!("visiting unsupported node: {:?}", kind);
                 Ok(())
@@ -188,6 +193,24 @@ impl Compiler {
         }
 
         self.chunk.add_op(OpCode::OpAttrs(count));
+        Ok(())
+    }
+
+    // Compile list literals into equivalent bytecode. List
+    // construction is fairly simple, composing of pushing code for
+    // each literal element and an instruction with the element count.
+    //
+    // The VM, after evaluating the code for each element, simply
+    // constructs the list from the given number of elements.
+    fn compile_list(&mut self, node: rnix::types::List) -> EvalResult<()> {
+        let mut count = 0;
+
+        for item in node.items() {
+            count += 1;
+            self.compile(item)?;
+        }
+
+        self.chunk.add_op(OpCode::OpList(count));
         Ok(())
     }
 }
