@@ -11,7 +11,7 @@ use super::Value;
 #[derive(Debug)]
 pub enum NixAttrs {
     Map(BTreeMap<NixString, Value>),
-    KV { name: NixString, value: Value },
+    KV { name: Value, value: Value },
 }
 
 impl Display for NixAttrs {
@@ -22,6 +22,7 @@ impl Display for NixAttrs {
             NixAttrs::KV { name, value } => {
                 f.write_fmt(format_args!("name = \"{}\"; ", name))?;
                 f.write_fmt(format_args!("value = {}; ", value))?;
+                f.write_str("/* optimised pair! */")?;
             }
 
             NixAttrs::Map(map) => {
