@@ -211,8 +211,12 @@ impl VM {
         for _ in 0..count {
             let value = self.pop();
             let key = self.pop().as_string()?; // TODO(tazjin): attrpath
-            attrs.insert(key, value);
+
+            if attrs.insert(key.clone(), value).is_some() {
+                return Err(Error::DuplicateAttrsKey { key: key.0 });
+            }
         }
+
         // TODO(tazjin): extend_reserve(count) (rust#72631)
 
         self.push(Value::Attrs(Rc::new(NixAttrs::Map(attrs))));

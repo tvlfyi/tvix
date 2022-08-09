@@ -2,6 +2,10 @@ use std::fmt::Display;
 
 #[derive(Debug)]
 pub enum Error {
+    DuplicateAttrsKey {
+        key: String,
+    },
+
     TypeError {
         expected: &'static str,
         actual: &'static str,
