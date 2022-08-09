@@ -16,5 +16,5 @@ pub fn interpret(code: String) -> EvalResult<String> {
     println!("code: {:?}", code);
 
     let value = crate::vm::run_chunk(code)?;
-    Ok(format!("value: {:?}", value))
+    Ok(format!("value: {} :: {}", value, value.type_of()))
 }
