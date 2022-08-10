@@ -37,7 +37,7 @@ impl Display for NixAttrs {
 
             NixAttrs::Map(map) => {
                 for (name, value) in map {
-                    f.write_fmt(format_args!("{} = {}; ", name, value))?;
+                    f.write_fmt(format_args!("{} = {}; ", name.ident_str(), value))?;
                 }
             }
 

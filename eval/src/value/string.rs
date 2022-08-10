@@ -43,6 +43,26 @@ impl NixString {
             NixString::Heap(s) => s,
         }
     }
+
+    // Return a displayable representation of the string as an
+    // identifier.
+    //
+    // This is used when printing out strings used as e.g. attribute
+    // set keys, as those are only escaped in the presence of special
+    // characters.
+    pub fn ident_str(&self) -> Cow<str> {
+        let escaped = nix_escape_string(self.as_str());
+
+        match escaped {
+            // A borrowed string is unchanged and can be returned as
+            // is.
+            Cow::Borrowed(_) => escaped,
+
+            // An owned string has escapes, and needs the outer quotes
+            // for display.
+            Cow::Owned(s) => Cow::Owned(format!("\"{}\"", s)),
+        }
+    }
 }
 
 fn nix_escape_char(ch: char) -> Option<&'static str> {
@@ -54,11 +74,11 @@ fn nix_escape_char(ch: char) -> Option<&'static str> {
     }
 }
 
-// Escape a Nix string for display, as the user-visible representation
-// is always an escaped string (except for traces).
+// Escape a Nix string for display, as most user-visible representation
+// are escaped strings.
 //
 // Note that this does not add the outer pair of surrounding quotes.
-fn escape_string(input: &str) -> Cow<str> {
+fn nix_escape_string(input: &str) -> Cow<str> {
     for (i, c) in input.chars().enumerate() {
         if let Some(esc) = nix_escape_char(c) {
             let mut escaped = String::with_capacity(input.len());
@@ -82,10 +102,7 @@ fn escape_string(input: &str) -> Cow<str> {
 impl Display for NixString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("\"")?;
-        match self {
-            NixString::Static(s) => f.write_str(&escape_string(s))?,
-            NixString::Heap(s) => f.write_str(&escape_string(s))?,
-        };
+        f.write_str(&nix_escape_string(self.as_str()))?;
         f.write_str("\"")
     }
 }
