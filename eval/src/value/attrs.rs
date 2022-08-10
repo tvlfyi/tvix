@@ -14,6 +14,9 @@ use crate::errors::{Error, EvalResult};
 use super::string::NixString;
 use super::Value;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Clone, Debug)]
 pub enum NixAttrs {
     Empty,

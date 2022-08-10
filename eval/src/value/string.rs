@@ -11,3 +11,9 @@ impl Display for NixString {
         f.write_str(self.0.as_str())
     }
 }
+
+impl From<&str> for NixString {
+    fn from(s: &str) -> Self {
+        NixString(s.to_string())
+    }
+}
