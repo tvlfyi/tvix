@@ -1,0 +1,2 @@
+Do not traverse further, readTree will encounter Nix language tests
+and such and fail.

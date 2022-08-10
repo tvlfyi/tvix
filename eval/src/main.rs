@@ -12,6 +12,9 @@ mod opcode;
 mod value;
 mod vm;
 
+#[cfg(test)]
+mod tests;
+
 fn main() {
     let mut args = env::args();
     if args.len() > 2 {
@@ -47,8 +50,8 @@ fn run_prompt() {
 }
 
 fn run(code: String) {
-    match eval::interpret(code) {
-        Ok(result) => println!("=> {}", result),
+    match eval::interpret(&code) {
+        Ok(result) => println!("=> {} :: {}", result, result.type_of()),
         Err(err) => eprintln!("{}", err),
     }
 }

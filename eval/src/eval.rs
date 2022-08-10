@@ -1,9 +1,9 @@
 use rnix::{self, types::TypedNode};
 
-use crate::errors::EvalResult;
+use crate::{errors::EvalResult, value::Value};
 
-pub fn interpret(code: String) -> EvalResult<String> {
-    let ast = rnix::parse(&code);
+pub fn interpret(code: &str) -> EvalResult<Value> {
+    let ast = rnix::parse(code);
 
     let errors = ast.errors();
     if !errors.is_empty() {
@@ -15,6 +15,5 @@ pub fn interpret(code: String) -> EvalResult<String> {
     let code = crate::compiler::compile(ast)?;
     println!("code: {:?}", code);
 
-    let value = crate::vm::run_chunk(code)?;
-    Ok(format!("value: {} :: {}", value, value.type_of()))
+    crate::vm::run_chunk(code)
 }
