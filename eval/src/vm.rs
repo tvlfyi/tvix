@@ -16,6 +16,34 @@ pub struct VM {
     stack: Vec<Value>,
 }
 
+macro_rules! arithmetic_op {
+    ( $self:ident, $op:tt ) => {{
+        let result = arithmetic_op!($self.pop(), $self.pop(), $op);
+        $self.push(result);
+    }};
+
+    ( $b:expr, $a:expr, $op:tt ) => {{
+        let b = $b;
+        let a = $a;
+
+        match (a, b) {
+            (Value::Integer(i1), Value::Integer(i2)) => Value::Integer(i1 $op i2),
+            (Value::Float(f1), Value::Float(f2)) => Value::Float(f1 $op f2),
+            (Value::Integer(i1), Value::Float(f2)) => Value::Float(i1 as f64 $op f2),
+            (Value::Float(f1), Value::Integer(i2)) => Value::Float(f1 $op i2 as f64),
+
+            (v1, v2) => return Err(Error::TypeError {
+                expected: "number (either int or float)",
+                actual: if v1.is_number() {
+                    v2.type_of()
+                } else {
+                    v1.type_of()
+                },
+            }),
+        }
+    }};
+}
+
 impl VM {
     fn inc_ip(&mut self) -> OpCode {
         let op = self.chunk.code[self.ip];
@@ -25,30 +53,6 @@ impl VM {
 
     fn pop(&mut self) -> Value {
         self.stack.pop().expect("TODO")
-    }
-
-    fn pop_number_pair(&mut self) -> EvalResult<NumberPair> {
-        let v2 = self.pop();
-        let v1 = self.pop();
-
-        match (v1, v2) {
-            (Value::Integer(i1), Value::Integer(i2)) => Ok(NumberPair::Integer(i1, i2)),
-
-            (Value::Float(f1), Value::Float(f2)) => Ok(NumberPair::Floats(f1, f2)),
-
-            (Value::Integer(i1), Value::Float(f2)) => Ok(NumberPair::Floats(i1 as f64, f2)),
-
-            (Value::Float(f1), Value::Integer(i2)) => Ok(NumberPair::Floats(f1, i2 as f64)),
-
-            (v1, v2) => Err(Error::TypeError {
-                expected: "number (either int or float)",
-                actual: if v1.is_number() {
-                    v2.type_of()
-                } else {
-                    v1.type_of()
-                },
-            }),
-        }
     }
 
     fn push(&mut self, value: Value) {
@@ -63,25 +67,10 @@ impl VM {
                     self.push(c);
                 }
 
-                OpCode::OpAdd => match self.pop_number_pair()? {
-                    NumberPair::Floats(f1, f2) => self.push(Value::Float(f1 + f2)),
-                    NumberPair::Integer(i1, i2) => self.push(Value::Integer(i1 + i2)),
-                },
-
-                OpCode::OpSub => match self.pop_number_pair()? {
-                    NumberPair::Floats(f1, f2) => self.push(Value::Float(f1 - f2)),
-                    NumberPair::Integer(i1, i2) => self.push(Value::Integer(i1 - i2)),
-                },
-
-                OpCode::OpMul => match self.pop_number_pair()? {
-                    NumberPair::Floats(f1, f2) => self.push(Value::Float(f1 * f2)),
-                    NumberPair::Integer(i1, i2) => self.push(Value::Integer(i1 * i2)),
-                },
-
-                OpCode::OpDiv => match self.pop_number_pair()? {
-                    NumberPair::Floats(f1, f2) => self.push(Value::Float(f1 / f2)),
-                    NumberPair::Integer(i1, i2) => self.push(Value::Integer(i1 / i2)),
-                },
+                OpCode::OpAdd => arithmetic_op!(self, +),
+                OpCode::OpSub => arithmetic_op!(self, -),
+                OpCode::OpMul => arithmetic_op!(self, *),
+                OpCode::OpDiv => arithmetic_op!(self, /),
 
                 OpCode::OpInvert => {
                     let v = self.pop().as_bool()?;
@@ -180,12 +169,6 @@ impl VM {
         self.push(Value::List(NixList(list)));
         Ok(())
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum NumberPair {
-    Floats(f64, f64),
-    Integer(i64, i64),
 }
 
 pub fn run_chunk(chunk: Chunk) -> EvalResult<Value> {
