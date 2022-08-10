@@ -10,7 +10,9 @@ pub fn interpret(code: &str) -> EvalResult<Value> {
         todo!()
     }
 
-    println!("{}", ast.root().dump());
+    if let Ok(_) = std::env::var("TVIX_DISPLAY_AST") {
+        println!("{}", ast.root().dump());
+    }
 
     let code = crate::compiler::compile(ast)?;
     println!("code: {:?}", code);
