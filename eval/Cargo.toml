@@ -7,3 +7,6 @@ edition = "2021"
 
 [dependencies]
 rnix = "0.10.2"
+
+[dev-dependencies]
+test-generator = "0.3.0"
