@@ -71,6 +71,16 @@ impl Value {
             }),
         }
     }
+
+    pub fn as_attrs(self) -> EvalResult<Rc<NixAttrs>> {
+        match self {
+            Value::Attrs(s) => Ok(s),
+            other => Err(Error::TypeError {
+                expected: "set",
+                actual: other.type_of(),
+            }),
+        }
+    }
 }
 
 impl Display for Value {

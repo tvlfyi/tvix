@@ -117,8 +117,17 @@ impl VM {
                 OpCode::OpNull => self.push(Value::Null),
                 OpCode::OpTrue => self.push(Value::Bool(true)),
                 OpCode::OpFalse => self.push(Value::Bool(false)),
+
                 OpCode::OpAttrs(count) => self.run_attrset(count)?,
                 OpCode::OpAttrPath(count) => self.run_attr_path(count)?,
+
+                OpCode::OpAttrsUpdate => {
+                    let rhs = self.pop().as_attrs()?;
+                    let lhs = self.pop().as_attrs()?;
+
+                    self.push(Value::Attrs(Rc::new(lhs.update(&rhs))))
+                }
+
                 OpCode::OpList(count) => self.run_list(count)?,
                 OpCode::OpInterpolate(count) => self.run_interpolate(count)?,
             }

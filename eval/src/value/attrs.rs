@@ -35,7 +35,7 @@ impl Display for NixAttrs {
             }
 
             NixAttrs::Map(map) => {
-                for (name, value) in map {
+                for (name, value) in map.iter() {
                     f.write_fmt(format_args!("{} = {}; ", name.ident_str(), value))?;
                 }
             }
@@ -54,6 +54,59 @@ impl PartialEq for NixAttrs {
 }
 
 impl NixAttrs {
+    // Update one attribute set with the values of the other.
+    pub fn update(&self, other: &Self) -> Self {
+        match (self, other) {
+            // Short-circuit on some optimal cases:
+            (NixAttrs::Empty, NixAttrs::Empty) => NixAttrs::Empty,
+            (NixAttrs::Empty, _) => other.clone(),
+            (_, NixAttrs::Empty) => self.clone(),
+            (NixAttrs::KV { .. }, NixAttrs::KV { .. }) => other.clone(),
+
+            // Slightly more advanced, but still optimised updates
+            (NixAttrs::Map(m), NixAttrs::KV { name, value }) => {
+                let mut m = m.clone();
+                m.insert(NixString::NAME, name.clone());
+                m.insert(NixString::VALUE, value.clone());
+                NixAttrs::Map(m)
+            }
+
+            (NixAttrs::KV { name, value }, NixAttrs::Map(m)) => {
+                let mut m = m.clone();
+
+                match m.entry(NixString::NAME) {
+                    std::collections::btree_map::Entry::Vacant(e) => {
+                        e.insert(name.clone());
+                    }
+
+                    std::collections::btree_map::Entry::Occupied(_) => {
+                        /* name from `m` has precedence */
+                    }
+                };
+
+                match m.entry(NixString::VALUE) {
+                    std::collections::btree_map::Entry::Vacant(e) => {
+                        e.insert(value.clone());
+                    }
+
+                    std::collections::btree_map::Entry::Occupied(_) => {
+                        /* value from `m` has precedence */
+                    }
+                };
+
+                NixAttrs::Map(m)
+            }
+
+            // Plain merge of maps.
+            (NixAttrs::Map(m1), NixAttrs::Map(m2)) => {
+                let mut m1 = m1.clone();
+                let mut m2 = m2.clone();
+                m1.append(&mut m2);
+                NixAttrs::Map(m1)
+            }
+        }
+    }
+
     /// Retrieve reference to a mutable map inside of an attrs,
     /// optionally changing the representation if required.
     fn map_mut(&mut self) -> &mut BTreeMap<NixString, Value> {

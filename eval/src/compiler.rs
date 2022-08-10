@@ -136,6 +136,7 @@ impl Compiler {
             BinOpKind::Mul => OpCode::OpMul,
             BinOpKind::Div => OpCode::OpDiv,
             BinOpKind::Equal => OpCode::OpEqual,
+            BinOpKind::Update => OpCode::OpAttrsUpdate,
             _ => todo!(),
         };
 
@@ -187,6 +188,10 @@ impl Compiler {
     // 2. Keys can refer to nested attribute sets.
     // 3. Attribute sets can (optionally) be recursive.
     fn compile_attr_set(&mut self, node: rnix::types::AttrSet) -> EvalResult<()> {
+        if node.recursive() {
+            todo!("recursive attribute sets are not yet implemented")
+        }
+
         let mut count = 0;
 
         for kv in node.entries() {
