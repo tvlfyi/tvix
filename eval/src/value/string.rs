@@ -4,7 +4,7 @@ use std::{borrow::Cow, fmt::Display};
 /// This module implements Nix language strings and their different
 /// backing implementations.
 
-#[derive(Clone, Debug, Eq, Ord)]
+#[derive(Clone, Debug)]
 pub enum NixString {
     Static(&'static str),
     Heap(String),
@@ -16,9 +16,17 @@ impl PartialEq for NixString {
     }
 }
 
+impl Eq for NixString {}
+
 impl PartialOrd for NixString {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.as_str().partial_cmp(other.as_str())
+    }
+}
+
+impl Ord for NixString {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.as_str().cmp(other.as_str())
     }
 }
 
