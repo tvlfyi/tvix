@@ -71,14 +71,8 @@ impl NixAttrs {
 
             NixAttrs::KV { name, value } => {
                 *self = NixAttrs::Map(BTreeMap::from([
-                    (
-                        NixString("name".into()),
-                        std::mem::replace(name, Value::Blackhole),
-                    ),
-                    (
-                        NixString("value".into()),
-                        std::mem::replace(value, Value::Blackhole),
-                    ),
+                    ("name".into(), std::mem::replace(name, Value::Blackhole)),
+                    ("value".into(), std::mem::replace(value, Value::Blackhole)),
                 ]));
                 self.map_mut()
             }
@@ -155,14 +149,14 @@ impl NixAttrs {
 fn attempt_optimise_kv(slice: &mut [Value]) -> Option<NixAttrs> {
     let (name_idx, value_idx) = {
         match (&slice[2], &slice[0]) {
-            (Value::String(NixString(s1)), Value::String(NixString(s2)))
-                if (s1 == "name" && s2 == "value") =>
+            (Value::String(s1), Value::String(s2))
+                if (*s1 == NixString::NAME && *s2 == NixString::VALUE) =>
             {
                 (3, 1)
             }
 
-            (Value::String(NixString(s1)), Value::String(NixString(s2)))
-                if (s1 == "value" && s2 == "name") =>
+            (Value::String(s1), Value::String(s2))
+                if (*s1 == NixString::VALUE && *s2 == NixString::NAME) =>
             {
                 (1, 3)
             }
@@ -189,7 +183,7 @@ fn set_attr(attrs: &mut NixAttrs, key: NixString, value: Value) -> EvalResult<()
     match entry {
         std::collections::btree_map::Entry::Occupied(entry) => {
             return Err(Error::DuplicateAttrsKey {
-                key: entry.key().0.clone(),
+                key: entry.key().as_str().to_string(),
             })
         }
 
@@ -254,7 +248,7 @@ fn set_nested_attr(
 
             _ => {
                 return Err(Error::DuplicateAttrsKey {
-                    key: entry.key().0.clone(),
+                    key: entry.key().as_str().to_string(),
                 })
             }
         },

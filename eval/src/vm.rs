@@ -7,7 +7,7 @@ use crate::{
     chunk::Chunk,
     errors::{Error, EvalResult},
     opcode::OpCode,
-    value::{NixAttrs, NixList, NixString, Value},
+    value::{NixAttrs, NixList, Value},
 };
 
 pub struct VM {
@@ -159,10 +159,10 @@ impl VM {
         let mut out = String::new();
 
         for _ in 0..count {
-            out.push_str(&self.pop().as_string()?.0);
+            out.push_str(&self.pop().as_string()?.as_str());
         }
 
-        self.push(Value::String(NixString(out)));
+        self.push(Value::String(out.into()));
         Ok(())
     }
 

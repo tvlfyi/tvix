@@ -111,7 +111,7 @@ impl Compiler {
                 rnix::StrPart::Ast(node) => self.compile(node)?,
 
                 rnix::StrPart::Literal(lit) => {
-                    let idx = self.chunk.add_constant(Value::String(NixString(lit)));
+                    let idx = self.chunk.add_constant(Value::String(lit.into()));
                     self.chunk.add_op(OpCode::OpConstant(idx));
                 }
             }
@@ -206,9 +206,9 @@ impl Compiler {
                         let ident = rnix::types::Ident::cast(fragment).unwrap();
 
                         // TODO(tazjin): intern!
-                        let idx = self
-                            .chunk
-                            .add_constant(Value::String(NixString(ident.as_str().to_string())));
+                        let idx = self.chunk.add_constant(Value::String(NixString::Heap(
+                            ident.as_str().to_string(),
+                        )));
                         self.chunk.add_op(OpCode::OpConstant(idx));
                     }
 

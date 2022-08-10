@@ -4,16 +4,40 @@ use std::fmt::Display;
 /// backing implementations.
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct NixString(pub String);
+pub enum NixString {
+    Static(&'static str),
+    Heap(String),
+}
 
 impl Display for NixString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.0.as_str())
+        match self {
+            NixString::Static(s) => f.write_str(s),
+            NixString::Heap(s) => f.write_str(s),
+        }
     }
 }
 
-impl From<&str> for NixString {
-    fn from(s: &str) -> Self {
-        NixString(s.to_string())
+impl From<&'static str> for NixString {
+    fn from(s: &'static str) -> Self {
+        NixString::Static(s)
+    }
+}
+
+impl From<String> for NixString {
+    fn from(s: String) -> Self {
+        NixString::Heap(s)
+    }
+}
+
+impl NixString {
+    pub const NAME: Self = NixString::Static("name");
+    pub const VALUE: Self = NixString::Static("value");
+
+    pub fn as_str(&self) -> &str {
+        match self {
+            NixString::Static(s) => s,
+            NixString::Heap(s) => s,
+        }
     }
 }
