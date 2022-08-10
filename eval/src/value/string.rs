@@ -1,9 +1,10 @@
+use std::hash::Hash;
 use std::{borrow::Cow, fmt::Display};
 
 /// This module implements Nix language strings and their different
 /// backing implementations.
 
-#[derive(Clone, Debug, Hash, Eq, Ord)]
+#[derive(Clone, Debug, Eq, Ord)]
 pub enum NixString {
     Static(&'static str),
     Heap(String),
@@ -30,6 +31,12 @@ impl From<&'static str> for NixString {
 impl From<String> for NixString {
     fn from(s: String) -> Self {
         NixString::Heap(s)
+    }
+}
+
+impl Hash for NixString {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.as_str().hash(state)
     }
 }
 
