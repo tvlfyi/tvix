@@ -30,9 +30,8 @@ impl Display for NixAttrs {
 
         match self {
             NixAttrs::KV { name, value } => {
-                f.write_fmt(format_args!("name = \"{}\"; ", name))?;
+                f.write_fmt(format_args!("name = {}; ", name))?;
                 f.write_fmt(format_args!("value = {}; ", value))?;
-                f.write_str("/* optimised pair! */")?;
             }
 
             NixAttrs::Map(map) => {
@@ -41,10 +40,7 @@ impl Display for NixAttrs {
                 }
             }
 
-            NixAttrs::Empty => {
-                /* no values to print! */
-                f.write_str("/* optimised empty set! */")?;
-            }
+            NixAttrs::Empty => { /* no values to print! */ }
         }
 
         f.write_str("}")
