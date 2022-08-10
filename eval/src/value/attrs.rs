@@ -14,7 +14,7 @@ use crate::errors::{Error, EvalResult};
 use super::string::NixString;
 use super::Value;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum NixAttrs {
     Empty,
     Map(BTreeMap<NixString, Value>),
@@ -55,6 +55,33 @@ impl PartialEq for NixAttrs {
 }
 
 impl NixAttrs {
+    /// Retrieve reference to a mutable map inside of an attrs,
+    /// optionally changing the representation if required.
+    fn map_mut(&mut self) -> &mut BTreeMap<NixString, Value> {
+        match self {
+            NixAttrs::Map(m) => m,
+
+            NixAttrs::Empty => {
+                *self = NixAttrs::Map(BTreeMap::new());
+                self.map_mut()
+            }
+
+            NixAttrs::KV { name, value } => {
+                *self = NixAttrs::Map(BTreeMap::from([
+                    (
+                        NixString("name".into()),
+                        std::mem::replace(name, Value::Blackhole),
+                    ),
+                    (
+                        NixString("value".into()),
+                        std::mem::replace(value, Value::Blackhole),
+                    ),
+                ]));
+                self.map_mut()
+            }
+        }
+    }
+
     /// Implement construction logic of an attribute set, to encapsulate
     /// logic about attribute set optimisations inside of this module.
     pub fn construct(count: usize, mut stack_slice: Vec<Value>) -> EvalResult<Self> {
@@ -78,7 +105,7 @@ impl NixAttrs {
         }
 
         // TODO(tazjin): extend_reserve(count) (rust#72631)
-        let mut attrs: BTreeMap<NixString, Value> = BTreeMap::new();
+        let mut attrs = NixAttrs::Map(BTreeMap::new());
 
         for _ in 0..count {
             let value = stack_slice.pop().unwrap();
@@ -107,7 +134,7 @@ impl NixAttrs {
             }
         }
 
-        Ok(NixAttrs::Map(attrs))
+        Ok(attrs)
     }
 }
 
@@ -151,12 +178,9 @@ fn attempt_optimise_kv(slice: &mut [Value]) -> Option<NixAttrs> {
 }
 
 // Set an attribute on an in-construction attribute set, while
-// checking against duplicate key.s
-fn set_attr(
-    attrs: &mut BTreeMap<NixString, Value>,
-    key: NixString,
-    value: Value,
-) -> EvalResult<()> {
+// checking against duplicate keys.
+fn set_attr(attrs: &mut NixAttrs, key: NixString, value: Value) -> EvalResult<()> {
+    let attrs = attrs.map_mut();
     let entry = attrs.entry(key);
 
     match entry {
@@ -180,7 +204,7 @@ fn set_attr(
 // There is some optimisation potential for this simple implementation
 // if it becomes a problem.
 fn set_nested_attr(
-    attrs: &mut BTreeMap<NixString, Value>,
+    attrs: &mut NixAttrs,
     key: NixString,
     mut path: Vec<NixString>,
     value: Value,
@@ -191,6 +215,7 @@ fn set_nested_attr(
         return set_attr(attrs, key, value);
     }
 
+    let attrs = attrs.map_mut();
     let entry = attrs.entry(key);
 
     // If there is not we go one step further down, in which case we
@@ -202,21 +227,26 @@ fn set_nested_attr(
     match entry {
         // Vacant entry -> new attribute set is needed.
         std::collections::btree_map::Entry::Vacant(entry) => {
-            let mut map = BTreeMap::new();
+            let mut map = NixAttrs::Map(BTreeMap::new());
 
             // TODO(tazjin): technically recursing further is not
             // required, we can create the whole hierarchy here, but
             // it's noisy.
             set_nested_attr(&mut map, path.pop().expect("next key exists"), path, value)?;
 
-            entry.insert(Value::Attrs(Rc::new(NixAttrs::Map(map))));
+            entry.insert(Value::Attrs(Rc::new(map)));
         }
 
         // Occupied entry: Either error out if there is something
         // other than attrs, or insert the next value.
         std::collections::btree_map::Entry::Occupied(mut entry) => match entry.get_mut() {
-            Value::Attrs(_attrs) => {
-                todo!("implement mutable attrsets")
+            Value::Attrs(attrs) => {
+                set_nested_attr(
+                    Rc::make_mut(attrs),
+                    path.pop().expect("next key exists"),
+                    path,
+                    value,
+                )?;
             }
 
             _ => {
