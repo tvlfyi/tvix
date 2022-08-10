@@ -63,6 +63,12 @@ impl NixString {
             Cow::Owned(s) => Cow::Owned(format!("\"{}\"", s)),
         }
     }
+
+    pub fn concat(&self, other: &Self) -> Self {
+        let mut s = self.as_str().to_owned();
+        s.push_str(other.as_str());
+        NixString::Heap(s)
+    }
 }
 
 fn nix_escape_char(ch: char) -> Option<&'static str> {

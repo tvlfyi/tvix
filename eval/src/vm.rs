@@ -67,7 +67,19 @@ impl VM {
                     self.push(c);
                 }
 
-                OpCode::OpAdd => arithmetic_op!(self, +),
+                OpCode::OpAdd => {
+                    let b = self.pop();
+                    let a = self.pop();
+
+                    let result = if let (Value::String(s1), Value::String(s2)) = (&a, &b) {
+                        Value::String(s1.concat(s2))
+                    } else {
+                        arithmetic_op!(b, a, +)
+                    };
+
+                    self.push(result)
+                }
+
                 OpCode::OpSub => arithmetic_op!(self, -),
                 OpCode::OpMul => arithmetic_op!(self, *),
                 OpCode::OpDiv => arithmetic_op!(self, /),
