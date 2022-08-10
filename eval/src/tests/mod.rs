@@ -2,14 +2,32 @@ use crate::eval::interpret;
 
 use test_generator::test_resources;
 
+// identity-* tests contain Nix code snippets which should evaluate to
+// themselves exactly (i.e. literals).
+#[test_resources("src/tests/tvix_tests/identity-*.nix")]
+fn identity(code_path: &str) {
+    let code = std::fs::read_to_string(code_path).expect("should be able to read test code");
+
+    let result = interpret(&code).expect("evaluation of identity test should succeed");
+    let result_str = format!("{}", result);
+
+    assert_eq!(
+        code.trim(),
+        result_str,
+        "result value representation (right) must match expectation (left)"
+    )
+}
+
 // eval-okay-* tests contain a snippet of Nix code, and an expectation
 // of the produced string output of the evaluator.
 //
 // These evaluations are always supposed to succeed, i.e. all snippets
 // are guaranteed to be valid Nix code.
+
+// eval-okay-* tests from the original Nix test suite.
 #[cfg(feature = "nix_tests")]
 #[test_resources("src/tests/nix_tests/eval-okay-*.nix")]
-fn eval_okay(code_path: &str) {
+fn nix_eval_okay(code_path: &str) {
     let base = code_path
         .strip_suffix("nix")
         .expect("test files always end in .nix");
@@ -24,6 +42,6 @@ fn eval_okay(code_path: &str) {
     assert_eq!(
         exp.trim(),
         result_str,
-        "result value (and its representation) must match expectation"
+        "result value representation (right) must match expectation (left)"
     );
 }
