@@ -17,16 +17,18 @@ pub struct VM {
 }
 
 impl VM {
-    fn push(&mut self, value: Value) {
-        self.stack.push(value)
-    }
-
-    fn pop(&mut self) -> Value {
-        self.stack.pop().expect("TODO")
+    fn inc_ip(&mut self) -> OpCode {
+        let op = self.chunk.code[self.ip];
+        self.ip += 1;
+        op
     }
 
     fn peek(&self, at: usize) -> &Value {
         &self.stack[self.stack.len() - 1 - at]
+    }
+
+    fn pop(&mut self) -> Value {
+        self.stack.pop().expect("TODO")
     }
 
     fn pop_number_pair(&mut self) -> EvalResult<NumberPair> {
@@ -53,10 +55,8 @@ impl VM {
         }
     }
 
-    fn inc_ip(&mut self) -> OpCode {
-        let op = self.chunk.code[self.ip];
-        self.ip += 1;
-        op
+    fn push(&mut self, value: Value) {
+        self.stack.push(value)
     }
 
     fn run(&mut self) -> EvalResult<Value> {
@@ -130,6 +130,24 @@ impl VM {
                 return Ok(self.pop());
             }
         }
+    }
+
+    // Construct runtime representation of an attr path (essentially
+    // just a list of strings).
+    //
+    // The difference to the list construction operation is that this
+    // forces all elements into strings, as attribute set keys are
+    // required to be strict in Nix.
+    fn run_attr_path(&mut self, count: usize) -> EvalResult<()> {
+        debug_assert!(count > 1, "AttrPath needs at least two fragments");
+        let mut path = Vec::with_capacity(count);
+
+        for _ in 0..count {
+            path.push(self.pop().as_string()?);
+        }
+
+        self.push(Value::AttrPath(path));
+        Ok(())
     }
 
     fn run_attrset(&mut self, count: usize) -> EvalResult<()> {
@@ -210,33 +228,52 @@ impl VM {
 
         for _ in 0..count {
             let value = self.pop();
-            let key = self.pop().as_string()?; // TODO(tazjin): attrpath
 
-            if attrs.insert(key.clone(), value).is_some() {
-                return Err(Error::DuplicateAttrsKey { key: key.0 });
+            // It is at this point that nested attribute sets need to
+            // be constructed (if they exist).
+            //
+            let key = self.pop();
+            match key {
+                Value::String(ks) => {
+                    // TODO(tazjin): try_insert (rust#82766) or entry API
+                    if attrs.insert(ks.clone(), value).is_some() {
+                        return Err(Error::DuplicateAttrsKey { key: ks.0 });
+                    }
+                }
+
+                Value::AttrPath(mut path) => {
+                    set_nested_attr(
+                        &mut attrs,
+                        path.pop().expect("AttrPath is never empty"),
+                        path,
+                        value,
+                    )?;
+                }
+
+                other => {
+                    return Err(Error::InvalidKeyType {
+                        given: other.type_of(),
+                    })
+                }
             }
         }
 
         // TODO(tazjin): extend_reserve(count) (rust#72631)
-
         self.push(Value::Attrs(Rc::new(NixAttrs::Map(attrs))));
         Ok(())
     }
 
-    // Construct runtime representation of an attr path (essentially
-    // just a list of strings).
-    //
-    // The difference to the list construction operation is that this
-    // forces all elements into strings, as attribute set keys are
-    // required to be strict in Nix.
-    fn run_attr_path(&mut self, count: usize) -> EvalResult<()> {
-        let mut path = vec![NixString(String::new()); count];
+    // Interpolate string fragments by popping the specified number of
+    // fragments of the stack, evaluating them to strings, and pushing
+    // the concatenated result string back on the stack.
+    fn run_interpolate(&mut self, count: usize) -> EvalResult<()> {
+        let mut out = String::new();
 
-        for idx in 0..count {
-            path[count - idx - 1] = self.pop().as_string()?
+        for _ in 0..count {
+            out.push_str(&self.pop().as_string()?.0);
         }
 
-        self.push(Value::AttrPath(path));
+        self.push(Value::String(NixString(out)));
         Ok(())
     }
 
@@ -254,26 +291,80 @@ impl VM {
         self.push(Value::List(NixList(list)));
         Ok(())
     }
-
-    // Interpolate string fragments by popping the specified number of
-    // fragments of the stack, evaluating them to strings, and pushing
-    // the concatenated result string back on the stack.
-    fn run_interpolate(&mut self, count: usize) -> EvalResult<()> {
-        let mut out = String::new();
-
-        for _ in 0..count {
-            out.push_str(&self.pop().as_string()?.0);
-        }
-
-        self.push(Value::String(NixString(out)));
-        Ok(())
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NumberPair {
     Floats(f64, f64),
     Integer(i64, i64),
+}
+
+// Set a nested attribute inside of an attribute set, throwing a
+// duplicate key error if a non-hashmap entry already exists on the
+// path.
+//
+// There is some optimisation potential for this simple implementation
+// if it becomes a problem.
+fn set_nested_attr(
+    attrs: &mut BTreeMap<NixString, Value>,
+    key: NixString,
+    mut path: Vec<NixString>,
+    value: Value,
+) -> EvalResult<()> {
+    let entry = attrs.entry(key);
+
+    // If there is no next key we are at the point where we
+    // should insert the value itself.
+    if path.is_empty() {
+        match entry {
+            std::collections::btree_map::Entry::Occupied(entry) => {
+                return Err(Error::DuplicateAttrsKey {
+                    key: entry.key().0.clone(),
+                })
+            }
+
+            std::collections::btree_map::Entry::Vacant(entry) => {
+                entry.insert(value);
+                return Ok(());
+            }
+        };
+    }
+
+    // If there is not we go one step further down, in which case we
+    // need to ensure that there either is no entry, or the existing
+    // entry is a hashmap into which to insert the next value.
+    //
+    // If a value of a different type exists, the user specified a
+    // duplicate key.
+    match entry {
+        // Vacant entry -> new attribute set is needed.
+        std::collections::btree_map::Entry::Vacant(entry) => {
+            let mut map = BTreeMap::new();
+
+            // TODO(tazjin): technically recursing further is not
+            // required, we can create the whole hierarchy here, but
+            // it's noisy.
+            set_nested_attr(&mut map, path.pop().expect("next key exists"), path, value)?;
+
+            entry.insert(Value::Attrs(Rc::new(NixAttrs::Map(map))));
+        }
+
+        // Occupied entry: Either error out if there is something
+        // other than attrs, or insert the next value.
+        std::collections::btree_map::Entry::Occupied(mut entry) => match entry.get_mut() {
+            Value::Attrs(_attrs) => {
+                todo!("implement mutable attrsets")
+            }
+
+            _ => {
+                return Err(Error::DuplicateAttrsKey {
+                    key: entry.key().0.clone(),
+                })
+            }
+        },
+    }
+
+    Ok(())
 }
 
 pub fn run_chunk(chunk: Chunk) -> EvalResult<Value> {

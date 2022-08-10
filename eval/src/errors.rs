@@ -6,6 +6,10 @@ pub enum Error {
         key: String,
     },
 
+    InvalidKeyType {
+        given: &'static str,
+    },
+
     TypeError {
         expected: &'static str,
         actual: &'static str,
