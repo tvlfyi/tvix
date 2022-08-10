@@ -234,12 +234,7 @@ impl VM {
             //
             let key = self.pop();
             match key {
-                Value::String(ks) => {
-                    // TODO(tazjin): try_insert (rust#82766) or entry API
-                    if attrs.insert(ks.clone(), value).is_some() {
-                        return Err(Error::DuplicateAttrsKey { key: ks.0 });
-                    }
-                }
+                Value::String(ks) => set_attr(&mut attrs, ks, value)?,
 
                 Value::AttrPath(mut path) => {
                     set_nested_attr(
@@ -299,6 +294,29 @@ pub enum NumberPair {
     Integer(i64, i64),
 }
 
+// Set an attribute on an in-construction attribute set, while
+// checking against duplicate key.s
+fn set_attr(
+    attrs: &mut BTreeMap<NixString, Value>,
+    key: NixString,
+    value: Value,
+) -> EvalResult<()> {
+    let entry = attrs.entry(key);
+
+    match entry {
+        std::collections::btree_map::Entry::Occupied(entry) => {
+            return Err(Error::DuplicateAttrsKey {
+                key: entry.key().0.clone(),
+            })
+        }
+
+        std::collections::btree_map::Entry::Vacant(entry) => {
+            entry.insert(value);
+            return Ok(());
+        }
+    };
+}
+
 // Set a nested attribute inside of an attribute set, throwing a
 // duplicate key error if a non-hashmap entry already exists on the
 // path.
@@ -311,24 +329,13 @@ fn set_nested_attr(
     mut path: Vec<NixString>,
     value: Value,
 ) -> EvalResult<()> {
-    let entry = attrs.entry(key);
-
     // If there is no next key we are at the point where we
     // should insert the value itself.
     if path.is_empty() {
-        match entry {
-            std::collections::btree_map::Entry::Occupied(entry) => {
-                return Err(Error::DuplicateAttrsKey {
-                    key: entry.key().0.clone(),
-                })
-            }
-
-            std::collections::btree_map::Entry::Vacant(entry) => {
-                entry.insert(value);
-                return Ok(());
-            }
-        };
+        return set_attr(attrs, key, value);
     }
+
+    let entry = attrs.entry(key);
 
     // If there is not we go one step further down, in which case we
     // need to ensure that there either is no entry, or the existing
