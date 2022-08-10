@@ -7,6 +7,7 @@ use test_generator::test_resources;
 //
 // These evaluations are always supposed to succeed, i.e. all snippets
 // are guaranteed to be valid Nix code.
+#[cfg(feature = "nix_tests")]
 #[test_resources("src/tests/nix_tests/eval-okay-*.nix")]
 fn eval_okay(code_path: &str) {
     let base = code_path
