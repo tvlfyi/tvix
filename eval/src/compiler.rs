@@ -130,17 +130,22 @@ impl Compiler {
 
         use rnix::types::BinOpKind;
 
-        let opcode = match op.operator().unwrap() {
-            BinOpKind::Add => OpCode::OpAdd,
-            BinOpKind::Sub => OpCode::OpSub,
-            BinOpKind::Mul => OpCode::OpMul,
-            BinOpKind::Div => OpCode::OpDiv,
-            BinOpKind::Equal => OpCode::OpEqual,
-            BinOpKind::Update => OpCode::OpAttrsUpdate,
+        match op.operator().unwrap() {
+            BinOpKind::Add => self.chunk.add_op(OpCode::OpAdd),
+            BinOpKind::Sub => self.chunk.add_op(OpCode::OpSub),
+            BinOpKind::Mul => self.chunk.add_op(OpCode::OpMul),
+            BinOpKind::Div => self.chunk.add_op(OpCode::OpDiv),
+            BinOpKind::Update => self.chunk.add_op(OpCode::OpAttrsUpdate),
+            BinOpKind::Equal => self.chunk.add_op(OpCode::OpEqual),
+
+            BinOpKind::NotEqual => {
+                self.chunk.add_op(OpCode::OpEqual);
+                self.chunk.add_op(OpCode::OpInvert)
+            }
+
             _ => todo!(),
         };
 
-        self.chunk.add_op(opcode);
         Ok(())
     }
 
