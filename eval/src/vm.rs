@@ -1,7 +1,7 @@
 //! This module implements the virtual (or abstract) machine that runs
 //! Tvix bytecode.
 
-use std::{collections::BTreeMap, rc::Rc};
+use std::rc::Rc;
 
 use crate::{
     chunk::Chunk,
@@ -21,10 +21,6 @@ impl VM {
         let op = self.chunk.code[self.ip];
         self.ip += 1;
         op
-    }
-
-    fn peek(&self, at: usize) -> &Value {
-        &self.stack[self.stack.len() - 1 - at]
     }
 
     fn pop(&mut self) -> Value {
@@ -151,110 +147,8 @@ impl VM {
     }
 
     fn run_attrset(&mut self, count: usize) -> EvalResult<()> {
-        // If the attribute count happens to be 2, we might be able to
-        // create the optimised name/value struct instead.
-        if count == 2 {
-            // When determining whether we are dealing with a
-            // name/value pair, we return the stack locations of name
-            // and value, using `0` as a sentinel value (i.e. if
-            // either is 0, we are dealing with some other attrset).
-            let is_pair = {
-                // The keys are located 1 & 3 values back in the
-                // stack.
-                let k1 = self.peek(1);
-                let k2 = self.peek(3);
-
-                match (k1, k2) {
-                    (Value::String(NixString(s1)), Value::String(NixString(s2)))
-                        if (s1 == "name" && s2 == "value") =>
-                    {
-                        (1, 2)
-                    }
-
-                    (Value::String(NixString(s1)), Value::String(NixString(s2)))
-                        if (s1 == "value" && s2 == "name") =>
-                    {
-                        (2, 1)
-                    }
-
-                    // Technically this branch lets type errors pass,
-                    // but they will be caught during normal attribute
-                    // set construction instead.
-                    _ => (0, 0),
-                }
-            };
-
-            match is_pair {
-                (1, 2) => {
-                    // The value of 'name' is at stack slot 0, the
-                    // value of 'value' is at stack slot 2.
-                    let pair = Value::Attrs(Rc::new(NixAttrs::KV {
-                        name: self.pop(),
-                        value: {
-                            self.pop(); // ignore the key
-                            self.pop()
-                        },
-                    }));
-
-                    // Clean up the last key fragment.
-                    self.pop();
-
-                    self.push(pair);
-                    return Ok(());
-                }
-
-                (2, 1) => {
-                    // The value of 'name' is at stack slot 2, the
-                    // value of 'value' is at stack slot 0.
-                    let pair = Value::Attrs(Rc::new(NixAttrs::KV {
-                        value: self.pop(),
-                        name: {
-                            self.pop(); // ignore the key
-                            self.pop()
-                        },
-                    }));
-
-                    // Clean up the last key fragment.
-                    self.pop();
-
-                    self.push(pair);
-                    return Ok(());
-                }
-                _ => {}
-            }
-        }
-
-        let mut attrs: BTreeMap<NixString, Value> = BTreeMap::new();
-
-        for _ in 0..count {
-            let value = self.pop();
-
-            // It is at this point that nested attribute sets need to
-            // be constructed (if they exist).
-            //
-            let key = self.pop();
-            match key {
-                Value::String(ks) => set_attr(&mut attrs, ks, value)?,
-
-                Value::AttrPath(mut path) => {
-                    set_nested_attr(
-                        &mut attrs,
-                        path.pop().expect("AttrPath is never empty"),
-                        path,
-                        value,
-                    )?;
-                }
-
-                other => {
-                    return Err(Error::InvalidKeyType {
-                        given: other.type_of(),
-                    })
-                }
-            }
-        }
-
-        // TODO(tazjin): extend_reserve(count) (rust#72631)
-        self.push(Value::Attrs(Rc::new(NixAttrs::Map(attrs))));
+        let attrs = NixAttrs::construct(count, self.stack.split_off(self.stack.len() - count * 2))?;
+        self.push(Value::Attrs(Rc::new(attrs)));
         Ok(())
     }
 
@@ -292,86 +186,6 @@ impl VM {
 pub enum NumberPair {
     Floats(f64, f64),
     Integer(i64, i64),
-}
-
-// Set an attribute on an in-construction attribute set, while
-// checking against duplicate key.s
-fn set_attr(
-    attrs: &mut BTreeMap<NixString, Value>,
-    key: NixString,
-    value: Value,
-) -> EvalResult<()> {
-    let entry = attrs.entry(key);
-
-    match entry {
-        std::collections::btree_map::Entry::Occupied(entry) => {
-            return Err(Error::DuplicateAttrsKey {
-                key: entry.key().0.clone(),
-            })
-        }
-
-        std::collections::btree_map::Entry::Vacant(entry) => {
-            entry.insert(value);
-            return Ok(());
-        }
-    };
-}
-
-// Set a nested attribute inside of an attribute set, throwing a
-// duplicate key error if a non-hashmap entry already exists on the
-// path.
-//
-// There is some optimisation potential for this simple implementation
-// if it becomes a problem.
-fn set_nested_attr(
-    attrs: &mut BTreeMap<NixString, Value>,
-    key: NixString,
-    mut path: Vec<NixString>,
-    value: Value,
-) -> EvalResult<()> {
-    // If there is no next key we are at the point where we
-    // should insert the value itself.
-    if path.is_empty() {
-        return set_attr(attrs, key, value);
-    }
-
-    let entry = attrs.entry(key);
-
-    // If there is not we go one step further down, in which case we
-    // need to ensure that there either is no entry, or the existing
-    // entry is a hashmap into which to insert the next value.
-    //
-    // If a value of a different type exists, the user specified a
-    // duplicate key.
-    match entry {
-        // Vacant entry -> new attribute set is needed.
-        std::collections::btree_map::Entry::Vacant(entry) => {
-            let mut map = BTreeMap::new();
-
-            // TODO(tazjin): technically recursing further is not
-            // required, we can create the whole hierarchy here, but
-            // it's noisy.
-            set_nested_attr(&mut map, path.pop().expect("next key exists"), path, value)?;
-
-            entry.insert(Value::Attrs(Rc::new(NixAttrs::Map(map))));
-        }
-
-        // Occupied entry: Either error out if there is something
-        // other than attrs, or insert the next value.
-        std::collections::btree_map::Entry::Occupied(mut entry) => match entry.get_mut() {
-            Value::Attrs(_attrs) => {
-                todo!("implement mutable attrsets")
-            }
-
-            _ => {
-                return Err(Error::DuplicateAttrsKey {
-                    key: entry.key().0.clone(),
-                })
-            }
-        },
-    }
-
-    Ok(())
 }
 
 pub fn run_chunk(chunk: Chunk) -> EvalResult<Value> {
