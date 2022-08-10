@@ -3,7 +3,7 @@ use std::fmt::Display;
 /// This module implements Nix language strings and their different
 /// backing implementations.
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Hash, Eq, Ord)]
 pub enum NixString {
     Static(&'static str),
     Heap(String),
@@ -15,6 +15,18 @@ impl Display for NixString {
             NixString::Static(s) => f.write_str(s),
             NixString::Heap(s) => f.write_str(s),
         }
+    }
+}
+
+impl PartialEq for NixString {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl PartialOrd for NixString {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.as_str().partial_cmp(other.as_str())
     }
 }
 
