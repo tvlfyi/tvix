@@ -448,22 +448,34 @@ impl Compiler {
         //
         // Otherwise, the right hand side is the (only) key expression
         // itself and can be compiled directly.
-        let rhs = node.rhs().unwrap();
+        let mut next = node.rhs().unwrap();
+        let mut fragments = vec![];
 
-        if matches!(rhs.kind(), rnix::SyntaxKind::NODE_SELECT) {
-            // Keep nesting deeper until we encounter something
-            // different than `NODE_SELECT` on the left side. This is
-            // required because `rnix` parses nested keys as select
-            // expressions, instead of as a key expression.
-            //
-            // The parsed tree will nest something like `a.b.c.d.e.f`
-            // as (((((a, b), c), d), e), f).
-            todo!("nested '?' check")
-        } else {
-            self.compile_with_literal_ident(rhs)?;
+        loop {
+            if matches!(next.kind(), rnix::SyntaxKind::NODE_SELECT) {
+                // Keep nesting deeper until we encounter something
+                // different than `NODE_SELECT` on the left side. This is
+                // required because `rnix` parses nested keys as select
+                // expressions, instead of as a key expression.
+                //
+                // The parsed tree will nest something like `a.b.c.d.e.f`
+                // as (((((a, b), c), d), e), f).
+                fragments.push(next.last_child().unwrap());
+                next = next.first_child().unwrap();
+            } else {
+                self.compile_with_literal_ident(next)?;
+
+                for fragment in fragments.into_iter().rev() {
+                    println!("fragment: {}", fragment);
+                    self.chunk.add_op(OpCode::OpAttrsSelect);
+                    self.compile_with_literal_ident(fragment)?;
+                }
+
+                self.chunk.add_op(OpCode::OpAttrsIsSet);
+                break;
+            }
         }
 
-        self.chunk.add_op(OpCode::OpAttrsIsSet);
         Ok(())
     }
 
