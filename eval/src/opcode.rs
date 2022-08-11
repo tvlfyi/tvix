@@ -12,6 +12,9 @@ pub enum OpCode {
     // Push a constant onto the stack.
     OpConstant(ConstantIdx),
 
+    // Discard a value from the stack.
+    OpPop,
+
     // Push a literal value.
     OpNull,
     OpTrue,
@@ -27,12 +30,16 @@ pub enum OpCode {
     OpMul,
     OpDiv,
 
-    // Logical binary operators
+    // Comparison operators
     OpEqual,
     OpLess,
     OpLessOrEq,
     OpMore,
     OpMoreOrEq,
+
+    // Logical operators & generic jumps
+    OpJump(usize),
+    OpJumpIfFalse(usize),
 
     // Attribute sets
     OpAttrs(usize),

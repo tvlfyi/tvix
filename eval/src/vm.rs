@@ -83,12 +83,20 @@ impl VM {
         self.stack.push(value)
     }
 
+    fn peek(&self, offset: usize) -> &Value {
+        &self.stack[self.stack.len() - 1 - offset]
+    }
+
     fn run(&mut self) -> EvalResult<Value> {
         loop {
             match self.inc_ip() {
                 OpCode::OpConstant(idx) => {
                     let c = self.chunk.constant(idx).clone();
                     self.push(c);
+                }
+
+                OpCode::OpPop => {
+                    self.pop();
                 }
 
                 OpCode::OpAdd => {
@@ -163,6 +171,16 @@ impl VM {
                 }
 
                 OpCode::OpInterpolate(count) => self.run_interpolate(count)?,
+
+                OpCode::OpJump(offset) => {
+                    self.ip += offset;
+                }
+
+                OpCode::OpJumpIfFalse(offset) => {
+                    if !self.peek(0).as_bool()? {
+                        self.ip += offset;
+                    }
+                }
             }
 
             if self.ip == self.chunk.code.len() {

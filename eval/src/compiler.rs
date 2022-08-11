@@ -3,7 +3,7 @@
 
 use crate::chunk::Chunk;
 use crate::errors::EvalResult;
-use crate::opcode::OpCode;
+use crate::opcode::{CodeIdx, OpCode};
 use crate::value::Value;
 
 use rnix;
@@ -66,6 +66,11 @@ impl Compiler {
             rnix::SyntaxKind::NODE_LIST => {
                 let node = rnix::types::List::cast(node).unwrap();
                 self.compile_list(node)
+            }
+
+            rnix::SyntaxKind::NODE_IF_ELSE => {
+                let node = rnix::types::IfElse::cast(node).unwrap();
+                self.compile_if_else(node)
             }
 
             kind => {
@@ -143,12 +148,16 @@ impl Compiler {
             BinOpKind::MoreOrEq => self.chunk.add_op(OpCode::OpMoreOrEq),
             BinOpKind::Concat => self.chunk.add_op(OpCode::OpConcat),
 
+            BinOpKind::And => todo!(),
+            BinOpKind::Or => todo!(),
+            BinOpKind::Implication => todo!(),
+
             BinOpKind::NotEqual => {
                 self.chunk.add_op(OpCode::OpEqual);
                 self.chunk.add_op(OpCode::OpInvert)
             }
 
-            _ => todo!(),
+            BinOpKind::IsSet => todo!("? operator"),
         };
 
         Ok(())
@@ -268,6 +277,51 @@ impl Compiler {
 
         self.chunk.add_op(OpCode::OpList(count));
         Ok(())
+    }
+
+    // Compile conditional expressions using jumping instructions in the VM.
+    //
+    //                        ┌────────────────────┐
+    //                        │ 0  [ conditional ] │
+    //                        │ 1   JUMP_IF_FALSE →┼─┐
+    //                        │ 2  [  main body  ] │ │ Jump to else body if
+    //                       ┌┼─3─←     JUMP       │ │ condition is false.
+    //  Jump over else body  ││ 4  [  else body  ]←┼─┘
+    //  if condition is true.└┼─5─→     ...        │
+    //                        └────────────────────┘
+    fn compile_if_else(&mut self, node: rnix::types::IfElse) -> EvalResult<()> {
+        self.compile(node.condition().unwrap())?;
+
+        let then_idx = self.chunk.add_op(OpCode::OpJumpIfFalse(0));
+
+        self.chunk.add_op(OpCode::OpPop); // discard condition value
+        self.compile(node.body().unwrap())?;
+
+        let else_idx = self.chunk.add_op(OpCode::OpJump(0));
+
+        self.patch_jump(then_idx); // patch jump *to* else_body
+        self.chunk.add_op(OpCode::OpPop); // discard condition value
+        self.compile(node.else_body().unwrap())?;
+
+        self.patch_jump(else_idx); // patch jump *over* else body
+
+        Ok(())
+    }
+
+    fn patch_jump(&mut self, idx: CodeIdx) {
+        let offset = self.chunk.code.len() - 1 - idx.0;
+
+        match &mut self.chunk.code[idx.0] {
+            OpCode::OpJump(n) => {
+                *n = offset;
+            }
+
+            OpCode::OpJumpIfFalse(n) => {
+                *n = offset;
+            }
+
+            op => panic!("attempted to patch unsupported op: {:?}", op),
+        }
     }
 }
 

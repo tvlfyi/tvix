@@ -52,9 +52,9 @@ impl Value {
         }
     }
 
-    pub fn as_bool(self) -> EvalResult<bool> {
+    pub fn as_bool(&self) -> EvalResult<bool> {
         match self {
-            Value::Bool(b) => Ok(b),
+            Value::Bool(b) => Ok(*b),
             other => Err(Error::TypeError {
                 expected: "bool",
                 actual: other.type_of(),
