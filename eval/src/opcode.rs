@@ -53,4 +53,7 @@ pub enum OpCode {
 
     // Strings
     OpInterpolate(usize),
+
+    // Type assertion operators
+    OpAssertBool,
 }

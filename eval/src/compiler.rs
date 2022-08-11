@@ -350,6 +350,7 @@ impl Compiler {
         self.compile(node.rhs().unwrap())?;
 
         self.patch_jump(end_idx);
+        self.chunk.add_op(OpCode::OpAssertBool);
 
         Ok(())
     }
@@ -370,6 +371,7 @@ impl Compiler {
         self.chunk.add_op(OpCode::OpPop);
         self.compile(node.rhs().unwrap())?;
         self.patch_jump(end_idx);
+        self.chunk.add_op(OpCode::OpAssertBool);
 
         Ok(())
     }
@@ -390,6 +392,7 @@ impl Compiler {
         self.chunk.add_op(OpCode::OpPop);
         self.compile(node.rhs().unwrap())?;
         self.patch_jump(end_idx);
+        self.chunk.add_op(OpCode::OpAssertBool);
 
         Ok(())
     }

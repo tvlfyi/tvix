@@ -91,6 +91,10 @@ impl Value {
             }),
         }
     }
+
+    pub fn is_bool(&self) -> bool {
+        matches!(self, Value::Bool(_))
+    }
 }
 
 impl Display for Value {

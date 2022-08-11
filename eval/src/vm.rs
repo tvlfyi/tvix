@@ -187,6 +187,20 @@ impl VM {
                         self.ip += offset;
                     }
                 }
+
+                // These assertion operations error out if the stack
+                // top is not of the expected type. This is necessary
+                // to implement some specific behaviours of Nix
+                // exactly.
+                OpCode::OpAssertBool => {
+                    let val = self.peek(0);
+                    if !val.is_bool() {
+                        return Err(Error::TypeError {
+                            expected: "bool",
+                            actual: val.type_of(),
+                        });
+                    }
+                }
             }
 
             if self.ip == self.chunk.code.len() {
