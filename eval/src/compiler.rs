@@ -163,14 +163,15 @@ impl Compiler {
     }
 
     fn compile_binop(&mut self, op: rnix::types::BinOp) -> EvalResult<()> {
-        // Short-circuiting logical operators, which are under the
-        // same node type as NODE_BIN_OP, but need to be handled
-        // separately (i.e. before compiling the expressions used for
-        // standard binary operators).
+        // Short-circuiting and other strange operators, which are
+        // under the same node type as NODE_BIN_OP, but need to be
+        // handled separately (i.e. before compiling the expressions
+        // used for standard binary operators).
         match op.operator().unwrap() {
             BinOpKind::And => return self.compile_and(op),
             BinOpKind::Or => return self.compile_or(op),
             BinOpKind::Implication => return self.compile_implication(op),
+            BinOpKind::IsSet => return self.compile_is_set(op),
 
             _ => {}
         };
@@ -196,10 +197,10 @@ impl Compiler {
                 self.chunk.add_op(OpCode::OpInvert)
             }
 
-            BinOpKind::IsSet => todo!("? operator"),
-
             // Handled by separate branch above.
-            BinOpKind::And | BinOpKind::Implication | BinOpKind::Or => unreachable!(),
+            BinOpKind::And | BinOpKind::Implication | BinOpKind::Or | BinOpKind::IsSet => {
+                unreachable!()
+            }
         };
 
         Ok(())
@@ -429,6 +430,40 @@ impl Compiler {
         self.patch_jump(end_idx);
         self.chunk.add_op(OpCode::OpAssertBool);
 
+        Ok(())
+    }
+
+    fn compile_is_set(&mut self, node: rnix::types::BinOp) -> EvalResult<()> {
+        debug_assert!(
+            matches!(node.operator(), Some(BinOpKind::IsSet)),
+            "compile_is_set called with wrong operator kind: {:?}",
+            node.operator(),
+        );
+
+        // Put the attribute set on the stack.
+        self.compile(node.lhs().unwrap())?;
+
+        // If the key is a NODE_SELECT, the check is deeper than one
+        // level and requires special handling.
+        //
+        // Otherwise, the right hand side is the (only) key expression
+        // itself and can be compiled directly.
+        let rhs = node.rhs().unwrap();
+
+        if matches!(rhs.kind(), rnix::SyntaxKind::NODE_SELECT) {
+            // Keep nesting deeper until we encounter something
+            // different than `NODE_SELECT` on the left side. This is
+            // required because `rnix` parses nested keys as select
+            // expressions, instead of as a key expression.
+            //
+            // The parsed tree will nest something like `a.b.c.d.e.f`
+            // as (((((a, b), c), d), e), f).
+            todo!("nested '?' check")
+        } else {
+            self.compile_with_literal_ident(rhs)?;
+        }
+
+        self.chunk.add_op(OpCode::OpAttrsIsSet);
         Ok(())
     }
 

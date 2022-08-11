@@ -173,6 +173,13 @@ impl VM {
                     }
                 }
 
+                OpCode::OpAttrsIsSet => {
+                    let key = self.pop().as_string()?;
+                    let attrs = self.pop().as_attrs()?;
+                    let result = Value::Bool(attrs.select(key.as_str()).is_some());
+                    self.push(result);
+                }
+
                 OpCode::OpList(count) => {
                     let list =
                         NixList::construct(count, self.stack.split_off(self.stack.len() - count));
