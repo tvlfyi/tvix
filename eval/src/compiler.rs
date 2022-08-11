@@ -149,7 +149,7 @@ impl Compiler {
         match op.operator().unwrap() {
             BinOpKind::And => return self.compile_and(op),
             BinOpKind::Or => return self.compile_or(op),
-            BinOpKind::Implication => todo!(),
+            BinOpKind::Implication => return self.compile_implication(op),
 
             _ => {}
         };
@@ -366,6 +366,26 @@ impl Compiler {
 
         // Opposite of above: If this value is **true**, we can
         // short-circuit the right-hand side.
+        let end_idx = self.chunk.add_op(OpCode::OpJumpIfTrue(0));
+        self.chunk.add_op(OpCode::OpPop);
+        self.compile(node.rhs().unwrap())?;
+        self.patch_jump(end_idx);
+
+        Ok(())
+    }
+
+    fn compile_implication(&mut self, node: rnix::types::BinOp) -> EvalResult<()> {
+        debug_assert!(
+            matches!(node.operator(), Some(BinOpKind::Implication)),
+            "compile_implication called with wrong operator kind: {:?}",
+            node.operator(),
+        );
+
+        // Leave left-hand side value on the stack and invert it.
+        self.compile(node.lhs().unwrap())?;
+        self.chunk.add_op(OpCode::OpInvert);
+
+        // Exactly as `||` (because `a -> b` = `!a || b`).
         let end_idx = self.chunk.add_op(OpCode::OpJumpIfTrue(0));
         self.chunk.add_op(OpCode::OpPop);
         self.compile(node.rhs().unwrap())?;
