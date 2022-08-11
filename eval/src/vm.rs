@@ -104,14 +104,7 @@ impl VM {
                     let v2 = self.pop();
                     let v1 = self.pop();
 
-                    let eq = match (v1, v2) {
-                        (Value::Float(f), Value::Integer(i))
-                        | (Value::Integer(i), Value::Float(f)) => f == (i as f64),
-
-                        (v1, v2) => v1 == v2,
-                    };
-
-                    self.push(Value::Bool(eq))
+                    self.push(Value::Bool(v1 == v2))
                 }
 
                 OpCode::OpNull => self.push(Value::Null),
