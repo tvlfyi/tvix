@@ -151,6 +151,13 @@ impl VM {
                 }
 
                 OpCode::OpList(count) => self.run_list(count)?,
+
+                OpCode::OpConcat => {
+                    let rhs = self.pop().as_list()?;
+                    let lhs = self.pop().as_list()?;
+                    self.push(Value::List(lhs.concat(&rhs)))
+                }
+
                 OpCode::OpInterpolate(count) => self.run_interpolate(count)?,
             }
 

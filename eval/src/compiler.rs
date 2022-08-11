@@ -141,6 +141,7 @@ impl Compiler {
             BinOpKind::LessOrEq => self.chunk.add_op(OpCode::OpLessOrEq),
             BinOpKind::More => self.chunk.add_op(OpCode::OpMore),
             BinOpKind::MoreOrEq => self.chunk.add_op(OpCode::OpMoreOrEq),
+            BinOpKind::Concat => self.chunk.add_op(OpCode::OpConcat),
 
             BinOpKind::NotEqual => {
                 self.chunk.add_op(OpCode::OpEqual);

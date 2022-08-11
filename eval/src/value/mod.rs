@@ -81,6 +81,16 @@ impl Value {
             }),
         }
     }
+
+    pub fn as_list(self) -> EvalResult<NixList> {
+        match self {
+            Value::List(l) => Ok(l),
+            other => Err(Error::TypeError {
+                expected: "list",
+                actual: other.type_of(),
+            }),
+        }
+    }
 }
 
 impl Display for Value {

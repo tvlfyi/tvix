@@ -18,3 +18,12 @@ impl Display for NixList {
         f.write_str("]")
     }
 }
+
+impl NixList {
+    pub fn concat(&self, other: &Self) -> Self {
+        let mut lhs = self.clone();
+        let mut rhs = other.clone();
+        lhs.0.append(&mut rhs.0);
+        lhs
+    }
+}

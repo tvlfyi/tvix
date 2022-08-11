@@ -41,6 +41,7 @@ pub enum OpCode {
 
     // Lists
     OpList(usize),
+    OpConcat,
 
     // Strings
     OpInterpolate(usize),
