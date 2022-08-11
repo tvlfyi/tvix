@@ -81,6 +81,11 @@ impl Compiler {
                 self.compile_select(node)
             }
 
+            rnix::SyntaxKind::NODE_OR_DEFAULT => {
+                let node = rnix::types::OrDefault::cast(node).unwrap();
+                self.compile_or_default(node)
+            }
+
             rnix::SyntaxKind::NODE_LIST => {
                 let node = rnix::types::List::cast(node).unwrap();
                 self.compile_list(node)
@@ -466,7 +471,6 @@ impl Compiler {
                 self.compile_with_literal_ident(next)?;
 
                 for fragment in fragments.into_iter().rev() {
-                    println!("fragment: {}", fragment);
                     self.chunk.add_op(OpCode::OpAttrsSelect);
                     self.compile_with_literal_ident(fragment)?;
                 }
@@ -479,11 +483,81 @@ impl Compiler {
         Ok(())
     }
 
+    /// Compile an `or` expression into a chunk of conditional jumps.
+    ///
+    /// If at any point during attribute set traversal a key is
+    /// missing, the `OpAttrOrNotFound` instruction will leave a
+    /// special sentinel value on the stack.
+    ///
+    /// After each access, a conditional jump evaluates the top of the
+    /// stack and short-circuits to the default value if it sees the
+    /// sentinel.
+    ///
+    /// Code like `{ a.b = 1; }.a.c or 42` yields this bytecode and
+    /// runtime stack:
+    ///
+    /// ```notrust
+    ///            Bytecode                     Runtime stack
+    ///  ┌────────────────────────────┐   ┌─────────────────────────┐
+    ///  │    ...                     │   │ ...                     │
+    ///  │ 5  OP_ATTRS(1)             │ → │ 5  [ { a.b = 1; }     ] │
+    ///  │ 6  OP_CONSTANT("a")        │ → │ 6  [ { a.b = 1; } "a" ] │
+    ///  │ 7  OP_ATTR_OR_NOT_FOUND    │ → │ 7  [ { b = 1; }       ] │
+    ///  │ 8  JUMP_IF_NOT_FOUND(13)   │ → │ 8  [ { b = 1; }       ] │
+    ///  │ 9  OP_CONSTANT("C")        │ → │ 9  [ { b = 1; } "c"   ] │
+    ///  │ 10 OP_ATTR_OR_NOT_FOUND    │ → │ 10 [ NOT_FOUND        ] │
+    ///  │ 11 JUMP_IF_NOT_FOUND(13)   │ → │ 11 [                  ] │
+    ///  │ 12 JUMP(14)                │   │ ..     jumped over      │
+    ///  │ 13 CONSTANT(42)            │ → │ 12 [ 42 ]               │
+    ///  │ 14 ...                     │   │ ..   ....               │
+    ///  └────────────────────────────┘   └─────────────────────────┘
+    /// ```
+    fn compile_or_default(&mut self, node: rnix::types::OrDefault) -> EvalResult<()> {
+        let select = node.index().unwrap();
+
+        let mut next = select.set().unwrap();
+        let mut fragments = vec![select.index().unwrap()];
+        let mut jumps = vec![];
+
+        loop {
+            if matches!(next.kind(), rnix::SyntaxKind::NODE_SELECT) {
+                fragments.push(next.last_child().unwrap());
+                next = next.first_child().unwrap();
+                continue;
+            } else {
+                self.compile(next)?;
+            }
+
+            for fragment in fragments.into_iter().rev() {
+                self.compile_with_literal_ident(fragment)?;
+                self.chunk.add_op(OpCode::OpAttrOrNotFound);
+                jumps.push(self.chunk.add_op(OpCode::OpJumpIfNotFound(0)));
+            }
+
+            break;
+        }
+
+        let final_jump = self.chunk.add_op(OpCode::OpJump(0));
+        for jump in jumps {
+            self.patch_jump(jump);
+        }
+
+        // Compile the default value expression and patch the final
+        // jump to point *beyond* it.
+        self.compile(node.default().unwrap())?;
+        self.patch_jump(final_jump);
+
+        Ok(())
+    }
+
     fn patch_jump(&mut self, idx: CodeIdx) {
         let offset = self.chunk.code.len() - 1 - idx.0;
 
         match &mut self.chunk.code[idx.0] {
-            OpCode::OpJump(n) | OpCode::OpJumpIfFalse(n) | OpCode::OpJumpIfTrue(n) => {
+            OpCode::OpJump(n)
+            | OpCode::OpJumpIfFalse(n)
+            | OpCode::OpJumpIfTrue(n)
+            | OpCode::OpJumpIfNotFound(n) => {
                 *n = offset;
             }
 
