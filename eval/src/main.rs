@@ -1,8 +1,6 @@
-use std::{
-    env, fs,
-    io::{self, Write},
-    mem, process,
-};
+use std::{env, fs, path::PathBuf, process};
+
+use rustyline::{error::ReadlineError, Editor};
 
 fn main() {
     let mut args = env::args();
@@ -21,26 +19,58 @@ fn main() {
 fn run_file(file: &str) {
     let contents = fs::read_to_string(file).expect("failed to read the input file");
 
-    run(contents);
-}
-
-fn run_prompt() {
-    let mut line = String::new();
-
-    loop {
-        print!("> ");
-        io::stdout().flush().unwrap();
-        io::stdin()
-            .read_line(&mut line)
-            .expect("failed to read user input");
-        run(mem::take(&mut line));
-        line.clear();
+    match tvix_eval::interpret(&contents) {
+        Ok(result) => println!("=> {} :: {}", result, result.type_of()),
+        Err(err) => eprintln!("{}", err),
     }
 }
 
-fn run(code: String) {
-    match tvix_eval::interpret(&code) {
-        Ok(result) => println!("=> {} :: {}", result, result.type_of()),
-        Err(err) => eprintln!("{}", err),
+fn state_dir() -> Option<PathBuf> {
+    let mut path = dirs::data_dir();
+    path.as_mut().map(|p| p.push("tvix"));
+    path
+}
+
+fn run_prompt() {
+    let mut rl = Editor::<()>::new().expect("should be able to launch rustyline");
+
+    let history_path = match state_dir() {
+        Some(mut path) => {
+            path.push("history.txt");
+            rl.load_history(&path).ok();
+
+            Some(path)
+        }
+
+        None => None,
+    };
+
+    loop {
+        let readline = rl.readline("tvix-repl> ");
+        match readline {
+            Ok(line) => {
+                if line.is_empty() {
+                    continue;
+                }
+
+                match tvix_eval::interpret(&line) {
+                    Ok(result) => {
+                        println!("=> {} :: {}", result, result.type_of());
+                        rl.add_history_entry(line);
+                    }
+                    Err(err) => println!("{}", err),
+                }
+            }
+            Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => break,
+
+            Err(err) => {
+                eprintln!("error: {}", err);
+                break;
+            }
+        }
+    }
+
+    if let Some(path) = history_path {
+        rl.save_history(&path).unwrap();
     }
 }
