@@ -116,7 +116,8 @@ impl Display for Value {
             )),
 
             // internal types
-            Value::AttrPath(_) | Value::Blackhole => f.write_str("internal"),
+            Value::AttrPath(_) => f.write_str("internal<attrpath>"),
+            Value::Blackhole => f.write_str("internal<blackhole>"),
         }
     }
 }
