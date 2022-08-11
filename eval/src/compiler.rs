@@ -1,5 +1,17 @@
 //! This module implements a compiler for compiling the rnix AST
 //! representation to Tvix bytecode.
+//!
+//! A note on `unwrap()`: This module contains a lot of calls to
+//! `unwrap()` or `expect(...)` on data structures returned by `rnix`.
+//! The reason for this is that rnix uses the same data structures to
+//! represent broken and correct ASTs, so all typed AST variants have
+//! the ability to represent an incorrect node.
+//!
+//! However, at the time that the AST is passed to the compiler we
+//! have verified that `rnix` considers the code to be correct, so all
+//! variants are filed. In cases where the invariant is guaranteed by
+//! the code in this module, `debug_assert!` has been used to catch
+//! mistakes early during development.
 
 use crate::chunk::Chunk;
 use crate::errors::EvalResult;
