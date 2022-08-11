@@ -26,6 +26,7 @@ pub enum Value {
     // are never returned to or created directly by users.
     AttrPath(Vec<NixString>),
     Blackhole,
+    NotFound,
 }
 
 impl Value {
@@ -48,7 +49,7 @@ impl Value {
             Value::List(_) => "list",
 
             // Internal types
-            Value::AttrPath(_) | Value::Blackhole => "internal",
+            Value::AttrPath(_) | Value::Blackhole | Value::NotFound => "internal",
         }
     }
 
@@ -116,8 +117,9 @@ impl Display for Value {
             )),
 
             // internal types
-            Value::AttrPath(_) => f.write_str("internal<attrpath>"),
-            Value::Blackhole => f.write_str("internal<blackhole>"),
+            Value::AttrPath(_) => f.write_str("internal[attrpath]"),
+            Value::Blackhole => f.write_str("internal[blackhole]"),
+            Value::NotFound => f.write_str("internal[not found]"),
         }
     }
 }

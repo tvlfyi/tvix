@@ -173,6 +173,16 @@ impl VM {
                     }
                 }
 
+                OpCode::OpAttrOrNotFound => {
+                    let key = self.pop().as_string()?;
+                    let attrs = self.pop().as_attrs()?;
+
+                    match attrs.select(key.as_str()) {
+                        Some(value) => self.push(value.clone()),
+                        None => self.push(Value::NotFound),
+                    }
+                }
+
                 OpCode::OpAttrsIsSet => {
                     let key = self.pop().as_string()?;
                     let attrs = self.pop().as_attrs()?;
@@ -206,6 +216,13 @@ impl VM {
 
                 OpCode::OpJumpIfFalse(offset) => {
                     if !self.peek(0).as_bool()? {
+                        self.ip += offset;
+                    }
+                }
+
+                OpCode::OpJumpIfNotFound(offset) => {
+                    if matches!(self.peek(0), Value::NotFound) {
+                        self.pop();
                         self.ip += offset;
                     }
                 }

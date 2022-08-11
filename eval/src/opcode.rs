@@ -41,12 +41,14 @@ pub enum OpCode {
     OpJump(usize),
     OpJumpIfTrue(usize),
     OpJumpIfFalse(usize),
+    OpJumpIfNotFound(usize),
 
     // Attribute sets
     OpAttrs(usize),
     OpAttrPath(usize),
     OpAttrsUpdate,
     OpAttrsSelect,
+    OpAttrOrNotFound,
     OpAttrsIsSet,
 
     // Lists
