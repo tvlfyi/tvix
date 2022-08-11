@@ -4,7 +4,7 @@
 use crate::chunk::Chunk;
 use crate::errors::EvalResult;
 use crate::opcode::OpCode;
-use crate::value::{NixString, Value};
+use crate::value::Value;
 
 use rnix;
 use rnix::types::{EntryHolder, TokenWrapper, TypedNode, Wrapper};
@@ -221,9 +221,9 @@ impl Compiler {
                         let ident = rnix::types::Ident::cast(fragment).unwrap();
 
                         // TODO(tazjin): intern!
-                        let idx = self.chunk.add_constant(Value::String(NixString::Heap(
-                            ident.as_str().to_string(),
-                        )));
+                        let idx = self
+                            .chunk
+                            .add_constant(Value::String(ident.as_str().to_string().into()));
                         self.chunk.add_op(OpCode::OpConstant(idx));
                     }
 

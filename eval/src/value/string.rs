@@ -5,10 +5,13 @@ use std::{borrow::Cow, fmt::Display};
 /// backing implementations.
 
 #[derive(Clone, Debug)]
-pub enum NixString {
+enum StringRepr {
     Static(&'static str),
     Heap(String),
 }
+
+#[derive(Clone, Debug)]
+pub struct NixString(StringRepr);
 
 impl PartialEq for NixString {
     fn eq(&self, other: &Self) -> bool {
@@ -32,13 +35,13 @@ impl Ord for NixString {
 
 impl From<&'static str> for NixString {
     fn from(s: &'static str) -> Self {
-        NixString::Static(s)
+        NixString(StringRepr::Static(s))
     }
 }
 
 impl From<String> for NixString {
     fn from(s: String) -> Self {
-        NixString::Heap(s)
+        NixString(StringRepr::Heap(s))
     }
 }
 
@@ -49,13 +52,13 @@ impl Hash for NixString {
 }
 
 impl NixString {
-    pub const NAME: Self = NixString::Static("name");
-    pub const VALUE: Self = NixString::Static("value");
+    pub const NAME: Self = NixString(StringRepr::Static("name"));
+    pub const VALUE: Self = NixString(StringRepr::Static("value"));
 
     pub fn as_str(&self) -> &str {
-        match self {
-            NixString::Static(s) => s,
-            NixString::Heap(s) => s,
+        match &self.0 {
+            StringRepr::Static(s) => s,
+            StringRepr::Heap(s) => s,
         }
     }
 
@@ -82,7 +85,7 @@ impl NixString {
     pub fn concat(&self, other: &Self) -> Self {
         let mut s = self.as_str().to_owned();
         s.push_str(other.as_str());
-        NixString::Heap(s)
+        NixString(StringRepr::Heap(s))
     }
 }
 
