@@ -14,6 +14,11 @@ pub enum Error {
         expected: &'static str,
         actual: &'static str,
     },
+
+    Incomparable {
+        lhs: &'static str,
+        rhs: &'static str,
+    },
 }
 
 impl Display for Error {

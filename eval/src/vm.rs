@@ -18,15 +18,14 @@ pub struct VM {
 
 macro_rules! arithmetic_op {
     ( $self:ident, $op:tt ) => {{
-        let result = arithmetic_op!($self.pop(), $self.pop(), $op);
+        let b = $self.pop();
+        let a = $self.pop();
+        let result = arithmetic_op!(a, b, $op);
         $self.push(result);
     }};
 
-    ( $b:expr, $a:expr, $op:tt ) => {{
-        let b = $b;
-        let a = $a;
-
-        match (a, b) {
+    ( $a:ident, $b:ident, $op:tt ) => {{
+        match ($a, $b) {
             (Value::Integer(i1), Value::Integer(i2)) => Value::Integer(i1 $op i2),
             (Value::Float(f1), Value::Float(f2)) => Value::Float(f1 $op f2),
             (Value::Integer(i1), Value::Float(f2)) => Value::Float(i1 as f64 $op f2),
@@ -41,6 +40,31 @@ macro_rules! arithmetic_op {
                 },
             }),
         }
+    }};
+}
+
+macro_rules! cmp_op {
+    ( $self:ident, $op:tt ) => {{
+        let b = $self.pop();
+        let a = $self.pop();
+
+        // Comparable (in terms of ordering) values are numbers and
+        // strings. Numbers need to be coerced similarly to arithmetic
+        // ops if mixed types are encountered.
+        let result = match (a, b) {
+            (Value::Integer(i1), Value::Integer(i2)) => i1 $op i2,
+            (Value::Float(f1), Value::Float(f2)) => f1 $op f2,
+            (Value::Integer(i1), Value::Float(f2)) => (i1 as f64) $op f2,
+            (Value::Float(f1), Value::Integer(i2)) => f1 $op (i2 as f64),
+            (Value::String(s1), Value::String(s2)) => s1 $op s2,
+
+            (lhs, rhs) => return Err(Error::Incomparable {
+                lhs: lhs.type_of(),
+                rhs: rhs.type_of(),
+            }),
+        };
+
+        $self.push(Value::Bool(result));
     }};
 }
 
@@ -74,7 +98,7 @@ impl VM {
                     let result = if let (Value::String(s1), Value::String(s2)) = (&a, &b) {
                         Value::String(s1.concat(s2))
                     } else {
-                        arithmetic_op!(b, a, +)
+                        arithmetic_op!(a, b, +)
                     };
 
                     self.push(result)
@@ -106,6 +130,11 @@ impl VM {
 
                     self.push(Value::Bool(v1 == v2))
                 }
+
+                OpCode::OpLess => cmp_op!(self, <),
+                OpCode::OpLessOrEq => cmp_op!(self, <=),
+                OpCode::OpMore => cmp_op!(self, >),
+                OpCode::OpMoreOrEq => cmp_op!(self, >=),
 
                 OpCode::OpNull => self.push(Value::Null),
                 OpCode::OpTrue => self.push(Value::Bool(true)),

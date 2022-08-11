@@ -137,6 +137,10 @@ impl Compiler {
             BinOpKind::Div => self.chunk.add_op(OpCode::OpDiv),
             BinOpKind::Update => self.chunk.add_op(OpCode::OpAttrsUpdate),
             BinOpKind::Equal => self.chunk.add_op(OpCode::OpEqual),
+            BinOpKind::Less => self.chunk.add_op(OpCode::OpLess),
+            BinOpKind::LessOrEq => self.chunk.add_op(OpCode::OpLessOrEq),
+            BinOpKind::More => self.chunk.add_op(OpCode::OpMore),
+            BinOpKind::MoreOrEq => self.chunk.add_op(OpCode::OpMoreOrEq),
 
             BinOpKind::NotEqual => {
                 self.chunk.add_op(OpCode::OpEqual);
