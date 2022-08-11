@@ -44,9 +44,10 @@ impl Compiler {
                 self.compile_string(op)
             }
 
-            // The interpolation node is just a wrapper around the
-            // inner value of a fragment, it only requires unwrapping.
-            rnix::SyntaxKind::NODE_STRING_INTERPOL => {
+            // The interpolation & dynamic nodes are just wrappers
+            // around the inner value of a fragment, they only require
+            // unwrapping.
+            rnix::SyntaxKind::NODE_STRING_INTERPOL | rnix::SyntaxKind::NODE_DYNAMIC => {
                 self.compile(node.first_child().expect("TODO (should not be possible)"))
             }
 
