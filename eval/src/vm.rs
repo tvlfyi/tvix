@@ -176,6 +176,12 @@ impl VM {
                     self.ip += offset;
                 }
 
+                OpCode::OpJumpIfTrue(offset) => {
+                    if self.peek(0).as_bool()? {
+                        self.ip += offset;
+                    }
+                }
+
                 OpCode::OpJumpIfFalse(offset) => {
                     if !self.peek(0).as_bool()? {
                         self.ip += offset;

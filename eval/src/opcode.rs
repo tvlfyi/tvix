@@ -39,6 +39,7 @@ pub enum OpCode {
 
     // Logical operators & generic jumps
     OpJump(usize),
+    OpJumpIfTrue(usize),
     OpJumpIfFalse(usize),
 
     // Attribute sets

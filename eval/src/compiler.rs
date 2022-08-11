@@ -148,8 +148,8 @@ impl Compiler {
         // standard binary operators).
         match op.operator().unwrap() {
             BinOpKind::And => return self.compile_and(op),
+            BinOpKind::Or => return self.compile_or(op),
             BinOpKind::Implication => todo!(),
-            BinOpKind::Or => todo!(),
 
             _ => {}
         };
@@ -354,15 +354,31 @@ impl Compiler {
         Ok(())
     }
 
+    fn compile_or(&mut self, node: rnix::types::BinOp) -> EvalResult<()> {
+        debug_assert!(
+            matches!(node.operator(), Some(BinOpKind::Or)),
+            "compile_or called with wrong operator kind: {:?}",
+            node.operator(),
+        );
+
+        // Leave left-hand side value on the stack
+        self.compile(node.lhs().unwrap())?;
+
+        // Opposite of above: If this value is **true**, we can
+        // short-circuit the right-hand side.
+        let end_idx = self.chunk.add_op(OpCode::OpJumpIfTrue(0));
+        self.chunk.add_op(OpCode::OpPop);
+        self.compile(node.rhs().unwrap())?;
+        self.patch_jump(end_idx);
+
+        Ok(())
+    }
+
     fn patch_jump(&mut self, idx: CodeIdx) {
         let offset = self.chunk.code.len() - 1 - idx.0;
 
         match &mut self.chunk.code[idx.0] {
-            OpCode::OpJump(n) => {
-                *n = offset;
-            }
-
-            OpCode::OpJumpIfFalse(n) => {
+            OpCode::OpJump(n) | OpCode::OpJumpIfFalse(n) | OpCode::OpJumpIfTrue(n) => {
                 *n = offset;
             }
 
