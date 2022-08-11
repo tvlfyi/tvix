@@ -18,29 +18,55 @@ use super::Value;
 mod tests;
 
 #[derive(Clone, Debug)]
-pub enum NixAttrs {
+enum AttrsRep {
     Empty,
     Map(BTreeMap<NixString, Value>),
     KV { name: Value, value: Value },
 }
 
+impl AttrsRep {
+    /// Retrieve reference to a mutable map inside of an attrs,
+    /// optionally changing the representation if required.
+    fn map_mut(&mut self) -> &mut BTreeMap<NixString, Value> {
+        match self {
+            AttrsRep::Map(m) => m,
+
+            AttrsRep::Empty => {
+                *self = AttrsRep::Map(BTreeMap::new());
+                self.map_mut()
+            }
+
+            AttrsRep::KV { name, value } => {
+                *self = AttrsRep::Map(BTreeMap::from([
+                    ("name".into(), std::mem::replace(name, Value::Blackhole)),
+                    ("value".into(), std::mem::replace(value, Value::Blackhole)),
+                ]));
+                self.map_mut()
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct NixAttrs(AttrsRep);
+
 impl Display for NixAttrs {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("{ ")?;
 
-        match self {
-            NixAttrs::KV { name, value } => {
+        match &self.0 {
+            AttrsRep::KV { name, value } => {
                 f.write_fmt(format_args!("name = {}; ", name))?;
                 f.write_fmt(format_args!("value = {}; ", value))?;
             }
 
-            NixAttrs::Map(map) => {
+            AttrsRep::Map(map) => {
                 for (name, value) in map.iter() {
                     f.write_fmt(format_args!("{} = {}; ", name.ident_str(), value))?;
                 }
             }
 
-            NixAttrs::Empty => { /* no values to print! */ }
+            AttrsRep::Empty => { /* no values to print! */ }
         }
 
         f.write_str("}")
@@ -56,22 +82,22 @@ impl PartialEq for NixAttrs {
 impl NixAttrs {
     // Update one attribute set with the values of the other.
     pub fn update(&self, other: &Self) -> Self {
-        match (self, other) {
+        match (&self.0, &other.0) {
             // Short-circuit on some optimal cases:
-            (NixAttrs::Empty, NixAttrs::Empty) => NixAttrs::Empty,
-            (NixAttrs::Empty, _) => other.clone(),
-            (_, NixAttrs::Empty) => self.clone(),
-            (NixAttrs::KV { .. }, NixAttrs::KV { .. }) => other.clone(),
+            (AttrsRep::Empty, AttrsRep::Empty) => NixAttrs(AttrsRep::Empty),
+            (AttrsRep::Empty, _) => other.clone(),
+            (_, AttrsRep::Empty) => self.clone(),
+            (AttrsRep::KV { .. }, AttrsRep::KV { .. }) => other.clone(),
 
             // Slightly more advanced, but still optimised updates
-            (NixAttrs::Map(m), NixAttrs::KV { name, value }) => {
+            (AttrsRep::Map(m), AttrsRep::KV { name, value }) => {
                 let mut m = m.clone();
                 m.insert(NixString::NAME, name.clone());
                 m.insert(NixString::VALUE, value.clone());
-                NixAttrs::Map(m)
+                NixAttrs(AttrsRep::Map(m))
             }
 
-            (NixAttrs::KV { name, value }, NixAttrs::Map(m)) => {
+            (AttrsRep::KV { name, value }, AttrsRep::Map(m)) => {
                 let mut m = m.clone();
 
                 match m.entry(NixString::NAME) {
@@ -94,36 +120,15 @@ impl NixAttrs {
                     }
                 };
 
-                NixAttrs::Map(m)
+                NixAttrs(AttrsRep::Map(m))
             }
 
             // Plain merge of maps.
-            (NixAttrs::Map(m1), NixAttrs::Map(m2)) => {
+            (AttrsRep::Map(m1), AttrsRep::Map(m2)) => {
                 let mut m1 = m1.clone();
                 let mut m2 = m2.clone();
                 m1.append(&mut m2);
-                NixAttrs::Map(m1)
-            }
-        }
-    }
-
-    /// Retrieve reference to a mutable map inside of an attrs,
-    /// optionally changing the representation if required.
-    fn map_mut(&mut self) -> &mut BTreeMap<NixString, Value> {
-        match self {
-            NixAttrs::Map(m) => m,
-
-            NixAttrs::Empty => {
-                *self = NixAttrs::Map(BTreeMap::new());
-                self.map_mut()
-            }
-
-            NixAttrs::KV { name, value } => {
-                *self = NixAttrs::Map(BTreeMap::from([
-                    ("name".into(), std::mem::replace(name, Value::Blackhole)),
-                    ("value".into(), std::mem::replace(value, Value::Blackhole)),
-                ]));
-                self.map_mut()
+                NixAttrs(AttrsRep::Map(m1))
             }
         }
     }
@@ -140,7 +145,7 @@ impl NixAttrs {
 
         // Optimisation: Empty attribute set
         if count == 0 {
-            return Ok(NixAttrs::Empty);
+            return Ok(NixAttrs(AttrsRep::Empty));
         }
 
         // Optimisation: KV pattern
@@ -151,7 +156,7 @@ impl NixAttrs {
         }
 
         // TODO(tazjin): extend_reserve(count) (rust#72631)
-        let mut attrs = NixAttrs::Map(BTreeMap::new());
+        let mut attrs = NixAttrs(AttrsRep::Map(BTreeMap::new()));
 
         for _ in 0..count {
             let value = stack_slice.pop().unwrap();
@@ -217,16 +222,16 @@ fn attempt_optimise_kv(slice: &mut [Value]) -> Option<NixAttrs> {
         }
     };
 
-    Some(NixAttrs::KV {
+    Some(NixAttrs(AttrsRep::KV {
         name: std::mem::replace(&mut slice[name_idx], Value::Blackhole),
         value: std::mem::replace(&mut slice[value_idx], Value::Blackhole),
-    })
+    }))
 }
 
 // Set an attribute on an in-construction attribute set, while
 // checking against duplicate keys.
 fn set_attr(attrs: &mut NixAttrs, key: NixString, value: Value) -> EvalResult<()> {
-    let attrs = attrs.map_mut();
+    let attrs = attrs.0.map_mut();
     let entry = attrs.entry(key);
 
     match entry {
@@ -261,7 +266,7 @@ fn set_nested_attr(
         return set_attr(attrs, key, value);
     }
 
-    let attrs = attrs.map_mut();
+    let attrs = attrs.0.map_mut();
     let entry = attrs.entry(key);
 
     // If there is not we go one step further down, in which case we
@@ -273,7 +278,7 @@ fn set_nested_attr(
     match entry {
         // Vacant entry -> new attribute set is needed.
         std::collections::btree_map::Entry::Vacant(entry) => {
-            let mut map = NixAttrs::Map(BTreeMap::new());
+            let mut map = NixAttrs(AttrsRep::Map(BTreeMap::new()));
 
             // TODO(tazjin): technically recursing further is not
             // required, we can create the whole hierarchy here, but

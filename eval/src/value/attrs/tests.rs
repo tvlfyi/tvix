@@ -5,7 +5,7 @@ fn test_empty_attrs() {
     let attrs = NixAttrs::construct(0, vec![]).expect("empty attr construction should succeed");
 
     assert!(
-        matches!(attrs, NixAttrs::Empty),
+        matches!(attrs, NixAttrs(AttrsRep::Empty)),
         "empty attribute set should use optimised representation"
     );
 }
@@ -19,7 +19,7 @@ fn test_simple_attrs() {
     .expect("simple attr construction should succeed");
 
     assert!(
-        matches!(attrs, NixAttrs::Map(_)),
+        matches!(attrs, NixAttrs(AttrsRep::Map(_))),
         "simple attribute set should use map representation",
     )
 }
@@ -43,7 +43,8 @@ fn test_kv_attrs() {
     .expect("constructing K/V pair attrs should succeed");
 
     match kv_attrs {
-        NixAttrs::KV { name, value } if name == meaning_val || value == forty_two_val => {}
+        NixAttrs(AttrsRep::KV { name, value }) if name == meaning_val || value == forty_two_val => {
+        }
 
         _ => panic!(
             "K/V attribute set should use optimised representation, but got {:?}",
