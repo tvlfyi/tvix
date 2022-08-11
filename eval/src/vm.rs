@@ -158,6 +158,21 @@ impl VM {
                     self.push(Value::Attrs(Rc::new(lhs.update(&rhs))))
                 }
 
+                OpCode::OpAttrsSelect => {
+                    let key = self.pop().as_string()?;
+                    let attrs = self.pop().as_attrs()?;
+
+                    match attrs.select(key.as_str()) {
+                        Some(value) => self.push(value.clone()),
+
+                        None => {
+                            return Err(Error::AttributeNotFound {
+                                name: key.as_str().to_string(),
+                            })
+                        }
+                    }
+                }
+
                 OpCode::OpList(count) => {
                     let list =
                         NixList::construct(count, self.stack.split_off(self.stack.len() - count));

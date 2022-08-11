@@ -45,6 +45,26 @@ impl AttrsRep {
             }
         }
     }
+
+    fn select(&self, key: &str) -> Option<&Value> {
+        match self {
+            AttrsRep::Empty => None,
+
+            AttrsRep::KV { name, value } => {
+                if key == "name" {
+                    return Some(&name);
+                }
+
+                if key == "value" {
+                    return Some(&value);
+                }
+
+                None
+            }
+
+            AttrsRep::Map(map) => map.get(&key.to_string().into()),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -131,6 +151,11 @@ impl NixAttrs {
                 NixAttrs(AttrsRep::Map(m1))
             }
         }
+    }
+
+    // Select a value from an attribute set by key.
+    pub fn select(&self, key: &str) -> Option<&Value> {
+        self.0.select(key)
     }
 
     /// Implement construction logic of an attribute set, to encapsulate

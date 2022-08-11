@@ -46,6 +46,7 @@ pub enum OpCode {
     OpAttrs(usize),
     OpAttrPath(usize),
     OpAttrsUpdate,
+    OpAttrsSelect,
 
     // Lists
     OpList(usize),

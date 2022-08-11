@@ -10,6 +10,10 @@ pub enum Error {
         given: &'static str,
     },
 
+    AttributeNotFound {
+        name: String,
+    },
+
     TypeError {
         expected: &'static str,
         actual: &'static str,

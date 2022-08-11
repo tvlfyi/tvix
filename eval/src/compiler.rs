@@ -75,6 +75,11 @@ impl Compiler {
                 self.compile_attr_set(node)
             }
 
+            rnix::SyntaxKind::NODE_SELECT => {
+                let node = rnix::types::Select::cast(node).unwrap();
+                self.compile_select(node)
+            }
+
             rnix::SyntaxKind::NODE_LIST => {
                 let node = rnix::types::List::cast(node).unwrap();
                 self.compile_list(node)
@@ -85,10 +90,7 @@ impl Compiler {
                 self.compile_if_else(node)
             }
 
-            kind => {
-                println!("visiting unsupported node: {:?}", kind);
-                Ok(())
-            }
+            kind => panic!("visiting unsupported node: {:?}", kind),
         }
     }
 
@@ -279,6 +281,20 @@ impl Compiler {
         }
 
         self.chunk.add_op(OpCode::OpAttrs(count));
+        Ok(())
+    }
+
+    fn compile_select(&mut self, node: rnix::types::Select) -> EvalResult<()> {
+        // Push the set onto the stack
+        self.compile(node.set().unwrap())?;
+
+        // Push the key and emit the access instruction.
+        //
+        // This order matters because the key needs to be evaluated
+        // first to fail in the correct order on type errors.
+        self.compile(node.index().unwrap())?;
+        self.chunk.add_op(OpCode::OpAttrsSelect);
+
         Ok(())
     }
 
