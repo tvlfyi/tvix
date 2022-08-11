@@ -4,7 +4,7 @@ use std::fmt::Display;
 use super::Value;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct NixList(pub Vec<Value>);
+pub struct NixList(Vec<Value>);
 
 impl Display for NixList {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -25,5 +25,16 @@ impl NixList {
         let mut rhs = other.clone();
         lhs.0.append(&mut rhs.0);
         lhs
+    }
+
+    pub fn construct(count: usize, stack_slice: Vec<Value>) -> Self {
+        debug_assert!(
+            count == stack_slice.len(),
+            "NixList::construct called with count == {}, but slice.len() == {}",
+            count,
+            stack_slice.len(),
+        );
+
+        NixList(stack_slice)
     }
 }

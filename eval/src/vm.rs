@@ -150,7 +150,11 @@ impl VM {
                     self.push(Value::Attrs(Rc::new(lhs.update(&rhs))))
                 }
 
-                OpCode::OpList(count) => self.run_list(count)?,
+                OpCode::OpList(count) => {
+                    let list =
+                        NixList::construct(count, self.stack.split_off(self.stack.len() - count));
+                    self.push(Value::List(list));
+                }
 
                 OpCode::OpConcat => {
                     let rhs = self.pop().as_list()?;
@@ -202,21 +206,6 @@ impl VM {
         }
 
         self.push(Value::String(out.into()));
-        Ok(())
-    }
-
-    // Construct runtime representation of a list. Because the list
-    // items are on the stack in reverse order, the vector is created
-    // initialised and elements are directly assigned to their
-    // respective indices.
-    fn run_list(&mut self, count: usize) -> EvalResult<()> {
-        let mut list = vec![Value::Null; count];
-
-        for idx in 0..count {
-            list[count - idx - 1] = self.pop();
-        }
-
-        self.push(Value::List(NixList(list)));
         Ok(())
     }
 }
