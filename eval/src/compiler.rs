@@ -19,7 +19,7 @@ use crate::opcode::{CodeIdx, OpCode};
 use crate::value::Value;
 
 use rnix;
-use rnix::types::{EntryHolder, TokenWrapper, TypedNode, Wrapper};
+use rnix::types::{BinOpKind, EntryHolder, TokenWrapper, TypedNode, Wrapper};
 
 struct Compiler {
     chunk: Chunk,
@@ -142,10 +142,20 @@ impl Compiler {
     }
 
     fn compile_binop(&mut self, op: rnix::types::BinOp) -> EvalResult<()> {
+        // Short-circuiting logical operators, which are under the
+        // same node type as NODE_BIN_OP, but need to be handled
+        // separately (i.e. before compiling the expressions used for
+        // standard binary operators).
+        match op.operator().unwrap() {
+            BinOpKind::And => return self.compile_and(op),
+            BinOpKind::Implication => todo!(),
+            BinOpKind::Or => todo!(),
+
+            _ => {}
+        };
+
         self.compile(op.lhs().unwrap())?;
         self.compile(op.rhs().unwrap())?;
-
-        use rnix::types::BinOpKind;
 
         match op.operator().unwrap() {
             BinOpKind::Add => self.chunk.add_op(OpCode::OpAdd),
@@ -160,16 +170,15 @@ impl Compiler {
             BinOpKind::MoreOrEq => self.chunk.add_op(OpCode::OpMoreOrEq),
             BinOpKind::Concat => self.chunk.add_op(OpCode::OpConcat),
 
-            BinOpKind::And => todo!(),
-            BinOpKind::Or => todo!(),
-            BinOpKind::Implication => todo!(),
-
             BinOpKind::NotEqual => {
                 self.chunk.add_op(OpCode::OpEqual);
                 self.chunk.add_op(OpCode::OpInvert)
             }
 
             BinOpKind::IsSet => todo!("? operator"),
+
+            // Handled by separate branch above.
+            BinOpKind::And | BinOpKind::Implication | BinOpKind::Or => unreachable!(),
         };
 
         Ok(())
@@ -316,6 +325,31 @@ impl Compiler {
         self.compile(node.else_body().unwrap())?;
 
         self.patch_jump(else_idx); // patch jump *over* else body
+
+        Ok(())
+    }
+
+    fn compile_and(&mut self, node: rnix::types::BinOp) -> EvalResult<()> {
+        debug_assert!(
+            matches!(node.operator(), Some(BinOpKind::And)),
+            "compile_and called with wrong operator kind: {:?}",
+            node.operator(),
+        );
+
+        // Leave left-hand side value on the stack.
+        self.compile(node.lhs().unwrap())?;
+
+        // If this value is false, jump over the right-hand side - the
+        // whole expression is false.
+        let end_idx = self.chunk.add_op(OpCode::OpJumpIfFalse(0));
+
+        // Otherwise, remove the previous value and leave the
+        // right-hand side on the stack. Its result is now the value
+        // of the whole expression.
+        self.chunk.add_op(OpCode::OpPop);
+        self.compile(node.rhs().unwrap())?;
+
+        self.patch_jump(end_idx);
 
         Ok(())
     }
