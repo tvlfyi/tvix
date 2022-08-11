@@ -38,8 +38,8 @@ impl AttrsRep {
 
             AttrsRep::KV { name, value } => {
                 *self = AttrsRep::Map(BTreeMap::from([
-                    ("name".into(), std::mem::replace(name, Value::Blackhole)),
-                    ("value".into(), std::mem::replace(value, Value::Blackhole)),
+                    (NixString::NAME, std::mem::replace(name, Value::Blackhole)),
+                    (NixString::VALUE, std::mem::replace(value, Value::Blackhole)),
                 ]));
                 self.map_mut()
             }
@@ -62,7 +62,7 @@ impl AttrsRep {
                 None
             }
 
-            AttrsRep::Map(map) => map.get(&key.to_string().into()),
+            AttrsRep::Map(map) => map.get(&key.into()),
         }
     }
 }

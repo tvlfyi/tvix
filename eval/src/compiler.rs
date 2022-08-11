@@ -105,7 +105,7 @@ impl Compiler {
             let ident = rnix::types::Ident::cast(node).unwrap();
             let idx = self
                 .chunk
-                .add_constant(Value::String(ident.as_str().to_string().into()));
+                .add_constant(Value::String(ident.as_str().into()));
             self.chunk.add_op(OpCode::OpConstant(idx));
             return Ok(());
         }
@@ -275,7 +275,7 @@ impl Compiler {
                         // TODO(tazjin): intern!
                         let idx = self
                             .chunk
-                            .add_constant(Value::String(ident.as_str().to_string().into()));
+                            .add_constant(Value::String(ident.as_str().into()));
                         self.chunk.add_op(OpCode::OpConstant(idx));
                     }
 

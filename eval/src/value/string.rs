@@ -1,3 +1,4 @@
+use smol_str::SmolStr;
 use std::hash::Hash;
 use std::{borrow::Cow, fmt::Display};
 
@@ -6,7 +7,7 @@ use std::{borrow::Cow, fmt::Display};
 
 #[derive(Clone, Debug)]
 enum StringRepr {
-    Static(&'static str),
+    Smol(SmolStr),
     Heap(String),
 }
 
@@ -33,9 +34,9 @@ impl Ord for NixString {
     }
 }
 
-impl From<&'static str> for NixString {
-    fn from(s: &'static str) -> Self {
-        NixString(StringRepr::Static(s))
+impl From<&str> for NixString {
+    fn from(s: &str) -> Self {
+        NixString(StringRepr::Smol(SmolStr::new(s)))
     }
 }
 
@@ -52,12 +53,12 @@ impl Hash for NixString {
 }
 
 impl NixString {
-    pub const NAME: Self = NixString(StringRepr::Static("name"));
-    pub const VALUE: Self = NixString(StringRepr::Static("value"));
+    pub const NAME: Self = NixString(StringRepr::Smol(SmolStr::new_inline("name")));
+    pub const VALUE: Self = NixString(StringRepr::Smol(SmolStr::new_inline("value")));
 
     pub fn as_str(&self) -> &str {
         match &self.0 {
-            StringRepr::Static(s) => s,
+            StringRepr::Smol(s) => s.as_str(),
             StringRepr::Heap(s) => s,
         }
     }

@@ -586,6 +586,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "rnix",
+ "smol_str",
  "test-generator",
 ]
 
