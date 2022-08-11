@@ -94,6 +94,24 @@ impl Compiler {
         }
     }
 
+    /// Compiles nodes the same way that `Self::compile` does, with
+    /// the exception of identifiers which are added literally to the
+    /// stack as string values.
+    ///
+    /// This is needed for correctly accessing attribute sets.
+    fn compile_with_literal_ident(&mut self, node: rnix::SyntaxNode) -> EvalResult<()> {
+        if node.kind() == rnix::SyntaxKind::NODE_IDENT {
+            let ident = rnix::types::Ident::cast(node).unwrap();
+            let idx = self
+                .chunk
+                .add_constant(Value::String(ident.as_str().to_string().into()));
+            self.chunk.add_op(OpCode::OpConstant(idx));
+            return Ok(());
+        }
+
+        self.compile(node)
+    }
+
     fn compile_literal(&mut self, value: rnix::value::Value) -> EvalResult<()> {
         match value {
             rnix::NixValue::Float(f) => {
@@ -292,7 +310,7 @@ impl Compiler {
         //
         // This order matters because the key needs to be evaluated
         // first to fail in the correct order on type errors.
-        self.compile(node.index().unwrap())?;
+        self.compile_with_literal_ident(node.index().unwrap())?;
         self.chunk.add_op(OpCode::OpAttrsSelect);
 
         Ok(())
