@@ -2,7 +2,9 @@
 /// problems that the user could address.
 
 #[derive(Debug)]
-pub enum WarningKind {}
+pub enum WarningKind {
+    DeprecatedLiteralURL,
+}
 
 #[derive(Debug)]
 pub struct EvalWarning {

@@ -17,7 +17,7 @@ use crate::chunk::Chunk;
 use crate::errors::EvalResult;
 use crate::opcode::{CodeIdx, OpCode};
 use crate::value::Value;
-use crate::warnings::EvalWarning;
+use crate::warnings::{EvalWarning, WarningKind};
 
 use rnix;
 use rnix::types::{BinOpKind, EntryHolder, TokenWrapper, TypedNode, Wrapper};
@@ -46,7 +46,7 @@ impl Compiler {
             // literal itself.
             rnix::SyntaxKind::NODE_LITERAL => {
                 let value = rnix::types::Value::cast(node).unwrap();
-                self.compile_literal(value.to_value().expect("TODO"))
+                self.compile_literal(value)
             }
 
             rnix::SyntaxKind::NODE_STRING => {
@@ -128,8 +128,8 @@ impl Compiler {
         self.compile(node)
     }
 
-    fn compile_literal(&mut self, value: rnix::value::Value) -> EvalResult<()> {
-        match value {
+    fn compile_literal(&mut self, node: rnix::types::Value) -> EvalResult<()> {
+        match node.to_value().unwrap() {
             rnix::NixValue::Float(f) => {
                 let idx = self.chunk.add_constant(Value::Float(f));
                 self.chunk.add_op(OpCode::OpConstant(idx));
@@ -144,7 +144,11 @@ impl Compiler {
 
             // These nodes are yielded by literal URL values.
             rnix::NixValue::String(s) => {
-                // TODO(tazjin): emit deprecation warning
+                self.warnings.push(EvalWarning {
+                    node: node.node().clone(),
+                    kind: WarningKind::DeprecatedLiteralURL,
+                });
+
                 let idx = self.chunk.add_constant(Value::String(s.into()));
                 self.chunk.add_op(OpCode::OpConstant(idx));
                 Ok(())
