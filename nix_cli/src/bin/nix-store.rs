@@ -80,6 +80,7 @@ mod integration_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "integration_tests"), ignore)]
     fn test_nix_store_add() {
         let file_content = "I am a copied file";
         let mut tempfile = tempfile::NamedTempFile::new().expect("cannot create temp file");
