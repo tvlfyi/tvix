@@ -14,8 +14,16 @@ pub fn interpret(code: &str) -> EvalResult<Value> {
         println!("{}", ast.root().dump());
     }
 
-    let code = crate::compiler::compile(ast)?;
-    println!("code: {:?}", code);
+    let result = crate::compiler::compile(ast)?;
+    println!("code: {:?}", result.chunk);
 
-    crate::vm::run_chunk(code)
+    for warning in result.warnings {
+        eprintln!(
+            "warning: {:?} at {:?}",
+            warning.kind,
+            warning.node.text_range().start()
+        )
+    }
+
+    crate::vm::run_chunk(result.chunk)
 }

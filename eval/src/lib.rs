@@ -5,6 +5,7 @@ mod eval;
 mod opcode;
 mod value;
 mod vm;
+mod warnings;
 
 #[cfg(test)]
 mod tests;

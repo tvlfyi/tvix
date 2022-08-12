@@ -17,12 +17,22 @@ use crate::chunk::Chunk;
 use crate::errors::EvalResult;
 use crate::opcode::{CodeIdx, OpCode};
 use crate::value::Value;
+use crate::warnings::EvalWarning;
 
 use rnix;
 use rnix::types::{BinOpKind, EntryHolder, TokenWrapper, TypedNode, Wrapper};
 
+/// Represents the result of compiling a piece of Nix code. If
+/// compilation was successful, the resulting bytecode can be passed
+/// to the VM.
+pub struct CompilationResult {
+    pub chunk: Chunk,
+    pub warnings: Vec<EvalWarning>,
+}
+
 struct Compiler {
     chunk: Chunk,
+    warnings: Vec<EvalWarning>,
 }
 
 impl Compiler {
@@ -573,12 +583,16 @@ impl Compiler {
     }
 }
 
-pub fn compile(ast: rnix::AST) -> EvalResult<Chunk> {
+pub fn compile(ast: rnix::AST) -> EvalResult<CompilationResult> {
     let mut c = Compiler {
         chunk: Chunk::default(),
+        warnings: vec![],
     };
 
     c.compile(ast.node())?;
 
-    Ok(c.chunk)
+    Ok(CompilationResult {
+        chunk: c.chunk,
+        warnings: c.warnings,
+    })
 }
