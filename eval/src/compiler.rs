@@ -132,7 +132,14 @@ impl Compiler {
                 Ok(())
             }
 
-            rnix::NixValue::String(_) => todo!(),
+            // These nodes are yielded by literal URL values.
+            rnix::NixValue::String(s) => {
+                // TODO(tazjin): emit deprecation warning
+                let idx = self.chunk.add_constant(Value::String(s.into()));
+                self.chunk.add_op(OpCode::OpConstant(idx));
+                Ok(())
+            }
+
             rnix::NixValue::Path(_, _) => todo!(),
         }
     }
