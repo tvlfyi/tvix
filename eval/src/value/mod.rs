@@ -12,6 +12,7 @@ pub use attrs::NixAttrs;
 pub use list::NixList;
 pub use string::NixString;
 
+#[warn(variant_size_differences)]
 #[derive(Clone, Debug)]
 pub enum Value {
     Null,
