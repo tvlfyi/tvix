@@ -32,6 +32,30 @@ pub struct CompilationResult {
     pub warnings: Vec<EvalWarning>,
 }
 
+// Represents a single local already known to the compiler.
+struct Local {
+    // Definition name, which can be different kinds of tokens (plain
+    // string or identifier). Nix does not allow dynamic names inside
+    // of `let`-expressions.
+    name: rnix::SyntaxNode,
+
+    // Scope depth of this local.
+    depth: usize,
+}
+
+/// Represents locals known during compilation, which can be resolved
+/// directly to stack indices.
+///
+/// TODO(tazjin): `with`-stack
+/// TODO(tazjin): flag "specials" (e.g. note depth if builtins are
+/// overridden)
+struct Locals {
+    locals: Vec<Local>,
+
+    // How many scopes "deep" are these locals?
+    scope_depth: usize,
+}
+
 struct Compiler {
     chunk: Chunk,
     warnings: Vec<EvalWarning>,
