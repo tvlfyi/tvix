@@ -1,7 +1,7 @@
 //! This module implements the backing representation of runtime
 //! values in the Nix language.
-use std::fmt::Display;
 use std::rc::Rc;
+use std::{fmt::Display, path::PathBuf};
 
 mod attrs;
 mod list;
@@ -19,6 +19,7 @@ pub enum Value {
     Integer(i64),
     Float(f64),
     String(NixString),
+    Path(PathBuf),
     Attrs(Rc<NixAttrs>),
     List(NixList),
 
@@ -45,6 +46,7 @@ impl Value {
             Value::Integer(_) => "int",
             Value::Float(_) => "float",
             Value::String(_) => "string",
+            Value::Path(_) => "path",
             Value::Attrs(_) => "set",
             Value::List(_) => "list",
 
@@ -106,6 +108,7 @@ impl Display for Value {
             Value::Bool(false) => f.write_str("false"),
             Value::Integer(num) => write!(f, "{}", num),
             Value::String(s) => s.fmt(f),
+            Value::Path(p) => p.display().fmt(f),
             Value::Attrs(attrs) => attrs.fmt(f),
             Value::List(list) => list.fmt(f),
 
