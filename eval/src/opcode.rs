@@ -7,6 +7,7 @@ pub struct ConstantIdx(pub usize);
 #[derive(Clone, Copy, Debug)]
 pub struct CodeIdx(pub usize);
 
+#[warn(variant_size_differences)]
 #[derive(Clone, Copy, Debug)]
 pub enum OpCode {
     // Push a constant onto the stack.
