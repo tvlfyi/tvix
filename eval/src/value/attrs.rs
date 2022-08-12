@@ -67,6 +67,7 @@ impl AttrsRep {
     }
 }
 
+#[repr(transparent)]
 #[derive(Clone, Debug)]
 pub struct NixAttrs(AttrsRep);
 

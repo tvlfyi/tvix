@@ -11,6 +11,7 @@ enum StringRepr {
     Heap(String),
 }
 
+#[repr(transparent)]
 #[derive(Clone, Debug)]
 pub struct NixString(StringRepr);
 

@@ -3,6 +3,7 @@ use std::fmt::Display;
 
 use super::Value;
 
+#[repr(transparent)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct NixList(Vec<Value>);
 
