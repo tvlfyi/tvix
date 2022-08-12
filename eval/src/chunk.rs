@@ -8,13 +8,13 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    pub fn add_op(&mut self, data: OpCode) -> CodeIdx {
+    pub fn push_op(&mut self, data: OpCode) -> CodeIdx {
         let idx = self.code.len();
         self.code.push(data);
         CodeIdx(idx)
     }
 
-    pub fn add_constant(&mut self, data: Value) -> ConstantIdx {
+    pub fn push_constant(&mut self, data: Value) -> ConstantIdx {
         let idx = self.constants.len();
         self.constants.push(data);
         ConstantIdx(idx)

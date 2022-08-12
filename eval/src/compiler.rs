@@ -120,8 +120,8 @@ impl Compiler {
             let ident = rnix::types::Ident::cast(node).unwrap();
             let idx = self
                 .chunk
-                .add_constant(Value::String(ident.as_str().into()));
-            self.chunk.add_op(OpCode::OpConstant(idx));
+                .push_constant(Value::String(ident.as_str().into()));
+            self.chunk.push_op(OpCode::OpConstant(idx));
             return Ok(());
         }
 
@@ -131,14 +131,14 @@ impl Compiler {
     fn compile_literal(&mut self, node: rnix::types::Value) -> EvalResult<()> {
         match node.to_value().unwrap() {
             rnix::NixValue::Float(f) => {
-                let idx = self.chunk.add_constant(Value::Float(f));
-                self.chunk.add_op(OpCode::OpConstant(idx));
+                let idx = self.chunk.push_constant(Value::Float(f));
+                self.chunk.push_op(OpCode::OpConstant(idx));
                 Ok(())
             }
 
             rnix::NixValue::Integer(i) => {
-                let idx = self.chunk.add_constant(Value::Integer(i));
-                self.chunk.add_op(OpCode::OpConstant(idx));
+                let idx = self.chunk.push_constant(Value::Integer(i));
+                self.chunk.push_op(OpCode::OpConstant(idx));
                 Ok(())
             }
 
@@ -149,8 +149,8 @@ impl Compiler {
                     kind: WarningKind::DeprecatedLiteralURL,
                 });
 
-                let idx = self.chunk.add_constant(Value::String(s.into()));
-                self.chunk.add_op(OpCode::OpConstant(idx));
+                let idx = self.chunk.push_constant(Value::String(s.into()));
+                self.chunk.push_op(OpCode::OpConstant(idx));
                 Ok(())
             }
 
@@ -175,14 +175,14 @@ impl Compiler {
                 rnix::StrPart::Ast(node) => self.compile(node)?,
 
                 rnix::StrPart::Literal(lit) => {
-                    let idx = self.chunk.add_constant(Value::String(lit.into()));
-                    self.chunk.add_op(OpCode::OpConstant(idx));
+                    let idx = self.chunk.push_constant(Value::String(lit.into()));
+                    self.chunk.push_op(OpCode::OpConstant(idx));
                 }
             }
         }
 
         if count != 1 {
-            self.chunk.add_op(OpCode::OpInterpolate(count));
+            self.chunk.push_op(OpCode::OpInterpolate(count));
         }
 
         Ok(())
@@ -206,21 +206,21 @@ impl Compiler {
         self.compile(op.rhs().unwrap())?;
 
         match op.operator().unwrap() {
-            BinOpKind::Add => self.chunk.add_op(OpCode::OpAdd),
-            BinOpKind::Sub => self.chunk.add_op(OpCode::OpSub),
-            BinOpKind::Mul => self.chunk.add_op(OpCode::OpMul),
-            BinOpKind::Div => self.chunk.add_op(OpCode::OpDiv),
-            BinOpKind::Update => self.chunk.add_op(OpCode::OpAttrsUpdate),
-            BinOpKind::Equal => self.chunk.add_op(OpCode::OpEqual),
-            BinOpKind::Less => self.chunk.add_op(OpCode::OpLess),
-            BinOpKind::LessOrEq => self.chunk.add_op(OpCode::OpLessOrEq),
-            BinOpKind::More => self.chunk.add_op(OpCode::OpMore),
-            BinOpKind::MoreOrEq => self.chunk.add_op(OpCode::OpMoreOrEq),
-            BinOpKind::Concat => self.chunk.add_op(OpCode::OpConcat),
+            BinOpKind::Add => self.chunk.push_op(OpCode::OpAdd),
+            BinOpKind::Sub => self.chunk.push_op(OpCode::OpSub),
+            BinOpKind::Mul => self.chunk.push_op(OpCode::OpMul),
+            BinOpKind::Div => self.chunk.push_op(OpCode::OpDiv),
+            BinOpKind::Update => self.chunk.push_op(OpCode::OpAttrsUpdate),
+            BinOpKind::Equal => self.chunk.push_op(OpCode::OpEqual),
+            BinOpKind::Less => self.chunk.push_op(OpCode::OpLess),
+            BinOpKind::LessOrEq => self.chunk.push_op(OpCode::OpLessOrEq),
+            BinOpKind::More => self.chunk.push_op(OpCode::OpMore),
+            BinOpKind::MoreOrEq => self.chunk.push_op(OpCode::OpMoreOrEq),
+            BinOpKind::Concat => self.chunk.push_op(OpCode::OpConcat),
 
             BinOpKind::NotEqual => {
-                self.chunk.add_op(OpCode::OpEqual);
-                self.chunk.add_op(OpCode::OpInvert)
+                self.chunk.push_op(OpCode::OpEqual);
+                self.chunk.push_op(OpCode::OpInvert)
             }
 
             // Handled by separate branch above.
@@ -241,7 +241,7 @@ impl Compiler {
             UnaryOpKind::Negate => OpCode::OpNegate,
         };
 
-        self.chunk.add_op(opcode);
+        self.chunk.push_op(opcode);
         Ok(())
     }
 
@@ -257,9 +257,9 @@ impl Compiler {
             // optimised information about any "weird" stuff that's
             // happened to the scope (such as overrides of these
             // literals, or builtins).
-            "true" => self.chunk.add_op(OpCode::OpTrue),
-            "false" => self.chunk.add_op(OpCode::OpFalse),
-            "null" => self.chunk.add_op(OpCode::OpNull),
+            "true" => self.chunk.push_op(OpCode::OpTrue),
+            "false" => self.chunk.push_op(OpCode::OpFalse),
+            "null" => self.chunk.push_op(OpCode::OpNull),
 
             _ => todo!("identifier access"),
         };
@@ -301,8 +301,8 @@ impl Compiler {
                         // TODO(tazjin): intern!
                         let idx = self
                             .chunk
-                            .add_constant(Value::String(ident.as_str().into()));
-                        self.chunk.add_op(OpCode::OpConstant(idx));
+                            .push_constant(Value::String(ident.as_str().into()));
+                        self.chunk.push_op(OpCode::OpConstant(idx));
                     }
 
                     // For all other expression types, we simply
@@ -317,7 +317,7 @@ impl Compiler {
             // otherwise we need to emit an instruction to construct
             // the attribute path.
             if key_count > 1 {
-                self.chunk.add_op(OpCode::OpAttrPath(2));
+                self.chunk.push_op(OpCode::OpAttrPath(2));
             }
 
             // The value is just compiled as normal so that its
@@ -326,7 +326,7 @@ impl Compiler {
             self.compile(kv.value().unwrap())?;
         }
 
-        self.chunk.add_op(OpCode::OpAttrs(count));
+        self.chunk.push_op(OpCode::OpAttrs(count));
         Ok(())
     }
 
@@ -339,7 +339,7 @@ impl Compiler {
         // This order matters because the key needs to be evaluated
         // first to fail in the correct order on type errors.
         self.compile_with_literal_ident(node.index().unwrap())?;
-        self.chunk.add_op(OpCode::OpAttrsSelect);
+        self.chunk.push_op(OpCode::OpAttrsSelect);
 
         Ok(())
     }
@@ -358,7 +358,7 @@ impl Compiler {
             self.compile(item)?;
         }
 
-        self.chunk.add_op(OpCode::OpList(count));
+        self.chunk.push_op(OpCode::OpList(count));
         Ok(())
     }
 
@@ -375,15 +375,15 @@ impl Compiler {
     fn compile_if_else(&mut self, node: rnix::types::IfElse) -> EvalResult<()> {
         self.compile(node.condition().unwrap())?;
 
-        let then_idx = self.chunk.add_op(OpCode::OpJumpIfFalse(0));
+        let then_idx = self.chunk.push_op(OpCode::OpJumpIfFalse(0));
 
-        self.chunk.add_op(OpCode::OpPop); // discard condition value
+        self.chunk.push_op(OpCode::OpPop); // discard condition value
         self.compile(node.body().unwrap())?;
 
-        let else_idx = self.chunk.add_op(OpCode::OpJump(0));
+        let else_idx = self.chunk.push_op(OpCode::OpJump(0));
 
         self.patch_jump(then_idx); // patch jump *to* else_body
-        self.chunk.add_op(OpCode::OpPop); // discard condition value
+        self.chunk.push_op(OpCode::OpPop); // discard condition value
         self.compile(node.else_body().unwrap())?;
 
         self.patch_jump(else_idx); // patch jump *over* else body
@@ -403,16 +403,16 @@ impl Compiler {
 
         // If this value is false, jump over the right-hand side - the
         // whole expression is false.
-        let end_idx = self.chunk.add_op(OpCode::OpJumpIfFalse(0));
+        let end_idx = self.chunk.push_op(OpCode::OpJumpIfFalse(0));
 
         // Otherwise, remove the previous value and leave the
         // right-hand side on the stack. Its result is now the value
         // of the whole expression.
-        self.chunk.add_op(OpCode::OpPop);
+        self.chunk.push_op(OpCode::OpPop);
         self.compile(node.rhs().unwrap())?;
 
         self.patch_jump(end_idx);
-        self.chunk.add_op(OpCode::OpAssertBool);
+        self.chunk.push_op(OpCode::OpAssertBool);
 
         Ok(())
     }
@@ -429,11 +429,11 @@ impl Compiler {
 
         // Opposite of above: If this value is **true**, we can
         // short-circuit the right-hand side.
-        let end_idx = self.chunk.add_op(OpCode::OpJumpIfTrue(0));
-        self.chunk.add_op(OpCode::OpPop);
+        let end_idx = self.chunk.push_op(OpCode::OpJumpIfTrue(0));
+        self.chunk.push_op(OpCode::OpPop);
         self.compile(node.rhs().unwrap())?;
         self.patch_jump(end_idx);
-        self.chunk.add_op(OpCode::OpAssertBool);
+        self.chunk.push_op(OpCode::OpAssertBool);
 
         Ok(())
     }
@@ -447,14 +447,14 @@ impl Compiler {
 
         // Leave left-hand side value on the stack and invert it.
         self.compile(node.lhs().unwrap())?;
-        self.chunk.add_op(OpCode::OpInvert);
+        self.chunk.push_op(OpCode::OpInvert);
 
         // Exactly as `||` (because `a -> b` = `!a || b`).
-        let end_idx = self.chunk.add_op(OpCode::OpJumpIfTrue(0));
-        self.chunk.add_op(OpCode::OpPop);
+        let end_idx = self.chunk.push_op(OpCode::OpJumpIfTrue(0));
+        self.chunk.push_op(OpCode::OpPop);
         self.compile(node.rhs().unwrap())?;
         self.patch_jump(end_idx);
-        self.chunk.add_op(OpCode::OpAssertBool);
+        self.chunk.push_op(OpCode::OpAssertBool);
 
         Ok(())
     }
@@ -492,11 +492,11 @@ impl Compiler {
                 self.compile_with_literal_ident(next)?;
 
                 for fragment in fragments.into_iter().rev() {
-                    self.chunk.add_op(OpCode::OpAttrsSelect);
+                    self.chunk.push_op(OpCode::OpAttrsSelect);
                     self.compile_with_literal_ident(fragment)?;
                 }
 
-                self.chunk.add_op(OpCode::OpAttrsIsSet);
+                self.chunk.push_op(OpCode::OpAttrsIsSet);
                 break;
             }
         }
@@ -551,14 +551,14 @@ impl Compiler {
 
             for fragment in fragments.into_iter().rev() {
                 self.compile_with_literal_ident(fragment)?;
-                self.chunk.add_op(OpCode::OpAttrOrNotFound);
-                jumps.push(self.chunk.add_op(OpCode::OpJumpIfNotFound(0)));
+                self.chunk.push_op(OpCode::OpAttrOrNotFound);
+                jumps.push(self.chunk.push_op(OpCode::OpJumpIfNotFound(0)));
             }
 
             break;
         }
 
-        let final_jump = self.chunk.add_op(OpCode::OpJump(0));
+        let final_jump = self.chunk.push_op(OpCode::OpJump(0));
         for jump in jumps {
             self.patch_jump(jump);
         }
