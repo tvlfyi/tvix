@@ -10,6 +10,7 @@ rnix = "0.10.2"
 smol_str = "0.1"
 rustyline = "10.0.0"
 dirs = "4.0.0"
+path-clean = "0.1"
 
 [dev-dependencies]
 criterion = "0.3.6"

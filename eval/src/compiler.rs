@@ -13,6 +13,9 @@
 //! the code in this module, `debug_assert!` has been used to catch
 //! mistakes early during development.
 
+use path_clean::PathClean;
+use rnix;
+use rnix::types::{BinOpKind, EntryHolder, TokenWrapper, TypedNode, Wrapper};
 use std::path::{Path, PathBuf};
 
 use crate::chunk::Chunk;
@@ -20,9 +23,6 @@ use crate::errors::{Error, EvalResult};
 use crate::opcode::{CodeIdx, OpCode};
 use crate::value::Value;
 use crate::warnings::{EvalWarning, WarningKind};
-
-use rnix;
-use rnix::types::{BinOpKind, EntryHolder, TokenWrapper, TypedNode, Wrapper};
 
 /// Represents the result of compiling a piece of Nix code. If
 /// compilation was successful, the resulting bytecode can be passed
@@ -162,8 +162,6 @@ impl Compiler {
     }
 
     fn compile_path(&mut self, anchor: rnix::value::Anchor, path: String) -> EvalResult<()> {
-        // TODO(tazjin): C++ Nix does not resolve symlinks, but `fs::canonicalize` does.
-
         let path = match anchor {
             rnix::value::Anchor::Absolute => Path::new(&path).to_owned(),
 
@@ -189,11 +187,9 @@ impl Compiler {
             rnix::value::Anchor::Store => todo!("resolve <...> lookups at runtime"),
         };
 
-        let value =
-            Value::Path(path.canonicalize().map_err(|e| {
-                Error::PathResolution(format!("failed to canonicalise path: {}", e))
-            })?);
-
+        // TODO: Use https://github.com/rust-lang/rfcs/issues/2208
+        // once it is available
+        let value = Value::Path(path.clean());
         let idx = self.chunk.push_constant(value);
         self.chunk.push_op(OpCode::OpConstant(idx));
 
