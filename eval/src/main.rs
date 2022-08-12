@@ -1,4 +1,8 @@
-use std::{env, fs, path::PathBuf, process};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+    process,
+};
 
 use rustyline::{error::ReadlineError, Editor};
 
@@ -18,8 +22,9 @@ fn main() {
 
 fn run_file(file: &str) {
     let contents = fs::read_to_string(file).expect("failed to read the input file");
+    let path = Path::new(file).to_owned();
 
-    match tvix_eval::interpret(&contents) {
+    match tvix_eval::interpret(&contents, Some(path)) {
         Ok(result) => println!("=> {} :: {}", result, result.type_of()),
         Err(err) => eprintln!("{}", err),
     }
@@ -53,7 +58,7 @@ fn run_prompt() {
                     continue;
                 }
 
-                match tvix_eval::interpret(&line) {
+                match tvix_eval::interpret(&line, None) {
                     Ok(result) => {
                         println!("=> {} :: {}", result, result.type_of());
                         rl.add_history_entry(line);

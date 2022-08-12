@@ -13,7 +13,7 @@
 //! the code in this module, `debug_assert!` has been used to catch
 //! mistakes early during development.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::chunk::Chunk;
 use crate::errors::{Error, EvalResult};
@@ -35,6 +35,7 @@ pub struct CompilationResult {
 struct Compiler {
     chunk: Chunk,
     warnings: Vec<EvalWarning>,
+    root_dir: PathBuf,
 }
 
 impl Compiler {
@@ -175,7 +176,11 @@ impl Compiler {
                 buf
             }
 
-            rnix::value::Anchor::Relative => todo!("resolve relative to file location"),
+            rnix::value::Anchor::Relative => {
+                let mut buf = self.root_dir.clone();
+                buf.push(path);
+                buf
+            }
 
             // This confusingly named variant is actually
             // angle-bracket lookups, which in C++ Nix desugar
@@ -624,8 +629,23 @@ impl Compiler {
     }
 }
 
-pub fn compile(ast: rnix::AST) -> EvalResult<CompilationResult> {
+pub fn compile(ast: rnix::AST, location: Option<PathBuf>) -> EvalResult<CompilationResult> {
+    let mut root_dir = match location {
+        Some(dir) => Ok(dir),
+        None => std::env::current_dir().map_err(|e| {
+            Error::PathResolution(format!("could not determine current directory: {}", e))
+        }),
+    }?;
+
+    // If the path passed from the caller points to a file, the
+    // filename itself needs to be truncated as this must point to a
+    // directory.
+    if root_dir.is_file() {
+        root_dir.pop();
+    }
+
     let mut c = Compiler {
+        root_dir,
         chunk: Chunk::default(),
         warnings: vec![],
     };

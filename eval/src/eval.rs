@@ -1,8 +1,10 @@
+use std::path::PathBuf;
+
 use rnix::{self, types::TypedNode};
 
 use crate::{errors::EvalResult, value::Value};
 
-pub fn interpret(code: &str) -> EvalResult<Value> {
+pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
     let ast = rnix::parse(code);
 
     let errors = ast.errors();
@@ -14,7 +16,7 @@ pub fn interpret(code: &str) -> EvalResult<Value> {
         println!("{}", ast.root().dump());
     }
 
-    let result = crate::compiler::compile(ast)?;
+    let result = crate::compiler::compile(ast, location)?;
     println!("code: {:?}", result.chunk);
 
     for warning in result.warnings {
