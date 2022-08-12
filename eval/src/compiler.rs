@@ -32,7 +32,7 @@ impl Compiler {
             // type.
             rnix::SyntaxKind::NODE_ROOT => self.compile(node.first_child().expect("TODO")),
 
-            // Literals contain a single token comprising of the
+            // Literals contain a single token consisting of the
             // literal itself.
             rnix::SyntaxKind::NODE_LITERAL => {
                 let value = rnix::types::Value::cast(node).unwrap();
