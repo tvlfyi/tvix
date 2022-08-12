@@ -13,6 +13,8 @@
 //! the code in this module, `debug_assert!` has been used to catch
 //! mistakes early during development.
 
+use std::path::Path;
+
 use crate::chunk::Chunk;
 use crate::errors::EvalResult;
 use crate::opcode::{CodeIdx, OpCode};
@@ -154,8 +156,37 @@ impl Compiler {
                 Ok(())
             }
 
-            rnix::NixValue::Path(_, _) => todo!(),
+            rnix::NixValue::Path(anchor, path) => self.compile_path(anchor, path),
         }
+    }
+
+    fn compile_path(&mut self, anchor: rnix::value::Anchor, path: String) -> EvalResult<()> {
+        // TODO(tazjin): C++ Nix does not resolve symlinks, but `fs::canonicalize` does.
+
+        let path = match anchor {
+            rnix::value::Anchor::Absolute => Path::new(&path)
+                .canonicalize()
+                .expect("TODO: error variant"),
+
+            rnix::value::Anchor::Home => {
+                let mut buf = dirs::home_dir().expect("TODO: error variant");
+                buf.push(&path);
+                buf.canonicalize().expect("TODO: error variant")
+            }
+
+            rnix::value::Anchor::Relative => todo!("resolve relative to file location"),
+
+            // This confusingly named variant is actually
+            // angle-bracket lookups, which in C++ Nix desugar
+            // to calls to `__findFile` (implicitly in the
+            // current scope).
+            rnix::value::Anchor::Store => todo!("resolve <...> lookups at runtime"),
+        };
+
+        let idx = self.chunk.push_constant(Value::Path(path));
+        self.chunk.push_op(OpCode::OpConstant(idx));
+
+        Ok(())
     }
 
     fn compile_string(&mut self, string: rnix::types::Str) -> EvalResult<()> {
