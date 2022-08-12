@@ -18,6 +18,18 @@ We expect this to have caught up in a handful of weeks (as of
 Please contact [TVL](https://tvl.fyi) with any questions you might
 have.
 
+## Nix test suite
+
+C++ Nix implements a language test suite in the form of Nix source
+code files, and their expected output. The coverage of this test suite
+is not complete, but we intend to be compatible with it.
+
+We have ported the test suite to Tvix, but do not run it by default as
+we are not yet compatible with it.
+
+You can run the test suite by enabling the `nix_tests` feature in
+Cargo.
+
 ## rnix-parser
 
 Tvix is written in memory of jD91mZM2, the author of [rnix-parser][]
