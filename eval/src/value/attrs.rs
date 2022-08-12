@@ -77,13 +77,13 @@ impl Display for NixAttrs {
 
         match &self.0 {
             AttrsRep::KV { name, value } => {
-                f.write_fmt(format_args!("name = {}; ", name))?;
-                f.write_fmt(format_args!("value = {}; ", value))?;
+                write!(f, "name = {}; ", name)?;
+                write!(f, "value = {}; ", value)?;
             }
 
             AttrsRep::Map(map) => {
                 for (name, value) in map.iter() {
-                    f.write_fmt(format_args!("{} = {}; ", name.ident_str(), value))?;
+                    write!(f, "{} = {}; ", name.ident_str(), value)?;
                 }
             }
 

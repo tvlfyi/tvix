@@ -104,17 +104,16 @@ impl Display for Value {
             Value::Null => f.write_str("null"),
             Value::Bool(true) => f.write_str("true"),
             Value::Bool(false) => f.write_str("false"),
-            Value::Integer(num) => f.write_fmt(format_args!("{}", num)),
+            Value::Integer(num) => write!(f, "{}", num),
             Value::String(s) => s.fmt(f),
             Value::Attrs(attrs) => attrs.fmt(f),
             Value::List(list) => list.fmt(f),
 
             // Nix prints floats with a maximum precision of 5 digits
             // only.
-            Value::Float(num) => f.write_fmt(format_args!(
-                "{}",
-                format!("{:.5}", num).trim_end_matches(['.', '0'])
-            )),
+            Value::Float(num) => {
+                write!(f, "{}", format!("{:.5}", num).trim_end_matches(['.', '0']))
+            }
 
             // internal types
             Value::AttrPath(_) => f.write_str("internal[attrpath]"),
