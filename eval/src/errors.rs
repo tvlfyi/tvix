@@ -23,6 +23,9 @@ pub enum Error {
         lhs: &'static str,
         rhs: &'static str,
     },
+
+    // Resolving a user-supplied path literal failed in some way.
+    PathResolution(String),
 }
 
 impl Display for Error {

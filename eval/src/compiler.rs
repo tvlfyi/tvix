@@ -16,7 +16,7 @@
 use std::path::Path;
 
 use crate::chunk::Chunk;
-use crate::errors::EvalResult;
+use crate::errors::{Error, EvalResult};
 use crate::opcode::{CodeIdx, OpCode};
 use crate::value::Value;
 use crate::warnings::{EvalWarning, WarningKind};
@@ -164,14 +164,15 @@ impl Compiler {
         // TODO(tazjin): C++ Nix does not resolve symlinks, but `fs::canonicalize` does.
 
         let path = match anchor {
-            rnix::value::Anchor::Absolute => Path::new(&path)
-                .canonicalize()
-                .expect("TODO: error variant"),
+            rnix::value::Anchor::Absolute => Path::new(&path).to_owned(),
 
             rnix::value::Anchor::Home => {
-                let mut buf = dirs::home_dir().expect("TODO: error variant");
+                let mut buf = dirs::home_dir().ok_or_else(|| {
+                    Error::PathResolution("failed to determine home directory".into())
+                })?;
+
                 buf.push(&path);
-                buf.canonicalize().expect("TODO: error variant")
+                buf
             }
 
             rnix::value::Anchor::Relative => todo!("resolve relative to file location"),
@@ -183,7 +184,12 @@ impl Compiler {
             rnix::value::Anchor::Store => todo!("resolve <...> lookups at runtime"),
         };
 
-        let idx = self.chunk.push_constant(Value::Path(path));
+        let value =
+            Value::Path(path.canonicalize().map_err(|e| {
+                Error::PathResolution(format!("failed to canonicalise path: {}", e))
+            })?);
+
+        let idx = self.chunk.push_constant(value);
         self.chunk.push_op(OpCode::OpConstant(idx));
 
         Ok(())
