@@ -680,7 +680,14 @@ impl Compiler {
             match inherit.from() {
                 // Within a `let` binding, inheriting from the outer
                 // scope is practically a no-op.
-                None => continue,
+                None => {
+                    self.warnings.push(EvalWarning {
+                        node: inherit.node().clone(),
+                        kind: WarningKind::UselessInherit,
+                    });
+
+                    continue;
+                }
                 Some(_) => todo!("let inherit from attrs"),
             }
         }
