@@ -203,6 +203,13 @@ impl NixAttrs {
                     )?;
                 }
 
+                Value::Null => {
+                    // This is in fact valid, but leads to the value
+                    // being ignored and nothing being set, i.e. `{
+                    // ${null} = 1; } => { }`.
+                    continue;
+                }
+
                 other => {
                     return Err(Error::InvalidKeyType {
                         given: other.type_of(),
