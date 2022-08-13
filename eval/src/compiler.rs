@@ -676,8 +676,13 @@ impl Compiler {
             });
         }
 
-        for _ in node.inherits() {
-            todo!("inherit in let not yet implemented")
+        for inherit in node.inherits() {
+            match inherit.from() {
+                // Within a `let` binding, inheriting from the outer
+                // scope is practically a no-op.
+                None => continue,
+                Some(_) => todo!("let inherit from attrs"),
+            }
         }
 
         // Now we can compile each expression, leaving the values on
