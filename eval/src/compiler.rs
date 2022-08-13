@@ -49,6 +49,7 @@ struct Local {
 /// TODO(tazjin): `with`-stack
 /// TODO(tazjin): flag "specials" (e.g. note depth if builtins are
 /// overridden)
+#[derive(Default)]
 struct Locals {
     locals: Vec<Local>,
 
@@ -58,6 +59,8 @@ struct Locals {
 
 struct Compiler {
     chunk: Chunk,
+    locals: Locals,
+
     warnings: Vec<EvalWarning>,
     root_dir: PathBuf,
 }
@@ -131,6 +134,11 @@ impl Compiler {
             rnix::SyntaxKind::NODE_IF_ELSE => {
                 let node = rnix::types::IfElse::cast(node).unwrap();
                 self.compile_if_else(node)
+            }
+
+            rnix::SyntaxKind::NODE_LET_IN => {
+                let node = rnix::types::LetIn::cast(node).unwrap();
+                self.compile_let_in(node)
             }
 
             kind => panic!("visiting unsupported node: {:?}", kind),
@@ -633,6 +641,50 @@ impl Compiler {
         Ok(())
     }
 
+    // Compile a standard `let ...; in ...` statement.
+    //
+    // Unless in a non-standard scope, the encountered values are
+    // simply pushed on the stack and their indices noted in the
+    fn compile_let_in(&mut self, node: rnix::types::LetIn) -> Result<(), Error> {
+        self.begin_scope();
+        let mut entries = vec![];
+
+        // Before compiling the values of a let expression, all keys
+        // need to already be added to the known locals. This is
+        // because in Nix these bindings are always recursive (they
+        // can even refer to themselves).
+        for entry in node.entries() {
+            let key = entry.key().unwrap();
+            let path = key.path().collect::<Vec<_>>();
+
+            if path.len() != 1 {
+                todo!("nested bindings in let expressions :(")
+            }
+
+            entries.push(entry.value().unwrap());
+
+            self.locals.locals.push(Local {
+                name: key.node().clone(), // TODO(tazjin): Just an Rc?
+                depth: self.locals.scope_depth,
+            });
+        }
+
+        for _ in node.inherits() {
+            todo!("inherit in let not yet implemented")
+        }
+
+        // Now we can compile each expression, leaving the values on
+        // the stack in the right order.
+        for value in entries {
+            self.compile(value)?;
+        }
+
+        // Deal with the body, then clean up the locals afterwards.
+        self.compile(node.body().unwrap())?;
+        self.end_scope();
+        Ok(())
+    }
+
     fn patch_jump(&mut self, idx: CodeIdx) {
         let offset = self.chunk.code.len() - 1 - idx.0;
 
@@ -645,6 +697,34 @@ impl Compiler {
             }
 
             op => panic!("attempted to patch unsupported op: {:?}", op),
+        }
+    }
+
+    fn begin_scope(&mut self) {
+        self.locals.scope_depth += 1;
+    }
+
+    fn end_scope(&mut self) {
+        let mut scope = &mut self.locals;
+        debug_assert!(scope.scope_depth != 0, "can not end top scope");
+        scope.scope_depth -= 1;
+
+        // When ending a scope, all corresponding locals need to be
+        // removed, but the value of the body needs to remain on the
+        // stack. This is implemented by a separate instruction.
+        let mut pops = 0;
+
+        // TL;DR - iterate from the back while things belonging to the
+        // ended scope still exist.
+        while scope.locals.len() > 0
+            && scope.locals[scope.locals.len() - 1].depth > scope.scope_depth
+        {
+            pops += 1;
+            scope.locals.pop();
+        }
+
+        if pops > 0 {
+            self.chunk.push_op(OpCode::OpCloseScope(pops));
         }
     }
 }
@@ -668,6 +748,7 @@ pub fn compile(ast: rnix::AST, location: Option<PathBuf>) -> EvalResult<Compilat
         root_dir,
         chunk: Chunk::default(),
         warnings: vec![],
+        locals: Default::default(),
     };
 
     c.compile(ast.node())?;

@@ -240,6 +240,20 @@ impl VM {
                         });
                     }
                 }
+
+                // Remove the given number of elements from the stack,
+                // but retain the top value.
+                OpCode::OpCloseScope(count) => {
+                    // Immediately move the top value into the right
+                    // position.
+                    let target_idx = self.stack.len() - 1 - count;
+                    self.stack[target_idx] = self.pop();
+
+                    // Then drop the remaining values.
+                    for _ in 0..(count - 1) {
+                        self.pop();
+                    }
+                }
             }
 
             if self.ip == self.chunk.code.len() {
