@@ -4,6 +4,7 @@
 use std::io::{Stderr, Write};
 use tabwriter::TabWriter;
 
+use crate::chunk::Chunk;
 use crate::opcode::OpCode;
 use crate::value::Value;
 
@@ -34,4 +35,34 @@ impl Drop for Tracer {
     fn drop(&mut self) {
         self.0.flush().ok();
     }
+}
+
+fn disassemble_op(tw: &mut TabWriter<Stderr>, chunk: &Chunk, offset: usize) {
+    let code_width = format!("{}", chunk.code.len()).len();
+    write!(tw, "{:0width$}\t ", width = code_width).ok();
+
+    match chunk.code[offset] {
+        OpCode::OpConstant(idx) => write!(tw, "OpConstant({})\n", chunk.constant(idx)).ok(),
+
+        op => write!(tw, "{:?}\n", op).ok(),
+    };
+}
+
+/// Disassemble a chunk of code, printing out the operations in a
+/// reasonable, human-readable format.
+pub fn disassemble_chunk(chunk: &Chunk) {
+    let mut tw = TabWriter::new(std::io::stderr());
+
+    write!(
+        &mut tw,
+        "=== compiled bytecode ({} operations) ===\n",
+        chunk.code.len()
+    )
+    .ok();
+
+    for (idx, _) in chunk.code.iter().enumerate() {
+        disassemble_op(&mut tw, chunk, idx);
+    }
+
+    tw.flush().ok();
 }

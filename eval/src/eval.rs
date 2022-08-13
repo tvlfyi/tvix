@@ -17,7 +17,9 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
     }
 
     let result = crate::compiler::compile(ast, location)?;
-    println!("code: {:?}", result.chunk);
+
+    #[cfg(feature = "disassembler")]
+    crate::disassembler::disassemble_chunk(&result.chunk);
 
     for warning in result.warnings {
         eprintln!(

@@ -4,7 +4,7 @@ use crate::value::Value;
 #[derive(Debug, Default)]
 pub struct Chunk {
     pub code: Vec<OpCode>,
-    constants: Vec<Value>,
+    pub constants: Vec<Value>,
 }
 
 impl Chunk {
