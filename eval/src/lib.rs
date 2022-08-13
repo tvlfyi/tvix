@@ -7,6 +7,9 @@ mod value;
 mod vm;
 mod warnings;
 
+#[cfg(feature = "disassembler")]
+mod disassembler;
+
 #[cfg(test)]
 mod tests;
 

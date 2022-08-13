@@ -10,6 +10,9 @@ use crate::{
     value::{NixAttrs, NixList, Value},
 };
 
+#[cfg(feature = "disassembler")]
+use crate::disassembler::Tracer;
+
 pub struct VM {
     ip: usize,
     chunk: Chunk,
@@ -88,8 +91,12 @@ impl VM {
     }
 
     fn run(&mut self) -> EvalResult<Value> {
+        #[cfg(feature = "disassembler")]
+        let mut tracer = Tracer::new();
+
         loop {
-            match self.inc_ip() {
+            let op = self.inc_ip();
+            match op {
                 OpCode::OpConstant(idx) => {
                     let c = self.chunk.constant(idx).clone();
                     self.push(c);
@@ -259,6 +266,11 @@ impl VM {
                     let value = self.stack[local_idx].clone();
                     self.push(value)
                 }
+            }
+
+            #[cfg(feature = "disassembler")]
+            {
+                tracer.trace(&op, self.ip, &self.stack);
             }
 
             if self.ip == self.chunk.code.len() {
