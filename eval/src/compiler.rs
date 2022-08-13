@@ -37,7 +37,7 @@ struct Local {
     // Definition name, which can be different kinds of tokens (plain
     // string or identifier). Nix does not allow dynamic names inside
     // of `let`-expressions.
-    name: rnix::SyntaxNode,
+    name: String,
 
     // Scope depth of this local.
     depth: usize,
@@ -415,7 +415,7 @@ impl Compiler {
     }
 
     // Compile list literals into equivalent bytecode. List
-    // construction is fairly simple, composing of pushing code for
+    // construction is fairly simple, consisting of pushing code for
     // each literal element and an instruction with the element count.
     //
     // The VM, after evaluating the code for each element, simply
@@ -655,7 +655,7 @@ impl Compiler {
         // can even refer to themselves).
         for entry in node.entries() {
             let key = entry.key().unwrap();
-            let path = key.path().collect::<Vec<_>>();
+            let mut path = normalise_ident_path(key.path())?;
 
             if path.len() != 1 {
                 todo!("nested bindings in let expressions :(")
@@ -664,7 +664,7 @@ impl Compiler {
             entries.push(entry.value().unwrap());
 
             self.locals.locals.push(Local {
-                name: key.node().clone(), // TODO(tazjin): Just an Rc?
+                name: path.pop().unwrap(),
                 depth: self.locals.scope_depth,
             });
         }
@@ -727,6 +727,47 @@ impl Compiler {
             self.chunk.push_op(OpCode::OpCloseScope(pops));
         }
     }
+}
+
+/// Convert a single identifier path fragment to a string if possible,
+/// or raise an error about the node being dynamic.
+fn ident_fragment_to_string(node: rnix::SyntaxNode) -> EvalResult<String> {
+    match node.kind() {
+        rnix::SyntaxKind::NODE_IDENT => {
+            Ok(rnix::types::Ident::cast(node).unwrap().as_str().to_string())
+        }
+
+        rnix::SyntaxKind::NODE_STRING => {
+            let s = rnix::types::Str::cast(node).unwrap();
+            let mut parts = s.parts();
+
+            if parts.len() == 1 {
+                if let rnix::value::StrPart::Literal(lit) = parts.pop().unwrap() {
+                    return Ok(lit);
+                }
+            }
+
+            return Err(Error::DynamicKeyInLet(s.node().clone()));
+        }
+
+        // The dynamic node type is just a wrapper and we recurse to
+        // its inner node. C++ Nix does not care about the dynamic
+        // wrapper when determining whether the node itself is
+        // dynamic, it depends solely on the expression inside (i.e.
+        // `let ${"a"} = 1; in a` is valid)
+        rnix::SyntaxKind::NODE_DYNAMIC => {
+            ident_fragment_to_string(rnix::types::Dynamic::cast(node).unwrap().inner().unwrap())
+        }
+
+        _ => Err(Error::DynamicKeyInLet(node)),
+    }
+}
+
+// Normalises identifier fragments into a single string vector for
+// `let`-expressions; fails if fragments requiring dynamic computation
+// are encountered.
+fn normalise_ident_path<I: Iterator<Item = rnix::SyntaxNode>>(path: I) -> EvalResult<Vec<String>> {
+    path.map(ident_fragment_to_string).collect()
 }
 
 pub fn compile(ast: rnix::AST, location: Option<PathBuf>) -> EvalResult<CompilationResult> {

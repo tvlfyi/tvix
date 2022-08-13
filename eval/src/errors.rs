@@ -26,6 +26,9 @@ pub enum Error {
 
     // Resolving a user-supplied path literal failed in some way.
     PathResolution(String),
+
+    // Dynamic keys are not allowed in let.
+    DynamicKeyInLet(rnix::SyntaxNode),
 }
 
 impl Display for Error {
