@@ -52,11 +52,11 @@ impl AttrsRep {
 
             AttrsRep::KV { name, value } => {
                 if key == "name" {
-                    return Some(&name);
+                    return Some(name);
                 }
 
                 if key == "value" {
-                    return Some(&value);
+                    return Some(value);
                 }
 
                 None
@@ -310,21 +310,16 @@ fn attempt_optimise_kv(slice: &mut [Value]) -> Option<NixAttrs> {
 // Set an attribute on an in-construction attribute set, while
 // checking against duplicate keys.
 fn set_attr(attrs: &mut NixAttrs, key: NixString, value: Value) -> EvalResult<()> {
-    let attrs = attrs.0.map_mut();
-    let entry = attrs.entry(key);
-
-    match entry {
-        std::collections::btree_map::Entry::Occupied(entry) => {
-            return Err(Error::DuplicateAttrsKey {
-                key: entry.key().as_str().to_string(),
-            })
-        }
+    match attrs.0.map_mut().entry(key) {
+        std::collections::btree_map::Entry::Occupied(entry) => Err(Error::DuplicateAttrsKey {
+            key: entry.key().as_str().to_string(),
+        }),
 
         std::collections::btree_map::Entry::Vacant(entry) => {
             entry.insert(value);
-            return Ok(());
+            Ok(())
         }
-    };
+    }
 }
 
 // Set a nested attribute inside of an attribute set, throwing a
@@ -345,16 +340,13 @@ fn set_nested_attr(
         return set_attr(attrs, key, value);
     }
 
-    let attrs = attrs.0.map_mut();
-    let entry = attrs.entry(key);
-
     // If there is not we go one step further down, in which case we
     // need to ensure that there either is no entry, or the existing
     // entry is a hashmap into which to insert the next value.
     //
     // If a value of a different type exists, the user specified a
     // duplicate key.
-    match entry {
+    match attrs.0.map_mut().entry(key) {
         // Vacant entry -> new attribute set is needed.
         std::collections::btree_map::Entry::Vacant(entry) => {
             let mut map = NixAttrs(AttrsRep::Map(BTreeMap::new()));

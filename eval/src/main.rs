@@ -32,7 +32,9 @@ fn run_file(file: &str) {
 
 fn state_dir() -> Option<PathBuf> {
     let mut path = dirs::data_dir();
-    path.as_mut().map(|p| p.push("tvix"));
+    if let Some(p) = path.as_mut() {
+        p.push("tvix")
+    }
     path
 }
 

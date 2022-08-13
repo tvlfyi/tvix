@@ -33,11 +33,7 @@ pub enum Value {
 
 impl Value {
     pub fn is_number(&self) -> bool {
-        match self {
-            Value::Integer(_) => true,
-            Value::Float(_) => true,
-            _ => false,
-        }
+        matches!(self, Value::Integer(_) | Value::Float(_))
     }
 
     pub fn type_of(&self) -> &'static str {
@@ -66,7 +62,7 @@ impl Value {
         }
     }
 
-    pub fn as_string(self) -> EvalResult<NixString> {
+    pub fn to_string(self) -> EvalResult<NixString> {
         match self {
             Value::String(s) => Ok(s),
             other => Err(Error::TypeError {
@@ -76,7 +72,7 @@ impl Value {
         }
     }
 
-    pub fn as_attrs(self) -> EvalResult<Rc<NixAttrs>> {
+    pub fn to_attrs(self) -> EvalResult<Rc<NixAttrs>> {
         match self {
             Value::Attrs(s) => Ok(s),
             other => Err(Error::TypeError {
@@ -86,7 +82,7 @@ impl Value {
         }
     }
 
-    pub fn as_list(self) -> EvalResult<NixList> {
+    pub fn to_list(self) -> EvalResult<NixList> {
         match self {
             Value::List(l) => Ok(l),
             other => Err(Error::TypeError {

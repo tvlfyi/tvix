@@ -14,7 +14,6 @@
 //! mistakes early during development.
 
 use path_clean::PathClean;
-use rnix;
 use rnix::types::{BinOpKind, EntryHolder, TokenWrapper, TypedNode, Wrapper};
 use std::path::{Path, PathBuf};
 
@@ -735,7 +734,7 @@ impl Compiler {
 
         // TL;DR - iterate from the back while things belonging to the
         // ended scope still exist.
-        while scope.locals.len() > 0
+        while !scope.locals.is_empty()
             && scope.locals[scope.locals.len() - 1].depth > scope.scope_depth
         {
             pops += 1;

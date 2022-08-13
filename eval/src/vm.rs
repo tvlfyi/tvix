@@ -159,15 +159,15 @@ impl VM {
                 OpCode::OpAttrPath(count) => self.run_attr_path(count)?,
 
                 OpCode::OpAttrsUpdate => {
-                    let rhs = self.pop().as_attrs()?;
-                    let lhs = self.pop().as_attrs()?;
+                    let rhs = self.pop().to_attrs()?;
+                    let lhs = self.pop().to_attrs()?;
 
                     self.push(Value::Attrs(Rc::new(lhs.update(&rhs))))
                 }
 
                 OpCode::OpAttrsSelect => {
-                    let key = self.pop().as_string()?;
-                    let attrs = self.pop().as_attrs()?;
+                    let key = self.pop().to_string()?;
+                    let attrs = self.pop().to_attrs()?;
 
                     match attrs.select(key.as_str()) {
                         Some(value) => self.push(value.clone()),
@@ -181,8 +181,8 @@ impl VM {
                 }
 
                 OpCode::OpAttrOrNotFound => {
-                    let key = self.pop().as_string()?;
-                    let attrs = self.pop().as_attrs()?;
+                    let key = self.pop().to_string()?;
+                    let attrs = self.pop().to_attrs()?;
 
                     match attrs.select(key.as_str()) {
                         Some(value) => self.push(value.clone()),
@@ -191,8 +191,8 @@ impl VM {
                 }
 
                 OpCode::OpAttrsIsSet => {
-                    let key = self.pop().as_string()?;
-                    let attrs = self.pop().as_attrs()?;
+                    let key = self.pop().to_string()?;
+                    let attrs = self.pop().to_attrs()?;
                     let result = Value::Bool(attrs.select(key.as_str()).is_some());
                     self.push(result);
                 }
@@ -204,8 +204,8 @@ impl VM {
                 }
 
                 OpCode::OpConcat => {
-                    let rhs = self.pop().as_list()?;
-                    let lhs = self.pop().as_list()?;
+                    let rhs = self.pop().to_list()?;
+                    let lhs = self.pop().to_list()?;
                     self.push(Value::List(lhs.concat(&rhs)))
                 }
 
@@ -290,7 +290,7 @@ impl VM {
         let mut path = Vec::with_capacity(count);
 
         for _ in 0..count {
-            path.push(self.pop().as_string()?);
+            path.push(self.pop().to_string()?);
         }
 
         self.push(Value::AttrPath(path));
@@ -310,7 +310,7 @@ impl VM {
         let mut out = String::new();
 
         for _ in 0..count {
-            out.push_str(&self.pop().as_string()?.as_str());
+            out.push_str(self.pop().to_string()?.as_str());
         }
 
         self.push(Value::String(out.into()));

@@ -12,7 +12,7 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         todo!()
     }
 
-    if let Ok(_) = std::env::var("TVIX_DISPLAY_AST") {
+    if std::env::var("TVIX_DISPLAY_AST").is_ok() {
         println!("{}", ast.root().dump());
     }
 
