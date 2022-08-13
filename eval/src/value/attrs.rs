@@ -95,8 +95,54 @@ impl Display for NixAttrs {
 }
 
 impl PartialEq for NixAttrs {
-    fn eq(&self, _other: &Self) -> bool {
-        todo!("attrset equality")
+    fn eq(&self, other: &Self) -> bool {
+        match (&self.0, &other.0) {
+            (AttrsRep::Empty, AttrsRep::Empty) => true,
+
+            // It is possible to create an empty attribute set that
+            // has Map representation like so: ` { ${null} = 1; }`.
+            //
+            // Preventing this would incur a cost on all attribute set
+            // construction (we'd have to check the actual number of
+            // elements after key construction). In practice this
+            // probably does not happen, so it's better to just bite
+            // the bullet and implement this branch.
+            (AttrsRep::Empty, AttrsRep::Map(map)) | (AttrsRep::Map(map), AttrsRep::Empty) => {
+                map.is_empty()
+            }
+
+            // Other specialised representations (KV ...) definitely
+            // do not match `Empty`.
+            (AttrsRep::Empty, _) | (_, AttrsRep::Empty) => false,
+
+            (
+                AttrsRep::KV {
+                    name: n1,
+                    value: v1,
+                },
+                AttrsRep::KV {
+                    name: n2,
+                    value: v2,
+                },
+            ) => n1 == n2 && v1 == v2,
+
+            (AttrsRep::Map(map), AttrsRep::KV { name, value })
+            | (AttrsRep::KV { name, value }, AttrsRep::Map(map)) => {
+                if map.len() != 2 {
+                    return false;
+                }
+
+                if let (Some(m_name), Some(m_value)) =
+                    (map.get(&NixString::NAME), map.get(&NixString::VALUE))
+                {
+                    return name == m_name && value == m_value;
+                }
+
+                false
+            }
+
+            (AttrsRep::Map(m1), AttrsRep::Map(m2)) => m1 == m2,
+        }
     }
 }
 
