@@ -254,6 +254,11 @@ impl VM {
                         self.pop();
                     }
                 }
+
+                OpCode::OpGetLocal(local_idx) => {
+                    let value = self.stack[local_idx].clone();
+                    self.push(value)
+                }
             }
 
             if self.ip == self.chunk.code.len() {

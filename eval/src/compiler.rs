@@ -331,7 +331,14 @@ impl Compiler {
             "false" => self.chunk.push_op(OpCode::OpFalse),
             "null" => self.chunk.push_op(OpCode::OpNull),
 
-            _ => todo!("identifier access"),
+            name => {
+                // Note: `with` and some other special scoping
+                // features are not yet implemented.
+                match self.resolve_local(name) {
+                    Some(idx) => self.chunk.push_op(OpCode::OpGetLocal(idx)),
+                    None => return Err(Error::UnknownStaticVariable(node)),
+                }
+            }
         };
 
         Ok(())
@@ -726,6 +733,18 @@ impl Compiler {
         if pops > 0 {
             self.chunk.push_op(OpCode::OpCloseScope(pops));
         }
+    }
+
+    fn resolve_local(&mut self, name: &str) -> Option<usize> {
+        let scope = &self.locals;
+
+        for (idx, local) in scope.locals.iter().enumerate().rev() {
+            if local.name == name {
+                return Some(idx);
+            }
+        }
+
+        None
     }
 }
 

@@ -29,6 +29,9 @@ pub enum Error {
 
     // Dynamic keys are not allowed in let.
     DynamicKeyInLet(rnix::SyntaxNode),
+
+    // Unknown variable in statically known scope.
+    UnknownStaticVariable(rnix::types::Ident),
 }
 
 impl Display for Error {

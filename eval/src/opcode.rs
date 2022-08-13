@@ -62,6 +62,9 @@ pub enum OpCode {
     // Type assertion operators
     OpAssertBool,
 
+    // Access local identifiers with statically known positions.
+    OpGetLocal(usize),
+
     // Close scopes while leaving their expression value around.
     OpCloseScope(usize), // number of locals to pop
 }
