@@ -1,10 +1,10 @@
-/// This module implements Nix attribute sets. They have flexible
-/// backing implementations, as they are used in very versatile
-/// use-cases that are all exposed the same way in the language
-/// surface.
-///
-/// Due to this, construction and management of attribute sets has
-/// some peculiarities that are encapsulated within this module.
+//! This module implements Nix attribute sets. They have flexible
+//! backing implementations, as they are used in very versatile
+//! use-cases that are all exposed the same way in the language
+//! surface.
+//!
+//! Due to this, construction and management of attribute sets has
+//! some peculiarities that are encapsulated within this module.
 use std::collections::btree_map;
 use std::collections::BTreeMap;
 use std::fmt::Display;

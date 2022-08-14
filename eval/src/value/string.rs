@@ -1,9 +1,8 @@
+//! This module implements Nix language strings and their different
+//! backing implementations.
 use smol_str::SmolStr;
 use std::hash::Hash;
 use std::{borrow::Cow, fmt::Display};
-
-/// This module implements Nix language strings and their different
-/// backing implementations.
 
 #[derive(Clone, Debug)]
 enum StringRepr {

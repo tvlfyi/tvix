@@ -1,4 +1,4 @@
-/// This module implements Nix lists.
+//! This module implements Nix lists.
 use std::fmt::Display;
 
 use super::Value;
