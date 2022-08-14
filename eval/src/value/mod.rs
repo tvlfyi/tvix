@@ -62,6 +62,16 @@ impl Value {
         }
     }
 
+    pub fn as_attrs(&self) -> EvalResult<&NixAttrs> {
+        match self {
+            Value::Attrs(attrs) => Ok(attrs),
+            other => Err(Error::TypeError {
+                expected: "set",
+                actual: other.type_of(),
+            }),
+        }
+    }
+
     pub fn to_string(self) -> EvalResult<NixString> {
         match self {
             Value::String(s) => Ok(s),
