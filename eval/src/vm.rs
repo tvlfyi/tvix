@@ -282,6 +282,9 @@ impl VM {
                 }
 
                 OpCode::OpPushWith(idx) => self.with_stack.push(idx),
+                OpCode::OpPopWith => {
+                    self.with_stack.pop();
+                }
             }
 
             #[cfg(feature = "disassembler")]
