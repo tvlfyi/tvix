@@ -17,6 +17,10 @@ pub struct VM {
     ip: usize,
     chunk: Chunk,
     stack: Vec<Value>,
+
+    // Stack indices of attribute sets from which variables should be
+    // dynamically resolved (`with`).
+    with_stack: Vec<usize>,
 }
 
 macro_rules! arithmetic_op {
@@ -277,7 +281,7 @@ impl VM {
                     self.push(value)
                 }
 
-                OpCode::OpPushWith(_idx) => todo!("with handling not implemented"),
+                OpCode::OpPushWith(idx) => self.with_stack.push(idx),
             }
 
             #[cfg(feature = "disassembler")]
@@ -335,6 +339,7 @@ pub fn run_chunk(chunk: Chunk) -> EvalResult<Value> {
         chunk,
         ip: 0,
         stack: vec![],
+        with_stack: vec![],
     };
 
     vm.run()
