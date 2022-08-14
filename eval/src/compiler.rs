@@ -42,14 +42,14 @@ struct Local {
     depth: usize,
 }
 
-/// Represents locals known during compilation, which can be resolved
+/// Represents a scope known during compilation, which can be resolved
 /// directly to stack indices.
 ///
 /// TODO(tazjin): `with`-stack
 /// TODO(tazjin): flag "specials" (e.g. note depth if builtins are
 /// overridden)
 #[derive(Default)]
-struct Locals {
+struct Scope {
     locals: Vec<Local>,
 
     // How many scopes "deep" are these locals?
@@ -58,7 +58,7 @@ struct Locals {
 
 struct Compiler {
     chunk: Chunk,
-    locals: Locals,
+    scope: Scope,
 
     warnings: Vec<EvalWarning>,
     root_dir: PathBuf,
@@ -709,9 +709,9 @@ impl Compiler {
 
                 Some(_) => {
                     for ident in inherit.idents() {
-                        self.locals.locals.push(Local {
+                        self.scope.locals.push(Local {
                             name: ident.as_str().to_string(),
-                            depth: self.locals.scope_depth,
+                            depth: self.scope.scope_depth,
                         });
                     }
                     from_inherits.push(inherit);
@@ -733,9 +733,9 @@ impl Compiler {
 
             entries.push(entry.value().unwrap());
 
-            self.locals.locals.push(Local {
+            self.scope.locals.push(Local {
                 name: path.pop().unwrap(),
-                depth: self.locals.scope_depth,
+                depth: self.scope.scope_depth,
             });
         }
 
@@ -792,11 +792,11 @@ impl Compiler {
     }
 
     fn begin_scope(&mut self) {
-        self.locals.scope_depth += 1;
+        self.scope.scope_depth += 1;
     }
 
     fn end_scope(&mut self) {
-        let mut scope = &mut self.locals;
+        let mut scope = &mut self.scope;
         debug_assert!(scope.scope_depth != 0, "can not end top scope");
         scope.scope_depth -= 1;
 
@@ -820,7 +820,7 @@ impl Compiler {
     }
 
     fn resolve_local(&mut self, name: &str) -> Option<usize> {
-        let scope = &self.locals;
+        let scope = &self.scope;
 
         for (idx, local) in scope.locals.iter().enumerate().rev() {
             if local.name == name {
@@ -892,7 +892,7 @@ pub fn compile(ast: rnix::AST, location: Option<PathBuf>) -> EvalResult<Compilat
         root_dir,
         chunk: Chunk::default(),
         warnings: vec![],
-        locals: Default::default(),
+        scope: Default::default(),
     };
 
     c.compile(ast.node())?;
