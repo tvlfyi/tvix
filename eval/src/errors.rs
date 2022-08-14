@@ -31,6 +31,8 @@ pub enum Error {
 
     // Unknown variable in dynamic scope (with, rec, ...).
     UnknownDynamicVariable(String),
+
+    ParseErrors(Vec<rnix::parser::ParseError>),
 }
 
 impl Display for Error {

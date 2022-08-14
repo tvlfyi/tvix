@@ -2,14 +2,20 @@ use std::path::PathBuf;
 
 use rnix::{self, types::TypedNode};
 
-use crate::{errors::EvalResult, value::Value};
+use crate::{
+    errors::{Error, EvalResult},
+    value::Value,
+};
 
 pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
     let ast = rnix::parse(code);
 
     let errors = ast.errors();
     if !errors.is_empty() {
-        todo!()
+        for err in &errors {
+            eprintln!("parse error: {}", err);
+            return Err(Error::ParseErrors(errors));
+        }
     }
 
     if std::env::var("TVIX_DISPLAY_AST").is_ok() {
