@@ -393,7 +393,7 @@ impl Compiler {
             // otherwise we need to emit an instruction to construct
             // the attribute path.
             if key_count > 1 {
-                self.chunk.push_op(OpCode::OpAttrPath(2));
+                self.chunk.push_op(OpCode::OpAttrPath(key_count));
             }
 
             // The value is just compiled as normal so that its

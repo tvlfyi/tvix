@@ -253,7 +253,7 @@ impl NixAttrs {
                     continue;
                 }
 
-                other => panic!("unexpected attribute key type: {}", other.type_of()),
+                other => panic!("unexpected attribute key: {} :: {}", other, other.type_of()),
             }
         }
 
