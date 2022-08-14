@@ -5,6 +5,7 @@
 ///
 /// Due to this, construction and management of attribute sets has
 /// some peculiarities that are encapsulated within this module.
+use std::collections::btree_map;
 use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::rc::Rc;
@@ -168,23 +169,19 @@ impl NixAttrs {
                 let mut m = m.clone();
 
                 match m.entry(NixString::NAME) {
-                    std::collections::btree_map::Entry::Vacant(e) => {
+                    btree_map::Entry::Vacant(e) => {
                         e.insert(name.clone());
                     }
 
-                    std::collections::btree_map::Entry::Occupied(_) => {
-                        /* name from `m` has precedence */
-                    }
+                    btree_map::Entry::Occupied(_) => { /* name from `m` has precedence */ }
                 };
 
                 match m.entry(NixString::VALUE) {
-                    std::collections::btree_map::Entry::Vacant(e) => {
+                    btree_map::Entry::Vacant(e) => {
                         e.insert(value.clone());
                     }
 
-                    std::collections::btree_map::Entry::Occupied(_) => {
-                        /* value from `m` has precedence */
-                    }
+                    btree_map::Entry::Occupied(_) => { /* value from `m` has precedence */ }
                 };
 
                 NixAttrs(AttrsRep::Map(m))
@@ -307,11 +304,11 @@ fn attempt_optimise_kv(slice: &mut [Value]) -> Option<NixAttrs> {
 // checking against duplicate keys.
 fn set_attr(attrs: &mut NixAttrs, key: NixString, value: Value) -> EvalResult<()> {
     match attrs.0.map_mut().entry(key) {
-        std::collections::btree_map::Entry::Occupied(entry) => Err(Error::DuplicateAttrsKey {
+        btree_map::Entry::Occupied(entry) => Err(Error::DuplicateAttrsKey {
             key: entry.key().as_str().to_string(),
         }),
 
-        std::collections::btree_map::Entry::Vacant(entry) => {
+        btree_map::Entry::Vacant(entry) => {
             entry.insert(value);
             Ok(())
         }
@@ -344,7 +341,7 @@ fn set_nested_attr(
     // duplicate key.
     match attrs.0.map_mut().entry(key) {
         // Vacant entry -> new attribute set is needed.
-        std::collections::btree_map::Entry::Vacant(entry) => {
+        btree_map::Entry::Vacant(entry) => {
             let mut map = NixAttrs(AttrsRep::Map(BTreeMap::new()));
 
             // TODO(tazjin): technically recursing further is not
@@ -357,7 +354,7 @@ fn set_nested_attr(
 
         // Occupied entry: Either error out if there is something
         // other than attrs, or insert the next value.
-        std::collections::btree_map::Entry::Occupied(mut entry) => match entry.get_mut() {
+        btree_map::Entry::Occupied(mut entry) => match entry.get_mut() {
             Value::Attrs(attrs) => {
                 set_nested_attr(
                     Rc::make_mut(attrs),
