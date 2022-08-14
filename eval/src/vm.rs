@@ -192,9 +192,15 @@ impl VM {
 
                 OpCode::OpAttrsIsSet => {
                     let key = self.pop().to_string()?;
-                    let attrs = self.pop().to_attrs()?;
-                    let result = Value::Bool(attrs.select(key.as_str()).is_some());
-                    self.push(result);
+                    let result = match self.pop() {
+                        Value::Attrs(attrs) => attrs.select(key.as_str()).is_some(),
+
+                        // Nix allows use of `?` on non-set types, but
+                        // always returns false in those cases.
+                        _ => false,
+                    };
+
+                    self.push(Value::Bool(result));
                 }
 
                 OpCode::OpList(count) => {
