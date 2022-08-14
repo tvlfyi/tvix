@@ -688,9 +688,36 @@ impl Compiler {
     //
     // Unless in a non-standard scope, the encountered values are
     // simply pushed on the stack and their indices noted in the
+    // entries vector.
     fn compile_let_in(&mut self, node: rnix::types::LetIn) -> Result<(), Error> {
         self.begin_scope();
         let mut entries = vec![];
+        let mut from_inherits = vec![];
+
+        for inherit in node.inherits() {
+            match inherit.from() {
+                // Within a `let` binding, inheriting from the outer
+                // scope is practically a no-op.
+                None => {
+                    self.warnings.push(EvalWarning {
+                        node: inherit.node().clone(),
+                        kind: WarningKind::UselessInherit,
+                    });
+
+                    continue;
+                }
+
+                Some(_) => {
+                    for ident in inherit.idents() {
+                        self.locals.locals.push(Local {
+                            name: ident.as_str().to_string(),
+                            depth: self.locals.scope_depth,
+                        });
+                    }
+                    from_inherits.push(inherit);
+                }
+            }
+        }
 
         // Before compiling the values of a let expression, all keys
         // need to already be added to the known locals. This is
@@ -712,24 +739,23 @@ impl Compiler {
             });
         }
 
-        for inherit in node.inherits() {
-            match inherit.from() {
-                // Within a `let` binding, inheriting from the outer
-                // scope is practically a no-op.
-                None => {
-                    self.warnings.push(EvalWarning {
-                        node: inherit.node().clone(),
-                        kind: WarningKind::UselessInherit,
-                    });
+        // Now we can add instructions to look up each inherited value
+        // ...
+        for inherit in from_inherits {
+            let from = inherit
+                .from()
+                .expect("only inherits with `from` are pushed here");
 
-                    continue;
-                }
-                Some(_) => todo!("let inherit from attrs"),
+            for ident in inherit.idents() {
+                // TODO: Optimised multi-select instruction?
+                self.compile(from.inner().unwrap())?;
+                self.emit_literal_ident(&ident);
+                self.chunk.push_op(OpCode::OpAttrsSelect);
             }
         }
 
-        // Now we can compile each expression, leaving the values on
-        // the stack in the right order.
+        // ... and finally each expression, leaving the values on the
+        // stack in the right order.
         for value in entries {
             self.compile(value)?;
         }
