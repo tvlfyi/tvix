@@ -568,7 +568,7 @@ impl Compiler {
                 self.compile_with_literal_ident(next)?;
 
                 for fragment in fragments.into_iter().rev() {
-                    self.chunk.push_op(OpCode::OpAttrsSelect);
+                    self.chunk.push_op(OpCode::OpAttrOrNotFound);
                     self.compile_with_literal_ident(fragment)?;
                 }
 
