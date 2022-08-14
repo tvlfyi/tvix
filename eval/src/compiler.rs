@@ -358,6 +358,32 @@ impl Compiler {
 
         let mut count = 0;
 
+        // Inherits have to be evaluated before entering the scope of
+        // a potentially recursive attribute sets (i.e. we always
+        // inherit "from the outside").
+        for inherit in node.inherits() {
+            match inherit.from() {
+                Some(_from) => todo!("inherit from attrs not implemented"),
+                None => {
+                    for ident in inherit.idents() {
+                        count += 1;
+
+                        // Leave the identifier on the stack (never
+                        // nested in case of inherits!)
+                        let idx = self
+                            .chunk
+                            .push_constant(Value::String(ident.as_str().into()));
+                        self.chunk.push_op(OpCode::OpConstant(idx));
+
+                        match self.resolve_local(ident.as_str()) {
+                            Some(idx) => self.chunk.push_op(OpCode::OpGetLocal(idx)),
+                            None => return Err(Error::UnknownStaticVariable(ident)),
+                        };
+                    }
+                }
+            }
+        }
+
         for kv in node.entries() {
             count += 1;
 
