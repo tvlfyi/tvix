@@ -152,10 +152,7 @@ impl Compiler {
     fn compile_with_literal_ident(&mut self, node: rnix::SyntaxNode) -> EvalResult<()> {
         if node.kind() == rnix::SyntaxKind::NODE_IDENT {
             let ident = rnix::types::Ident::cast(node).unwrap();
-            let idx = self
-                .chunk
-                .push_constant(Value::String(ident.as_str().into()));
-            self.chunk.push_op(OpCode::OpConstant(idx));
+            self.emit_literal_ident(&ident);
             return Ok(());
         }
 
@@ -363,17 +360,31 @@ impl Compiler {
         // inherit "from the outside").
         for inherit in node.inherits() {
             match inherit.from() {
-                Some(_from) => todo!("inherit from attrs not implemented"),
-                None => {
+                Some(from) => {
                     for ident in inherit.idents() {
                         count += 1;
 
-                        // Leave the identifier on the stack (never
-                        // nested in case of inherits!)
-                        let idx = self
-                            .chunk
-                            .push_constant(Value::String(ident.as_str().into()));
-                        self.chunk.push_op(OpCode::OpConstant(idx));
+                        // First emit the identifier itself
+                        self.emit_literal_ident(&ident);
+
+                        // Then emit the node that we're inheriting
+                        // from.
+                        //
+                        // TODO: Likely significant optimisation
+                        // potential in having a multi-select
+                        // instruction followed by a merge, rather
+                        // than pushing/popping the same attrs
+                        // potentially a lot of times.
+                        self.compile(from.inner().unwrap())?;
+                        self.emit_literal_ident(&ident);
+                        self.chunk.push_op(OpCode::OpAttrsSelect);
+                    }
+                }
+
+                None => {
+                    for ident in inherit.idents() {
+                        count += 1;
+                        self.emit_literal_ident(&ident);
 
                         match self.resolve_local(ident.as_str()) {
                             Some(idx) => self.chunk.push_op(OpCode::OpGetLocal(idx)),
@@ -727,6 +738,16 @@ impl Compiler {
         self.compile(node.body().unwrap())?;
         self.end_scope();
         Ok(())
+    }
+
+    // Emit the literal string value of an identifier. Required for
+    // several operations related to attribute sets, where identifiers
+    // are used as string keys.
+    fn emit_literal_ident(&mut self, ident: &rnix::types::Ident) {
+        let idx = self
+            .chunk
+            .push_constant(Value::String(ident.as_str().into()));
+        self.chunk.push_op(OpCode::OpConstant(idx));
     }
 
     fn patch_jump(&mut self, idx: CodeIdx) {
