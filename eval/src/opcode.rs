@@ -52,6 +52,9 @@ pub enum OpCode {
     OpAttrOrNotFound,
     OpAttrsIsSet,
 
+    // `with`-handling
+    OpPushWith(usize),
+
     // Lists
     OpList(usize),
     OpConcat,

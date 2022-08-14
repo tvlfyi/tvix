@@ -40,6 +40,17 @@ struct Local {
 
     // Scope depth of this local.
     depth: usize,
+
+    // Phantom locals are not actually accessible by users (e.g.
+    // intermediate values used for `with`).
+    phantom: bool,
+}
+
+/// Represents a stack offset containing keys which are currently
+/// in-scope through a with expression.
+#[derive(Debug)]
+struct With {
+    depth: usize,
 }
 
 /// Represents a scope known during compilation, which can be resolved
@@ -54,6 +65,10 @@ struct Scope {
 
     // How many scopes "deep" are these locals?
     scope_depth: usize,
+
+    // Stack indices of attribute sets currently in scope through
+    // `with`.
+    with_stack: Vec<With>,
 }
 
 struct Compiler {
@@ -138,6 +153,11 @@ impl Compiler {
             rnix::SyntaxKind::NODE_LET_IN => {
                 let node = rnix::types::LetIn::cast(node).unwrap();
                 self.compile_let_in(node)
+            }
+
+            rnix::SyntaxKind::NODE_WITH => {
+                let node = rnix::types::With::cast(node).unwrap();
+                self.compile_with(node)
             }
 
             kind => panic!("visiting unsupported node: {:?}", kind),
@@ -689,7 +709,7 @@ impl Compiler {
     // Unless in a non-standard scope, the encountered values are
     // simply pushed on the stack and their indices noted in the
     // entries vector.
-    fn compile_let_in(&mut self, node: rnix::types::LetIn) -> Result<(), Error> {
+    fn compile_let_in(&mut self, node: rnix::types::LetIn) -> EvalResult<()> {
         self.begin_scope();
         let mut entries = vec![];
         let mut from_inherits = vec![];
@@ -709,10 +729,7 @@ impl Compiler {
 
                 Some(_) => {
                     for ident in inherit.idents() {
-                        self.scope.locals.push(Local {
-                            name: ident.as_str().to_string(),
-                            depth: self.scope.scope_depth,
-                        });
+                        self.push_local(ident.as_str());
                     }
                     from_inherits.push(inherit);
                 }
@@ -732,11 +749,7 @@ impl Compiler {
             }
 
             entries.push(entry.value().unwrap());
-
-            self.scope.locals.push(Local {
-                name: path.pop().unwrap(),
-                depth: self.scope.scope_depth,
-            });
+            self.push_local(path.pop().unwrap());
         }
 
         // Now we can add instructions to look up each inherited value
@@ -764,6 +777,26 @@ impl Compiler {
         self.compile(node.body().unwrap())?;
         self.end_scope();
         Ok(())
+    }
+
+    // Compile `with` expressions by emitting instructions that
+    // pop/remove the indices of attribute sets that are implicitly in
+    // scope through `with` on the "with-stack".
+    fn compile_with(&mut self, node: rnix::types::With) -> EvalResult<()> {
+        // TODO: Detect if the namespace is just an identifier, and
+        // resolve that directly (thus avoiding duplication on the
+        // stack).
+        self.compile(node.namespace().unwrap())?;
+
+        self.push_phantom();
+        self.scope.with_stack.push(With {
+            depth: self.scope.scope_depth,
+        });
+
+        self.chunk
+            .push_op(OpCode::OpPushWith(self.scope.locals.len() - 1));
+
+        self.compile(node.body().unwrap())
     }
 
     // Emit the literal string value of an identifier. Required for
@@ -819,11 +852,27 @@ impl Compiler {
         }
     }
 
+    fn push_local<S: Into<String>>(&mut self, name: S) {
+        self.scope.locals.push(Local {
+            name: name.into(),
+            depth: self.scope.scope_depth,
+            phantom: false,
+        });
+    }
+
+    fn push_phantom(&mut self) {
+        self.scope.locals.push(Local {
+            name: "".into(),
+            depth: self.scope.scope_depth,
+            phantom: true,
+        });
+    }
+
     fn resolve_local(&mut self, name: &str) -> Option<usize> {
         let scope = &self.scope;
 
         for (idx, local) in scope.locals.iter().enumerate().rev() {
-            if local.name == name {
+            if !local.phantom && local.name == name {
                 return Some(idx);
             }
         }

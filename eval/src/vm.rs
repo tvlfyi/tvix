@@ -276,6 +276,8 @@ impl VM {
                     let value = self.stack[local_idx].clone();
                     self.push(value)
                 }
+
+                OpCode::OpPushWith(_idx) => todo!("with handling not implemented"),
             }
 
             #[cfg(feature = "disassembler")]
