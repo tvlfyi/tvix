@@ -6,10 +6,6 @@ pub enum Error {
         key: String,
     },
 
-    InvalidKeyType {
-        given: &'static str,
-    },
-
     AttributeNotFound {
         name: String,
     },

@@ -256,11 +256,7 @@ impl NixAttrs {
                     continue;
                 }
 
-                other => {
-                    return Err(Error::InvalidKeyType {
-                        given: other.type_of(),
-                    })
-                }
+                other => panic!("unexpected attribute key type: {}", other.type_of()),
             }
         }
 
