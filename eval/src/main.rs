@@ -42,10 +42,12 @@ fn run_prompt() {
     let mut rl = Editor::<()>::new().expect("should be able to launch rustyline");
 
     let history_path = match state_dir() {
+        // Attempt to set up these paths, but do not hard fail if it
+        // doesn't work.
         Some(mut path) => {
+            std::fs::create_dir_all(&path).ok();
             path.push("history.txt");
             rl.load_history(&path).ok();
-
             Some(path)
         }
 
