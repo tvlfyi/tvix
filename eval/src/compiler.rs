@@ -850,6 +850,13 @@ impl Compiler {
         if pops > 0 {
             self.chunk.push_op(OpCode::OpCloseScope(pops));
         }
+
+        while !scope.with_stack.is_empty()
+            && scope.with_stack[scope.with_stack.len() - 1].depth > scope.scope_depth
+        {
+            self.chunk.push_op(OpCode::OpPopWith);
+            scope.with_stack.pop();
+        }
     }
 
     fn push_local<S: Into<String>>(&mut self, name: S) {
