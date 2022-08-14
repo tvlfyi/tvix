@@ -182,12 +182,16 @@ impl VM {
 
                 OpCode::OpAttrOrNotFound => {
                     let key = self.pop().to_string()?;
-                    let attrs = self.pop().to_attrs()?;
+                    let value = match self.pop() {
+                        Value::Attrs(attrs) => match attrs.select(key.as_str()) {
+                            Some(value) => value.clone(),
+                            None => Value::NotFound,
+                        },
 
-                    match attrs.select(key.as_str()) {
-                        Some(value) => self.push(value.clone()),
-                        None => self.push(Value::NotFound),
-                    }
+                        _ => Value::NotFound,
+                    };
+
+                    self.push(value);
                 }
 
                 OpCode::OpAttrsIsSet => {
