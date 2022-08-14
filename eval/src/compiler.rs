@@ -352,7 +352,17 @@ impl Compiler {
                 // features are not yet implemented.
                 match self.resolve_local(name) {
                     Some(idx) => self.chunk.push_op(OpCode::OpGetLocal(idx)),
-                    None => return Err(Error::UnknownStaticVariable(node)),
+                    None => {
+                        if self.scope.with_stack.is_empty() {
+                            return Err(Error::UnknownStaticVariable(node));
+                        }
+
+                        // Variable needs to be dynamically resolved
+                        // at runtime.
+                        let idx = self.chunk.push_constant(Value::String(name.into()));
+                        self.chunk.push_op(OpCode::OpConstant(idx));
+                        self.chunk.push_op(OpCode::OpResolveWith)
+                    }
                 }
             }
         };
