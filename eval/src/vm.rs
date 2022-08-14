@@ -98,7 +98,7 @@ impl VM {
         #[cfg(feature = "disassembler")]
         let mut tracer = Tracer::new();
 
-        loop {
+        'dispatch: loop {
             let op = self.inc_ip();
             match op {
                 OpCode::OpConstant(idx) => {
@@ -284,6 +284,25 @@ impl VM {
                 OpCode::OpPushWith(idx) => self.with_stack.push(idx),
                 OpCode::OpPopWith => {
                     self.with_stack.pop();
+                }
+
+                OpCode::OpResolveWith => {
+                    let ident = self.pop().to_string()?;
+
+                    // Attempt to resolve the variable, starting at
+                    // the back of the with_stack.
+                    'with: for idx in self.with_stack.iter().rev() {
+                        let with = self.stack[*idx].as_attrs()?;
+                        match with.select(ident.as_str()) {
+                            None => continue 'with,
+                            Some(val) => {
+                                self.push(val.clone());
+                                continue 'dispatch;
+                            }
+                        }
+                    }
+
+                    return Err(Error::UnknownDynamicVariable(ident.to_string()));
                 }
             }
 

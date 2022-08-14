@@ -55,6 +55,7 @@ pub enum OpCode {
     // `with`-handling
     OpPushWith(usize),
     OpPopWith,
+    OpResolveWith,
 
     // Lists
     OpList(usize),

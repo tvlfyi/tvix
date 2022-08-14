@@ -28,6 +28,9 @@ pub enum Error {
 
     // Unknown variable in statically known scope.
     UnknownStaticVariable(rnix::types::Ident),
+
+    // Unknown variable in dynamic scope (with, rec, ...).
+    UnknownDynamicVariable(String),
 }
 
 impl Display for Error {
