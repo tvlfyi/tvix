@@ -6,12 +6,18 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rnix = "0.10.2"
 smol_str = "0.1"
 rustyline = "10.0.0"
 dirs = "4.0.0"
 path-clean = "0.1"
 tabwriter = { version = "1.2", optional = true }
+rowan = "*" # pinned by rnix
+
+# rnix has not been released in a while (as of 2022-08-16), we will
+# use it from git.
+[dependencies.rnix]
+git = "https://github.com/nix-community/rnix-parser.git"
+rev = "ae9fe1344993bb57d292f361c83e0379282e88ed"
 
 [dev-dependencies]
 criterion = "0.3.6"

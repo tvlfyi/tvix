@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use rnix::{self, types::TypedNode};
+use rnix;
 
 use crate::{
     errors::{Error, EvalResult},
@@ -8,21 +8,27 @@ use crate::{
 };
 
 pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
-    let ast = rnix::parse(code);
+    let parsed = rnix::ast::Root::parse(code);
+    let errors = parsed.errors();
 
-    let errors = ast.errors();
     if !errors.is_empty() {
-        for err in &errors {
+        for err in errors {
             eprintln!("parse error: {}", err);
-            return Err(Error::ParseErrors(errors));
         }
+        return Err(Error::ParseErrors(errors.to_vec()));
     }
+
+    // If we've reached this point, there are no errors.
+    let root_expr = parsed
+        .tree()
+        .expr()
+        .expect("expression should exist if no errors occured");
 
     if std::env::var("TVIX_DISPLAY_AST").is_ok() {
-        println!("{}", ast.root().dump());
+        println!("{:?}", root_expr);
     }
 
-    let result = crate::compiler::compile(ast, location)?;
+    let result = crate::compiler::compile(root_expr, location)?;
 
     #[cfg(feature = "disassembler")]
     crate::disassembler::disassemble_chunk(&result.chunk);

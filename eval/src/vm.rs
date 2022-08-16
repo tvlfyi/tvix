@@ -83,7 +83,7 @@ impl VM {
     }
 
     fn pop(&mut self) -> Value {
-        self.stack.pop().expect("TODO")
+        self.stack.pop().expect("runtime stack empty")
     }
 
     fn push(&mut self, value: Value) {

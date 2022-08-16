@@ -27,7 +27,7 @@ pub enum Error {
     DynamicKeyInLet(rnix::SyntaxNode),
 
     // Unknown variable in statically known scope.
-    UnknownStaticVariable(rnix::types::Ident),
+    UnknownStaticVariable(rnix::ast::Ident),
 
     // Unknown variable in dynamic scope (with, rec, ...).
     UnknownDynamicVariable(String),
