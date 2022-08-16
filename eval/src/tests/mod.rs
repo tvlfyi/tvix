@@ -1,4 +1,5 @@
 use crate::eval::interpret;
+use pretty_assertions::assert_eq;
 
 use test_generator::test_resources;
 
@@ -15,9 +16,9 @@ fn eval_okay_test(code_path: &str) {
     let result_str = format!("{}", result);
 
     assert_eq!(
-        exp.trim(),
         result_str,
-        "result value representation (right) must match expectation (left)"
+        exp.trim(),
+        "result value representation (left) must match expectation (right)"
     );
 }
 
@@ -31,9 +32,9 @@ fn identity(code_path: &str) {
     let result_str = format!("{}", result);
 
     assert_eq!(
-        code.trim(),
         result_str,
-        "result value representation (right) must match expectation (left)"
+        code.trim(),
+        "result value representation (left) must match expectation (right)"
     )
 }
 

@@ -16,6 +16,7 @@ tabwriter = { version = "1.2", optional = true }
 [dev-dependencies]
 criterion = "0.3.6"
 test-generator = "0.3.0"
+pretty_assertions = "1.2.1"
 
 [features]
 # Enables running the Nix language test suite from the original C++
