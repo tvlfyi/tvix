@@ -9,8 +9,8 @@
 //!
 //! However, at the time that the AST is passed to the compiler we
 //! have verified that `rnix` considers the code to be correct, so all
-//! variants are filed. In cases where the invariant is guaranteed by
-//! the code in this module, `debug_assert!` has been used to catch
+//! variants are fulfilled. In cases where the invariant is guaranteed
+//! by the code in this module, `debug_assert!` has been used to catch
 //! mistakes early during development.
 
 use path_clean::PathClean;
@@ -69,6 +69,16 @@ struct Scope {
     // Stack indices of attribute sets currently in scope through
     // `with`.
     with_stack: Vec<With>,
+
+    // Certain symbols are considered to be "poisoning" the scope when
+    // defined. This is because users are allowed to override symbols
+    // like 'true' or 'null'.
+    //
+    // To support this efficiently, the depth at which a poisoning
+    // occured is tracked here.
+    poisoned_true: usize,
+    poisoned_false: usize,
+    poisoned_null: usize,
 }
 
 struct Compiler {
@@ -343,9 +353,9 @@ impl Compiler {
             // optimised information about any "weird" stuff that's
             // happened to the scope (such as overrides of these
             // literals, or builtins).
-            "true" => self.chunk.push_op(OpCode::OpTrue),
-            "false" => self.chunk.push_op(OpCode::OpFalse),
-            "null" => self.chunk.push_op(OpCode::OpNull),
+            "true" if self.scope.poisoned_true == 0 => self.chunk.push_op(OpCode::OpTrue),
+            "false" if self.scope.poisoned_false == 0 => self.chunk.push_op(OpCode::OpFalse),
+            "null" if self.scope.poisoned_null == 0 => self.chunk.push_op(OpCode::OpNull),
 
             name => {
                 // Note: `with` and some other special scoping
@@ -817,6 +827,19 @@ impl Compiler {
     fn end_scope(&mut self) {
         let mut scope = &mut self.scope;
         debug_assert!(scope.scope_depth != 0, "can not end top scope");
+
+        // If this scope poisoned any builtins or special identifiers,
+        // they need to be reset.
+        if scope.poisoned_true == scope.scope_depth {
+            scope.poisoned_true = 0;
+        }
+        if scope.poisoned_false == scope.scope_depth {
+            scope.poisoned_false = 0;
+        }
+        if scope.poisoned_null == scope.scope_depth {
+            scope.poisoned_null = 0;
+        }
+
         scope.scope_depth -= 1;
 
         // When ending a scope, all corresponding locals need to be
@@ -846,6 +869,23 @@ impl Compiler {
     }
 
     fn push_local<S: Into<String>>(&mut self, name: S) {
+        // Set up scope poisoning if required.
+        let name = name.into();
+        match name.as_str() {
+            "true" if self.scope.poisoned_true == 0 => {
+                self.scope.poisoned_true = self.scope.scope_depth
+            }
+
+            "false" if self.scope.poisoned_false == 0 => {
+                self.scope.poisoned_false = self.scope.scope_depth
+            }
+
+            "null" if self.scope.poisoned_null == 0 => {
+                self.scope.poisoned_null = self.scope.scope_depth
+            }
+
+            _ => {}
+        };
         self.scope.locals.push(Local {
             name: name.into(),
             depth: self.scope.scope_depth,
