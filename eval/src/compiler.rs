@@ -721,8 +721,6 @@ impl Compiler {
     // entries vector.
     fn compile_let_in(&mut self, node: rnix::types::LetIn) -> EvalResult<()> {
         self.begin_scope();
-        let mut entries = vec![];
-        let mut from_inherits = vec![];
 
         for inherit in node.inherits() {
             match inherit.from() {
@@ -737,19 +735,18 @@ impl Compiler {
                     continue;
                 }
 
-                Some(_) => {
+                Some(from) => {
                     for ident in inherit.idents() {
+                        // TODO: Optimised multi-select instruction?
+                        self.compile(from.inner().unwrap())?;
+                        self.emit_literal_ident(&ident);
+                        self.chunk.push_op(OpCode::OpAttrsSelect);
                         self.push_local(ident.as_str());
                     }
-                    from_inherits.push(inherit);
                 }
             }
         }
 
-        // Before compiling the values of a let expression, all keys
-        // need to already be added to the known locals. This is
-        // because in Nix these bindings are always recursive (they
-        // can even refer to themselves).
         for entry in node.entries() {
             let key = entry.key().unwrap();
             let mut path = normalise_ident_path(key.path())?;
@@ -758,29 +755,8 @@ impl Compiler {
                 todo!("nested bindings in let expressions :(")
             }
 
-            entries.push(entry.value().unwrap());
+            self.compile(entry.value().unwrap())?;
             self.push_local(path.pop().unwrap());
-        }
-
-        // Now we can add instructions to look up each inherited value
-        // ...
-        for inherit in from_inherits {
-            let from = inherit
-                .from()
-                .expect("only inherits with `from` are pushed here");
-
-            for ident in inherit.idents() {
-                // TODO: Optimised multi-select instruction?
-                self.compile(from.inner().unwrap())?;
-                self.emit_literal_ident(&ident);
-                self.chunk.push_op(OpCode::OpAttrsSelect);
-            }
-        }
-
-        // ... and finally each expression, leaving the values on the
-        // stack in the right order.
-        for value in entries {
-            self.compile(value)?;
         }
 
         // Deal with the body, then clean up the locals afterwards.
