@@ -92,9 +92,11 @@ impl NixString {
 
 fn nix_escape_char(ch: char) -> Option<&'static str> {
     match ch {
-        '\\' => Some("\\"),
-        '"' => Some("\\"),
+        '\\' => Some("\\\\"),
+        '"' => Some("\\\""),
         '\n' => Some("\\n"),
+        '\t' => Some("\\t"),
+        '\r' => Some("\\r"),
         _ => None,
     }
 }
