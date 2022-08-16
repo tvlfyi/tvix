@@ -33,6 +33,8 @@ pub enum Error {
     UnknownDynamicVariable(String),
 
     ParseErrors(Vec<rnix::parser::ParseError>),
+
+    AssertionFailed,
 }
 
 impl Display for Error {

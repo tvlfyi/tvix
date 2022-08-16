@@ -304,6 +304,12 @@ impl VM {
 
                     return Err(Error::UnknownDynamicVariable(ident.to_string()));
                 }
+
+                OpCode::OpAssert => {
+                    if !self.pop().as_bool()? {
+                        return Err(Error::AssertionFailed);
+                    }
+                }
             }
 
             #[cfg(feature = "disassembler")]

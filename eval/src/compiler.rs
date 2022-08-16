@@ -170,6 +170,11 @@ impl Compiler {
                 self.compile_with(node)
             }
 
+            rnix::SyntaxKind::NODE_ASSERT => {
+                let node = rnix::types::Assert::cast(node).unwrap();
+                self.compile_assert(node)
+            }
+
             kind => panic!("visiting unsupported node: {:?}", kind),
         }
     }
@@ -792,6 +797,17 @@ impl Compiler {
         self.chunk
             .push_op(OpCode::OpPushWith(self.scope.locals.len() - 1));
 
+        self.compile(node.body().unwrap())
+    }
+
+    fn compile_assert(&mut self, node: rnix::types::Assert) -> EvalResult<()> {
+        // Compile the assertion condition to leave its value on the stack.
+        self.compile(node.condition().unwrap())?;
+        self.chunk.push_op(OpCode::OpAssert);
+
+        // The runtime will abort evaluation at this point if the
+        // assertion failed, if not the body simply continues on like
+        // normal.
         self.compile(node.body().unwrap())
     }
 

@@ -72,4 +72,7 @@ pub enum OpCode {
 
     // Close scopes while leaving their expression value around.
     OpCloseScope(usize), // number of locals to pop
+
+    // Asserts stack top is a boolean, and true.
+    OpAssert,
 }
