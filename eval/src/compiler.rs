@@ -751,7 +751,7 @@ impl Compiler {
                         self.compile(from.inner().unwrap())?;
                         self.emit_literal_ident(&ident);
                         self.chunk.push_op(OpCode::OpAttrsSelect);
-                        self.push_local(ident.as_str());
+                        self.declare_local(ident.as_str());
                     }
                 }
             }
@@ -766,7 +766,7 @@ impl Compiler {
             }
 
             self.compile(entry.value().unwrap())?;
-            self.push_local(path.pop().unwrap());
+            self.declare_local(path.pop().unwrap());
         }
 
         // Deal with the body, then clean up the locals afterwards.
@@ -784,7 +784,7 @@ impl Compiler {
         // stack).
         self.compile(node.namespace().unwrap())?;
 
-        self.push_phantom();
+        self.declare_phantom();
         self.scope.with_stack.push(With {
             depth: self.scope.scope_depth,
         });
@@ -868,7 +868,10 @@ impl Compiler {
         }
     }
 
-    fn push_local<S: Into<String>>(&mut self, name: S) {
+    /// Declare a local variable known in the scope that is being
+    /// compiled by pushing it to the locals. This is used to
+    /// determine the stack offset of variables.
+    fn declare_local<S: Into<String>>(&mut self, name: S) {
         // Set up scope poisoning if required.
         let name = name.into();
         match name.as_str() {
@@ -886,6 +889,7 @@ impl Compiler {
 
             _ => {}
         };
+
         self.scope.locals.push(Local {
             name: name.into(),
             depth: self.scope.scope_depth,
@@ -893,7 +897,7 @@ impl Compiler {
         });
     }
 
-    fn push_phantom(&mut self) {
+    fn declare_phantom(&mut self) {
         self.scope.locals.push(Local {
             name: "".into(),
             depth: self.scope.scope_depth,
