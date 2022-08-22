@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum ErrorKind {
     DuplicateAttrsKey {
         key: String,
@@ -27,7 +27,7 @@ pub enum ErrorKind {
     DynamicKeyInLet(rnix::SyntaxNode),
 
     // Unknown variable in statically known scope.
-    UnknownStaticVariable(rnix::ast::Ident),
+    UnknownStaticVariable,
 
     // Unknown variable in dynamic scope (with, rec, ...).
     UnknownDynamicVariable(String),
@@ -37,7 +37,7 @@ pub enum ErrorKind {
     AssertionFailed,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Error {
     pub node: Option<rnix::SyntaxNode>,
     pub kind: ErrorKind,

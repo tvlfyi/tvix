@@ -19,7 +19,7 @@ use rowan::ast::AstNode;
 use std::path::{Path, PathBuf};
 
 use crate::chunk::Chunk;
-use crate::errors::{ErrorKind, EvalResult};
+use crate::errors::{Error, ErrorKind, EvalResult};
 use crate::opcode::{CodeIdx, OpCode};
 use crate::value::Value;
 use crate::warnings::{EvalWarning, WarningKind};
@@ -30,6 +30,7 @@ use crate::warnings::{EvalWarning, WarningKind};
 pub struct CompilationResult {
     pub chunk: Chunk,
     pub warnings: Vec<EvalWarning>,
+    pub errors: Vec<Error>,
 }
 
 // Represents a single local already known to the compiler.
@@ -87,11 +88,12 @@ struct Compiler {
     scope: Scope,
 
     warnings: Vec<EvalWarning>,
+    errors: Vec<Error>,
     root_dir: PathBuf,
 }
 
 impl Compiler {
-    fn compile(&mut self, expr: ast::Expr) -> EvalResult<()> {
+    fn compile(&mut self, expr: ast::Expr) {
         match expr {
             ast::Expr::Literal(literal) => self.compile_literal(literal),
             ast::Expr::Path(path) => self.compile_path(path),
@@ -121,18 +123,16 @@ impl Compiler {
         }
     }
 
-    fn compile_literal(&mut self, node: ast::Literal) -> EvalResult<()> {
+    fn compile_literal(&mut self, node: ast::Literal) {
         match node.kind() {
             ast::LiteralKind::Float(f) => {
                 let idx = self.chunk.push_constant(Value::Float(f.value().unwrap()));
                 self.chunk.push_op(OpCode::OpConstant(idx));
-                Ok(())
             }
 
             ast::LiteralKind::Integer(i) => {
                 let idx = self.chunk.push_constant(Value::Integer(i.value().unwrap()));
                 self.chunk.push_op(OpCode::OpConstant(idx));
-                Ok(())
             }
             ast::LiteralKind::Uri(u) => {
                 self.emit_warning(node.syntax().clone(), WarningKind::DeprecatedLiteralURL);
@@ -141,12 +141,11 @@ impl Compiler {
                     .chunk
                     .push_constant(Value::String(u.syntax().text().into()));
                 self.chunk.push_op(OpCode::OpConstant(idx));
-                Ok(())
             }
         }
     }
 
-    fn compile_path(&mut self, node: ast::Path) -> EvalResult<()> {
+    fn compile_path(&mut self, node: ast::Path) {
         // TODO(tazjin): placeholder implementation while waiting for
         // https://github.com/nix-community/rnix-parser/pull/96
 
@@ -154,9 +153,16 @@ impl Compiler {
         let path = if raw_path.starts_with('/') {
             Path::new(&raw_path).to_owned()
         } else if raw_path.starts_with('~') {
-            let mut buf = dirs::home_dir().ok_or_else(|| {
-                ErrorKind::PathResolution("failed to determine home directory".into())
-            })?;
+            let mut buf = match dirs::home_dir() {
+                Some(buf) => buf,
+                None => {
+                    self.emit_error(
+                        node.syntax().clone(),
+                        ErrorKind::PathResolution("failed to determine home directory".into()),
+                    );
+                    return;
+                }
+            };
 
             buf.push(&raw_path);
             buf
@@ -174,11 +180,9 @@ impl Compiler {
         let value = Value::Path(path.clean());
         let idx = self.chunk.push_constant(value);
         self.chunk.push_op(OpCode::OpConstant(idx));
-
-        Ok(())
     }
 
-    fn compile_str(&mut self, node: ast::Str) -> EvalResult<()> {
+    fn compile_str(&mut self, node: ast::Str) {
         let mut count = 0;
 
         // The string parts are produced in literal order, however
@@ -192,7 +196,7 @@ impl Compiler {
                 // Interpolated expressions are compiled as normal and
                 // dealt with by the VM before being assembled into
                 // the final string.
-                ast::InterpolPart::Interpolation(node) => self.compile(node.expr().unwrap())?,
+                ast::InterpolPart::Interpolation(node) => self.compile(node.expr().unwrap()),
 
                 ast::InterpolPart::Literal(lit) => {
                     let idx = self.chunk.push_constant(Value::String(lit.into()));
@@ -204,12 +208,10 @@ impl Compiler {
         if count != 1 {
             self.chunk.push_op(OpCode::OpInterpolate(count));
         }
-
-        Ok(())
     }
 
-    fn compile_unary_op(&mut self, op: ast::UnaryOp) -> EvalResult<()> {
-        self.compile(op.expr().unwrap())?;
+    fn compile_unary_op(&mut self, op: ast::UnaryOp) {
+        self.compile(op.expr().unwrap());
 
         let opcode = match op.operator().unwrap() {
             ast::UnaryOpKind::Invert => OpCode::OpInvert,
@@ -217,10 +219,9 @@ impl Compiler {
         };
 
         self.chunk.push_op(opcode);
-        Ok(())
     }
 
-    fn compile_binop(&mut self, op: ast::BinOp) -> EvalResult<()> {
+    fn compile_binop(&mut self, op: ast::BinOp) {
         use ast::BinOpKind;
 
         // Short-circuiting and other strange operators, which are
@@ -238,8 +239,8 @@ impl Compiler {
         // For all other operators, the two values need to be left on
         // the stack in the correct order before pushing the
         // instruction for the operation itself.
-        self.compile(op.lhs().unwrap())?;
-        self.compile(op.rhs().unwrap())?;
+        self.compile(op.lhs().unwrap());
+        self.compile(op.rhs().unwrap());
 
         match op.operator().unwrap() {
             BinOpKind::Add => self.chunk.push_op(OpCode::OpAdd),
@@ -264,11 +265,9 @@ impl Compiler {
                 unreachable!()
             }
         };
-
-        Ok(())
     }
 
-    fn compile_and(&mut self, node: ast::BinOp) -> EvalResult<()> {
+    fn compile_and(&mut self, node: ast::BinOp) {
         debug_assert!(
             matches!(node.operator(), Some(ast::BinOpKind::And)),
             "compile_and called with wrong operator kind: {:?}",
@@ -276,7 +275,7 @@ impl Compiler {
         );
 
         // Leave left-hand side value on the stack.
-        self.compile(node.lhs().unwrap())?;
+        self.compile(node.lhs().unwrap());
 
         // If this value is false, jump over the right-hand side - the
         // whole expression is false.
@@ -286,15 +285,13 @@ impl Compiler {
         // right-hand side on the stack. Its result is now the value
         // of the whole expression.
         self.chunk.push_op(OpCode::OpPop);
-        self.compile(node.rhs().unwrap())?;
+        self.compile(node.rhs().unwrap());
 
         self.patch_jump(end_idx);
         self.chunk.push_op(OpCode::OpAssertBool);
-
-        Ok(())
     }
 
-    fn compile_or(&mut self, node: ast::BinOp) -> EvalResult<()> {
+    fn compile_or(&mut self, node: ast::BinOp) {
         debug_assert!(
             matches!(node.operator(), Some(ast::BinOpKind::Or)),
             "compile_or called with wrong operator kind: {:?}",
@@ -302,20 +299,18 @@ impl Compiler {
         );
 
         // Leave left-hand side value on the stack
-        self.compile(node.lhs().unwrap())?;
+        self.compile(node.lhs().unwrap());
 
         // Opposite of above: If this value is **true**, we can
         // short-circuit the right-hand side.
         let end_idx = self.chunk.push_op(OpCode::OpJumpIfTrue(0));
         self.chunk.push_op(OpCode::OpPop);
-        self.compile(node.rhs().unwrap())?;
+        self.compile(node.rhs().unwrap());
         self.patch_jump(end_idx);
         self.chunk.push_op(OpCode::OpAssertBool);
-
-        Ok(())
     }
 
-    fn compile_implication(&mut self, node: ast::BinOp) -> EvalResult<()> {
+    fn compile_implication(&mut self, node: ast::BinOp) {
         debug_assert!(
             matches!(node.operator(), Some(ast::BinOpKind::Implication)),
             "compile_implication called with wrong operator kind: {:?}",
@@ -323,22 +318,20 @@ impl Compiler {
         );
 
         // Leave left-hand side value on the stack and invert it.
-        self.compile(node.lhs().unwrap())?;
+        self.compile(node.lhs().unwrap());
         self.chunk.push_op(OpCode::OpInvert);
 
         // Exactly as `||` (because `a -> b` = `!a || b`).
         let end_idx = self.chunk.push_op(OpCode::OpJumpIfTrue(0));
         self.chunk.push_op(OpCode::OpPop);
-        self.compile(node.rhs().unwrap())?;
+        self.compile(node.rhs().unwrap());
         self.patch_jump(end_idx);
         self.chunk.push_op(OpCode::OpAssertBool);
-
-        Ok(())
     }
 
-    fn compile_has_attr(&mut self, node: ast::HasAttr) -> EvalResult<()> {
+    fn compile_has_attr(&mut self, node: ast::HasAttr) {
         // Put the attribute set on the stack.
-        self.compile(node.expr().unwrap())?;
+        self.compile(node.expr().unwrap());
         let mut count = 0;
 
         // Push all path fragments with an operation for fetching the
@@ -348,24 +341,19 @@ impl Compiler {
                 self.chunk.push_op(OpCode::OpAttrOrNotFound);
             }
             count += 1;
-            self.compile_attr(fragment)?;
+            self.compile_attr(fragment);
         }
 
         // After the last fragment, emit the actual instruction that
         // leaves a boolean on the stack.
         self.chunk.push_op(OpCode::OpAttrsIsSet);
-
-        Ok(())
     }
 
-    fn compile_attr(&mut self, node: ast::Attr) -> EvalResult<()> {
+    fn compile_attr(&mut self, node: ast::Attr) {
         match node {
             ast::Attr::Dynamic(dynamic) => self.compile(dynamic.expr().unwrap()),
             ast::Attr::Str(s) => self.compile_str(s),
-            ast::Attr::Ident(ident) => {
-                self.emit_literal_ident(&ident);
-                Ok(())
-            }
+            ast::Attr::Ident(ident) => self.emit_literal_ident(&ident),
         }
     }
 
@@ -375,16 +363,15 @@ impl Compiler {
     //
     // The VM, after evaluating the code for each element, simply
     // constructs the list from the given number of elements.
-    fn compile_list(&mut self, node: ast::List) -> EvalResult<()> {
+    fn compile_list(&mut self, node: ast::List) {
         let mut count = 0;
 
         for item in node.items() {
             count += 1;
-            self.compile(item)?;
+            self.compile(item);
         }
 
         self.chunk.push_op(OpCode::OpList(count));
-        Ok(())
     }
 
     // Compile attribute set literals into equivalent bytecode.
@@ -395,7 +382,7 @@ impl Compiler {
     // 1. Keys can be dynamically constructed through interpolation.
     // 2. Keys can refer to nested attribute sets.
     // 3. Attribute sets can (optionally) be recursive.
-    fn compile_attr_set(&mut self, node: ast::AttrSet) -> EvalResult<()> {
+    fn compile_attr_set(&mut self, node: ast::AttrSet) {
         if node.rec_token().is_some() {
             todo!("recursive attribute sets are not yet implemented")
         }
@@ -422,7 +409,7 @@ impl Compiler {
                         // instruction followed by a merge, rather
                         // than pushing/popping the same attrs
                         // potentially a lot of times.
-                        self.compile(from.expr().unwrap())?;
+                        self.compile(from.expr().unwrap());
                         self.emit_literal_ident(&ident);
                         self.chunk.push_op(OpCode::OpAttrsSelect);
                     }
@@ -435,7 +422,13 @@ impl Compiler {
 
                         match self.resolve_local(ident.ident_token().unwrap().text()) {
                             Some(idx) => self.chunk.push_op(OpCode::OpGetLocal(idx)),
-                            None => return Err(ErrorKind::UnknownStaticVariable(ident).into()),
+                            None => {
+                                self.emit_error(
+                                    ident.syntax().clone(),
+                                    ErrorKind::UnknownStaticVariable,
+                                );
+                                continue;
+                            }
                         };
                     }
                 }
@@ -453,7 +446,7 @@ impl Compiler {
             let mut key_count = 0;
             for fragment in kv.attrpath().unwrap().attrs() {
                 key_count += 1;
-                self.compile_attr(fragment)?;
+                self.compile_attr(fragment);
             }
 
             // We're done with the key if there was only one fragment,
@@ -466,34 +459,32 @@ impl Compiler {
             // The value is just compiled as normal so that its
             // resulting value is on the stack when the attribute set
             // is constructed at runtime.
-            self.compile(kv.value().unwrap())?;
+            self.compile(kv.value().unwrap());
         }
 
         self.chunk.push_op(OpCode::OpAttrs(count));
-        Ok(())
     }
 
-    fn compile_select(&mut self, node: ast::Select) -> EvalResult<()> {
+    fn compile_select(&mut self, node: ast::Select) {
         let set = node.expr().unwrap();
         let path = node.attrpath().unwrap();
 
         if node.or_token().is_some() {
-            return self.compile_select_or(set, path, node.default_expr().unwrap());
+            self.compile_select_or(set, path, node.default_expr().unwrap());
+            return;
         }
 
         // Push the set onto the stack
-        self.compile(set)?;
+        self.compile(set);
 
         // Compile each key fragment and emit access instructions.
         //
         // TODO: multi-select instruction to avoid re-pushing attrs on
         // nested selects.
         for fragment in path.attrs() {
-            self.compile_attr(fragment)?;
+            self.compile_attr(fragment);
             self.chunk.push_op(OpCode::OpAttrsSelect);
         }
-
-        Ok(())
     }
 
     /// Compile an `or` expression into a chunk of conditional jumps.
@@ -525,17 +516,12 @@ impl Compiler {
     ///  │ 14 ...                     │   │ ..   ....               │
     ///  └────────────────────────────┘   └─────────────────────────┘
     /// ```
-    fn compile_select_or(
-        &mut self,
-        set: ast::Expr,
-        path: ast::Attrpath,
-        default: ast::Expr,
-    ) -> EvalResult<()> {
-        self.compile(set)?;
+    fn compile_select_or(&mut self, set: ast::Expr, path: ast::Attrpath, default: ast::Expr) {
+        self.compile(set);
         let mut jumps = vec![];
 
         for fragment in path.attrs() {
-            self.compile_attr(fragment)?;
+            self.compile_attr(fragment);
             self.chunk.push_op(OpCode::OpAttrOrNotFound);
             jumps.push(self.chunk.push_op(OpCode::OpJumpIfNotFound(0)));
         }
@@ -548,21 +534,19 @@ impl Compiler {
 
         // Compile the default value expression and patch the final
         // jump to point *beyond* it.
-        self.compile(default)?;
+        self.compile(default);
         self.patch_jump(final_jump);
-
-        Ok(())
     }
 
-    fn compile_assert(&mut self, node: ast::Assert) -> EvalResult<()> {
+    fn compile_assert(&mut self, node: ast::Assert) {
         // Compile the assertion condition to leave its value on the stack.
-        self.compile(node.condition().unwrap())?;
+        self.compile(node.condition().unwrap());
         self.chunk.push_op(OpCode::OpAssert);
 
         // The runtime will abort evaluation at this point if the
         // assertion failed, if not the body simply continues on like
         // normal.
-        self.compile(node.body().unwrap())
+        self.compile(node.body().unwrap());
     }
 
     // Compile conditional expressions using jumping instructions in the VM.
@@ -575,23 +559,21 @@ impl Compiler {
     //  Jump over else body  ││ 4  [  else body  ]←┼─┘
     //  if condition is true.└┼─5─→     ...        │
     //                        └────────────────────┘
-    fn compile_if_else(&mut self, node: ast::IfElse) -> EvalResult<()> {
-        self.compile(node.condition().unwrap())?;
+    fn compile_if_else(&mut self, node: ast::IfElse) {
+        self.compile(node.condition().unwrap());
 
         let then_idx = self.chunk.push_op(OpCode::OpJumpIfFalse(0));
 
         self.chunk.push_op(OpCode::OpPop); // discard condition value
-        self.compile(node.body().unwrap())?;
+        self.compile(node.body().unwrap());
 
         let else_idx = self.chunk.push_op(OpCode::OpJump(0));
 
         self.patch_jump(then_idx); // patch jump *to* else_body
         self.chunk.push_op(OpCode::OpPop); // discard condition value
-        self.compile(node.else_body().unwrap())?;
+        self.compile(node.else_body().unwrap());
 
         self.patch_jump(else_idx); // patch jump *over* else body
-
-        Ok(())
     }
 
     // Compile a standard `let ...; in ...` statement.
@@ -599,7 +581,7 @@ impl Compiler {
     // Unless in a non-standard scope, the encountered values are
     // simply pushed on the stack and their indices noted in the
     // entries vector.
-    fn compile_let_in(&mut self, node: ast::LetIn) -> EvalResult<()> {
+    fn compile_let_in(&mut self, node: ast::LetIn) {
         self.begin_scope();
 
         for inherit in node.inherits() {
@@ -614,7 +596,7 @@ impl Compiler {
 
                 Some(from) => {
                     for ident in inherit.idents() {
-                        self.compile(from.expr().unwrap())?;
+                        self.compile(from.expr().unwrap());
                         self.emit_literal_ident(&ident);
                         self.chunk.push_op(OpCode::OpAttrsSelect);
                         self.declare_local(ident.ident_token().unwrap().text());
@@ -624,23 +606,28 @@ impl Compiler {
         }
 
         for entry in node.attrpath_values() {
-            let mut path = normalise_ident_path(entry.attrpath().unwrap().attrs())?;
+            let mut path = match normalise_ident_path(entry.attrpath().unwrap().attrs()) {
+                Ok(p) => p,
+                Err(err) => {
+                    self.errors.push(err);
+                    continue;
+                }
+            };
 
             if path.len() != 1 {
                 todo!("nested bindings in let expressions :(")
             }
 
-            self.compile(entry.value().unwrap())?;
+            self.compile(entry.value().unwrap());
             self.declare_local(path.pop().unwrap());
         }
 
         // Deal with the body, then clean up the locals afterwards.
-        self.compile(node.body().unwrap())?;
+        self.compile(node.body().unwrap());
         self.end_scope();
-        Ok(())
     }
 
-    fn compile_ident(&mut self, node: ast::Ident) -> EvalResult<()> {
+    fn compile_ident(&mut self, node: ast::Ident) {
         match node.ident_token().unwrap().text() {
             // TODO(tazjin): Nix technically allows code like
             //
@@ -663,7 +650,11 @@ impl Compiler {
                     Some(idx) => self.chunk.push_op(OpCode::OpGetLocal(idx)),
                     None => {
                         if self.scope.with_stack.is_empty() {
-                            return Err(ErrorKind::UnknownStaticVariable(node).into());
+                            self.emit_error(
+                                node.syntax().clone(),
+                                ErrorKind::UnknownStaticVariable,
+                            );
+                            return;
                         }
 
                         // Variable needs to be dynamically resolved
@@ -675,18 +666,16 @@ impl Compiler {
                 }
             }
         };
-
-        Ok(())
     }
 
     // Compile `with` expressions by emitting instructions that
     // pop/remove the indices of attribute sets that are implicitly in
     // scope through `with` on the "with-stack".
-    fn compile_with(&mut self, node: ast::With) -> EvalResult<()> {
+    fn compile_with(&mut self, node: ast::With) {
         // TODO: Detect if the namespace is just an identifier, and
         // resolve that directly (thus avoiding duplication on the
         // stack).
-        self.compile(node.namespace().unwrap())?;
+        self.compile(node.namespace().unwrap());
 
         self.declare_phantom();
         self.scope.with_stack.push(With {
@@ -696,7 +685,7 @@ impl Compiler {
         self.chunk
             .push_op(OpCode::OpPushWith(self.scope.locals.len() - 1));
 
-        self.compile(node.body().unwrap())
+        self.compile(node.body().unwrap());
     }
 
     /// Emit the literal string value of an identifier. Required for
@@ -825,6 +814,13 @@ impl Compiler {
     fn emit_warning(&mut self, node: rnix::SyntaxNode, kind: WarningKind) {
         self.warnings.push(EvalWarning { node, kind })
     }
+
+    fn emit_error(&mut self, node: rnix::SyntaxNode, kind: ErrorKind) {
+        self.errors.push(Error {
+            node: Some(node),
+            kind,
+        })
+    }
 }
 
 /// Convert a non-dynamic string expression to a string if possible,
@@ -836,7 +832,10 @@ fn expr_str_to_string(expr: ast::Str) -> EvalResult<String> {
         }
     }
 
-    return Err(ErrorKind::DynamicKeyInLet(expr.syntax().clone()).into());
+    return Err(Error {
+        node: Some(expr.syntax().clone()),
+        kind: ErrorKind::DynamicKeyInLet(expr.syntax().clone()),
+    });
 }
 
 /// Convert a single identifier path fragment to a string if possible,
@@ -883,13 +882,15 @@ pub fn compile(expr: ast::Expr, location: Option<PathBuf>) -> EvalResult<Compila
         root_dir,
         chunk: Chunk::default(),
         warnings: vec![],
+        errors: vec![],
         scope: Default::default(),
     };
 
-    c.compile(expr)?;
+    c.compile(expr);
 
     Ok(CompilationResult {
         chunk: c.chunk,
         warnings: c.warnings,
+        errors: c.errors,
     })
 }

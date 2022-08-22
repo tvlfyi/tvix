@@ -41,5 +41,13 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         )
     }
 
+    for error in &result.errors {
+        eprintln!("compiler error: {:?} at {:?}", error.kind, error.node,);
+    }
+
+    if let Some(err) = result.errors.last() {
+        return Err(err.clone());
+    }
+
     crate::vm::run_chunk(result.chunk)
 }
