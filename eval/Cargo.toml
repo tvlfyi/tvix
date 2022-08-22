@@ -13,11 +13,11 @@ path-clean = "0.1"
 tabwriter = { version = "1.2", optional = true }
 rowan = "*" # pinned by rnix
 
-# rnix has not been released in a while (as of 2022-08-16), we will
+# rnix has not been released in a while (as of 2022-08-22), we will
 # use it from git.
 [dependencies.rnix]
 git = "https://github.com/nix-community/rnix-parser.git"
-rev = "ae9fe1344993bb57d292f361c83e0379282e88ed"
+rev = "614e7d4641e83ab7eb321d9ac5e3d12985f9f3ba"
 
 [dev-dependencies]
 criterion = "0.3.6"

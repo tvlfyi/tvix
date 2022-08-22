@@ -188,16 +188,16 @@ impl Compiler {
         // they need to be reversed on the stack in order to
         // efficiently create the real string in case of
         // interpolation.
-        for part in node.parts().into_iter().rev() {
+        for part in node.normalized_parts().into_iter().rev() {
             count += 1;
 
             match part {
                 // Interpolated expressions are compiled as normal and
                 // dealt with by the VM before being assembled into
                 // the final string.
-                ast::StrPart::Interpolation(node) => self.compile(node.expr().unwrap())?,
+                ast::InterpolPart::Interpolation(node) => self.compile(node.expr().unwrap())?,
 
-                ast::StrPart::Literal(lit) => {
+                ast::InterpolPart::Literal(lit) => {
                     let idx = self.chunk.push_constant(Value::String(lit.into()));
                     self.chunk.push_op(OpCode::OpConstant(idx));
                 }
@@ -832,8 +832,8 @@ impl Compiler {
 /// Convert a non-dynamic string expression to a string if possible,
 /// or raise an error.
 fn expr_str_to_string(expr: ast::Str) -> EvalResult<String> {
-    if expr.parts().len() == 1 {
-        if let ast::StrPart::Literal(s) = expr.parts().pop().unwrap() {
+    if expr.normalized_parts().len() == 1 {
+        if let ast::InterpolPart::Literal(s) = expr.normalized_parts().pop().unwrap() {
             return Ok(s);
         }
     }
