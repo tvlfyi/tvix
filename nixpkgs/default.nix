@@ -52,6 +52,9 @@ let
 
       # ntfy does not build on unstable as of 2022-08-02
       ntfy
+
+      # binaryen does not build on unstable as of 2022-08-22
+      binaryen
       ;
   };
 
