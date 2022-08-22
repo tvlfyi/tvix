@@ -135,10 +135,7 @@ impl Compiler {
                 Ok(())
             }
             ast::LiteralKind::Uri(u) => {
-                self.warnings.push(EvalWarning {
-                    node: node.syntax().clone(),
-                    kind: WarningKind::DeprecatedLiteralURL,
-                });
+                self.emit_warning(node.syntax().clone(), WarningKind::DeprecatedLiteralURL);
 
                 let idx = self
                     .chunk
@@ -610,10 +607,7 @@ impl Compiler {
                 // Within a `let` binding, inheriting from the outer
                 // scope is practically a no-op.
                 None => {
-                    self.warnings.push(EvalWarning {
-                        node: inherit.syntax().clone(),
-                        kind: WarningKind::UselessInherit,
-                    });
+                    self.emit_warning(inherit.syntax().clone(), WarningKind::UselessInherit);
 
                     continue;
                 }
@@ -826,6 +820,10 @@ impl Compiler {
         }
 
         None
+    }
+
+    fn emit_warning(&mut self, node: rnix::SyntaxNode, kind: WarningKind) {
+        self.warnings.push(EvalWarning { node, kind })
     }
 }
 
