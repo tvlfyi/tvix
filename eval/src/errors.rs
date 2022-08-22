@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 #[derive(Debug)]
-pub enum Error {
+pub enum ErrorKind {
     DuplicateAttrsKey {
         key: String,
     },
@@ -37,9 +37,21 @@ pub enum Error {
     AssertionFailed,
 }
 
+#[derive(Debug)]
+pub struct Error {
+    pub node: Option<rnix::SyntaxNode>,
+    pub kind: ErrorKind,
+}
+
+impl From<ErrorKind> for Error {
+    fn from(kind: ErrorKind) -> Self {
+        Error { node: None, kind }
+    }
+}
+
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{:?}", self)
+        writeln!(f, "{:?}", self.kind)
     }
 }
 

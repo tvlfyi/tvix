@@ -7,7 +7,7 @@ mod attrs;
 mod list;
 mod string;
 
-use crate::errors::{Error, EvalResult};
+use crate::errors::{ErrorKind, EvalResult};
 pub use attrs::NixAttrs;
 pub use list::NixList;
 pub use string::NixString;
@@ -55,50 +55,55 @@ impl Value {
     pub fn as_bool(&self) -> EvalResult<bool> {
         match self {
             Value::Bool(b) => Ok(*b),
-            other => Err(Error::TypeError {
+            other => Err(ErrorKind::TypeError {
                 expected: "bool",
                 actual: other.type_of(),
-            }),
+            }
+            .into()),
         }
     }
 
     pub fn as_attrs(&self) -> EvalResult<&NixAttrs> {
         match self {
             Value::Attrs(attrs) => Ok(attrs),
-            other => Err(Error::TypeError {
+            other => Err(ErrorKind::TypeError {
                 expected: "set",
                 actual: other.type_of(),
-            }),
+            }
+            .into()),
         }
     }
 
     pub fn to_string(self) -> EvalResult<NixString> {
         match self {
             Value::String(s) => Ok(s),
-            other => Err(Error::TypeError {
+            other => Err(ErrorKind::TypeError {
                 expected: "string",
                 actual: other.type_of(),
-            }),
+            }
+            .into()),
         }
     }
 
     pub fn to_attrs(self) -> EvalResult<Rc<NixAttrs>> {
         match self {
             Value::Attrs(s) => Ok(s),
-            other => Err(Error::TypeError {
+            other => Err(ErrorKind::TypeError {
                 expected: "set",
                 actual: other.type_of(),
-            }),
+            }
+            .into()),
         }
     }
 
     pub fn to_list(self) -> EvalResult<NixList> {
         match self {
             Value::List(l) => Ok(l),
-            other => Err(Error::TypeError {
+            other => Err(ErrorKind::TypeError {
                 expected: "list",
                 actual: other.type_of(),
-            }),
+            }
+            .into()),
         }
     }
 

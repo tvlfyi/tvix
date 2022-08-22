@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use rnix;
 
 use crate::{
-    errors::{Error, EvalResult},
+    errors::{ErrorKind, EvalResult},
     value::Value,
 };
 
@@ -15,7 +15,7 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         for err in errors {
             eprintln!("parse error: {}", err);
         }
-        return Err(Error::ParseErrors(errors.to_vec()));
+        return Err(ErrorKind::ParseErrors(errors.to_vec()).into());
     }
 
     // If we've reached this point, there are no errors.

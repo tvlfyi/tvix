@@ -19,7 +19,7 @@ use rowan::ast::AstNode;
 use std::path::{Path, PathBuf};
 
 use crate::chunk::Chunk;
-use crate::errors::{Error, EvalResult};
+use crate::errors::{ErrorKind, EvalResult};
 use crate::opcode::{CodeIdx, OpCode};
 use crate::value::Value;
 use crate::warnings::{EvalWarning, WarningKind};
@@ -155,7 +155,7 @@ impl Compiler {
             Path::new(&raw_path).to_owned()
         } else if raw_path.starts_with('~') {
             let mut buf = dirs::home_dir().ok_or_else(|| {
-                Error::PathResolution("failed to determine home directory".into())
+                ErrorKind::PathResolution("failed to determine home directory".into())
             })?;
 
             buf.push(&raw_path);
@@ -435,7 +435,7 @@ impl Compiler {
 
                         match self.resolve_local(ident.ident_token().unwrap().text()) {
                             Some(idx) => self.chunk.push_op(OpCode::OpGetLocal(idx)),
-                            None => return Err(Error::UnknownStaticVariable(ident)),
+                            None => return Err(ErrorKind::UnknownStaticVariable(ident).into()),
                         };
                     }
                 }
@@ -663,7 +663,7 @@ impl Compiler {
                     Some(idx) => self.chunk.push_op(OpCode::OpGetLocal(idx)),
                     None => {
                         if self.scope.with_stack.is_empty() {
-                            return Err(Error::UnknownStaticVariable(node));
+                            return Err(ErrorKind::UnknownStaticVariable(node).into());
                         }
 
                         // Variable needs to be dynamically resolved
@@ -836,7 +836,7 @@ fn expr_str_to_string(expr: ast::Str) -> EvalResult<String> {
         }
     }
 
-    return Err(Error::DynamicKeyInLet(expr.syntax().clone()));
+    return Err(ErrorKind::DynamicKeyInLet(expr.syntax().clone()).into());
 }
 
 /// Convert a single identifier path fragment to a string if possible,
@@ -852,7 +852,7 @@ fn attr_to_string(node: ast::Attr) -> EvalResult<String> {
         // inside (i.e. `let ${"a"} = 1; in a` is valid).
         ast::Attr::Dynamic(ref dynamic) => match dynamic.expr().unwrap() {
             ast::Expr::Str(s) => expr_str_to_string(s),
-            _ => Err(Error::DynamicKeyInLet(node.syntax().clone())),
+            _ => Err(ErrorKind::DynamicKeyInLet(node.syntax().clone()).into()),
         },
     }
 }
@@ -868,7 +868,7 @@ pub fn compile(expr: ast::Expr, location: Option<PathBuf>) -> EvalResult<Compila
     let mut root_dir = match location {
         Some(dir) => Ok(dir),
         None => std::env::current_dir().map_err(|e| {
-            Error::PathResolution(format!("could not determine current directory: {}", e))
+            ErrorKind::PathResolution(format!("could not determine current directory: {}", e))
         }),
     }?;
 

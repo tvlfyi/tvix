@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::rc::Rc;
 
-use crate::errors::{Error, EvalResult};
+use crate::errors::{ErrorKind, EvalResult};
 
 use super::string::NixString;
 use super::Value;
@@ -304,9 +304,10 @@ fn attempt_optimise_kv(slice: &mut [Value]) -> Option<NixAttrs> {
 // checking against duplicate keys.
 fn set_attr(attrs: &mut NixAttrs, key: NixString, value: Value) -> EvalResult<()> {
     match attrs.0.map_mut().entry(key) {
-        btree_map::Entry::Occupied(entry) => Err(Error::DuplicateAttrsKey {
+        btree_map::Entry::Occupied(entry) => Err(ErrorKind::DuplicateAttrsKey {
             key: entry.key().as_str().to_string(),
-        }),
+        }
+        .into()),
 
         btree_map::Entry::Vacant(entry) => {
             entry.insert(value);
@@ -365,9 +366,10 @@ fn set_nested_attr(
             }
 
             _ => {
-                return Err(Error::DuplicateAttrsKey {
+                return Err(ErrorKind::DuplicateAttrsKey {
                     key: entry.key().as_str().to_string(),
-                })
+                }
+                .into())
             }
         },
     }

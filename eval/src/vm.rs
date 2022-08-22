@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use crate::{
     chunk::Chunk,
-    errors::{Error, EvalResult},
+    errors::{ErrorKind, EvalResult},
     opcode::OpCode,
     value::{NixAttrs, NixList, Value},
 };
@@ -38,14 +38,14 @@ macro_rules! arithmetic_op {
             (Value::Integer(i1), Value::Float(f2)) => Value::Float(i1 as f64 $op f2),
             (Value::Float(f1), Value::Integer(i2)) => Value::Float(f1 $op i2 as f64),
 
-            (v1, v2) => return Err(Error::TypeError {
+            (v1, v2) => return Err(ErrorKind::TypeError {
                 expected: "number (either int or float)",
                 actual: if v1.is_number() {
                     v2.type_of()
                 } else {
                     v1.type_of()
                 },
-            }),
+            }.into()),
         }
     }};
 }
@@ -65,10 +65,10 @@ macro_rules! cmp_op {
             (Value::Float(f1), Value::Integer(i2)) => f1 $op (i2 as f64),
             (Value::String(s1), Value::String(s2)) => s1 $op s2,
 
-            (lhs, rhs) => return Err(Error::Incomparable {
+            (lhs, rhs) => return Err(ErrorKind::Incomparable {
                 lhs: lhs.type_of(),
                 rhs: rhs.type_of(),
-            }),
+            }.into()),
         };
 
         $self.push(Value::Bool(result));
@@ -136,10 +136,11 @@ impl VM {
                     Value::Integer(i) => self.push(Value::Integer(-i)),
                     Value::Float(f) => self.push(Value::Float(-f)),
                     v => {
-                        return Err(Error::TypeError {
+                        return Err(ErrorKind::TypeError {
                             expected: "number (either int or float)",
                             actual: v.type_of(),
-                        })
+                        }
+                        .into())
                     }
                 },
 
@@ -177,9 +178,10 @@ impl VM {
                         Some(value) => self.push(value.clone()),
 
                         None => {
-                            return Err(Error::AttributeNotFound {
+                            return Err(ErrorKind::AttributeNotFound {
                                 name: key.as_str().to_string(),
-                            })
+                            }
+                            .into())
                         }
                     }
                 }
@@ -255,10 +257,11 @@ impl VM {
                 OpCode::OpAssertBool => {
                     let val = self.peek(0);
                     if !val.is_bool() {
-                        return Err(Error::TypeError {
+                        return Err(ErrorKind::TypeError {
                             expected: "bool",
                             actual: val.type_of(),
-                        });
+                        }
+                        .into());
                     }
                 }
 
@@ -302,12 +305,12 @@ impl VM {
                         }
                     }
 
-                    return Err(Error::UnknownDynamicVariable(ident.to_string()));
+                    return Err(ErrorKind::UnknownDynamicVariable(ident.to_string()).into());
                 }
 
                 OpCode::OpAssert => {
                     if !self.pop().as_bool()? {
-                        return Err(Error::AssertionFailed);
+                        return Err(ErrorKind::AssertionFailed.into());
                     }
                 }
             }
