@@ -89,10 +89,23 @@ struct Scope {
     poisoned_null: usize,
 }
 
-struct Compiler {
+/// Represents the lambda currently being compiled.
+struct LambdaCtx {
     lambda: Lambda,
     scope: Scope,
+}
 
+impl LambdaCtx {
+    fn new() -> Self {
+        LambdaCtx {
+            lambda: Lambda::new_anonymous(),
+            scope: Default::default(),
+        }
+    }
+}
+
+struct Compiler {
+    contexts: Vec<LambdaCtx>,
     warnings: Vec<EvalWarning>,
     errors: Vec<Error>,
     root_dir: PathBuf,
@@ -101,17 +114,26 @@ struct Compiler {
 // Helper functions for emitting code and metadata to the internal
 // structures of the compiler.
 impl Compiler {
+    fn context(&self) -> &LambdaCtx {
+        &self.contexts[self.contexts.len() - 1]
+    }
+
+    fn context_mut(&mut self) -> &mut LambdaCtx {
+        let idx = self.contexts.len() - 1;
+        &mut self.contexts[idx]
+    }
+
     fn chunk(&mut self) -> &mut Chunk {
-        std::rc::Rc::<Chunk>::get_mut(self.lambda.chunk())
+        std::rc::Rc::<Chunk>::get_mut(self.context_mut().lambda.chunk())
             .expect("compiler flaw: long-lived chunk reference")
     }
 
     fn scope(&self) -> &Scope {
-        &self.scope
+        &self.context().scope
     }
 
     fn scope_mut(&mut self) -> &mut Scope {
-        &mut self.scope
+        &mut self.context_mut().scope
     }
 
     fn emit_constant(&mut self, value: Value) {
@@ -915,16 +937,15 @@ pub fn compile(expr: ast::Expr, location: Option<PathBuf>) -> EvalResult<Compila
 
     let mut c = Compiler {
         root_dir,
-        lambda: Lambda::new_anonymous(),
+        contexts: vec![LambdaCtx::new()],
         warnings: vec![],
         errors: vec![],
-        scope: Default::default(),
     };
 
     c.compile(expr);
 
     Ok(CompilationResult {
-        lambda: c.lambda,
+        lambda: c.contexts.pop().unwrap().lambda,
         warnings: c.warnings,
         errors: c.errors,
     })
