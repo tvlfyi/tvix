@@ -33,7 +33,7 @@ pub struct CompilationResult {
     pub errors: Vec<Error>,
 }
 
-// Represents a single local already known to the compiler.
+/// Represents a single local already known to the compiler.
 struct Local {
     // Definition name, which can be different kinds of tokens (plain
     // string or identifier). Nix does not allow dynamic names inside
@@ -104,6 +104,14 @@ impl Compiler {
     fn chunk(&mut self) -> &mut Chunk {
         std::rc::Rc::<Chunk>::get_mut(self.lambda.chunk())
             .expect("compiler flaw: long-lived chunk reference")
+    }
+
+    fn scope(&self) -> &Scope {
+        &self.scope
+    }
+
+    fn scope_mut(&mut self) -> &mut Scope {
+        &mut self.scope
     }
 
     fn emit_constant(&mut self, value: Value) {
@@ -658,9 +666,9 @@ impl Compiler {
             // optimised information about any "weird" stuff that's
             // happened to the scope (such as overrides of these
             // literals, or builtins).
-            "true" if self.scope.poisoned_true == 0 => self.chunk().push_op(OpCode::OpTrue),
-            "false" if self.scope.poisoned_false == 0 => self.chunk().push_op(OpCode::OpFalse),
-            "null" if self.scope.poisoned_null == 0 => self.chunk().push_op(OpCode::OpNull),
+            "true" if self.scope().poisoned_true == 0 => self.chunk().push_op(OpCode::OpTrue),
+            "false" if self.scope().poisoned_false == 0 => self.chunk().push_op(OpCode::OpFalse),
+            "null" if self.scope().poisoned_null == 0 => self.chunk().push_op(OpCode::OpNull),
 
             name => {
                 // Note: `with` and some other special scoping
@@ -668,7 +676,7 @@ impl Compiler {
                 match self.resolve_local(name) {
                     Some(idx) => self.chunk().push_op(OpCode::OpGetLocal(idx)),
                     None => {
-                        if self.scope.with_stack.is_empty() {
+                        if self.scope().with_stack.is_empty() {
                             self.emit_error(
                                 node.syntax().clone(),
                                 ErrorKind::UnknownStaticVariable,
@@ -696,11 +704,10 @@ impl Compiler {
         self.compile(node.namespace().unwrap());
 
         self.declare_phantom();
-        self.scope.with_stack.push(With {
-            depth: self.scope.scope_depth,
-        });
+        let depth = self.scope().scope_depth;
+        self.scope_mut().with_stack.push(With { depth });
 
-        let with_idx = self.scope.locals.len() - 1;
+        let with_idx = self.scope().locals.len() - 1;
         self.chunk().push_op(OpCode::OpPushWith(with_idx));
 
         self.compile(node.body().unwrap());
@@ -729,25 +736,25 @@ impl Compiler {
     }
 
     fn begin_scope(&mut self) {
-        self.scope.scope_depth += 1;
+        self.scope_mut().scope_depth += 1;
     }
 
     fn end_scope(&mut self) {
-        debug_assert!(self.scope.scope_depth != 0, "can not end top scope");
+        debug_assert!(self.scope().scope_depth != 0, "can not end top scope");
 
         // If this scope poisoned any builtins or special identifiers,
         // they need to be reset.
-        if self.scope.poisoned_true == self.scope.scope_depth {
-            self.scope.poisoned_true = 0;
+        if self.scope().poisoned_true == self.scope().scope_depth {
+            self.scope_mut().poisoned_true = 0;
         }
-        if self.scope.poisoned_false == self.scope.scope_depth {
-            self.scope.poisoned_false = 0;
+        if self.scope().poisoned_false == self.scope().scope_depth {
+            self.scope_mut().poisoned_false = 0;
         }
-        if self.scope.poisoned_null == self.scope.scope_depth {
-            self.scope.poisoned_null = 0;
+        if self.scope().poisoned_null == self.scope().scope_depth {
+            self.scope_mut().poisoned_null = 0;
         }
 
-        self.scope.scope_depth -= 1;
+        self.scope_mut().scope_depth -= 1;
 
         // When ending a scope, all corresponding locals need to be
         // removed, but the value of the body needs to remain on the
@@ -756,8 +763,8 @@ impl Compiler {
 
         // TL;DR - iterate from the back while things belonging to the
         // ended scope still exist.
-        while !self.scope.locals.is_empty()
-            && self.scope.locals[self.scope.locals.len() - 1].depth > self.scope.scope_depth
+        while !self.scope().locals.is_empty()
+            && self.scope().locals[self.scope().locals.len() - 1].depth > self.scope().scope_depth
         {
             pops += 1;
 
@@ -768,7 +775,7 @@ impl Compiler {
                 node: Some(node),
                 used,
                 ..
-            }) = self.scope.locals.pop()
+            }) = self.scope_mut().locals.pop()
             {
                 if !used {
                     self.emit_warning(node, WarningKind::UnusedBinding);
@@ -780,11 +787,12 @@ impl Compiler {
             self.chunk().push_op(OpCode::OpCloseScope(pops));
         }
 
-        while !self.scope.with_stack.is_empty()
-            && self.scope.with_stack[self.scope.with_stack.len() - 1].depth > self.scope.scope_depth
+        while !self.scope().with_stack.is_empty()
+            && self.scope().with_stack[self.scope().with_stack.len() - 1].depth
+                > self.scope().scope_depth
         {
             self.chunk().push_op(OpCode::OpPopWith);
-            self.scope.with_stack.pop();
+            self.scope_mut().with_stack.pop();
         }
     }
 
@@ -794,43 +802,39 @@ impl Compiler {
     fn declare_local<S: Into<String>>(&mut self, node: rnix::SyntaxNode, name: S) {
         // Set up scope poisoning if required.
         let name = name.into();
+        let mut scope = self.scope_mut();
         match name.as_str() {
-            "true" if self.scope.poisoned_true == 0 => {
-                self.scope.poisoned_true = self.scope.scope_depth
-            }
+            "true" if scope.poisoned_true == 0 => scope.poisoned_true = scope.scope_depth,
 
-            "false" if self.scope.poisoned_false == 0 => {
-                self.scope.poisoned_false = self.scope.scope_depth
-            }
+            "false" if scope.poisoned_false == 0 => scope.poisoned_false = scope.scope_depth,
 
-            "null" if self.scope.poisoned_null == 0 => {
-                self.scope.poisoned_null = self.scope.scope_depth
-            }
+            "null" if scope.poisoned_null == 0 => scope.poisoned_null = scope.scope_depth,
 
             _ => {}
         };
 
-        self.scope.locals.push(Local {
+        scope.locals.push(Local {
             name: name.into(),
             node: Some(node),
-            depth: self.scope.scope_depth,
+            depth: scope.scope_depth,
             phantom: false,
             used: false,
         });
     }
 
     fn declare_phantom(&mut self) {
-        self.scope.locals.push(Local {
+        let depth = self.scope().scope_depth;
+        self.scope_mut().locals.push(Local {
+            depth,
             name: "".into(),
             node: None,
-            depth: self.scope.scope_depth,
             phantom: true,
             used: true,
         });
     }
 
     fn resolve_local(&mut self, name: &str) -> Option<usize> {
-        let scope = &mut self.scope;
+        let scope = self.scope_mut();
 
         for (idx, local) in scope.locals.iter_mut().enumerate().rev() {
             if !local.phantom && local.name == name {
