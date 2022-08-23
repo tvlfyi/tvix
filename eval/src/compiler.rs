@@ -160,13 +160,13 @@ impl Compiler {
             ast::Expr::LetIn(let_in) => self.compile_let_in(let_in),
             ast::Expr::Ident(ident) => self.compile_ident(ident),
             ast::Expr::With(with) => self.compile_with(with),
+            ast::Expr::Lambda(lambda) => self.compile_lambda(lambda),
 
             // Parenthesized expressions are simply unwrapped, leaving
             // their value on the stack.
             ast::Expr::Paren(paren) => self.compile(paren.expr().unwrap()),
 
             ast::Expr::LegacyLet(_) => todo!("legacy let"),
-            ast::Expr::Lambda(_) => todo!("function definition"),
             ast::Expr::Apply(_) => todo!("function application"),
 
             ast::Expr::Root(_) => unreachable!("there cannot be more than one root"),
@@ -733,6 +733,45 @@ impl Compiler {
         self.chunk().push_op(OpCode::OpPushWith(with_idx));
 
         self.compile(node.body().unwrap());
+    }
+
+    fn compile_lambda(&mut self, node: ast::Lambda) {
+        // Open new lambda context in compiler, which has its own
+        // scope etc.
+        self.contexts.push(LambdaCtx::new());
+        self.begin_scope();
+
+        // Compile the function itself
+        match node.param().unwrap() {
+            ast::Param::Pattern(_) => todo!("formals function definitions"),
+            ast::Param::IdentParam(param) => {
+                let name = param
+                    .ident()
+                    .unwrap()
+                    .ident_token()
+                    .unwrap()
+                    .text()
+                    .to_string();
+
+                self.declare_local(param.syntax().clone(), name);
+            }
+        }
+
+        self.compile(node.body().unwrap());
+        self.end_scope();
+
+        // TODO: determine and insert enclosing name, if available.
+
+        // Pop the lambda context back off, and emit the finished
+        // lambda as a constant.
+        let compiled = self.contexts.pop().unwrap();
+
+        #[cfg(feature = "disassembler")]
+        {
+            crate::disassembler::disassemble_chunk(&compiled.lambda.chunk);
+        }
+
+        self.emit_constant(Value::Lambda(compiled.lambda));
     }
 
     /// Emit the literal string value of an identifier. Required for
