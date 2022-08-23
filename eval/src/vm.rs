@@ -112,6 +112,16 @@ impl VM {
         &self.stack[self.stack.len() - 1 - offset]
     }
 
+    fn call(&mut self, lambda: Lambda) {
+        let frame = CallFrame {
+            lambda,
+            ip: 0,
+            stack_offset: self.stack.len(),
+        };
+
+        self.frames.push(frame);
+    }
+
     fn run(&mut self) -> EvalResult<Value> {
         #[cfg(feature = "disassembler")]
         let mut tracer = Tracer::new();
@@ -384,17 +394,12 @@ impl VM {
 }
 
 pub fn run_lambda(lambda: Lambda) -> EvalResult<Value> {
-    let frame = CallFrame {
-        lambda,
-        ip: 0,
-        stack_offset: 0,
-    };
-
     let mut vm = VM {
-        frames: vec![frame],
+        frames: vec![],
         stack: vec![],
         with_stack: vec![],
     };
 
+    vm.call(lambda);
     vm.run()
 }
