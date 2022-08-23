@@ -5,6 +5,7 @@
 pub enum WarningKind {
     DeprecatedLiteralURL,
     UselessInherit,
+    UnusedBinding,
 }
 
 #[derive(Debug)]

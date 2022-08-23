@@ -40,12 +40,18 @@ struct Local {
     // of `let`-expressions.
     name: String,
 
+    // Syntax node at which this local was declared.
+    node: Option<rnix::SyntaxNode>,
+
     // Scope depth of this local.
     depth: usize,
 
     // Phantom locals are not actually accessible by users (e.g.
     // intermediate values used for `with`).
     phantom: bool,
+
+    // Is this local known to have been used at all?
+    used: bool,
 }
 
 /// Represents a stack offset containing keys which are currently
@@ -599,7 +605,10 @@ impl Compiler {
                         self.compile(from.expr().unwrap());
                         self.emit_literal_ident(&ident);
                         self.chunk.push_op(OpCode::OpAttrsSelect);
-                        self.declare_local(ident.ident_token().unwrap().text());
+                        self.declare_local(
+                            ident.syntax().clone(),
+                            ident.ident_token().unwrap().text(),
+                        );
                     }
                 }
             }
@@ -619,7 +628,10 @@ impl Compiler {
             }
 
             self.compile(entry.value().unwrap());
-            self.declare_local(path.pop().unwrap());
+            self.declare_local(
+                entry.attrpath().unwrap().syntax().clone(),
+                path.pop().unwrap(),
+            );
         }
 
         // Deal with the body, then clean up the locals afterwards.
@@ -719,22 +731,21 @@ impl Compiler {
     }
 
     fn end_scope(&mut self) {
-        let mut scope = &mut self.scope;
-        debug_assert!(scope.scope_depth != 0, "can not end top scope");
+        debug_assert!(self.scope.scope_depth != 0, "can not end top scope");
 
         // If this scope poisoned any builtins or special identifiers,
         // they need to be reset.
-        if scope.poisoned_true == scope.scope_depth {
-            scope.poisoned_true = 0;
+        if self.scope.poisoned_true == self.scope.scope_depth {
+            self.scope.poisoned_true = 0;
         }
-        if scope.poisoned_false == scope.scope_depth {
-            scope.poisoned_false = 0;
+        if self.scope.poisoned_false == self.scope.scope_depth {
+            self.scope.poisoned_false = 0;
         }
-        if scope.poisoned_null == scope.scope_depth {
-            scope.poisoned_null = 0;
+        if self.scope.poisoned_null == self.scope.scope_depth {
+            self.scope.poisoned_null = 0;
         }
 
-        scope.scope_depth -= 1;
+        self.scope.scope_depth -= 1;
 
         // When ending a scope, all corresponding locals need to be
         // removed, but the value of the body needs to remain on the
@@ -743,29 +754,42 @@ impl Compiler {
 
         // TL;DR - iterate from the back while things belonging to the
         // ended scope still exist.
-        while !scope.locals.is_empty()
-            && scope.locals[scope.locals.len() - 1].depth > scope.scope_depth
+        while !self.scope.locals.is_empty()
+            && self.scope.locals[self.scope.locals.len() - 1].depth > self.scope.scope_depth
         {
             pops += 1;
-            scope.locals.pop();
+
+            // While removing the local, analyse whether it has been
+            // accessed while it existed and emit a warning to the
+            // user otherwise.
+            if let Some(Local {
+                node: Some(node),
+                used,
+                ..
+            }) = self.scope.locals.pop()
+            {
+                if !used {
+                    self.emit_warning(node, WarningKind::UnusedBinding);
+                }
+            }
         }
 
         if pops > 0 {
             self.chunk.push_op(OpCode::OpCloseScope(pops));
         }
 
-        while !scope.with_stack.is_empty()
-            && scope.with_stack[scope.with_stack.len() - 1].depth > scope.scope_depth
+        while !self.scope.with_stack.is_empty()
+            && self.scope.with_stack[self.scope.with_stack.len() - 1].depth > self.scope.scope_depth
         {
             self.chunk.push_op(OpCode::OpPopWith);
-            scope.with_stack.pop();
+            self.scope.with_stack.pop();
         }
     }
 
     /// Declare a local variable known in the scope that is being
     /// compiled by pushing it to the locals. This is used to
     /// determine the stack offset of variables.
-    fn declare_local<S: Into<String>>(&mut self, name: S) {
+    fn declare_local<S: Into<String>>(&mut self, node: rnix::SyntaxNode, name: S) {
         // Set up scope poisoning if required.
         let name = name.into();
         match name.as_str() {
@@ -786,24 +810,29 @@ impl Compiler {
 
         self.scope.locals.push(Local {
             name: name.into(),
+            node: Some(node),
             depth: self.scope.scope_depth,
             phantom: false,
+            used: false,
         });
     }
 
     fn declare_phantom(&mut self) {
         self.scope.locals.push(Local {
             name: "".into(),
+            node: None,
             depth: self.scope.scope_depth,
             phantom: true,
+            used: true,
         });
     }
 
     fn resolve_local(&mut self, name: &str) -> Option<usize> {
-        let scope = &self.scope;
+        let scope = &mut self.scope;
 
-        for (idx, local) in scope.locals.iter().enumerate().rev() {
+        for (idx, local) in scope.locals.iter_mut().enumerate().rev() {
             if !local.phantom && local.name == name {
+                local.used = true;
                 return Some(idx);
             }
         }
