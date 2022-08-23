@@ -1,7 +1,7 @@
 use crate::opcode::{CodeIdx, ConstantIdx, OpCode};
 use crate::value::Value;
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Chunk {
     pub code: Vec<OpCode>,
     pub constants: Vec<Value>,

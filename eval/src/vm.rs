@@ -7,7 +7,7 @@ use crate::{
     chunk::Chunk,
     errors::{ErrorKind, EvalResult},
     opcode::OpCode,
-    value::{NixAttrs, NixList, Value},
+    value::{Lambda, NixAttrs, NixList, Value},
 };
 
 #[cfg(feature = "disassembler")]
@@ -365,9 +365,9 @@ impl VM {
     }
 }
 
-pub fn run_chunk(chunk: Chunk) -> EvalResult<Value> {
+pub fn run_lambda(lambda: Lambda) -> EvalResult<Value> {
     let mut vm = VM {
-        chunk,
+        chunk: Rc::<Chunk>::try_unwrap(lambda.chunk).unwrap(),
         ip: 0,
         stack: vec![],
         with_stack: vec![],

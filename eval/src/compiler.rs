@@ -21,14 +21,14 @@ use std::path::{Path, PathBuf};
 use crate::chunk::Chunk;
 use crate::errors::{Error, ErrorKind, EvalResult};
 use crate::opcode::{CodeIdx, OpCode};
-use crate::value::Value;
+use crate::value::{Lambda, Value};
 use crate::warnings::{EvalWarning, WarningKind};
 
 /// Represents the result of compiling a piece of Nix code. If
 /// compilation was successful, the resulting bytecode can be passed
 /// to the VM.
 pub struct CompilationResult {
-    pub chunk: Chunk,
+    pub lambda: Lambda,
     pub warnings: Vec<EvalWarning>,
     pub errors: Vec<Error>,
 }
@@ -90,7 +90,7 @@ struct Scope {
 }
 
 struct Compiler {
-    chunk: Chunk,
+    lambda: Lambda,
     scope: Scope,
 
     warnings: Vec<EvalWarning>,
@@ -102,7 +102,8 @@ struct Compiler {
 // structures of the compiler.
 impl Compiler {
     fn chunk(&mut self) -> &mut Chunk {
-        &mut self.chunk
+        std::rc::Rc::<Chunk>::get_mut(self.lambda.chunk())
+            .expect("compiler flaw: long-lived chunk reference")
     }
 
     fn emit_constant(&mut self, value: Value) {
@@ -910,7 +911,7 @@ pub fn compile(expr: ast::Expr, location: Option<PathBuf>) -> EvalResult<Compila
 
     let mut c = Compiler {
         root_dir,
-        chunk: Chunk::default(),
+        lambda: Lambda::new_anonymous(),
         warnings: vec![],
         errors: vec![],
         scope: Default::default(),
@@ -919,7 +920,7 @@ pub fn compile(expr: ast::Expr, location: Option<PathBuf>) -> EvalResult<Compila
     c.compile(expr);
 
     Ok(CompilationResult {
-        chunk: c.chunk,
+        lambda: c.lambda,
         warnings: c.warnings,
         errors: c.errors,
     })

@@ -31,7 +31,7 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
     let result = crate::compiler::compile(root_expr, location)?;
 
     #[cfg(feature = "disassembler")]
-    crate::disassembler::disassemble_chunk(&result.chunk);
+    crate::disassembler::disassemble_chunk(&result.lambda.chunk);
 
     for warning in result.warnings {
         eprintln!(
@@ -49,5 +49,5 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         return Err(err.clone());
     }
 
-    crate::vm::run_chunk(result.chunk)
+    crate::vm::run_lambda(result.lambda)
 }
