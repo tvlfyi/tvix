@@ -13,7 +13,14 @@ use crate::{
 #[cfg(feature = "disassembler")]
 use crate::disassembler::Tracer;
 
+struct CallFrame {
+    lambda: Lambda,
+    ip: usize,
+    stack_offset: usize,
+}
+
 pub struct VM {
+    frames: Vec<CallFrame>,
     ip: usize,
     chunk: Chunk,
     stack: Vec<Value>,
@@ -367,6 +374,7 @@ impl VM {
 
 pub fn run_lambda(lambda: Lambda) -> EvalResult<Value> {
     let mut vm = VM {
+        frames: vec![],
         chunk: Rc::<Chunk>::try_unwrap(lambda.chunk).unwrap(),
         ip: 0,
         stack: vec![],
