@@ -32,6 +32,9 @@ pub enum ErrorKind {
     // Unknown variable in dynamic scope (with, rec, ...).
     UnknownDynamicVariable(String),
 
+    // Attempt to call something that is not callable.
+    NotCallable,
+
     ParseErrors(Vec<rnix::parser::ParseError>),
 
     AssertionFailed,

@@ -112,11 +112,11 @@ impl VM {
         &self.stack[self.stack.len() - 1 - offset]
     }
 
-    fn call(&mut self, lambda: Lambda) {
+    fn call(&mut self, lambda: Lambda, arg_count: usize) {
         let frame = CallFrame {
             lambda,
             ip: 0,
-            stack_offset: self.stack.len(),
+            stack_offset: self.stack.len() - arg_count,
         };
 
         self.frames.push(frame);
@@ -127,6 +127,17 @@ impl VM {
         let mut tracer = Tracer::new();
 
         'dispatch: loop {
+            if self.frame().ip == self.chunk().code.len() {
+                // If this is the end of the top-level function,
+                // return, otherwise pop the call frame.
+                if self.frames.len() == 1 {
+                    return Ok(self.pop());
+                }
+
+                self.frames.pop();
+                continue;
+            }
+
             let op = self.inc_ip();
             match op {
                 OpCode::OpConstant(idx) => {
@@ -308,7 +319,8 @@ impl VM {
                 }
 
                 OpCode::OpGetLocal(local_idx) => {
-                    let value = self.stack[local_idx].clone();
+                    let idx = self.frame().stack_offset + local_idx;
+                    let value = self.stack[idx].clone();
                     self.push(value)
                 }
 
@@ -341,15 +353,19 @@ impl VM {
                         return Err(ErrorKind::AssertionFailed.into());
                     }
                 }
+
+                OpCode::OpCall => {
+                    let callable = self.pop();
+                    match callable {
+                        Value::Lambda(lambda) => self.call(lambda, 1),
+                        _ => return Err(ErrorKind::NotCallable.into()),
+                    };
+                }
             }
 
             #[cfg(feature = "disassembler")]
             {
                 tracer.trace(&op, self.frame().ip, &self.stack);
-            }
-
-            if self.frame().ip == self.chunk().code.len() {
-                return Ok(self.pop());
             }
         }
     }
@@ -400,6 +416,6 @@ pub fn run_lambda(lambda: Lambda) -> EvalResult<Value> {
         with_stack: vec![],
     };
 
-    vm.call(lambda);
+    vm.call(lambda, 0);
     vm.run()
 }

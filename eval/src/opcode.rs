@@ -75,4 +75,7 @@ pub enum OpCode {
 
     // Asserts stack top is a boolean, and true.
     OpAssert,
+
+    // Lambdas
+    OpCall,
 }
