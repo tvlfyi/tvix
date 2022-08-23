@@ -4,11 +4,13 @@ use std::rc::Rc;
 use std::{fmt::Display, path::PathBuf};
 
 mod attrs;
+mod lambda;
 mod list;
 mod string;
 
 use crate::errors::{ErrorKind, EvalResult};
 pub use attrs::NixAttrs;
+pub use lambda::Lambda;
 pub use list::NixList;
 pub use string::NixString;
 
@@ -23,6 +25,7 @@ pub enum Value {
     Path(PathBuf),
     Attrs(Rc<NixAttrs>),
     List(NixList),
+    Lambda(Lambda),
 
     // Internal values that, while they technically exist at runtime,
     // are never returned to or created directly by users.
@@ -46,6 +49,7 @@ impl Value {
             Value::Path(_) => "path",
             Value::Attrs(_) => "set",
             Value::List(_) => "list",
+            Value::Lambda(_) => "lambda",
 
             // Internal types
             Value::AttrPath(_) | Value::Blackhole | Value::NotFound => "internal",
@@ -123,6 +127,7 @@ impl Display for Value {
             Value::Path(p) => p.display().fmt(f),
             Value::Attrs(attrs) => attrs.fmt(f),
             Value::List(list) => list.fmt(f),
+            Value::Lambda(_) => f.write_str("lambda"), // TODO: print position
 
             // Nix prints floats with a maximum precision of 5 digits
             // only.
@@ -158,6 +163,7 @@ impl PartialEq for Value {
 
             // Everything else is either incomparable (e.g. internal
             // types) or false.
+            // TODO(tazjin): mirror Lambda equality behaviour
             _ => false,
         }
     }
