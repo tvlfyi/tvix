@@ -161,13 +161,13 @@ impl Compiler {
             ast::Expr::Ident(ident) => self.compile_ident(ident),
             ast::Expr::With(with) => self.compile_with(with),
             ast::Expr::Lambda(lambda) => self.compile_lambda(lambda),
+            ast::Expr::Apply(apply) => self.compile_apply(apply),
 
             // Parenthesized expressions are simply unwrapped, leaving
             // their value on the stack.
             ast::Expr::Paren(paren) => self.compile(paren.expr().unwrap()),
 
             ast::Expr::LegacyLet(_) => todo!("legacy let"),
-            ast::Expr::Apply(_) => todo!("function application"),
 
             ast::Expr::Root(_) => unreachable!("there cannot be more than one root"),
             ast::Expr::Error(_) => unreachable!("compile is only called on validated trees"),
@@ -772,6 +772,16 @@ impl Compiler {
         }
 
         self.emit_constant(Value::Lambda(compiled.lambda));
+    }
+
+    fn compile_apply(&mut self, node: ast::Apply) {
+        // To call a function, we leave its arguments on the stack,
+        // followed by the function expression itself, and then emit a
+        // call instruction. This way, the stack is perfectly laid out
+        // to enter the function call straight away.
+        self.compile(node.argument().unwrap());
+        self.compile(node.lambda().unwrap());
+        self.chunk().push_op(OpCode::OpCall);
     }
 
     /// Emit the literal string value of an identifier. Required for
