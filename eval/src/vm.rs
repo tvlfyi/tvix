@@ -21,8 +21,6 @@ struct CallFrame {
 
 pub struct VM {
     frames: Vec<CallFrame>,
-    ip: usize,
-    chunk: Chunk,
     stack: Vec<Value>,
 
     // Stack indices of attribute sets from which variables should be
@@ -83,9 +81,22 @@ macro_rules! cmp_op {
 }
 
 impl VM {
+    fn frame(&self) -> &CallFrame {
+        &self.frames[self.frames.len() - 1]
+    }
+
+    fn chunk(&self) -> &Chunk {
+        &self.frame().lambda.chunk
+    }
+
+    fn frame_mut(&mut self) -> &mut CallFrame {
+        let idx = self.frames.len() - 1;
+        &mut self.frames[idx]
+    }
+
     fn inc_ip(&mut self) -> OpCode {
-        let op = self.chunk.code[self.ip];
-        self.ip += 1;
+        let op = self.chunk().code[self.frame().ip];
+        self.frame_mut().ip += 1;
         op
     }
 
@@ -109,7 +120,7 @@ impl VM {
             let op = self.inc_ip();
             match op {
                 OpCode::OpConstant(idx) => {
-                    let c = self.chunk.constant(idx).clone();
+                    let c = self.chunk().constant(idx).clone();
                     self.push(c);
                 }
 
@@ -235,25 +246,25 @@ impl VM {
                 OpCode::OpInterpolate(count) => self.run_interpolate(count)?,
 
                 OpCode::OpJump(offset) => {
-                    self.ip += offset;
+                    self.frame_mut().ip += offset;
                 }
 
                 OpCode::OpJumpIfTrue(offset) => {
                     if self.peek(0).as_bool()? {
-                        self.ip += offset;
+                        self.frame_mut().ip += offset;
                     }
                 }
 
                 OpCode::OpJumpIfFalse(offset) => {
                     if !self.peek(0).as_bool()? {
-                        self.ip += offset;
+                        self.frame_mut().ip += offset;
                     }
                 }
 
                 OpCode::OpJumpIfNotFound(offset) => {
                     if matches!(self.peek(0), Value::NotFound) {
                         self.pop();
-                        self.ip += offset;
+                        self.frame_mut().ip += offset;
                     }
                 }
 
@@ -324,10 +335,10 @@ impl VM {
 
             #[cfg(feature = "disassembler")]
             {
-                tracer.trace(&op, self.ip, &self.stack);
+                tracer.trace(&op, self.frame().ip, &self.stack);
             }
 
-            if self.ip == self.chunk.code.len() {
+            if self.frame().ip == self.chunk().code.len() {
                 return Ok(self.pop());
             }
         }
@@ -373,10 +384,14 @@ impl VM {
 }
 
 pub fn run_lambda(lambda: Lambda) -> EvalResult<Value> {
-    let mut vm = VM {
-        frames: vec![],
-        chunk: Rc::<Chunk>::try_unwrap(lambda.chunk).unwrap(),
+    let frame = CallFrame {
+        lambda,
         ip: 0,
+        stack_offset: 0,
+    };
+
+    let mut vm = VM {
+        frames: vec![frame],
         stack: vec![],
         with_stack: vec![],
     };
