@@ -656,15 +656,9 @@ impl Compiler {
         self.patch_jump(else_idx); // patch jump *over* else body
     }
 
-    // Compile a standard `let ...; in ...` statement.
-    //
-    // Unless in a non-standard scope, the encountered values are
-    // simply pushed on the stack and their indices noted in the
-    // entries vector.
-    fn compile_let_in(&mut self, node: ast::LetIn) {
-        self.begin_scope();
-
-        for inherit in node.inherits() {
+    // Compile an `inherit` node of a `let`-expression.
+    fn compile_let_inherit<I: Iterator<Item = ast::Inherit>>(&mut self, inherits: I) {
+        for inherit in inherits {
             match inherit.from() {
                 // Within a `let` binding, inheriting from the outer
                 // scope is a no-op *if* the identifier can be
@@ -708,6 +702,17 @@ impl Compiler {
                 }
             }
         }
+    }
+
+    // Compile a standard `let ...; in ...` statement.
+    //
+    // Unless in a non-standard scope, the encountered values are
+    // simply pushed on the stack and their indices noted in the
+    // entries vector.
+    fn compile_let_in(&mut self, node: ast::LetIn) {
+        self.begin_scope();
+
+        self.compile_let_inherit(node.inherits());
 
         for entry in node.attrpath_values() {
             let mut path = match normalise_ident_path(entry.attrpath().unwrap().attrs()) {
