@@ -17,6 +17,11 @@ macro_rules! builtin {
 pub fn global_builtins() -> HashMap<&'static str, Value> {
     let mut globals = HashMap::new();
 
+    builtin!(globals, "isNull", 1, |args| Ok(Value::Bool(matches!(
+        args[0],
+        Value::Null
+    ))));
+
     builtin!(globals, "toString", 1, |args| {
         // TODO: toString is actually not the same as Display
         Ok(Value::String(format!("{}", args[0]).into()))
