@@ -7,7 +7,7 @@ use crate::{
     chunk::Chunk,
     errors::{ErrorKind, EvalResult},
     opcode::OpCode,
-    value::{Lambda, NixAttrs, NixList, Value},
+    value::{Closure, Lambda, NixAttrs, NixList, Value},
 };
 
 #[cfg(feature = "disassembler")]
@@ -357,7 +357,7 @@ impl VM {
                 OpCode::OpCall => {
                     let callable = self.pop();
                     match callable {
-                        Value::Lambda(lambda) => self.call(lambda, 1),
+                        Value::Closure(Closure { lambda }) => self.call(lambda, 1),
                         Value::Builtin(builtin) => {
                             let arg = self.pop();
                             let result = builtin.apply(arg)?;

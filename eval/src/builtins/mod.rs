@@ -44,7 +44,7 @@ fn pure_builtins() -> Vec<Builtin> {
         }),
         Builtin::new("isFunction", 1, |args| {
             Ok(Value::Bool(match args[0] {
-                Value::Lambda(_) => true,
+                Value::Closure(_) => true,
                 Value::Builtin(_) => true,
                 _ => false,
             }))

@@ -5,14 +5,14 @@ use std::{fmt::Display, path::PathBuf};
 
 mod attrs;
 mod builtin;
-mod lambda;
+mod function;
 mod list;
 mod string;
 
 use crate::errors::{ErrorKind, EvalResult};
 pub use attrs::NixAttrs;
 pub use builtin::Builtin;
-pub use lambda::Lambda;
+pub use function::{Closure, Lambda};
 pub use list::NixList;
 pub use string::NixString;
 
@@ -27,7 +27,7 @@ pub enum Value {
     Path(PathBuf),
     Attrs(Rc<NixAttrs>),
     List(NixList),
-    Lambda(Lambda),
+    Closure(Closure),
     Builtin(Builtin),
 
     // Internal values that, while they technically exist at runtime,
@@ -52,7 +52,7 @@ impl Value {
             Value::Path(_) => "path",
             Value::Attrs(_) => "set",
             Value::List(_) => "list",
-            Value::Lambda(_) | Value::Builtin(_) => "lambda",
+            Value::Closure(_) | Value::Builtin(_) => "lambda",
 
             // Internal types
             Value::AttrPath(_) | Value::Blackhole | Value::NotFound => "internal",
@@ -130,7 +130,7 @@ impl Display for Value {
             Value::Path(p) => p.display().fmt(f),
             Value::Attrs(attrs) => attrs.fmt(f),
             Value::List(list) => list.fmt(f),
-            Value::Lambda(_) => f.write_str("lambda"), // TODO: print position
+            Value::Closure(_) => f.write_str("lambda"), // TODO: print position
             Value::Builtin(builtin) => builtin.fmt(f),
 
             // Nix prints floats with a maximum precision of 5 digits

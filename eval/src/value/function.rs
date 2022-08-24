@@ -21,3 +21,8 @@ impl Lambda {
         &mut self.chunk
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct Closure {
+    pub lambda: Lambda,
+}

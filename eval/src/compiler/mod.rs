@@ -23,7 +23,7 @@ use std::rc::Rc;
 use crate::chunk::Chunk;
 use crate::errors::{Error, ErrorKind, EvalResult};
 use crate::opcode::{CodeIdx, OpCode};
-use crate::value::{Lambda, Value};
+use crate::value::{Closure, Lambda, Value};
 use crate::warnings::{EvalWarning, WarningKind};
 
 /// Represents the result of compiling a piece of Nix code. If
@@ -822,7 +822,9 @@ impl Compiler {
             crate::disassembler::disassemble_chunk(&compiled.lambda.chunk);
         }
 
-        self.emit_constant(Value::Lambda(compiled.lambda));
+        self.emit_constant(Value::Closure(Closure {
+            lambda: compiled.lambda,
+        }));
     }
 
     fn compile_apply(&mut self, node: ast::Apply) {
