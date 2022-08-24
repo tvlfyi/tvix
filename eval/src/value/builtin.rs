@@ -34,6 +34,19 @@ pub struct Builtin {
 }
 
 impl Builtin {
+    pub fn new(name: &'static str, arity: usize, func: BuiltinFn) -> Self {
+        Builtin {
+            name,
+            arity,
+            func,
+            partials: vec![],
+        }
+    }
+
+    pub fn name(&self) -> &'static str {
+        self.name
+    }
+
     /// Apply an additional argument to the builtin, which will either
     /// lead to execution of the function or to returning a partial
     /// builtin.

@@ -1029,7 +1029,11 @@ fn prepare_globals(additional: HashMap<&'static str, Value>) -> GlobalsMap {
     globals
 }
 
-pub fn compile(expr: ast::Expr, location: Option<PathBuf>) -> EvalResult<CompilationResult> {
+pub fn compile(
+    expr: ast::Expr,
+    location: Option<PathBuf>,
+    globals: HashMap<&'static str, Value>,
+) -> EvalResult<CompilationResult> {
     let mut root_dir = match location {
         Some(dir) => Ok(dir),
         None => std::env::current_dir().map_err(|e| {
@@ -1044,12 +1048,9 @@ pub fn compile(expr: ast::Expr, location: Option<PathBuf>) -> EvalResult<Compila
         root_dir.pop();
     }
 
-    // TODO: accept globals as an external parameter
-    let globals = prepare_globals(HashMap::new());
-
     let mut c = Compiler {
         root_dir,
-        globals,
+        globals: prepare_globals(globals),
         contexts: vec![LambdaCtx::new()],
         warnings: vec![],
         errors: vec![],

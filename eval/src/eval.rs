@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use rnix;
 
 use crate::{
+    builtins::global_builtins,
     errors::{ErrorKind, EvalResult},
     value::Value,
 };
@@ -28,7 +29,7 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         println!("{:?}", root_expr);
     }
 
-    let result = crate::compiler::compile(root_expr, location)?;
+    let result = crate::compiler::compile(root_expr, location, global_builtins())?;
 
     #[cfg(feature = "disassembler")]
     crate::disassembler::disassemble_chunk(&result.lambda.chunk);

@@ -1,3 +1,4 @@
+mod builtins;
 mod chunk;
 mod compiler;
 mod errors;
