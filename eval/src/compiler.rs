@@ -900,6 +900,7 @@ impl Compiler {
         };
 
         if let Some(global_ident) = key {
+            self.emit_warning(node.clone(), WarningKind::ShadowedGlobal(global_ident));
             self.scope_mut().poison(global_ident, depth);
         }
 
