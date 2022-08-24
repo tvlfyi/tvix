@@ -259,6 +259,14 @@ impl NixAttrs {
 
         Ok(attrs)
     }
+
+    /// Construct an attribute set directly from a BTreeMap
+    /// representation. This is only visible inside of the crate, as
+    /// it is intended exclusively for use with the construction of
+    /// global sets for the compiler.
+    pub(crate) fn from_map(map: BTreeMap<NixString, Value>) -> Self {
+        NixAttrs(AttrsRep::Map(map))
+    }
 }
 
 // In Nix, name/value attribute pairs are frequently constructed from
