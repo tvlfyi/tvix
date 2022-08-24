@@ -60,6 +60,9 @@ fn pure_builtins() -> Vec<Builtin> {
             // TODO: toString is actually not the same as Display
             Ok(Value::String(format!("{}", args[0]).into()))
         }),
+        Builtin::new("typeOf", 1, |args| {
+            Ok(Value::String(args[0].type_of().into()))
+        }),
     ]
 }
 
