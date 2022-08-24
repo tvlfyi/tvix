@@ -39,8 +39,8 @@ impl AttrsRep {
 
             AttrsRep::KV { name, value } => {
                 *self = AttrsRep::Map(BTreeMap::from([
-                    (NixString::NAME, std::mem::replace(name, Value::Blackhole)),
-                    (NixString::VALUE, std::mem::replace(value, Value::Blackhole)),
+                    (NixString::NAME, name.clone()),
+                    (NixString::VALUE, value.clone()),
                 ]));
                 self.map_mut()
             }
