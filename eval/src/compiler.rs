@@ -16,7 +16,9 @@
 use path_clean::PathClean;
 use rnix::ast::{self, AstToken, HasEntry};
 use rowan::ast::AstNode;
+use std::collections::{hash_map, HashMap};
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 use crate::chunk::Chunk;
 use crate::errors::{Error, ErrorKind, EvalResult};
@@ -78,15 +80,40 @@ struct Scope {
     // `with`.
     with_stack: Vec<With>,
 
-    // Certain symbols are considered to be "poisoning" the scope when
-    // defined. This is because users are allowed to override symbols
-    // like 'true' or 'null'.
+    // Users are allowed to override globally defined symbols like
+    // `true`, `false` or `null` in scopes. We call this "scope
+    // poisoning", as it requires runtime resolution of those tokens.
     //
     // To support this efficiently, the depth at which a poisoning
     // occured is tracked here.
-    poisoned_true: usize,
-    poisoned_false: usize,
-    poisoned_null: usize,
+    poisoned_tokens: HashMap<&'static str, usize>,
+}
+
+impl Scope {
+    /// Mark a globally defined token as poisoned.
+    fn poison(&mut self, name: &'static str, depth: usize) {
+        match self.poisoned_tokens.entry(name) {
+            hash_map::Entry::Occupied(_) => {
+                /* do nothing, as the token is already poisoned at a
+                 * lower scope depth */
+            }
+            hash_map::Entry::Vacant(entry) => {
+                entry.insert(depth);
+            }
+        }
+    }
+
+    /// Check whether a given token is poisoned.
+    fn is_poisoned(&self, name: &str) -> bool {
+        self.poisoned_tokens.contains_key(name)
+    }
+
+    /// "Unpoison" tokens that were poisoned at a given depth. Used
+    /// when scopes are closed.
+    fn unpoison(&mut self, depth: usize) {
+        self.poisoned_tokens
+            .retain(|_, poisoned_at| *poisoned_at != depth);
+    }
 }
 
 /// Represents the lambda currently being compiled.
@@ -104,11 +131,21 @@ impl LambdaCtx {
     }
 }
 
+type GlobalsMap = HashMap<&'static str, Rc<dyn Fn(&mut Compiler)>>;
+
 struct Compiler {
     contexts: Vec<LambdaCtx>,
     warnings: Vec<EvalWarning>,
     errors: Vec<Error>,
     root_dir: PathBuf,
+
+    /// Carries all known global tokens; the full set of which is
+    /// created when the compiler is invoked.
+    ///
+    /// Each global has an associated token, which when encountered as
+    /// an identifier is resolved against the scope poisoning logic,
+    /// and a function that should emit code for the token.
+    globals: GlobalsMap,
 }
 
 // Helper functions for emitting code and metadata to the internal
@@ -124,7 +161,7 @@ impl Compiler {
     }
 
     fn chunk(&mut self) -> &mut Chunk {
-        std::rc::Rc::<Chunk>::get_mut(self.context_mut().lambda.chunk())
+        Rc::<Chunk>::get_mut(self.context_mut().lambda.chunk())
             .expect("compiler flaw: long-lived chunk reference")
     }
 
@@ -677,41 +714,29 @@ impl Compiler {
     }
 
     fn compile_ident(&mut self, node: ast::Ident) {
-        match node.ident_token().unwrap().text() {
-            // TODO(tazjin): Nix technically allows code like
-            //
-            //   let null = 1; in null
-            //   => 1
-            //
-            // which we do *not* want to check at runtime. Once
-            // scoping is introduced, the compiler should carry some
-            // optimised information about any "weird" stuff that's
-            // happened to the scope (such as overrides of these
-            // literals, or builtins).
-            "true" if self.scope().poisoned_true == 0 => self.chunk().push_op(OpCode::OpTrue),
-            "false" if self.scope().poisoned_false == 0 => self.chunk().push_op(OpCode::OpFalse),
-            "null" if self.scope().poisoned_null == 0 => self.chunk().push_op(OpCode::OpNull),
+        let ident = node.ident_token().unwrap();
 
-            name => {
-                // Note: `with` and some other special scoping
-                // features are not yet implemented.
-                match self.resolve_local(name) {
-                    Some(idx) => self.chunk().push_op(OpCode::OpGetLocal(idx)),
-                    None => {
-                        if self.scope().with_stack.is_empty() {
-                            self.emit_error(
-                                node.syntax().clone(),
-                                ErrorKind::UnknownStaticVariable,
-                            );
-                            return;
-                        }
+        // If the identifier is a global, and it is not poisoned, emit
+        // the global directly.
+        if let Some(global) = self.globals.get(ident.text()) {
+            if !self.scope().is_poisoned(ident.text()) {
+                global.clone()(self);
+                return;
+            }
+        }
 
-                        // Variable needs to be dynamically resolved
-                        // at runtime.
-                        self.emit_constant(Value::String(name.into()));
-                        self.chunk().push_op(OpCode::OpResolveWith)
-                    }
+        match self.resolve_local(ident.text()) {
+            Some(idx) => self.chunk().push_op(OpCode::OpGetLocal(idx)),
+            None => {
+                if self.scope().with_stack.is_empty() {
+                    self.emit_error(node.syntax().clone(), ErrorKind::UnknownStaticVariable);
+                    return;
                 }
+
+                // Variable needs to be dynamically resolved
+                // at runtime.
+                self.emit_constant(Value::String(ident.text().into()));
+                self.chunk().push_op(OpCode::OpResolveWith)
             }
         };
     }
@@ -815,15 +840,8 @@ impl Compiler {
 
         // If this scope poisoned any builtins or special identifiers,
         // they need to be reset.
-        if self.scope().poisoned_true == self.scope().scope_depth {
-            self.scope_mut().poisoned_true = 0;
-        }
-        if self.scope().poisoned_false == self.scope().scope_depth {
-            self.scope_mut().poisoned_false = 0;
-        }
-        if self.scope().poisoned_null == self.scope().scope_depth {
-            self.scope_mut().poisoned_null = 0;
-        }
+        let depth = self.scope().scope_depth;
+        self.scope_mut().unpoison(depth);
 
         self.scope_mut().scope_depth -= 1;
 
@@ -871,23 +889,24 @@ impl Compiler {
     /// compiled by pushing it to the locals. This is used to
     /// determine the stack offset of variables.
     fn declare_local<S: Into<String>>(&mut self, node: rnix::SyntaxNode, name: S) {
-        // Set up scope poisoning if required.
         let name = name.into();
-        let mut scope = self.scope_mut();
-        match name.as_str() {
-            "true" if scope.poisoned_true == 0 => scope.poisoned_true = scope.scope_depth,
+        let depth = self.scope().scope_depth;
 
-            "false" if scope.poisoned_false == 0 => scope.poisoned_false = scope.scope_depth,
-
-            "null" if scope.poisoned_null == 0 => scope.poisoned_null = scope.scope_depth,
-
-            _ => {}
+        // Do this little dance to get ahold of the *static* key and
+        // use it for poisoning if required.
+        let key: Option<&'static str> = match self.globals.get_key_value(name.as_str()) {
+            Some((key, _)) => Some(*key),
+            None => None,
         };
 
-        scope.locals.push(Local {
+        if let Some(global_ident) = key {
+            self.scope_mut().poison(global_ident, depth);
+        }
+
+        self.scope_mut().locals.push(Local {
+            depth,
             name: name.into(),
             node: Some(node),
-            depth: scope.scope_depth,
             phantom: false,
             used: false,
         });
@@ -969,6 +988,47 @@ fn normalise_ident_path<I: Iterator<Item = ast::Attr>>(path: I) -> EvalResult<Ve
     path.map(attr_to_string).collect()
 }
 
+/// Prepare the full set of globals from additional globals supplied
+/// by the caller of the compiler, as well as the built-in globals
+/// that are always part of the language.
+///
+/// Note that all builtin functions are *not* considered part of the
+/// language in this sense and MUST be supplied as additional global
+/// values, including the `builtins` set itself.
+fn prepare_globals(additional: HashMap<&'static str, Value>) -> GlobalsMap {
+    let mut globals: GlobalsMap = HashMap::new();
+
+    globals.insert(
+        "true",
+        Rc::new(|compiler| {
+            compiler.chunk().push_op(OpCode::OpTrue);
+        }),
+    );
+
+    globals.insert(
+        "false",
+        Rc::new(|compiler| {
+            compiler.chunk().push_op(OpCode::OpFalse);
+        }),
+    );
+
+    globals.insert(
+        "null",
+        Rc::new(|compiler| {
+            compiler.chunk().push_op(OpCode::OpNull);
+        }),
+    );
+
+    for (ident, value) in additional.into_iter() {
+        globals.insert(
+            ident,
+            Rc::new(move |compiler| compiler.emit_constant(value.clone())),
+        );
+    }
+
+    globals
+}
+
 pub fn compile(expr: ast::Expr, location: Option<PathBuf>) -> EvalResult<CompilationResult> {
     let mut root_dir = match location {
         Some(dir) => Ok(dir),
@@ -984,8 +1044,12 @@ pub fn compile(expr: ast::Expr, location: Option<PathBuf>) -> EvalResult<Compila
         root_dir.pop();
     }
 
+    // TODO: accept globals as an external parameter
+    let globals = prepare_globals(HashMap::new());
+
     let mut c = Compiler {
         root_dir,
+        globals,
         contexts: vec![LambdaCtx::new()],
         warnings: vec![],
         errors: vec![],
