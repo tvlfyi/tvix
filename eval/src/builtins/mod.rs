@@ -10,7 +10,7 @@ use std::{
 
 use crate::{
     errors::ErrorKind,
-    value::{Builtin, NixAttrs, NixString, Value},
+    value::{Builtin, NixAttrs, NixList, NixString, Value},
 };
 
 fn pure_builtins() -> Vec<Builtin> {
@@ -19,6 +19,19 @@ fn pure_builtins() -> Vec<Builtin> {
             return Err(
                 ErrorKind::Abort(args.pop().unwrap().to_string()?.as_str().to_owned()).into(),
             );
+        }),
+        Builtin::new("catAttrs", 2, |mut args| {
+            let list = args.pop().unwrap().to_list()?;
+            let key = args.pop().unwrap().to_string()?;
+            let mut output = vec![];
+
+            for set in list.into_iter() {
+                if let Some(value) = set.to_attrs()?.select(key.as_str()) {
+                    output.push(value.clone());
+                }
+            }
+
+            Ok(Value::List(NixList::construct(output.len(), output)))
         }),
         Builtin::new("isAttrs", 1, |args| {
             Ok(Value::Bool(matches!(args[0], Value::Attrs(_))))
