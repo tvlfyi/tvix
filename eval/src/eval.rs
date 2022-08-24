@@ -36,8 +36,9 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
 
     for warning in result.warnings {
         eprintln!(
-            "warning: {:?} at {:?}",
+            "warning: {:?} at `{:?}`[{:?}]",
             warning.kind,
+            warning.node.text(),
             warning.node.text_range().start()
         )
     }
