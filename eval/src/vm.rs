@@ -358,6 +358,11 @@ impl VM {
                     let callable = self.pop();
                     match callable {
                         Value::Lambda(lambda) => self.call(lambda, 1),
+                        Value::Builtin(builtin) => {
+                            let arg = self.pop();
+                            let result = builtin.apply(arg)?;
+                            self.push(result);
+                        }
                         _ => return Err(ErrorKind::NotCallable.into()),
                     };
                 }
