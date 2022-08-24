@@ -667,11 +667,32 @@ impl Compiler {
         for inherit in node.inherits() {
             match inherit.from() {
                 // Within a `let` binding, inheriting from the outer
-                // scope is practically a no-op.
-                None => {
+                // scope is a no-op *if* the identifier can be
+                // statically resolved.
+                None if self.scope().with_stack.is_empty() => {
                     self.emit_warning(inherit.syntax().clone(), WarningKind::UselessInherit);
-
                     continue;
+                }
+
+                None => {
+                    for ident in inherit.idents() {
+                        // If the identifier resolves statically, it
+                        // has precedence over dynamic bindings, and
+                        // the inherit is useless.
+                        if self
+                            .resolve_local(ident.ident_token().unwrap().text())
+                            .is_some()
+                        {
+                            self.emit_warning(ident.syntax().clone(), WarningKind::UselessInherit);
+                            continue;
+                        }
+
+                        self.compile_ident(ident.clone());
+                        self.declare_local(
+                            ident.syntax().clone(),
+                            ident.ident_token().unwrap().text(),
+                        );
+                    }
                 }
 
                 Some(from) => {
