@@ -242,7 +242,7 @@ impl VM {
                 OpCode::OpAttrsIsSet => {
                     let key = self.pop().to_string()?;
                     let result = match self.pop() {
-                        Value::Attrs(attrs) => attrs.select(key.as_str()).is_some(),
+                        Value::Attrs(attrs) => attrs.contains(key.as_str()),
 
                         // Nix allows use of `?` on non-set types, but
                         // always returns false in those cases.

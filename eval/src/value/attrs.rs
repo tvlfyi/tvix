@@ -66,6 +66,14 @@ impl AttrsRep {
             AttrsRep::Map(map) => map.get(&key.into()),
         }
     }
+
+    fn contains(&self, key: &str) -> bool {
+        match self {
+            AttrsRep::Empty => false,
+            AttrsRep::KV { .. } => key == "name" || key == "value",
+            AttrsRep::Map(map) => map.contains_key(&key.into()),
+        }
+    }
 }
 
 #[repr(transparent)]
@@ -200,6 +208,10 @@ impl NixAttrs {
     // Select a value from an attribute set by key.
     pub fn select(&self, key: &str) -> Option<&Value> {
         self.0.select(key)
+    }
+
+    pub fn contains(&self, key: &str) -> bool {
+        self.0.contains(key)
     }
 
     /// Implement construction logic of an attribute set, to encapsulate
