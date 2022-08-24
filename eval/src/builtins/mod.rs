@@ -20,8 +20,36 @@ fn pure_builtins() -> Vec<Builtin> {
                 ErrorKind::Abort(args.pop().unwrap().to_string()?.as_str().to_owned()).into(),
             );
         }),
+        Builtin::new("isAttrs", 1, |args| {
+            Ok(Value::Bool(matches!(args[0], Value::Attrs(_))))
+        }),
+        Builtin::new("isBool", 1, |args| {
+            Ok(Value::Bool(matches!(args[0], Value::Bool(_))))
+        }),
+        Builtin::new("isFloat", 1, |args| {
+            Ok(Value::Bool(matches!(args[0], Value::Float(_))))
+        }),
+        Builtin::new("isFunction", 1, |args| {
+            Ok(Value::Bool(match args[0] {
+                Value::Lambda(_) => true,
+                Value::Builtin(_) => true,
+                _ => false,
+            }))
+        }),
+        Builtin::new("isInt", 1, |args| {
+            Ok(Value::Bool(matches!(args[0], Value::Integer(_))))
+        }),
+        Builtin::new("isList", 1, |args| {
+            Ok(Value::Bool(matches!(args[0], Value::List(_))))
+        }),
         Builtin::new("isNull", 1, |args| {
             Ok(Value::Bool(matches!(args[0], Value::Null)))
+        }),
+        Builtin::new("isPath", 1, |args| {
+            Ok(Value::Bool(matches!(args[0], Value::Path(_))))
+        }),
+        Builtin::new("isString", 1, |args| {
+            Ok(Value::Bool(matches!(args[0], Value::String(_))))
         }),
         Builtin::new("throw", 1, |mut args| {
             return Err(
