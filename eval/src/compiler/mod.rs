@@ -114,6 +114,18 @@ impl Scope {
         self.poisoned_tokens
             .retain(|_, poisoned_at| *poisoned_at != depth);
     }
+
+    /// Resolve the stack index of a statically known local.
+    fn resolve_local(&mut self, name: &str) -> Option<usize> {
+        for (idx, local) in self.locals.iter_mut().enumerate().rev() {
+            if !local.phantom && local.name == name {
+                local.used = true;
+                return Some(idx);
+            }
+        }
+
+        None
+    }
 }
 
 /// Represents the lambda currently being compiled.
@@ -500,7 +512,10 @@ impl Compiler {
                         count += 1;
                         self.emit_literal_ident(&ident);
 
-                        match self.resolve_local(ident.ident_token().unwrap().text()) {
+                        match self
+                            .scope_mut()
+                            .resolve_local(ident.ident_token().unwrap().text())
+                        {
                             Some(idx) => self.chunk().push_op(OpCode::OpGetLocal(idx)),
                             None => {
                                 self.emit_error(
@@ -674,6 +689,7 @@ impl Compiler {
                         // has precedence over dynamic bindings, and
                         // the inherit is useless.
                         if self
+                            .scope_mut()
                             .resolve_local(ident.ident_token().unwrap().text())
                             .is_some()
                         {
@@ -751,7 +767,7 @@ impl Compiler {
             }
         }
 
-        match self.resolve_local(ident.text()) {
+        match self.scope_mut().resolve_local(ident.text()) {
             Some(idx) => self.chunk().push_op(OpCode::OpGetLocal(idx)),
             None => {
                 if self.scope().with_stack.is_empty() {
@@ -950,19 +966,6 @@ impl Compiler {
             phantom: true,
             used: true,
         });
-    }
-
-    fn resolve_local(&mut self, name: &str) -> Option<usize> {
-        let scope = self.scope_mut();
-
-        for (idx, local) in scope.locals.iter_mut().enumerate().rev() {
-            if !local.phantom && local.name == name {
-                local.used = true;
-                return Some(idx);
-            }
-        }
-
-        None
     }
 
     fn emit_warning(&mut self, node: rnix::SyntaxNode, kind: WarningKind) {
