@@ -38,6 +38,10 @@ pub enum ErrorKind {
     ParseErrors(Vec<rnix::parser::ParseError>),
 
     AssertionFailed,
+
+    // These are user-generated errors through builtins.
+    Throw(String),
+    Abort(String),
 }
 
 #[derive(Clone, Debug)]

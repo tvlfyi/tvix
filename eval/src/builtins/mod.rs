@@ -8,12 +8,25 @@ use std::{
     rc::Rc,
 };
 
-use crate::value::{Builtin, NixAttrs, NixString, Value};
+use crate::{
+    errors::ErrorKind,
+    value::{Builtin, NixAttrs, NixString, Value},
+};
 
 fn pure_builtins() -> Vec<Builtin> {
     vec![
+        Builtin::new("abort", 1, |mut args| {
+            return Err(
+                ErrorKind::Abort(args.pop().unwrap().to_string()?.as_str().to_owned()).into(),
+            );
+        }),
         Builtin::new("isNull", 1, |args| {
             Ok(Value::Bool(matches!(args[0], Value::Null)))
+        }),
+        Builtin::new("throw", 1, |mut args| {
+            return Err(
+                ErrorKind::Throw(args.pop().unwrap().to_string()?.as_str().to_owned()).into(),
+            );
         }),
         Builtin::new("toString", 1, |args| {
             // TODO: toString is actually not the same as Display
