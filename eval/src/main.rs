@@ -4,17 +4,6 @@ use std::{
     mem, process,
 };
 
-mod chunk;
-mod compiler;
-mod errors;
-mod eval;
-mod opcode;
-mod value;
-mod vm;
-
-#[cfg(test)]
-mod tests;
-
 fn main() {
     let mut args = env::args();
     if args.len() > 2 {
@@ -50,7 +39,7 @@ fn run_prompt() {
 }
 
 fn run(code: String) {
-    match eval::interpret(&code) {
+    match tvix_eval::interpret(&code) {
         Ok(result) => println!("=> {} :: {}", result, result.type_of()),
         Err(err) => eprintln!("{}", err),
     }
