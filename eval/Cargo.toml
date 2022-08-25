@@ -9,9 +9,14 @@ edition = "2021"
 rnix = "0.10.2"
 
 [dev-dependencies]
+criterion = "0.3.6"
 test-generator = "0.3.0"
 
 [features]
 # Enables running the Nix language test suite from the original C++
 # Nix implementation (at version 2.3) against Tvix.
 nix_tests = []
+
+[[bench]]
+name = "eval"
+harness = false
