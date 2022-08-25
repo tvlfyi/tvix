@@ -90,13 +90,14 @@ impl NixString {
     }
 }
 
-fn nix_escape_char(ch: char) -> Option<&'static str> {
-    match ch {
-        '\\' => Some("\\\\"),
-        '"' => Some("\\\""),
-        '\n' => Some("\\n"),
-        '\t' => Some("\\t"),
-        '\r' => Some("\\r"),
+fn nix_escape_char(ch: char, next: Option<&char>) -> Option<&'static str> {
+    match (ch, next) {
+        ('\\', _) => Some("\\\\"),
+        ('"', _) => Some("\\\""),
+        ('\n', _) => Some("\\n"),
+        ('\t', _) => Some("\\t"),
+        ('\r', _) => Some("\\r"),
+        ('$', Some('{')) => Some("\\$"),
         _ => None,
     }
 }
@@ -106,14 +107,17 @@ fn nix_escape_char(ch: char) -> Option<&'static str> {
 //
 // Note that this does not add the outer pair of surrounding quotes.
 fn nix_escape_string(input: &str) -> Cow<str> {
-    for (i, c) in input.chars().enumerate() {
-        if let Some(esc) = nix_escape_char(c) {
+    let mut iter = input.chars().enumerate().peekable();
+
+    while let Some((i, c)) = iter.next() {
+        if let Some(esc) = nix_escape_char(c, iter.peek().map(|(_, c)| c)) {
             let mut escaped = String::with_capacity(input.len());
             escaped.push_str(&input[..i]);
             escaped.push_str(esc);
 
-            for c in input[i + 1..].chars() {
-                match nix_escape_char(c) {
+            let mut inner_iter = input[i + 1..].chars().peekable();
+            while let Some(c) = inner_iter.next() {
+                match nix_escape_char(c, inner_iter.peek()) {
                     Some(esc) => escaped.push_str(esc),
                     None => escaped.push(c),
                 }
