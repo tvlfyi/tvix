@@ -58,7 +58,7 @@ impl Builtin {
         }
 
         // Function is not yet ready to be called.
-        return Ok(Value::Builtin(self));
+        Ok(Value::Builtin(self))
     }
 }
 

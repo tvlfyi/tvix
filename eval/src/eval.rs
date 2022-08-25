@@ -1,7 +1,5 @@
 use std::path::PathBuf;
 
-use rnix;
-
 use crate::{
     builtins::global_builtins,
     errors::{ErrorKind, EvalResult},

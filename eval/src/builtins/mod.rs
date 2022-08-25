@@ -43,11 +43,10 @@ fn pure_builtins() -> Vec<Builtin> {
             Ok(Value::Bool(matches!(args[0], Value::Float(_))))
         }),
         Builtin::new("isFunction", 1, |args| {
-            Ok(Value::Bool(match args[0] {
-                Value::Closure(_) => true,
-                Value::Builtin(_) => true,
-                _ => false,
-            }))
+            Ok(Value::Bool(matches!(
+                args[0],
+                Value::Closure(_) | Value::Builtin(_)
+            )))
         }),
         Builtin::new("isInt", 1, |args| {
             Ok(Value::Bool(matches!(args[0], Value::Integer(_))))

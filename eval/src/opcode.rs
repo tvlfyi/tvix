@@ -7,6 +7,7 @@ pub struct ConstantIdx(pub usize);
 #[derive(Clone, Copy, Debug)]
 pub struct CodeIdx(pub usize);
 
+#[allow(clippy::enum_variant_names)]
 #[warn(variant_size_differences)]
 #[derive(Clone, Copy, Debug)]
 pub enum OpCode {

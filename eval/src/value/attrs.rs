@@ -91,7 +91,7 @@ impl Display for NixAttrs {
             }
 
             AttrsRep::Map(map) => {
-                for (name, value) in map.iter() {
+                for (name, value) in map {
                     write!(f, "{} = {}; ", name.ident_str(), value)?;
                 }
             }

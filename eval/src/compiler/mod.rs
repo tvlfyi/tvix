@@ -424,15 +424,14 @@ impl Compiler {
     fn compile_has_attr(&mut self, node: ast::HasAttr) {
         // Put the attribute set on the stack.
         self.compile(node.expr().unwrap());
-        let mut count = 0;
 
         // Push all path fragments with an operation for fetching the
         // next nested element, for all fragments except the last one.
-        for fragment in node.attrpath().unwrap().attrs() {
+        for (count, fragment) in node.attrpath().unwrap().attrs().enumerate() {
             if count > 0 {
                 self.chunk().push_op(OpCode::OpAttrOrNotFound);
             }
-            count += 1;
+
             self.compile_attr(fragment);
         }
 
@@ -950,7 +949,7 @@ impl Compiler {
 
         self.scope_mut().locals.push(Local {
             depth,
-            name: name.into(),
+            name,
             node: Some(node),
             phantom: false,
             used: false,
