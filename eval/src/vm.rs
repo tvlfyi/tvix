@@ -6,7 +6,7 @@ use std::rc::Rc;
 use crate::{
     chunk::Chunk,
     errors::{ErrorKind, EvalResult},
-    opcode::{JumpOffset, OpCode, StackIdx},
+    opcode::{Count, JumpOffset, OpCode, StackIdx},
     value::{Closure, Lambda, NixAttrs, NixList, Value},
 };
 
@@ -199,8 +199,8 @@ impl VM {
                 OpCode::OpTrue => self.push(Value::Bool(true)),
                 OpCode::OpFalse => self.push(Value::Bool(false)),
 
-                OpCode::OpAttrs(count) => self.run_attrset(count)?,
-                OpCode::OpAttrPath(count) => self.run_attr_path(count)?,
+                OpCode::OpAttrs(Count(count)) => self.run_attrset(count)?,
+                OpCode::OpAttrPath(Count(count)) => self.run_attr_path(count)?,
 
                 OpCode::OpAttrsUpdate => {
                     let rhs = unwrap_or_clone_rc(self.pop().to_attrs()?);
@@ -252,7 +252,7 @@ impl VM {
                     self.push(Value::Bool(result));
                 }
 
-                OpCode::OpList(count) => {
+                OpCode::OpList(Count(count)) => {
                     let list =
                         NixList::construct(count, self.stack.split_off(self.stack.len() - count));
                     self.push(Value::List(list));
@@ -264,7 +264,7 @@ impl VM {
                     self.push(Value::List(lhs.concat(&rhs)))
                 }
 
-                OpCode::OpInterpolate(count) => self.run_interpolate(count)?,
+                OpCode::OpInterpolate(Count(count)) => self.run_interpolate(count)?,
 
                 OpCode::OpJump(JumpOffset(offset)) => {
                     self.frame_mut().ip += offset;
@@ -306,7 +306,7 @@ impl VM {
 
                 // Remove the given number of elements from the stack,
                 // but retain the top value.
-                OpCode::OpCloseScope(count) => {
+                OpCode::OpCloseScope(Count(count)) => {
                     // Immediately move the top value into the right
                     // position.
                     let target_idx = self.stack.len() - 1 - count;

@@ -22,7 +22,7 @@ use std::rc::Rc;
 
 use crate::chunk::Chunk;
 use crate::errors::{Error, ErrorKind, EvalResult};
-use crate::opcode::{CodeIdx, JumpOffset, OpCode, StackIdx};
+use crate::opcode::{CodeIdx, Count, JumpOffset, OpCode, StackIdx};
 use crate::value::{Closure, Lambda, Value};
 use crate::warnings::{EvalWarning, WarningKind};
 
@@ -298,7 +298,7 @@ impl Compiler {
         }
 
         if count != 1 {
-            self.chunk().push_op(OpCode::OpInterpolate(count));
+            self.chunk().push_op(OpCode::OpInterpolate(Count(count)));
         }
     }
 
@@ -462,7 +462,7 @@ impl Compiler {
             self.compile(item);
         }
 
-        self.chunk().push_op(OpCode::OpList(count));
+        self.chunk().push_op(OpCode::OpList(Count(count)));
     }
 
     // Compile attribute set literals into equivalent bytecode.
@@ -547,7 +547,7 @@ impl Compiler {
             // otherwise we need to emit an instruction to construct
             // the attribute path.
             if key_count > 1 {
-                self.chunk().push_op(OpCode::OpAttrPath(key_count));
+                self.chunk().push_op(OpCode::OpAttrPath(Count(key_count)));
             }
 
             // The value is just compiled as normal so that its
@@ -556,7 +556,7 @@ impl Compiler {
             self.compile(kv.value().unwrap());
         }
 
-        self.chunk().push_op(OpCode::OpAttrs(count));
+        self.chunk().push_op(OpCode::OpAttrs(Count(count)));
     }
 
     fn compile_select(&mut self, node: ast::Select) {
@@ -925,7 +925,7 @@ impl Compiler {
         }
 
         if pops > 0 {
-            self.chunk().push_op(OpCode::OpCloseScope(pops));
+            self.chunk().push_op(OpCode::OpCloseScope(Count(pops)));
         }
 
         while !self.scope().with_stack.is_empty()

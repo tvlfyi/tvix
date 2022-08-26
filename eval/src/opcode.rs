@@ -21,6 +21,12 @@ pub struct StackIdx(pub usize);
 #[derive(Clone, Copy, Debug)]
 pub struct JumpOffset(pub usize);
 
+/// Provided count for an instruction (could represent e.g. a number
+/// of elements).
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug)]
+pub struct Count(pub usize);
+
 #[allow(clippy::enum_variant_names)]
 #[warn(variant_size_differences)]
 #[derive(Clone, Copy, Debug)]
@@ -60,8 +66,8 @@ pub enum OpCode {
     OpJumpIfNotFound(JumpOffset),
 
     // Attribute sets
-    OpAttrs(usize),
-    OpAttrPath(usize),
+    OpAttrs(Count),
+    OpAttrPath(Count),
     OpAttrsUpdate,
     OpAttrsSelect,
     OpAttrsTrySelect,
@@ -73,11 +79,11 @@ pub enum OpCode {
     OpResolveWith,
 
     // Lists
-    OpList(usize),
+    OpList(Count),
     OpConcat,
 
     // Strings
-    OpInterpolate(usize),
+    OpInterpolate(Count),
 
     // Type assertion operators
     OpAssertBool,
@@ -86,7 +92,7 @@ pub enum OpCode {
     OpGetLocal(StackIdx),
 
     // Close scopes while leaving their expression value around.
-    OpCloseScope(usize), // number of locals to pop
+    OpCloseScope(Count), // number of locals to pop
 
     // Asserts stack top is a boolean, and true.
     OpAssert,
