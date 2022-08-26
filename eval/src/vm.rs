@@ -366,10 +366,37 @@ impl VM {
                     };
                 }
 
-                OpCode::OpClosure(_) => todo!("creating closure objects"),
                 OpCode::OpGetUpvalue(UpvalueIdx(upv_idx)) => {
                     let value = self.frame().closure.upvalues[upv_idx].clone();
                     self.push(value);
+                }
+
+                OpCode::OpClosure(idx) => {
+                    let mut closure = self.chunk().constant(idx).clone().to_closure()?;
+
+                    debug_assert!(
+                        closure.lambda.upvalue_count > 0,
+                        "OpClosure should not be called for plain lambdas"
+                    );
+
+                    for _ in 0..closure.lambda.upvalue_count {
+                        match self.inc_ip() {
+                            OpCode::DataLocalIdx(StackIdx(local_idx)) => {
+                                let idx = self.frame().stack_offset + local_idx;
+                                closure.upvalues.push(self.stack[idx].clone());
+                            }
+
+                            OpCode::DataUpvalueIdx(UpvalueIdx(upv_idx)) => {
+                                closure
+                                    .upvalues
+                                    .push(self.frame().closure.upvalues[upv_idx].clone());
+                            }
+
+                            _ => panic!("compiler error: missing closure operand"),
+                        }
+                    }
+
+                    self.push(Value::Closure(closure));
                 }
 
                 // Data-carrying operands should never be executed,
