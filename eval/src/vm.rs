@@ -357,7 +357,7 @@ impl VM {
                 OpCode::OpCall => {
                     let callable = self.pop();
                     match callable {
-                        Value::Closure(Closure { lambda }) => self.call(lambda, 1),
+                        Value::Closure(Closure { lambda, .. }) => self.call(lambda, 1),
                         Value::Builtin(builtin) => {
                             let arg = self.pop();
                             let result = builtin.apply(arg)?;
@@ -368,6 +368,13 @@ impl VM {
                 }
 
                 OpCode::OpGetUpvalue(_) => todo!("getting upvalues"),
+                OpCode::OpClosure(_) => todo!("creating closure objects"),
+
+                // Data-carrying operands should never be executed,
+                // that is a critical error in the VM.
+                OpCode::DataLocalIdx(_) | OpCode::DataUpvalueIdx(_) => {
+                    panic!("VM bug: attempted to execute data-carrying operand")
+                }
             }
 
             #[cfg(feature = "disassembler")]

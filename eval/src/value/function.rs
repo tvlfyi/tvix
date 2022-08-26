@@ -1,7 +1,7 @@
 //! This module implements the runtime representation of functions.
 use std::rc::Rc;
 
-use crate::chunk::Chunk;
+use crate::{chunk::Chunk, Value};
 
 #[derive(Clone, Debug)]
 pub struct Lambda {
@@ -27,4 +27,14 @@ impl Lambda {
 #[derive(Clone, Debug)]
 pub struct Closure {
     pub lambda: Lambda,
+    pub upvalues: Vec<Value>,
+}
+
+impl Closure {
+    pub fn new(lambda: Lambda) -> Self {
+        Closure {
+            upvalues: Vec::with_capacity(lambda.upvalue_count),
+            lambda,
+        }
+    }
 }

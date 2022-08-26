@@ -102,7 +102,17 @@ pub enum OpCode {
     // Asserts stack top is a boolean, and true.
     OpAssert,
 
-    // Lambdas
+    // Lambdas & closures
     OpCall,
     OpGetUpvalue(UpvalueIdx),
+    OpClosure(ConstantIdx),
+
+    // The closure and thunk creation instructions have a variable
+    // number of arguments to the instruction, which is represented
+    // here by making their data part of the opcodes.
+    //
+    // The VM skips over these by advancing the instruction pointer
+    // according to the count.
+    DataLocalIdx(StackIdx),
+    DataUpvalueIdx(UpvalueIdx),
 }

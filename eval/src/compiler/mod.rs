@@ -856,9 +856,27 @@ impl Compiler {
             crate::disassembler::disassemble_chunk(&compiled.lambda.chunk);
         }
 
-        self.emit_constant(Value::Closure(Closure {
-            lambda: compiled.lambda,
-        }));
+        // If the function is not a closure, just emit it directly and
+        // move on.
+        if compiled.lambda.upvalue_count == 0 {
+            self.emit_constant(Value::Closure(Closure::new(compiled.lambda)));
+            return;
+        }
+
+        // If the function is a closure, we need to emit the variable
+        // number of operands that allow the runtime to close over the
+        // upvalues.
+        let closure_idx = self
+            .chunk()
+            .push_constant(Value::Closure(Closure::new(compiled.lambda)));
+
+        self.chunk().push_op(OpCode::OpClosure(closure_idx));
+        for upvalue in compiled.scope.upvalues {
+            match upvalue {
+                Upvalue::Stack(idx) => self.chunk().push_op(OpCode::DataLocalIdx(idx)),
+                Upvalue::Upvalue(idx) => self.chunk().push_op(OpCode::DataUpvalueIdx(idx)),
+            };
+        }
     }
 
     fn compile_apply(&mut self, node: ast::Apply) {
