@@ -51,17 +51,11 @@ impl AttrsRep {
         match self {
             AttrsRep::Empty => None,
 
-            AttrsRep::KV { name, value } => {
-                if key == "name" {
-                    return Some(name);
-                }
-
-                if key == "value" {
-                    return Some(value);
-                }
-
-                None
-            }
+            AttrsRep::KV { name, value } => match key {
+                "name" => Some(name),
+                "value" => Some(value),
+                _ => None,
+            },
 
             AttrsRep::Map(map) => map.get(&key.into()),
         }
