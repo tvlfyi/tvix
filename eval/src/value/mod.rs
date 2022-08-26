@@ -113,6 +113,17 @@ impl Value {
         }
     }
 
+    pub fn to_closure(self) -> EvalResult<Closure> {
+        match self {
+            Value::Closure(c) => Ok(c),
+            other => Err(ErrorKind::TypeError {
+                expected: "lambda",
+                actual: other.type_of(),
+            }
+            .into()),
+        }
+    }
+
     pub fn is_bool(&self) -> bool {
         matches!(self, Value::Bool(_))
     }
