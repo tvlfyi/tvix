@@ -6,7 +6,7 @@ use std::rc::Rc;
 use crate::{
     chunk::Chunk,
     errors::{ErrorKind, EvalResult},
-    opcode::{Count, JumpOffset, OpCode, StackIdx},
+    opcode::{Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
     value::{Closure, Lambda, NixAttrs, NixList, Value},
 };
 
@@ -320,8 +320,7 @@ impl VM {
 
                 OpCode::OpGetLocal(StackIdx(local_idx)) => {
                     let idx = self.frame().stack_offset + local_idx;
-                    let value = self.stack[idx].clone();
-                    self.push(value)
+                    self.push(self.stack[idx].clone());
                 }
 
                 OpCode::OpPushWith(StackIdx(idx)) => self.with_stack.push(idx),
@@ -367,8 +366,11 @@ impl VM {
                     };
                 }
 
-                OpCode::OpGetUpvalue(_) => todo!("getting upvalues"),
                 OpCode::OpClosure(_) => todo!("creating closure objects"),
+                OpCode::OpGetUpvalue(UpvalueIdx(upv_idx)) => {
+                    let value = self.frame().closure.upvalues[upv_idx].clone();
+                    self.push(value);
+                }
 
                 // Data-carrying operands should never be executed,
                 // that is a critical error in the VM.
