@@ -859,6 +859,12 @@ impl Compiler {
         self.emit_constant(Value::String(ident.ident_token().unwrap().text().into()));
     }
 
+    /// Patch the jump instruction at the given index, setting its
+    /// jump offset from the placeholder to the current code position.
+    ///
+    /// This is required because the actual target offset of jumps is
+    /// not known at the time when the jump operation itself is
+    /// emitted.
     fn patch_jump(&mut self, idx: CodeIdx) {
         let offset = self.chunk().code.len() - 1 - idx.0;
 
