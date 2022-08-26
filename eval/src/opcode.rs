@@ -13,8 +13,13 @@ pub struct CodeIdx(pub usize);
 
 /// Index of a value in the runtime stack.
 #[repr(transparent)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct StackIdx(pub usize);
+
+/// Index of an upvalue within a closure's upvalue list.
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct UpvalueIdx(pub usize);
 
 /// Offset by which an instruction pointer should change in a jump.
 #[repr(transparent)]
@@ -99,4 +104,5 @@ pub enum OpCode {
 
     // Lambdas
     OpCall,
+    OpGetUpvalue(UpvalueIdx),
 }

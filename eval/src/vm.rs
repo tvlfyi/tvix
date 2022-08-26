@@ -366,6 +366,8 @@ impl VM {
                         _ => return Err(ErrorKind::NotCallable.into()),
                     };
                 }
+
+                OpCode::OpGetUpvalue(_) => todo!("getting upvalues"),
             }
 
             #[cfg(feature = "disassembler")]

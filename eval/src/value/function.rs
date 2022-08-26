@@ -7,6 +7,7 @@ use crate::chunk::Chunk;
 pub struct Lambda {
     // name: Option<NixString>,
     pub(crate) chunk: Rc<Chunk>,
+    pub(crate) upvalue_count: usize,
 }
 
 impl Lambda {
@@ -14,6 +15,7 @@ impl Lambda {
         Lambda {
             // name: None,
             chunk: Default::default(),
+            upvalue_count: 0,
         }
     }
 

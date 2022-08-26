@@ -22,7 +22,7 @@ use std::rc::Rc;
 
 use crate::chunk::Chunk;
 use crate::errors::{Error, ErrorKind, EvalResult};
-use crate::opcode::{CodeIdx, Count, JumpOffset, OpCode, StackIdx};
+use crate::opcode::{CodeIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx};
 use crate::value::{Closure, Lambda, Value};
 use crate::warnings::{EvalWarning, WarningKind};
 
@@ -63,6 +63,15 @@ struct With {
     depth: usize,
 }
 
+#[derive(Debug, PartialEq)]
+enum Upvalue {
+    /// This upvalue captures a local from the stack.
+    Stack(StackIdx),
+
+    /// This upvalue captures an enclosing upvalue.
+    Upvalue(UpvalueIdx),
+}
+
 /// Represents a scope known during compilation, which can be resolved
 /// directly to stack indices.
 ///
@@ -72,6 +81,7 @@ struct With {
 #[derive(Default)]
 struct Scope {
     locals: Vec<Local>,
+    upvalues: Vec<Upvalue>,
 
     // How many scopes "deep" are these locals?
     scope_depth: usize,
@@ -772,13 +782,19 @@ impl Compiler {
         match self.scope_mut().resolve_local(ident.text()) {
             Some(idx) => self.chunk().push_op(OpCode::OpGetLocal(idx)),
             None => {
+                // Are we possibly dealing with an upvalue?
+                if let Some(idx) = self.resolve_upvalue(self.contexts.len() - 1, ident.text()) {
+                    self.chunk().push_op(OpCode::OpGetUpvalue(idx));
+                    return;
+                }
+
                 if self.scope().with_stack.is_empty() {
                     self.emit_error(node.syntax().clone(), ErrorKind::UnknownStaticVariable);
                     return;
                 }
 
-                // Variable needs to be dynamically resolved
-                // at runtime.
+                // Variable needs to be dynamically resolved at
+                // runtime.
                 self.emit_constant(Value::String(ident.text().into()));
                 self.chunk().push_op(OpCode::OpResolveWith)
             }
@@ -974,6 +990,42 @@ impl Compiler {
             phantom: true,
             used: true,
         });
+    }
+
+    fn resolve_upvalue(&mut self, ctx_idx: usize, name: &str) -> Option<UpvalueIdx> {
+        if ctx_idx == 0 {
+            // There can not be any upvalue at the outermost context.
+            return None;
+        }
+
+        if let Some(idx) = self.contexts[ctx_idx - 1].scope.resolve_local(name) {
+            return Some(self.add_upvalue(ctx_idx, Upvalue::Stack(idx)));
+        }
+
+        // If the upvalue comes from an enclosing context, we need to
+        // recurse to make sure that the upvalues are created at each
+        // level.
+        if let Some(idx) = self.resolve_upvalue(ctx_idx - 1, name) {
+            return Some(self.add_upvalue(ctx_idx, Upvalue::Upvalue(idx)));
+        }
+
+        None
+    }
+
+    fn add_upvalue(&mut self, ctx_idx: usize, upvalue: Upvalue) -> UpvalueIdx {
+        // If there is already an upvalue closing over the specified
+        // index, retrieve that instead.
+        for (idx, existing) in self.contexts[ctx_idx].scope.upvalues.iter().enumerate() {
+            if *existing == upvalue {
+                return UpvalueIdx(idx);
+            }
+        }
+
+        self.contexts[ctx_idx].scope.upvalues.push(upvalue);
+
+        let idx = UpvalueIdx(self.contexts[ctx_idx].lambda.upvalue_count);
+        self.contexts[ctx_idx].lambda.upvalue_count += 1;
+        idx
     }
 
     fn emit_warning(&mut self, node: rnix::SyntaxNode, kind: WarningKind) {
