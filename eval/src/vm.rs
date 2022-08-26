@@ -203,10 +203,10 @@ impl VM {
                 OpCode::OpAttrPath(count) => self.run_attr_path(count)?,
 
                 OpCode::OpAttrsUpdate => {
-                    let rhs = self.pop().to_attrs()?;
-                    let lhs = self.pop().to_attrs()?;
+                    let rhs = unwrap_or_clone_rc(self.pop().to_attrs()?);
+                    let lhs = unwrap_or_clone_rc(self.pop().to_attrs()?);
 
-                    self.push(Value::Attrs(Rc::new(lhs.update(&rhs))))
+                    self.push(Value::Attrs(Rc::new(lhs.update(rhs))))
                 }
 
                 OpCode::OpAttrsSelect => {
@@ -412,6 +412,12 @@ impl VM {
         self.push(Value::String(out.into()));
         Ok(())
     }
+}
+
+// TODO: use Rc::unwrap_or_clone once it is stabilised.
+// https://doc.rust-lang.org/std/rc/struct.Rc.html#method.unwrap_or_clone
+fn unwrap_or_clone_rc<T: Clone>(rc: Rc<T>) -> T {
+    Rc::try_unwrap(rc).unwrap_or_else(|rc| (*rc).clone())
 }
 
 pub fn run_lambda(lambda: Lambda) -> EvalResult<Value> {

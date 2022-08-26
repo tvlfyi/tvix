@@ -151,28 +151,34 @@ impl PartialEq for NixAttrs {
 
 impl NixAttrs {
     // Update one attribute set with the values of the other.
-    pub fn update(&self, other: &Self) -> Self {
+    pub fn update(self, other: Self) -> Self {
+        // Short-circuit on some optimal cases:
         match (&self.0, &other.0) {
-            // Short-circuit on some optimal cases:
-            (AttrsRep::Empty, AttrsRep::Empty) => NixAttrs(AttrsRep::Empty),
-            (AttrsRep::Empty, _) => other.clone(),
-            (_, AttrsRep::Empty) => self.clone(),
-            (AttrsRep::KV { .. }, AttrsRep::KV { .. }) => other.clone(),
+            (AttrsRep::Empty, AttrsRep::Empty) => return self,
+            (AttrsRep::Empty, _) => return other,
+            (_, AttrsRep::Empty) => return self,
+            (AttrsRep::KV { .. }, AttrsRep::KV { .. }) => return other,
 
-            // Slightly more advanced, but still optimised updates
-            (AttrsRep::Map(m), AttrsRep::KV { name, value }) => {
-                let mut m = m.clone();
-                m.insert(NixString::NAME, name.clone());
-                m.insert(NixString::VALUE, value.clone());
+            // Explicitly handle all branches instead of falling
+            // through, to ensure that we get at least some compiler
+            // errors if variants are modified.
+            (AttrsRep::Map(_), AttrsRep::Map(_))
+            | (AttrsRep::Map(_), AttrsRep::KV { .. })
+            | (AttrsRep::KV { .. }, AttrsRep::Map(_)) => {}
+        };
+
+        // Slightly more advanced, but still optimised updates
+        match (self.0, other.0) {
+            (AttrsRep::Map(mut m), AttrsRep::KV { name, value }) => {
+                m.insert(NixString::NAME, name);
+                m.insert(NixString::VALUE, value);
                 NixAttrs(AttrsRep::Map(m))
             }
 
-            (AttrsRep::KV { name, value }, AttrsRep::Map(m)) => {
-                let mut m = m.clone();
-
+            (AttrsRep::KV { name, value }, AttrsRep::Map(mut m)) => {
                 match m.entry(NixString::NAME) {
                     btree_map::Entry::Vacant(e) => {
-                        e.insert(name.clone());
+                        e.insert(name);
                     }
 
                     btree_map::Entry::Occupied(_) => { /* name from `m` has precedence */ }
@@ -180,7 +186,7 @@ impl NixAttrs {
 
                 match m.entry(NixString::VALUE) {
                     btree_map::Entry::Vacant(e) => {
-                        e.insert(value.clone());
+                        e.insert(value);
                     }
 
                     btree_map::Entry::Occupied(_) => { /* value from `m` has precedence */ }
@@ -190,12 +196,13 @@ impl NixAttrs {
             }
 
             // Plain merge of maps.
-            (AttrsRep::Map(m1), AttrsRep::Map(m2)) => {
-                let mut m1 = m1.clone();
-                let mut m2 = m2.clone();
+            (AttrsRep::Map(mut m1), AttrsRep::Map(mut m2)) => {
                 m1.append(&mut m2);
                 NixAttrs(AttrsRep::Map(m1))
             }
+
+            // Cases handled above by the borrowing match:
+            _ => unreachable!(),
         }
     }
 
