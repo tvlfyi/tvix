@@ -429,7 +429,7 @@ impl Compiler {
         // next nested element, for all fragments except the last one.
         for (count, fragment) in node.attrpath().unwrap().attrs().enumerate() {
             if count > 0 {
-                self.chunk().push_op(OpCode::OpAttrOrNotFound);
+                self.chunk().push_op(OpCode::OpAttrsTrySelect);
             }
 
             self.compile_attr(fragment);
@@ -616,7 +616,7 @@ impl Compiler {
 
         for fragment in path.attrs() {
             self.compile_attr(fragment);
-            self.chunk().push_op(OpCode::OpAttrOrNotFound);
+            self.chunk().push_op(OpCode::OpAttrsTrySelect);
             jumps.push(self.chunk().push_op(OpCode::OpJumpIfNotFound(0)));
         }
 

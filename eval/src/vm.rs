@@ -225,15 +225,15 @@ impl VM {
                     }
                 }
 
-                OpCode::OpAttrOrNotFound => {
+                OpCode::OpAttrsTrySelect => {
                     let key = self.pop().to_string()?;
                     let value = match self.pop() {
                         Value::Attrs(attrs) => match attrs.select(key.as_str()) {
                             Some(value) => value.clone(),
-                            None => Value::NotFound,
+                            None => Value::AttrNotFound,
                         },
 
-                        _ => Value::NotFound,
+                        _ => Value::AttrNotFound,
                     };
 
                     self.push(value);
@@ -283,7 +283,7 @@ impl VM {
                 }
 
                 OpCode::OpJumpIfNotFound(offset) => {
-                    if matches!(self.peek(0), Value::NotFound) {
+                    if matches!(self.peek(0), Value::AttrNotFound) {
                         self.pop();
                         self.frame_mut().ip += offset;
                     }

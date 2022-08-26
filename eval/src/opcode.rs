@@ -50,7 +50,7 @@ pub enum OpCode {
     OpAttrPath(usize),
     OpAttrsUpdate,
     OpAttrsSelect,
-    OpAttrOrNotFound,
+    OpAttrsTrySelect,
     OpAttrsIsSet,
 
     // `with`-handling
