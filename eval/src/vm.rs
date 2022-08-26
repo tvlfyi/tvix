@@ -6,7 +6,7 @@ use std::rc::Rc;
 use crate::{
     chunk::Chunk,
     errors::{ErrorKind, EvalResult},
-    opcode::OpCode,
+    opcode::{JumpOffset, OpCode},
     value::{Closure, Lambda, NixAttrs, NixList, Value},
 };
 
@@ -266,23 +266,23 @@ impl VM {
 
                 OpCode::OpInterpolate(count) => self.run_interpolate(count)?,
 
-                OpCode::OpJump(offset) => {
+                OpCode::OpJump(JumpOffset(offset)) => {
                     self.frame_mut().ip += offset;
                 }
 
-                OpCode::OpJumpIfTrue(offset) => {
+                OpCode::OpJumpIfTrue(JumpOffset(offset)) => {
                     if self.peek(0).as_bool()? {
                         self.frame_mut().ip += offset;
                     }
                 }
 
-                OpCode::OpJumpIfFalse(offset) => {
+                OpCode::OpJumpIfFalse(JumpOffset(offset)) => {
                     if !self.peek(0).as_bool()? {
                         self.frame_mut().ip += offset;
                     }
                 }
 
-                OpCode::OpJumpIfNotFound(offset) => {
+                OpCode::OpJumpIfNotFound(JumpOffset(offset)) => {
                     if matches!(self.peek(0), Value::AttrNotFound) {
                         self.pop();
                         self.frame_mut().ip += offset;

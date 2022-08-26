@@ -1,11 +1,17 @@
 //! This module implements the instruction set running on the abstract
 //! machine implemented by tvix.
 
+#[repr(transparent)]
 #[derive(Clone, Copy, Debug)]
 pub struct ConstantIdx(pub usize);
 
+#[repr(transparent)]
 #[derive(Clone, Copy, Debug)]
 pub struct CodeIdx(pub usize);
+
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug)]
+pub struct JumpOffset(pub usize);
 
 #[allow(clippy::enum_variant_names)]
 #[warn(variant_size_differences)]
@@ -40,10 +46,10 @@ pub enum OpCode {
     OpMoreOrEq,
 
     // Logical operators & generic jumps
-    OpJump(usize),
-    OpJumpIfTrue(usize),
-    OpJumpIfFalse(usize),
-    OpJumpIfNotFound(usize),
+    OpJump(JumpOffset),
+    OpJumpIfTrue(JumpOffset),
+    OpJumpIfFalse(JumpOffset),
+    OpJumpIfNotFound(JumpOffset),
 
     // Attribute sets
     OpAttrs(usize),

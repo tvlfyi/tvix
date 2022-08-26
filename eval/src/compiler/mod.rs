@@ -22,7 +22,7 @@ use std::rc::Rc;
 
 use crate::chunk::Chunk;
 use crate::errors::{Error, ErrorKind, EvalResult};
-use crate::opcode::{CodeIdx, OpCode};
+use crate::opcode::{CodeIdx, JumpOffset, OpCode};
 use crate::value::{Closure, Lambda, Value};
 use crate::warnings::{EvalWarning, WarningKind};
 
@@ -371,7 +371,7 @@ impl Compiler {
 
         // If this value is false, jump over the right-hand side - the
         // whole expression is false.
-        let end_idx = self.chunk().push_op(OpCode::OpJumpIfFalse(0));
+        let end_idx = self.chunk().push_op(OpCode::OpJumpIfFalse(JumpOffset(0)));
 
         // Otherwise, remove the previous value and leave the
         // right-hand side on the stack. Its result is now the value
@@ -395,7 +395,7 @@ impl Compiler {
 
         // Opposite of above: If this value is **true**, we can
         // short-circuit the right-hand side.
-        let end_idx = self.chunk().push_op(OpCode::OpJumpIfTrue(0));
+        let end_idx = self.chunk().push_op(OpCode::OpJumpIfTrue(JumpOffset(0)));
         self.chunk().push_op(OpCode::OpPop);
         self.compile(node.rhs().unwrap());
         self.patch_jump(end_idx);
@@ -414,7 +414,7 @@ impl Compiler {
         self.chunk().push_op(OpCode::OpInvert);
 
         // Exactly as `||` (because `a -> b` = `!a || b`).
-        let end_idx = self.chunk().push_op(OpCode::OpJumpIfTrue(0));
+        let end_idx = self.chunk().push_op(OpCode::OpJumpIfTrue(JumpOffset(0)));
         self.chunk().push_op(OpCode::OpPop);
         self.compile(node.rhs().unwrap());
         self.patch_jump(end_idx);
@@ -617,10 +617,13 @@ impl Compiler {
         for fragment in path.attrs() {
             self.compile_attr(fragment);
             self.chunk().push_op(OpCode::OpAttrsTrySelect);
-            jumps.push(self.chunk().push_op(OpCode::OpJumpIfNotFound(0)));
+            jumps.push(
+                self.chunk()
+                    .push_op(OpCode::OpJumpIfNotFound(JumpOffset(0))),
+            );
         }
 
-        let final_jump = self.chunk().push_op(OpCode::OpJump(0));
+        let final_jump = self.chunk().push_op(OpCode::OpJump(JumpOffset(0)));
 
         for jump in jumps {
             self.patch_jump(jump);
@@ -656,12 +659,12 @@ impl Compiler {
     fn compile_if_else(&mut self, node: ast::IfElse) {
         self.compile(node.condition().unwrap());
 
-        let then_idx = self.chunk().push_op(OpCode::OpJumpIfFalse(0));
+        let then_idx = self.chunk().push_op(OpCode::OpJumpIfFalse(JumpOffset(0)));
 
         self.chunk().push_op(OpCode::OpPop); // discard condition value
         self.compile(node.body().unwrap());
 
-        let else_idx = self.chunk().push_op(OpCode::OpJump(0));
+        let else_idx = self.chunk().push_op(OpCode::OpJump(JumpOffset(0)));
 
         self.patch_jump(then_idx); // patch jump *to* else_body
         self.chunk().push_op(OpCode::OpPop); // discard condition value
@@ -866,7 +869,7 @@ impl Compiler {
     /// not known at the time when the jump operation itself is
     /// emitted.
     fn patch_jump(&mut self, idx: CodeIdx) {
-        let offset = self.chunk().code.len() - 1 - idx.0;
+        let offset = JumpOffset(self.chunk().code.len() - 1 - idx.0);
 
         match &mut self.chunk().code[idx.0] {
             OpCode::OpJump(n)
