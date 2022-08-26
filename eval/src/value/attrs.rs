@@ -315,8 +315,8 @@ fn attempt_optimise_kv(slice: &mut [Value]) -> Option<NixAttrs> {
     };
 
     Some(NixAttrs(AttrsRep::KV {
-        name: std::mem::replace(&mut slice[name_idx], Value::Blackhole),
-        value: std::mem::replace(&mut slice[value_idx], Value::Blackhole),
+        name: slice[name_idx].clone(),
+        value: slice[value_idx].clone(),
     }))
 }
 
