@@ -42,7 +42,11 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
     }
 
     for error in &result.errors {
-        eprintln!("compiler error: {:?} at {:?}", error.kind, error.node,);
+        eprintln!(
+            "compiler error: {:?} at {:?}",
+            error.kind,
+            error.node.as_ref().map(|node| node.text())
+        );
     }
 
     if let Some(err) = result.errors.last() {
