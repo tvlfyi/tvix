@@ -59,9 +59,7 @@ struct Local {
 /// Represents a stack offset containing keys which are currently
 /// in-scope through a with expression.
 #[derive(Debug)]
-struct With {
-    depth: usize,
-}
+struct With {}
 
 #[derive(Debug, PartialEq)]
 enum Upvalue {
@@ -811,13 +809,15 @@ impl Compiler {
         self.compile(node.namespace().unwrap());
 
         self.declare_phantom();
-        let depth = self.scope().scope_depth;
-        self.scope_mut().with_stack.push(With { depth });
+        self.scope_mut().with_stack.push(With {});
 
         let with_idx = self.scope().locals.len() - 1;
         self.chunk().push_op(OpCode::OpPushWith(StackIdx(with_idx)));
 
         self.compile(node.body().unwrap());
+
+        self.chunk().push_op(OpCode::OpPopWith);
+        self.scope_mut().with_stack.pop();
     }
 
     fn compile_lambda(&mut self, node: ast::Lambda) {
@@ -960,14 +960,6 @@ impl Compiler {
 
         if pops > 0 {
             self.chunk().push_op(OpCode::OpCloseScope(Count(pops)));
-        }
-
-        while !self.scope().with_stack.is_empty()
-            && self.scope().with_stack[self.scope().with_stack.len() - 1].depth
-                > self.scope().scope_depth
-        {
-            self.chunk().push_op(OpCode::OpPopWith);
-            self.scope_mut().with_stack.pop();
         }
     }
 
