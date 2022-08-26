@@ -45,9 +45,9 @@ fn run_prompt() {
         // Attempt to set up these paths, but do not hard fail if it
         // doesn't work.
         Some(mut path) => {
-            std::fs::create_dir_all(&path).ok();
+            let _ = std::fs::create_dir_all(&path);
             path.push("history.txt");
-            rl.load_history(&path).ok();
+            let _ = rl.load_history(&path);
             Some(path)
         }
 
