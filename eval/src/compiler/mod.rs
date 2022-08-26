@@ -22,7 +22,7 @@ use std::rc::Rc;
 
 use crate::chunk::Chunk;
 use crate::errors::{Error, ErrorKind, EvalResult};
-use crate::opcode::{CodeIdx, JumpOffset, OpCode};
+use crate::opcode::{CodeIdx, JumpOffset, OpCode, StackIdx};
 use crate::value::{Closure, Lambda, Value};
 use crate::warnings::{EvalWarning, WarningKind};
 
@@ -116,11 +116,11 @@ impl Scope {
     }
 
     /// Resolve the stack index of a statically known local.
-    fn resolve_local(&mut self, name: &str) -> Option<usize> {
+    fn resolve_local(&mut self, name: &str) -> Option<StackIdx> {
         for (idx, local) in self.locals.iter_mut().enumerate().rev() {
             if !local.phantom && local.name == name {
                 local.used = true;
-                return Some(idx);
+                return Some(StackIdx(idx));
             }
         }
 
@@ -799,7 +799,7 @@ impl Compiler {
         self.scope_mut().with_stack.push(With { depth });
 
         let with_idx = self.scope().locals.len() - 1;
-        self.chunk().push_op(OpCode::OpPushWith(with_idx));
+        self.chunk().push_op(OpCode::OpPushWith(StackIdx(with_idx)));
 
         self.compile(node.body().unwrap());
     }

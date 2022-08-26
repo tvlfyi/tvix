@@ -11,6 +11,11 @@ pub struct ConstantIdx(pub usize);
 #[derive(Clone, Copy, Debug)]
 pub struct CodeIdx(pub usize);
 
+/// Index of a value in the runtime stack.
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug)]
+pub struct StackIdx(pub usize);
+
 /// Offset by which an instruction pointer should change in a jump.
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug)]
@@ -63,7 +68,7 @@ pub enum OpCode {
     OpAttrsIsSet,
 
     // `with`-handling
-    OpPushWith(usize),
+    OpPushWith(StackIdx),
     OpPopWith,
     OpResolveWith,
 
@@ -78,7 +83,7 @@ pub enum OpCode {
     OpAssertBool,
 
     // Access local identifiers with statically known positions.
-    OpGetLocal(usize),
+    OpGetLocal(StackIdx),
 
     // Close scopes while leaving their expression value around.
     OpCloseScope(usize), // number of locals to pop

@@ -6,7 +6,7 @@ use std::rc::Rc;
 use crate::{
     chunk::Chunk,
     errors::{ErrorKind, EvalResult},
-    opcode::{JumpOffset, OpCode},
+    opcode::{JumpOffset, OpCode, StackIdx},
     value::{Closure, Lambda, NixAttrs, NixList, Value},
 };
 
@@ -318,13 +318,13 @@ impl VM {
                     }
                 }
 
-                OpCode::OpGetLocal(local_idx) => {
+                OpCode::OpGetLocal(StackIdx(local_idx)) => {
                     let idx = self.frame().stack_offset + local_idx;
                     let value = self.stack[idx].clone();
                     self.push(value)
                 }
 
-                OpCode::OpPushWith(idx) => self.with_stack.push(idx),
+                OpCode::OpPushWith(StackIdx(idx)) => self.with_stack.push(idx),
                 OpCode::OpPopWith => {
                     self.with_stack.pop();
                 }
