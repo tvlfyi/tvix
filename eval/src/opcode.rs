@@ -1,14 +1,17 @@
 //! This module implements the instruction set running on the abstract
 //! machine implemented by tvix.
 
+/// Index of a constant in the current code chunk.
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug)]
 pub struct ConstantIdx(pub usize);
 
+/// Index of an instruction in the current code chunk.
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug)]
 pub struct CodeIdx(pub usize);
 
+/// Offset by which an instruction pointer should change in a jump.
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug)]
 pub struct JumpOffset(pub usize);
