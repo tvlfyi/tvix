@@ -28,7 +28,9 @@ We have ported the test suite to Tvix, but do not run it by default as
 we are not yet compatible with it.
 
 You can run the test suite by enabling the `nix_tests` feature in
-Cargo.
+Cargo:
+
+    cargo test --features nix_tests
 
 ## rnix-parser
 
