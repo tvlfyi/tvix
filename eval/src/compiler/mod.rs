@@ -29,7 +29,7 @@ use crate::warnings::{EvalWarning, WarningKind};
 /// Represents the result of compiling a piece of Nix code. If
 /// compilation was successful, the resulting bytecode can be passed
 /// to the VM.
-pub struct CompilationResult {
+pub struct CompilationOutput {
     pub lambda: Lambda,
     pub warnings: Vec<EvalWarning>,
     pub errors: Vec<Error>,
@@ -1070,7 +1070,7 @@ pub fn compile(
     expr: ast::Expr,
     location: Option<PathBuf>,
     globals: HashMap<&'static str, Value>,
-) -> EvalResult<CompilationResult> {
+) -> EvalResult<CompilationOutput> {
     let mut root_dir = match location {
         Some(dir) => Ok(dir),
         None => std::env::current_dir().map_err(|e| {
@@ -1095,7 +1095,7 @@ pub fn compile(
 
     c.compile(expr);
 
-    Ok(CompilationResult {
+    Ok(CompilationOutput {
         lambda: c.contexts.pop().unwrap().lambda,
         warnings: c.warnings,
         errors: c.errors,
