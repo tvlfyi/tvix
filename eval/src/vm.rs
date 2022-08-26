@@ -14,7 +14,7 @@ use crate::{
 use crate::disassembler::Tracer;
 
 struct CallFrame {
-    lambda: Lambda,
+    closure: Closure,
     ip: usize,
     stack_offset: usize,
 }
@@ -86,7 +86,7 @@ impl VM {
     }
 
     fn chunk(&self) -> &Chunk {
-        &self.frame().lambda.chunk
+        &self.frame().closure.lambda.chunk
     }
 
     fn frame_mut(&mut self) -> &mut CallFrame {
@@ -112,9 +112,9 @@ impl VM {
         &self.stack[self.stack.len() - 1 - offset]
     }
 
-    fn call(&mut self, lambda: Lambda, arg_count: usize) {
+    fn call(&mut self, closure: Closure, arg_count: usize) {
         let frame = CallFrame {
-            lambda,
+            closure,
             ip: 0,
             stack_offset: self.stack.len() - arg_count,
         };
@@ -357,7 +357,7 @@ impl VM {
                 OpCode::OpCall => {
                     let callable = self.pop();
                     match callable {
-                        Value::Closure(Closure { lambda, .. }) => self.call(lambda, 1),
+                        Value::Closure(closure) => self.call(closure, 1),
                         Value::Builtin(builtin) => {
                             let arg = self.pop();
                             let result = builtin.apply(arg)?;
@@ -436,6 +436,6 @@ pub fn run_lambda(lambda: Lambda) -> EvalResult<Value> {
         with_stack: vec![],
     };
 
-    vm.call(lambda, 0);
+    vm.call(Closure::new(lambda), 0);
     vm.run()
 }
