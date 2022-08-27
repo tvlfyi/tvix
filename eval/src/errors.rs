@@ -32,6 +32,9 @@ pub enum ErrorKind {
     // Unknown variable in dynamic scope (with, rec, ...).
     UnknownDynamicVariable(String),
 
+    // User is defining the same variable twice at the same depth.
+    VariableAlreadyDefined(String),
+
     // Attempt to call something that is not callable.
     NotCallable,
 

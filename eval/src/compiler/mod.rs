@@ -54,6 +54,14 @@ impl Depth {
             Depth::At(ours) => *ours > theirs,
         }
     }
+
+    /// Does this variable live below the other given depth?
+    fn below(&self, theirs: usize) -> bool {
+        match self {
+            Depth::Unitialised => false,
+            Depth::At(ours) => *ours < theirs,
+        }
+    }
 }
 
 /// Represents a single local already known to the compiler.
@@ -1013,6 +1021,26 @@ impl Compiler {
             self.scope_mut().poison(global_ident, depth);
         }
 
+        let mut shadowed = false;
+        for local in self.scope().locals.iter().rev() {
+            if local.depth.below(self.scope().scope_depth) {
+                // Shadowing identifiers from higher scopes is allowed.
+                break;
+            }
+
+            if local.name == name {
+                shadowed = true;
+                break;
+            }
+        }
+
+        if shadowed {
+            self.emit_error(
+                node.clone(),
+                ErrorKind::VariableAlreadyDefined(name.clone()),
+            );
+        }
+
         self.scope_mut().locals.push(Local {
             name,
             depth: Depth::At(depth),
@@ -1022,6 +1050,9 @@ impl Compiler {
         });
     }
 
+    /// Declare a local variable that occupies a stack slot and should
+    /// be accounted for, but is not directly accessible by users
+    /// (e.g. attribute sets used for `with`).
     fn declare_phantom(&mut self) {
         let depth = self.scope().scope_depth;
         self.scope_mut().locals.push(Local {
