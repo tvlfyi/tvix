@@ -103,6 +103,20 @@ enum Upvalue {
     Dynamic(SmolStr),
 }
 
+/// Represents the current position of a local as resolved in a scope.
+enum LocalPosition {
+    /// Local is not known in this scope.
+    Unknown,
+
+    /// Local is known and defined at the given stack index.
+    Known(StackIdx),
+
+    /// Local is known, but is being accessed recursively within its
+    /// own initialisation. Depending on context, this is either an
+    /// error or forcing a closure/thunk.
+    Recursive(StackIdx),
+}
+
 /// Represents a scope known during compilation, which can be resolved
 /// directly to stack indices.
 ///
@@ -157,15 +171,39 @@ impl Scope {
     }
 
     /// Resolve the stack index of a statically known local.
-    fn resolve_local(&mut self, name: &str) -> Option<StackIdx> {
+    fn resolve_local(&mut self, name: &str) -> LocalPosition {
         for (idx, local) in self.locals.iter_mut().enumerate().rev() {
             if !local.phantom && local.name == name {
                 local.used = true;
-                return Some(StackIdx(idx));
+
+                match local.depth {
+                    // This local is still being initialised, meaning
+                    // that we know its final runtime stack position,
+                    // but it is not yet on the stack.
+                    Depth::Unitialised => return LocalPosition::Recursive(StackIdx(idx)),
+
+                    // This local is known, but we need to account for
+                    // uninitialised variables in this "initialiser
+                    // stack".
+                    Depth::At(_) => return LocalPosition::Known(self.resolve_uninit(idx)),
+                }
             }
         }
 
-        None
+        LocalPosition::Unknown
+    }
+
+    /// Return the "initialiser stack slot" of a value, that is the
+    /// stack slot of a value which might only exist during the
+    /// initialisation of another. This requires accounting for the
+    /// stack offsets of any unitialised variables.
+    fn resolve_uninit(&mut self, locals_idx: usize) -> StackIdx {
+        StackIdx(
+            self.locals[..locals_idx]
+                .iter()
+                .filter(|local| matches!(local.depth, Depth::At(_)))
+                .count(),
+        )
     }
 }
 
@@ -556,13 +594,20 @@ impl Compiler {
                             .scope_mut()
                             .resolve_local(ident.ident_token().unwrap().text())
                         {
-                            Some(idx) => self.chunk().push_op(OpCode::OpGetLocal(idx)),
-                            None => {
+                            LocalPosition::Unknown => {
                                 self.emit_error(
                                     ident.syntax().clone(),
                                     ErrorKind::UnknownStaticVariable,
                                 );
                                 continue;
+                            }
+
+                            LocalPosition::Known(idx) => {
+                                self.chunk().push_op(OpCode::OpGetLocal(idx))
+                            }
+
+                            LocalPosition::Recursive(_) => {
+                                todo!("TODO: should be unreachable in inherits, check")
                             }
                         };
                     }
@@ -731,11 +776,11 @@ impl Compiler {
                         // If the identifier resolves statically, it
                         // has precedence over dynamic bindings, and
                         // the inherit is useless.
-                        if self
-                            .scope_mut()
-                            .resolve_local(ident.ident_token().unwrap().text())
-                            .is_some()
-                        {
+                        if matches!(
+                            self.scope_mut()
+                                .resolve_local(ident.ident_token().unwrap().text()),
+                            LocalPosition::Known(_)
+                        ) {
                             self.emit_warning(ident.syntax().clone(), WarningKind::UselessInherit);
                             continue;
                         }
@@ -745,6 +790,7 @@ impl Compiler {
                             ident.syntax().clone(),
                             ident.ident_token().unwrap().text(),
                         );
+                        self.mark_initialised(ident.ident_token().unwrap().text());
                     }
                 }
 
@@ -757,6 +803,7 @@ impl Compiler {
                             ident.syntax().clone(),
                             ident.ident_token().unwrap().text(),
                         );
+                        self.mark_initialised(ident.ident_token().unwrap().text());
                     }
                 }
             }
@@ -787,10 +834,9 @@ impl Compiler {
             }
 
             self.compile(entry.value().unwrap());
-            self.declare_local(
-                entry.attrpath().unwrap().syntax().clone(),
-                path.pop().unwrap(),
-            );
+            let name = path.pop().unwrap();
+            self.declare_local(entry.attrpath().unwrap().syntax().clone(), &name);
+            self.mark_initialised(&name);
         }
 
         // Deal with the body, then clean up the locals afterwards.
@@ -811,8 +857,7 @@ impl Compiler {
         }
 
         match self.scope_mut().resolve_local(ident.text()) {
-            Some(idx) => self.chunk().push_op(OpCode::OpGetLocal(idx)),
-            None => {
+            LocalPosition::Unknown => {
                 // Are we possibly dealing with an upvalue?
                 if let Some(idx) = self.resolve_upvalue(self.contexts.len() - 1, ident.text()) {
                     self.chunk().push_op(OpCode::OpGetUpvalue(idx));
@@ -829,6 +874,10 @@ impl Compiler {
                 self.emit_constant(Value::String(ident.text().into()));
                 self.chunk().push_op(OpCode::OpResolveWith)
             }
+
+            LocalPosition::Recursive(_) => todo!("self-recursive upvalue"),
+
+            LocalPosition::Known(idx) => self.chunk().push_op(OpCode::OpGetLocal(idx)),
         };
     }
 
@@ -840,8 +889,8 @@ impl Compiler {
         // resolve that directly (thus avoiding duplication on the
         // stack).
         self.compile(node.namespace().unwrap());
-
         self.declare_phantom();
+
         self.scope_mut().with_stack.push(With {});
 
         let with_idx = self.scope().locals.len() - 1;
@@ -871,7 +920,8 @@ impl Compiler {
                     .text()
                     .to_string();
 
-                self.declare_local(param.syntax().clone(), name);
+                self.declare_local(param.syntax().clone(), &name);
+                self.mark_initialised(&name);
             }
         }
 
@@ -1043,7 +1093,7 @@ impl Compiler {
 
         self.scope_mut().locals.push(Local {
             name,
-            depth: Depth::At(depth),
+            depth: Depth::Unitialised,
             node: Some(node),
             phantom: false,
             used: false,
@@ -1064,6 +1114,19 @@ impl Compiler {
         });
     }
 
+    /// Mark local as initialised after compiling its expression.
+    fn mark_initialised(&mut self, name: &str) {
+        let depth = self.scope().scope_depth;
+        for local in self.scope_mut().locals.iter_mut().rev() {
+            if matches!(local.depth, Depth::Unitialised) && local.name == name {
+                local.depth = Depth::At(depth);
+                return;
+            }
+        }
+
+        panic!("critical compiler error: unbalanced locals stack");
+    }
+
     fn resolve_upvalue(&mut self, ctx_idx: usize, name: &str) -> Option<UpvalueIdx> {
         if ctx_idx == 0 {
             // There can not be any upvalue at the outermost context.
@@ -1071,9 +1134,13 @@ impl Compiler {
         }
 
         // Determine whether the upvalue is a local in the enclosing context.
-        if let Some(idx) = self.contexts[ctx_idx - 1].scope.resolve_local(name) {
-            return Some(self.add_upvalue(ctx_idx, Upvalue::Stack(idx)));
-        }
+        match self.contexts[ctx_idx - 1].scope.resolve_local(name) {
+            LocalPosition::Known(idx) => {
+                return Some(self.add_upvalue(ctx_idx, Upvalue::Stack(idx)))
+            }
+            LocalPosition::Recursive(_) => todo!("self-recursive upvalue"),
+            LocalPosition::Unknown => { /* continue below */ }
+        };
 
         // Determine whether the upvalue is a dynamic variable in the
         // enclosing context.
