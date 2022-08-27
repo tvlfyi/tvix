@@ -992,17 +992,18 @@ impl Compiler {
             LocalPosition::Unknown => { /* continue below */ }
         };
 
-        // Determine whether the upvalue is a dynamic variable in the
-        // enclosing context.
-        if self.contexts[ctx_idx - 1].scope.has_with() {
-            return Some(self.add_upvalue(ctx_idx, Upvalue::Dynamic(SmolStr::new(name))));
-        }
-
         // If the upvalue comes from even further up, we need to
         // recurse to make sure that the upvalues are created at each
         // level.
         if let Some(idx) = self.resolve_upvalue(ctx_idx - 1, name) {
             return Some(self.add_upvalue(ctx_idx, Upvalue::Upvalue(idx)));
+        }
+
+        // If the resolution of a statically known upvalue failed,
+        // attempt to resolve a dynamic one (i.e. search for enclosing
+        // `with` blocks and make that resolution dynamic).
+        if self.contexts[ctx_idx - 1].scope.has_with() {
+            return Some(self.add_upvalue(ctx_idx, Upvalue::Dynamic(SmolStr::new(name))));
         }
 
         None
