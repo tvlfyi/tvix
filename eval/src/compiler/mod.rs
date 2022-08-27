@@ -13,11 +13,13 @@
 //! by the code in this module, `debug_assert!` has been used to catch
 //! mistakes early during development.
 
+mod scope;
+
 use path_clean::PathClean;
 use rnix::ast::{self, AstToken, HasEntry};
 use rowan::ast::AstNode;
 use smol_str::SmolStr;
-use std::collections::{hash_map, HashMap};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -27,6 +29,8 @@ use crate::opcode::{CodeIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx};
 use crate::value::{Closure, Lambda, Value};
 use crate::warnings::{EvalWarning, WarningKind};
 
+use self::scope::{Depth, Local, LocalPosition, Scope, Upvalue, With};
+
 /// Represents the result of compiling a piece of Nix code. If
 /// compilation was successful, the resulting bytecode can be passed
 /// to the VM.
@@ -34,177 +38,6 @@ pub struct CompilationOutput {
     pub lambda: Lambda,
     pub warnings: Vec<EvalWarning>,
     pub errors: Vec<Error>,
-}
-
-/// Represents the initialisation status of a variable, tracking
-/// whether it is only known or also already defined.
-enum Depth {
-    /// Variable is defined and located at the given depth.
-    At(usize),
-
-    /// Variable is known but not yet defined.
-    Unitialised,
-}
-
-impl Depth {
-    /// Does this variable live above the other given depth?
-    fn above(&self, theirs: usize) -> bool {
-        match self {
-            Depth::Unitialised => false,
-            Depth::At(ours) => *ours > theirs,
-        }
-    }
-
-    /// Does this variable live below the other given depth?
-    fn below(&self, theirs: usize) -> bool {
-        match self {
-            Depth::Unitialised => false,
-            Depth::At(ours) => *ours < theirs,
-        }
-    }
-}
-
-/// Represents a single local already known to the compiler.
-struct Local {
-    // Definition name, which can be different kinds of tokens (plain
-    // string or identifier). Nix does not allow dynamic names inside
-    // of `let`-expressions.
-    name: String,
-
-    // Syntax node at which this local was declared.
-    node: Option<rnix::SyntaxNode>,
-
-    // Scope depth of this local.
-    depth: Depth,
-
-    // Phantom locals are not actually accessible by users (e.g.
-    // intermediate values used for `with`).
-    phantom: bool,
-
-    // Is this local known to have been used at all?
-    used: bool,
-}
-
-/// Represents a stack offset containing keys which are currently
-/// in-scope through a with expression.
-#[derive(Debug)]
-struct With {}
-
-#[derive(Debug, PartialEq)]
-enum Upvalue {
-    /// This upvalue captures a local from the stack.
-    Stack(StackIdx),
-
-    /// This upvalue captures an enclosing upvalue.
-    Upvalue(UpvalueIdx),
-
-    /// This upvalue captures a dynamically resolved value (i.e.
-    /// `with`).
-    Dynamic(SmolStr),
-}
-
-/// Represents the current position of a local as resolved in a scope.
-enum LocalPosition {
-    /// Local is not known in this scope.
-    Unknown,
-
-    /// Local is known and defined at the given stack index.
-    Known(StackIdx),
-
-    /// Local is known, but is being accessed recursively within its
-    /// own initialisation. Depending on context, this is either an
-    /// error or forcing a closure/thunk.
-    Recursive(StackIdx),
-}
-
-/// Represents a scope known during compilation, which can be resolved
-/// directly to stack indices.
-///
-/// TODO(tazjin): `with`-stack
-/// TODO(tazjin): flag "specials" (e.g. note depth if builtins are
-/// overridden)
-#[derive(Default)]
-struct Scope {
-    locals: Vec<Local>,
-    upvalues: Vec<Upvalue>,
-
-    // How many scopes "deep" are these locals?
-    scope_depth: usize,
-
-    // Stack indices of attribute sets currently in scope through
-    // `with`.
-    with_stack: Vec<With>,
-
-    // Users are allowed to override globally defined symbols like
-    // `true`, `false` or `null` in scopes. We call this "scope
-    // poisoning", as it requires runtime resolution of those tokens.
-    //
-    // To support this efficiently, the depth at which a poisoning
-    // occured is tracked here.
-    poisoned_tokens: HashMap<&'static str, usize>,
-}
-
-impl Scope {
-    /// Mark a globally defined token as poisoned.
-    fn poison(&mut self, name: &'static str, depth: usize) {
-        match self.poisoned_tokens.entry(name) {
-            hash_map::Entry::Occupied(_) => {
-                /* do nothing, as the token is already poisoned at a
-                 * lower scope depth */
-            }
-            hash_map::Entry::Vacant(entry) => {
-                entry.insert(depth);
-            }
-        }
-    }
-
-    /// Check whether a given token is poisoned.
-    fn is_poisoned(&self, name: &str) -> bool {
-        self.poisoned_tokens.contains_key(name)
-    }
-
-    /// "Unpoison" tokens that were poisoned at a given depth. Used
-    /// when scopes are closed.
-    fn unpoison(&mut self, depth: usize) {
-        self.poisoned_tokens
-            .retain(|_, poisoned_at| *poisoned_at != depth);
-    }
-
-    /// Resolve the stack index of a statically known local.
-    fn resolve_local(&mut self, name: &str) -> LocalPosition {
-        for (idx, local) in self.locals.iter_mut().enumerate().rev() {
-            if !local.phantom && local.name == name {
-                local.used = true;
-
-                match local.depth {
-                    // This local is still being initialised, meaning
-                    // that we know its final runtime stack position,
-                    // but it is not yet on the stack.
-                    Depth::Unitialised => return LocalPosition::Recursive(StackIdx(idx)),
-
-                    // This local is known, but we need to account for
-                    // uninitialised variables in this "initialiser
-                    // stack".
-                    Depth::At(_) => return LocalPosition::Known(self.resolve_uninit(idx)),
-                }
-            }
-        }
-
-        LocalPosition::Unknown
-    }
-
-    /// Return the "initialiser stack slot" of a value, that is the
-    /// stack slot of a value which might only exist during the
-    /// initialisation of another. This requires accounting for the
-    /// stack offsets of any unitialised variables.
-    fn resolve_uninit(&mut self, locals_idx: usize) -> StackIdx {
-        StackIdx(
-            self.locals[..locals_idx]
-                .iter()
-                .filter(|local| matches!(local.depth, Depth::At(_)))
-                .count(),
-        )
-    }
 }
 
 /// Represents the lambda currently being compiled.
@@ -222,6 +55,8 @@ impl LambdaCtx {
     }
 }
 
+/// Alias for the map of globally available functions that should
+/// implicitly be resolvable in the global scope.
 type GlobalsMap = HashMap<&'static str, Rc<dyn Fn(&mut Compiler)>>;
 
 struct Compiler {
