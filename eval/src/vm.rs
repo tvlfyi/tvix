@@ -126,7 +126,7 @@ impl VM {
         #[cfg(feature = "disassembler")]
         let mut tracer = Tracer::new();
 
-        'dispatch: loop {
+        loop {
             if self.frame().ip == self.chunk().code.len() {
                 // If this is the end of the top-level function,
                 // return, otherwise pop the call frame.
@@ -330,21 +330,8 @@ impl VM {
 
                 OpCode::OpResolveWith => {
                     let ident = self.pop().to_string()?;
-
-                    // Attempt to resolve the variable, starting at
-                    // the back of the with_stack.
-                    'with: for idx in self.with_stack.iter().rev() {
-                        let with = self.stack[*idx].as_attrs()?;
-                        match with.select(ident.as_str()) {
-                            None => continue 'with,
-                            Some(val) => {
-                                self.push(val.clone());
-                                continue 'dispatch;
-                            }
-                        }
-                    }
-
-                    return Err(ErrorKind::UnknownDynamicVariable(ident.to_string()).into());
+                    let value = self.resolve_with(ident.as_str())?;
+                    self.push(value)
                 }
 
                 OpCode::OpAssert => {
@@ -449,6 +436,19 @@ impl VM {
 
         self.push(Value::String(out.into()));
         Ok(())
+    }
+
+    /// Resolve a dynamic identifier through the with-stack at runtime.
+    fn resolve_with(&self, ident: &str) -> EvalResult<Value> {
+        for idx in self.with_stack.iter().rev() {
+            let with = self.stack[*idx].as_attrs()?;
+            match with.select(ident) {
+                None => continue,
+                Some(val) => return Ok(val.clone()),
+            }
+        }
+
+        Err(ErrorKind::UnknownDynamicVariable(ident.to_string()).into())
     }
 }
 
