@@ -885,6 +885,7 @@ impl Compiler {
     // pop/remove the indices of attribute sets that are implicitly in
     // scope through `with` on the "with-stack".
     fn compile_with(&mut self, node: ast::With) {
+        self.begin_scope();
         // TODO: Detect if the namespace is just an identifier, and
         // resolve that directly (thus avoiding duplication on the
         // stack).
@@ -900,6 +901,7 @@ impl Compiler {
 
         self.chunk().push_op(OpCode::OpPopWith);
         self.scope_mut().with_stack.pop();
+        self.end_scope();
     }
 
     fn compile_lambda(&mut self, node: ast::Lambda) {
