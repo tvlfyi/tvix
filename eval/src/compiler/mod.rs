@@ -833,9 +833,9 @@ impl Compiler {
                 todo!("nested bindings in let expressions :(")
             }
 
-            self.compile(entry.value().unwrap());
             let name = path.pop().unwrap();
             self.declare_local(entry.attrpath().unwrap().syntax().clone(), &name);
+            self.compile(entry.value().unwrap());
             self.mark_initialised(&name);
         }
 
