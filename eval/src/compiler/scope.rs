@@ -65,10 +65,6 @@ pub struct Local {
     pub used: bool,
 }
 
-/// Represents an entry on the runtime with-stack.
-#[derive(Debug)]
-pub struct With {}
-
 /// Represents the current position of a local as resolved in a scope.
 pub enum LocalPosition {
     /// Local is not known in this scope.
@@ -112,9 +108,8 @@ pub struct Scope {
     // How many scopes "deep" are these locals?
     pub scope_depth: usize,
 
-    // Stack indices of attribute sets currently in scope through
-    // `with`.
-    pub with_stack: Vec<With>,
+    // Current size of the `with`-stack at runtime.
+    with_stack_size: usize,
 
     // Users are allowed to override globally defined symbols like
     // `true`, `false` or `null` in scopes. We call this "scope
@@ -149,6 +144,22 @@ impl Scope {
     pub fn unpoison(&mut self, depth: usize) {
         self.poisoned_tokens
             .retain(|_, poisoned_at| *poisoned_at != depth);
+    }
+
+    /// Increase the `with`-stack size of this scope.
+    pub fn push_with(&mut self) {
+        self.with_stack_size += 1;
+    }
+
+    /// Decrease the `with`-stack size of this scope.
+    pub fn pop_with(&mut self) {
+        self.with_stack_size -= 1;
+    }
+
+    /// Does this scope currently require dynamic runtime resolution
+    /// of identifiers that could not be found?
+    pub fn has_with(&self) -> bool {
+        self.with_stack_size > 0
     }
 
     /// Resolve the stack index of a statically known local.

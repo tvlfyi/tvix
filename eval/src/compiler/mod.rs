@@ -29,7 +29,7 @@ use crate::opcode::{CodeIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx};
 use crate::value::{Closure, Lambda, Value};
 use crate::warnings::{EvalWarning, WarningKind};
 
-use self::scope::{Depth, Local, LocalPosition, Scope, Upvalue, With};
+use self::scope::{Depth, Local, LocalPosition, Scope, Upvalue};
 
 /// Represents the result of compiling a piece of Nix code. If
 /// compilation was successful, the resulting bytecode can be passed
@@ -601,7 +601,7 @@ impl Compiler {
                 // Within a `let` binding, inheriting from the outer
                 // scope is a no-op *if* the identifier can be
                 // statically resolved.
-                None if self.scope().with_stack.is_empty() => {
+                None if !self.scope().has_with() => {
                     self.emit_warning(inherit.syntax().clone(), WarningKind::UselessInherit);
                     continue;
                 }
@@ -699,7 +699,7 @@ impl Compiler {
                     return;
                 }
 
-                if self.scope().with_stack.is_empty() {
+                if !self.scope().has_with() {
                     self.emit_error(node.syntax().clone(), ErrorKind::UnknownStaticVariable);
                     return;
                 }
@@ -727,7 +727,7 @@ impl Compiler {
         self.compile(node.namespace().unwrap());
         self.declare_phantom();
 
-        self.scope_mut().with_stack.push(With {});
+        self.scope_mut().push_with();
 
         let with_idx = self
             .scope()
@@ -745,7 +745,7 @@ impl Compiler {
         self.compile(node.body().unwrap());
 
         self.chunk().push_op(OpCode::OpPopWith);
-        self.scope_mut().with_stack.pop();
+        self.scope_mut().pop_with();
         self.end_scope();
     }
 
@@ -991,7 +991,7 @@ impl Compiler {
 
         // Determine whether the upvalue is a dynamic variable in the
         // enclosing context.
-        if !self.contexts[ctx_idx - 1].scope.with_stack.is_empty() {
+        if self.contexts[ctx_idx - 1].scope.has_with() {
             return Some(self.add_upvalue(ctx_idx, Upvalue::Dynamic(SmolStr::new(name))));
         }
 
