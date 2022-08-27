@@ -709,9 +709,9 @@ impl Compiler {
                 self.chunk().push_op(OpCode::OpResolveWith)
             }
 
-            LocalPosition::Recursive(_) => todo!("self-recursive upvalue"),
-
             LocalPosition::Known(idx) => self.chunk().push_op(OpCode::OpGetLocal(idx)),
+
+            LocalPosition::Recursive(_) => panic!("TODO: unclear if this can happen"),
         };
     }
 
@@ -981,10 +981,14 @@ impl Compiler {
 
         // Determine whether the upvalue is a local in the enclosing context.
         match self.contexts[ctx_idx - 1].scope.resolve_local(name) {
-            LocalPosition::Known(idx) => {
+            // recursive upvalues are dealt with the same way as
+            // standard known ones, as thunks and closures are
+            // guaranteed to be placed on the stack (i.e. in the right
+            // position) *during* their runtime construction
+            LocalPosition::Known(idx) | LocalPosition::Recursive(idx) => {
                 return Some(self.add_upvalue(ctx_idx, Upvalue::Stack(idx)))
             }
-            LocalPosition::Recursive(_) => todo!("self-recursive upvalue"),
+
             LocalPosition::Unknown => { /* continue below */ }
         };
 

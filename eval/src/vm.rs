@@ -359,7 +359,15 @@ impl VM {
                 }
 
                 OpCode::OpClosure(idx) => {
-                    let closure = self.chunk().constant(idx).clone().to_closure()?;
+                    let value = self.chunk().constant(idx).clone();
+                    self.push(value.clone());
+
+                    // This refers to the same Rc, and from this point
+                    // on internally mutates the closure objects
+                    // upvalues. The closure is already in its stack
+                    // slot, which means that it can capture itself as
+                    // an upvalue for self-recursion.
+                    let closure = value.to_closure()?;
 
                     debug_assert!(
                         closure.upvalue_count() > 0,
@@ -387,8 +395,6 @@ impl VM {
                             _ => panic!("compiler error: missing closure operand"),
                         }
                     }
-
-                    self.push(Value::Closure(closure));
                 }
 
                 // Data-carrying operands should never be executed,
