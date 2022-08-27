@@ -115,4 +115,5 @@ pub enum OpCode {
     // according to the count.
     DataLocalIdx(StackIdx),
     DataUpvalueIdx(UpvalueIdx),
+    DataDynamicIdx(ConstantIdx),
 }

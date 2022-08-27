@@ -16,6 +16,7 @@
 use path_clean::PathClean;
 use rnix::ast::{self, AstToken, HasEntry};
 use rowan::ast::AstNode;
+use smol_str::SmolStr;
 use std::collections::{hash_map, HashMap};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -68,6 +69,10 @@ enum Upvalue {
 
     /// This upvalue captures an enclosing upvalue.
     Upvalue(UpvalueIdx),
+
+    /// This upvalue captures a dynamically resolved value (i.e.
+    /// `with`).
+    Dynamic(SmolStr),
 }
 
 /// Represents a scope known during compilation, which can be resolved
@@ -875,6 +880,10 @@ impl Compiler {
             match upvalue {
                 Upvalue::Stack(idx) => self.chunk().push_op(OpCode::DataLocalIdx(idx)),
                 Upvalue::Upvalue(idx) => self.chunk().push_op(OpCode::DataUpvalueIdx(idx)),
+                Upvalue::Dynamic(s) => {
+                    let idx = self.chunk().push_constant(Value::String(s.into()));
+                    self.chunk().push_op(OpCode::DataDynamicIdx(idx))
+                }
             };
         }
     }
@@ -1008,11 +1017,18 @@ impl Compiler {
             return None;
         }
 
+        // Determine whether the upvalue is a local in the enclosing context.
         if let Some(idx) = self.contexts[ctx_idx - 1].scope.resolve_local(name) {
             return Some(self.add_upvalue(ctx_idx, Upvalue::Stack(idx)));
         }
 
-        // If the upvalue comes from an enclosing context, we need to
+        // Determine whether the upvalue is a dynamic variable in the
+        // enclosing context.
+        if !self.contexts[ctx_idx - 1].scope.with_stack.is_empty() {
+            return Some(self.add_upvalue(ctx_idx, Upvalue::Dynamic(SmolStr::new(name))));
+        }
+
+        // If the upvalue comes from even further up, we need to
         // recurse to make sure that the upvalues are created at each
         // level.
         if let Some(idx) = self.resolve_upvalue(ctx_idx - 1, name) {

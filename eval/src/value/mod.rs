@@ -80,6 +80,17 @@ impl Value {
         }
     }
 
+    pub fn as_str(&self) -> EvalResult<&str> {
+        match self {
+            Value::String(s) => Ok(s.as_str()),
+            other => Err(ErrorKind::TypeError {
+                expected: "string",
+                actual: other.type_of(),
+            }
+            .into()),
+        }
+    }
+
     pub fn to_string(self) -> EvalResult<NixString> {
         match self {
             Value::String(s) => Ok(s),

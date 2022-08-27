@@ -46,6 +46,12 @@ impl From<String> for NixString {
     }
 }
 
+impl From<SmolStr> for NixString {
+    fn from(s: SmolStr) -> Self {
+        NixString(StringRepr::Smol(s))
+    }
+}
+
 impl Hash for NixString {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.as_str().hash(state)

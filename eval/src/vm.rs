@@ -379,6 +379,11 @@ impl VM {
                                     .push(self.frame().closure.upvalues[upv_idx].clone());
                             }
 
+                            OpCode::DataDynamicIdx(ident_idx) => {
+                                let ident = self.chunk().constant(ident_idx).as_str()?;
+                                closure.upvalues.push(self.resolve_with(ident)?);
+                            }
+
                             _ => panic!("compiler error: missing closure operand"),
                         }
                     }
@@ -388,7 +393,7 @@ impl VM {
 
                 // Data-carrying operands should never be executed,
                 // that is a critical error in the VM.
-                OpCode::DataLocalIdx(_) | OpCode::DataUpvalueIdx(_) => {
+                OpCode::DataLocalIdx(_) | OpCode::DataUpvalueIdx(_) | OpCode::DataDynamicIdx(_) => {
                     panic!("VM bug: attempted to execute data-carrying operand")
                 }
             }
