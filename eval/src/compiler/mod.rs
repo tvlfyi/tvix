@@ -884,10 +884,11 @@ impl Compiler {
             if let Some(Local {
                 node: Some(node),
                 used,
+                name,
                 ..
             }) = self.scope_mut().locals.pop()
             {
-                if !used {
+                if !used && !name.starts_with('_') {
                     self.emit_warning(node, WarningKind::UnusedBinding);
                 }
             }
