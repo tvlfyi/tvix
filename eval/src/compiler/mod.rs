@@ -36,6 +36,26 @@ pub struct CompilationOutput {
     pub errors: Vec<Error>,
 }
 
+/// Represents the initialisation status of a variable, tracking
+/// whether it is only known or also already defined.
+enum Depth {
+    /// Variable is defined and located at the given depth.
+    At(usize),
+
+    /// Variable is known but not yet defined.
+    Unitialised,
+}
+
+impl Depth {
+    /// Does this variable live above the other given depth?
+    fn above(&self, theirs: usize) -> bool {
+        match self {
+            Depth::Unitialised => false,
+            Depth::At(ours) => *ours > theirs,
+        }
+    }
+}
+
 /// Represents a single local already known to the compiler.
 struct Local {
     // Definition name, which can be different kinds of tokens (plain
@@ -47,7 +67,7 @@ struct Local {
     node: Option<rnix::SyntaxNode>,
 
     // Scope depth of this local.
-    depth: usize,
+    depth: Depth,
 
     // Phantom locals are not actually accessible by users (e.g.
     // intermediate values used for `with`).
@@ -948,7 +968,9 @@ impl Compiler {
         // TL;DR - iterate from the back while things belonging to the
         // ended scope still exist.
         while !self.scope().locals.is_empty()
-            && self.scope().locals[self.scope().locals.len() - 1].depth > self.scope().scope_depth
+            && self.scope().locals[self.scope().locals.len() - 1]
+                .depth
+                .above(self.scope().scope_depth)
         {
             pops += 1;
 
@@ -992,8 +1014,8 @@ impl Compiler {
         }
 
         self.scope_mut().locals.push(Local {
-            depth,
             name,
+            depth: Depth::At(depth),
             node: Some(node),
             phantom: false,
             used: false,
@@ -1003,7 +1025,7 @@ impl Compiler {
     fn declare_phantom(&mut self) {
         let depth = self.scope().scope_depth;
         self.scope_mut().locals.push(Local {
-            depth,
+            depth: Depth::At(depth),
             name: "".into(),
             node: None,
             phantom: true,
