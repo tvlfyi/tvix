@@ -87,8 +87,7 @@ impl Compiler {
     }
 
     fn chunk(&mut self) -> &mut Chunk {
-        Rc::<Chunk>::get_mut(self.context_mut().lambda.chunk())
-            .expect("compiler flaw: long-lived chunk reference")
+        &mut self.context_mut().lambda.chunk
     }
 
     fn scope(&self) -> &Scope {

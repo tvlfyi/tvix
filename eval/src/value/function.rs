@@ -1,12 +1,15 @@
 //! This module implements the runtime representation of functions.
-use std::rc::Rc;
+use std::{
+    cell::{Ref, RefCell},
+    rc::Rc,
+};
 
-use crate::{chunk::Chunk, Value};
+use crate::{chunk::Chunk, opcode::UpvalueIdx, Value};
 
 #[derive(Clone, Debug)]
 pub struct Lambda {
     // name: Option<NixString>,
-    pub(crate) chunk: Rc<Chunk>,
+    pub(crate) chunk: Chunk,
     pub(crate) upvalue_count: usize,
 }
 
@@ -19,22 +22,42 @@ impl Lambda {
         }
     }
 
-    pub fn chunk(&mut self) -> &mut Rc<Chunk> {
+    pub fn chunk(&mut self) -> &mut Chunk {
         &mut self.chunk
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct Closure {
+pub struct InnerClosure {
     pub lambda: Lambda,
     pub upvalues: Vec<Value>,
 }
 
+#[repr(transparent)]
+#[derive(Clone, Debug)]
+pub struct Closure(Rc<RefCell<InnerClosure>>);
+
 impl Closure {
     pub fn new(lambda: Lambda) -> Self {
-        Closure {
+        Closure(Rc::new(RefCell::new(InnerClosure {
             upvalues: Vec::with_capacity(lambda.upvalue_count),
             lambda,
-        }
+        })))
+    }
+
+    pub fn chunk(&self) -> Ref<'_, Chunk> {
+        Ref::map(self.0.borrow(), |c| &c.lambda.chunk)
+    }
+
+    pub fn upvalue(&self, idx: UpvalueIdx) -> Ref<'_, Value> {
+        Ref::map(self.0.borrow(), |c| &c.upvalues[idx.0])
+    }
+
+    pub fn upvalue_count(&self) -> usize {
+        self.0.borrow().lambda.upvalue_count
+    }
+
+    pub fn push_upvalue(&self, value: Value) {
+        self.0.borrow_mut().upvalues.push(value)
     }
 }

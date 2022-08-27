@@ -1,12 +1,12 @@
 //! This module implements the virtual (or abstract) machine that runs
 //! Tvix bytecode.
 
-use std::rc::Rc;
+use std::{cell::Ref, rc::Rc};
 
 use crate::{
     chunk::Chunk,
     errors::{ErrorKind, EvalResult},
-    opcode::{Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
+    opcode::{Count, JumpOffset, OpCode, StackIdx},
     value::{Closure, Lambda, NixAttrs, NixList, Value},
 };
 
@@ -85,8 +85,8 @@ impl VM {
         &self.frames[self.frames.len() - 1]
     }
 
-    fn chunk(&self) -> &Chunk {
-        &self.frame().closure.lambda.chunk
+    fn chunk(&self) -> Ref<'_, Chunk> {
+        self.frame().closure.chunk()
     }
 
     fn frame_mut(&mut self) -> &mut CallFrame {
@@ -353,35 +353,35 @@ impl VM {
                     };
                 }
 
-                OpCode::OpGetUpvalue(UpvalueIdx(upv_idx)) => {
-                    let value = self.frame().closure.upvalues[upv_idx].clone();
+                OpCode::OpGetUpvalue(upv_idx) => {
+                    let value = self.frame().closure.upvalue(upv_idx).clone();
                     self.push(value);
                 }
 
                 OpCode::OpClosure(idx) => {
-                    let mut closure = self.chunk().constant(idx).clone().to_closure()?;
+                    let closure = self.chunk().constant(idx).clone().to_closure()?;
 
                     debug_assert!(
-                        closure.lambda.upvalue_count > 0,
+                        closure.upvalue_count() > 0,
                         "OpClosure should not be called for plain lambdas"
                     );
 
-                    for _ in 0..closure.lambda.upvalue_count {
+                    for _ in 0..closure.upvalue_count() {
                         match self.inc_ip() {
                             OpCode::DataLocalIdx(StackIdx(local_idx)) => {
                                 let idx = self.frame().stack_offset + local_idx;
-                                closure.upvalues.push(self.stack[idx].clone());
+                                closure.push_upvalue(self.stack[idx].clone());
                             }
 
-                            OpCode::DataUpvalueIdx(UpvalueIdx(upv_idx)) => {
-                                closure
-                                    .upvalues
-                                    .push(self.frame().closure.upvalues[upv_idx].clone());
+                            OpCode::DataUpvalueIdx(upv_idx) => {
+                                closure.push_upvalue(self.frame().closure.upvalue(upv_idx).clone());
                             }
 
                             OpCode::DataDynamicIdx(ident_idx) => {
-                                let ident = self.chunk().constant(ident_idx).as_str()?;
-                                closure.upvalues.push(self.resolve_with(ident)?);
+                                let chunk = self.chunk();
+                                let ident = chunk.constant(ident_idx).as_str()?.to_string();
+                                drop(chunk); // some lifetime trickery due to cell::Ref
+                                closure.push_upvalue(self.resolve_with(&ident)?);
                             }
 
                             _ => panic!("compiler error: missing closure operand"),
