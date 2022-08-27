@@ -698,6 +698,14 @@ impl Compiler {
                     return;
                 }
 
+                // Even worse - are we dealing with a dynamic upvalue?
+                if let Some(idx) =
+                    self.resolve_dynamic_upvalue(self.contexts.len() - 1, ident.text())
+                {
+                    self.chunk().push_op(OpCode::OpGetUpvalue(idx));
+                    return;
+                }
+
                 if !self.scope().has_with() {
                     self.emit_error(node.syntax().clone(), ErrorKind::UnknownStaticVariable);
                     return;
@@ -804,8 +812,8 @@ impl Compiler {
             match upvalue {
                 Upvalue::Stack(idx) => self.chunk().push_op(OpCode::DataLocalIdx(idx)),
                 Upvalue::Upvalue(idx) => self.chunk().push_op(OpCode::DataUpvalueIdx(idx)),
-                Upvalue::Dynamic(s) => {
-                    let idx = self.chunk().push_constant(Value::String(s.into()));
+                Upvalue::Dynamic { name, .. } => {
+                    let idx = self.chunk().push_constant(Value::String(name.into()));
                     self.chunk().push_op(OpCode::DataDynamicIdx(idx))
                 }
             };
@@ -1000,11 +1008,52 @@ impl Compiler {
             return Some(self.add_upvalue(ctx_idx, Upvalue::Upvalue(idx)));
         }
 
-        // If the resolution of a statically known upvalue failed,
-        // attempt to resolve a dynamic one (i.e. search for enclosing
-        // `with` blocks and make that resolution dynamic).
-        if self.contexts[ctx_idx - 1].scope.has_with() {
-            return Some(self.add_upvalue(ctx_idx, Upvalue::Dynamic(SmolStr::new(name))));
+        None
+    }
+
+    /// If no static resolution for a potential upvalue was found,
+    /// finds the lowest lambda context that has a `with`-stack and
+    /// thread dynamic upvalues all the way through.
+    ///
+    /// At runtime, as closures are being constructed they either
+    /// capture a dynamically available upvalue, take an upvalue from
+    /// their "ancestor" or leave a sentinel value on the stack.
+    ///
+    /// As such an upvalue is actually accessed, an error is produced
+    /// when the sentinel is found. See the runtime's handling of
+    /// dynamic upvalues for details.
+    fn resolve_dynamic_upvalue(&mut self, at: usize, name: &str) -> Option<UpvalueIdx> {
+        if at == 0 {
+            // There can not be any upvalue at the outermost context.
+            return None;
+        }
+
+        if let Some((lowest_idx, _)) = self
+            .contexts
+            .iter()
+            .enumerate()
+            .find(|(_, c)| c.scope.has_with())
+        {
+            // An enclosing lambda context has dynamic values. Each
+            // context in the chain from that point on now needs to
+            // capture dynamic upvalues because we can not statically
+            // know at which level the correct one is located.
+            let name = SmolStr::new(name);
+            let mut upvalue_idx = None;
+
+            for idx in lowest_idx..=at {
+                upvalue_idx = Some(self.add_upvalue(
+                    idx,
+                    Upvalue::Dynamic {
+                        name: name.clone(),
+                        up: upvalue_idx,
+                    },
+                ));
+            }
+
+            // Return the outermost upvalue index (i.e. the one of the
+            // current context).
+            return upvalue_idx;
         }
 
         None

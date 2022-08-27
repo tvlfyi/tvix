@@ -81,7 +81,7 @@ pub enum LocalPosition {
 
 /// Represents the different ways in which upvalues can be captured in
 /// closures or thunks.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Upvalue {
     /// This upvalue captures a local from the stack.
     Stack(StackIdx),
@@ -91,7 +91,14 @@ pub enum Upvalue {
 
     /// This upvalue captures a dynamically resolved value (i.e.
     /// `with`).
-    Dynamic(SmolStr),
+    ///
+    /// It stores the identifier with which to perform a dynamic
+    /// lookup, as well as the optional upvalue index in the enclosing
+    /// function (if any).
+    Dynamic {
+        name: SmolStr,
+        up: Option<UpvalueIdx>,
+    },
 }
 
 /// Represents a scope known during compilation, which can be resolved
