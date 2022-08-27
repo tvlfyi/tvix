@@ -894,7 +894,17 @@ impl Compiler {
 
         self.scope_mut().with_stack.push(With {});
 
-        let with_idx = self.scope().locals.len() - 1;
+        let with_idx = self
+            .scope()
+            .locals
+            .iter()
+            // Calculate the with_idx without taking into account
+            // uninitialised variables that are not yet in their stack
+            // slots.
+            .filter(|l| matches!(l.depth, Depth::At(_)))
+            .count()
+            - 1;
+
         self.chunk().push_op(OpCode::OpPushWith(StackIdx(with_idx)));
 
         self.compile(node.body().unwrap());
