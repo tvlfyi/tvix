@@ -426,6 +426,10 @@ impl VM {
                                 closure.push_upvalue(value);
                             }
 
+                            OpCode::DataDeferredLocal(_idx) => {
+                                todo!("deferred local initialisation")
+                            }
+
                             _ => panic!("compiler error: missing closure operand"),
                         }
                     }
@@ -434,6 +438,7 @@ impl VM {
                 // Data-carrying operands should never be executed,
                 // that is a critical error in the VM.
                 OpCode::DataLocalIdx(_)
+                | OpCode::DataDeferredLocal(_)
                 | OpCode::DataUpvalueIdx(_)
                 | OpCode::DataDynamicIdx(_)
                 | OpCode::DataDynamicAncestor(_) => {

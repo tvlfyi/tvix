@@ -122,7 +122,7 @@ impl Compiler {
             ast::Expr::LetIn(let_in) => self.compile_let_in(let_in),
             ast::Expr::Ident(ident) => self.compile_ident(ident),
             ast::Expr::With(with) => self.compile_with(with),
-            ast::Expr::Lambda(lambda) => self.compile_lambda(lambda),
+            ast::Expr::Lambda(lambda) => self.compile_lambda(slot, lambda),
             ast::Expr::Apply(apply) => self.compile_apply(apply),
 
             // Parenthesized expressions are simply unwrapped, leaving
@@ -778,7 +778,7 @@ impl Compiler {
         self.end_scope();
     }
 
-    fn compile_lambda(&mut self, node: ast::Lambda) {
+    fn compile_lambda(&mut self, slot: Option<usize>, node: ast::Lambda) {
         // Open new lambda context in compiler, which has its own
         // scope etc.
         self.contexts.push(LambdaCtx::new());
@@ -833,9 +833,22 @@ impl Compiler {
         self.chunk().push_op(OpCode::OpClosure(closure_idx));
         for upvalue in compiled.scope.upvalues {
             match upvalue {
-                Upvalue::Stack(idx) => {
+                Upvalue::Stack(idx) if slot.is_none() => {
                     self.chunk().push_op(OpCode::DataLocalIdx(idx));
                 }
+
+                Upvalue::Stack(idx) => {
+                    // If the upvalue slot is located *after* the
+                    // closure, the upvalue resolution must be
+                    // deferred until the scope is fully initialised
+                    // and can be finalised.
+                    if slot.unwrap() < idx.0 {
+                        self.chunk().push_op(OpCode::DataDeferredLocal(idx));
+                    } else {
+                        self.chunk().push_op(OpCode::DataLocalIdx(idx));
+                    }
+                }
+
                 Upvalue::Upvalue(idx) => {
                     self.chunk().push_op(OpCode::DataUpvalueIdx(idx));
                 }

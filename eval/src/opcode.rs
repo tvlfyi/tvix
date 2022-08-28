@@ -115,6 +115,7 @@ pub enum OpCode {
     // The VM skips over these by advancing the instruction pointer
     // according to the count.
     DataLocalIdx(StackIdx),
+    DataDeferredLocal(StackIdx),
     DataUpvalueIdx(UpvalueIdx),
     DataDynamicIdx(ConstantIdx),
     DataDynamicAncestor(UpvalueIdx),
