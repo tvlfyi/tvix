@@ -26,7 +26,7 @@ use std::rc::Rc;
 use crate::chunk::Chunk;
 use crate::errors::{Error, ErrorKind, EvalResult};
 use crate::opcode::{CodeIdx, Count, JumpOffset, OpCode, UpvalueIdx};
-use crate::value::{Closure, Lambda, Value};
+use crate::value::{Closure, Lambda, Thunk, Value};
 use crate::warnings::{EvalWarning, WarningKind};
 
 use self::scope::{Local, LocalIdx, LocalPosition, Scope, Upvalue};
@@ -846,6 +846,41 @@ impl Compiler {
         self.compile(None, node.argument().unwrap());
         self.compile(None, node.lambda().unwrap());
         self.chunk().push_op(OpCode::OpCall);
+    }
+
+    /// Compile an expression into a runtime thunk which should be
+    /// lazily evaluated when accessed.
+    // TODO: almost the same as Compiler::compile_lambda; unify?
+    fn thunk<F>(&mut self, slot: Option<LocalIdx>, content: F)
+    where
+        F: FnOnce(&mut Compiler, Option<LocalIdx>),
+    {
+        self.contexts.push(LambdaCtx::new());
+        self.begin_scope();
+        content(self, slot);
+        self.end_scope();
+
+        let thunk = self.contexts.pop().unwrap();
+
+        #[cfg(feature = "disassembler")]
+        {
+            crate::disassembler::disassemble_chunk(&thunk.lambda.chunk);
+        }
+
+        // Emit the thunk directly if it does not close over the
+        // environment.
+        if thunk.lambda.upvalue_count == 0 {
+            self.emit_constant(Value::Thunk(Thunk::new(thunk.lambda)));
+            return;
+        }
+
+        // Otherwise prepare for runtime construction of the thunk.
+        let blueprint_idx = self
+            .chunk()
+            .push_constant(Value::Blueprint(Rc::new(thunk.lambda)));
+
+        self.chunk().push_op(OpCode::OpThunk(blueprint_idx));
+        self.emit_upvalue_data(slot, thunk.scope.upvalues);
     }
 
     /// Emit the data instructions that the runtime needs to correctly

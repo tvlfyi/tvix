@@ -107,6 +107,9 @@ pub enum OpCode {
     OpGetUpvalue(UpvalueIdx),
     OpClosure(ConstantIdx),
 
+    // Thunks
+    OpThunk(ConstantIdx),
+
     /// Finalise initialisation of the upvalues of the value in the
     /// given stack index after the scope is fully bound.
     OpFinalise(StackIdx),

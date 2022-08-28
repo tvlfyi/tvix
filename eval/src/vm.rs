@@ -435,6 +435,8 @@ impl VM {
                     }
                 }
 
+                OpCode::OpThunk(_idx) => todo!("runtime thunk construction"),
+
                 OpCode::OpFinalise(StackIdx(idx)) => {
                     match &self.stack[self.frame().stack_offset + idx] {
                         Value::Closure(closure) => closure
