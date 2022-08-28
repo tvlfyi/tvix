@@ -106,7 +106,7 @@ impl Compiler {
 
 // Actual code-emitting AST traversal methods.
 impl Compiler {
-    fn compile(&mut self, expr: ast::Expr) {
+    fn compile(&mut self, slot: Option<usize>, expr: ast::Expr) {
         match expr {
             ast::Expr::Literal(literal) => self.compile_literal(literal),
             ast::Expr::Path(path) => self.compile_path(path),
@@ -127,7 +127,7 @@ impl Compiler {
 
             // Parenthesized expressions are simply unwrapped, leaving
             // their value on the stack.
-            ast::Expr::Paren(paren) => self.compile(paren.expr().unwrap()),
+            ast::Expr::Paren(paren) => self.compile(slot, paren.expr().unwrap()),
 
             ast::Expr::LegacyLet(_) => todo!("legacy let"),
 
@@ -202,7 +202,7 @@ impl Compiler {
                 // Interpolated expressions are compiled as normal and
                 // dealt with by the VM before being assembled into
                 // the final string.
-                ast::InterpolPart::Interpolation(node) => self.compile(node.expr().unwrap()),
+                ast::InterpolPart::Interpolation(node) => self.compile(None, node.expr().unwrap()),
 
                 ast::InterpolPart::Literal(lit) => {
                     self.emit_constant(Value::String(lit.into()));
@@ -216,7 +216,7 @@ impl Compiler {
     }
 
     fn compile_unary_op(&mut self, op: ast::UnaryOp) {
-        self.compile(op.expr().unwrap());
+        self.compile(None, op.expr().unwrap());
 
         let opcode = match op.operator().unwrap() {
             ast::UnaryOpKind::Invert => OpCode::OpInvert,
@@ -244,8 +244,8 @@ impl Compiler {
         // For all other operators, the two values need to be left on
         // the stack in the correct order before pushing the
         // instruction for the operation itself.
-        self.compile(op.lhs().unwrap());
-        self.compile(op.rhs().unwrap());
+        self.compile(None, op.lhs().unwrap());
+        self.compile(None, op.rhs().unwrap());
 
         match op.operator().unwrap() {
             BinOpKind::Add => self.chunk().push_op(OpCode::OpAdd),
@@ -280,7 +280,7 @@ impl Compiler {
         );
 
         // Leave left-hand side value on the stack.
-        self.compile(node.lhs().unwrap());
+        self.compile(None, node.lhs().unwrap());
 
         // If this value is false, jump over the right-hand side - the
         // whole expression is false.
@@ -290,7 +290,7 @@ impl Compiler {
         // right-hand side on the stack. Its result is now the value
         // of the whole expression.
         self.chunk().push_op(OpCode::OpPop);
-        self.compile(node.rhs().unwrap());
+        self.compile(None, node.rhs().unwrap());
 
         self.patch_jump(end_idx);
         self.chunk().push_op(OpCode::OpAssertBool);
@@ -304,13 +304,13 @@ impl Compiler {
         );
 
         // Leave left-hand side value on the stack
-        self.compile(node.lhs().unwrap());
+        self.compile(None, node.lhs().unwrap());
 
         // Opposite of above: If this value is **true**, we can
         // short-circuit the right-hand side.
         let end_idx = self.chunk().push_op(OpCode::OpJumpIfTrue(JumpOffset(0)));
         self.chunk().push_op(OpCode::OpPop);
-        self.compile(node.rhs().unwrap());
+        self.compile(None, node.rhs().unwrap());
         self.patch_jump(end_idx);
         self.chunk().push_op(OpCode::OpAssertBool);
     }
@@ -323,20 +323,20 @@ impl Compiler {
         );
 
         // Leave left-hand side value on the stack and invert it.
-        self.compile(node.lhs().unwrap());
+        self.compile(None, node.lhs().unwrap());
         self.chunk().push_op(OpCode::OpInvert);
 
         // Exactly as `||` (because `a -> b` = `!a || b`).
         let end_idx = self.chunk().push_op(OpCode::OpJumpIfTrue(JumpOffset(0)));
         self.chunk().push_op(OpCode::OpPop);
-        self.compile(node.rhs().unwrap());
+        self.compile(None, node.rhs().unwrap());
         self.patch_jump(end_idx);
         self.chunk().push_op(OpCode::OpAssertBool);
     }
 
     fn compile_has_attr(&mut self, node: ast::HasAttr) {
         // Put the attribute set on the stack.
-        self.compile(node.expr().unwrap());
+        self.compile(None, node.expr().unwrap());
 
         // Push all path fragments with an operation for fetching the
         // next nested element, for all fragments except the last one.
@@ -355,7 +355,7 @@ impl Compiler {
 
     fn compile_attr(&mut self, node: ast::Attr) {
         match node {
-            ast::Attr::Dynamic(dynamic) => self.compile(dynamic.expr().unwrap()),
+            ast::Attr::Dynamic(dynamic) => self.compile(None, dynamic.expr().unwrap()),
             ast::Attr::Str(s) => self.compile_str(s),
             ast::Attr::Ident(ident) => self.emit_literal_ident(&ident),
         }
@@ -372,7 +372,7 @@ impl Compiler {
 
         for item in node.items() {
             count += 1;
-            self.compile(item);
+            self.compile(None, item);
         }
 
         self.chunk().push_op(OpCode::OpList(Count(count)));
@@ -413,7 +413,7 @@ impl Compiler {
                         // instruction followed by a merge, rather
                         // than pushing/popping the same attrs
                         // potentially a lot of times.
-                        self.compile(from.expr().unwrap());
+                        self.compile(None, from.expr().unwrap());
                         self.emit_literal_ident(&ident);
                         self.chunk().push_op(OpCode::OpAttrsSelect);
                     }
@@ -473,7 +473,7 @@ impl Compiler {
             // The value is just compiled as normal so that its
             // resulting value is on the stack when the attribute set
             // is constructed at runtime.
-            self.compile(kv.value().unwrap());
+            self.compile(None, kv.value().unwrap());
         }
 
         self.chunk().push_op(OpCode::OpAttrs(Count(count)));
@@ -489,7 +489,7 @@ impl Compiler {
         }
 
         // Push the set onto the stack
-        self.compile(set);
+        self.compile(None, set);
 
         // Compile each key fragment and emit access instructions.
         //
@@ -531,7 +531,7 @@ impl Compiler {
     ///  └────────────────────────────┘   └─────────────────────────┘
     /// ```
     fn compile_select_or(&mut self, set: ast::Expr, path: ast::Attrpath, default: ast::Expr) {
-        self.compile(set);
+        self.compile(None, set);
         let mut jumps = vec![];
 
         for fragment in path.attrs() {
@@ -551,19 +551,19 @@ impl Compiler {
 
         // Compile the default value expression and patch the final
         // jump to point *beyond* it.
-        self.compile(default);
+        self.compile(None, default);
         self.patch_jump(final_jump);
     }
 
     fn compile_assert(&mut self, node: ast::Assert) {
         // Compile the assertion condition to leave its value on the stack.
-        self.compile(node.condition().unwrap());
+        self.compile(None, node.condition().unwrap());
         self.chunk().push_op(OpCode::OpAssert);
 
         // The runtime will abort evaluation at this point if the
         // assertion failed, if not the body simply continues on like
         // normal.
-        self.compile(node.body().unwrap());
+        self.compile(None, node.body().unwrap());
     }
 
     // Compile conditional expressions using jumping instructions in the VM.
@@ -577,18 +577,18 @@ impl Compiler {
     //  if condition is true.└┼─5─→     ...        │
     //                        └────────────────────┘
     fn compile_if_else(&mut self, node: ast::IfElse) {
-        self.compile(node.condition().unwrap());
+        self.compile(None, node.condition().unwrap());
 
         let then_idx = self.chunk().push_op(OpCode::OpJumpIfFalse(JumpOffset(0)));
 
         self.chunk().push_op(OpCode::OpPop); // discard condition value
-        self.compile(node.body().unwrap());
+        self.compile(None, node.body().unwrap());
 
         let else_idx = self.chunk().push_op(OpCode::OpJump(JumpOffset(0)));
 
         self.patch_jump(then_idx); // patch jump *to* else_body
         self.chunk().push_op(OpCode::OpPop); // discard condition value
-        self.compile(node.else_body().unwrap());
+        self.compile(None, node.else_body().unwrap());
 
         self.patch_jump(else_idx); // patch jump *over* else body
     }
@@ -630,7 +630,7 @@ impl Compiler {
 
                 Some(from) => {
                     for ident in inherit.idents() {
-                        self.compile(from.expr().unwrap());
+                        self.compile(None, from.expr().unwrap());
                         self.emit_literal_ident(&ident);
                         self.chunk().push_op(OpCode::OpAttrsSelect);
                         let idx = self.declare_local(
@@ -679,7 +679,7 @@ impl Compiler {
 
         // Second pass to place the values in the correct stack slots.
         for (idx, value) in entries.into_iter() {
-            self.compile(value);
+            self.compile(Some(idx), value);
 
             // Any code after this point will observe the value in the
             // right stack slot, so mark it as initialised.
@@ -687,7 +687,7 @@ impl Compiler {
         }
 
         // Deal with the body, then clean up the locals afterwards.
-        self.compile(node.body().unwrap());
+        self.compile(None, node.body().unwrap());
         self.end_scope();
     }
 
@@ -753,7 +753,7 @@ impl Compiler {
         // TODO: Detect if the namespace is just an identifier, and
         // resolve that directly (thus avoiding duplication on the
         // stack).
-        self.compile(node.namespace().unwrap());
+        self.compile(None, node.namespace().unwrap());
         self.declare_phantom();
 
         self.scope_mut().push_with();
@@ -771,7 +771,7 @@ impl Compiler {
 
         self.chunk().push_op(OpCode::OpPushWith(StackIdx(with_idx)));
 
-        self.compile(node.body().unwrap());
+        self.compile(None, node.body().unwrap());
 
         self.chunk().push_op(OpCode::OpPopWith);
         self.scope_mut().pop_with();
@@ -801,7 +801,7 @@ impl Compiler {
             }
         }
 
-        self.compile(node.body().unwrap());
+        self.compile(None, node.body().unwrap());
         self.end_scope();
 
         // TODO: determine and insert enclosing name, if available.
@@ -855,8 +855,8 @@ impl Compiler {
         // followed by the function expression itself, and then emit a
         // call instruction. This way, the stack is perfectly laid out
         // to enter the function call straight away.
-        self.compile(node.argument().unwrap());
-        self.compile(node.lambda().unwrap());
+        self.compile(None, node.argument().unwrap());
+        self.compile(None, node.lambda().unwrap());
         self.chunk().push_op(OpCode::OpCall);
     }
 
@@ -1214,7 +1214,7 @@ pub fn compile(
         errors: vec![],
     };
 
-    c.compile(expr);
+    c.compile(None, expr);
 
     Ok(CompilationOutput {
         lambda: c.contexts.pop().unwrap().lambda,
