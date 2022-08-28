@@ -805,16 +805,17 @@ impl Compiler {
         // If the function is not a closure, just emit it directly and
         // move on.
         if compiled.lambda.upvalue_count == 0 {
-            self.emit_constant(Value::Closure(Closure::new(compiled.lambda)));
+            self.emit_constant(Value::Closure(Closure::new(Rc::new(compiled.lambda))));
             return;
         }
 
         // If the function is a closure, we need to emit the variable
         // number of operands that allow the runtime to close over the
-        // upvalues.
+        // upvalues and leave a blueprint in the constant index from
+        // which the runtime closure can be constructed.
         let closure_idx = self
             .chunk()
-            .push_constant(Value::Closure(Closure::new(compiled.lambda)));
+            .push_constant(Value::Blueprint(Rc::new(compiled.lambda)));
 
         self.chunk().push_op(OpCode::OpClosure(closure_idx));
         for upvalue in compiled.scope.upvalues {

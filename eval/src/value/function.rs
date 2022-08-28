@@ -29,7 +29,7 @@ impl Lambda {
 
 #[derive(Clone, Debug)]
 pub struct InnerClosure {
-    pub lambda: Lambda,
+    pub lambda: Rc<Lambda>,
     pub upvalues: Vec<Value>,
 }
 
@@ -38,7 +38,7 @@ pub struct InnerClosure {
 pub struct Closure(Rc<RefCell<InnerClosure>>);
 
 impl Closure {
-    pub fn new(lambda: Lambda) -> Self {
+    pub fn new(lambda: Rc<Lambda>) -> Self {
         Closure(Rc::new(RefCell::new(InnerClosure {
             upvalues: Vec::with_capacity(lambda.upvalue_count),
             lambda,

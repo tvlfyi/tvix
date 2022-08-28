@@ -385,15 +385,19 @@ impl VM {
                 }
 
                 OpCode::OpClosure(idx) => {
-                    let value = self.chunk().constant(idx).clone();
-                    self.push(value.clone());
+                    let blueprint = match self.chunk().constant(idx) {
+                        Value::Blueprint(lambda) => lambda.clone(),
+                        _ => panic!("compiler bug: non-blueprint in blueprint slot"),
+                    };
 
-                    // This refers to the same Rc, and from this point
-                    // on internally mutates the closure objects
-                    // upvalues. The closure is already in its stack
-                    // slot, which means that it can capture itself as
-                    // an upvalue for self-recursion.
-                    let closure = value.to_closure()?;
+                    let closure = Closure::new(blueprint);
+                    self.push(Value::Closure(closure.clone()));
+
+                    // From this point on we internally mutate the
+                    // closure object's upvalues. The closure is
+                    // already in its stack slot, which means that it
+                    // can capture itself as an upvalue for
+                    // self-recursion.
 
                     debug_assert!(
                         closure.upvalue_count() > 0,
@@ -536,6 +540,6 @@ pub fn run_lambda(lambda: Lambda) -> EvalResult<Value> {
         with_stack: vec![],
     };
 
-    vm.call(Closure::new(lambda), 0);
+    vm.call(Closure::new(Rc::new(lambda)), 0);
     vm.run()
 }

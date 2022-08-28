@@ -35,6 +35,7 @@ pub enum Value {
     AttrPath(Vec<NixString>),
     AttrNotFound,
     DynamicUpvalueMissing(NixString),
+    Blueprint(Rc<Lambda>),
 }
 
 impl Value {
@@ -55,9 +56,10 @@ impl Value {
             Value::Closure(_) | Value::Builtin(_) => "lambda",
 
             // Internal types
-            Value::AttrPath(_) | Value::AttrNotFound | Value::DynamicUpvalueMissing(_) => {
-                "internal"
-            }
+            Value::AttrPath(_)
+            | Value::AttrNotFound
+            | Value::DynamicUpvalueMissing(_)
+            | Value::Blueprint(_) => "internal",
         }
     }
 
@@ -166,6 +168,7 @@ impl Display for Value {
             // internal types
             Value::AttrPath(path) => write!(f, "internal[attrpath({})]", path.len()),
             Value::AttrNotFound => f.write_str("internal[not found]"),
+            Value::Blueprint(_) => f.write_str("internal[blueprint]"),
             Value::DynamicUpvalueMissing(name) => {
                 write!(f, "internal[no_dyn_upvalue({name})]")
             }
