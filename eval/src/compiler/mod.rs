@@ -654,6 +654,9 @@ impl Compiler {
 
         self.compile_let_inherit(node.inherits());
 
+        // First pass to ensure that all identifiers are known;
+        // required for resolving recursion.
+        let mut entries: Vec<(String, rnix::ast::Expr)> = vec![];
         for entry in node.attrpath_values() {
             let mut path = match normalise_ident_path(entry.attrpath().unwrap().attrs()) {
                 Ok(p) => p,
@@ -669,7 +672,15 @@ impl Compiler {
 
             let name = path.pop().unwrap();
             self.declare_local(entry.attrpath().unwrap().syntax().clone(), &name);
-            self.compile(entry.value().unwrap());
+            entries.push((name, entry.value().unwrap()));
+        }
+
+        // Second pass to place the values in the correct stack slots.
+        for (name, value) in entries.into_iter() {
+            self.compile(value);
+
+            // Any code after this point will observe the value in the
+            // right stack slot, so mark it as initialised.
             self.mark_initialised(&name);
         }
 
