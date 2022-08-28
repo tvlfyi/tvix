@@ -844,6 +844,7 @@ impl Compiler {
                     // and can be finalised.
                     if slot.unwrap() < idx.0 {
                         self.chunk().push_op(OpCode::DataDeferredLocal(idx));
+                        self.mark_needs_finaliser(slot.unwrap());
                     } else {
                         self.chunk().push_op(OpCode::DataLocalIdx(idx));
                     }
@@ -987,6 +988,7 @@ impl Compiler {
             name,
             depth,
             initialised: false,
+            needs_finaliser: false,
             node: Some(node),
             phantom: false,
             used: false,
@@ -1002,6 +1004,7 @@ impl Compiler {
         self.scope_mut().locals.push(Local {
             depth,
             initialised: true,
+            needs_finaliser: false,
             name: "".into(),
             node: None,
             phantom: true,
@@ -1012,6 +1015,11 @@ impl Compiler {
     /// Mark local as initialised after compiling its expression.
     fn mark_initialised(&mut self, local_idx: usize) {
         self.scope_mut().locals[local_idx].initialised = true;
+    }
+
+    /// Mark local as needing a finaliser.
+    fn mark_needs_finaliser(&mut self, local_idx: usize) {
+        self.scope_mut().locals[local_idx].needs_finaliser = true;
     }
 
     fn resolve_upvalue(&mut self, ctx_idx: usize, name: &str) -> Option<UpvalueIdx> {

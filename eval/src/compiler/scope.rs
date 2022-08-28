@@ -38,6 +38,10 @@ pub struct Local {
 
     // Is this local known to have been used at all?
     pub used: bool,
+
+    // Does this local need to be finalised after the enclosing scope
+    // is completely constructed?
+    pub needs_finaliser: bool,
 }
 
 impl Local {
