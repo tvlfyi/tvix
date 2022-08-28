@@ -678,12 +678,20 @@ impl Compiler {
         }
 
         // Second pass to place the values in the correct stack slots.
+        let indices: Vec<usize> = entries.iter().map(|(idx, _)| *idx).collect();
         for (idx, value) in entries.into_iter() {
             self.compile(Some(idx), value);
 
             // Any code after this point will observe the value in the
             // right stack slot, so mark it as initialised.
             self.mark_initialised(idx);
+        }
+
+        // Third pass to emit finaliser instructions if necessary.
+        for idx in indices {
+            if self.scope().locals[idx].needs_finaliser {
+                self.chunk().push_op(OpCode::OpFinalise(StackIdx(idx)));
+            }
         }
 
         // Deal with the body, then clean up the locals afterwards.
