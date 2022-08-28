@@ -25,11 +25,11 @@ use std::rc::Rc;
 
 use crate::chunk::Chunk;
 use crate::errors::{Error, ErrorKind, EvalResult};
-use crate::opcode::{CodeIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx};
+use crate::opcode::{CodeIdx, Count, JumpOffset, OpCode, UpvalueIdx};
 use crate::value::{Closure, Lambda, Value};
 use crate::warnings::{EvalWarning, WarningKind};
 
-use self::scope::{Local, LocalPosition, Scope, Upvalue};
+use self::scope::{Local, LocalIdx, LocalPosition, Scope, Upvalue};
 
 /// Represents the result of compiling a piece of Nix code. If
 /// compilation was successful, the resulting bytecode can be passed
@@ -106,7 +106,7 @@ impl Compiler {
 
 // Actual code-emitting AST traversal methods.
 impl Compiler {
-    fn compile(&mut self, slot: Option<usize>, expr: ast::Expr) {
+    fn compile(&mut self, slot: Option<LocalIdx>, expr: ast::Expr) {
         match expr {
             ast::Expr::Literal(literal) => self.compile_literal(literal),
             ast::Expr::Path(path) => self.compile_path(path),
@@ -437,7 +437,8 @@ impl Compiler {
                             }
 
                             LocalPosition::Known(idx) => {
-                                self.chunk().push_op(OpCode::OpGetLocal(idx))
+                                let stack_idx = self.scope().stack_index(idx);
+                                self.chunk().push_op(OpCode::OpGetLocal(stack_idx))
                             }
 
                             LocalPosition::Recursive(_) => {
@@ -624,7 +625,7 @@ impl Compiler {
                             ident.syntax().clone(),
                             ident.ident_token().unwrap().text(),
                         );
-                        self.mark_initialised(idx);
+                        self.scope_mut().mark_initialised(idx);
                     }
                 }
 
@@ -637,7 +638,7 @@ impl Compiler {
                             ident.syntax().clone(),
                             ident.ident_token().unwrap().text(),
                         );
-                        self.mark_initialised(idx);
+                        self.scope_mut().mark_initialised(idx);
                     }
                 }
             }
@@ -656,7 +657,7 @@ impl Compiler {
 
         // First pass to ensure that all identifiers are known;
         // required for resolving recursion.
-        let mut entries: Vec<(usize, rnix::ast::Expr)> = vec![];
+        let mut entries: Vec<(LocalIdx, rnix::ast::Expr)> = vec![];
         for entry in node.attrpath_values() {
             let mut path = match normalise_ident_path(entry.attrpath().unwrap().attrs()) {
                 Ok(p) => p,
@@ -674,23 +675,25 @@ impl Compiler {
                 entry.attrpath().unwrap().syntax().clone(),
                 path.pop().unwrap(),
             );
+
             entries.push((idx, entry.value().unwrap()));
         }
 
         // Second pass to place the values in the correct stack slots.
-        let indices: Vec<usize> = entries.iter().map(|(idx, _)| *idx).collect();
+        let indices: Vec<LocalIdx> = entries.iter().map(|(idx, _)| *idx).collect();
         for (idx, value) in entries.into_iter() {
             self.compile(Some(idx), value);
 
             // Any code after this point will observe the value in the
             // right stack slot, so mark it as initialised.
-            self.mark_initialised(idx);
+            self.scope_mut().mark_initialised(idx);
         }
 
         // Third pass to emit finaliser instructions if necessary.
         for idx in indices {
-            if self.scope().locals[idx].needs_finaliser {
-                self.chunk().push_op(OpCode::OpFinalise(StackIdx(idx)));
+            if self.scope()[idx].needs_finaliser {
+                let stack_idx = self.scope().stack_index(idx);
+                self.chunk().push_op(OpCode::OpFinalise(stack_idx));
             }
         }
 
@@ -747,7 +750,10 @@ impl Compiler {
                 self.chunk().push_op(OpCode::OpResolveWith)
             }
 
-            LocalPosition::Known(idx) => self.chunk().push_op(OpCode::OpGetLocal(idx)),
+            LocalPosition::Known(idx) => {
+                let stack_idx = self.scope().stack_index(idx);
+                self.chunk().push_op(OpCode::OpGetLocal(stack_idx))
+            }
 
             LocalPosition::Recursive(_) => panic!("TODO: unclear if this can happen"),
         };
@@ -762,22 +768,12 @@ impl Compiler {
         // resolve that directly (thus avoiding duplication on the
         // stack).
         self.compile(None, node.namespace().unwrap());
-        self.declare_phantom();
+        let local_idx = self.scope_mut().declare_phantom();
+        let with_idx = self.scope().stack_index(local_idx);
 
         self.scope_mut().push_with();
 
-        let with_idx = self
-            .scope()
-            .locals
-            .iter()
-            // Calculate the with_idx without taking into account
-            // uninitialised variables that are not yet in their stack
-            // slots.
-            .filter(|l| l.initialised)
-            .count()
-            - 1;
-
-        self.chunk().push_op(OpCode::OpPushWith(StackIdx(with_idx)));
+        self.chunk().push_op(OpCode::OpPushWith(with_idx));
 
         self.compile(None, node.body().unwrap());
 
@@ -786,7 +782,7 @@ impl Compiler {
         self.end_scope();
     }
 
-    fn compile_lambda(&mut self, slot: Option<usize>, node: ast::Lambda) {
+    fn compile_lambda(&mut self, slot: Option<LocalIdx>, node: ast::Lambda) {
         // Open new lambda context in compiler, which has its own
         // scope etc.
         self.contexts.push(LambdaCtx::new());
@@ -805,7 +801,7 @@ impl Compiler {
                     .to_string();
 
                 let idx = self.declare_local(param.syntax().clone(), &name);
-                self.mark_initialised(idx);
+                self.scope_mut().mark_initialised(idx);
             }
         }
 
@@ -841,20 +837,23 @@ impl Compiler {
         self.chunk().push_op(OpCode::OpClosure(closure_idx));
         for upvalue in compiled.scope.upvalues {
             match upvalue {
-                Upvalue::Stack(idx) if slot.is_none() => {
-                    self.chunk().push_op(OpCode::DataLocalIdx(idx));
+                Upvalue::Local(idx) if slot.is_none() => {
+                    let stack_idx = self.scope().stack_index(idx);
+                    self.chunk().push_op(OpCode::DataLocalIdx(stack_idx));
                 }
 
-                Upvalue::Stack(idx) => {
+                Upvalue::Local(idx) => {
+                    let stack_idx = self.scope().stack_index(idx);
+
                     // If the upvalue slot is located *after* the
                     // closure, the upvalue resolution must be
                     // deferred until the scope is fully initialised
                     // and can be finalised.
-                    if slot.unwrap() < idx.0 {
-                        self.chunk().push_op(OpCode::DataDeferredLocal(idx));
-                        self.mark_needs_finaliser(slot.unwrap());
+                    if slot.unwrap() < idx {
+                        self.chunk().push_op(OpCode::DataDeferredLocal(stack_idx));
+                        self.scope_mut().mark_needs_finaliser(slot.unwrap());
                     } else {
-                        self.chunk().push_op(OpCode::DataLocalIdx(idx));
+                        self.chunk().push_op(OpCode::DataLocalIdx(stack_idx));
                     }
                 }
 
@@ -960,7 +959,7 @@ impl Compiler {
     /// Declare a local variable known in the scope that is being
     /// compiled by pushing it to the locals. This is used to
     /// determine the stack offset of variables.
-    fn declare_local<S: Into<String>>(&mut self, node: rnix::SyntaxNode, name: S) -> usize {
+    fn declare_local<S: Into<String>>(&mut self, node: rnix::SyntaxNode, name: S) -> LocalIdx {
         let name = name.into();
         let depth = self.scope().scope_depth;
 
@@ -991,43 +990,7 @@ impl Compiler {
             );
         }
 
-        let idx = self.scope().locals.len();
-        self.scope_mut().locals.push(Local {
-            name,
-            depth,
-            initialised: false,
-            needs_finaliser: false,
-            node: Some(node),
-            phantom: false,
-            used: false,
-        });
-        idx
-    }
-
-    /// Declare a local variable that occupies a stack slot and should
-    /// be accounted for, but is not directly accessible by users
-    /// (e.g. attribute sets used for `with`).
-    fn declare_phantom(&mut self) {
-        let depth = self.scope().scope_depth;
-        self.scope_mut().locals.push(Local {
-            depth,
-            initialised: true,
-            needs_finaliser: false,
-            name: "".into(),
-            node: None,
-            phantom: true,
-            used: true,
-        });
-    }
-
-    /// Mark local as initialised after compiling its expression.
-    fn mark_initialised(&mut self, local_idx: usize) {
-        self.scope_mut().locals[local_idx].initialised = true;
-    }
-
-    /// Mark local as needing a finaliser.
-    fn mark_needs_finaliser(&mut self, local_idx: usize) {
-        self.scope_mut().locals[local_idx].needs_finaliser = true;
+        self.scope_mut().declare_local(name, node)
     }
 
     fn resolve_upvalue(&mut self, ctx_idx: usize, name: &str) -> Option<UpvalueIdx> {
@@ -1043,7 +1006,7 @@ impl Compiler {
             // guaranteed to be placed on the stack (i.e. in the right
             // position) *during* their runtime construction
             LocalPosition::Known(idx) | LocalPosition::Recursive(idx) => {
-                return Some(self.add_upvalue(ctx_idx, Upvalue::Stack(idx)))
+                return Some(self.add_upvalue(ctx_idx, Upvalue::Local(idx)))
             }
 
             LocalPosition::Unknown => { /* continue below */ }

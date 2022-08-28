@@ -10,7 +10,10 @@
 //! stack indices. To do this, the compiler simulates where locals
 //! will be at runtime using the data structures implemented here.
 
-use std::collections::{hash_map, HashMap};
+use std::{
+    collections::{hash_map, HashMap},
+    ops::Index,
+};
 
 use smol_str::SmolStr;
 
@@ -56,13 +59,13 @@ pub enum LocalPosition {
     /// Local is not known in this scope.
     Unknown,
 
-    /// Local is known and defined at the given stack index.
-    Known(StackIdx),
+    /// Local is known at the given local index.
+    Known(LocalIdx),
 
     /// Local is known, but is being accessed recursively within its
     /// own initialisation. Depending on context, this is either an
     /// error or forcing a closure/thunk.
-    Recursive(StackIdx),
+    Recursive(LocalIdx),
 }
 
 /// Represents the different ways in which upvalues can be captured in
@@ -70,7 +73,7 @@ pub enum LocalPosition {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Upvalue {
     /// This upvalue captures a local from the stack.
-    Stack(StackIdx),
+    Local(LocalIdx),
 
     /// This upvalue captures an enclosing upvalue.
     Upvalue(UpvalueIdx),
@@ -86,6 +89,13 @@ pub enum Upvalue {
         up: Option<UpvalueIdx>,
     },
 }
+
+/// Represents the index of a local in the scope's local array, which
+/// is subtly different from its `StackIdx` (which excludes
+/// uninitialised values in between).
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
+pub struct LocalIdx(usize);
 
 /// Represents a scope known during compilation, which can be resolved
 /// directly to stack indices.
@@ -111,6 +121,14 @@ pub struct Scope {
     // To support this efficiently, the depth at which a poisoning
     // occured is tracked here.
     poisoned_tokens: HashMap<&'static str, usize>,
+}
+
+impl Index<LocalIdx> for Scope {
+    type Output = Local;
+
+    fn index(&self, index: LocalIdx) -> &Self::Output {
+        &self.locals[index.0]
+    }
 }
 
 impl Scope {
@@ -165,29 +183,69 @@ impl Scope {
                 // we know its final runtime stack position, but it is
                 // not yet on the stack.
                 if !local.initialised {
-                    return LocalPosition::Recursive(StackIdx(idx));
+                    return LocalPosition::Recursive(LocalIdx(idx));
                 }
 
-                // This local is known, but we need to account for
-                // uninitialised variables in this "initialiser
-                // stack".
-                return LocalPosition::Known(self.resolve_uninit(idx));
+                return LocalPosition::Known(LocalIdx(idx));
             }
         }
 
         LocalPosition::Unknown
     }
 
-    /// Return the "initialiser stack slot" of a value, that is the
-    /// stack slot of a value which might only exist during the
-    /// initialisation of another. This requires accounting for the
-    /// stack offsets of any unitialised variables.
-    fn resolve_uninit(&mut self, locals_idx: usize) -> StackIdx {
-        StackIdx(
-            self.locals[..locals_idx]
-                .iter()
-                .filter(|local| local.initialised)
-                .count(),
-        )
+    /// Declare a local variable that occupies a stack slot and should
+    /// be accounted for, but is not directly accessible by users
+    /// (e.g. attribute sets used for `with`).
+    pub fn declare_phantom(&mut self) -> LocalIdx {
+        let idx = self.locals.len();
+        self.locals.push(Local {
+            depth: self.scope_depth,
+            initialised: true,
+            needs_finaliser: false,
+            name: "".into(),
+            node: None,
+            phantom: true,
+            used: true,
+        });
+
+        LocalIdx(idx)
+    }
+
+    /// Declare an uninitialised local variable.
+    pub fn declare_local(&mut self, name: String, node: rnix::SyntaxNode) -> LocalIdx {
+        let idx = self.locals.len();
+        self.locals.push(Local {
+            name,
+            depth: self.scope_depth,
+            initialised: false,
+            needs_finaliser: false,
+            node: Some(node),
+            phantom: false,
+            used: false,
+        });
+
+        LocalIdx(idx)
+    }
+
+    /// Mark local as initialised after compiling its expression.
+    pub fn mark_initialised(&mut self, idx: LocalIdx) {
+        self.locals[idx.0].initialised = true;
+    }
+
+    /// Mark local as needing a finaliser.
+    pub fn mark_needs_finaliser(&mut self, idx: LocalIdx) {
+        self.locals[idx.0].needs_finaliser = true;
+    }
+
+    /// Compute the runtime stack index for a given local by
+    /// accounting for uninitialised variables at scopes below this
+    /// one.
+    pub fn stack_index(&self, idx: LocalIdx) -> StackIdx {
+        let uninitialised_count = self.locals[..(idx.0)]
+            .iter()
+            .filter(|l| !l.initialised && self[idx].above(l.depth))
+            .count();
+
+        StackIdx(idx.0 - uninitialised_count)
     }
 }
