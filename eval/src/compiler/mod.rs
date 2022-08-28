@@ -120,7 +120,7 @@ impl Compiler {
             ast::Expr::Assert(assert) => self.compile_assert(assert),
             ast::Expr::IfElse(if_else) => self.compile_if_else(if_else),
             ast::Expr::LetIn(let_in) => self.compile_let_in(let_in),
-            ast::Expr::Ident(ident) => self.compile_ident(ident),
+            ast::Expr::Ident(ident) => self.compile_ident(slot, ident),
             ast::Expr::With(with) => self.compile_with(with),
             ast::Expr::Lambda(lambda) => self.compile_lambda(slot, lambda),
             ast::Expr::Apply(apply) => self.compile_apply(apply),
@@ -620,7 +620,7 @@ impl Compiler {
                             continue;
                         }
 
-                        self.compile_ident(ident.clone());
+                        self.compile_ident(None, ident.clone());
                         let idx = self.declare_local(
                             ident.syntax().clone(),
                             ident.ident_token().unwrap().text(),
@@ -702,7 +702,7 @@ impl Compiler {
         self.end_scope();
     }
 
-    fn compile_ident(&mut self, node: ast::Ident) {
+    fn compile_ident(&mut self, slot: Option<LocalIdx>, node: ast::Ident) {
         let ident = node.ident_token().unwrap();
 
         // If the identifier is a global, and it is not poisoned, emit
@@ -747,15 +747,22 @@ impl Compiler {
                 // Variable needs to be dynamically resolved at
                 // runtime.
                 self.emit_constant(Value::String(ident.text().into()));
-                self.chunk().push_op(OpCode::OpResolveWith)
+                self.chunk().push_op(OpCode::OpResolveWith);
             }
 
             LocalPosition::Known(idx) => {
                 let stack_idx = self.scope().stack_index(idx);
-                self.chunk().push_op(OpCode::OpGetLocal(stack_idx))
+                self.chunk().push_op(OpCode::OpGetLocal(stack_idx));
             }
 
-            LocalPosition::Recursive(_) => panic!("TODO: unclear if this can happen"),
+            // This identifier is referring to a value from the same
+            // scope which is not yet defined. This identifier access
+            // must be thunked.
+            LocalPosition::Recursive(idx) => self.thunk(slot, move |compiler, _| {
+                let upvalue_idx =
+                    compiler.add_upvalue(compiler.contexts.len() - 1, Upvalue::Local(idx));
+                compiler.chunk().push_op(OpCode::OpGetUpvalue(upvalue_idx));
+            }),
         };
     }
 
