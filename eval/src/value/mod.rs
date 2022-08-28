@@ -10,6 +10,7 @@ mod list;
 mod string;
 
 use crate::errors::{ErrorKind, EvalResult};
+use crate::opcode::StackIdx;
 pub use attrs::NixAttrs;
 pub use builtin::Builtin;
 pub use function::{Closure, Lambda};
@@ -36,6 +37,7 @@ pub enum Value {
     AttrNotFound,
     DynamicUpvalueMissing(NixString),
     Blueprint(Rc<Lambda>),
+    DeferredUpvalue(StackIdx),
 }
 
 impl Value {
@@ -59,7 +61,8 @@ impl Value {
             Value::AttrPath(_)
             | Value::AttrNotFound
             | Value::DynamicUpvalueMissing(_)
-            | Value::Blueprint(_) => "internal",
+            | Value::Blueprint(_)
+            | Value::DeferredUpvalue(_) => "internal",
         }
     }
 
@@ -169,6 +172,7 @@ impl Display for Value {
             Value::AttrPath(path) => write!(f, "internal[attrpath({})]", path.len()),
             Value::AttrNotFound => f.write_str("internal[not found]"),
             Value::Blueprint(_) => f.write_str("internal[blueprint]"),
+            Value::DeferredUpvalue(_) => f.write_str("internal[deferred_upvalue]"),
             Value::DynamicUpvalueMissing(name) => {
                 write!(f, "internal[no_dyn_upvalue({name})]")
             }

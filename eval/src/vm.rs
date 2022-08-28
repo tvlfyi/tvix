@@ -426,8 +426,8 @@ impl VM {
                                 closure.push_upvalue(value);
                             }
 
-                            OpCode::DataDeferredLocal(_idx) => {
-                                todo!("deferred local initialisation")
+                            OpCode::DataDeferredLocal(idx) => {
+                                closure.push_upvalue(Value::DeferredUpvalue(idx));
                             }
 
                             _ => panic!("compiler error: missing closure operand"),
