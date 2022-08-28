@@ -8,6 +8,7 @@ mod builtin;
 mod function;
 mod list;
 mod string;
+mod thunk;
 
 use crate::errors::{ErrorKind, EvalResult};
 use crate::opcode::StackIdx;
@@ -16,6 +17,7 @@ pub use builtin::Builtin;
 pub use function::{Closure, Lambda};
 pub use list::NixList;
 pub use string::NixString;
+pub use thunk::Thunk;
 
 #[warn(variant_size_differences)]
 #[derive(Clone, Debug)]
@@ -33,6 +35,7 @@ pub enum Value {
 
     // Internal values that, while they technically exist at runtime,
     // are never returned to or created directly by users.
+    Thunk(Thunk),
     AttrPath(Vec<NixString>),
     AttrNotFound,
     DynamicUpvalueMissing(NixString),
@@ -58,7 +61,8 @@ impl Value {
             Value::Closure(_) | Value::Builtin(_) => "lambda",
 
             // Internal types
-            Value::AttrPath(_)
+            Value::Thunk(_)
+            | Value::AttrPath(_)
             | Value::AttrNotFound
             | Value::DynamicUpvalueMissing(_)
             | Value::Blueprint(_)
@@ -169,6 +173,7 @@ impl Display for Value {
             }
 
             // internal types
+            Value::Thunk(_) => f.write_str("internal[thunk]"),
             Value::AttrPath(path) => write!(f, "internal[attrpath({})]", path.len()),
             Value::AttrNotFound => f.write_str("internal[not found]"),
             Value::Blueprint(_) => f.write_str("internal[blueprint]"),
