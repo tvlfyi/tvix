@@ -657,7 +657,7 @@ impl Compiler {
 
         // First pass to ensure that all identifiers are known;
         // required for resolving recursion.
-        let mut entries: Vec<(LocalIdx, rnix::ast::Expr)> = vec![];
+        let mut entries: Vec<(LocalIdx, ast::Expr)> = vec![];
         for entry in node.attrpath_values() {
             let mut path = match normalise_ident_path(entry.attrpath().unwrap().attrs()) {
                 Ok(p) => p,
@@ -830,12 +830,28 @@ impl Compiler {
         // number of operands that allow the runtime to close over the
         // upvalues and leave a blueprint in the constant index from
         // which the runtime closure can be constructed.
-        let closure_idx = self
+        let blueprint_idx = self
             .chunk()
             .push_constant(Value::Blueprint(Rc::new(compiled.lambda)));
 
-        self.chunk().push_op(OpCode::OpClosure(closure_idx));
-        for upvalue in compiled.scope.upvalues {
+        self.chunk().push_op(OpCode::OpClosure(blueprint_idx));
+        self.emit_upvalue_data(slot, compiled.scope.upvalues);
+    }
+
+    fn compile_apply(&mut self, node: ast::Apply) {
+        // To call a function, we leave its arguments on the stack,
+        // followed by the function expression itself, and then emit a
+        // call instruction. This way, the stack is perfectly laid out
+        // to enter the function call straight away.
+        self.compile(None, node.argument().unwrap());
+        self.compile(None, node.lambda().unwrap());
+        self.chunk().push_op(OpCode::OpCall);
+    }
+
+    /// Emit the data instructions that the runtime needs to correctly
+    /// assemble the provided upvalues array.
+    fn emit_upvalue_data(&mut self, slot: Option<LocalIdx>, upvalues: Vec<Upvalue>) {
+        for upvalue in upvalues {
             match upvalue {
                 Upvalue::Local(idx) if slot.is_none() => {
                     let stack_idx = self.scope().stack_index(idx);
@@ -869,16 +885,6 @@ impl Compiler {
                 }
             };
         }
-    }
-
-    fn compile_apply(&mut self, node: ast::Apply) {
-        // To call a function, we leave its arguments on the stack,
-        // followed by the function expression itself, and then emit a
-        // call instruction. This way, the stack is perfectly laid out
-        // to enter the function call straight away.
-        self.compile(None, node.argument().unwrap());
-        self.compile(None, node.lambda().unwrap());
-        self.chunk().push_op(OpCode::OpCall);
     }
 
     /// Emit the literal string value of an identifier. Required for
