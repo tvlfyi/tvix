@@ -16,34 +16,6 @@ use smol_str::SmolStr;
 
 use crate::opcode::{StackIdx, UpvalueIdx};
 
-/// Represents the initialisation status of a variable, tracking
-/// whether it is only known or also already defined.
-pub enum Depth {
-    /// Variable is defined and located at the given depth.
-    At(usize),
-
-    /// Variable is known but not yet defined.
-    Unitialised,
-}
-
-impl Depth {
-    /// Does this variable live above the other given depth?
-    pub fn above(&self, theirs: usize) -> bool {
-        match self {
-            Depth::Unitialised => false,
-            Depth::At(ours) => *ours > theirs,
-        }
-    }
-
-    /// Does this variable live below the other given depth?
-    pub fn below(&self, theirs: usize) -> bool {
-        match self {
-            Depth::Unitialised => false,
-            Depth::At(ours) => *ours < theirs,
-        }
-    }
-}
-
 /// Represents a single local already known to the compiler.
 pub struct Local {
     // Definition name, which can be different kinds of tokens (plain
@@ -55,7 +27,10 @@ pub struct Local {
     pub node: Option<rnix::SyntaxNode>,
 
     // Scope depth of this local.
-    pub depth: Depth,
+    pub depth: usize,
+
+    // Is this local initialised?
+    pub initialised: bool,
 
     // Phantom locals are not actually accessible by users (e.g.
     // intermediate values used for `with`).
@@ -63,6 +38,13 @@ pub struct Local {
 
     // Is this local known to have been used at all?
     pub used: bool,
+}
+
+impl Local {
+    /// Does this local live above the other given depth?
+    pub fn above(&self, theirs: usize) -> bool {
+        self.depth > theirs
+    }
 }
 
 /// Represents the current position of a local as resolved in a scope.
@@ -175,17 +157,17 @@ impl Scope {
             if !local.phantom && local.name == name {
                 local.used = true;
 
-                match local.depth {
-                    // This local is still being initialised, meaning
-                    // that we know its final runtime stack position,
-                    // but it is not yet on the stack.
-                    Depth::Unitialised => return LocalPosition::Recursive(StackIdx(idx)),
-
-                    // This local is known, but we need to account for
-                    // uninitialised variables in this "initialiser
-                    // stack".
-                    Depth::At(_) => return LocalPosition::Known(self.resolve_uninit(idx)),
+                // This local is still being initialised, meaning that
+                // we know its final runtime stack position, but it is
+                // not yet on the stack.
+                if !local.initialised {
+                    return LocalPosition::Recursive(StackIdx(idx));
                 }
+
+                // This local is known, but we need to account for
+                // uninitialised variables in this "initialiser
+                // stack".
+                return LocalPosition::Known(self.resolve_uninit(idx));
             }
         }
 
@@ -200,7 +182,7 @@ impl Scope {
         StackIdx(
             self.locals[..locals_idx]
                 .iter()
-                .filter(|local| matches!(local.depth, Depth::At(_)))
+                .filter(|local| local.initialised)
                 .count(),
         )
     }

@@ -29,7 +29,7 @@ use crate::opcode::{CodeIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx};
 use crate::value::{Closure, Lambda, Value};
 use crate::warnings::{EvalWarning, WarningKind};
 
-use self::scope::{Depth, Local, LocalPosition, Scope, Upvalue};
+use self::scope::{Local, LocalPosition, Scope, Upvalue};
 
 /// Represents the result of compiling a piece of Nix code. If
 /// compilation was successful, the resulting bytecode can be passed
@@ -752,7 +752,7 @@ impl Compiler {
             // Calculate the with_idx without taking into account
             // uninitialised variables that are not yet in their stack
             // slots.
-            .filter(|l| matches!(l.depth, Depth::At(_)))
+            .filter(|l| l.initialised)
             .count()
             - 1;
 
@@ -897,9 +897,7 @@ impl Compiler {
         // TL;DR - iterate from the back while things belonging to the
         // ended scope still exist.
         while !self.scope().locals.is_empty()
-            && self.scope().locals[self.scope().locals.len() - 1]
-                .depth
-                .above(self.scope().scope_depth)
+            && self.scope().locals[self.scope().locals.len() - 1].above(self.scope().scope_depth)
         {
             pops += 1;
 
@@ -944,13 +942,8 @@ impl Compiler {
         }
 
         let mut shadowed = false;
-        for local in self.scope().locals.iter().rev() {
-            if local.depth.below(self.scope().scope_depth) {
-                // Shadowing identifiers from higher scopes is allowed.
-                break;
-            }
-
-            if local.name == name {
+        for other in self.scope().locals.iter().rev() {
+            if other.name == name && other.depth == depth {
                 shadowed = true;
                 break;
             }
@@ -965,7 +958,8 @@ impl Compiler {
 
         self.scope_mut().locals.push(Local {
             name,
-            depth: Depth::Unitialised,
+            depth,
+            initialised: false,
             node: Some(node),
             phantom: false,
             used: false,
@@ -978,7 +972,8 @@ impl Compiler {
     fn declare_phantom(&mut self) {
         let depth = self.scope().scope_depth;
         self.scope_mut().locals.push(Local {
-            depth: Depth::At(depth),
+            depth,
+            initialised: true,
             name: "".into(),
             node: None,
             phantom: true,
@@ -990,8 +985,8 @@ impl Compiler {
     fn mark_initialised(&mut self, name: &str) {
         let depth = self.scope().scope_depth;
         for local in self.scope_mut().locals.iter_mut().rev() {
-            if matches!(local.depth, Depth::Unitialised) && local.name == name {
-                local.depth = Depth::At(depth);
+            if !local.initialised && local.depth == depth && local.name == name {
+                local.initialised = true;
                 return;
             }
         }
