@@ -34,6 +34,7 @@ pub enum Value {
     // are never returned to or created directly by users.
     AttrPath(Vec<NixString>),
     AttrNotFound,
+    DynamicUpvalueMissing(NixString),
 }
 
 impl Value {
@@ -54,7 +55,9 @@ impl Value {
             Value::Closure(_) | Value::Builtin(_) => "lambda",
 
             // Internal types
-            Value::AttrPath(_) | Value::AttrNotFound => "internal",
+            Value::AttrPath(_) | Value::AttrNotFound | Value::DynamicUpvalueMissing(_) => {
+                "internal"
+            }
         }
     }
 
@@ -163,6 +166,9 @@ impl Display for Value {
             // internal types
             Value::AttrPath(path) => write!(f, "internal[attrpath({})]", path.len()),
             Value::AttrNotFound => f.write_str("internal[not found]"),
+            Value::DynamicUpvalueMissing(name) => {
+                write!(f, "internal[no_dyn_upvalue({name})]")
+            }
         }
     }
 }

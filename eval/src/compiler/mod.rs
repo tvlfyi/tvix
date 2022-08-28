@@ -702,6 +702,15 @@ impl Compiler {
                 if let Some(idx) =
                     self.resolve_dynamic_upvalue(self.contexts.len() - 1, ident.text())
                 {
+                    // Edge case: Current scope *also* has a non-empty
+                    // `with`-stack. This means we need to resolve
+                    // both in this scope, and in the upvalues.
+                    if self.scope().has_with() {
+                        self.emit_constant(Value::String(ident.text().into()));
+                        self.chunk().push_op(OpCode::OpResolveWithOrUpvalue(idx));
+                        return;
+                    }
+
                     self.chunk().push_op(OpCode::OpGetUpvalue(idx));
                     return;
                 }
@@ -810,11 +819,18 @@ impl Compiler {
         self.chunk().push_op(OpCode::OpClosure(closure_idx));
         for upvalue in compiled.scope.upvalues {
             match upvalue {
-                Upvalue::Stack(idx) => self.chunk().push_op(OpCode::DataLocalIdx(idx)),
-                Upvalue::Upvalue(idx) => self.chunk().push_op(OpCode::DataUpvalueIdx(idx)),
-                Upvalue::Dynamic { name, .. } => {
+                Upvalue::Stack(idx) => {
+                    self.chunk().push_op(OpCode::DataLocalIdx(idx));
+                }
+                Upvalue::Upvalue(idx) => {
+                    self.chunk().push_op(OpCode::DataUpvalueIdx(idx));
+                }
+                Upvalue::Dynamic { name, up } => {
                     let idx = self.chunk().push_constant(Value::String(name.into()));
-                    self.chunk().push_op(OpCode::DataDynamicIdx(idx))
+                    self.chunk().push_op(OpCode::DataDynamicIdx(idx));
+                    if let Some(up) = up {
+                        self.chunk().push_op(OpCode::DataDynamicAncestor(up));
+                    }
                 }
             };
         }

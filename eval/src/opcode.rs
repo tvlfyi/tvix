@@ -82,6 +82,7 @@ pub enum OpCode {
     OpPushWith(StackIdx),
     OpPopWith,
     OpResolveWith,
+    OpResolveWithOrUpvalue(UpvalueIdx),
 
     // Lists
     OpList(Count),
@@ -116,4 +117,5 @@ pub enum OpCode {
     DataLocalIdx(StackIdx),
     DataUpvalueIdx(UpvalueIdx),
     DataDynamicIdx(ConstantIdx),
+    DataDynamicAncestor(UpvalueIdx),
 }

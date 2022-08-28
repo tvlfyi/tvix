@@ -5,8 +5,8 @@ use std::{cell::Ref, rc::Rc};
 
 use crate::{
     chunk::Chunk,
-    errors::{ErrorKind, EvalResult},
-    opcode::{Count, JumpOffset, OpCode, StackIdx},
+    errors::{Error, ErrorKind, EvalResult},
+    opcode::{ConstantIdx, Count, JumpOffset, OpCode, StackIdx},
     value::{Closure, Lambda, NixAttrs, NixList, Value},
 };
 
@@ -98,6 +98,10 @@ impl VM {
         let op = self.chunk().code[self.frame().ip];
         self.frame_mut().ip += 1;
         op
+    }
+
+    fn peek_op(&self) -> OpCode {
+        self.chunk().code[self.frame().ip]
     }
 
     fn pop(&mut self) -> Value {
@@ -337,6 +341,25 @@ impl VM {
                     self.push(value)
                 }
 
+                OpCode::OpResolveWithOrUpvalue(idx) => {
+                    let ident = self.pop().to_string()?;
+                    match self.resolve_with(ident.as_str()) {
+                        // Variable found in local `with`-stack.
+                        Ok(value) => self.push(value),
+
+                        // Variable not found => check upvalues.
+                        Err(Error {
+                            kind: ErrorKind::UnknownDynamicVariable(_),
+                            ..
+                        }) => {
+                            let value = self.frame().closure.upvalue(idx).clone();
+                            self.push(value);
+                        }
+
+                        Err(err) => return Err(err),
+                    }
+                }
+
                 OpCode::OpAssert => {
                     if !self.pop().as_bool()? {
                         return Err(ErrorKind::AssertionFailed.into());
@@ -389,10 +412,8 @@ impl VM {
                             }
 
                             OpCode::DataDynamicIdx(ident_idx) => {
-                                let chunk = self.chunk();
-                                let ident = chunk.constant(ident_idx).as_str()?.to_string();
-                                drop(chunk); // some lifetime trickery due to cell::Ref
-                                closure.push_upvalue(self.resolve_with(&ident)?);
+                                let value = self.resolve_dynamic_upvalue(ident_idx)?;
+                                closure.push_upvalue(value);
                             }
 
                             _ => panic!("compiler error: missing closure operand"),
@@ -402,7 +423,10 @@ impl VM {
 
                 // Data-carrying operands should never be executed,
                 // that is a critical error in the VM.
-                OpCode::DataLocalIdx(_) | OpCode::DataUpvalueIdx(_) | OpCode::DataDynamicIdx(_) => {
+                OpCode::DataLocalIdx(_)
+                | OpCode::DataUpvalueIdx(_)
+                | OpCode::DataDynamicIdx(_)
+                | OpCode::DataDynamicAncestor(_) => {
                     panic!("VM bug: attempted to execute data-carrying operand")
                 }
             }
@@ -450,6 +474,39 @@ impl VM {
 
         self.push(Value::String(out.into()));
         Ok(())
+    }
+
+    fn resolve_dynamic_upvalue(&mut self, ident_idx: ConstantIdx) -> EvalResult<Value> {
+        let chunk = self.chunk();
+        let ident = chunk.constant(ident_idx).as_str()?.to_string();
+        drop(chunk); // some lifetime trickery due to cell::Ref
+
+        // Peek at the current instruction (note: IP has already
+        // advanced!) to see if it is actually data indicating a
+        // "fallback upvalue" in case the dynamic could not be
+        // resolved at this level.
+        let up = match self.peek_op() {
+            OpCode::DataDynamicAncestor(idx) => {
+                // advance ip past this data
+                self.inc_ip();
+                Some(idx)
+            }
+            _ => None,
+        };
+
+        match self.resolve_with(&ident) {
+            Ok(v) => Ok(v),
+
+            Err(Error {
+                kind: ErrorKind::UnknownDynamicVariable(_),
+                ..
+            }) => match up {
+                Some(idx) => Ok(self.frame().closure.upvalue(idx).clone()),
+                None => Ok(Value::DynamicUpvalueMissing(ident.into())),
+            },
+
+            Err(err) => Err(err),
+        }
     }
 
     /// Resolve a dynamic identifier through the with-stack at runtime.
