@@ -60,4 +60,15 @@ impl Closure {
     pub fn push_upvalue(&self, value: Value) {
         self.0.borrow_mut().upvalues.push(value)
     }
+
+    /// Resolve the deferred upvalues in the closure from a slice of
+    /// the current stack, using the indices stored in the deferred
+    /// values.
+    pub fn resolve_deferred_upvalues(&self, stack: &[Value]) {
+        for upvalue in self.0.borrow_mut().upvalues.iter_mut() {
+            if let Value::DeferredUpvalue(idx) = upvalue {
+                *upvalue = stack[idx.0].clone();
+            }
+        }
+    }
 }

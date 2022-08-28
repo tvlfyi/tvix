@@ -435,6 +435,19 @@ impl VM {
                     }
                 }
 
+                OpCode::OpFinalise(StackIdx(idx)) => {
+                    match &self.stack[self.frame().stack_offset + idx] {
+                        Value::Closure(closure) => closure
+                            .resolve_deferred_upvalues(&self.stack[self.frame().stack_offset..]),
+
+                        v => {
+                            #[cfg(feature = "disassembler")]
+                            drop(tracer);
+                            panic!("compiler error: invalid finaliser value: {}", v);
+                        }
+                    }
+                }
+
                 // Data-carrying operands should never be executed,
                 // that is a critical error in the VM.
                 OpCode::DataLocalIdx(_)

@@ -32,7 +32,6 @@ pub struct JumpOffset(pub usize);
 #[derive(Clone, Copy, Debug)]
 pub struct Count(pub usize);
 
-#[allow(clippy::enum_variant_names)]
 #[warn(variant_size_differences)]
 #[derive(Clone, Copy, Debug)]
 pub enum OpCode {
@@ -107,6 +106,10 @@ pub enum OpCode {
     OpCall,
     OpGetUpvalue(UpvalueIdx),
     OpClosure(ConstantIdx),
+
+    /// Finalise initialisation of the upvalues of the value in the
+    /// given stack index after the scope is fully bound.
+    OpFinalise(StackIdx),
 
     // The closure and thunk creation instructions have a variable
     // number of arguments to the instruction, which is represented
