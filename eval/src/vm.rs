@@ -381,6 +381,12 @@ impl VM {
 
                 OpCode::OpGetUpvalue(upv_idx) => {
                     let value = self.frame().closure.upvalue(upv_idx).clone();
+                    if let Value::DynamicUpvalueMissing(name) = value {
+                        return Err(
+                            ErrorKind::UnknownDynamicVariable(name.as_str().to_string()).into()
+                        );
+                    }
+
                     self.push(value);
                 }
 
