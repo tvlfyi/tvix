@@ -620,11 +620,11 @@ impl Compiler {
                         }
 
                         self.compile_ident(ident.clone());
-                        self.declare_local(
+                        let idx = self.declare_local(
                             ident.syntax().clone(),
                             ident.ident_token().unwrap().text(),
                         );
-                        self.mark_initialised(ident.ident_token().unwrap().text());
+                        self.mark_initialised(idx);
                     }
                 }
 
@@ -633,11 +633,11 @@ impl Compiler {
                         self.compile(from.expr().unwrap());
                         self.emit_literal_ident(&ident);
                         self.chunk().push_op(OpCode::OpAttrsSelect);
-                        self.declare_local(
+                        let idx = self.declare_local(
                             ident.syntax().clone(),
                             ident.ident_token().unwrap().text(),
                         );
-                        self.mark_initialised(ident.ident_token().unwrap().text());
+                        self.mark_initialised(idx);
                     }
                 }
             }
@@ -656,7 +656,7 @@ impl Compiler {
 
         // First pass to ensure that all identifiers are known;
         // required for resolving recursion.
-        let mut entries: Vec<(String, rnix::ast::Expr)> = vec![];
+        let mut entries: Vec<(usize, rnix::ast::Expr)> = vec![];
         for entry in node.attrpath_values() {
             let mut path = match normalise_ident_path(entry.attrpath().unwrap().attrs()) {
                 Ok(p) => p,
@@ -670,18 +670,20 @@ impl Compiler {
                 todo!("nested bindings in let expressions :(")
             }
 
-            let name = path.pop().unwrap();
-            self.declare_local(entry.attrpath().unwrap().syntax().clone(), &name);
-            entries.push((name, entry.value().unwrap()));
+            let idx = self.declare_local(
+                entry.attrpath().unwrap().syntax().clone(),
+                path.pop().unwrap(),
+            );
+            entries.push((idx, entry.value().unwrap()));
         }
 
         // Second pass to place the values in the correct stack slots.
-        for (name, value) in entries.into_iter() {
+        for (idx, value) in entries.into_iter() {
             self.compile(value);
 
             // Any code after this point will observe the value in the
             // right stack slot, so mark it as initialised.
-            self.mark_initialised(&name);
+            self.mark_initialised(idx);
         }
 
         // Deal with the body, then clean up the locals afterwards.
@@ -794,8 +796,8 @@ impl Compiler {
                     .text()
                     .to_string();
 
-                self.declare_local(param.syntax().clone(), &name);
-                self.mark_initialised(&name);
+                let idx = self.declare_local(param.syntax().clone(), &name);
+                self.mark_initialised(idx);
             }
         }
 
@@ -936,7 +938,7 @@ impl Compiler {
     /// Declare a local variable known in the scope that is being
     /// compiled by pushing it to the locals. This is used to
     /// determine the stack offset of variables.
-    fn declare_local<S: Into<String>>(&mut self, node: rnix::SyntaxNode, name: S) {
+    fn declare_local<S: Into<String>>(&mut self, node: rnix::SyntaxNode, name: S) -> usize {
         let name = name.into();
         let depth = self.scope().scope_depth;
 
@@ -967,6 +969,7 @@ impl Compiler {
             );
         }
 
+        let idx = self.scope().locals.len();
         self.scope_mut().locals.push(Local {
             name,
             depth,
@@ -975,6 +978,7 @@ impl Compiler {
             phantom: false,
             used: false,
         });
+        idx
     }
 
     /// Declare a local variable that occupies a stack slot and should
@@ -993,16 +997,8 @@ impl Compiler {
     }
 
     /// Mark local as initialised after compiling its expression.
-    fn mark_initialised(&mut self, name: &str) {
-        let depth = self.scope().scope_depth;
-        for local in self.scope_mut().locals.iter_mut().rev() {
-            if !local.initialised && local.depth == depth && local.name == name {
-                local.initialised = true;
-                return;
-            }
-        }
-
-        panic!("critical compiler error: unbalanced locals stack");
+    fn mark_initialised(&mut self, local_idx: usize) {
+        self.scope_mut().locals[local_idx].initialised = true;
     }
 
     fn resolve_upvalue(&mut self, ctx_idx: usize, name: &str) -> Option<UpvalueIdx> {
