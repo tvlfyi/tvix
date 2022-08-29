@@ -1,12 +1,12 @@
 //! This module implements the virtual (or abstract) machine that runs
 //! Tvix bytecode.
 
-use std::{cell::Ref, rc::Rc};
+use std::rc::Rc;
 
 use crate::{
     chunk::Chunk,
     errors::{Error, ErrorKind, EvalResult},
-    opcode::{ConstantIdx, Count, JumpOffset, OpCode, StackIdx},
+    opcode::{ConstantIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
     upvalues::UpvalueCarrier,
     value::{Closure, Lambda, NixAttrs, NixList, Value},
 };
@@ -15,9 +15,17 @@ use crate::{
 use crate::disassembler::Tracer;
 
 struct CallFrame {
-    closure: Closure,
+    lambda: Rc<Lambda>,
+    upvalues: Vec<Value>,
     ip: usize,
     stack_offset: usize,
+}
+
+impl CallFrame {
+    /// Retrieve an upvalue from this frame at the given index.
+    fn upvalue(&self, idx: UpvalueIdx) -> &Value {
+        &self.upvalues[idx.0]
+    }
 }
 
 pub struct VM {
@@ -86,8 +94,8 @@ impl VM {
         &self.frames[self.frames.len() - 1]
     }
 
-    fn chunk(&self) -> Ref<'_, Chunk> {
-        self.frame().closure.chunk()
+    fn chunk(&self) -> &Chunk {
+        &self.frame().lambda.chunk
     }
 
     fn frame_mut(&mut self) -> &mut CallFrame {
@@ -117,9 +125,10 @@ impl VM {
         &self.stack[self.stack.len() - 1 - offset]
     }
 
-    fn call(&mut self, closure: Closure, arg_count: usize) {
+    pub fn call(&mut self, lambda: Rc<Lambda>, upvalues: Vec<Value>, arg_count: usize) {
         let frame = CallFrame {
-            closure,
+            lambda,
+            upvalues,
             ip: 0,
             stack_offset: self.stack.len() - arg_count,
         };
@@ -353,7 +362,7 @@ impl VM {
                             kind: ErrorKind::UnknownDynamicVariable(_),
                             ..
                         }) => {
-                            let value = self.frame().closure.upvalue(idx).clone();
+                            let value = self.frame().upvalue(idx).clone();
                             self.push(value);
                         }
 
@@ -370,7 +379,10 @@ impl VM {
                 OpCode::OpCall => {
                     let callable = self.pop();
                     match callable {
-                        Value::Closure(closure) => self.call(closure, 1),
+                        Value::Closure(closure) => {
+                            self.call(closure.lambda(), closure.upvalues().to_vec(), 1)
+                        }
+
                         Value::Builtin(builtin) => {
                             let arg = self.pop();
                             let result = builtin.apply(arg)?;
@@ -381,7 +393,7 @@ impl VM {
                 }
 
                 OpCode::OpGetUpvalue(upv_idx) => {
-                    let value = self.frame().closure.upvalue(upv_idx).clone();
+                    let value = self.frame().upvalue(upv_idx).clone();
                     if let Value::DynamicUpvalueMissing(name) = value {
                         return Err(
                             ErrorKind::UnknownDynamicVariable(name.as_str().to_string()).into()
@@ -419,7 +431,7 @@ impl VM {
                             }
 
                             OpCode::DataUpvalueIdx(upv_idx) => {
-                                closure.push_upvalue(self.frame().closure.upvalue(upv_idx).clone());
+                                closure.push_upvalue(self.frame().upvalue(upv_idx).clone());
                             }
 
                             OpCode::DataDynamicIdx(ident_idx) => {
@@ -532,7 +544,7 @@ impl VM {
                 kind: ErrorKind::UnknownDynamicVariable(_),
                 ..
             }) => match up {
-                Some(idx) => Ok(self.frame().closure.upvalue(idx).clone()),
+                Some(idx) => Ok(self.frame().upvalue(idx).clone()),
                 None => Ok(Value::DynamicUpvalueMissing(ident.into())),
             },
 
@@ -567,6 +579,6 @@ pub fn run_lambda(lambda: Lambda) -> EvalResult<Value> {
         with_stack: vec![],
     };
 
-    vm.call(Closure::new(Rc::new(lambda)), 0);
+    vm.call(Rc::new(lambda), vec![], 0);
     vm.run()
 }
