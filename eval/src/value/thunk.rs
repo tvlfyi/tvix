@@ -51,8 +51,8 @@ pub struct Thunk(Rc<RefCell<ThunkRepr>>);
 impl Thunk {
     pub fn new(lambda: Rc<Lambda>) -> Self {
         Thunk(Rc::new(RefCell::new(ThunkRepr::Suspended {
+            upvalues: Vec::with_capacity(lambda.upvalue_count),
             lambda,
-            upvalues: vec![],
         })))
     }
 }
