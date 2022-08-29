@@ -1,10 +1,10 @@
 //! This module implements the runtime representation of functions.
 use std::{
-    cell::{Ref, RefCell},
+    cell::{Ref, RefCell, RefMut},
     rc::Rc,
 };
 
-use crate::{chunk::Chunk, opcode::UpvalueIdx, Value};
+use crate::{chunk::Chunk, upvalues::UpvalueCarrier, Value};
 
 #[derive(Clone, Debug)]
 pub struct Lambda {
@@ -49,26 +49,21 @@ impl Closure {
         Ref::map(self.0.borrow(), |c| &c.lambda.chunk)
     }
 
-    pub fn upvalue(&self, idx: UpvalueIdx) -> Ref<'_, Value> {
-        Ref::map(self.0.borrow(), |c| &c.upvalues[idx.0])
+    pub fn lambda(&self) -> Rc<Lambda> {
+        self.0.borrow().lambda.clone()
     }
+}
 
-    pub fn upvalue_count(&self) -> usize {
+impl UpvalueCarrier for Closure {
+    fn upvalue_count(&self) -> usize {
         self.0.borrow().lambda.upvalue_count
     }
 
-    pub fn push_upvalue(&self, value: Value) {
-        self.0.borrow_mut().upvalues.push(value)
+    fn upvalues(&self) -> Ref<'_, [Value]> {
+        Ref::map(self.0.borrow(), |c| c.upvalues.as_slice())
     }
 
-    /// Resolve the deferred upvalues in the closure from a slice of
-    /// the current stack, using the indices stored in the deferred
-    /// values.
-    pub fn resolve_deferred_upvalues(&self, stack: &[Value]) {
-        for upvalue in self.0.borrow_mut().upvalues.iter_mut() {
-            if let Value::DeferredUpvalue(idx) = upvalue {
-                *upvalue = stack[idx.0].clone();
-            }
-        }
+    fn upvalues_mut(&self) -> RefMut<'_, Vec<Value>> {
+        RefMut::map(self.0.borrow_mut(), |c| &mut c.upvalues)
     }
 }

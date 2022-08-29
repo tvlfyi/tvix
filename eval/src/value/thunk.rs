@@ -18,9 +18,12 @@
 //! object, but when forcing a thunk, the runtime *must* mutate the
 //! memoisable slot.
 
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::{Ref, RefCell, RefMut},
+    rc::Rc,
+};
 
-use crate::Value;
+use crate::{upvalues::UpvalueCarrier, Value};
 
 use super::Lambda;
 
@@ -51,5 +54,29 @@ impl Thunk {
             lambda,
             upvalues: vec![],
         })))
+    }
+}
+
+impl UpvalueCarrier for Thunk {
+    fn upvalue_count(&self) -> usize {
+        if let ThunkRepr::Suspended { lambda, .. } = &*self.0.borrow() {
+            return lambda.upvalue_count;
+        }
+
+        panic!("upvalues() on non-suspended thunk");
+    }
+
+    fn upvalues(&self) -> Ref<'_, [Value]> {
+        Ref::map(self.0.borrow(), |thunk| match thunk {
+            ThunkRepr::Suspended { upvalues, .. } => upvalues.as_slice(),
+            _ => panic!("upvalues() on non-suspended thunk"),
+        })
+    }
+
+    fn upvalues_mut(&self) -> RefMut<'_, Vec<Value>> {
+        RefMut::map(self.0.borrow_mut(), |thunk| match thunk {
+            ThunkRepr::Suspended { upvalues, .. } => upvalues,
+            _ => panic!("upvalues() on non-suspended thunk"),
+        })
     }
 }

@@ -7,6 +7,7 @@ use crate::{
     chunk::Chunk,
     errors::{Error, ErrorKind, EvalResult},
     opcode::{ConstantIdx, Count, JumpOffset, OpCode, StackIdx},
+    upvalues::UpvalueCarrier,
     value::{Closure, Lambda, NixAttrs, NixList, Value},
 };
 
