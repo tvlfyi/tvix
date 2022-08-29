@@ -8,7 +8,7 @@ use crate::{
     errors::{Error, ErrorKind, EvalResult},
     opcode::{ConstantIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
     upvalues::UpvalueCarrier,
-    value::{Closure, Lambda, NixAttrs, NixList, Value},
+    value::{Closure, Lambda, NixAttrs, NixList, Thunk, Value},
 };
 
 #[cfg(feature = "disassembler")]
@@ -427,11 +427,26 @@ impl VM {
                     self.populate_upvalues(upvalue_count, upvalues)?;
                 }
 
-                OpCode::OpThunk(_idx) => todo!("runtime thunk construction"),
+                OpCode::OpThunk(idx) => {
+                    let blueprint = match self.chunk().constant(idx) {
+                        Value::Blueprint(lambda) => lambda.clone(),
+                        _ => panic!("compiler bug: non-blueprint in blueprint slot"),
+                    };
+
+                    let upvalue_count = blueprint.upvalue_count;
+                    let thunk = Thunk::new(blueprint);
+                    let upvalues = thunk.upvalues_mut();
+
+                    self.push(Value::Thunk(thunk.clone()));
+                    self.populate_upvalues(upvalue_count, upvalues)?;
+                }
 
                 OpCode::OpFinalise(StackIdx(idx)) => {
                     match &self.stack[self.frame().stack_offset + idx] {
                         Value::Closure(closure) => closure
+                            .resolve_deferred_upvalues(&self.stack[self.frame().stack_offset..]),
+
+                        Value::Thunk(thunk) => thunk
                             .resolve_deferred_upvalues(&self.stack[self.frame().stack_offset..]),
 
                         v => {
