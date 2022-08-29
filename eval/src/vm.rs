@@ -1,7 +1,7 @@
 //! This module implements the virtual (or abstract) machine that runs
 //! Tvix bytecode.
 
-use std::rc::Rc;
+use std::{cell::RefMut, rc::Rc};
 
 use crate::{
     chunk::Chunk,
@@ -409,7 +409,14 @@ impl VM {
                         _ => panic!("compiler bug: non-blueprint in blueprint slot"),
                     };
 
+                    let upvalue_count = blueprint.upvalue_count;
+                    debug_assert!(
+                        upvalue_count > 0,
+                        "OpClosure should not be called for plain lambdas"
+                    );
+
                     let closure = Closure::new(blueprint);
+                    let upvalues = closure.upvalues_mut();
                     self.push(Value::Closure(closure.clone()));
 
                     // From this point on we internally mutate the
@@ -417,35 +424,7 @@ impl VM {
                     // already in its stack slot, which means that it
                     // can capture itself as an upvalue for
                     // self-recursion.
-
-                    debug_assert!(
-                        closure.upvalue_count() > 0,
-                        "OpClosure should not be called for plain lambdas"
-                    );
-
-                    for _ in 0..closure.upvalue_count() {
-                        match self.inc_ip() {
-                            OpCode::DataLocalIdx(StackIdx(local_idx)) => {
-                                let idx = self.frame().stack_offset + local_idx;
-                                closure.push_upvalue(self.stack[idx].clone());
-                            }
-
-                            OpCode::DataUpvalueIdx(upv_idx) => {
-                                closure.push_upvalue(self.frame().upvalue(upv_idx).clone());
-                            }
-
-                            OpCode::DataDynamicIdx(ident_idx) => {
-                                let value = self.resolve_dynamic_upvalue(ident_idx)?;
-                                closure.push_upvalue(value);
-                            }
-
-                            OpCode::DataDeferredLocal(idx) => {
-                                closure.push_upvalue(Value::DeferredUpvalue(idx));
-                            }
-
-                            _ => panic!("compiler error: missing closure operand"),
-                        }
-                    }
+                    self.populate_upvalues(upvalue_count, upvalues)?;
                 }
 
                 OpCode::OpThunk(_idx) => todo!("runtime thunk construction"),
@@ -563,6 +542,39 @@ impl VM {
         }
 
         Err(ErrorKind::UnknownDynamicVariable(ident.to_string()).into())
+    }
+
+    /// Populate the upvalue fields of a thunk or closure under construction.
+    fn populate_upvalues(
+        &mut self,
+        count: usize,
+        mut upvalues: RefMut<'_, Vec<Value>>,
+    ) -> EvalResult<()> {
+        for _ in 0..count {
+            match self.inc_ip() {
+                OpCode::DataLocalIdx(StackIdx(local_idx)) => {
+                    let idx = self.frame().stack_offset + local_idx;
+                    upvalues.push(self.stack[idx].clone());
+                }
+
+                OpCode::DataUpvalueIdx(upv_idx) => {
+                    upvalues.push(self.frame().upvalue(upv_idx).clone());
+                }
+
+                OpCode::DataDynamicIdx(ident_idx) => {
+                    let value = self.resolve_dynamic_upvalue(ident_idx)?;
+                    upvalues.push(value);
+                }
+
+                OpCode::DataDeferredLocal(idx) => {
+                    upvalues.push(Value::DeferredUpvalue(idx));
+                }
+
+                _ => panic!("compiler error: missing closure operand"),
+            }
+        }
+
+        Ok(())
     }
 }
 
