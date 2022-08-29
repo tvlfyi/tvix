@@ -367,8 +367,16 @@ impl Compiler {
 
     fn compile_attr(&mut self, slot: Option<LocalIdx>, node: ast::Attr) {
         match node {
-            ast::Attr::Dynamic(dynamic) => self.compile(slot, dynamic.expr().unwrap()),
-            ast::Attr::Str(s) => self.compile_str(slot, s),
+            ast::Attr::Dynamic(dynamic) => {
+                self.compile(slot, dynamic.expr().unwrap());
+                self.emit_force();
+            }
+
+            ast::Attr::Str(s) => {
+                self.compile_str(slot, s);
+                self.emit_force();
+            }
+
             ast::Attr::Ident(ident) => self.emit_literal_ident(&ident),
         }
     }
