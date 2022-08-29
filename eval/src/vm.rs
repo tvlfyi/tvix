@@ -37,6 +37,7 @@ pub struct VM {
     with_stack: Vec<usize>,
 }
 
+#[macro_export]
 macro_rules! arithmetic_op {
     ( $self:ident, $op:tt ) => {{
         let b = $self.pop();

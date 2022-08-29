@@ -13,8 +13,15 @@ use crate::{
     value::{Builtin, NixAttrs, NixList, NixString, Value},
 };
 
+use crate::arithmetic_op;
+
 fn pure_builtins() -> Vec<Builtin> {
     vec![
+        Builtin::new("add", 2, |mut args| {
+            let b = args.pop().unwrap();
+            let a = args.pop().unwrap();
+            Ok(arithmetic_op!(a, b, +))
+        }),
         Builtin::new("abort", 1, |mut args| {
             return Err(
                 ErrorKind::Abort(args.pop().unwrap().to_string()?.as_str().to_owned()).into(),
@@ -62,6 +69,11 @@ fn pure_builtins() -> Vec<Builtin> {
         }),
         Builtin::new("isString", 1, |args| {
             Ok(Value::Bool(matches!(args[0], Value::String(_))))
+        }),
+        Builtin::new("sub", 2, |mut args| {
+            let b = args.pop().unwrap();
+            let a = args.pop().unwrap();
+            Ok(arithmetic_op!(a, b, -))
         }),
         Builtin::new("throw", 1, |mut args| {
             return Err(
