@@ -442,29 +442,12 @@ impl Compiler {
                 None => {
                     for ident in inherit.idents() {
                         count += 1;
+
+                        // Emit the key to use for OpAttrs
                         self.emit_literal_ident(&ident);
 
-                        match self
-                            .scope_mut()
-                            .resolve_local(ident.ident_token().unwrap().text())
-                        {
-                            LocalPosition::Unknown => {
-                                self.emit_error(
-                                    ident.syntax().clone(),
-                                    ErrorKind::UnknownStaticVariable,
-                                );
-                                continue;
-                            }
-
-                            LocalPosition::Known(idx) => {
-                                let stack_idx = self.scope().stack_index(idx);
-                                self.chunk().push_op(OpCode::OpGetLocal(stack_idx))
-                            }
-
-                            LocalPosition::Recursive(_) => {
-                                todo!("TODO: should be unreachable in inherits, check")
-                            }
-                        };
+                        // Emit the value.
+                        self.compile_ident(slot, ident);
                     }
                 }
             }
