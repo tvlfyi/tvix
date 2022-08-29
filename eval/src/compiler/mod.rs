@@ -217,6 +217,7 @@ impl Compiler {
 
     fn compile_unary_op(&mut self, slot: Option<LocalIdx>, op: ast::UnaryOp) {
         self.compile(slot, op.expr().unwrap());
+        self.emit_force();
 
         let opcode = match op.operator().unwrap() {
             ast::UnaryOpKind::Invert => OpCode::OpInvert,
@@ -245,7 +246,10 @@ impl Compiler {
         // the stack in the correct order before pushing the
         // instruction for the operation itself.
         self.compile(slot, op.lhs().unwrap());
+        self.emit_force();
+
         self.compile(slot, op.rhs().unwrap());
+        self.emit_force();
 
         match op.operator().unwrap() {
             BinOpKind::Add => self.chunk().push_op(OpCode::OpAdd),
@@ -281,6 +285,7 @@ impl Compiler {
 
         // Leave left-hand side value on the stack.
         self.compile(slot, node.lhs().unwrap());
+        self.emit_force();
 
         // If this value is false, jump over the right-hand side - the
         // whole expression is false.
@@ -291,6 +296,7 @@ impl Compiler {
         // of the whole expression.
         self.chunk().push_op(OpCode::OpPop);
         self.compile(slot, node.rhs().unwrap());
+        self.emit_force();
 
         self.patch_jump(end_idx);
         self.chunk().push_op(OpCode::OpAssertBool);
@@ -305,12 +311,15 @@ impl Compiler {
 
         // Leave left-hand side value on the stack
         self.compile(slot, node.lhs().unwrap());
+        self.emit_force();
 
         // Opposite of above: If this value is **true**, we can
         // short-circuit the right-hand side.
         let end_idx = self.chunk().push_op(OpCode::OpJumpIfTrue(JumpOffset(0)));
         self.chunk().push_op(OpCode::OpPop);
         self.compile(slot, node.rhs().unwrap());
+        self.emit_force();
+
         self.patch_jump(end_idx);
         self.chunk().push_op(OpCode::OpAssertBool);
     }
@@ -324,12 +333,15 @@ impl Compiler {
 
         // Leave left-hand side value on the stack and invert it.
         self.compile(slot, node.lhs().unwrap());
+        self.emit_force();
         self.chunk().push_op(OpCode::OpInvert);
 
         // Exactly as `||` (because `a -> b` = `!a || b`).
         let end_idx = self.chunk().push_op(OpCode::OpJumpIfTrue(JumpOffset(0)));
         self.chunk().push_op(OpCode::OpPop);
         self.compile(slot, node.rhs().unwrap());
+        self.emit_force();
+
         self.patch_jump(end_idx);
         self.chunk().push_op(OpCode::OpAssertBool);
     }
@@ -1144,6 +1156,10 @@ impl Compiler {
         idx
     }
 
+    fn emit_force(&mut self) {
+        self.chunk().push_op(OpCode::OpForce);
+    }
+
     fn emit_warning(&mut self, node: rnix::SyntaxNode, kind: WarningKind) {
         self.warnings.push(EvalWarning { node, kind })
     }
@@ -1270,7 +1286,7 @@ pub fn compile(
     // `OpForce`. A thunk should not be returned to the user in an
     // unevaluated state (though in practice, a value *containing* a
     // thunk might be returned).
-    c.chunk().push_op(OpCode::OpForce);
+    c.emit_force();
 
     Ok(CompilationOutput {
         lambda: c.contexts.pop().unwrap().lambda,
