@@ -20,6 +20,7 @@ use smol_str::SmolStr;
 use crate::opcode::{StackIdx, UpvalueIdx};
 
 /// Represents a single local already known to the compiler.
+#[derive(Debug)]
 pub struct Local {
     // Definition name, which can be different kinds of tokens (plain
     // string or identifier). Nix does not allow dynamic names inside
@@ -103,7 +104,7 @@ pub struct LocalIdx(usize);
 /// TODO(tazjin): `with`-stack
 /// TODO(tazjin): flag "specials" (e.g. note depth if builtins are
 /// overridden)
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Scope {
     pub locals: Vec<Local>,
     pub upvalues: Vec<Upvalue>,
