@@ -1256,6 +1256,12 @@ pub fn compile(
 
     c.compile(None, expr);
 
+    // The final operation of any top-level Nix program must always be
+    // `OpForce`. A thunk should not be returned to the user in an
+    // unevaluated state (though in practice, a value *containing* a
+    // thunk might be returned).
+    c.chunk().push_op(OpCode::OpForce);
+
     Ok(CompilationOutput {
         lambda: c.contexts.pop().unwrap().lambda,
         warnings: c.warnings,
