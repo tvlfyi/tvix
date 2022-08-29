@@ -113,10 +113,10 @@ impl Compiler {
             ast::Expr::Str(s) => self.compile_str(s),
             ast::Expr::UnaryOp(op) => self.compile_unary_op(op),
             ast::Expr::BinOp(op) => self.compile_binop(op),
-            ast::Expr::HasAttr(has_attr) => self.compile_has_attr(has_attr),
+            ast::Expr::HasAttr(has_attr) => self.compile_has_attr(slot, has_attr),
             ast::Expr::List(list) => self.compile_list(list),
-            ast::Expr::AttrSet(attrs) => self.compile_attr_set(attrs),
-            ast::Expr::Select(select) => self.compile_select(select),
+            ast::Expr::AttrSet(attrs) => self.compile_attr_set(slot, attrs),
+            ast::Expr::Select(select) => self.compile_select(slot, select),
             ast::Expr::Assert(assert) => self.compile_assert(assert),
             ast::Expr::IfElse(if_else) => self.compile_if_else(if_else),
             ast::Expr::LetIn(let_in) => self.compile_let_in(let_in),
@@ -334,7 +334,7 @@ impl Compiler {
         self.chunk().push_op(OpCode::OpAssertBool);
     }
 
-    fn compile_has_attr(&mut self, node: ast::HasAttr) {
+    fn compile_has_attr(&mut self, slot: Option<LocalIdx>, node: ast::HasAttr) {
         // Put the attribute set on the stack.
         self.compile(None, node.expr().unwrap());
 
@@ -345,7 +345,7 @@ impl Compiler {
                 self.chunk().push_op(OpCode::OpAttrsTrySelect);
             }
 
-            self.compile_attr(fragment);
+            self.compile_attr(slot, fragment);
         }
 
         // After the last fragment, emit the actual instruction that
@@ -353,9 +353,9 @@ impl Compiler {
         self.chunk().push_op(OpCode::OpAttrsIsSet);
     }
 
-    fn compile_attr(&mut self, node: ast::Attr) {
+    fn compile_attr(&mut self, slot: Option<LocalIdx>, node: ast::Attr) {
         match node {
-            ast::Attr::Dynamic(dynamic) => self.compile(None, dynamic.expr().unwrap()),
+            ast::Attr::Dynamic(dynamic) => self.compile(slot, dynamic.expr().unwrap()),
             ast::Attr::Str(s) => self.compile_str(s),
             ast::Attr::Ident(ident) => self.emit_literal_ident(&ident),
         }
@@ -386,7 +386,7 @@ impl Compiler {
     // 1. Keys can be dynamically constructed through interpolation.
     // 2. Keys can refer to nested attribute sets.
     // 3. Attribute sets can (optionally) be recursive.
-    fn compile_attr_set(&mut self, node: ast::AttrSet) {
+    fn compile_attr_set(&mut self, slot: Option<LocalIdx>, node: ast::AttrSet) {
         if node.rec_token().is_some() {
             todo!("recursive attribute sets are not yet implemented")
         }
@@ -413,7 +413,7 @@ impl Compiler {
                         // instruction followed by a merge, rather
                         // than pushing/popping the same attrs
                         // potentially a lot of times.
-                        self.compile(None, from.expr().unwrap());
+                        self.compile(slot, from.expr().unwrap());
                         self.emit_literal_ident(&ident);
                         self.chunk().push_op(OpCode::OpAttrsSelect);
                     }
@@ -461,7 +461,7 @@ impl Compiler {
             let mut key_count = 0;
             for fragment in kv.attrpath().unwrap().attrs() {
                 key_count += 1;
-                self.compile_attr(fragment);
+                self.compile_attr(slot, fragment);
             }
 
             // We're done with the key if there was only one fragment,
@@ -474,18 +474,18 @@ impl Compiler {
             // The value is just compiled as normal so that its
             // resulting value is on the stack when the attribute set
             // is constructed at runtime.
-            self.compile(None, kv.value().unwrap());
+            self.compile(slot, kv.value().unwrap());
         }
 
         self.chunk().push_op(OpCode::OpAttrs(Count(count)));
     }
 
-    fn compile_select(&mut self, node: ast::Select) {
+    fn compile_select(&mut self, slot: Option<LocalIdx>, node: ast::Select) {
         let set = node.expr().unwrap();
         let path = node.attrpath().unwrap();
 
         if node.or_token().is_some() {
-            self.compile_select_or(set, path, node.default_expr().unwrap());
+            self.compile_select_or(slot, set, path, node.default_expr().unwrap());
             return;
         }
 
@@ -497,7 +497,7 @@ impl Compiler {
         // TODO: multi-select instruction to avoid re-pushing attrs on
         // nested selects.
         for fragment in path.attrs() {
-            self.compile_attr(fragment);
+            self.compile_attr(slot, fragment);
             self.chunk().push_op(OpCode::OpAttrsSelect);
         }
     }
@@ -531,12 +531,18 @@ impl Compiler {
     ///  │ 14 ...                     │   │ ..   ....               │
     ///  └────────────────────────────┘   └─────────────────────────┘
     /// ```
-    fn compile_select_or(&mut self, set: ast::Expr, path: ast::Attrpath, default: ast::Expr) {
+    fn compile_select_or(
+        &mut self,
+        slot: Option<LocalIdx>,
+        set: ast::Expr,
+        path: ast::Attrpath,
+        default: ast::Expr,
+    ) {
         self.compile(None, set);
         let mut jumps = vec![];
 
         for fragment in path.attrs() {
-            self.compile_attr(fragment);
+            self.compile_attr(slot, fragment);
             self.chunk().push_op(OpCode::OpAttrsTrySelect);
             jumps.push(
                 self.chunk()
@@ -552,7 +558,7 @@ impl Compiler {
 
         // Compile the default value expression and patch the final
         // jump to point *beyond* it.
-        self.compile(None, default);
+        self.compile(slot, default);
         self.patch_jump(final_jump);
     }
 
