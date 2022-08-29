@@ -27,13 +27,10 @@ use super::Lambda;
 /// Internal representation of the different states of a thunk.
 #[derive(Debug)]
 enum ThunkRepr {
-    /// Thunk is suspended and awaiting execution.
-    Suspended { lambda: Lambda },
-
     /// Thunk is closed over some values, suspended and awaiting
     /// execution.
-    ClosedSuspended {
-        lambda: Lambda,
+    Suspended {
+        lambda: Rc<Lambda>,
         upvalues: Vec<Value>,
     },
 
@@ -49,7 +46,10 @@ enum ThunkRepr {
 pub struct Thunk(Rc<RefCell<ThunkRepr>>);
 
 impl Thunk {
-    pub fn new(lambda: Lambda) -> Self {
-        Thunk(Rc::new(RefCell::new(ThunkRepr::Suspended { lambda })))
+    pub fn new(lambda: Rc<Lambda>) -> Self {
+        Thunk(Rc::new(RefCell::new(ThunkRepr::Suspended {
+            lambda,
+            upvalues: vec![],
+        })))
     }
 }

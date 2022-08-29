@@ -877,7 +877,7 @@ impl Compiler {
         // Emit the thunk directly if it does not close over the
         // environment.
         if thunk.lambda.upvalue_count == 0 {
-            self.emit_constant(Value::Thunk(Thunk::new(thunk.lambda)));
+            self.emit_constant(Value::Thunk(Thunk::new(Rc::new(thunk.lambda))));
             return;
         }
 
