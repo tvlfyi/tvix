@@ -136,7 +136,7 @@ impl VM {
         self.frames.push(frame);
     }
 
-    fn run(&mut self) -> EvalResult<Value> {
+    pub fn run(&mut self) -> EvalResult<Value> {
         #[cfg(feature = "disassembler")]
         let mut tracer = Tracer::new();
 
@@ -439,6 +439,16 @@ impl VM {
 
                     self.push(Value::Thunk(thunk.clone()));
                     self.populate_upvalues(upvalue_count, upvalues)?;
+                }
+
+                OpCode::OpForce => {
+                    let mut value = self.pop();
+
+                    while let Value::Thunk(thunk) = value {
+                        value = thunk.force(self)?.clone();
+                    }
+
+                    self.push(value);
                 }
 
                 OpCode::OpFinalise(StackIdx(idx)) => {

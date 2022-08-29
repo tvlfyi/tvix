@@ -23,7 +23,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::{upvalues::UpvalueCarrier, Value};
+use crate::{errors::ErrorKind, upvalues::UpvalueCarrier, vm::VM, EvalResult, Value};
 
 use super::Lambda;
 
@@ -54,6 +54,36 @@ impl Thunk {
             upvalues: Vec::with_capacity(lambda.upvalue_count),
             lambda,
         })))
+    }
+
+    pub fn force(&self, vm: &mut VM) -> EvalResult<Ref<'_, Value>> {
+        // Due to mutable borrowing rules, the following code can't
+        // easily use a match statement or something like that; it
+        // requires a bit of manual fiddling.
+        let mut thunk_mut = self.0.borrow_mut();
+
+        if let ThunkRepr::Blackhole = *thunk_mut {
+            return Err(ErrorKind::InfiniteRecursion.into());
+        }
+
+        if matches!(*thunk_mut, ThunkRepr::Suspended { .. }) {
+            if let ThunkRepr::Suspended { lambda, upvalues } =
+                std::mem::replace(&mut *thunk_mut, ThunkRepr::Blackhole)
+            {
+                vm.call(lambda, upvalues, 0);
+                *thunk_mut = ThunkRepr::Evaluated(vm.run()?);
+            }
+        }
+
+        drop(thunk_mut);
+
+        // Otherwise it's already ThunkRepr::Evaluated and we do not
+        // need another branch.
+
+        Ok(Ref::map(self.0.borrow(), |t| match t {
+            ThunkRepr::Evaluated(value) => value,
+            _ => unreachable!("already evaluated"),
+        }))
     }
 }
 

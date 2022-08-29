@@ -38,6 +38,9 @@ pub enum ErrorKind {
     // Attempt to call something that is not callable.
     NotCallable,
 
+    // Infinite recursion encountered while forcing thunks.
+    InfiniteRecursion,
+
     ParseErrors(Vec<rnix::parser::ParseError>),
 
     AssertionFailed,

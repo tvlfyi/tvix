@@ -109,6 +109,7 @@ pub enum OpCode {
 
     // Thunks
     OpThunk(ConstantIdx),
+    OpForce,
 
     /// Finalise initialisation of the upvalues of the value in the
     /// given stack index after the scope is fully bound.
