@@ -45,6 +45,9 @@ fn pure_builtins() -> Vec<Builtin> {
             let a = args.pop().unwrap();
             Ok(arithmetic_op!(a, b, /))
         }),
+        Builtin::new("length", 1, |args| {
+            Ok(Value::Integer(args[0].as_list()?.len() as i64))
+        }),
         Builtin::new("isAttrs", 1, |args| {
             Ok(Value::Bool(matches!(args[0], Value::Attrs(_))))
         }),

@@ -28,6 +28,10 @@ impl NixList {
         lhs
     }
 
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
     pub fn construct(count: usize, stack_slice: Vec<Value>) -> Self {
         debug_assert!(
             count == stack_slice.len(),

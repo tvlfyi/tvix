@@ -103,6 +103,17 @@ impl Value {
         }
     }
 
+    pub fn as_list(&self) -> EvalResult<&NixList> {
+        match self {
+            Value::List(xs) => Ok(xs),
+            other => Err(ErrorKind::TypeError {
+                expected: "list",
+                actual: other.type_of(),
+            }
+            .into()),
+        }
+    }
+
     pub fn to_string(self) -> EvalResult<NixString> {
         match self {
             Value::String(s) => Ok(s),
