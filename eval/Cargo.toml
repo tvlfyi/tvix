@@ -36,3 +36,7 @@ disassembler = ["dep:tabwriter"]
 [[bench]]
 name = "eval"
 harness = false
+
+[profile.release-with-debug]
+inherits = "release"
+debug = true
