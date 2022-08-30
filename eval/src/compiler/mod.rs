@@ -115,7 +115,7 @@ impl Compiler {
             ast::Expr::BinOp(op) => self.compile_binop(slot, op),
             ast::Expr::HasAttr(has_attr) => self.compile_has_attr(slot, has_attr),
             ast::Expr::List(list) => self.compile_list(slot, list),
-            ast::Expr::AttrSet(attrs) => self.compile_attr_set(slot, attrs),
+            ast::Expr::AttrSet(attrs) => self.thunk(slot, move |c, s| c.compile_attr_set(s, attrs)),
             ast::Expr::Select(select) => self.compile_select(slot, select),
             ast::Expr::Assert(assert) => self.compile_assert(slot, assert),
             ast::Expr::IfElse(if_else) => self.compile_if_else(slot, if_else),
@@ -422,7 +422,8 @@ impl Compiler {
                     for ident in inherit.idents() {
                         count += 1;
 
-                        // First emit the identifier itself
+                        // First emit the identifier itself (this
+                        // becomes the new key).
                         self.emit_literal_ident(&ident);
 
                         // Then emit the node that we're inheriting
@@ -434,6 +435,7 @@ impl Compiler {
                         // than pushing/popping the same attrs
                         // potentially a lot of times.
                         self.compile(slot, from.expr().unwrap());
+                        self.emit_force();
                         self.emit_literal_ident(&ident);
                         self.chunk().push_op(OpCode::OpAttrsSelect);
                     }
@@ -494,6 +496,7 @@ impl Compiler {
 
         // Push the set onto the stack
         self.compile(slot, set);
+        self.emit_force();
 
         // Compile each key fragment and emit access instructions.
         //
@@ -542,6 +545,7 @@ impl Compiler {
         default: ast::Expr,
     ) {
         self.compile(slot, set);
+        self.emit_force();
         let mut jumps = vec![];
 
         for fragment in path.attrs() {
@@ -645,6 +649,8 @@ impl Compiler {
                 Some(from) => {
                     for ident in inherit.idents() {
                         self.compile(slot, from.expr().unwrap());
+                        self.emit_force();
+
                         self.emit_literal_ident(&ident);
                         self.chunk().push_op(OpCode::OpAttrsSelect);
                         let idx = self.declare_local(
@@ -788,6 +794,8 @@ impl Compiler {
         // resolve that directly (thus avoiding duplication on the
         // stack).
         self.compile(slot, node.namespace().unwrap());
+        self.emit_force();
+
         let local_idx = self.scope_mut().declare_phantom();
         let with_idx = self.scope().stack_index(local_idx);
 
