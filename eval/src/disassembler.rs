@@ -37,9 +37,8 @@ impl Drop for Tracer {
     }
 }
 
-fn disassemble_op(tw: &mut TabWriter<Stderr>, chunk: &Chunk, offset: usize) {
-    let code_width = format!("{}", chunk.code.len()).len();
-    write!(tw, "{:0width$}\t ", width = code_width).ok();
+fn disassemble_op(tw: &mut TabWriter<Stderr>, chunk: &Chunk, width: usize, offset: usize) {
+    write!(tw, "{:0width$}\t ", width = width).ok();
 
     match chunk.code[offset] {
         OpCode::OpConstant(idx) => write!(tw, "OpConstant({})\n", chunk.constant(idx)).ok(),
@@ -60,8 +59,9 @@ pub fn disassemble_chunk(chunk: &Chunk) {
     )
     .ok();
 
+    let width = format!("{}", chunk.code.len()).len();
     for (idx, _) in chunk.code.iter().enumerate() {
-        disassemble_op(&mut tw, chunk, idx);
+        disassemble_op(&mut tw, chunk, width, idx);
     }
 
     tw.flush().ok();
