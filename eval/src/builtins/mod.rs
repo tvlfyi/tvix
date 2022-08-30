@@ -40,6 +40,11 @@ fn pure_builtins() -> Vec<Builtin> {
 
             Ok(Value::List(NixList::construct(output.len(), output)))
         }),
+        Builtin::new("div", 2, |mut args| {
+            let b = args.pop().unwrap();
+            let a = args.pop().unwrap();
+            Ok(arithmetic_op!(a, b, /))
+        }),
         Builtin::new("isAttrs", 1, |args| {
             Ok(Value::Bool(matches!(args[0], Value::Attrs(_))))
         }),
@@ -69,6 +74,11 @@ fn pure_builtins() -> Vec<Builtin> {
         }),
         Builtin::new("isString", 1, |args| {
             Ok(Value::Bool(matches!(args[0], Value::String(_))))
+        }),
+        Builtin::new("mul", 2, |mut args| {
+            let b = args.pop().unwrap();
+            let a = args.pop().unwrap();
+            Ok(arithmetic_op!(a, b, *))
         }),
         Builtin::new("sub", 2, |mut args| {
             let b = args.pop().unwrap();
