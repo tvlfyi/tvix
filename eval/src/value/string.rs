@@ -60,7 +60,10 @@ impl Hash for NixString {
 
 impl NixString {
     pub const NAME: Self = NixString(StringRepr::Smol(SmolStr::new_inline("name")));
+    pub const NAME_REF: &'static Self = &Self::NAME;
+
     pub const VALUE: Self = NixString(StringRepr::Smol(SmolStr::new_inline("value")));
+    pub const VALUE_REF: &'static Self = &Self::VALUE;
 
     pub fn as_str(&self) -> &str {
         match &self.0 {
