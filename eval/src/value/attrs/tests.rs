@@ -52,3 +52,50 @@ fn test_kv_attrs() {
         ),
     }
 }
+
+#[test]
+fn test_empty_attrs_iter() {
+    let attrs = NixAttrs::construct(0, vec![]).unwrap();
+    assert_eq!(attrs.iter().next(), None);
+}
+
+#[test]
+fn test_kv_attrs_iter() {
+    let name_val = Value::String("name".into());
+    let value_val = Value::String("value".into());
+    let meaning_val = Value::String("meaning".into());
+    let forty_two_val = Value::Integer(42);
+
+    let kv_attrs = NixAttrs::construct(
+        2,
+        vec![
+            value_val.clone(),
+            forty_two_val.clone(),
+            name_val.clone(),
+            meaning_val.clone(),
+        ],
+    )
+    .expect("constructing K/V pair attrs should succeed");
+
+    assert_eq!(
+        kv_attrs.iter().collect::<Vec<_>>(),
+        vec![
+            (NixString::NAME_REF, &meaning_val),
+            (NixString::VALUE_REF, &forty_two_val)
+        ]
+    );
+}
+
+#[test]
+fn test_map_attrs_iter() {
+    let attrs = NixAttrs::construct(
+        1,
+        vec![Value::String("key".into()), Value::String("value".into())],
+    )
+    .expect("simple attr construction should succeed");
+
+    assert_eq!(
+        attrs.iter().collect::<Vec<_>>(),
+        vec![(&NixString::from("key"), &Value::String("value".into()))],
+    );
+}

@@ -206,7 +206,7 @@ impl NixAttrs {
         }
     }
 
-    // Select a value from an attribute set by key.
+    /// Select a value from an attribute set by key.
     pub fn select(&self, key: &str) -> Option<&Value> {
         self.0.select(key)
     }
@@ -214,6 +214,24 @@ impl NixAttrs {
     pub fn contains(&self, key: &str) -> bool {
         self.0.contains(key)
     }
+
+    pub fn iter<'a>(&'a self) -> Iter<KeyValue<'a>> {
+        Iter(match &self.0 {
+            AttrsRep::Map(map) => KeyValue::Map(map.iter()),
+            AttrsRep::Empty => KeyValue::Empty,
+
+            AttrsRep::KV {
+                ref name,
+                ref value,
+            } => KeyValue::KV {
+                name,
+                value,
+                at: IterKV::Name,
+            },
+        })
+    }
+
+    /// Provide an iterator over all values of the attribute set.
 
     /// Implement construction logic of an attribute set, to encapsulate
     /// logic about attribute set optimisations inside of this module.
@@ -396,4 +414,59 @@ fn set_nested_attr(
     }
 
     Ok(())
+}
+
+/// Internal helper type to track the iteration status of an iterator
+/// over the name/value representation.
+#[derive(Debug)]
+pub enum IterKV {
+    Name,
+    Value,
+    Done,
+}
+
+/// Iterator representation over the keys *and* values of an attribute
+/// set.
+#[derive(Debug)]
+pub enum KeyValue<'a> {
+    Empty,
+
+    KV {
+        name: &'a Value,
+        value: &'a Value,
+        at: IterKV,
+    },
+
+    Map(btree_map::Iter<'a, NixString, Value>),
+}
+
+/// Iterator over a Nix attribute set.
+// This wrapper type exists to make the inner "raw" iterator
+// inaccessible.
+#[repr(transparent)]
+pub struct Iter<T>(T);
+
+impl<'a> Iterator for Iter<KeyValue<'a>> {
+    type Item = (&'a NixString, &'a Value);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match &mut self.0 {
+            KeyValue::Map(inner) => inner.next(),
+            KeyValue::Empty => None,
+
+            KeyValue::KV { name, value, at } => match at {
+                IterKV::Name => {
+                    *at = IterKV::Value;
+                    Some((NixString::NAME_REF, name))
+                }
+
+                IterKV::Value => {
+                    *at = IterKV::Done;
+                    Some((NixString::VALUE_REF, value))
+                }
+
+                IterKV::Done => None,
+            },
+        }
+    }
 }
