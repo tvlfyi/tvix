@@ -39,6 +39,10 @@ impl NixList {
         NixList(stack_slice)
     }
 
+    pub fn iter(&self) -> std::slice::Iter<Value> {
+        self.0.iter()
+    }
+
     pub fn into_iter(self) -> std::vec::IntoIter<Value> {
         self.0.into_iter()
     }
