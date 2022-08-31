@@ -215,6 +215,7 @@ impl NixAttrs {
         self.0.contains(key)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     pub fn iter<'a>(&'a self) -> Iter<KeyValue<'a>> {
         Iter(match &self.0 {
             AttrsRep::Map(map) => KeyValue::Map(map.iter()),

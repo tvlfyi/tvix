@@ -527,7 +527,6 @@ impl VM {
     fn resolve_dynamic_upvalue(&mut self, ident_idx: ConstantIdx) -> EvalResult<Value> {
         let chunk = self.chunk();
         let ident = chunk.constant(ident_idx).as_str()?.to_string();
-        drop(chunk); // some lifetime trickery due to cell::Ref
 
         // Peek at the current instruction (note: IP has already
         // advanced!) to see if it is actually data indicating a

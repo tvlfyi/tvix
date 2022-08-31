@@ -71,7 +71,7 @@ pub enum LocalPosition {
 
 /// Represents the different ways in which upvalues can be captured in
 /// closures or thunks.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Upvalue {
     /// This upvalue captures a local from the stack.
     Local(LocalIdx),
@@ -95,7 +95,7 @@ pub enum Upvalue {
 /// is subtly different from its `StackIdx` (which excludes
 /// uninitialised values in between).
 #[repr(transparent)]
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd)]
 pub struct LocalIdx(usize);
 
 /// Represents a scope known during compilation, which can be resolved
