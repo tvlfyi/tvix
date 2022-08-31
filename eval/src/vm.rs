@@ -602,6 +602,38 @@ impl VM {
 
         Ok(())
     }
+
+    /// Strictly evaluate the supplied value for outputting it. This
+    /// will ensure that lists and attribute sets do not contain
+    /// chunks which, for users, are displayed in a strange and often
+    /// unexpected way.
+    fn force_for_output(&mut self, value: &Value) -> EvalResult<()> {
+        match value {
+            Value::Attrs(attrs) => {
+                for (_, value) in attrs.iter() {
+                    self.force_for_output(value)?;
+                }
+                Ok(())
+            }
+
+            Value::List(list) => list.iter().try_for_each(|elem| self.force_for_output(elem)),
+
+            Value::Thunk(thunk) => {
+                thunk.force(self)?;
+                self.force_for_output(&thunk.value())
+            }
+
+            // If any of these internal values are encountered here a
+            // critical error has happened (likely a compiler bug).
+            Value::AttrPath(_)
+            | Value::AttrNotFound
+            | Value::DynamicUpvalueMissing(_)
+            | Value::Blueprint(_)
+            | Value::DeferredUpvalue(_) => panic!("tvix bug: internal value left on stack"),
+
+            _ => Ok(()),
+        }
+    }
 }
 
 // TODO: use Rc::unwrap_or_clone once it is stabilised.
@@ -618,5 +650,7 @@ pub fn run_lambda(lambda: Lambda) -> EvalResult<Value> {
     };
 
     vm.call(Rc::new(lambda), vec![], 0);
-    vm.run()
+    let value = vm.run()?;
+    vm.force_for_output(&value)?;
+    Ok(value)
 }
