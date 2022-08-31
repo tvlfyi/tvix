@@ -20,6 +20,7 @@
 
 use std::{
     cell::{Ref, RefCell, RefMut},
+    fmt::Display,
     rc::Rc,
 };
 
@@ -129,5 +130,14 @@ impl UpvalueCarrier for Thunk {
             ThunkRepr::Suspended { upvalues, .. } => upvalues,
             _ => panic!("upvalues() on non-suspended thunk"),
         })
+    }
+}
+
+impl Display for Thunk {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &*self.0.borrow() {
+            ThunkRepr::Evaluated(v) => v.fmt(f),
+            _ => f.write_str("internal[thunk]"),
+        }
     }
 }

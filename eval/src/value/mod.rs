@@ -172,8 +172,11 @@ impl Display for Value {
                 write!(f, "{}", format!("{:.5}", num).trim_end_matches(['.', '0']))
             }
 
+            // Delegate thunk display to the type, as it must handle
+            // the case of already evaluated thunks.
+            Value::Thunk(t) => t.fmt(f),
+
             // internal types
-            Value::Thunk(_) => f.write_str("internal[thunk]"),
             Value::AttrPath(path) => write!(f, "internal[attrpath({})]", path.len()),
             Value::AttrNotFound => f.write_str("internal[not found]"),
             Value::Blueprint(_) => f.write_str("internal[blueprint]"),
@@ -202,6 +205,13 @@ impl PartialEq for Value {
 
             // Optimised attribute set comparison
             (Value::Attrs(a1), Value::Attrs(a2)) => Rc::ptr_eq(a1, a2) || { a1 == a2 },
+
+            // If either value is a thunk, the inner value must be
+            // compared instead. The compiler should ensure that
+            // thunks under comparison have been forced, otherwise it
+            // is a bug.
+            (Value::Thunk(lhs), rhs) => &*lhs.value() == rhs,
+            (lhs, Value::Thunk(rhs)) => lhs == &*rhs.value(),
 
             // Everything else is either incomparable (e.g. internal
             // types) or false.
