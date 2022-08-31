@@ -444,8 +444,9 @@ impl VM {
                 OpCode::OpForce => {
                     let mut value = self.pop();
 
-                    while let Value::Thunk(thunk) = value {
-                        value = thunk.force(self)?.clone();
+                    if let Value::Thunk(thunk) = value {
+                        thunk.force(self)?;
+                        value = thunk.value().clone();
                     }
 
                     self.push(value);

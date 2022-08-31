@@ -28,7 +28,7 @@ use crate::{errors::ErrorKind, upvalues::UpvalueCarrier, vm::VM, EvalResult, Val
 use super::Lambda;
 
 /// Internal representation of the different states of a thunk.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 enum ThunkRepr {
     /// Thunk is closed over some values, suspended and awaiting
     /// execution.
@@ -56,34 +56,55 @@ impl Thunk {
         })))
     }
 
-    pub fn force(&self, vm: &mut VM) -> EvalResult<Ref<'_, Value>> {
+    /// Evaluate the content of a thunk, potentially repeatedly, until
+    /// a non-thunk value is returned.
+    ///
+    /// This will change the existing thunk (and thus all references
+    /// to it, providing memoization) through interior mutability. In
+    /// case of nested thunks, the intermediate thunk representations
+    /// are replaced.
+    pub fn force(&self, vm: &mut VM) -> EvalResult<()> {
         // Due to mutable borrowing rules, the following code can't
         // easily use a match statement or something like that; it
         // requires a bit of manual fiddling.
         let mut thunk_mut = self.0.borrow_mut();
 
-        if let ThunkRepr::Blackhole = *thunk_mut {
-            return Err(ErrorKind::InfiniteRecursion.into());
-        }
+        loop {
+            match *thunk_mut {
+                ThunkRepr::Evaluated(Value::Thunk(ref inner_thunk)) => {
+                    let inner_repr = inner_thunk.0.borrow().clone();
+                    *thunk_mut = inner_repr;
+                }
 
-        if matches!(*thunk_mut, ThunkRepr::Suspended { .. }) {
-            if let ThunkRepr::Suspended { lambda, upvalues } =
-                std::mem::replace(&mut *thunk_mut, ThunkRepr::Blackhole)
-            {
-                vm.call(lambda, upvalues, 0);
-                *thunk_mut = ThunkRepr::Evaluated(vm.run()?);
+                ThunkRepr::Evaluated(_) => return Ok(()),
+                ThunkRepr::Blackhole => return Err(ErrorKind::InfiniteRecursion.into()),
+
+                ThunkRepr::Suspended { .. } => {
+                    if let ThunkRepr::Suspended { lambda, upvalues } =
+                        std::mem::replace(&mut *thunk_mut, ThunkRepr::Blackhole)
+                    {
+                        vm.call(lambda, upvalues, 0);
+                        *thunk_mut = ThunkRepr::Evaluated(vm.run()?);
+                    }
+                }
             }
         }
+    }
 
-        drop(thunk_mut);
+    /// Returns a reference to the inner evaluated value of a thunk.
+    /// It is an error to call this on a thunk that has not been
+    /// forced, or is not otherwise known to be fully evaluated.
+    // Note: Due to the interior mutability of thunks this is
+    // difficult to represent in the type system without impacting the
+    // API too much.
+    pub fn value(&self) -> Ref<Value> {
+        Ref::map(self.0.borrow(), |thunk| {
+            if let ThunkRepr::Evaluated(value) = thunk {
+                return value;
+            }
 
-        // Otherwise it's already ThunkRepr::Evaluated and we do not
-        // need another branch.
-
-        Ok(Ref::map(self.0.borrow(), |t| match t {
-            ThunkRepr::Evaluated(value) => value,
-            _ => unreachable!("already evaluated"),
-        }))
+            panic!("Thunk::value called on non-evaluated thunk");
+        })
     }
 }
 
