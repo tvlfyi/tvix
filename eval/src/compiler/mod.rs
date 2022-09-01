@@ -911,7 +911,7 @@ impl Compiler<'_> {
         // to enter the function call straight away.
         self.compile(slot, node.argument().unwrap());
         self.compile(slot, node.lambda().unwrap());
-        self.push_op_old(OpCode::OpCall);
+        self.push_op(OpCode::OpCall, &node);
     }
 
     /// Compile an expression into a runtime thunk which should be
