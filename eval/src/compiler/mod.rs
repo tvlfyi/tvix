@@ -147,7 +147,9 @@ impl Compiler<'_> {
             ast::Expr::BinOp(op) => self.compile_binop(slot, op),
             ast::Expr::HasAttr(has_attr) => self.compile_has_attr(slot, has_attr),
             ast::Expr::List(list) => self.compile_list(slot, list),
-            ast::Expr::AttrSet(attrs) => self.thunk(slot, move |c, s| c.compile_attr_set(s, attrs)),
+            ast::Expr::AttrSet(attrs) => self.thunk(slot, &attrs, move |c, a, s| {
+                c.compile_attr_set(s, a.clone())
+            }),
             ast::Expr::Select(select) => self.compile_select(slot, select),
             ast::Expr::Assert(assert) => self.compile_assert(slot, assert),
             ast::Expr::IfElse(if_else) => self.compile_if_else(slot, if_else),
@@ -812,10 +814,10 @@ impl Compiler<'_> {
             // This identifier is referring to a value from the same
             // scope which is not yet defined. This identifier access
             // must be thunked.
-            LocalPosition::Recursive(idx) => self.thunk(slot, move |compiler, _| {
+            LocalPosition::Recursive(idx) => self.thunk(slot, &node, move |compiler, node, _| {
                 let upvalue_idx =
                     compiler.add_upvalue(compiler.contexts.len() - 1, Upvalue::Local(idx));
-                compiler.push_op(OpCode::OpGetUpvalue(upvalue_idx), &node);
+                compiler.push_op(OpCode::OpGetUpvalue(upvalue_idx), node);
             }),
         };
     }
@@ -917,13 +919,14 @@ impl Compiler<'_> {
     /// Compile an expression into a runtime thunk which should be
     /// lazily evaluated when accessed.
     // TODO: almost the same as Compiler::compile_lambda; unify?
-    fn thunk<F>(&mut self, slot: Option<LocalIdx>, content: F)
+    fn thunk<N, F>(&mut self, slot: Option<LocalIdx>, node: &N, content: F)
     where
-        F: FnOnce(&mut Compiler, Option<LocalIdx>),
+        N: AstNode + Clone,
+        F: FnOnce(&mut Compiler, &N, Option<LocalIdx>),
     {
         self.contexts.push(LambdaCtx::new());
         self.begin_scope();
-        content(self, slot);
+        content(self, node, slot);
         self.end_scope();
 
         let thunk = self.contexts.pop().unwrap();
@@ -936,7 +939,7 @@ impl Compiler<'_> {
         // Emit the thunk directly if it does not close over the
         // environment.
         if thunk.lambda.upvalue_count == 0 {
-            self.emit_constant_old(Value::Thunk(Thunk::new(Rc::new(thunk.lambda))));
+            self.emit_constant(Value::Thunk(Thunk::new(Rc::new(thunk.lambda))), node);
             return;
         }
 
@@ -945,7 +948,7 @@ impl Compiler<'_> {
             .chunk()
             .push_constant(Value::Blueprint(Rc::new(thunk.lambda)));
 
-        self.push_op_old(OpCode::OpThunk(blueprint_idx));
+        self.push_op(OpCode::OpThunk(blueprint_idx), node);
         self.emit_upvalue_data(slot, thunk.scope.upvalues);
     }
 
