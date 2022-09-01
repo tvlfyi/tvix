@@ -57,7 +57,7 @@ impl LambdaCtx {
 
 /// Alias for the map of globally available functions that should
 /// implicitly be resolvable in the global scope.
-type GlobalsMap = HashMap<&'static str, Rc<dyn Fn(&mut Compiler)>>;
+type GlobalsMap = HashMap<&'static str, Rc<dyn Fn(&mut Compiler, rnix::ast::Ident)>>;
 
 struct Compiler<'code> {
     contexts: Vec<LambdaCtx>,
@@ -103,11 +103,6 @@ impl Compiler<'_> {
         &mut self.context_mut().scope
     }
 
-    /// Push a single instruction to the current bytecode chunk.
-    fn push_op_old(&mut self, data: OpCode) -> CodeIdx {
-        self.chunk().push_op_old(data)
-    }
-
     /// Push a single instruction to the current bytecode chunk and
     /// track the source span from which it was compiled.
     fn push_op<T: AstNode>(&mut self, data: OpCode, node: &T) -> CodeIdx {
@@ -120,12 +115,6 @@ impl Compiler<'_> {
         };
 
         self.chunk().push_op(data, span)
-    }
-
-    /// Emit a single constant to the current bytecode chunk.
-    fn emit_constant_old(&mut self, value: Value) {
-        let idx = self.chunk().push_constant(value);
-        self.push_op_old(OpCode::OpConstant(idx));
     }
 
     /// Emit a single constant to the current bytecode chunk and track
@@ -765,7 +754,7 @@ impl Compiler<'_> {
         // the global directly.
         if let Some(global) = self.globals.get(ident.text()) {
             if !self.scope().is_poisoned(ident.text()) {
-                global.clone()(self);
+                global.clone()(self, node.clone());
                 return;
             }
         }
@@ -1292,29 +1281,29 @@ fn prepare_globals(additional: HashMap<&'static str, Value>) -> GlobalsMap {
 
     globals.insert(
         "true",
-        Rc::new(|compiler| {
-            compiler.chunk().push_op_old(OpCode::OpTrue);
+        Rc::new(|compiler, node| {
+            compiler.push_op(OpCode::OpTrue, &node);
         }),
     );
 
     globals.insert(
         "false",
-        Rc::new(|compiler| {
-            compiler.chunk().push_op_old(OpCode::OpFalse);
+        Rc::new(|compiler, node| {
+            compiler.push_op(OpCode::OpFalse, &node);
         }),
     );
 
     globals.insert(
         "null",
-        Rc::new(|compiler| {
-            compiler.chunk().push_op_old(OpCode::OpNull);
+        Rc::new(|compiler, node| {
+            compiler.push_op(OpCode::OpNull, &node);
         }),
     );
 
     for (ident, value) in additional.into_iter() {
         globals.insert(
             ident,
-            Rc::new(move |compiler| compiler.emit_constant_old(value.clone())),
+            Rc::new(move |compiler, node| compiler.emit_constant(value.clone(), &node)),
         );
     }
 
