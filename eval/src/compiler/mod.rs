@@ -988,7 +988,10 @@ impl Compiler<'_> {
     /// several operations related to attribute sets, where
     /// identifiers are used as string keys.
     fn emit_literal_ident(&mut self, ident: &ast::Ident) {
-        self.emit_constant_old(Value::String(ident.ident_token().unwrap().text().into()));
+        self.emit_constant(
+            Value::String(ident.ident_token().unwrap().text().into()),
+            ident,
+        );
     }
 
     /// Patch the jump instruction at the given index, setting its
