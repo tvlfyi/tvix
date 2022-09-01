@@ -256,7 +256,7 @@ impl Compiler<'_> {
             ast::UnaryOpKind::Negate => OpCode::OpNegate,
         };
 
-        self.push_op_old(opcode);
+        self.push_op(opcode, &op);
     }
 
     fn compile_binop(&mut self, slot: Option<LocalIdx>, op: ast::BinOp) {
