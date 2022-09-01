@@ -604,7 +604,7 @@ impl Compiler<'_> {
     fn compile_assert(&mut self, slot: Option<LocalIdx>, node: ast::Assert) {
         // Compile the assertion condition to leave its value on the stack.
         self.compile(slot, node.condition().unwrap());
-        self.push_op_old(OpCode::OpAssert);
+        self.push_op(OpCode::OpAssert, &node);
 
         // The runtime will abort evaluation at this point if the
         // assertion failed, if not the body simply continues on like
