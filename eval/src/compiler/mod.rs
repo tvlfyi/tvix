@@ -171,15 +171,15 @@ impl Compiler<'_> {
     fn compile_literal(&mut self, node: ast::Literal) {
         match node.kind() {
             ast::LiteralKind::Float(f) => {
-                self.emit_constant_old(Value::Float(f.value().unwrap()));
+                self.emit_constant(Value::Float(f.value().unwrap()), &node);
             }
 
             ast::LiteralKind::Integer(i) => {
-                self.emit_constant_old(Value::Integer(i.value().unwrap()));
+                self.emit_constant(Value::Integer(i.value().unwrap()), &node);
             }
             ast::LiteralKind::Uri(u) => {
                 self.emit_warning(node.syntax().clone(), WarningKind::DeprecatedLiteralURL);
-                self.emit_constant_old(Value::String(u.syntax().text().into()));
+                self.emit_constant(Value::String(u.syntax().text().into()), &node);
             }
         }
     }
