@@ -885,7 +885,10 @@ impl Compiler<'_> {
         // If the function is not a closure, just emit it directly and
         // move on.
         if compiled.lambda.upvalue_count == 0 {
-            self.emit_constant_old(Value::Closure(Closure::new(Rc::new(compiled.lambda))));
+            self.emit_constant(
+                Value::Closure(Closure::new(Rc::new(compiled.lambda))),
+                &node,
+            );
             return;
         }
 
@@ -897,7 +900,7 @@ impl Compiler<'_> {
             .chunk()
             .push_constant(Value::Blueprint(Rc::new(compiled.lambda)));
 
-        self.push_op_old(OpCode::OpClosure(blueprint_idx));
+        self.push_op(OpCode::OpClosure(blueprint_idx), &node);
         self.emit_upvalue_data(slot, compiled.scope.upvalues);
     }
 
