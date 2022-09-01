@@ -539,7 +539,7 @@ impl Compiler<'_> {
         // nested selects.
         for fragment in path.attrs() {
             self.compile_attr(slot, fragment);
-            self.push_op_old(OpCode::OpAttrsSelect);
+            self.push_op(OpCode::OpAttrsSelect, &node);
         }
     }
 
