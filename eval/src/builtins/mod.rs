@@ -20,12 +20,12 @@ fn pure_builtins() -> Vec<Builtin> {
         Builtin::new("add", 2, |mut args| {
             let b = args.pop().unwrap();
             let a = args.pop().unwrap();
-            Ok(arithmetic_op!(a, b, +))
+            arithmetic_op!(a, b, +)
         }),
         Builtin::new("abort", 1, |mut args| {
-            return Err(
-                ErrorKind::Abort(args.pop().unwrap().to_string()?.as_str().to_owned()).into(),
-            );
+            return Err(ErrorKind::Abort(
+                args.pop().unwrap().to_string()?.as_str().to_owned(),
+            ));
         }),
         Builtin::new("catAttrs", 2, |mut args| {
             let list = args.pop().unwrap().to_list()?;
@@ -43,7 +43,7 @@ fn pure_builtins() -> Vec<Builtin> {
         Builtin::new("div", 2, |mut args| {
             let b = args.pop().unwrap();
             let a = args.pop().unwrap();
-            Ok(arithmetic_op!(a, b, /))
+            arithmetic_op!(a, b, /)
         }),
         Builtin::new("length", 1, |args| {
             Ok(Value::Integer(args[0].as_list()?.len() as i64))
@@ -81,17 +81,17 @@ fn pure_builtins() -> Vec<Builtin> {
         Builtin::new("mul", 2, |mut args| {
             let b = args.pop().unwrap();
             let a = args.pop().unwrap();
-            Ok(arithmetic_op!(a, b, *))
+            arithmetic_op!(a, b, *)
         }),
         Builtin::new("sub", 2, |mut args| {
             let b = args.pop().unwrap();
             let a = args.pop().unwrap();
-            Ok(arithmetic_op!(a, b, -))
+            arithmetic_op!(a, b, -)
         }),
         Builtin::new("throw", 1, |mut args| {
-            return Err(
-                ErrorKind::Throw(args.pop().unwrap().to_string()?.as_str().to_owned()).into(),
-            );
+            return Err(ErrorKind::Throw(
+                args.pop().unwrap().to_string()?.as_str().to_owned(),
+            ));
         }),
         Builtin::new("toString", 1, |args| {
             // TODO: toString is actually not the same as Display

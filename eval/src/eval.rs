@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use crate::{
     builtins::global_builtins,
-    errors::{ErrorKind, EvalResult},
+    errors::{Error, ErrorKind, EvalResult},
     value::Value,
 };
 
@@ -23,7 +23,10 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         for err in errors {
             eprintln!("parse error: {}", err);
         }
-        return Err(ErrorKind::ParseErrors(errors.to_vec()).into());
+        return Err(Error {
+            kind: ErrorKind::ParseErrors(errors.to_vec()).into(),
+            span: file.span,
+        });
     }
 
     // If we've reached this point, there are no errors.
@@ -54,8 +57,8 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         eprintln!(
             "compiler error: {:?} at `{}`[line {}]",
             error.kind,
-            file.source_slice(error.span.expect("TODO: non-optional")),
-            file.find_line(error.span.unwrap().low()) + 1
+            file.source_slice(error.span),
+            file.find_line(error.span.low()) + 1
         );
     }
 

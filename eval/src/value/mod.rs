@@ -10,7 +10,7 @@ mod list;
 mod string;
 mod thunk;
 
-use crate::errors::{ErrorKind, EvalResult};
+use crate::errors::ErrorKind;
 use crate::opcode::StackIdx;
 pub use attrs::NixAttrs;
 pub use builtin::Builtin;
@@ -70,91 +70,59 @@ impl Value {
         }
     }
 
-    pub fn as_bool(&self) -> EvalResult<bool> {
+    pub fn as_bool(&self) -> Result<bool, ErrorKind> {
         match self {
             Value::Bool(b) => Ok(*b),
-            other => Err(ErrorKind::TypeError {
-                expected: "bool",
-                actual: other.type_of(),
-            }
-            .into()),
+            other => Err(type_error("bool", &other)),
         }
     }
 
-    pub fn as_attrs(&self) -> EvalResult<&NixAttrs> {
+    pub fn as_attrs(&self) -> Result<&NixAttrs, ErrorKind> {
         match self {
             Value::Attrs(attrs) => Ok(attrs),
-            other => Err(ErrorKind::TypeError {
-                expected: "set",
-                actual: other.type_of(),
-            }
-            .into()),
+            other => Err(type_error("set", &other)),
         }
     }
 
-    pub fn as_str(&self) -> EvalResult<&str> {
+    pub fn as_str(&self) -> Result<&str, ErrorKind> {
         match self {
             Value::String(s) => Ok(s.as_str()),
-            other => Err(ErrorKind::TypeError {
-                expected: "string",
-                actual: other.type_of(),
-            }
-            .into()),
+            other => Err(type_error("string", &other)),
         }
     }
 
-    pub fn as_list(&self) -> EvalResult<&NixList> {
+    pub fn as_list(&self) -> Result<&NixList, ErrorKind> {
         match self {
             Value::List(xs) => Ok(xs),
-            other => Err(ErrorKind::TypeError {
-                expected: "list",
-                actual: other.type_of(),
-            }
-            .into()),
+            other => Err(type_error("list", &other)),
         }
     }
 
-    pub fn to_string(self) -> EvalResult<NixString> {
+    pub fn to_string(self) -> Result<NixString, ErrorKind> {
         match self {
             Value::String(s) => Ok(s),
-            other => Err(ErrorKind::TypeError {
-                expected: "string",
-                actual: other.type_of(),
-            }
-            .into()),
+            other => Err(type_error("string", &other)),
         }
     }
 
-    pub fn to_attrs(self) -> EvalResult<Rc<NixAttrs>> {
+    pub fn to_attrs(self) -> Result<Rc<NixAttrs>, ErrorKind> {
         match self {
             Value::Attrs(s) => Ok(s),
-            other => Err(ErrorKind::TypeError {
-                expected: "set",
-                actual: other.type_of(),
-            }
-            .into()),
+            other => Err(type_error("set", &other)),
         }
     }
 
-    pub fn to_list(self) -> EvalResult<NixList> {
+    pub fn to_list(self) -> Result<NixList, ErrorKind> {
         match self {
             Value::List(l) => Ok(l),
-            other => Err(ErrorKind::TypeError {
-                expected: "list",
-                actual: other.type_of(),
-            }
-            .into()),
+            other => Err(type_error("list", &other)),
         }
     }
 
-    pub fn to_closure(self) -> EvalResult<Closure> {
+    pub fn to_closure(self) -> Result<Closure, ErrorKind> {
         match self {
             Value::Closure(c) => Ok(c),
-            other => Err(ErrorKind::TypeError {
-                expected: "lambda",
-                actual: other.type_of(),
-            }
-            .into()),
+            other => Err(type_error("lambda", &other)),
         }
     }
 
@@ -229,5 +197,12 @@ impl PartialEq for Value {
             // TODO(tazjin): mirror Lambda equality behaviour
             _ => false,
         }
+    }
+}
+
+fn type_error(expected: &'static str, actual: &Value) -> ErrorKind {
+    ErrorKind::TypeError {
+        expected,
+        actual: actual.type_of(),
     }
 }

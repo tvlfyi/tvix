@@ -6,7 +6,7 @@ use std::{cell::RefMut, rc::Rc};
 use crate::{
     chunk::Chunk,
     errors::{Error, ErrorKind, EvalResult},
-    opcode::{ConstantIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
+    opcode::{CodeIdx, ConstantIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
     upvalues::UpvalueCarrier,
     value::{Closure, Lambda, NixAttrs, NixList, Thunk, Value},
 };
@@ -37,30 +37,50 @@ pub struct VM {
     with_stack: Vec<usize>,
 }
 
+/// This macro wraps a computation that returns an ErrorKind or a
+/// result, and wraps the ErrorKind in an Error struct if present.
+///
+/// The reason for this macro's existence is that calculating spans is
+/// potentially expensive, so it should be avoided to the last moment
+/// (i.e. definite instantiation of a runtime error) if possible.
+macro_rules! fallible {
+    ( $self:ident, $body:expr) => {
+        match $body {
+            Ok(result) => result,
+            Err(kind) => {
+                return Err(Error {
+                    kind,
+                    span: $self.current_span(),
+                })
+            }
+        }
+    };
+}
+
 #[macro_export]
 macro_rules! arithmetic_op {
     ( $self:ident, $op:tt ) => {{
         let b = $self.pop();
         let a = $self.pop();
-        let result = arithmetic_op!(a, b, $op);
+        let result = fallible!($self, arithmetic_op!(a, b, $op));
         $self.push(result);
     }};
 
     ( $a:ident, $b:ident, $op:tt ) => {{
         match ($a, $b) {
-            (Value::Integer(i1), Value::Integer(i2)) => Value::Integer(i1 $op i2),
-            (Value::Float(f1), Value::Float(f2)) => Value::Float(f1 $op f2),
-            (Value::Integer(i1), Value::Float(f2)) => Value::Float(i1 as f64 $op f2),
-            (Value::Float(f1), Value::Integer(i2)) => Value::Float(f1 $op i2 as f64),
+            (Value::Integer(i1), Value::Integer(i2)) => Ok(Value::Integer(i1 $op i2)),
+            (Value::Float(f1), Value::Float(f2)) => Ok(Value::Float(f1 $op f2)),
+            (Value::Integer(i1), Value::Float(f2)) => Ok(Value::Float(i1 as f64 $op f2)),
+            (Value::Float(f1), Value::Integer(i2)) => Ok(Value::Float(f1 $op i2 as f64)),
 
-            (v1, v2) => return Err(ErrorKind::TypeError {
+            (v1, v2) => Err(ErrorKind::TypeError {
                 expected: "number (either int or float)",
                 actual: if v1.is_number() {
                     v2.type_of()
                 } else {
                     v1.type_of()
                 },
-            }.into()),
+            }),
         }
     }};
 }
@@ -80,10 +100,10 @@ macro_rules! cmp_op {
             (Value::Float(f1), Value::Integer(i2)) => f1 $op (i2 as f64),
             (Value::String(s1), Value::String(s2)) => s1 $op s2,
 
-            (lhs, rhs) => return Err(ErrorKind::Incomparable {
+            (lhs, rhs) => return Err($self.error(ErrorKind::Incomparable {
                 lhs: lhs.type_of(),
                 rhs: rhs.type_of(),
-            }.into()),
+            })),
         };
 
         $self.push(Value::Bool(result));
@@ -124,6 +144,21 @@ impl VM {
 
     fn peek(&self, offset: usize) -> &Value {
         &self.stack[self.stack.len() - 1 - offset]
+    }
+
+    /// Returns the source span of the instruction currently being
+    /// executed.
+    fn current_span(&self) -> codemap::Span {
+        self.chunk().get_span(CodeIdx(self.frame().ip - 1))
+    }
+
+    /// Construct an error from the given ErrorKind and the source
+    /// span of the current instruction.
+    fn error(&self, kind: ErrorKind) -> Error {
+        Error {
+            kind,
+            span: self.current_span(),
+        }
     }
 
     pub fn call(&mut self, lambda: Rc<Lambda>, upvalues: Vec<Value>, arg_count: usize) {
@@ -171,7 +206,7 @@ impl VM {
                     let result = if let (Value::String(s1), Value::String(s2)) = (&a, &b) {
                         Value::String(s1.concat(s2))
                     } else {
-                        arithmetic_op!(a, b, +)
+                        fallible!(self, arithmetic_op!(a, b, +))
                     };
 
                     self.push(result)
@@ -182,7 +217,7 @@ impl VM {
                 OpCode::OpDiv => arithmetic_op!(self, /),
 
                 OpCode::OpInvert => {
-                    let v = self.pop().as_bool()?;
+                    let v = fallible!(self, self.pop().as_bool());
                     self.push(Value::Bool(!v));
                 }
 
@@ -190,11 +225,10 @@ impl VM {
                     Value::Integer(i) => self.push(Value::Integer(-i)),
                     Value::Float(f) => self.push(Value::Float(-f)),
                     v => {
-                        return Err(ErrorKind::TypeError {
+                        return Err(self.error(ErrorKind::TypeError {
                             expected: "number (either int or float)",
                             actual: v.type_of(),
-                        }
-                        .into())
+                        }));
                     }
                 },
 
@@ -218,30 +252,29 @@ impl VM {
                 OpCode::OpAttrPath(Count(count)) => self.run_attr_path(count)?,
 
                 OpCode::OpAttrsUpdate => {
-                    let rhs = unwrap_or_clone_rc(self.pop().to_attrs()?);
-                    let lhs = unwrap_or_clone_rc(self.pop().to_attrs()?);
+                    let rhs = unwrap_or_clone_rc(fallible!(self, self.pop().to_attrs()));
+                    let lhs = unwrap_or_clone_rc(fallible!(self, self.pop().to_attrs()));
 
                     self.push(Value::Attrs(Rc::new(lhs.update(rhs))))
                 }
 
                 OpCode::OpAttrsSelect => {
-                    let key = self.pop().to_string()?;
-                    let attrs = self.pop().to_attrs()?;
+                    let key = fallible!(self, self.pop().to_string());
+                    let attrs = fallible!(self, self.pop().to_attrs());
 
                     match attrs.select(key.as_str()) {
                         Some(value) => self.push(value.clone()),
 
                         None => {
-                            return Err(ErrorKind::AttributeNotFound {
+                            return Err(self.error(ErrorKind::AttributeNotFound {
                                 name: key.as_str().to_string(),
-                            }
-                            .into())
+                            }))
                         }
                     }
                 }
 
                 OpCode::OpAttrsTrySelect => {
-                    let key = self.pop().to_string()?;
+                    let key = fallible!(self, self.pop().to_string());
                     let value = match self.pop() {
                         Value::Attrs(attrs) => match attrs.select(key.as_str()) {
                             Some(value) => value.clone(),
@@ -255,7 +288,7 @@ impl VM {
                 }
 
                 OpCode::OpAttrsIsSet => {
-                    let key = self.pop().to_string()?;
+                    let key = fallible!(self, self.pop().to_string());
                     let result = match self.pop() {
                         Value::Attrs(attrs) => attrs.contains(key.as_str()),
 
@@ -274,8 +307,8 @@ impl VM {
                 }
 
                 OpCode::OpConcat => {
-                    let rhs = self.pop().to_list()?;
-                    let lhs = self.pop().to_list()?;
+                    let rhs = fallible!(self, self.pop().to_list());
+                    let lhs = fallible!(self, self.pop().to_list());
                     self.push(Value::List(lhs.concat(&rhs)))
                 }
 
@@ -286,13 +319,13 @@ impl VM {
                 }
 
                 OpCode::OpJumpIfTrue(JumpOffset(offset)) => {
-                    if self.peek(0).as_bool()? {
+                    if fallible!(self, self.peek(0).as_bool()) {
                         self.frame_mut().ip += offset;
                     }
                 }
 
                 OpCode::OpJumpIfFalse(JumpOffset(offset)) => {
-                    if !self.peek(0).as_bool()? {
+                    if !fallible!(self, self.peek(0).as_bool()) {
                         self.frame_mut().ip += offset;
                     }
                 }
@@ -311,11 +344,10 @@ impl VM {
                 OpCode::OpAssertBool => {
                     let val = self.peek(0);
                     if !val.is_bool() {
-                        return Err(ErrorKind::TypeError {
+                        return Err(self.error(ErrorKind::TypeError {
                             expected: "bool",
                             actual: val.type_of(),
-                        }
-                        .into());
+                        }));
                     }
                 }
 
@@ -347,13 +379,13 @@ impl VM {
                 }
 
                 OpCode::OpResolveWith => {
-                    let ident = self.pop().to_string()?;
+                    let ident = fallible!(self, self.pop().to_string());
                     let value = self.resolve_with(ident.as_str())?;
                     self.push(value)
                 }
 
                 OpCode::OpResolveWithOrUpvalue(idx) => {
-                    let ident = self.pop().to_string()?;
+                    let ident = fallible!(self, self.pop().to_string());
                     match self.resolve_with(ident.as_str()) {
                         // Variable found in local `with`-stack.
                         Ok(value) => self.push(value),
@@ -372,8 +404,8 @@ impl VM {
                 }
 
                 OpCode::OpAssert => {
-                    if !self.pop().as_bool()? {
-                        return Err(ErrorKind::AssertionFailed.into());
+                    if !fallible!(self, self.pop().as_bool()) {
+                        return Err(self.error(ErrorKind::AssertionFailed));
                     }
                 }
 
@@ -386,19 +418,18 @@ impl VM {
 
                         Value::Builtin(builtin) => {
                             let arg = self.pop();
-                            let result = builtin.apply(arg)?;
+                            let result = fallible!(self, builtin.apply(arg));
                             self.push(result);
                         }
-                        _ => return Err(ErrorKind::NotCallable.into()),
+                        _ => return Err(self.error(ErrorKind::NotCallable)),
                     };
                 }
 
                 OpCode::OpGetUpvalue(upv_idx) => {
                     let value = self.frame().upvalue(upv_idx).clone();
                     if let Value::DynamicUpvalueMissing(name) = value {
-                        return Err(
-                            ErrorKind::UnknownDynamicVariable(name.as_str().to_string()).into()
-                        );
+                        return Err(self
+                            .error(ErrorKind::UnknownDynamicVariable(name.as_str().to_string())));
                     }
 
                     self.push(value);
@@ -446,7 +477,7 @@ impl VM {
                     let mut value = self.pop();
 
                     if let Value::Thunk(thunk) = value {
-                        thunk.force(self)?;
+                        fallible!(self, thunk.force(self));
                         value = thunk.value().clone();
                     }
 
@@ -498,7 +529,7 @@ impl VM {
         let mut path = Vec::with_capacity(count);
 
         for _ in 0..count {
-            path.push(self.pop().to_string()?);
+            path.push(fallible!(self, self.pop().to_string()));
         }
 
         self.push(Value::AttrPath(path));
@@ -506,7 +537,11 @@ impl VM {
     }
 
     fn run_attrset(&mut self, count: usize) -> EvalResult<()> {
-        let attrs = NixAttrs::construct(count, self.stack.split_off(self.stack.len() - count * 2))?;
+        let attrs = fallible!(
+            self,
+            NixAttrs::construct(count, self.stack.split_off(self.stack.len() - count * 2))
+        );
+
         self.push(Value::Attrs(Rc::new(attrs)));
         Ok(())
     }
@@ -518,7 +553,7 @@ impl VM {
         let mut out = String::new();
 
         for _ in 0..count {
-            out.push_str(self.pop().to_string()?.as_str());
+            out.push_str(fallible!(self, self.pop().to_string()).as_str());
         }
 
         self.push(Value::String(out.into()));
@@ -527,7 +562,7 @@ impl VM {
 
     fn resolve_dynamic_upvalue(&mut self, ident_idx: ConstantIdx) -> EvalResult<Value> {
         let chunk = self.chunk();
-        let ident = chunk.constant(ident_idx).as_str()?.to_string();
+        let ident = fallible!(self, chunk.constant(ident_idx).as_str()).to_string();
 
         // Peek at the current instruction (note: IP has already
         // advanced!) to see if it is actually data indicating a
@@ -560,14 +595,14 @@ impl VM {
     /// Resolve a dynamic identifier through the with-stack at runtime.
     fn resolve_with(&self, ident: &str) -> EvalResult<Value> {
         for idx in self.with_stack.iter().rev() {
-            let with = self.stack[*idx].as_attrs()?;
+            let with = fallible!(self, self.stack[*idx].as_attrs());
             match with.select(ident) {
                 None => continue,
                 Some(val) => return Ok(val.clone()),
             }
         }
 
-        Err(ErrorKind::UnknownDynamicVariable(ident.to_string()).into())
+        Err(self.error(ErrorKind::UnknownDynamicVariable(ident.to_string())))
     }
 
     /// Populate the upvalue fields of a thunk or closure under construction.
@@ -619,7 +654,7 @@ impl VM {
             Value::List(list) => list.iter().try_for_each(|elem| self.force_for_output(elem)),
 
             Value::Thunk(thunk) => {
-                thunk.force(self)?;
+                fallible!(self, thunk.force(self));
                 self.force_for_output(&thunk.value())
             }
 

@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::rc::Rc;
 
-use crate::errors::{ErrorKind, EvalResult};
+use crate::errors::ErrorKind;
 
 use super::string::NixString;
 use super::Value;
@@ -236,7 +236,7 @@ impl NixAttrs {
 
     /// Implement construction logic of an attribute set, to encapsulate
     /// logic about attribute set optimisations inside of this module.
-    pub fn construct(count: usize, mut stack_slice: Vec<Value>) -> EvalResult<Self> {
+    pub fn construct(count: usize, mut stack_slice: Vec<Value>) -> Result<Self, ErrorKind> {
         debug_assert!(
             stack_slice.len() == count * 2,
             "construct_attrs called with count == {}, but slice.len() == {}",
@@ -342,12 +342,11 @@ fn attempt_optimise_kv(slice: &mut [Value]) -> Option<NixAttrs> {
 
 // Set an attribute on an in-construction attribute set, while
 // checking against duplicate keys.
-fn set_attr(attrs: &mut NixAttrs, key: NixString, value: Value) -> EvalResult<()> {
+fn set_attr(attrs: &mut NixAttrs, key: NixString, value: Value) -> Result<(), ErrorKind> {
     match attrs.0.map_mut().entry(key) {
         btree_map::Entry::Occupied(entry) => Err(ErrorKind::DuplicateAttrsKey {
             key: entry.key().as_str().to_string(),
-        }
-        .into()),
+        }),
 
         btree_map::Entry::Vacant(entry) => {
             entry.insert(value);
@@ -367,7 +366,7 @@ fn set_nested_attr(
     key: NixString,
     mut path: Vec<NixString>,
     value: Value,
-) -> EvalResult<()> {
+) -> Result<(), ErrorKind> {
     // If there is no next key we are at the point where we
     // should insert the value itself.
     if path.is_empty() {
@@ -408,8 +407,7 @@ fn set_nested_attr(
             _ => {
                 return Err(ErrorKind::DuplicateAttrsKey {
                     key: entry.key().as_str().to_string(),
-                }
-                .into())
+                })
             }
         },
     }

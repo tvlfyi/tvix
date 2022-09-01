@@ -3,13 +3,13 @@
 //!
 //! Builtins are directly backed by Rust code operating on Nix values.
 
-use crate::errors::EvalResult;
+use crate::errors::ErrorKind;
 
 use super::Value;
 
 use std::fmt::{Debug, Display};
 
-pub type BuiltinFn = fn(arg: Vec<Value>) -> EvalResult<Value>;
+pub type BuiltinFn = fn(arg: Vec<Value>) -> Result<Value, ErrorKind>;
 
 /// Represents a single built-in function which directly executes Rust
 /// code that operates on a Nix value.
@@ -50,7 +50,7 @@ impl Builtin {
     /// Apply an additional argument to the builtin, which will either
     /// lead to execution of the function or to returning a partial
     /// builtin.
-    pub fn apply(mut self, arg: Value) -> EvalResult<Value> {
+    pub fn apply(mut self, arg: Value) -> Result<Value, ErrorKind> {
         self.partials.push(arg);
 
         if self.partials.len() == self.arity {

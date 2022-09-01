@@ -24,7 +24,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::{errors::ErrorKind, upvalues::UpvalueCarrier, vm::VM, EvalResult, Value};
+use crate::{errors::ErrorKind, upvalues::UpvalueCarrier, vm::VM, Value};
 
 use super::Lambda;
 
@@ -64,7 +64,7 @@ impl Thunk {
     /// to it, providing memoization) through interior mutability. In
     /// case of nested thunks, the intermediate thunk representations
     /// are replaced.
-    pub fn force(&self, vm: &mut VM) -> EvalResult<()> {
+    pub fn force(&self, vm: &mut VM) -> Result<(), ErrorKind> {
         // Due to mutable borrowing rules, the following code can't
         // easily use a match statement or something like that; it
         // requires a bit of manual fiddling.
@@ -78,14 +78,16 @@ impl Thunk {
                 }
 
                 ThunkRepr::Evaluated(_) => return Ok(()),
-                ThunkRepr::Blackhole => return Err(ErrorKind::InfiniteRecursion.into()),
+                ThunkRepr::Blackhole => return Err(ErrorKind::InfiniteRecursion),
 
                 ThunkRepr::Suspended { .. } => {
                     if let ThunkRepr::Suspended { lambda, upvalues } =
                         std::mem::replace(&mut *thunk_mut, ThunkRepr::Blackhole)
                     {
                         vm.call(lambda, upvalues, 0);
-                        *thunk_mut = ThunkRepr::Evaluated(vm.run()?);
+                        // TODO: find a cheap way to actually retain
+                        // the original error span
+                        *thunk_mut = ThunkRepr::Evaluated(vm.run().map_err(|e| e.kind)?);
                     }
                 }
             }

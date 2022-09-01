@@ -1217,10 +1217,7 @@ impl Compiler<'_> {
     }
 
     fn emit_error(&mut self, span: codemap::Span, kind: ErrorKind) {
-        self.errors.push(Error {
-            kind,
-            span: Some(span),
-        })
+        self.errors.push(Error { kind, span })
     }
 
     /// Convert a non-dynamic string expression to a string if possible,
@@ -1234,7 +1231,7 @@ impl Compiler<'_> {
 
         return Err(Error {
             kind: ErrorKind::DynamicKeyInLet(expr.syntax().clone()),
-            span: Some(self.span_for(&expr)),
+            span: self.span_for(&expr),
         });
     }
 
@@ -1253,7 +1250,7 @@ impl Compiler<'_> {
                 ast::Expr::Str(s) => self.expr_str_to_string(s),
                 _ => Err(Error {
                     kind: ErrorKind::DynamicKeyInLet(node.syntax().clone()),
-                    span: Some(self.span_for(&node)),
+                    span: self.span_for(&node),
                 }),
             },
         }
@@ -1319,8 +1316,12 @@ pub fn compile<'code>(
 ) -> EvalResult<CompilationOutput> {
     let mut root_dir = match location {
         Some(dir) => Ok(dir),
-        None => std::env::current_dir().map_err(|e| {
-            ErrorKind::PathResolution(format!("could not determine current directory: {}", e))
+        None => std::env::current_dir().map_err(|e| Error {
+            kind: ErrorKind::PathResolution(format!(
+                "could not determine current directory: {}",
+                e
+            )),
+            span: file.span,
         }),
     }?;
 
