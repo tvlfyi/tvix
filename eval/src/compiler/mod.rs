@@ -836,11 +836,11 @@ impl Compiler<'_> {
 
         self.scope_mut().push_with();
 
-        self.push_op_old(OpCode::OpPushWith(with_idx));
+        self.push_op(OpCode::OpPushWith(with_idx), &node);
 
         self.compile(slot, node.body().unwrap());
 
-        self.push_op_old(OpCode::OpPopWith);
+        self.push_op(OpCode::OpPopWith, &node);
         self.scope_mut().pop_with();
         self.end_scope();
     }
