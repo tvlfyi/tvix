@@ -386,7 +386,7 @@ impl Compiler<'_> {
         // next nested element, for all fragments except the last one.
         for (count, fragment) in node.attrpath().unwrap().attrs().enumerate() {
             if count > 0 {
-                self.push_op_old(OpCode::OpAttrsTrySelect);
+                self.push_op(OpCode::OpAttrsTrySelect, &fragment);
             }
 
             self.compile_attr(slot, fragment);
@@ -394,7 +394,7 @@ impl Compiler<'_> {
 
         // After the last fragment, emit the actual instruction that
         // leaves a boolean on the stack.
-        self.push_op_old(OpCode::OpAttrsIsSet);
+        self.push_op(OpCode::OpAttrsIsSet, &node);
     }
 
     fn compile_attr(&mut self, slot: Option<LocalIdx>, node: ast::Attr) {
