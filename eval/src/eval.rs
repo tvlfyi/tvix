@@ -7,6 +7,15 @@ use crate::{
 };
 
 pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
+    let mut codemap = codemap::CodeMap::new();
+    let file = codemap.add_file(
+        location
+            .as_ref()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|| "<repl>".into()),
+        code.into(),
+    );
+
     let parsed = rnix::ast::Root::parse(code);
     let errors = parsed.errors();
 
@@ -27,7 +36,7 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         println!("{:?}", root_expr);
     }
 
-    let result = crate::compiler::compile(root_expr, location, global_builtins())?;
+    let result = crate::compiler::compile(root_expr, location, &file, global_builtins())?;
 
     #[cfg(feature = "disassembler")]
     crate::disassembler::disassemble_chunk(&result.lambda.chunk);

@@ -59,7 +59,7 @@ impl LambdaCtx {
 /// implicitly be resolvable in the global scope.
 type GlobalsMap = HashMap<&'static str, Rc<dyn Fn(&mut Compiler)>>;
 
-struct Compiler {
+struct Compiler<'code> {
     contexts: Vec<LambdaCtx>,
     warnings: Vec<EvalWarning>,
     errors: Vec<Error>,
@@ -72,11 +72,16 @@ struct Compiler {
     /// an identifier is resolved against the scope poisoning logic,
     /// and a function that should emit code for the token.
     globals: GlobalsMap,
+
+    /// File reference in the codemap contains all known source code
+    /// and is used to track the spans from which instructions where
+    /// derived.
+    file: &'code codemap::File,
 }
 
 // Helper functions for emitting code and metadata to the internal
 // structures of the compiler.
-impl Compiler {
+impl Compiler<'_> {
     fn context(&self) -> &LambdaCtx {
         &self.contexts[self.contexts.len() - 1]
     }
@@ -110,7 +115,7 @@ impl Compiler {
 }
 
 // Actual code-emitting AST traversal methods.
-impl Compiler {
+impl Compiler<'_> {
     fn compile(&mut self, slot: Option<LocalIdx>, expr: ast::Expr) {
         match expr {
             ast::Expr::Literal(literal) => self.compile_literal(literal),
@@ -1257,9 +1262,10 @@ fn prepare_globals(additional: HashMap<&'static str, Value>) -> GlobalsMap {
     globals
 }
 
-pub fn compile(
+pub fn compile<'code>(
     expr: ast::Expr,
     location: Option<PathBuf>,
+    file: &'code codemap::File,
     globals: HashMap<&'static str, Value>,
 ) -> EvalResult<CompilationOutput> {
     let mut root_dir = match location {
@@ -1278,6 +1284,7 @@ pub fn compile(
 
     let mut c = Compiler {
         root_dir,
+        file,
         globals: prepare_globals(globals),
         contexts: vec![LambdaCtx::new()],
         warnings: vec![],
