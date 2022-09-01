@@ -773,14 +773,16 @@ impl Compiler<'_> {
         match self.scope_mut().resolve_local(ident.text()) {
             LocalPosition::Unknown => {
                 // Are we possibly dealing with an upvalue?
-                if let Some(idx) = self.resolve_upvalue(self.contexts.len() - 1, ident.text()) {
+                if let Some(idx) =
+                    self.resolve_upvalue(self.contexts.len() - 1, ident.text(), &node)
+                {
                     self.push_op(OpCode::OpGetUpvalue(idx), &node);
                     return;
                 }
 
                 // Even worse - are we dealing with a dynamic upvalue?
                 if let Some(idx) =
-                    self.resolve_dynamic_upvalue(self.contexts.len() - 1, ident.text())
+                    self.resolve_dynamic_upvalue(self.contexts.len() - 1, ident.text(), &node)
                 {
                     // Edge case: Current scope *also* has a non-empty
                     // `with`-stack. This means we need to resolve
@@ -815,8 +817,11 @@ impl Compiler<'_> {
             // scope which is not yet defined. This identifier access
             // must be thunked.
             LocalPosition::Recursive(idx) => self.thunk(slot, &node, move |compiler, node, _| {
-                let upvalue_idx =
-                    compiler.add_upvalue(compiler.contexts.len() - 1, UpvalueKind::Local(idx));
+                let upvalue_idx = compiler.add_upvalue(
+                    compiler.contexts.len() - 1,
+                    &node,
+                    UpvalueKind::Local(idx),
+                );
                 compiler.push_op(OpCode::OpGetUpvalue(upvalue_idx), node);
             }),
         };
@@ -959,7 +964,7 @@ impl Compiler<'_> {
             match upvalue.kind {
                 UpvalueKind::Local(idx) if slot.is_none() => {
                     let stack_idx = self.scope().stack_index(idx);
-                    self.push_op_old(OpCode::DataLocalIdx(stack_idx));
+                    self.push_op(OpCode::DataLocalIdx(stack_idx), &upvalue.node);
                 }
 
                 UpvalueKind::Local(idx) => {
@@ -970,21 +975,22 @@ impl Compiler<'_> {
                     // deferred until the scope is fully initialised
                     // and can be finalised.
                     if slot.unwrap() < idx {
-                        self.push_op_old(OpCode::DataDeferredLocal(stack_idx));
+                        self.push_op(OpCode::DataDeferredLocal(stack_idx), &upvalue.node);
                         self.scope_mut().mark_needs_finaliser(slot.unwrap());
                     } else {
-                        self.push_op_old(OpCode::DataLocalIdx(stack_idx));
+                        self.push_op(OpCode::DataLocalIdx(stack_idx), &upvalue.node);
                     }
                 }
 
                 UpvalueKind::Upvalue(idx) => {
-                    self.push_op_old(OpCode::DataUpvalueIdx(idx));
+                    self.push_op(OpCode::DataUpvalueIdx(idx), &upvalue.node);
                 }
+
                 UpvalueKind::Dynamic { name, up } => {
                     let idx = self.chunk().push_constant(Value::String(name.into()));
-                    self.push_op_old(OpCode::DataDynamicIdx(idx));
+                    self.push_op(OpCode::DataDynamicIdx(idx), &upvalue.node);
                     if let Some(up) = up {
-                        self.push_op_old(OpCode::DataDynamicAncestor(up));
+                        self.push_op(OpCode::DataDynamicAncestor(up), &upvalue.node);
                     }
                 }
             };
@@ -1106,7 +1112,12 @@ impl Compiler<'_> {
         self.scope_mut().declare_local(name, node)
     }
 
-    fn resolve_upvalue(&mut self, ctx_idx: usize, name: &str) -> Option<UpvalueIdx> {
+    fn resolve_upvalue(
+        &mut self,
+        ctx_idx: usize,
+        name: &str,
+        node: &rnix::ast::Ident,
+    ) -> Option<UpvalueIdx> {
         if ctx_idx == 0 {
             // There can not be any upvalue at the outermost context.
             return None;
@@ -1119,7 +1130,7 @@ impl Compiler<'_> {
             // guaranteed to be placed on the stack (i.e. in the right
             // position) *during* their runtime construction
             LocalPosition::Known(idx) | LocalPosition::Recursive(idx) => {
-                return Some(self.add_upvalue(ctx_idx, UpvalueKind::Local(idx)))
+                return Some(self.add_upvalue(ctx_idx, node, UpvalueKind::Local(idx)))
             }
 
             LocalPosition::Unknown => { /* continue below */ }
@@ -1128,8 +1139,8 @@ impl Compiler<'_> {
         // If the upvalue comes from even further up, we need to
         // recurse to make sure that the upvalues are created at each
         // level.
-        if let Some(idx) = self.resolve_upvalue(ctx_idx - 1, name) {
-            return Some(self.add_upvalue(ctx_idx, UpvalueKind::Upvalue(idx)));
+        if let Some(idx) = self.resolve_upvalue(ctx_idx - 1, name, node) {
+            return Some(self.add_upvalue(ctx_idx, node, UpvalueKind::Upvalue(idx)));
         }
 
         None
@@ -1146,7 +1157,12 @@ impl Compiler<'_> {
     /// As such an upvalue is actually accessed, an error is produced
     /// when the sentinel is found. See the runtime's handling of
     /// dynamic upvalues for details.
-    fn resolve_dynamic_upvalue(&mut self, at: usize, name: &str) -> Option<UpvalueIdx> {
+    fn resolve_dynamic_upvalue(
+        &mut self,
+        at: usize,
+        name: &str,
+        node: &rnix::ast::Ident,
+    ) -> Option<UpvalueIdx> {
         if at == 0 {
             // There can not be any upvalue at the outermost context.
             return None;
@@ -1168,6 +1184,7 @@ impl Compiler<'_> {
             for idx in lowest_idx..=at {
                 upvalue_idx = Some(self.add_upvalue(
                     idx,
+                    node,
                     UpvalueKind::Dynamic {
                         name: name.clone(),
                         up: upvalue_idx,
@@ -1183,7 +1200,12 @@ impl Compiler<'_> {
         None
     }
 
-    fn add_upvalue(&mut self, ctx_idx: usize, kind: UpvalueKind) -> UpvalueIdx {
+    fn add_upvalue(
+        &mut self,
+        ctx_idx: usize,
+        node: &rnix::ast::Ident,
+        kind: UpvalueKind,
+    ) -> UpvalueIdx {
         // If there is already an upvalue closing over the specified
         // index, retrieve that instead.
         for (idx, existing) in self.contexts[ctx_idx].scope.upvalues.iter().enumerate() {
@@ -1192,7 +1214,10 @@ impl Compiler<'_> {
             }
         }
 
-        self.contexts[ctx_idx].scope.upvalues.push(Upvalue { kind });
+        self.contexts[ctx_idx].scope.upvalues.push(Upvalue {
+            kind,
+            node: node.clone(),
+        });
 
         let idx = UpvalueIdx(self.contexts[ctx_idx].lambda.upvalue_count);
         self.contexts[ctx_idx].lambda.upvalue_count += 1;

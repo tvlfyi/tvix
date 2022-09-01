@@ -94,6 +94,7 @@ pub enum UpvalueKind {
 #[derive(Clone, Debug)]
 pub struct Upvalue {
     pub kind: UpvalueKind,
+    pub node: rnix::ast::Ident,
 }
 
 /// Represents the index of a local in the scope's local array, which
