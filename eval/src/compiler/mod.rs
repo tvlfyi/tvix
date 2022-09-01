@@ -427,7 +427,7 @@ impl Compiler<'_> {
             self.compile(slot, item);
         }
 
-        self.push_op_old(OpCode::OpList(Count(count)));
+        self.push_op(OpCode::OpList(Count(count)), &node);
     }
 
     // Compile attribute set literals into equivalent bytecode.
