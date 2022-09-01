@@ -625,15 +625,18 @@ impl Compiler<'_> {
     fn compile_if_else(&mut self, slot: Option<LocalIdx>, node: ast::IfElse) {
         self.compile(slot, node.condition().unwrap());
 
-        let then_idx = self.push_op_old(OpCode::OpJumpIfFalse(JumpOffset(0)));
+        let then_idx = self.push_op(
+            OpCode::OpJumpIfFalse(JumpOffset(0)),
+            &node.condition().unwrap(),
+        );
 
-        self.push_op_old(OpCode::OpPop); // discard condition value
+        self.push_op(OpCode::OpPop, &node); // discard condition value
         self.compile(slot, node.body().unwrap());
 
-        let else_idx = self.push_op_old(OpCode::OpJump(JumpOffset(0)));
+        let else_idx = self.push_op(OpCode::OpJump(JumpOffset(0)), &node);
 
         self.patch_jump(then_idx); // patch jump *to* else_body
-        self.push_op_old(OpCode::OpPop); // discard condition value
+        self.push_op(OpCode::OpPop, &node); // discard condition value
         self.compile(slot, node.else_body().unwrap());
 
         self.patch_jump(else_idx); // patch jump *over* else body
