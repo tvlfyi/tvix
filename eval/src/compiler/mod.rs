@@ -772,7 +772,7 @@ impl Compiler<'_> {
             LocalPosition::Unknown => {
                 // Are we possibly dealing with an upvalue?
                 if let Some(idx) = self.resolve_upvalue(self.contexts.len() - 1, ident.text()) {
-                    self.push_op_old(OpCode::OpGetUpvalue(idx));
+                    self.push_op(OpCode::OpGetUpvalue(idx), &node);
                     return;
                 }
 
@@ -784,12 +784,12 @@ impl Compiler<'_> {
                     // `with`-stack. This means we need to resolve
                     // both in this scope, and in the upvalues.
                     if self.scope().has_with() {
-                        self.emit_constant_old(Value::String(ident.text().into()));
-                        self.push_op_old(OpCode::OpResolveWithOrUpvalue(idx));
+                        self.emit_literal_ident(&node);
+                        self.push_op(OpCode::OpResolveWithOrUpvalue(idx), &node);
                         return;
                     }
 
-                    self.push_op_old(OpCode::OpGetUpvalue(idx));
+                    self.push_op(OpCode::OpGetUpvalue(idx), &node);
                     return;
                 }
 
@@ -800,13 +800,13 @@ impl Compiler<'_> {
 
                 // Variable needs to be dynamically resolved at
                 // runtime.
-                self.emit_constant_old(Value::String(ident.text().into()));
-                self.push_op_old(OpCode::OpResolveWith);
+                self.emit_literal_ident(&node);
+                self.push_op(OpCode::OpResolveWith, &node);
             }
 
             LocalPosition::Known(idx) => {
                 let stack_idx = self.scope().stack_index(idx);
-                self.push_op_old(OpCode::OpGetLocal(stack_idx));
+                self.push_op(OpCode::OpGetLocal(stack_idx), &node);
             }
 
             // This identifier is referring to a value from the same
@@ -815,9 +815,7 @@ impl Compiler<'_> {
             LocalPosition::Recursive(idx) => self.thunk(slot, move |compiler, _| {
                 let upvalue_idx =
                     compiler.add_upvalue(compiler.contexts.len() - 1, Upvalue::Local(idx));
-                compiler
-                    .chunk()
-                    .push_op_old(OpCode::OpGetUpvalue(upvalue_idx));
+                compiler.push_op(OpCode::OpGetUpvalue(upvalue_idx), &node);
             }),
         };
     }
