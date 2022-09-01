@@ -237,13 +237,13 @@ impl Compiler<'_> {
                 ast::InterpolPart::Interpolation(node) => self.compile(slot, node.expr().unwrap()),
 
                 ast::InterpolPart::Literal(lit) => {
-                    self.emit_constant_old(Value::String(lit.into()));
+                    self.emit_constant(Value::String(lit.into()), &node);
                 }
             }
         }
 
         if count != 1 {
-            self.push_op_old(OpCode::OpInterpolate(Count(count)));
+            self.push_op(OpCode::OpInterpolate(Count(count)), &node);
         }
     }
 
