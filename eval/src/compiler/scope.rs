@@ -72,7 +72,7 @@ pub enum LocalPosition {
 /// Represents the different ways in which upvalues can be captured in
 /// closures or thunks.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Upvalue {
+pub enum UpvalueKind {
     /// This upvalue captures a local from the stack.
     Local(LocalIdx),
 
@@ -89,6 +89,11 @@ pub enum Upvalue {
         name: SmolStr,
         up: Option<UpvalueIdx>,
     },
+}
+
+#[derive(Clone, Debug)]
+pub struct Upvalue {
+    pub kind: UpvalueKind,
 }
 
 /// Represents the index of a local in the scope's local array, which

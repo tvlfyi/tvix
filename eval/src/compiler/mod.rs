@@ -29,7 +29,7 @@ use crate::opcode::{CodeIdx, Count, JumpOffset, OpCode, UpvalueIdx};
 use crate::value::{Closure, Lambda, Thunk, Value};
 use crate::warnings::{EvalWarning, WarningKind};
 
-use self::scope::{Local, LocalIdx, LocalPosition, Scope, Upvalue};
+use self::scope::{Local, LocalIdx, LocalPosition, Scope, Upvalue, UpvalueKind};
 
 /// Represents the result of compiling a piece of Nix code. If
 /// compilation was successful, the resulting bytecode can be passed
@@ -816,7 +816,7 @@ impl Compiler<'_> {
             // must be thunked.
             LocalPosition::Recursive(idx) => self.thunk(slot, &node, move |compiler, node, _| {
                 let upvalue_idx =
-                    compiler.add_upvalue(compiler.contexts.len() - 1, Upvalue::Local(idx));
+                    compiler.add_upvalue(compiler.contexts.len() - 1, UpvalueKind::Local(idx));
                 compiler.push_op(OpCode::OpGetUpvalue(upvalue_idx), node);
             }),
         };
@@ -956,13 +956,13 @@ impl Compiler<'_> {
     /// assemble the provided upvalues array.
     fn emit_upvalue_data(&mut self, slot: Option<LocalIdx>, upvalues: Vec<Upvalue>) {
         for upvalue in upvalues {
-            match upvalue {
-                Upvalue::Local(idx) if slot.is_none() => {
+            match upvalue.kind {
+                UpvalueKind::Local(idx) if slot.is_none() => {
                     let stack_idx = self.scope().stack_index(idx);
                     self.push_op_old(OpCode::DataLocalIdx(stack_idx));
                 }
 
-                Upvalue::Local(idx) => {
+                UpvalueKind::Local(idx) => {
                     let stack_idx = self.scope().stack_index(idx);
 
                     // If the upvalue slot is located *after* the
@@ -977,10 +977,10 @@ impl Compiler<'_> {
                     }
                 }
 
-                Upvalue::Upvalue(idx) => {
+                UpvalueKind::Upvalue(idx) => {
                     self.push_op_old(OpCode::DataUpvalueIdx(idx));
                 }
-                Upvalue::Dynamic { name, up } => {
+                UpvalueKind::Dynamic { name, up } => {
                     let idx = self.chunk().push_constant(Value::String(name.into()));
                     self.push_op_old(OpCode::DataDynamicIdx(idx));
                     if let Some(up) = up {
@@ -1119,7 +1119,7 @@ impl Compiler<'_> {
             // guaranteed to be placed on the stack (i.e. in the right
             // position) *during* their runtime construction
             LocalPosition::Known(idx) | LocalPosition::Recursive(idx) => {
-                return Some(self.add_upvalue(ctx_idx, Upvalue::Local(idx)))
+                return Some(self.add_upvalue(ctx_idx, UpvalueKind::Local(idx)))
             }
 
             LocalPosition::Unknown => { /* continue below */ }
@@ -1129,7 +1129,7 @@ impl Compiler<'_> {
         // recurse to make sure that the upvalues are created at each
         // level.
         if let Some(idx) = self.resolve_upvalue(ctx_idx - 1, name) {
-            return Some(self.add_upvalue(ctx_idx, Upvalue::Upvalue(idx)));
+            return Some(self.add_upvalue(ctx_idx, UpvalueKind::Upvalue(idx)));
         }
 
         None
@@ -1168,7 +1168,7 @@ impl Compiler<'_> {
             for idx in lowest_idx..=at {
                 upvalue_idx = Some(self.add_upvalue(
                     idx,
-                    Upvalue::Dynamic {
+                    UpvalueKind::Dynamic {
                         name: name.clone(),
                         up: upvalue_idx,
                     },
@@ -1183,16 +1183,16 @@ impl Compiler<'_> {
         None
     }
 
-    fn add_upvalue(&mut self, ctx_idx: usize, upvalue: Upvalue) -> UpvalueIdx {
+    fn add_upvalue(&mut self, ctx_idx: usize, kind: UpvalueKind) -> UpvalueIdx {
         // If there is already an upvalue closing over the specified
         // index, retrieve that instead.
         for (idx, existing) in self.contexts[ctx_idx].scope.upvalues.iter().enumerate() {
-            if *existing == upvalue {
+            if existing.kind == kind {
                 return UpvalueIdx(idx);
             }
         }
 
-        self.contexts[ctx_idx].scope.upvalues.push(upvalue);
+        self.contexts[ctx_idx].scope.upvalues.push(Upvalue { kind });
 
         let idx = UpvalueIdx(self.contexts[ctx_idx].lambda.upvalue_count);
         self.contexts[ctx_idx].lambda.upvalue_count += 1;
