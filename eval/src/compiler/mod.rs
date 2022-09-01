@@ -251,7 +251,7 @@ impl Compiler<'_> {
 
     fn compile_unary_op(&mut self, slot: Option<LocalIdx>, op: ast::UnaryOp) {
         self.compile(slot, op.expr().unwrap());
-        self.emit_force();
+        self.emit_force(&op);
 
         let opcode = match op.operator().unwrap() {
             ast::UnaryOpKind::Invert => OpCode::OpInvert,
@@ -280,10 +280,10 @@ impl Compiler<'_> {
         // the stack in the correct order before pushing the
         // instruction for the operation itself.
         self.compile(slot, op.lhs().unwrap());
-        self.emit_force();
+        self.emit_force(&op.lhs().unwrap());
 
         self.compile(slot, op.rhs().unwrap());
-        self.emit_force();
+        self.emit_force(&op.rhs().unwrap());
 
         match op.operator().unwrap() {
             BinOpKind::Add => self.push_op(OpCode::OpAdd, &op),
@@ -319,7 +319,7 @@ impl Compiler<'_> {
 
         // Leave left-hand side value on the stack.
         self.compile(slot, node.lhs().unwrap());
-        self.emit_force();
+        self.emit_force(&node.lhs().unwrap());
 
         // If this value is false, jump over the right-hand side - the
         // whole expression is false.
@@ -330,7 +330,7 @@ impl Compiler<'_> {
         // of the whole expression.
         self.push_op(OpCode::OpPop, &node);
         self.compile(slot, node.rhs().unwrap());
-        self.emit_force();
+        self.emit_force(&node.rhs().unwrap());
 
         self.patch_jump(end_idx);
         self.push_op(OpCode::OpAssertBool, &node);
@@ -345,14 +345,14 @@ impl Compiler<'_> {
 
         // Leave left-hand side value on the stack
         self.compile(slot, node.lhs().unwrap());
-        self.emit_force();
+        self.emit_force(&node.lhs().unwrap());
 
         // Opposite of above: If this value is **true**, we can
         // short-circuit the right-hand side.
         let end_idx = self.push_op(OpCode::OpJumpIfTrue(JumpOffset(0)), &node);
         self.push_op(OpCode::OpPop, &node);
         self.compile(slot, node.rhs().unwrap());
-        self.emit_force();
+        self.emit_force(&node.rhs().unwrap());
 
         self.patch_jump(end_idx);
         self.push_op(OpCode::OpAssertBool, &node);
@@ -367,14 +367,14 @@ impl Compiler<'_> {
 
         // Leave left-hand side value on the stack and invert it.
         self.compile(slot, node.lhs().unwrap());
-        self.emit_force();
+        self.emit_force(&node.lhs().unwrap());
         self.push_op(OpCode::OpInvert, &node);
 
         // Exactly as `||` (because `a -> b` = `!a || b`).
         let end_idx = self.push_op(OpCode::OpJumpIfTrue(JumpOffset(0)), &node);
         self.push_op(OpCode::OpPop, &node);
         self.compile(slot, node.rhs().unwrap());
-        self.emit_force();
+        self.emit_force(&node.rhs().unwrap());
 
         self.patch_jump(end_idx);
         self.push_op(OpCode::OpAssertBool, &node);
@@ -403,12 +403,12 @@ impl Compiler<'_> {
         match node {
             ast::Attr::Dynamic(dynamic) => {
                 self.compile(slot, dynamic.expr().unwrap());
-                self.emit_force();
+                self.emit_force(&dynamic.expr().unwrap());
             }
 
             ast::Attr::Str(s) => {
-                self.compile_str(slot, s);
-                self.emit_force();
+                self.compile_str(slot, s.clone());
+                self.emit_force(&s);
             }
 
             ast::Attr::Ident(ident) => self.emit_literal_ident(&ident),
@@ -469,7 +469,7 @@ impl Compiler<'_> {
                         // than pushing/popping the same attrs
                         // potentially a lot of times.
                         self.compile(slot, from.expr().unwrap());
-                        self.emit_force();
+                        self.emit_force(&from.expr().unwrap());
                         self.emit_literal_ident(&ident);
                         self.push_op(OpCode::OpAttrsSelect, &ident);
                     }
@@ -532,8 +532,8 @@ impl Compiler<'_> {
         }
 
         // Push the set onto the stack
-        self.compile(slot, set);
-        self.emit_force();
+        self.compile(slot, set.clone());
+        self.emit_force(&set);
 
         // Compile each key fragment and emit access instructions.
         //
@@ -581,8 +581,8 @@ impl Compiler<'_> {
         path: ast::Attrpath,
         default: ast::Expr,
     ) {
-        self.compile(slot, set);
-        self.emit_force();
+        self.compile(slot, set.clone());
+        self.emit_force(&set);
         let mut jumps = vec![];
 
         for fragment in path.attrs() {
@@ -686,7 +686,7 @@ impl Compiler<'_> {
                 Some(from) => {
                     for ident in inherit.idents() {
                         self.compile(slot, from.expr().unwrap());
-                        self.emit_force();
+                        self.emit_force(&from.expr().unwrap());
 
                         self.emit_literal_ident(&ident);
                         self.push_op(OpCode::OpAttrsSelect, &ident);
@@ -836,7 +836,7 @@ impl Compiler<'_> {
         // resolve that directly (thus avoiding duplication on the
         // stack).
         self.compile(slot, node.namespace().unwrap());
-        self.emit_force();
+        self.emit_force(&node.namespace().unwrap());
 
         let local_idx = self.scope_mut().declare_phantom();
         let with_idx = self.scope().stack_index(local_idx);
@@ -1224,8 +1224,8 @@ impl Compiler<'_> {
         idx
     }
 
-    fn emit_force(&mut self) {
-        self.push_op_old(OpCode::OpForce);
+    fn emit_force<N: AstNode>(&mut self, node: &N) {
+        self.push_op(OpCode::OpForce, node);
     }
 
     fn emit_warning(&mut self, node: rnix::SyntaxNode, kind: WarningKind) {
@@ -1350,13 +1350,13 @@ pub fn compile<'code>(
         errors: vec![],
     };
 
-    c.compile(None, expr);
+    c.compile(None, expr.clone());
 
     // The final operation of any top-level Nix program must always be
     // `OpForce`. A thunk should not be returned to the user in an
     // unevaluated state (though in practice, a value *containing* a
     // thunk might be returned).
-    c.emit_force();
+    c.emit_force(&expr);
 
     Ok(CompilationOutput {
         lambda: c.contexts.pop().unwrap().lambda,
