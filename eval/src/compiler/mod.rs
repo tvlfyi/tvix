@@ -53,6 +53,13 @@ impl LambdaCtx {
             scope: Default::default(),
         }
     }
+
+    fn inherit(&self) -> Self {
+        LambdaCtx {
+            lambda: Lambda::new_anonymous(),
+            scope: self.scope.inherit(),
+        }
+    }
 }
 
 /// Alias for the map of globally available functions that should
@@ -836,9 +843,7 @@ impl Compiler<'_> {
     }
 
     fn compile_lambda(&mut self, slot: Option<LocalIdx>, node: ast::Lambda) {
-        // Open new lambda context in compiler, which has its own
-        // scope etc.
-        self.contexts.push(LambdaCtx::new());
+        self.new_context();
         self.begin_scope();
 
         // Compile the function itself
@@ -912,7 +917,7 @@ impl Compiler<'_> {
         N: AstNode + Clone,
         F: FnOnce(&mut Compiler, &N, Option<LocalIdx>),
     {
-        self.contexts.push(LambdaCtx::new());
+        self.new_context();
         self.begin_scope();
         content(self, node, slot);
         self.end_scope(node);
@@ -1011,10 +1016,14 @@ impl Compiler<'_> {
         }
     }
 
+    /// Increase the scope depth of the current function (e.g. within
+    /// a new bindings block, or `with`-scope).
     fn begin_scope(&mut self) {
         self.scope_mut().scope_depth += 1;
     }
 
+    /// Decrease scope depth of the current function and emit
+    /// instructions to clean up the stack at runtime.
     fn end_scope<N: AstNode>(&mut self, node: &N) {
         debug_assert!(self.scope().scope_depth != 0, "can not end top scope");
 
@@ -1053,6 +1062,15 @@ impl Compiler<'_> {
         if pops > 0 {
             self.push_op(OpCode::OpCloseScope(Count(pops)), node);
         }
+    }
+
+    /// Open a new lambda context within which to compile a function,
+    /// closure or thunk.
+    fn new_context(&mut self) {
+        // This must inherit the scope-poisoning status of the parent
+        // in order for upvalue resolution to work correctly with
+        // poisoned identifiers.
+        self.contexts.push(self.context().inherit());
     }
 
     /// Declare a local variable known in the scope that is being

@@ -152,6 +152,15 @@ impl Scope {
         }
     }
 
+    /// Inherit scope details from a parent scope (required for
+    /// correctly nesting scopes in lambdas and thunks when special
+    /// scope features like poisoning are present).
+    pub fn inherit(&self) -> Self {
+        let mut scope = Self::default();
+        scope.poisoned_tokens = self.poisoned_tokens.clone();
+        scope
+    }
+
     /// Check whether a given token is poisoned.
     pub fn is_poisoned(&self, name: &str) -> bool {
         self.poisoned_tokens.contains_key(name)
