@@ -104,13 +104,35 @@ impl Compiler<'_> {
     }
 
     /// Push a single instruction to the current bytecode chunk.
-    fn push_op(&mut self, data: OpCode) -> CodeIdx {
-        self.chunk().push_op(data)
+    fn push_op_old(&mut self, data: OpCode) -> CodeIdx {
+        self.chunk().push_op_old(data)
     }
 
-    fn emit_constant(&mut self, value: Value) {
+    /// Push a single instruction to the current bytecode chunk and
+    /// track the source span from which it was compiled.
+    fn push_op<T: AstNode>(&mut self, data: OpCode, node: &T) -> CodeIdx {
+        let span: codemap::Span = {
+            let rowan_span = node.syntax().text_range();
+            self.file.span.subspan(
+                u32::from(rowan_span.start()) as u64,
+                u32::from(rowan_span.end()) as u64,
+            )
+        };
+
+        self.chunk().push_op(data, span)
+    }
+
+    /// Emit a single constant to the current bytecode chunk.
+    fn emit_constant_old(&mut self, value: Value) {
         let idx = self.chunk().push_constant(value);
-        self.push_op(OpCode::OpConstant(idx));
+        self.push_op_old(OpCode::OpConstant(idx));
+    }
+
+    /// Emit a single constant to the current bytecode chunk and track
+    /// the source span from which it was compiled.
+    fn emit_constant<T: AstNode>(&mut self, value: Value, node: &T) {
+        let idx = self.chunk().push_constant(value);
+        self.push_op(OpCode::OpConstant(idx), node);
     }
 }
 
@@ -149,15 +171,15 @@ impl Compiler<'_> {
     fn compile_literal(&mut self, node: ast::Literal) {
         match node.kind() {
             ast::LiteralKind::Float(f) => {
-                self.emit_constant(Value::Float(f.value().unwrap()));
+                self.emit_constant_old(Value::Float(f.value().unwrap()));
             }
 
             ast::LiteralKind::Integer(i) => {
-                self.emit_constant(Value::Integer(i.value().unwrap()));
+                self.emit_constant_old(Value::Integer(i.value().unwrap()));
             }
             ast::LiteralKind::Uri(u) => {
                 self.emit_warning(node.syntax().clone(), WarningKind::DeprecatedLiteralURL);
-                self.emit_constant(Value::String(u.syntax().text().into()));
+                self.emit_constant_old(Value::String(u.syntax().text().into()));
             }
         }
     }
@@ -195,7 +217,7 @@ impl Compiler<'_> {
         // TODO: Use https://github.com/rust-lang/rfcs/issues/2208
         // once it is available
         let value = Value::Path(path.clean());
-        self.emit_constant(value);
+        self.emit_constant_old(value);
     }
 
     fn compile_str(&mut self, slot: Option<LocalIdx>, node: ast::Str) {
@@ -215,13 +237,13 @@ impl Compiler<'_> {
                 ast::InterpolPart::Interpolation(node) => self.compile(slot, node.expr().unwrap()),
 
                 ast::InterpolPart::Literal(lit) => {
-                    self.emit_constant(Value::String(lit.into()));
+                    self.emit_constant_old(Value::String(lit.into()));
                 }
             }
         }
 
         if count != 1 {
-            self.push_op(OpCode::OpInterpolate(Count(count)));
+            self.push_op_old(OpCode::OpInterpolate(Count(count)));
         }
     }
 
@@ -234,7 +256,7 @@ impl Compiler<'_> {
             ast::UnaryOpKind::Negate => OpCode::OpNegate,
         };
 
-        self.push_op(opcode);
+        self.push_op_old(opcode);
     }
 
     fn compile_binop(&mut self, slot: Option<LocalIdx>, op: ast::BinOp) {
@@ -262,21 +284,21 @@ impl Compiler<'_> {
         self.emit_force();
 
         match op.operator().unwrap() {
-            BinOpKind::Add => self.push_op(OpCode::OpAdd),
-            BinOpKind::Sub => self.push_op(OpCode::OpSub),
-            BinOpKind::Mul => self.push_op(OpCode::OpMul),
-            BinOpKind::Div => self.push_op(OpCode::OpDiv),
-            BinOpKind::Update => self.push_op(OpCode::OpAttrsUpdate),
-            BinOpKind::Equal => self.push_op(OpCode::OpEqual),
-            BinOpKind::Less => self.push_op(OpCode::OpLess),
-            BinOpKind::LessOrEq => self.push_op(OpCode::OpLessOrEq),
-            BinOpKind::More => self.push_op(OpCode::OpMore),
-            BinOpKind::MoreOrEq => self.push_op(OpCode::OpMoreOrEq),
-            BinOpKind::Concat => self.push_op(OpCode::OpConcat),
+            BinOpKind::Add => self.push_op_old(OpCode::OpAdd),
+            BinOpKind::Sub => self.push_op_old(OpCode::OpSub),
+            BinOpKind::Mul => self.push_op_old(OpCode::OpMul),
+            BinOpKind::Div => self.push_op_old(OpCode::OpDiv),
+            BinOpKind::Update => self.push_op_old(OpCode::OpAttrsUpdate),
+            BinOpKind::Equal => self.push_op_old(OpCode::OpEqual),
+            BinOpKind::Less => self.push_op_old(OpCode::OpLess),
+            BinOpKind::LessOrEq => self.push_op_old(OpCode::OpLessOrEq),
+            BinOpKind::More => self.push_op_old(OpCode::OpMore),
+            BinOpKind::MoreOrEq => self.push_op_old(OpCode::OpMoreOrEq),
+            BinOpKind::Concat => self.push_op_old(OpCode::OpConcat),
 
             BinOpKind::NotEqual => {
-                self.push_op(OpCode::OpEqual);
-                self.push_op(OpCode::OpInvert)
+                self.push_op_old(OpCode::OpEqual);
+                self.push_op_old(OpCode::OpInvert)
             }
 
             // Handled by separate branch above.
@@ -299,17 +321,17 @@ impl Compiler<'_> {
 
         // If this value is false, jump over the right-hand side - the
         // whole expression is false.
-        let end_idx = self.push_op(OpCode::OpJumpIfFalse(JumpOffset(0)));
+        let end_idx = self.push_op_old(OpCode::OpJumpIfFalse(JumpOffset(0)));
 
         // Otherwise, remove the previous value and leave the
         // right-hand side on the stack. Its result is now the value
         // of the whole expression.
-        self.push_op(OpCode::OpPop);
+        self.push_op_old(OpCode::OpPop);
         self.compile(slot, node.rhs().unwrap());
         self.emit_force();
 
         self.patch_jump(end_idx);
-        self.push_op(OpCode::OpAssertBool);
+        self.push_op_old(OpCode::OpAssertBool);
     }
 
     fn compile_or(&mut self, slot: Option<LocalIdx>, node: ast::BinOp) {
@@ -325,13 +347,13 @@ impl Compiler<'_> {
 
         // Opposite of above: If this value is **true**, we can
         // short-circuit the right-hand side.
-        let end_idx = self.push_op(OpCode::OpJumpIfTrue(JumpOffset(0)));
-        self.push_op(OpCode::OpPop);
+        let end_idx = self.push_op_old(OpCode::OpJumpIfTrue(JumpOffset(0)));
+        self.push_op_old(OpCode::OpPop);
         self.compile(slot, node.rhs().unwrap());
         self.emit_force();
 
         self.patch_jump(end_idx);
-        self.push_op(OpCode::OpAssertBool);
+        self.push_op_old(OpCode::OpAssertBool);
     }
 
     fn compile_implication(&mut self, slot: Option<LocalIdx>, node: ast::BinOp) {
@@ -344,16 +366,16 @@ impl Compiler<'_> {
         // Leave left-hand side value on the stack and invert it.
         self.compile(slot, node.lhs().unwrap());
         self.emit_force();
-        self.push_op(OpCode::OpInvert);
+        self.push_op_old(OpCode::OpInvert);
 
         // Exactly as `||` (because `a -> b` = `!a || b`).
-        let end_idx = self.push_op(OpCode::OpJumpIfTrue(JumpOffset(0)));
-        self.push_op(OpCode::OpPop);
+        let end_idx = self.push_op_old(OpCode::OpJumpIfTrue(JumpOffset(0)));
+        self.push_op_old(OpCode::OpPop);
         self.compile(slot, node.rhs().unwrap());
         self.emit_force();
 
         self.patch_jump(end_idx);
-        self.push_op(OpCode::OpAssertBool);
+        self.push_op_old(OpCode::OpAssertBool);
     }
 
     fn compile_has_attr(&mut self, slot: Option<LocalIdx>, node: ast::HasAttr) {
@@ -364,7 +386,7 @@ impl Compiler<'_> {
         // next nested element, for all fragments except the last one.
         for (count, fragment) in node.attrpath().unwrap().attrs().enumerate() {
             if count > 0 {
-                self.push_op(OpCode::OpAttrsTrySelect);
+                self.push_op_old(OpCode::OpAttrsTrySelect);
             }
 
             self.compile_attr(slot, fragment);
@@ -372,7 +394,7 @@ impl Compiler<'_> {
 
         // After the last fragment, emit the actual instruction that
         // leaves a boolean on the stack.
-        self.push_op(OpCode::OpAttrsIsSet);
+        self.push_op_old(OpCode::OpAttrsIsSet);
     }
 
     fn compile_attr(&mut self, slot: Option<LocalIdx>, node: ast::Attr) {
@@ -405,7 +427,7 @@ impl Compiler<'_> {
             self.compile(slot, item);
         }
 
-        self.push_op(OpCode::OpList(Count(count)));
+        self.push_op_old(OpCode::OpList(Count(count)));
     }
 
     // Compile attribute set literals into equivalent bytecode.
@@ -447,7 +469,7 @@ impl Compiler<'_> {
                         self.compile(slot, from.expr().unwrap());
                         self.emit_force();
                         self.emit_literal_ident(&ident);
-                        self.push_op(OpCode::OpAttrsSelect);
+                        self.push_op_old(OpCode::OpAttrsSelect);
                     }
                 }
 
@@ -483,7 +505,7 @@ impl Compiler<'_> {
             // otherwise we need to emit an instruction to construct
             // the attribute path.
             if key_count > 1 {
-                self.push_op(OpCode::OpAttrPath(Count(key_count)));
+                self.push_op_old(OpCode::OpAttrPath(Count(key_count)));
             }
 
             // The value is just compiled as normal so that its
@@ -492,7 +514,7 @@ impl Compiler<'_> {
             self.compile(slot, kv.value().unwrap());
         }
 
-        self.push_op(OpCode::OpAttrs(Count(count)));
+        self.push_op_old(OpCode::OpAttrs(Count(count)));
     }
 
     fn compile_select(&mut self, slot: Option<LocalIdx>, node: ast::Select) {
@@ -514,7 +536,7 @@ impl Compiler<'_> {
         // nested selects.
         for fragment in path.attrs() {
             self.compile_attr(slot, fragment);
-            self.push_op(OpCode::OpAttrsSelect);
+            self.push_op_old(OpCode::OpAttrsSelect);
         }
     }
 
@@ -560,14 +582,14 @@ impl Compiler<'_> {
 
         for fragment in path.attrs() {
             self.compile_attr(slot, fragment);
-            self.push_op(OpCode::OpAttrsTrySelect);
+            self.push_op_old(OpCode::OpAttrsTrySelect);
             jumps.push(
                 self.chunk()
-                    .push_op(OpCode::OpJumpIfNotFound(JumpOffset(0))),
+                    .push_op_old(OpCode::OpJumpIfNotFound(JumpOffset(0))),
             );
         }
 
-        let final_jump = self.push_op(OpCode::OpJump(JumpOffset(0)));
+        let final_jump = self.push_op_old(OpCode::OpJump(JumpOffset(0)));
 
         for jump in jumps {
             self.patch_jump(jump);
@@ -582,7 +604,7 @@ impl Compiler<'_> {
     fn compile_assert(&mut self, slot: Option<LocalIdx>, node: ast::Assert) {
         // Compile the assertion condition to leave its value on the stack.
         self.compile(slot, node.condition().unwrap());
-        self.push_op(OpCode::OpAssert);
+        self.push_op_old(OpCode::OpAssert);
 
         // The runtime will abort evaluation at this point if the
         // assertion failed, if not the body simply continues on like
@@ -603,15 +625,15 @@ impl Compiler<'_> {
     fn compile_if_else(&mut self, slot: Option<LocalIdx>, node: ast::IfElse) {
         self.compile(slot, node.condition().unwrap());
 
-        let then_idx = self.push_op(OpCode::OpJumpIfFalse(JumpOffset(0)));
+        let then_idx = self.push_op_old(OpCode::OpJumpIfFalse(JumpOffset(0)));
 
-        self.push_op(OpCode::OpPop); // discard condition value
+        self.push_op_old(OpCode::OpPop); // discard condition value
         self.compile(slot, node.body().unwrap());
 
-        let else_idx = self.push_op(OpCode::OpJump(JumpOffset(0)));
+        let else_idx = self.push_op_old(OpCode::OpJump(JumpOffset(0)));
 
         self.patch_jump(then_idx); // patch jump *to* else_body
-        self.push_op(OpCode::OpPop); // discard condition value
+        self.push_op_old(OpCode::OpPop); // discard condition value
         self.compile(slot, node.else_body().unwrap());
 
         self.patch_jump(else_idx); // patch jump *over* else body
@@ -662,7 +684,7 @@ impl Compiler<'_> {
                         self.emit_force();
 
                         self.emit_literal_ident(&ident);
-                        self.push_op(OpCode::OpAttrsSelect);
+                        self.push_op_old(OpCode::OpAttrsSelect);
                         let idx = self.declare_local(
                             ident.syntax().clone(),
                             ident.ident_token().unwrap().text(),
@@ -722,7 +744,7 @@ impl Compiler<'_> {
         for idx in indices {
             if self.scope()[idx].needs_finaliser {
                 let stack_idx = self.scope().stack_index(idx);
-                self.push_op(OpCode::OpFinalise(stack_idx));
+                self.push_op_old(OpCode::OpFinalise(stack_idx));
             }
         }
 
@@ -747,7 +769,7 @@ impl Compiler<'_> {
             LocalPosition::Unknown => {
                 // Are we possibly dealing with an upvalue?
                 if let Some(idx) = self.resolve_upvalue(self.contexts.len() - 1, ident.text()) {
-                    self.push_op(OpCode::OpGetUpvalue(idx));
+                    self.push_op_old(OpCode::OpGetUpvalue(idx));
                     return;
                 }
 
@@ -759,12 +781,12 @@ impl Compiler<'_> {
                     // `with`-stack. This means we need to resolve
                     // both in this scope, and in the upvalues.
                     if self.scope().has_with() {
-                        self.emit_constant(Value::String(ident.text().into()));
-                        self.push_op(OpCode::OpResolveWithOrUpvalue(idx));
+                        self.emit_constant_old(Value::String(ident.text().into()));
+                        self.push_op_old(OpCode::OpResolveWithOrUpvalue(idx));
                         return;
                     }
 
-                    self.push_op(OpCode::OpGetUpvalue(idx));
+                    self.push_op_old(OpCode::OpGetUpvalue(idx));
                     return;
                 }
 
@@ -775,13 +797,13 @@ impl Compiler<'_> {
 
                 // Variable needs to be dynamically resolved at
                 // runtime.
-                self.emit_constant(Value::String(ident.text().into()));
-                self.push_op(OpCode::OpResolveWith);
+                self.emit_constant_old(Value::String(ident.text().into()));
+                self.push_op_old(OpCode::OpResolveWith);
             }
 
             LocalPosition::Known(idx) => {
                 let stack_idx = self.scope().stack_index(idx);
-                self.push_op(OpCode::OpGetLocal(stack_idx));
+                self.push_op_old(OpCode::OpGetLocal(stack_idx));
             }
 
             // This identifier is referring to a value from the same
@@ -790,7 +812,9 @@ impl Compiler<'_> {
             LocalPosition::Recursive(idx) => self.thunk(slot, move |compiler, _| {
                 let upvalue_idx =
                     compiler.add_upvalue(compiler.contexts.len() - 1, Upvalue::Local(idx));
-                compiler.chunk().push_op(OpCode::OpGetUpvalue(upvalue_idx));
+                compiler
+                    .chunk()
+                    .push_op_old(OpCode::OpGetUpvalue(upvalue_idx));
             }),
         };
     }
@@ -811,11 +835,11 @@ impl Compiler<'_> {
 
         self.scope_mut().push_with();
 
-        self.push_op(OpCode::OpPushWith(with_idx));
+        self.push_op_old(OpCode::OpPushWith(with_idx));
 
         self.compile(slot, node.body().unwrap());
 
-        self.push_op(OpCode::OpPopWith);
+        self.push_op_old(OpCode::OpPopWith);
         self.scope_mut().pop_with();
         self.end_scope();
     }
@@ -860,7 +884,7 @@ impl Compiler<'_> {
         // If the function is not a closure, just emit it directly and
         // move on.
         if compiled.lambda.upvalue_count == 0 {
-            self.emit_constant(Value::Closure(Closure::new(Rc::new(compiled.lambda))));
+            self.emit_constant_old(Value::Closure(Closure::new(Rc::new(compiled.lambda))));
             return;
         }
 
@@ -872,7 +896,7 @@ impl Compiler<'_> {
             .chunk()
             .push_constant(Value::Blueprint(Rc::new(compiled.lambda)));
 
-        self.push_op(OpCode::OpClosure(blueprint_idx));
+        self.push_op_old(OpCode::OpClosure(blueprint_idx));
         self.emit_upvalue_data(slot, compiled.scope.upvalues);
     }
 
@@ -883,7 +907,7 @@ impl Compiler<'_> {
         // to enter the function call straight away.
         self.compile(slot, node.argument().unwrap());
         self.compile(slot, node.lambda().unwrap());
-        self.push_op(OpCode::OpCall);
+        self.push_op_old(OpCode::OpCall);
     }
 
     /// Compile an expression into a runtime thunk which should be
@@ -908,7 +932,7 @@ impl Compiler<'_> {
         // Emit the thunk directly if it does not close over the
         // environment.
         if thunk.lambda.upvalue_count == 0 {
-            self.emit_constant(Value::Thunk(Thunk::new(Rc::new(thunk.lambda))));
+            self.emit_constant_old(Value::Thunk(Thunk::new(Rc::new(thunk.lambda))));
             return;
         }
 
@@ -917,7 +941,7 @@ impl Compiler<'_> {
             .chunk()
             .push_constant(Value::Blueprint(Rc::new(thunk.lambda)));
 
-        self.push_op(OpCode::OpThunk(blueprint_idx));
+        self.push_op_old(OpCode::OpThunk(blueprint_idx));
         self.emit_upvalue_data(slot, thunk.scope.upvalues);
     }
 
@@ -928,7 +952,7 @@ impl Compiler<'_> {
             match upvalue {
                 Upvalue::Local(idx) if slot.is_none() => {
                     let stack_idx = self.scope().stack_index(idx);
-                    self.push_op(OpCode::DataLocalIdx(stack_idx));
+                    self.push_op_old(OpCode::DataLocalIdx(stack_idx));
                 }
 
                 Upvalue::Local(idx) => {
@@ -939,21 +963,21 @@ impl Compiler<'_> {
                     // deferred until the scope is fully initialised
                     // and can be finalised.
                     if slot.unwrap() < idx {
-                        self.push_op(OpCode::DataDeferredLocal(stack_idx));
+                        self.push_op_old(OpCode::DataDeferredLocal(stack_idx));
                         self.scope_mut().mark_needs_finaliser(slot.unwrap());
                     } else {
-                        self.push_op(OpCode::DataLocalIdx(stack_idx));
+                        self.push_op_old(OpCode::DataLocalIdx(stack_idx));
                     }
                 }
 
                 Upvalue::Upvalue(idx) => {
-                    self.push_op(OpCode::DataUpvalueIdx(idx));
+                    self.push_op_old(OpCode::DataUpvalueIdx(idx));
                 }
                 Upvalue::Dynamic { name, up } => {
                     let idx = self.chunk().push_constant(Value::String(name.into()));
-                    self.push_op(OpCode::DataDynamicIdx(idx));
+                    self.push_op_old(OpCode::DataDynamicIdx(idx));
                     if let Some(up) = up {
-                        self.push_op(OpCode::DataDynamicAncestor(up));
+                        self.push_op_old(OpCode::DataDynamicAncestor(up));
                     }
                 }
             };
@@ -964,7 +988,7 @@ impl Compiler<'_> {
     /// several operations related to attribute sets, where
     /// identifiers are used as string keys.
     fn emit_literal_ident(&mut self, ident: &ast::Ident) {
-        self.emit_constant(Value::String(ident.ident_token().unwrap().text().into()));
+        self.emit_constant_old(Value::String(ident.ident_token().unwrap().text().into()));
     }
 
     /// Patch the jump instruction at the given index, setting its
@@ -1031,7 +1055,7 @@ impl Compiler<'_> {
         }
 
         if pops > 0 {
-            self.push_op(OpCode::OpCloseScope(Count(pops)));
+            self.push_op_old(OpCode::OpCloseScope(Count(pops)));
         }
     }
 
@@ -1166,7 +1190,7 @@ impl Compiler<'_> {
     }
 
     fn emit_force(&mut self) {
-        self.push_op(OpCode::OpForce);
+        self.push_op_old(OpCode::OpForce);
     }
 
     fn emit_warning(&mut self, node: rnix::SyntaxNode, kind: WarningKind) {
@@ -1234,28 +1258,28 @@ fn prepare_globals(additional: HashMap<&'static str, Value>) -> GlobalsMap {
     globals.insert(
         "true",
         Rc::new(|compiler| {
-            compiler.chunk().push_op(OpCode::OpTrue);
+            compiler.chunk().push_op_old(OpCode::OpTrue);
         }),
     );
 
     globals.insert(
         "false",
         Rc::new(|compiler| {
-            compiler.chunk().push_op(OpCode::OpFalse);
+            compiler.chunk().push_op_old(OpCode::OpFalse);
         }),
     );
 
     globals.insert(
         "null",
         Rc::new(|compiler| {
-            compiler.chunk().push_op(OpCode::OpNull);
+            compiler.chunk().push_op_old(OpCode::OpNull);
         }),
     );
 
     for (ident, value) in additional.into_iter() {
         globals.insert(
             ident,
-            Rc::new(move |compiler| compiler.emit_constant(value.clone())),
+            Rc::new(move |compiler| compiler.emit_constant_old(value.clone())),
         );
     }
 

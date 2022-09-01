@@ -29,9 +29,16 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    pub fn push_op(&mut self, data: OpCode) -> CodeIdx {
+    pub fn push_op_old(&mut self, data: OpCode) -> CodeIdx {
         let idx = self.code.len();
         self.code.push(data);
+        CodeIdx(idx)
+    }
+
+    pub fn push_op(&mut self, data: OpCode, span: codemap::Span) -> CodeIdx {
+        let idx = self.code.len();
+        self.code.push(data);
+        self.push_span(span);
         CodeIdx(idx)
     }
 
