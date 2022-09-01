@@ -284,21 +284,21 @@ impl Compiler<'_> {
         self.emit_force();
 
         match op.operator().unwrap() {
-            BinOpKind::Add => self.push_op_old(OpCode::OpAdd),
-            BinOpKind::Sub => self.push_op_old(OpCode::OpSub),
-            BinOpKind::Mul => self.push_op_old(OpCode::OpMul),
-            BinOpKind::Div => self.push_op_old(OpCode::OpDiv),
-            BinOpKind::Update => self.push_op_old(OpCode::OpAttrsUpdate),
-            BinOpKind::Equal => self.push_op_old(OpCode::OpEqual),
-            BinOpKind::Less => self.push_op_old(OpCode::OpLess),
-            BinOpKind::LessOrEq => self.push_op_old(OpCode::OpLessOrEq),
-            BinOpKind::More => self.push_op_old(OpCode::OpMore),
-            BinOpKind::MoreOrEq => self.push_op_old(OpCode::OpMoreOrEq),
-            BinOpKind::Concat => self.push_op_old(OpCode::OpConcat),
+            BinOpKind::Add => self.push_op(OpCode::OpAdd, &op),
+            BinOpKind::Sub => self.push_op(OpCode::OpSub, &op),
+            BinOpKind::Mul => self.push_op(OpCode::OpMul, &op),
+            BinOpKind::Div => self.push_op(OpCode::OpDiv, &op),
+            BinOpKind::Update => self.push_op(OpCode::OpAttrsUpdate, &op),
+            BinOpKind::Equal => self.push_op(OpCode::OpEqual, &op),
+            BinOpKind::Less => self.push_op(OpCode::OpLess, &op),
+            BinOpKind::LessOrEq => self.push_op(OpCode::OpLessOrEq, &op),
+            BinOpKind::More => self.push_op(OpCode::OpMore, &op),
+            BinOpKind::MoreOrEq => self.push_op(OpCode::OpMoreOrEq, &op),
+            BinOpKind::Concat => self.push_op(OpCode::OpConcat, &op),
 
             BinOpKind::NotEqual => {
-                self.push_op_old(OpCode::OpEqual);
-                self.push_op_old(OpCode::OpInvert)
+                self.push_op(OpCode::OpEqual, &op);
+                self.push_op(OpCode::OpInvert, &op)
             }
 
             // Handled by separate branch above.
@@ -321,17 +321,17 @@ impl Compiler<'_> {
 
         // If this value is false, jump over the right-hand side - the
         // whole expression is false.
-        let end_idx = self.push_op_old(OpCode::OpJumpIfFalse(JumpOffset(0)));
+        let end_idx = self.push_op(OpCode::OpJumpIfFalse(JumpOffset(0)), &node);
 
         // Otherwise, remove the previous value and leave the
         // right-hand side on the stack. Its result is now the value
         // of the whole expression.
-        self.push_op_old(OpCode::OpPop);
+        self.push_op(OpCode::OpPop, &node);
         self.compile(slot, node.rhs().unwrap());
         self.emit_force();
 
         self.patch_jump(end_idx);
-        self.push_op_old(OpCode::OpAssertBool);
+        self.push_op(OpCode::OpAssertBool, &node);
     }
 
     fn compile_or(&mut self, slot: Option<LocalIdx>, node: ast::BinOp) {
@@ -347,13 +347,13 @@ impl Compiler<'_> {
 
         // Opposite of above: If this value is **true**, we can
         // short-circuit the right-hand side.
-        let end_idx = self.push_op_old(OpCode::OpJumpIfTrue(JumpOffset(0)));
-        self.push_op_old(OpCode::OpPop);
+        let end_idx = self.push_op(OpCode::OpJumpIfTrue(JumpOffset(0)), &node);
+        self.push_op(OpCode::OpPop, &node);
         self.compile(slot, node.rhs().unwrap());
         self.emit_force();
 
         self.patch_jump(end_idx);
-        self.push_op_old(OpCode::OpAssertBool);
+        self.push_op(OpCode::OpAssertBool, &node);
     }
 
     fn compile_implication(&mut self, slot: Option<LocalIdx>, node: ast::BinOp) {
@@ -366,16 +366,16 @@ impl Compiler<'_> {
         // Leave left-hand side value on the stack and invert it.
         self.compile(slot, node.lhs().unwrap());
         self.emit_force();
-        self.push_op_old(OpCode::OpInvert);
+        self.push_op(OpCode::OpInvert, &node);
 
         // Exactly as `||` (because `a -> b` = `!a || b`).
-        let end_idx = self.push_op_old(OpCode::OpJumpIfTrue(JumpOffset(0)));
-        self.push_op_old(OpCode::OpPop);
+        let end_idx = self.push_op(OpCode::OpJumpIfTrue(JumpOffset(0)), &node);
+        self.push_op(OpCode::OpPop, &node);
         self.compile(slot, node.rhs().unwrap());
         self.emit_force();
 
         self.patch_jump(end_idx);
-        self.push_op_old(OpCode::OpAssertBool);
+        self.push_op(OpCode::OpAssertBool, &node);
     }
 
     fn compile_has_attr(&mut self, slot: Option<LocalIdx>, node: ast::HasAttr) {
