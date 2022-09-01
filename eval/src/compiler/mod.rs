@@ -687,7 +687,7 @@ impl Compiler<'_> {
                         self.emit_force();
 
                         self.emit_literal_ident(&ident);
-                        self.push_op_old(OpCode::OpAttrsSelect);
+                        self.push_op(OpCode::OpAttrsSelect, &ident);
                         let idx = self.declare_local(
                             ident.syntax().clone(),
                             ident.ident_token().unwrap().text(),
@@ -747,7 +747,7 @@ impl Compiler<'_> {
         for idx in indices {
             if self.scope()[idx].needs_finaliser {
                 let stack_idx = self.scope().stack_index(idx);
-                self.push_op_old(OpCode::OpFinalise(stack_idx));
+                self.push_op(OpCode::OpFinalise(stack_idx), &node);
             }
         }
 
