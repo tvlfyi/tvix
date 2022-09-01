@@ -103,17 +103,18 @@ impl Compiler<'_> {
         &mut self.context_mut().scope
     }
 
+    fn span_for<N: AstNode>(&self, node: &N) -> codemap::Span {
+        let rowan_span = node.syntax().text_range();
+        self.file.span.subspan(
+            u32::from(rowan_span.start()) as u64,
+            u32::from(rowan_span.end()) as u64,
+        )
+    }
+
     /// Push a single instruction to the current bytecode chunk and
     /// track the source span from which it was compiled.
     fn push_op<T: AstNode>(&mut self, data: OpCode, node: &T) -> CodeIdx {
-        let span: codemap::Span = {
-            let rowan_span = node.syntax().text_range();
-            self.file.span.subspan(
-                u32::from(rowan_span.start()) as u64,
-                u32::from(rowan_span.end()) as u64,
-            )
-        };
-
+        let span = self.span_for(node);
         self.chunk().push_op(data, span)
     }
 
@@ -168,8 +169,9 @@ impl Compiler<'_> {
             ast::LiteralKind::Integer(i) => {
                 self.emit_constant(Value::Integer(i.value().unwrap()), &node);
             }
+
             ast::LiteralKind::Uri(u) => {
-                self.emit_warning(node.syntax().clone(), WarningKind::DeprecatedLiteralURL);
+                self.emit_warning(self.span_for(&node), WarningKind::DeprecatedLiteralURL);
                 self.emit_constant(Value::String(u.syntax().text().into()), &node);
             }
         }
@@ -187,7 +189,7 @@ impl Compiler<'_> {
                 Some(buf) => buf,
                 None => {
                     self.emit_error(
-                        node.syntax().clone(),
+                        self.span_for(&node),
                         ErrorKind::PathResolution("failed to determine home directory".into()),
                     );
                     return;
@@ -645,7 +647,7 @@ impl Compiler<'_> {
                 // scope is a no-op *if* the identifier can be
                 // statically resolved.
                 None if !self.scope().has_with() => {
-                    self.emit_warning(inherit.syntax().clone(), WarningKind::UselessInherit);
+                    self.emit_warning(self.span_for(&inherit), WarningKind::UselessInherit);
                     continue;
                 }
 
@@ -659,15 +661,12 @@ impl Compiler<'_> {
                                 .resolve_local(ident.ident_token().unwrap().text()),
                             LocalPosition::Known(_)
                         ) {
-                            self.emit_warning(ident.syntax().clone(), WarningKind::UselessInherit);
+                            self.emit_warning(self.span_for(&ident), WarningKind::UselessInherit);
                             continue;
                         }
 
                         self.compile_ident(slot, ident.clone());
-                        let idx = self.declare_local(
-                            ident.syntax().clone(),
-                            ident.ident_token().unwrap().text(),
-                        );
+                        let idx = self.declare_local(&ident, ident.ident_token().unwrap().text());
                         self.scope_mut().mark_initialised(idx);
                     }
                 }
@@ -679,10 +678,7 @@ impl Compiler<'_> {
 
                         self.emit_literal_ident(&ident);
                         self.push_op(OpCode::OpAttrsSelect, &ident);
-                        let idx = self.declare_local(
-                            ident.syntax().clone(),
-                            ident.ident_token().unwrap().text(),
-                        );
+                        let idx = self.declare_local(&ident, ident.ident_token().unwrap().text());
                         self.scope_mut().mark_initialised(idx);
                     }
                 }
@@ -704,7 +700,7 @@ impl Compiler<'_> {
         // required for resolving recursion.
         let mut entries: Vec<(LocalIdx, ast::Expr)> = vec![];
         for entry in node.attrpath_values() {
-            let mut path = match normalise_ident_path(entry.attrpath().unwrap().attrs()) {
+            let mut path = match self.normalise_ident_path(entry.attrpath().unwrap().attrs()) {
                 Ok(p) => p,
                 Err(err) => {
                     self.errors.push(err);
@@ -716,10 +712,7 @@ impl Compiler<'_> {
                 todo!("nested bindings in let expressions :(")
             }
 
-            let idx = self.declare_local(
-                entry.attrpath().unwrap().syntax().clone(),
-                path.pop().unwrap(),
-            );
+            let idx = self.declare_local(&entry.attrpath().unwrap(), path.pop().unwrap());
 
             entries.push((idx, entry.value().unwrap()));
         }
@@ -787,7 +780,7 @@ impl Compiler<'_> {
                 }
 
                 if !self.scope().has_with() {
-                    self.emit_error(node.syntax().clone(), ErrorKind::UnknownStaticVariable);
+                    self.emit_error(self.span_for(&node), ErrorKind::UnknownStaticVariable);
                     return;
                 }
 
@@ -827,7 +820,8 @@ impl Compiler<'_> {
         self.compile(slot, node.namespace().unwrap());
         self.emit_force(&node.namespace().unwrap());
 
-        let local_idx = self.scope_mut().declare_phantom();
+        let span = self.span_for(&node.namespace().unwrap());
+        let local_idx = self.scope_mut().declare_phantom(span);
         let with_idx = self.scope().stack_index(local_idx);
 
         self.scope_mut().push_with();
@@ -859,7 +853,7 @@ impl Compiler<'_> {
                     .text()
                     .to_string();
 
-                let idx = self.declare_local(param.syntax().clone(), &name);
+                let idx = self.declare_local(&param, &name);
                 self.scope_mut().mark_initialised(idx);
             }
         }
@@ -1047,14 +1041,11 @@ impl Compiler<'_> {
             // accessed while it existed and emit a warning to the
             // user otherwise.
             if let Some(Local {
-                node: Some(node),
-                used,
-                name,
-                ..
+                span, used, name, ..
             }) = self.scope_mut().locals.pop()
             {
                 if !used && !name.starts_with('_') {
-                    self.emit_warning(node, WarningKind::UnusedBinding);
+                    self.emit_warning(span, WarningKind::UnusedBinding);
                 }
             }
         }
@@ -1067,7 +1058,7 @@ impl Compiler<'_> {
     /// Declare a local variable known in the scope that is being
     /// compiled by pushing it to the locals. This is used to
     /// determine the stack offset of variables.
-    fn declare_local<S: Into<String>>(&mut self, node: rnix::SyntaxNode, name: S) -> LocalIdx {
+    fn declare_local<S: Into<String>, N: AstNode>(&mut self, node: &N, name: S) -> LocalIdx {
         let name = name.into();
         let depth = self.scope().scope_depth;
 
@@ -1079,7 +1070,10 @@ impl Compiler<'_> {
         };
 
         if let Some(global_ident) = key {
-            self.emit_warning(node.clone(), WarningKind::ShadowedGlobal(global_ident));
+            self.emit_warning(
+                self.span_for(node),
+                WarningKind::ShadowedGlobal(global_ident),
+            );
             self.scope_mut().poison(global_ident, depth);
         }
 
@@ -1093,12 +1087,13 @@ impl Compiler<'_> {
 
         if shadowed {
             self.emit_error(
-                node.clone(),
+                self.span_for(node),
                 ErrorKind::VariableAlreadyDefined(name.clone()),
             );
         }
 
-        self.scope_mut().declare_local(name, node)
+        let span = self.span_for(node);
+        self.scope_mut().declare_local(name, span)
     }
 
     fn resolve_upvalue(
@@ -1217,56 +1212,62 @@ impl Compiler<'_> {
         self.push_op(OpCode::OpForce, node);
     }
 
-    fn emit_warning(&mut self, node: rnix::SyntaxNode, kind: WarningKind) {
-        self.warnings.push(EvalWarning { node, kind })
+    fn emit_warning(&mut self, span: codemap::Span, kind: WarningKind) {
+        self.warnings.push(EvalWarning { kind, span })
     }
 
-    fn emit_error(&mut self, node: rnix::SyntaxNode, kind: ErrorKind) {
+    fn emit_error(&mut self, span: codemap::Span, kind: ErrorKind) {
         self.errors.push(Error {
-            node: Some(node),
             kind,
+            span: Some(span),
         })
     }
-}
 
-/// Convert a non-dynamic string expression to a string if possible,
-/// or raise an error.
-fn expr_str_to_string(expr: ast::Str) -> EvalResult<String> {
-    if expr.normalized_parts().len() == 1 {
-        if let ast::InterpolPart::Literal(s) = expr.normalized_parts().pop().unwrap() {
-            return Ok(s);
+    /// Convert a non-dynamic string expression to a string if possible,
+    /// or raise an error.
+    fn expr_str_to_string(&self, expr: ast::Str) -> EvalResult<String> {
+        if expr.normalized_parts().len() == 1 {
+            if let ast::InterpolPart::Literal(s) = expr.normalized_parts().pop().unwrap() {
+                return Ok(s);
+            }
+        }
+
+        return Err(Error {
+            kind: ErrorKind::DynamicKeyInLet(expr.syntax().clone()),
+            span: Some(self.span_for(&expr)),
+        });
+    }
+
+    /// Convert a single identifier path fragment to a string if possible,
+    /// or raise an error about the node being dynamic.
+    fn attr_to_string(&self, node: ast::Attr) -> EvalResult<String> {
+        match node {
+            ast::Attr::Ident(ident) => Ok(ident.ident_token().unwrap().text().into()),
+            ast::Attr::Str(s) => self.expr_str_to_string(s),
+
+            // The dynamic node type is just a wrapper. C++ Nix does not
+            // care about the dynamic wrapper when determining whether the
+            // node itself is dynamic, it depends solely on the expression
+            // inside (i.e. `let ${"a"} = 1; in a` is valid).
+            ast::Attr::Dynamic(ref dynamic) => match dynamic.expr().unwrap() {
+                ast::Expr::Str(s) => self.expr_str_to_string(s),
+                _ => Err(Error {
+                    kind: ErrorKind::DynamicKeyInLet(node.syntax().clone()),
+                    span: Some(self.span_for(&node)),
+                }),
+            },
         }
     }
 
-    return Err(Error {
-        node: Some(expr.syntax().clone()),
-        kind: ErrorKind::DynamicKeyInLet(expr.syntax().clone()),
-    });
-}
-
-/// Convert a single identifier path fragment to a string if possible,
-/// or raise an error about the node being dynamic.
-fn attr_to_string(node: ast::Attr) -> EvalResult<String> {
-    match node {
-        ast::Attr::Ident(ident) => Ok(ident.ident_token().unwrap().text().into()),
-        ast::Attr::Str(s) => expr_str_to_string(s),
-
-        // The dynamic node type is just a wrapper. C++ Nix does not
-        // care about the dynamic wrapper when determining whether the
-        // node itself is dynamic, it depends solely on the expression
-        // inside (i.e. `let ${"a"} = 1; in a` is valid).
-        ast::Attr::Dynamic(ref dynamic) => match dynamic.expr().unwrap() {
-            ast::Expr::Str(s) => expr_str_to_string(s),
-            _ => Err(ErrorKind::DynamicKeyInLet(node.syntax().clone()).into()),
-        },
+    // Normalises identifier fragments into a single string vector for
+    // `let`-expressions; fails if fragments requiring dynamic computation
+    // are encountered.
+    fn normalise_ident_path<I: Iterator<Item = ast::Attr>>(
+        &self,
+        path: I,
+    ) -> EvalResult<Vec<String>> {
+        path.map(|node| self.attr_to_string(node)).collect()
     }
-}
-
-// Normalises identifier fragments into a single string vector for
-// `let`-expressions; fails if fragments requiring dynamic computation
-// are encountered.
-fn normalise_ident_path<I: Iterator<Item = ast::Attr>>(path: I) -> EvalResult<Vec<String>> {
-    path.map(attr_to_string).collect()
 }
 
 /// Prepare the full set of globals from additional globals supplied

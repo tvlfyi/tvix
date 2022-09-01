@@ -43,18 +43,19 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
 
     for warning in result.warnings {
         eprintln!(
-            "warning: {:?} at `{:?}`[{:?}]",
+            "warning: {:?} at `{}`[line {}]",
             warning.kind,
-            warning.node.text(),
-            warning.node.text_range().start()
+            file.source_slice(warning.span),
+            file.find_line(warning.span.low()) + 1
         )
     }
 
     for error in &result.errors {
         eprintln!(
-            "compiler error: {:?} at {:?}",
+            "compiler error: {:?} at `{}`[line {}]",
             error.kind,
-            error.node.as_ref().map(|node| node.text())
+            file.source_slice(error.span.expect("TODO: non-optional")),
+            file.find_line(error.span.unwrap().low()) + 1
         );
     }
 

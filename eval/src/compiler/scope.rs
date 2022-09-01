@@ -27,8 +27,8 @@ pub struct Local {
     // of `let`-expressions.
     pub name: String,
 
-    // Syntax node at which this local was declared.
-    pub node: Option<rnix::SyntaxNode>,
+    // Source span at which this local was declared.
+    pub span: codemap::Span,
 
     // Scope depth of this local.
     pub depth: usize,
@@ -203,14 +203,14 @@ impl Scope {
     /// Declare a local variable that occupies a stack slot and should
     /// be accounted for, but is not directly accessible by users
     /// (e.g. attribute sets used for `with`).
-    pub fn declare_phantom(&mut self) -> LocalIdx {
+    pub fn declare_phantom(&mut self, span: codemap::Span) -> LocalIdx {
         let idx = self.locals.len();
         self.locals.push(Local {
+            span,
             depth: self.scope_depth,
             initialised: true,
             needs_finaliser: false,
             name: "".into(),
-            node: None,
             phantom: true,
             used: true,
         });
@@ -219,14 +219,14 @@ impl Scope {
     }
 
     /// Declare an uninitialised local variable.
-    pub fn declare_local(&mut self, name: String, node: rnix::SyntaxNode) -> LocalIdx {
+    pub fn declare_local(&mut self, name: String, span: codemap::Span) -> LocalIdx {
         let idx = self.locals.len();
         self.locals.push(Local {
             name,
+            span,
             depth: self.scope_depth,
             initialised: false,
             needs_finaliser: false,
-            node: Some(node),
             phantom: false,
             used: false,
         });

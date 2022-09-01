@@ -52,13 +52,13 @@ pub enum ErrorKind {
 
 #[derive(Clone, Debug)]
 pub struct Error {
-    pub node: Option<rnix::SyntaxNode>,
     pub kind: ErrorKind,
+    pub span: Option<codemap::Span>,
 }
 
 impl From<ErrorKind> for Error {
     fn from(kind: ErrorKind) -> Self {
-        Error { node: None, kind }
+        Error { span: None, kind }
     }
 }
 

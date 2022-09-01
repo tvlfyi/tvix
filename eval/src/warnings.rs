@@ -11,6 +11,6 @@ pub enum WarningKind {
 
 #[derive(Debug)]
 pub struct EvalWarning {
-    pub node: rnix::SyntaxNode,
     pub kind: WarningKind,
+    pub span: codemap::Span,
 }
