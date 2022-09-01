@@ -217,7 +217,7 @@ impl Compiler<'_> {
         // TODO: Use https://github.com/rust-lang/rfcs/issues/2208
         // once it is available
         let value = Value::Path(path.clean());
-        self.emit_constant_old(value);
+        self.emit_constant(value, &node);
     }
 
     fn compile_str(&mut self, slot: Option<LocalIdx>, node: ast::Str) {
