@@ -469,7 +469,7 @@ impl Compiler<'_> {
                         self.compile(slot, from.expr().unwrap());
                         self.emit_force();
                         self.emit_literal_ident(&ident);
-                        self.push_op_old(OpCode::OpAttrsSelect);
+                        self.push_op(OpCode::OpAttrsSelect, &ident);
                     }
                 }
 
@@ -505,7 +505,10 @@ impl Compiler<'_> {
             // otherwise we need to emit an instruction to construct
             // the attribute path.
             if key_count > 1 {
-                self.push_op_old(OpCode::OpAttrPath(Count(key_count)));
+                self.push_op(
+                    OpCode::OpAttrPath(Count(key_count)),
+                    &kv.attrpath().unwrap(),
+                );
             }
 
             // The value is just compiled as normal so that its
@@ -514,7 +517,7 @@ impl Compiler<'_> {
             self.compile(slot, kv.value().unwrap());
         }
 
-        self.push_op_old(OpCode::OpAttrs(Count(count)));
+        self.push_op(OpCode::OpAttrs(Count(count)), &node);
     }
 
     fn compile_select(&mut self, slot: Option<LocalIdx>, node: ast::Select) {
