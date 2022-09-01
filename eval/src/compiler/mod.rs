@@ -755,7 +755,7 @@ impl Compiler<'_> {
 
         // Deal with the body, then clean up the locals afterwards.
         self.compile(slot, node.body().unwrap());
-        self.end_scope();
+        self.end_scope(&node);
     }
 
     fn compile_ident(&mut self, slot: Option<LocalIdx>, node: ast::Ident) {
@@ -849,7 +849,7 @@ impl Compiler<'_> {
 
         self.push_op(OpCode::OpPopWith, &node);
         self.scope_mut().pop_with();
-        self.end_scope();
+        self.end_scope(&node);
     }
 
     fn compile_lambda(&mut self, slot: Option<LocalIdx>, node: ast::Lambda) {
@@ -876,7 +876,7 @@ impl Compiler<'_> {
         }
 
         self.compile(slot, node.body().unwrap());
-        self.end_scope();
+        self.end_scope(&node);
 
         // TODO: determine and insert enclosing name, if available.
 
@@ -932,7 +932,7 @@ impl Compiler<'_> {
         self.contexts.push(LambdaCtx::new());
         self.begin_scope();
         content(self, node, slot);
-        self.end_scope();
+        self.end_scope(node);
 
         let thunk = self.contexts.pop().unwrap();
 
@@ -1032,7 +1032,7 @@ impl Compiler<'_> {
         self.scope_mut().scope_depth += 1;
     }
 
-    fn end_scope(&mut self) {
+    fn end_scope<N: AstNode>(&mut self, node: &N) {
         debug_assert!(self.scope().scope_depth != 0, "can not end top scope");
 
         // If this scope poisoned any builtins or special identifiers,
@@ -1071,7 +1071,7 @@ impl Compiler<'_> {
         }
 
         if pops > 0 {
-            self.push_op_old(OpCode::OpCloseScope(Count(pops)));
+            self.push_op(OpCode::OpCloseScope(Count(pops)), node);
         }
     }
 
