@@ -149,7 +149,7 @@ impl Compiler<'_> {
 
 // Actual code-emitting AST traversal methods.
 impl Compiler<'_> {
-    fn compile(&mut self, slot: Option<LocalIdx>, expr: ast::Expr) {
+    fn compile(&mut self, slot: LocalIdx, expr: ast::Expr) {
         match expr {
             ast::Expr::Literal(literal) => self.compile_literal(literal),
             ast::Expr::Path(path) => self.compile_path(path),
@@ -234,7 +234,7 @@ impl Compiler<'_> {
         self.emit_constant(value, &node);
     }
 
-    fn compile_str(&mut self, slot: Option<LocalIdx>, node: ast::Str) {
+    fn compile_str(&mut self, slot: LocalIdx, node: ast::Str) {
         let mut count = 0;
 
         // The string parts are produced in literal order, however
@@ -261,7 +261,7 @@ impl Compiler<'_> {
         }
     }
 
-    fn compile_unary_op(&mut self, slot: Option<LocalIdx>, op: ast::UnaryOp) {
+    fn compile_unary_op(&mut self, slot: LocalIdx, op: ast::UnaryOp) {
         self.compile(slot, op.expr().unwrap());
         self.emit_force(&op);
 
@@ -273,7 +273,7 @@ impl Compiler<'_> {
         self.push_op(opcode, &op);
     }
 
-    fn compile_binop(&mut self, slot: Option<LocalIdx>, op: ast::BinOp) {
+    fn compile_binop(&mut self, slot: LocalIdx, op: ast::BinOp) {
         use ast::BinOpKind;
 
         // Short-circuiting and other strange operators, which are
@@ -322,7 +322,7 @@ impl Compiler<'_> {
         };
     }
 
-    fn compile_and(&mut self, slot: Option<LocalIdx>, node: ast::BinOp) {
+    fn compile_and(&mut self, slot: LocalIdx, node: ast::BinOp) {
         debug_assert!(
             matches!(node.operator(), Some(ast::BinOpKind::And)),
             "compile_and called with wrong operator kind: {:?}",
@@ -348,7 +348,7 @@ impl Compiler<'_> {
         self.push_op(OpCode::OpAssertBool, &node);
     }
 
-    fn compile_or(&mut self, slot: Option<LocalIdx>, node: ast::BinOp) {
+    fn compile_or(&mut self, slot: LocalIdx, node: ast::BinOp) {
         debug_assert!(
             matches!(node.operator(), Some(ast::BinOpKind::Or)),
             "compile_or called with wrong operator kind: {:?}",
@@ -370,7 +370,7 @@ impl Compiler<'_> {
         self.push_op(OpCode::OpAssertBool, &node);
     }
 
-    fn compile_implication(&mut self, slot: Option<LocalIdx>, node: ast::BinOp) {
+    fn compile_implication(&mut self, slot: LocalIdx, node: ast::BinOp) {
         debug_assert!(
             matches!(node.operator(), Some(ast::BinOpKind::Implication)),
             "compile_implication called with wrong operator kind: {:?}",
@@ -392,7 +392,7 @@ impl Compiler<'_> {
         self.push_op(OpCode::OpAssertBool, &node);
     }
 
-    fn compile_has_attr(&mut self, slot: Option<LocalIdx>, node: ast::HasAttr) {
+    fn compile_has_attr(&mut self, slot: LocalIdx, node: ast::HasAttr) {
         // Put the attribute set on the stack.
         self.compile(slot, node.expr().unwrap());
 
@@ -411,7 +411,7 @@ impl Compiler<'_> {
         self.push_op(OpCode::OpAttrsIsSet, &node);
     }
 
-    fn compile_attr(&mut self, slot: Option<LocalIdx>, node: ast::Attr) {
+    fn compile_attr(&mut self, slot: LocalIdx, node: ast::Attr) {
         match node {
             ast::Attr::Dynamic(dynamic) => {
                 self.compile(slot, dynamic.expr().unwrap());
@@ -433,7 +433,7 @@ impl Compiler<'_> {
     //
     // The VM, after evaluating the code for each element, simply
     // constructs the list from the given number of elements.
-    fn compile_list(&mut self, slot: Option<LocalIdx>, node: ast::List) {
+    fn compile_list(&mut self, slot: LocalIdx, node: ast::List) {
         let mut count = 0;
 
         for item in node.items() {
@@ -452,7 +452,7 @@ impl Compiler<'_> {
     // 1. Keys can be dynamically constructed through interpolation.
     // 2. Keys can refer to nested attribute sets.
     // 3. Attribute sets can (optionally) be recursive.
-    fn compile_attr_set(&mut self, slot: Option<LocalIdx>, node: ast::AttrSet) {
+    fn compile_attr_set(&mut self, slot: LocalIdx, node: ast::AttrSet) {
         if node.rec_token().is_some() {
             todo!("recursive attribute sets are not yet implemented")
         }
@@ -534,7 +534,7 @@ impl Compiler<'_> {
         self.push_op(OpCode::OpAttrs(Count(count)), &node);
     }
 
-    fn compile_select(&mut self, slot: Option<LocalIdx>, node: ast::Select) {
+    fn compile_select(&mut self, slot: LocalIdx, node: ast::Select) {
         let set = node.expr().unwrap();
         let path = node.attrpath().unwrap();
 
@@ -588,7 +588,7 @@ impl Compiler<'_> {
     /// ```
     fn compile_select_or(
         &mut self,
-        slot: Option<LocalIdx>,
+        slot: LocalIdx,
         set: ast::Expr,
         path: ast::Attrpath,
         default: ast::Expr,
@@ -615,7 +615,7 @@ impl Compiler<'_> {
         self.patch_jump(final_jump);
     }
 
-    fn compile_assert(&mut self, slot: Option<LocalIdx>, node: ast::Assert) {
+    fn compile_assert(&mut self, slot: LocalIdx, node: ast::Assert) {
         // Compile the assertion condition to leave its value on the stack.
         self.compile(slot, node.condition().unwrap());
         self.push_op(OpCode::OpAssert, &node);
@@ -636,7 +636,7 @@ impl Compiler<'_> {
     //  Jump over else body  ││ 4  [  else body  ]←┼─┘
     //  if condition is true.└┼─5─→     ...        │
     //                        └────────────────────┘
-    fn compile_if_else(&mut self, slot: Option<LocalIdx>, node: ast::IfElse) {
+    fn compile_if_else(&mut self, slot: LocalIdx, node: ast::IfElse) {
         self.compile(slot, node.condition().unwrap());
 
         let then_idx = self.push_op(
@@ -659,7 +659,7 @@ impl Compiler<'_> {
     // Compile an `inherit` node of a `let`-expression.
     fn compile_let_inherit<I: Iterator<Item = ast::Inherit>>(
         &mut self,
-        slot: Option<LocalIdx>,
+        slot: LocalIdx,
         inherits: I,
     ) {
         for inherit in inherits {
@@ -712,7 +712,7 @@ impl Compiler<'_> {
     // Unless in a non-standard scope, the encountered values are
     // simply pushed on the stack and their indices noted in the
     // entries vector.
-    fn compile_let_in(&mut self, slot: Option<LocalIdx>, node: ast::LetIn) {
+    fn compile_let_in(&mut self, slot: LocalIdx, node: ast::LetIn) {
         self.begin_scope();
 
         self.compile_let_inherit(slot, node.inherits());
@@ -741,7 +741,7 @@ impl Compiler<'_> {
         // Second pass to place the values in the correct stack slots.
         let indices: Vec<LocalIdx> = entries.iter().map(|(idx, _)| *idx).collect();
         for (idx, value) in entries.into_iter() {
-            self.compile(Some(idx), value);
+            self.compile(idx, value);
 
             // Any code after this point will observe the value in the
             // right stack slot, so mark it as initialised.
@@ -761,7 +761,7 @@ impl Compiler<'_> {
         self.end_scope(&node);
     }
 
-    fn compile_ident(&mut self, slot: Option<LocalIdx>, node: ast::Ident) {
+    fn compile_ident(&mut self, slot: LocalIdx, node: ast::Ident) {
         let ident = node.ident_token().unwrap();
 
         // If the identifier is a global, and it is not poisoned, emit
@@ -833,7 +833,7 @@ impl Compiler<'_> {
     // Compile `with` expressions by emitting instructions that
     // pop/remove the indices of attribute sets that are implicitly in
     // scope through `with` on the "with-stack".
-    fn compile_with(&mut self, slot: Option<LocalIdx>, node: ast::With) {
+    fn compile_with(&mut self, slot: LocalIdx, node: ast::With) {
         self.begin_scope();
         // TODO: Detect if the namespace is just an identifier, and
         // resolve that directly (thus avoiding duplication on the
@@ -856,7 +856,7 @@ impl Compiler<'_> {
         self.end_scope(&node);
     }
 
-    fn compile_lambda(&mut self, slot: Option<LocalIdx>, node: ast::Lambda) {
+    fn compile_lambda(&mut self, slot: LocalIdx, node: ast::Lambda) {
         self.new_context();
         self.begin_scope();
 
@@ -913,7 +913,7 @@ impl Compiler<'_> {
         self.emit_upvalue_data(slot, compiled.scope.upvalues);
     }
 
-    fn compile_apply(&mut self, slot: Option<LocalIdx>, node: ast::Apply) {
+    fn compile_apply(&mut self, slot: LocalIdx, node: ast::Apply) {
         // To call a function, we leave its arguments on the stack,
         // followed by the function expression itself, and then emit a
         // call instruction. This way, the stack is perfectly laid out
@@ -926,10 +926,10 @@ impl Compiler<'_> {
     /// Compile an expression into a runtime thunk which should be
     /// lazily evaluated when accessed.
     // TODO: almost the same as Compiler::compile_lambda; unify?
-    fn thunk<N, F>(&mut self, slot: Option<LocalIdx>, node: &N, content: F)
+    fn thunk<N, F>(&mut self, slot: LocalIdx, node: &N, content: F)
     where
         N: AstNode + Clone,
-        F: FnOnce(&mut Compiler, &N, Option<LocalIdx>),
+        F: FnOnce(&mut Compiler, &N, LocalIdx),
     {
         self.new_context();
         self.begin_scope();
@@ -961,14 +961,9 @@ impl Compiler<'_> {
 
     /// Emit the data instructions that the runtime needs to correctly
     /// assemble the provided upvalues array.
-    fn emit_upvalue_data(&mut self, slot: Option<LocalIdx>, upvalues: Vec<Upvalue>) {
+    fn emit_upvalue_data(&mut self, slot: LocalIdx, upvalues: Vec<Upvalue>) {
         for upvalue in upvalues {
             match upvalue.kind {
-                UpvalueKind::Local(idx) if slot.is_none() => {
-                    let stack_idx = self.scope().stack_index(idx);
-                    self.push_op(OpCode::DataLocalIdx(stack_idx), &upvalue.node);
-                }
-
                 UpvalueKind::Local(idx) => {
                     let stack_idx = self.scope().stack_index(idx);
 
@@ -976,9 +971,9 @@ impl Compiler<'_> {
                     // closure, the upvalue resolution must be
                     // deferred until the scope is fully initialised
                     // and can be finalised.
-                    if slot.unwrap() < idx {
+                    if slot < idx {
                         self.push_op(OpCode::DataDeferredLocal(stack_idx), &upvalue.node);
-                        self.scope_mut().mark_needs_finaliser(slot.unwrap());
+                        self.scope_mut().mark_needs_finaliser(slot);
                     } else {
                         self.push_op(OpCode::DataLocalIdx(stack_idx), &upvalue.node);
                     }
@@ -1382,7 +1377,7 @@ pub fn compile<'code>(
         c.context_mut().lambda.chunk.codemap = c.codemap.clone();
     }
 
-    c.compile(None, expr.clone());
+    c.compile(LocalIdx::ZERO, expr.clone());
 
     // The final operation of any top-level Nix program must always be
     // `OpForce`. A thunk should not be returned to the user in an
