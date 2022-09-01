@@ -48,6 +48,10 @@ pub enum ErrorKind {
     // These are user-generated errors through builtins.
     Throw(String),
     Abort(String),
+
+    // An error occured while forcing a thunk, and needs to be chained
+    // up.
+    ThunkForce(Box<Error>),
 }
 
 #[derive(Clone, Debug)]

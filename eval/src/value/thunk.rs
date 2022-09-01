@@ -85,9 +85,9 @@ impl Thunk {
                         std::mem::replace(&mut *thunk_mut, ThunkRepr::Blackhole)
                     {
                         vm.call(lambda, upvalues, 0);
-                        // TODO: find a cheap way to actually retain
-                        // the original error span
-                        *thunk_mut = ThunkRepr::Evaluated(vm.run().map_err(|e| e.kind)?);
+                        *thunk_mut = ThunkRepr::Evaluated(
+                            vm.run().map_err(|e| ErrorKind::ThunkForce(Box::new(e)))?,
+                        );
                     }
                 }
             }
