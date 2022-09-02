@@ -161,7 +161,14 @@ impl VM {
         }
     }
 
-    pub fn call(&mut self, lambda: Rc<Lambda>, upvalues: Vec<Value>, arg_count: usize) {
+    /// Execute the given lambda in this VM's context, returning its
+    /// value after its stack frame completes.
+    pub fn call(
+        &mut self,
+        lambda: Rc<Lambda>,
+        upvalues: Vec<Value>,
+        arg_count: usize,
+    ) -> EvalResult<Value> {
         let frame = CallFrame {
             lambda,
             upvalues,
@@ -170,22 +177,22 @@ impl VM {
         };
 
         self.frames.push(frame);
+        self.run()
     }
 
-    pub fn run(&mut self) -> EvalResult<Value> {
+    /// Run the VM's current stack frame to completion and return the
+    /// value.
+    fn run(&mut self) -> EvalResult<Value> {
         #[cfg(feature = "disassembler")]
         let mut tracer = Tracer::new();
 
         loop {
+            // Break the loop if this call frame has already run to
+            // completion, pop it off, and return the value to the
+            // caller.
             if self.frame().ip == self.chunk().code.len() {
-                // If this is the end of the top-level function,
-                // return, otherwise pop the call frame.
-                if self.frames.len() == 1 {
-                    return Ok(self.pop());
-                }
-
                 self.frames.pop();
-                continue;
+                return Ok(self.pop());
             }
 
             let op = self.inc_ip();
@@ -413,7 +420,9 @@ impl VM {
                     let callable = self.pop();
                     match callable {
                         Value::Closure(closure) => {
-                            self.call(closure.lambda(), closure.upvalues().to_vec(), 1)
+                            let result =
+                                self.call(closure.lambda(), closure.upvalues().to_vec(), 1)?;
+                            self.push(result)
                         }
 
                         Value::Builtin(builtin) => {
@@ -684,8 +693,7 @@ pub fn run_lambda(lambda: Lambda) -> EvalResult<Value> {
         with_stack: vec![],
     };
 
-    vm.call(Rc::new(lambda), vec![], 0);
-    let value = vm.run()?;
+    let value = vm.call(Rc::new(lambda), vec![], 0)?;
     vm.force_for_output(&value)?;
     Ok(value)
 }

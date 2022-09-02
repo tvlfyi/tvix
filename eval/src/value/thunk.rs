@@ -84,9 +84,9 @@ impl Thunk {
                     if let ThunkRepr::Suspended { lambda, upvalues } =
                         std::mem::replace(&mut *thunk_mut, ThunkRepr::Blackhole)
                     {
-                        vm.call(lambda, upvalues, 0);
                         *thunk_mut = ThunkRepr::Evaluated(
-                            vm.run().map_err(|e| ErrorKind::ThunkForce(Box::new(e)))?,
+                            vm.call(lambda, upvalues, 0)
+                                .map_err(|e| ErrorKind::ThunkForce(Box::new(e)))?,
                         );
                     }
                 }

@@ -65,3 +65,19 @@ optimisations, but note the most important ones here.
 
   The same thing goes for resolving `with builtins;`, which should
   definitely resolve statically.
+
+* Avoid nested `VM::run` calls [hard]
+
+  Currently when encountering Nix-native callables (thunks, closures)
+  the VM's run loop will nest and return the value of the nested call
+  frame one level up. This makes the Rust call stack almost mirror the
+  Nix call stack, which is usually undesirable.
+
+  It is possible to detect situations where this is avoidable and
+  instead set up the VM in such a way that it continues and produces
+  the desired result in the same run loop, but this is kind of tricky
+  to get right - especially while other parts are still in flux.
+
+  For details consult the commit with Gerrit change ID
+  `I96828ab6a628136e0bac1bf03555faa4e6b74ece`, in which the initial
+  attempt at doing this was reverted.
