@@ -55,3 +55,13 @@ optimisations, but note the most important ones here.
   We can statically detect the conditions for tail-call optimisation.
   The compiler should do this, and it should then emit a new operation
   for doing the tail-calls.
+
+* Optimise inner builtin access [medium]
+
+  When accessing identifiers like `builtins.foo`, the compiler should
+  not go through the trouble of setting up the attribute set on the
+  stack and accessing `foo` from it if it knows that the scope for
+  `builtins` is unpoisoned.
+
+  The same thing goes for resolving `with builtins;`, which should
+  definitely resolve statically.
