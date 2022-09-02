@@ -3,13 +3,23 @@
 //!
 //! Builtins are directly backed by Rust code operating on Nix values.
 
-use crate::errors::ErrorKind;
+use crate::{errors::ErrorKind, vm::VM};
 
 use super::Value;
 
 use std::fmt::{Debug, Display};
 
-pub type BuiltinFn = fn(arg: Vec<Value>) -> Result<Value, ErrorKind>;
+/// Function pointer type for builtins implemented directly by backing
+/// Rust code.
+///
+/// Builtins declare their arity and are passed a vector with the
+/// right number of arguments. Additionally, as they might have to
+/// force the evaluation of thunks, they are passed a reference to the
+/// current VM which they can use for forcing a value.
+///
+/// Errors returned from a builtin will be annotated with the location
+/// of the call to the builtin.
+pub type BuiltinFn = fn(arg: Vec<Value>, vm: &mut VM) -> Result<Value, ErrorKind>;
 
 /// Represents a single built-in function which directly executes Rust
 /// code that operates on a Nix value.
@@ -50,11 +60,11 @@ impl Builtin {
     /// Apply an additional argument to the builtin, which will either
     /// lead to execution of the function or to returning a partial
     /// builtin.
-    pub fn apply(mut self, arg: Value) -> Result<Value, ErrorKind> {
+    pub fn apply(mut self, vm: &mut VM, arg: Value) -> Result<Value, ErrorKind> {
         self.partials.push(arg);
 
         if self.partials.len() == self.arity {
-            return (self.func)(self.partials);
+            return (self.func)(self.partials, vm);
         }
 
         // Function is not yet ready to be called.

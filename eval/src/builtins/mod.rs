@@ -17,17 +17,17 @@ use crate::arithmetic_op;
 
 fn pure_builtins() -> Vec<Builtin> {
     vec![
-        Builtin::new("add", 2, |mut args| {
+        Builtin::new("add", 2, |mut args, _| {
             let b = args.pop().unwrap();
             let a = args.pop().unwrap();
             arithmetic_op!(a, b, +)
         }),
-        Builtin::new("abort", 1, |mut args| {
+        Builtin::new("abort", 1, |mut args, _| {
             return Err(ErrorKind::Abort(
                 args.pop().unwrap().to_string()?.as_str().to_owned(),
             ));
         }),
-        Builtin::new("catAttrs", 2, |mut args| {
+        Builtin::new("catAttrs", 2, |mut args, _| {
             let list = args.pop().unwrap().to_list()?;
             let key = args.pop().unwrap().to_string()?;
             let mut output = vec![];
@@ -40,64 +40,64 @@ fn pure_builtins() -> Vec<Builtin> {
 
             Ok(Value::List(NixList::construct(output.len(), output)))
         }),
-        Builtin::new("div", 2, |mut args| {
+        Builtin::new("div", 2, |mut args, _| {
             let b = args.pop().unwrap();
             let a = args.pop().unwrap();
             arithmetic_op!(a, b, /)
         }),
-        Builtin::new("length", 1, |args| {
+        Builtin::new("length", 1, |args, _| {
             Ok(Value::Integer(args[0].as_list()?.len() as i64))
         }),
-        Builtin::new("isAttrs", 1, |args| {
+        Builtin::new("isAttrs", 1, |args, _| {
             Ok(Value::Bool(matches!(args[0], Value::Attrs(_))))
         }),
-        Builtin::new("isBool", 1, |args| {
+        Builtin::new("isBool", 1, |args, _| {
             Ok(Value::Bool(matches!(args[0], Value::Bool(_))))
         }),
-        Builtin::new("isFloat", 1, |args| {
+        Builtin::new("isFloat", 1, |args, _| {
             Ok(Value::Bool(matches!(args[0], Value::Float(_))))
         }),
-        Builtin::new("isFunction", 1, |args| {
+        Builtin::new("isFunction", 1, |args, _| {
             Ok(Value::Bool(matches!(
                 args[0],
                 Value::Closure(_) | Value::Builtin(_)
             )))
         }),
-        Builtin::new("isInt", 1, |args| {
+        Builtin::new("isInt", 1, |args, _| {
             Ok(Value::Bool(matches!(args[0], Value::Integer(_))))
         }),
-        Builtin::new("isList", 1, |args| {
+        Builtin::new("isList", 1, |args, _| {
             Ok(Value::Bool(matches!(args[0], Value::List(_))))
         }),
-        Builtin::new("isNull", 1, |args| {
+        Builtin::new("isNull", 1, |args, _| {
             Ok(Value::Bool(matches!(args[0], Value::Null)))
         }),
-        Builtin::new("isPath", 1, |args| {
+        Builtin::new("isPath", 1, |args, _| {
             Ok(Value::Bool(matches!(args[0], Value::Path(_))))
         }),
-        Builtin::new("isString", 1, |args| {
+        Builtin::new("isString", 1, |args, _| {
             Ok(Value::Bool(matches!(args[0], Value::String(_))))
         }),
-        Builtin::new("mul", 2, |mut args| {
+        Builtin::new("mul", 2, |mut args, _| {
             let b = args.pop().unwrap();
             let a = args.pop().unwrap();
             arithmetic_op!(a, b, *)
         }),
-        Builtin::new("sub", 2, |mut args| {
+        Builtin::new("sub", 2, |mut args, _| {
             let b = args.pop().unwrap();
             let a = args.pop().unwrap();
             arithmetic_op!(a, b, -)
         }),
-        Builtin::new("throw", 1, |mut args| {
+        Builtin::new("throw", 1, |mut args, _| {
             return Err(ErrorKind::Throw(
                 args.pop().unwrap().to_string()?.as_str().to_owned(),
             ));
         }),
-        Builtin::new("toString", 1, |args| {
+        Builtin::new("toString", 1, |args, _| {
             // TODO: toString is actually not the same as Display
             Ok(Value::String(format!("{}", args[0]).into()))
         }),
-        Builtin::new("typeOf", 1, |args| {
+        Builtin::new("typeOf", 1, |args, _| {
             Ok(Value::String(args[0].type_of().into()))
         }),
     ]

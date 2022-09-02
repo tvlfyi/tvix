@@ -418,7 +418,7 @@ impl VM {
 
                         Value::Builtin(builtin) => {
                             let arg = self.pop();
-                            let result = fallible!(self, builtin.apply(arg));
+                            let result = fallible!(self, builtin.apply(self, arg));
                             self.push(result);
                         }
                         _ => return Err(self.error(ErrorKind::NotCallable)),
