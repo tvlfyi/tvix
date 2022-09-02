@@ -673,7 +673,9 @@ impl VM {
             | Value::AttrNotFound
             | Value::DynamicUpvalueMissing(_)
             | Value::Blueprint(_)
-            | Value::DeferredUpvalue(_) => panic!("tvix bug: internal value left on stack"),
+            | Value::DeferredUpvalue(_) => {
+                panic!("tvix bug: internal value left on stack: {:?}", value)
+            }
 
             _ => Ok(()),
         }
