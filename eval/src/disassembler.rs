@@ -15,9 +15,7 @@ pub struct Tracer(TabWriter<Stderr>);
 
 impl Tracer {
     pub fn new() -> Self {
-        let mut tw = TabWriter::new(std::io::stderr());
-        write!(&mut tw, "=== runtime trace ===\n").ok();
-        Tracer(tw)
+        Tracer(TabWriter::new(std::io::stderr()))
     }
 
     pub fn trace(&mut self, op: &OpCode, ip: usize, stack: &[Value]) {
@@ -28,6 +26,10 @@ impl Tracer {
         }
 
         write!(&mut self.0, "]\n").ok();
+    }
+
+    pub fn literal(&mut self, line: &str) {
+        let _ = write!(&mut self.0, "{}\n", line);
     }
 }
 

@@ -11,9 +11,6 @@ use crate::{
     value::{Closure, Lambda, NixAttrs, NixList, Thunk, Value},
 };
 
-#[cfg(feature = "disassembler")]
-use crate::disassembler::Tracer;
-
 struct CallFrame {
     lambda: Rc<Lambda>,
     upvalues: Vec<Value>,
@@ -35,6 +32,9 @@ pub struct VM {
     // Stack indices of attribute sets from which variables should be
     // dynamically resolved (`with`).
     with_stack: Vec<usize>,
+
+    #[cfg(feature = "disassembler")]
+    pub tracer: crate::disassembler::Tracer,
 }
 
 /// This macro wraps a computation that returns an ErrorKind or a
@@ -169,6 +169,13 @@ impl VM {
         upvalues: Vec<Value>,
         arg_count: usize,
     ) -> EvalResult<Value> {
+        #[cfg(feature = "disassembler")]
+        self.tracer.literal(&format!(
+            "=== entering closure/{} [{}] ===",
+            arg_count,
+            self.frames.len()
+        ));
+
         let frame = CallFrame {
             lambda,
             upvalues,
@@ -177,15 +184,21 @@ impl VM {
         };
 
         self.frames.push(frame);
-        self.run()
+        let result = self.run();
+
+        #[cfg(feature = "disassembler")]
+        self.tracer.literal(&format!(
+            "=== exiting closure/{} [{}] ===",
+            arg_count,
+            self.frames.len()
+        ));
+
+        result
     }
 
     /// Run the VM's current stack frame to completion and return the
     /// value.
     fn run(&mut self) -> EvalResult<Value> {
-        #[cfg(feature = "disassembler")]
-        let mut tracer = Tracer::new();
-
         loop {
             // Break the loop if this call frame has already run to
             // completion, pop it off, and return the value to the
@@ -196,6 +209,10 @@ impl VM {
             }
 
             let op = self.inc_ip();
+
+            #[cfg(feature = "disassembler")]
+            self.tracer.trace(&op, self.frame().ip, &self.stack);
+
             match op {
                 OpCode::OpConstant(idx) => {
                     let c = self.chunk().constant(idx).clone();
@@ -426,8 +443,16 @@ impl VM {
                         }
 
                         Value::Builtin(builtin) => {
+                            #[cfg(feature = "disassembler")]
+                            self.tracer
+                                .literal(&format!("=== entering builtins.{} ===", builtin.name()));
+
                             let arg = self.pop();
                             let result = fallible!(self, builtin.apply(self, arg));
+
+                            #[cfg(feature = "disassembler")]
+                            self.tracer.literal("=== exiting builtin ===");
+
                             self.push(result);
                         }
                         _ => return Err(self.error(ErrorKind::NotCallable)),
@@ -501,11 +526,7 @@ impl VM {
                         Value::Thunk(thunk) => thunk
                             .resolve_deferred_upvalues(&self.stack[self.frame().stack_offset..]),
 
-                        v => {
-                            #[cfg(feature = "disassembler")]
-                            drop(tracer);
-                            panic!("compiler error: invalid finaliser value: {}", v);
-                        }
+                        v => panic!("compiler error: invalid finaliser value: {}", v),
                     }
                 }
 
@@ -518,11 +539,6 @@ impl VM {
                 | OpCode::DataDynamicAncestor(_) => {
                     panic!("VM bug: attempted to execute data-carrying operand")
                 }
-            }
-
-            #[cfg(feature = "disassembler")]
-            {
-                tracer.trace(&op, self.frame().ip, &self.stack);
             }
         }
     }
@@ -680,6 +696,17 @@ impl VM {
             _ => Ok(()),
         }
     }
+
+    pub fn new() -> Self {
+        VM {
+            frames: vec![],
+            stack: vec![],
+            with_stack: vec![],
+
+            #[cfg(feature = "disassembler")]
+            tracer: crate::disassembler::Tracer::new(),
+        }
+    }
 }
 
 // TODO: use Rc::unwrap_or_clone once it is stabilised.
@@ -689,12 +716,7 @@ fn unwrap_or_clone_rc<T: Clone>(rc: Rc<T>) -> T {
 }
 
 pub fn run_lambda(lambda: Lambda) -> EvalResult<Value> {
-    let mut vm = VM {
-        frames: vec![],
-        stack: vec![],
-        with_stack: vec![],
-    };
-
+    let mut vm = VM::new();
     let value = vm.call(Rc::new(lambda), vec![], 0)?;
     vm.force_for_output(&value)?;
     Ok(value)
