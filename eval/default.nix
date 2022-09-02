@@ -4,6 +4,7 @@ lib.fix (self:
 depot.third_party.naersk.buildPackage {
   src = ./.;
   doCheck = true;
+  cargoBuildOptions = opts: opts ++ [ "--all-targets" ];
 
   meta.ci.targets = builtins.attrNames self.passthru;
 
