@@ -186,6 +186,7 @@ impl Scope {
     pub fn inherit(&self) -> Self {
         let mut scope = Self::default();
         scope.poisoned_tokens = self.poisoned_tokens.clone();
+        scope.scope_depth = self.scope_depth;
         scope
     }
 
