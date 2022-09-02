@@ -43,11 +43,42 @@ pub enum Value {
     DeferredUpvalue(StackIdx),
 }
 
-impl Value {
-    pub fn is_number(&self) -> bool {
-        matches!(self, Value::Integer(_) | Value::Float(_))
-    }
+// Helper macros to generate the to_*/as_* macros while accounting for
+// thunks.
 
+/// Generate an `as_*` method returning a reference to the expected
+/// type, or a type error. This only works for types that implement
+/// `Copy`, as returning a reference to an inner thunk value is not
+/// possible.
+
+/// Generate an `as_*/to_*` accessor method that returns either the
+/// expected type, or a type error.
+macro_rules! gen_cast {
+    ( $name:ident, $type:ty, $expected:expr, $variant:pat, $result:expr ) => {
+        pub fn $name(&self) -> Result<$type, ErrorKind> {
+            match self {
+                $variant => Ok($result),
+                Value::Thunk(thunk) => Self::$name(&thunk.value()),
+                other => Err(type_error($expected, &other)),
+            }
+        }
+    };
+}
+
+/// Generate an `is_*` type-checking method.
+macro_rules! gen_is {
+    ( $name:ident, $variant:pat ) => {
+        pub fn $name(&self) -> bool {
+            match self {
+                $variant => true,
+                Value::Thunk(thunk) => Self::$name(&thunk.value()),
+                _ => false,
+            }
+        }
+    };
+}
+
+impl Value {
     pub fn type_of(&self) -> &'static str {
         match self {
             Value::Null => "null",
@@ -70,65 +101,14 @@ impl Value {
         }
     }
 
-    pub fn as_bool(&self) -> Result<bool, ErrorKind> {
-        match self {
-            Value::Bool(b) => Ok(*b),
-            other => Err(type_error("bool", &other)),
-        }
-    }
+    gen_cast!(as_bool, bool, "bool", Value::Bool(b), *b);
+    gen_cast!(to_str, NixString, "string", Value::String(s), s.clone());
+    gen_cast!(to_attrs, Rc<NixAttrs>, "set", Value::Attrs(a), a.clone());
+    gen_cast!(to_list, NixList, "list", Value::List(l), l.clone());
+    gen_cast!(to_closure, Closure, "lambda", Value::Closure(c), c.clone());
 
-    pub fn as_attrs(&self) -> Result<&NixAttrs, ErrorKind> {
-        match self {
-            Value::Attrs(attrs) => Ok(attrs),
-            other => Err(type_error("set", &other)),
-        }
-    }
-
-    pub fn as_str(&self) -> Result<&str, ErrorKind> {
-        match self {
-            Value::String(s) => Ok(s.as_str()),
-            other => Err(type_error("string", &other)),
-        }
-    }
-
-    pub fn as_list(&self) -> Result<&NixList, ErrorKind> {
-        match self {
-            Value::List(xs) => Ok(xs),
-            other => Err(type_error("list", &other)),
-        }
-    }
-
-    pub fn to_string(self) -> Result<NixString, ErrorKind> {
-        match self {
-            Value::String(s) => Ok(s),
-            other => Err(type_error("string", &other)),
-        }
-    }
-
-    pub fn to_attrs(self) -> Result<Rc<NixAttrs>, ErrorKind> {
-        match self {
-            Value::Attrs(s) => Ok(s),
-            other => Err(type_error("set", &other)),
-        }
-    }
-
-    pub fn to_list(self) -> Result<NixList, ErrorKind> {
-        match self {
-            Value::List(l) => Ok(l),
-            other => Err(type_error("list", &other)),
-        }
-    }
-
-    pub fn to_closure(self) -> Result<Closure, ErrorKind> {
-        match self {
-            Value::Closure(c) => Ok(c),
-            other => Err(type_error("lambda", &other)),
-        }
-    }
-
-    pub fn is_bool(&self) -> bool {
-        matches!(self, Value::Bool(_))
-    }
+    gen_is!(is_number, Value::Integer(_) | Value::Float(_));
+    gen_is!(is_bool, Value::Bool(_));
 }
 
 impl Display for Value {

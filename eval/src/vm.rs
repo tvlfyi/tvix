@@ -259,7 +259,7 @@ impl VM {
                 }
 
                 OpCode::OpAttrsSelect => {
-                    let key = fallible!(self, self.pop().to_string());
+                    let key = fallible!(self, self.pop().to_str());
                     let attrs = fallible!(self, self.pop().to_attrs());
 
                     match attrs.select(key.as_str()) {
@@ -274,7 +274,7 @@ impl VM {
                 }
 
                 OpCode::OpAttrsTrySelect => {
-                    let key = fallible!(self, self.pop().to_string());
+                    let key = fallible!(self, self.pop().to_str());
                     let value = match self.pop() {
                         Value::Attrs(attrs) => match attrs.select(key.as_str()) {
                             Some(value) => value.clone(),
@@ -288,7 +288,7 @@ impl VM {
                 }
 
                 OpCode::OpAttrsIsSet => {
-                    let key = fallible!(self, self.pop().to_string());
+                    let key = fallible!(self, self.pop().to_str());
                     let result = match self.pop() {
                         Value::Attrs(attrs) => attrs.contains(key.as_str()),
 
@@ -379,13 +379,13 @@ impl VM {
                 }
 
                 OpCode::OpResolveWith => {
-                    let ident = fallible!(self, self.pop().to_string());
+                    let ident = fallible!(self, self.pop().to_str());
                     let value = self.resolve_with(ident.as_str())?;
                     self.push(value)
                 }
 
                 OpCode::OpResolveWithOrUpvalue(idx) => {
-                    let ident = fallible!(self, self.pop().to_string());
+                    let ident = fallible!(self, self.pop().to_str());
                     match self.resolve_with(ident.as_str()) {
                         // Variable found in local `with`-stack.
                         Ok(value) => self.push(value),
@@ -529,7 +529,7 @@ impl VM {
         let mut path = Vec::with_capacity(count);
 
         for _ in 0..count {
-            path.push(fallible!(self, self.pop().to_string()));
+            path.push(fallible!(self, self.pop().to_str()));
         }
 
         self.push(Value::AttrPath(path));
@@ -553,7 +553,7 @@ impl VM {
         let mut out = String::new();
 
         for _ in 0..count {
-            out.push_str(fallible!(self, self.pop().to_string()).as_str());
+            out.push_str(fallible!(self, self.pop().to_str()).as_str());
         }
 
         self.push(Value::String(out.into()));
@@ -562,7 +562,7 @@ impl VM {
 
     fn resolve_dynamic_upvalue(&mut self, ident_idx: ConstantIdx) -> EvalResult<Value> {
         let chunk = self.chunk();
-        let ident = fallible!(self, chunk.constant(ident_idx).as_str()).to_string();
+        let ident = fallible!(self, chunk.constant(ident_idx).to_str());
 
         // Peek at the current instruction (note: IP has already
         // advanced!) to see if it is actually data indicating a
@@ -577,7 +577,7 @@ impl VM {
             _ => None,
         };
 
-        match self.resolve_with(&ident) {
+        match self.resolve_with(ident.as_str()) {
             Ok(v) => Ok(v),
 
             Err(Error {
@@ -595,7 +595,7 @@ impl VM {
     /// Resolve a dynamic identifier through the with-stack at runtime.
     fn resolve_with(&self, ident: &str) -> EvalResult<Value> {
         for idx in self.with_stack.iter().rev() {
-            let with = fallible!(self, self.stack[*idx].as_attrs());
+            let with = fallible!(self, self.stack[*idx].to_attrs());
             match with.select(ident) {
                 None => continue,
                 Some(val) => return Ok(val.clone()),

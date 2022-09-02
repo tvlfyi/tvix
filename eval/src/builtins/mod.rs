@@ -24,12 +24,12 @@ fn pure_builtins() -> Vec<Builtin> {
         }),
         Builtin::new("abort", 1, |mut args, _| {
             return Err(ErrorKind::Abort(
-                args.pop().unwrap().to_string()?.as_str().to_owned(),
+                args.pop().unwrap().to_str()?.as_str().to_owned(),
             ));
         }),
         Builtin::new("catAttrs", 2, |mut args, _| {
             let list = args.pop().unwrap().to_list()?;
-            let key = args.pop().unwrap().to_string()?;
+            let key = args.pop().unwrap().to_str()?;
             let mut output = vec![];
 
             for set in list.into_iter() {
@@ -46,7 +46,7 @@ fn pure_builtins() -> Vec<Builtin> {
             arithmetic_op!(a, b, /)
         }),
         Builtin::new("length", 1, |args, _| {
-            Ok(Value::Integer(args[0].as_list()?.len() as i64))
+            Ok(Value::Integer(args[0].to_list()?.len() as i64))
         }),
         Builtin::new("isAttrs", 1, |args, _| {
             Ok(Value::Bool(matches!(args[0], Value::Attrs(_))))
@@ -90,7 +90,7 @@ fn pure_builtins() -> Vec<Builtin> {
         }),
         Builtin::new("throw", 1, |mut args, _| {
             return Err(ErrorKind::Throw(
-                args.pop().unwrap().to_string()?.as_str().to_owned(),
+                args.pop().unwrap().to_str()?.as_str().to_owned(),
             ));
         }),
         Builtin::new("toString", 1, |args, _| {
