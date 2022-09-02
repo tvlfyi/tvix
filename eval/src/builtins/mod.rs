@@ -45,7 +45,10 @@ fn pure_builtins() -> Vec<Builtin> {
             let a = args.pop().unwrap();
             arithmetic_op!(a, b, /)
         }),
-        Builtin::new("length", 1, |args, _| {
+        Builtin::new("length", 1, |args, vm| {
+            if let Value::Thunk(t) = &args[0] {
+                t.force(vm)?;
+            }
             Ok(Value::Integer(args[0].to_list()?.len() as i64))
         }),
         Builtin::new("isAttrs", 1, |args, _| {
