@@ -137,8 +137,12 @@ impl UpvalueCarrier for Thunk {
 
 impl Display for Thunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &*self.0.borrow() {
-            ThunkRepr::Evaluated(v) => v.fmt(f),
+        match self.0.try_borrow() {
+            Ok(repr) => match &*repr {
+                ThunkRepr::Evaluated(v) => v.fmt(f),
+                _ => f.write_str("internal[thunk]"),
+            },
+
             _ => f.write_str("internal[thunk]"),
         }
     }
