@@ -874,6 +874,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "dirs",
+ "itertools",
  "path-clean",
  "pretty_assertions",
  "rnix",
