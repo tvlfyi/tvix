@@ -29,7 +29,7 @@ use crate::opcode::{CodeIdx, Count, JumpOffset, OpCode, UpvalueIdx};
 use crate::value::{Closure, Lambda, Thunk, Value};
 use crate::warnings::{EvalWarning, WarningKind};
 
-use self::scope::{Local, LocalIdx, LocalPosition, Scope, Upvalue, UpvalueKind};
+use self::scope::{LocalIdx, LocalPosition, Scope, Upvalue, UpvalueKind};
 
 /// Represents the result of compiling a piece of Nix code. If
 /// compilation was successful, the resulting bytecode can be passed
@@ -842,7 +842,14 @@ impl Compiler<'_> {
         self.emit_force(&node.namespace().unwrap());
 
         let span = self.span_for(&node.namespace().unwrap());
+
+        // The attribute set from which `with` inherits values
+        // occupies a slot on the stack, but this stack slot is not
+        // directly accessible. As it must be accounted for to
+        // calculate correct offsets, what we call a "phantom" local
+        // is declared here.
         let local_idx = self.scope_mut().declare_phantom(span);
+        self.scope_mut().mark_initialised(local_idx);
         let with_idx = self.scope().stack_index(local_idx);
 
         self.scope_mut().push_with();
@@ -1058,12 +1065,9 @@ impl Compiler<'_> {
             // While removing the local, analyse whether it has been
             // accessed while it existed and emit a warning to the
             // user otherwise.
-            if let Some(Local {
-                span, used, name, ..
-            }) = self.scope_mut().locals.pop()
-            {
-                if !used && !name.starts_with('_') {
-                    self.emit_warning(span, WarningKind::UnusedBinding);
+            if let Some(local) = self.scope_mut().locals.pop() {
+                if !local.used && !local.is_ignored() {
+                    self.emit_warning(local.span, WarningKind::UnusedBinding);
                 }
             }
         }
@@ -1106,7 +1110,7 @@ impl Compiler<'_> {
 
         let mut shadowed = false;
         for other in self.scope().locals.iter().rev() {
-            if other.name == name && other.depth == depth {
+            if other.has_name(&name) && other.depth == depth {
                 shadowed = true;
                 break;
             }

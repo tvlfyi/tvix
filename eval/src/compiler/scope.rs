@@ -19,13 +19,23 @@ use smol_str::SmolStr;
 
 use crate::opcode::{StackIdx, UpvalueIdx};
 
+#[derive(Debug)]
+enum LocalName {
+    /// Normally declared local with a statically known name.
+    Ident(String),
+
+    /// Phantom stack value (e.g. attribute set used for `with`) that
+    /// must be accounted for to calculate correct stack offsets.
+    Phantom,
+}
+
 /// Represents a single local already known to the compiler.
 #[derive(Debug)]
 pub struct Local {
-    // Definition name, which can be different kinds of tokens (plain
-    // string or identifier). Nix does not allow dynamic names inside
-    // of `let`-expressions.
-    pub name: String,
+    // Identifier of this local. This is always a statically known
+    // value (Nix does not allow dynamic identifier names in locals),
+    // or a "phantom" value not accessible by users.
+    name: LocalName,
 
     // Source span at which this local was declared.
     pub span: codemap::Span,
@@ -35,10 +45,6 @@ pub struct Local {
 
     // Is this local initialised?
     pub initialised: bool,
-
-    // Phantom locals are not actually accessible by users (e.g.
-    // intermediate values used for `with`).
-    pub phantom: bool,
 
     // Is this local known to have been used at all?
     pub used: bool,
@@ -52,6 +58,24 @@ impl Local {
     /// Does this local live above the other given depth?
     pub fn above(&self, theirs: usize) -> bool {
         self.depth > theirs
+    }
+
+    /// Does the name of this local match the given string?
+    pub fn has_name(&self, other: &str) -> bool {
+        match &self.name {
+            LocalName::Ident(name) => name == other,
+
+            // Phantoms are *never* accessible by a name.
+            LocalName::Phantom => false,
+        }
+    }
+
+    /// Is this local intentionally ignored? (i.e. name starts with `_`)
+    pub fn is_ignored(&self) -> bool {
+        match &self.name {
+            LocalName::Ident(name) => name.starts_with('_'),
+            LocalName::Phantom => false,
+        }
     }
 }
 
@@ -196,7 +220,7 @@ impl Scope {
     /// Resolve the stack index of a statically known local.
     pub fn resolve_local(&mut self, name: &str) -> LocalPosition {
         for (idx, local) in self.locals.iter_mut().enumerate().rev() {
-            if !local.phantom && local.name == name {
+            if local.has_name(name) {
                 local.used = true;
 
                 // This local is still being initialised, meaning that
@@ -219,12 +243,11 @@ impl Scope {
     pub fn declare_phantom(&mut self, span: codemap::Span) -> LocalIdx {
         let idx = self.locals.len();
         self.locals.push(Local {
+            name: LocalName::Phantom,
             span,
             depth: self.scope_depth,
-            initialised: true,
+            initialised: false,
             needs_finaliser: false,
-            name: "".into(),
-            phantom: true,
             used: true,
         });
 
@@ -235,12 +258,11 @@ impl Scope {
     pub fn declare_local(&mut self, name: String, span: codemap::Span) -> LocalIdx {
         let idx = self.locals.len();
         self.locals.push(Local {
-            name,
+            name: LocalName::Ident(name),
             span,
             depth: self.scope_depth,
             initialised: false,
             needs_finaliser: false,
-            phantom: false,
             used: false,
         });
 
