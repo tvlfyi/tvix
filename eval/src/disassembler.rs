@@ -5,7 +5,7 @@ use std::io::{Stderr, Write};
 use tabwriter::TabWriter;
 
 use crate::chunk::Chunk;
-use crate::opcode::OpCode;
+use crate::opcode::{CodeIdx, OpCode};
 use crate::value::Value;
 
 /// Helper struct to trace runtime values and automatically flush the
@@ -38,7 +38,16 @@ impl Drop for Tracer {
 }
 
 fn disassemble_op(tw: &mut TabWriter<Stderr>, chunk: &Chunk, width: usize, offset: usize) {
-    write!(tw, "{:0width$}\t ", width = width).ok();
+    write!(tw, "{:0width$}\t ", offset, width = width).ok();
+
+    let span = chunk.get_span(CodeIdx(offset));
+
+    if offset > 0 && chunk.get_span(CodeIdx(offset - 1)) == span {
+        write!(tw, "   |\t").unwrap();
+    } else {
+        let loc = chunk.codemap.look_up_span(span);
+        write!(tw, "{:4}\t", loc.begin.line + 1).unwrap();
+    }
 
     match chunk.code[offset] {
         OpCode::OpConstant(idx) => write!(tw, "OpConstant({})\n", chunk.constant(idx)).ok(),

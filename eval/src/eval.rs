@@ -39,7 +39,14 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         println!("{:?}", root_expr);
     }
 
-    let result = crate::compiler::compile(root_expr, location, &file, global_builtins())?;
+    let result = crate::compiler::compile(
+        root_expr,
+        location,
+        &file,
+        global_builtins(),
+        #[cfg(feature = "disassembler")]
+        std::rc::Rc::new(codemap),
+    )?;
 
     #[cfg(feature = "disassembler")]
     crate::disassembler::disassemble_chunk(&result.lambda.chunk);

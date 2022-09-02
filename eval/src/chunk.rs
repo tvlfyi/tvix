@@ -26,6 +26,9 @@ pub struct Chunk {
     pub code: Vec<OpCode>,
     pub constants: Vec<Value>,
     spans: Vec<SourceSpan>,
+
+    #[cfg(feature = "disassembler")]
+    pub codemap: std::rc::Rc<codemap::CodeMap>,
 }
 
 impl Chunk {

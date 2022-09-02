@@ -55,10 +55,18 @@ impl LambdaCtx {
     }
 
     fn inherit(&self) -> Self {
-        LambdaCtx {
+        let ctx = LambdaCtx {
             lambda: Lambda::new_anonymous(),
             scope: self.scope.inherit(),
-        }
+        };
+
+        #[cfg(feature = "disassembler")]
+        let ctx = (|mut c: Self| {
+            c.lambda.chunk.codemap = self.lambda.chunk.codemap.clone();
+            c
+        })(ctx);
+
+        ctx
     }
 }
 
@@ -84,6 +92,12 @@ struct Compiler<'code> {
     /// and is used to track the spans from which instructions where
     /// derived.
     file: &'code codemap::File,
+
+    #[cfg(feature = "disassembler")]
+    /// Carry a reference to the codemap around when the disassembler
+    /// is enabled, to allow displaying lines and other source
+    /// information in the disassembler output.
+    codemap: Rc<codemap::CodeMap>,
 }
 
 // Helper functions for emitting code and metadata to the internal
@@ -1331,6 +1345,8 @@ pub fn compile<'code>(
     location: Option<PathBuf>,
     file: &'code codemap::File,
     globals: HashMap<&'static str, Value>,
+
+    #[cfg(feature = "disassembler")] codemap: Rc<codemap::CodeMap>,
 ) -> EvalResult<CompilationOutput> {
     let mut root_dir = match location {
         Some(dir) => Ok(dir),
@@ -1353,11 +1369,18 @@ pub fn compile<'code>(
     let mut c = Compiler {
         root_dir,
         file,
+        #[cfg(feature = "disassembler")]
+        codemap,
         globals: prepare_globals(globals),
         contexts: vec![LambdaCtx::new()],
         warnings: vec![],
         errors: vec![],
     };
+
+    #[cfg(feature = "disassembler")]
+    {
+        c.context_mut().lambda.chunk.codemap = c.codemap.clone();
+    }
 
     c.compile(None, expr.clone());
 
