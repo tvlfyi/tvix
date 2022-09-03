@@ -863,8 +863,10 @@ impl Compiler<'_> {
         self.end_scope(&node);
     }
 
-    fn compile_lambda(&mut self, slot: LocalIdx, node: ast::Lambda) {
+    fn compile_lambda(&mut self, outer_slot: LocalIdx, node: ast::Lambda) {
         self.new_context();
+        let span = self.span_for(&node);
+        let slot = self.scope_mut().declare_phantom(span);
         self.begin_scope();
 
         // Compile the function itself
@@ -917,7 +919,7 @@ impl Compiler<'_> {
             .push_constant(Value::Blueprint(Rc::new(compiled.lambda)));
 
         self.push_op(OpCode::OpClosure(blueprint_idx), &node);
-        self.emit_upvalue_data(slot, compiled.scope.upvalues);
+        self.emit_upvalue_data(outer_slot, compiled.scope.upvalues);
     }
 
     fn compile_apply(&mut self, slot: LocalIdx, node: ast::Apply) {
@@ -933,12 +935,14 @@ impl Compiler<'_> {
     /// Compile an expression into a runtime thunk which should be
     /// lazily evaluated when accessed.
     // TODO: almost the same as Compiler::compile_lambda; unify?
-    fn thunk<N, F>(&mut self, slot: LocalIdx, node: &N, content: F)
+    fn thunk<N, F>(&mut self, outer_slot: LocalIdx, node: &N, content: F)
     where
         N: AstNode + Clone,
         F: FnOnce(&mut Compiler, &N, LocalIdx),
     {
         self.new_context();
+        let span = self.span_for(node);
+        let slot = self.scope_mut().declare_phantom(span);
         self.begin_scope();
         content(self, node, slot);
         self.end_scope(node);
@@ -963,7 +967,7 @@ impl Compiler<'_> {
             .push_constant(Value::Blueprint(Rc::new(thunk.lambda)));
 
         self.push_op(OpCode::OpThunk(blueprint_idx), node);
-        self.emit_upvalue_data(slot, thunk.scope.upvalues);
+        self.emit_upvalue_data(outer_slot, thunk.scope.upvalues);
     }
 
     /// Emit the data instructions that the runtime needs to correctly
