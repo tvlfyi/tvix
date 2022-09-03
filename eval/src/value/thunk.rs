@@ -53,7 +53,7 @@ impl Thunk {
     pub fn new(lambda: Rc<Lambda>) -> Self {
         Thunk(Rc::new(RefCell::new(ThunkRepr::Suspended {
             upvalues: Vec::with_capacity(lambda.upvalue_count),
-            lambda,
+            lambda: lambda.clone(),
         })))
     }
 
@@ -65,12 +65,9 @@ impl Thunk {
     /// case of nested thunks, the intermediate thunk representations
     /// are replaced.
     pub fn force(&self, vm: &mut VM) -> Result<(), ErrorKind> {
-        // Due to mutable borrowing rules, the following code can't
-        // easily use a match statement or something like that; it
-        // requires a bit of manual fiddling.
-        let mut thunk_mut = self.0.borrow_mut();
-
         loop {
+            let mut thunk_mut = self.0.borrow_mut();
+
             match *thunk_mut {
                 ThunkRepr::Evaluated(Value::Thunk(ref inner_thunk)) => {
                     let inner_repr = inner_thunk.0.borrow().clone();
@@ -84,10 +81,12 @@ impl Thunk {
                     if let ThunkRepr::Suspended { lambda, upvalues } =
                         std::mem::replace(&mut *thunk_mut, ThunkRepr::Blackhole)
                     {
-                        *thunk_mut = ThunkRepr::Evaluated(
+                        drop(thunk_mut);
+                        let evaluated = ThunkRepr::Evaluated(
                             vm.call(lambda, upvalues, 0)
                                 .map_err(|e| ErrorKind::ThunkForce(Box::new(e)))?,
                         );
+                        (*self.0.borrow_mut()) = evaluated;
                     }
                 }
             }
