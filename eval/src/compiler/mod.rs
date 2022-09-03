@@ -156,16 +156,27 @@ impl Compiler<'_> {
             ast::Expr::Literal(literal) => self.compile_literal(literal),
             ast::Expr::Path(path) => self.compile_path(path),
             ast::Expr::Str(s) => self.compile_str(slot, s),
+
             ast::Expr::UnaryOp(op) => self.compile_unary_op(slot, op),
-            ast::Expr::BinOp(op) => self.compile_binop(slot, op),
+
+            ast::Expr::BinOp(binop) => {
+                self.thunk(slot, &binop, move |c, o, s| c.compile_binop(s, o.clone()))
+            }
+
             ast::Expr::HasAttr(has_attr) => self.compile_has_attr(slot, has_attr),
+
             ast::Expr::List(list) => {
                 self.thunk(slot, &list, move |c, l, s| c.compile_list(s, l.clone()))
             }
+
             ast::Expr::AttrSet(attrs) => self.thunk(slot, &attrs, move |c, a, s| {
                 c.compile_attr_set(s, a.clone())
             }),
-            ast::Expr::Select(select) => self.compile_select(slot, select),
+
+            ast::Expr::Select(select) => self.thunk(slot, &select, move |c, sel, s| {
+                c.compile_select(s, sel.clone())
+            }),
+
             ast::Expr::Assert(assert) => self.compile_assert(slot, assert),
             ast::Expr::IfElse(if_else) => self.compile_if_else(slot, if_else),
             ast::Expr::LetIn(let_in) => self.compile_let_in(slot, let_in),
@@ -644,6 +655,7 @@ impl Compiler<'_> {
     //                        └────────────────────┘
     fn compile_if_else(&mut self, slot: LocalIdx, node: ast::IfElse) {
         self.compile(slot, node.condition().unwrap());
+        self.emit_force(&node.condition().unwrap());
 
         let then_idx = self.push_op(
             OpCode::OpJumpIfFalse(JumpOffset(0)),
