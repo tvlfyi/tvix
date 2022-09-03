@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, rc::Rc};
 
 use crate::{
     builtins::global_builtins,
@@ -45,11 +45,12 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         &file,
         global_builtins(),
         #[cfg(feature = "disassembler")]
-        std::rc::Rc::new(codemap),
+        Rc::new(codemap),
     )?;
+    let lambda = Rc::new(result.lambda);
 
     #[cfg(feature = "disassembler")]
-    crate::disassembler::disassemble_chunk(&result.lambda.chunk);
+    crate::disassembler::disassemble_lambda(lambda.clone());
 
     for warning in result.warnings {
         eprintln!(
@@ -73,5 +74,5 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         return Err(err.clone());
     }
 
-    crate::vm::run_lambda(result.lambda)
+    crate::vm::run_lambda(lambda)
 }

@@ -173,8 +173,9 @@ impl VM {
     ) -> EvalResult<Value> {
         #[cfg(feature = "disassembler")]
         self.tracer.literal(&format!(
-            "=== entering closure/{} [{}] ===",
+            "=== entering closure/{} @ {:p} [{}] ===",
             arg_count,
+            lambda,
             self.frames.len()
         ));
 
@@ -706,9 +707,9 @@ fn unwrap_or_clone_rc<T: Clone>(rc: Rc<T>) -> T {
     Rc::try_unwrap(rc).unwrap_or_else(|rc| (*rc).clone())
 }
 
-pub fn run_lambda(lambda: Lambda) -> EvalResult<Value> {
+pub fn run_lambda(lambda: Rc<Lambda>) -> EvalResult<Value> {
     let mut vm = VM::default();
-    let value = vm.call(Rc::new(lambda), vec![], 0)?;
+    let value = vm.call(lambda, vec![], 0)?;
     vm.force_for_output(&value)?;
     Ok(value)
 }

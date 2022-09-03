@@ -2,11 +2,12 @@
 //! of compiled code, as well as tracing the runtime stack during
 //! execution.
 use std::io::{Stderr, Write};
+use std::rc::Rc;
 use tabwriter::TabWriter;
 
 use crate::chunk::Chunk;
 use crate::opcode::{CodeIdx, OpCode};
-use crate::value::Value;
+use crate::value::{Lambda, Value};
 
 /// Helper struct to trace runtime values and automatically flush the
 /// output after the value is dropped (i.e. in both success and
@@ -58,20 +59,20 @@ fn disassemble_op(tw: &mut TabWriter<Stderr>, chunk: &Chunk, width: usize, offse
     };
 }
 
-/// Disassemble a chunk of code, printing out the operations in a
-/// reasonable, human-readable format.
-pub fn disassemble_chunk(chunk: &Chunk) {
+/// Disassemble an entire lambda, printing its address and its
+/// operations in human-readable format.
+pub fn disassemble_lambda(lambda: Rc<Lambda>) {
     let mut tw = TabWriter::new(std::io::stderr());
-
     let _ = writeln!(
         &mut tw,
-        "=== compiled bytecode ({} operations) ===",
-        chunk.code.len()
+        "=== compiled code (@{:p}, {} ops) ===",
+        lambda,
+        lambda.chunk.code.len()
     );
 
-    let width = format!("{}", chunk.code.len()).len();
-    for (idx, _) in chunk.code.iter().enumerate() {
-        disassemble_op(&mut tw, chunk, width, idx);
+    let width = format!("{}", lambda.chunk.code.len()).len();
+    for (idx, _) in lambda.chunk.code.iter().enumerate() {
+        disassemble_op(&mut tw, &lambda.chunk, width, idx);
     }
 
     let _ = tw.flush();

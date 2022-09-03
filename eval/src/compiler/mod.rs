@@ -900,19 +900,17 @@ impl Compiler<'_> {
         // Pop the lambda context back off, and emit the finished
         // lambda as a constant.
         let compiled = self.contexts.pop().unwrap();
+        let lambda = Rc::new(compiled.lambda);
 
         #[cfg(feature = "disassembler")]
         {
-            crate::disassembler::disassemble_chunk(&compiled.lambda.chunk);
+            crate::disassembler::disassemble_lambda(lambda.clone());
         }
 
         // If the function is not a closure, just emit it directly and
         // move on.
-        if compiled.lambda.upvalue_count == 0 {
-            self.emit_constant(
-                Value::Closure(Closure::new(Rc::new(compiled.lambda))),
-                &node,
-            );
+        if lambda.upvalue_count == 0 {
+            self.emit_constant(Value::Closure(Closure::new(lambda)), &node);
             return;
         }
 
@@ -920,9 +918,7 @@ impl Compiler<'_> {
         // number of operands that allow the runtime to close over the
         // upvalues and leave a blueprint in the constant index from
         // which the runtime closure can be constructed.
-        let blueprint_idx = self
-            .chunk()
-            .push_constant(Value::Blueprint(Rc::new(compiled.lambda)));
+        let blueprint_idx = self.chunk().push_constant(Value::Blueprint(lambda));
 
         self.push_op(OpCode::OpClosure(blueprint_idx), &node);
         self.emit_upvalue_data(outer_slot, compiled.scope.upvalues);
@@ -955,23 +951,22 @@ impl Compiler<'_> {
         self.end_scope(node);
 
         let thunk = self.contexts.pop().unwrap();
+        let lambda = Rc::new(thunk.lambda);
 
         #[cfg(feature = "disassembler")]
         {
-            crate::disassembler::disassemble_chunk(&thunk.lambda.chunk);
+            crate::disassembler::disassemble_lambda(lambda.clone());
         }
 
         // Emit the thunk directly if it does not close over the
         // environment.
-        if thunk.lambda.upvalue_count == 0 {
-            self.emit_constant(Value::Thunk(Thunk::new(Rc::new(thunk.lambda))), node);
+        if lambda.upvalue_count == 0 {
+            self.emit_constant(Value::Thunk(Thunk::new(lambda)), node);
             return;
         }
 
         // Otherwise prepare for runtime construction of the thunk.
-        let blueprint_idx = self
-            .chunk()
-            .push_constant(Value::Blueprint(Rc::new(thunk.lambda)));
+        let blueprint_idx = self.chunk().push_constant(Value::Blueprint(lambda));
 
         self.push_op(OpCode::OpThunk(blueprint_idx), node);
         self.emit_upvalue_data(outer_slot, thunk.scope.upvalues);
