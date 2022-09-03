@@ -342,22 +342,26 @@ impl VM {
                 OpCode::OpInterpolate(Count(count)) => self.run_interpolate(count)?,
 
                 OpCode::OpJump(JumpOffset(offset)) => {
+                    debug_assert!(offset != 0);
                     self.frame_mut().ip += offset;
                 }
 
                 OpCode::OpJumpIfTrue(JumpOffset(offset)) => {
+                    debug_assert!(offset != 0);
                     if fallible!(self, self.peek(0).as_bool()) {
                         self.frame_mut().ip += offset;
                     }
                 }
 
                 OpCode::OpJumpIfFalse(JumpOffset(offset)) => {
+                    debug_assert!(offset != 0);
                     if !fallible!(self, self.peek(0).as_bool()) {
                         self.frame_mut().ip += offset;
                     }
                 }
 
                 OpCode::OpJumpIfNotFound(JumpOffset(offset)) => {
+                    debug_assert!(offset != 0);
                     if matches!(self.peek(0), Value::AttrNotFound) {
                         self.pop();
                         self.frame_mut().ip += offset;
