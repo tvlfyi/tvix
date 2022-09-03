@@ -172,7 +172,9 @@ impl Compiler<'_> {
             ast::Expr::Ident(ident) => self.compile_ident(slot, ident),
             ast::Expr::With(with) => self.compile_with(slot, with),
             ast::Expr::Lambda(lambda) => self.compile_lambda(slot, lambda),
-            ast::Expr::Apply(apply) => self.compile_apply(slot, apply),
+            ast::Expr::Apply(apply) => {
+                self.thunk(slot, &apply, move |c, a, s| c.compile_apply(s, a.clone()))
+            }
 
             // Parenthesized expressions are simply unwrapped, leaving
             // their value on the stack.
@@ -933,6 +935,7 @@ impl Compiler<'_> {
         // to enter the function call straight away.
         self.compile(slot, node.argument().unwrap());
         self.compile(slot, node.lambda().unwrap());
+        self.emit_force(&node.lambda().unwrap());
         self.push_op(OpCode::OpCall, &node);
     }
 
