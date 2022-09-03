@@ -159,7 +159,9 @@ impl Compiler<'_> {
             ast::Expr::UnaryOp(op) => self.compile_unary_op(slot, op),
             ast::Expr::BinOp(op) => self.compile_binop(slot, op),
             ast::Expr::HasAttr(has_attr) => self.compile_has_attr(slot, has_attr),
-            ast::Expr::List(list) => self.compile_list(slot, list),
+            ast::Expr::List(list) => {
+                self.thunk(slot, &list, move |c, l, s| c.compile_list(s, l.clone()))
+            }
             ast::Expr::AttrSet(attrs) => self.thunk(slot, &attrs, move |c, a, s| {
                 c.compile_attr_set(s, a.clone())
             }),
