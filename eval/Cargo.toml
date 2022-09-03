@@ -33,6 +33,7 @@ criterion = "0.3.6"
 test-generator = "0.3.0"
 pretty_assertions = "1.2.1"
 itertools = "0.10.3"
+tempdir = "0.3.7"
 
 [features]
 default = [ "repl" ]

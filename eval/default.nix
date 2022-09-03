@@ -9,6 +9,10 @@ depot.third_party.naersk.buildPackage {
   doCheck = true;
   cargoBuildOptions = opts: opts ++ [ "--all-targets" ];
 
+  # Tell the test suite where to find upstream nix, to compare eval results
+  # against
+  NIX_INSTANTIATE_BINARY_PATH = "${pkgs.nix}/bin/nix-instantiate";
+
   meta.ci.targets = builtins.attrNames self.passthru;
 
   passthru.cpp-nix-run-lang-tests = pkgs.stdenv.mkDerivation {
