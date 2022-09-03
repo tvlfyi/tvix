@@ -1053,8 +1053,6 @@ impl Compiler<'_> {
         let depth = self.scope().scope_depth;
         self.scope_mut().unpoison(depth);
 
-        self.scope_mut().scope_depth -= 1;
-
         // When ending a scope, all corresponding locals need to be
         // removed, but the value of the body needs to remain on the
         // stack. This is implemented by a separate instruction.
@@ -1062,9 +1060,7 @@ impl Compiler<'_> {
 
         // TL;DR - iterate from the back while things belonging to the
         // ended scope still exist.
-        while !self.scope().locals.is_empty()
-            && self.scope().locals[self.scope().locals.len() - 1].above(self.scope().scope_depth)
-        {
+        while self.scope().locals.last().unwrap().depth == depth {
             if let Some(local) = self.scope_mut().locals.pop() {
                 // pop the local from the stack if it was actually
                 // initialised
@@ -1085,6 +1081,8 @@ impl Compiler<'_> {
         if pops > 0 {
             self.push_op(OpCode::OpCloseScope(Count(pops)), node);
         }
+
+        self.scope_mut().scope_depth -= 1;
     }
 
     /// Open a new lambda context within which to compile a function,
