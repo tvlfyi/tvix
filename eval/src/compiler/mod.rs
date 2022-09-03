@@ -1061,12 +1061,17 @@ impl Compiler<'_> {
         while !self.scope().locals.is_empty()
             && self.scope().locals[self.scope().locals.len() - 1].above(self.scope().scope_depth)
         {
-            pops += 1;
-
-            // While removing the local, analyse whether it has been
-            // accessed while it existed and emit a warning to the
-            // user otherwise.
             if let Some(local) = self.scope_mut().locals.pop() {
+                // pop the local from the stack if it was actually
+                // initialised
+                if local.initialised {
+                    pops += 1;
+                }
+
+                // analyse whether the local was accessed during its
+                // lifetime, and emit a warning otherwise (unless the
+                // user explicitly chose to ignore it by prefixing the
+                // identifier with `_`)
                 if !local.used && !local.is_ignored() {
                     self.emit_warning(local.span, WarningKind::UnusedBinding);
                 }
