@@ -13,7 +13,7 @@ pub struct CodeIdx(pub usize);
 
 /// Index of a value in the runtime stack.
 #[repr(transparent)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd)]
 pub struct StackIdx(pub usize);
 
 /// Index of an upvalue within a closure's upvalue list.

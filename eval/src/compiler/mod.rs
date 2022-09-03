@@ -969,6 +969,7 @@ impl Compiler<'_> {
     /// Emit the data instructions that the runtime needs to correctly
     /// assemble the provided upvalues array.
     fn emit_upvalue_data(&mut self, slot: LocalIdx, upvalues: Vec<Upvalue>) {
+        let this_stack_slot = self.scope().stack_index(slot);
         for upvalue in upvalues {
             match upvalue.kind {
                 UpvalueKind::Local(idx) => {
@@ -978,7 +979,7 @@ impl Compiler<'_> {
                     // closure, the upvalue resolution must be
                     // deferred until the scope is fully initialised
                     // and can be finalised.
-                    if slot < idx {
+                    if this_stack_slot < stack_idx {
                         self.push_op(OpCode::DataDeferredLocal(stack_idx), &upvalue.node);
                         self.scope_mut().mark_needs_finaliser(slot);
                     } else {
