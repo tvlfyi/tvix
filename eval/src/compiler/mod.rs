@@ -54,6 +54,7 @@ impl LambdaCtx {
         }
     }
 
+    #[allow(clippy::let_and_return)] // due to disassembler
     fn inherit(&self) -> Self {
         let ctx = LambdaCtx {
             lambda: Lambda::new_anonymous(),
@@ -61,6 +62,7 @@ impl LambdaCtx {
         };
 
         #[cfg(feature = "disassembler")]
+        #[allow(clippy::redundant_closure_call)]
         let ctx = (|mut c: Self| {
             c.lambda.chunk.codemap = self.lambda.chunk.codemap.clone();
             c
@@ -822,7 +824,7 @@ impl Compiler<'_> {
             LocalPosition::Recursive(idx) => self.thunk(slot, &node, move |compiler, node, _| {
                 let upvalue_idx = compiler.add_upvalue(
                     compiler.contexts.len() - 1,
-                    &node,
+                    node,
                     UpvalueKind::Local(idx),
                 );
                 compiler.push_op(OpCode::OpGetUpvalue(upvalue_idx), node);
@@ -1350,10 +1352,10 @@ fn prepare_globals(additional: HashMap<&'static str, Value>) -> GlobalsMap {
     globals
 }
 
-pub fn compile<'code>(
+pub fn compile(
     expr: ast::Expr,
     location: Option<PathBuf>,
-    file: &'code codemap::File,
+    file: &codemap::File,
     globals: HashMap<&'static str, Value>,
 
     #[cfg(feature = "disassembler")] codemap: Rc<codemap::CodeMap>,

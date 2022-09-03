@@ -13,34 +13,36 @@ use crate::value::Value;
 /// failure exits from the VM).
 pub struct Tracer(TabWriter<Stderr>);
 
-impl Tracer {
-    pub fn new() -> Self {
+impl Default for Tracer {
+    fn default() -> Self {
         Tracer(TabWriter::new(std::io::stderr()))
     }
+}
 
+impl Tracer {
     pub fn trace(&mut self, op: &OpCode, ip: usize, stack: &[Value]) {
-        write!(&mut self.0, "{:04} {:?}\t[ ", ip, op).ok();
+        let _ = write!(&mut self.0, "{:04} {:?}\t[ ", ip, op);
 
         for val in stack {
-            write!(&mut self.0, "{} ", val).ok();
+            let _ = write!(&mut self.0, "{} ", val);
         }
 
-        write!(&mut self.0, "]\n").ok();
+        let _ = writeln!(&mut self.0, "]");
     }
 
     pub fn literal(&mut self, line: &str) {
-        let _ = write!(&mut self.0, "{}\n", line);
+        let _ = writeln!(&mut self.0, "{}", line);
     }
 }
 
 impl Drop for Tracer {
     fn drop(&mut self) {
-        self.0.flush().ok();
+        let _ = self.0.flush();
     }
 }
 
 fn disassemble_op(tw: &mut TabWriter<Stderr>, chunk: &Chunk, width: usize, offset: usize) {
-    write!(tw, "{:0width$}\t ", offset, width = width).ok();
+    let _ = write!(tw, "{:0width$}\t ", offset, width = width);
 
     let span = chunk.get_span(CodeIdx(offset));
 
@@ -51,10 +53,9 @@ fn disassemble_op(tw: &mut TabWriter<Stderr>, chunk: &Chunk, width: usize, offse
         write!(tw, "{:4}\t", loc.begin.line + 1).unwrap();
     }
 
-    match chunk.code[offset] {
-        OpCode::OpConstant(idx) => write!(tw, "OpConstant({})\n", chunk.constant(idx)).ok(),
-
-        op => write!(tw, "{:?}\n", op).ok(),
+    let _ = match chunk.code[offset] {
+        OpCode::OpConstant(idx) => writeln!(tw, "OpConstant({})", chunk.constant(idx)),
+        op => writeln!(tw, "{:?}", op),
     };
 }
 
@@ -63,17 +64,16 @@ fn disassemble_op(tw: &mut TabWriter<Stderr>, chunk: &Chunk, width: usize, offse
 pub fn disassemble_chunk(chunk: &Chunk) {
     let mut tw = TabWriter::new(std::io::stderr());
 
-    write!(
+    let _ = writeln!(
         &mut tw,
-        "=== compiled bytecode ({} operations) ===\n",
+        "=== compiled bytecode ({} operations) ===",
         chunk.code.len()
-    )
-    .ok();
+    );
 
     let width = format!("{}", chunk.code.len()).len();
     for (idx, _) in chunk.code.iter().enumerate() {
         disassemble_op(&mut tw, chunk, width, idx);
     }
 
-    tw.flush().ok();
+    let _ = tw.flush();
 }

@@ -180,10 +180,11 @@ impl Scope {
     /// correctly nesting scopes in lambdas and thunks when special
     /// scope features like poisoning are present).
     pub fn inherit(&self) -> Self {
-        let mut scope = Self::default();
-        scope.poisoned_tokens = self.poisoned_tokens.clone();
-        scope.scope_depth = self.scope_depth;
-        scope
+        Self {
+            poisoned_tokens: self.poisoned_tokens.clone(),
+            scope_depth: self.scope_depth,
+            ..Default::default()
+        }
     }
 
     /// Check whether a given token is poisoned.

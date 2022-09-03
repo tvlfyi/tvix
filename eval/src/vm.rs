@@ -25,6 +25,7 @@ impl CallFrame {
     }
 }
 
+#[derive(Default)]
 pub struct VM {
     frames: Vec<CallFrame>,
     stack: Vec<Value>,
@@ -161,6 +162,7 @@ impl VM {
         }
     }
 
+    #[allow(clippy::let_and_return)] // due to disassembler
     /// Execute the given lambda in this VM's context, returning its
     /// value after its stack frame completes.
     pub fn call(
@@ -610,7 +612,7 @@ impl VM {
                 ..
             }) => match up {
                 Some(idx) => Ok(self.frame().upvalue(idx).clone()),
-                None => Ok(Value::DynamicUpvalueMissing(ident.into())),
+                None => Ok(Value::DynamicUpvalueMissing(ident)),
             },
 
             Err(err) => Err(err),
@@ -696,17 +698,6 @@ impl VM {
             _ => Ok(()),
         }
     }
-
-    pub fn new() -> Self {
-        VM {
-            frames: vec![],
-            stack: vec![],
-            with_stack: vec![],
-
-            #[cfg(feature = "disassembler")]
-            tracer: crate::disassembler::Tracer::new(),
-        }
-    }
 }
 
 // TODO: use Rc::unwrap_or_clone once it is stabilised.
@@ -716,7 +707,7 @@ fn unwrap_or_clone_rc<T: Clone>(rc: Rc<T>) -> T {
 }
 
 pub fn run_lambda(lambda: Lambda) -> EvalResult<Value> {
-    let mut vm = VM::new();
+    let mut vm = VM::default();
     let value = vm.call(Rc::new(lambda), vec![], 0)?;
     vm.force_for_output(&value)?;
     Ok(value)

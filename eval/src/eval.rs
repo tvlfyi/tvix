@@ -24,7 +24,7 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
             eprintln!("parse error: {}", err);
         }
         return Err(Error {
-            kind: ErrorKind::ParseErrors(errors.to_vec()).into(),
+            kind: ErrorKind::ParseErrors(errors.to_vec()),
             span: file.span,
         });
     }
