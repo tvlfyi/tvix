@@ -77,4 +77,13 @@ impl Chunk {
 
         panic!("compiler error: chunk missing span for offset {}", offset.0);
     }
+
+    /// Retrieve the line from which the instruction at `offset` was
+    /// compiled. Only available when the chunk carries a codemap,
+    /// i.e. when the disassembler is enabled.
+    #[cfg(feature = "disassembler")]
+    pub fn get_line(&self, offset: CodeIdx) -> usize {
+        let span = self.get_span(offset);
+        self.codemap.look_up_span(span).begin.line + 1
+    }
 }

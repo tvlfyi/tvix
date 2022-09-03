@@ -44,13 +44,12 @@ impl Drop for Tracer {
 fn disassemble_op(tw: &mut TabWriter<Stderr>, chunk: &Chunk, width: usize, offset: usize) {
     let _ = write!(tw, "{:0width$}\t ", offset, width = width);
 
-    let span = chunk.get_span(CodeIdx(offset));
+    let line = chunk.get_line(CodeIdx(offset));
 
-    if offset > 0 && chunk.get_span(CodeIdx(offset - 1)) == span {
+    if offset > 0 && chunk.get_line(CodeIdx(offset - 1)) == line {
         write!(tw, "   |\t").unwrap();
     } else {
-        let loc = chunk.codemap.look_up_span(span);
-        write!(tw, "{:4}\t", loc.begin.line + 1).unwrap();
+        write!(tw, "{:4}\t", line).unwrap();
     }
 
     let _ = match chunk.code[offset] {
