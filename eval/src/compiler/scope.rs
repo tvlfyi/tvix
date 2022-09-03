@@ -128,10 +128,6 @@ pub struct Upvalue {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd)]
 pub struct LocalIdx(usize);
 
-impl LocalIdx {
-    pub const ZERO: LocalIdx = LocalIdx(0);
-}
-
 /// Represents a scope known during compilation, which can be resolved
 /// directly to stack indices.
 ///

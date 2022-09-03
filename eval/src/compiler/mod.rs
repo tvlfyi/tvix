@@ -1382,7 +1382,9 @@ pub fn compile<'code>(
         c.context_mut().lambda.chunk.codemap = c.codemap.clone();
     }
 
-    c.compile(LocalIdx::ZERO, expr.clone());
+    let root_span = c.span_for(&expr);
+    let root_slot = c.scope_mut().declare_phantom(root_span);
+    c.compile(root_slot, expr.clone());
 
     // The final operation of any top-level Nix program must always be
     // `OpForce`. A thunk should not be returned to the user in an
