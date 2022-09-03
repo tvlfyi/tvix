@@ -973,17 +973,20 @@ impl Compiler<'_> {
     /// Emit the data instructions that the runtime needs to correctly
     /// assemble the provided upvalues array.
     fn emit_upvalue_data(&mut self, slot: LocalIdx, upvalues: Vec<Upvalue>) {
+        let this_depth = self.scope()[slot].depth;
         let this_stack_slot = self.scope().stack_index(slot);
+
         for upvalue in upvalues {
             match upvalue.kind {
                 UpvalueKind::Local(idx) => {
+                    let target_depth = self.scope()[idx].depth;
                     let stack_idx = self.scope().stack_index(idx);
 
-                    // If the upvalue slot is located *after* the
-                    // closure, the upvalue resolution must be
-                    // deferred until the scope is fully initialised
-                    // and can be finalised.
-                    if this_stack_slot < stack_idx {
+                    // If the upvalue slot is located at the same
+                    // depth, but *after* the closure, the upvalue
+                    // resolution must be deferred until the scope is
+                    // fully initialised and can be finalised.
+                    if this_depth == target_depth && this_stack_slot < stack_idx {
                         self.push_op(OpCode::DataDeferredLocal(stack_idx), &upvalue.node);
                         self.scope_mut().mark_needs_finaliser(slot);
                     } else {
