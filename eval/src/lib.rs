@@ -3,6 +3,7 @@ mod chunk;
 mod compiler;
 mod errors;
 mod eval;
+mod observer;
 mod opcode;
 mod upvalues;
 mod value;
