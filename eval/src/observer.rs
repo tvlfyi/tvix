@@ -41,6 +41,10 @@ pub trait Observer {
     /// Called when the runtime exits a call frame.
     fn observe_exit_frame(&mut self, _frame_at: usize) {}
 
+    /// Called when the runtime replaces the current call frame for a
+    /// tail call.
+    fn observe_tail_call(&mut self, _frame_at: usize, _: &Rc<Lambda>) {}
+
     /// Called when the runtime enters a builtin.
     fn observe_enter_builtin(&mut self, _name: &'static str) {}
 
@@ -148,6 +152,14 @@ impl<W: Write> Observer for TracingObserver<W> {
 
     fn observe_exit_builtin(&mut self, name: &'static str) {
         let _ = writeln!(&mut self.writer, "=== exiting builtin {} ===", name);
+    }
+
+    fn observe_tail_call(&mut self, frame_at: usize, lambda: &Rc<Lambda>) {
+        let _ = writeln!(
+            &mut self.writer,
+            "=== tail-calling {:p} in frame[{}] ===",
+            lambda, frame_at
+        );
     }
 
     fn observe_execute_op(&mut self, ip: usize, op: &OpCode, stack: &[Value]) {

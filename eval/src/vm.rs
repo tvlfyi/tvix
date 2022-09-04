@@ -9,7 +9,7 @@ use crate::{
     observer::Observer,
     opcode::{CodeIdx, ConstantIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
     upvalues::UpvalueCarrier,
-    value::{Closure, Lambda, NixAttrs, NixList, Thunk, Value},
+    value::{Builtin, Closure, Lambda, NixAttrs, NixList, Thunk, Value},
 };
 
 struct CallFrame {
@@ -447,19 +447,33 @@ impl<'o> VM<'o> {
                             self.push(result)
                         }
 
-                        Value::Builtin(builtin) => {
-                            let builtin_name = builtin.name();
-                            self.observer.observe_enter_builtin(builtin_name);
+                        Value::Builtin(builtin) => self.call_builtin(builtin)?,
 
-                            let arg = self.pop();
-                            let result = fallible!(self, builtin.apply(self, arg));
-
-                            self.observer.observe_exit_builtin(builtin_name);
-
-                            self.push(result);
-                        }
                         _ => return Err(self.error(ErrorKind::NotCallable)),
                     };
+                }
+
+                OpCode::OpTailCall => {
+                    let callable = self.pop();
+
+                    match callable {
+                        Value::Builtin(builtin) => self.call_builtin(builtin)?,
+
+                        Value::Closure(closure) => {
+                            let lambda = closure.lambda();
+                            self.observer.observe_tail_call(self.frames.len(), &lambda);
+
+                            // Replace the current call frames
+                            // internals with that of the tail-called
+                            // closure.
+                            let mut frame = self.frame_mut();
+                            frame.lambda = lambda;
+                            frame.upvalues = closure.upvalues().to_vec();
+                            frame.ip = 0; // reset instruction pointer to beginning
+                        }
+
+                        _ => return Err(self.error(ErrorKind::NotCallable)),
+                    }
                 }
 
                 OpCode::OpGetUpvalue(upv_idx) => {
@@ -698,6 +712,20 @@ impl<'o> VM<'o> {
 
             _ => Ok(()),
         }
+    }
+
+    fn call_builtin(&mut self, builtin: Builtin) -> EvalResult<()> {
+        let builtin_name = builtin.name();
+        self.observer.observe_enter_builtin(builtin_name);
+
+        let arg = self.pop();
+        let result = fallible!(self, builtin.apply(self, arg));
+
+        self.observer.observe_exit_builtin(builtin_name);
+
+        self.push(result);
+
+        Ok(())
     }
 }
 

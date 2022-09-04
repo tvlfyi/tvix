@@ -104,6 +104,7 @@ pub enum OpCode {
 
     // Lambdas & closures
     OpCall,
+    OpTailCall,
     OpGetUpvalue(UpvalueIdx),
     OpClosure(ConstantIdx),
 
