@@ -3,7 +3,7 @@ use std::{path::PathBuf, rc::Rc};
 use crate::{
     builtins::global_builtins,
     errors::{Error, ErrorKind, EvalResult},
-    observer::{DisassemblingObserver, TracingObserver},
+    observer::{DisassemblingObserver, NoOpObserver, TracingObserver},
     value::Value,
 };
 
@@ -41,10 +41,23 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         println!("{:?}", root_expr);
     }
 
-    let mut observer = DisassemblingObserver::new(codemap, std::io::stderr());
-
-    let result =
-        crate::compiler::compile(root_expr, location, &file, global_builtins(), &mut observer)?;
+    let result = if std::env::var("TVIX_DUMP_BYTECODE").is_ok() {
+        crate::compiler::compile(
+            root_expr,
+            location,
+            &file,
+            global_builtins(),
+            &mut DisassemblingObserver::new(codemap, std::io::stderr()),
+        )
+    } else {
+        crate::compiler::compile(
+            root_expr,
+            location,
+            &file,
+            global_builtins(),
+            &mut NoOpObserver::default(),
+        )
+    }?;
 
     for warning in result.warnings {
         eprintln!(
@@ -68,6 +81,9 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         return Err(err.clone());
     }
 
-    let mut tracer = TracingObserver::new(std::io::stderr());
-    crate::vm::run_lambda(&mut tracer, result.lambda)
+    if std::env::var("TVIX_TRACE_RUNTIME").is_ok() {
+        crate::vm::run_lambda(&mut TracingObserver::new(std::io::stderr()), result.lambda)
+    } else {
+        crate::vm::run_lambda(&mut NoOpObserver::default(), result.lambda)
+    }
 }
