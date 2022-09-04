@@ -118,3 +118,14 @@ See also https://nixos.org/manual/nix/stable/expressions/builtins.html
 | unsafeGetAttrPos              | false  |       |      |
 | valueSize                     | false  |       |      |
 
+## Added after C++ Nix 2.3 (without Flakes enabled)
+
+| name          | global | arity | pure  |
+|---------------|--------|-------|-------|
+| break         | false  | 1     |       |
+| ceil          | false  | 1     | true  |
+| fetchTree     | true   | 1     |       |
+| floor         | false  | 1     | true  |
+| groupBy       | false  | 2     | true  |
+| traceVerbose  | false  | 2     |       |
+| zipAttrsWith  | false  | 2     | true  |
