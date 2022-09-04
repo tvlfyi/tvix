@@ -6,6 +6,12 @@ pub enum ErrorKind {
         key: String,
     },
 
+    /// Attempted to specify an invalid key type (e.g. integer) in a
+    /// dynamic attribute name.
+    InvalidAttributeName {
+        given: &'static str,
+    },
+
     AttributeNotFound {
         name: String,
     },
