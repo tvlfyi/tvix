@@ -112,3 +112,57 @@ impl<W: Write> Observer for DisassemblingObserver<W> {
         let _ = self.writer.flush();
     }
 }
+
+/// An observer that collects a textual representation of an entire
+/// runtime execution.
+pub struct TracingObserver<W: Write> {
+    writer: TabWriter<W>,
+}
+
+impl<W: Write> TracingObserver<W> {
+    pub fn new(writer: W) -> Self {
+        Self {
+            writer: TabWriter::new(writer),
+        }
+    }
+}
+
+impl<W: Write> Observer for TracingObserver<W> {
+    fn observe_enter_frame(&mut self, arg_count: usize, lambda: &Rc<Lambda>, call_depth: usize) {
+        let _ = writeln!(
+            &mut self.writer,
+            "=== entering {} frame[{}] @ {:p} ===",
+            if arg_count == 0 { "thunk" } else { "closure" },
+            call_depth,
+            lambda,
+        );
+    }
+
+    fn observe_exit_frame(&mut self, frame_at: usize) {
+        let _ = writeln!(&mut self.writer, "=== exiting frame {} ===", frame_at);
+    }
+
+    fn observe_enter_builtin(&mut self, name: &'static str) {
+        let _ = writeln!(&mut self.writer, "=== entering builtin {} ===", name);
+    }
+
+    fn observe_exit_builtin(&mut self, name: &'static str) {
+        let _ = writeln!(&mut self.writer, "=== exiting builtin {} ===", name);
+    }
+
+    fn observe_execute_op(&mut self, ip: usize, op: &OpCode, stack: &[Value]) {
+        let _ = write!(&mut self.writer, "{:04} {:?}\t[ ", ip, op);
+
+        for val in stack {
+            let _ = write!(&mut self.writer, "{} ", val);
+        }
+
+        let _ = writeln!(&mut self.writer, "]");
+    }
+}
+
+impl<W: Write> Drop for TracingObserver<W> {
+    fn drop(&mut self) {
+        let _ = self.writer.flush();
+    }
+}
