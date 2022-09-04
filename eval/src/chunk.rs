@@ -28,9 +28,6 @@ pub struct Chunk {
     pub code: Vec<OpCode>,
     pub constants: Vec<Value>,
     spans: Vec<SourceSpan>,
-
-    #[cfg(feature = "disassembler")]
-    pub codemap: std::rc::Rc<codemap::CodeMap>,
 }
 
 impl Index<ConstantIdx> for Chunk {
@@ -93,11 +90,11 @@ impl Chunk {
     }
 
     /// Retrieve the line from which the instruction at `offset` was
-    /// compiled. Only available when the chunk carries a codemap,
-    /// i.e. when the disassembler is enabled.
-    #[cfg(feature = "disassembler")]
-    pub fn get_line(&self, offset: CodeIdx) -> usize {
+    /// compiled in the specified codemap.
+    pub fn get_line(&self, codemap: &codemap::CodeMap, offset: CodeIdx) -> usize {
         let span = self.get_span(offset);
-        self.codemap.look_up_span(span).begin.line + 1
+        // lines are 0-indexed in the codemap, but users probably want
+        // real line numbers
+        codemap.look_up_span(span).begin.line + 1
     }
 }

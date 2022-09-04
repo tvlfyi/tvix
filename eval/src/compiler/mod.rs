@@ -25,6 +25,7 @@ use std::rc::Rc;
 
 use crate::chunk::Chunk;
 use crate::errors::{Error, ErrorKind, EvalResult};
+use crate::observer::Observer;
 use crate::opcode::{CodeIdx, Count, JumpOffset, OpCode, UpvalueIdx};
 use crate::value::{Closure, Lambda, Thunk, Value};
 use crate::warnings::{EvalWarning, WarningKind};
@@ -35,7 +36,7 @@ use self::scope::{LocalIdx, LocalPosition, Scope, Upvalue, UpvalueKind};
 /// compilation was successful, the resulting bytecode can be passed
 /// to the VM.
 pub struct CompilationOutput {
-    pub lambda: Lambda,
+    pub lambda: Rc<Lambda>,
     pub warnings: Vec<EvalWarning>,
     pub errors: Vec<Error>,
 }
@@ -54,21 +55,11 @@ impl LambdaCtx {
         }
     }
 
-    #[allow(clippy::let_and_return)] // due to disassembler
     fn inherit(&self) -> Self {
-        let ctx = LambdaCtx {
+        LambdaCtx {
             lambda: Lambda::new_anonymous(),
             scope: self.scope.inherit(),
-        };
-
-        #[cfg(feature = "disassembler")]
-        #[allow(clippy::redundant_closure_call)]
-        let ctx = (|mut c: Self| {
-            c.lambda.chunk.codemap = self.lambda.chunk.codemap.clone();
-            c
-        })(ctx);
-
-        ctx
+        }
     }
 }
 
@@ -76,7 +67,7 @@ impl LambdaCtx {
 /// implicitly be resolvable in the global scope.
 type GlobalsMap = HashMap<&'static str, Rc<dyn Fn(&mut Compiler, rnix::ast::Ident)>>;
 
-struct Compiler<'code> {
+struct Compiler<'code, 'observer> {
     contexts: Vec<LambdaCtx>,
     warnings: Vec<EvalWarning>,
     errors: Vec<Error>,
@@ -95,16 +86,14 @@ struct Compiler<'code> {
     /// derived.
     file: &'code codemap::File,
 
-    #[cfg(feature = "disassembler")]
-    /// Carry a reference to the codemap around when the disassembler
-    /// is enabled, to allow displaying lines and other source
-    /// information in the disassembler output.
-    codemap: Rc<codemap::CodeMap>,
+    /// Carry an observer for the compilation process, which is called
+    /// whenever a chunk is emitted.
+    observer: &'observer mut dyn Observer,
 }
 
 // Helper functions for emitting code and metadata to the internal
 // structures of the compiler.
-impl Compiler<'_> {
+impl Compiler<'_, '_> {
     fn context(&self) -> &LambdaCtx {
         &self.contexts[self.contexts.len() - 1]
     }
@@ -150,7 +139,7 @@ impl Compiler<'_> {
 }
 
 // Actual code-emitting AST traversal methods.
-impl Compiler<'_> {
+impl Compiler<'_, '_> {
     fn compile(&mut self, slot: LocalIdx, expr: ast::Expr) {
         match expr {
             ast::Expr::Literal(literal) => self.compile_literal(literal),
@@ -913,11 +902,7 @@ impl Compiler<'_> {
         // lambda as a constant.
         let compiled = self.contexts.pop().unwrap();
         let lambda = Rc::new(compiled.lambda);
-
-        #[cfg(feature = "disassembler")]
-        {
-            crate::disassembler::disassemble_lambda(lambda.clone());
-        }
+        self.observer.observe_compiled_lambda(&lambda);
 
         // If the function is not a closure, just emit it directly and
         // move on.
@@ -964,11 +949,7 @@ impl Compiler<'_> {
 
         let thunk = self.contexts.pop().unwrap();
         let lambda = Rc::new(thunk.lambda);
-
-        #[cfg(feature = "disassembler")]
-        {
-            crate::disassembler::disassemble_lambda(lambda.clone());
-        }
+        self.observer.observe_compiled_thunk(&lambda);
 
         // Emit the thunk directly if it does not close over the
         // environment.
@@ -1369,8 +1350,7 @@ pub fn compile(
     location: Option<PathBuf>,
     file: &codemap::File,
     globals: HashMap<&'static str, Value>,
-
-    #[cfg(feature = "disassembler")] codemap: Rc<codemap::CodeMap>,
+    observer: &mut dyn Observer,
 ) -> EvalResult<CompilationOutput> {
     let mut root_dir = match location {
         Some(dir) => Ok(dir),
@@ -1393,18 +1373,12 @@ pub fn compile(
     let mut c = Compiler {
         root_dir,
         file,
-        #[cfg(feature = "disassembler")]
-        codemap,
+        observer,
         globals: prepare_globals(globals),
         contexts: vec![LambdaCtx::new()],
         warnings: vec![],
         errors: vec![],
     };
-
-    #[cfg(feature = "disassembler")]
-    {
-        c.context_mut().lambda.chunk.codemap = c.codemap.clone();
-    }
 
     let root_span = c.span_for(&expr);
     let root_slot = c.scope_mut().declare_phantom(root_span);
@@ -1416,8 +1390,11 @@ pub fn compile(
     // thunk might be returned).
     c.emit_force(&expr);
 
+    let lambda = Rc::new(c.contexts.pop().unwrap().lambda);
+    c.observer.observe_compiled_toplevel(&lambda);
+
     Ok(CompilationOutput {
-        lambda: c.contexts.pop().unwrap().lambda,
+        lambda,
         warnings: c.warnings,
         errors: c.errors,
     })

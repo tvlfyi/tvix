@@ -1,6 +1,7 @@
 mod builtins;
 mod chunk;
 mod compiler;
+mod disassembler;
 mod errors;
 mod eval;
 mod observer;
@@ -9,9 +10,6 @@ mod upvalues;
 mod value;
 mod vm;
 mod warnings;
-
-#[cfg(feature = "disassembler")]
-mod disassembler;
 
 #[cfg(test)]
 mod tests;

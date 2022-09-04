@@ -1,13 +1,13 @@
 //! Implements methods for disassembling and printing a representation
 //! of compiled code, as well as tracing the runtime stack during
 //! execution.
+use codemap::CodeMap;
 use std::io::{Stderr, Write};
-use std::rc::Rc;
 use tabwriter::TabWriter;
 
 use crate::chunk::Chunk;
 use crate::opcode::{CodeIdx, OpCode};
-use crate::value::{Lambda, Value};
+use crate::value::Value;
 
 /// Helper struct to trace runtime values and automatically flush the
 /// output after the value is dropped (i.e. in both success and
@@ -42,38 +42,26 @@ impl Drop for Tracer {
     }
 }
 
-fn disassemble_op(tw: &mut TabWriter<Stderr>, chunk: &Chunk, width: usize, offset: usize) {
-    let _ = write!(tw, "{:0width$}\t ", offset, width = width);
+pub fn disassemble_op<W: Write>(
+    tw: &mut W,
+    codemap: &CodeMap,
+    chunk: &Chunk,
+    width: usize,
+    idx: CodeIdx,
+) {
+    let _ = write!(tw, "{:#width$x}\t ", idx.0, width = width);
 
-    let line = chunk.get_line(CodeIdx(offset));
-
-    if offset > 0 && chunk.get_line(CodeIdx(offset - 1)) == line {
+    // Print continuation character if the previous operation was at
+    // the same line, otherwise print the line.
+    let line = chunk.get_line(codemap, idx);
+    if idx.0 > 0 && chunk.get_line(codemap, CodeIdx(idx.0 - 1)) == line {
         write!(tw, "   |\t").unwrap();
     } else {
         write!(tw, "{:4}\t", line).unwrap();
     }
 
-    let _ = match chunk.code[offset] {
-        OpCode::OpConstant(idx) => writeln!(tw, "OpConstant({})", chunk.constant(idx)),
+    let _ = match chunk[idx] {
+        OpCode::OpConstant(idx) => writeln!(tw, "OpConstant({}@{})", chunk[idx], idx.0),
         op => writeln!(tw, "{:?}", op),
     };
-}
-
-/// Disassemble an entire lambda, printing its address and its
-/// operations in human-readable format.
-pub fn disassemble_lambda(lambda: Rc<Lambda>) {
-    let mut tw = TabWriter::new(std::io::stderr());
-    let _ = writeln!(
-        &mut tw,
-        "=== compiled code (@{:p}, {} ops) ===",
-        lambda,
-        lambda.chunk.code.len()
-    );
-
-    let width = format!("{}", lambda.chunk.code.len()).len();
-    for (idx, _) in lambda.chunk.code.iter().enumerate() {
-        disassemble_op(&mut tw, &lambda.chunk, width, idx);
-    }
-
-    let _ = tw.flush();
 }

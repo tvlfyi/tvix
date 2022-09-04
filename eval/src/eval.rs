@@ -3,6 +3,7 @@ use std::{path::PathBuf, rc::Rc};
 use crate::{
     builtins::global_builtins,
     errors::{Error, ErrorKind, EvalResult},
+    observer::DisassemblingObserver,
     value::Value,
 };
 
@@ -15,6 +16,7 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
             .unwrap_or_else(|| "<repl>".into()),
         code.into(),
     );
+    let codemap = Rc::new(codemap);
 
     let parsed = rnix::ast::Root::parse(code);
     let errors = parsed.errors();
@@ -39,18 +41,10 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         println!("{:?}", root_expr);
     }
 
-    let result = crate::compiler::compile(
-        root_expr,
-        location,
-        &file,
-        global_builtins(),
-        #[cfg(feature = "disassembler")]
-        Rc::new(codemap),
-    )?;
-    let lambda = Rc::new(result.lambda);
+    let mut observer = DisassemblingObserver::new(codemap.clone(), std::io::stderr());
 
-    #[cfg(feature = "disassembler")]
-    crate::disassembler::disassemble_lambda(lambda.clone());
+    let result =
+        crate::compiler::compile(root_expr, location, &file, global_builtins(), &mut observer)?;
 
     for warning in result.warnings {
         eprintln!(
@@ -74,5 +68,5 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         return Err(err.clone());
     }
 
-    crate::vm::run_lambda(lambda)
+    crate::vm::run_lambda(result.lambda)
 }
