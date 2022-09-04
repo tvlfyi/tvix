@@ -1,7 +1,6 @@
 mod builtins;
 mod chunk;
 mod compiler;
-mod disassembler;
 mod errors;
 mod eval;
 pub mod observer;

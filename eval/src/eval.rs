@@ -3,7 +3,7 @@ use std::{path::PathBuf, rc::Rc};
 use crate::{
     builtins::global_builtins,
     errors::{Error, ErrorKind, EvalResult},
-    observer::{DisassemblingObserver, NoOpObserver},
+    observer::{DisassemblingObserver, TracingObserver},
     value::Value,
 };
 
@@ -41,7 +41,7 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         println!("{:?}", root_expr);
     }
 
-    let mut observer = DisassemblingObserver::new(codemap.clone(), std::io::stderr());
+    let mut observer = DisassemblingObserver::new(codemap, std::io::stderr());
 
     let result =
         crate::compiler::compile(root_expr, location, &file, global_builtins(), &mut observer)?;
@@ -68,6 +68,6 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         return Err(err.clone());
     }
 
-    let mut tracer = NoOpObserver::default();
+    let mut tracer = TracingObserver::new(std::io::stderr());
     crate::vm::run_lambda(&mut tracer, result.lambda)
 }
