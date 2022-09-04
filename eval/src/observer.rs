@@ -10,8 +10,9 @@ use std::rc::Rc;
 use tabwriter::TabWriter;
 
 use crate::chunk::Chunk;
-use crate::opcode::CodeIdx;
+use crate::opcode::{CodeIdx, OpCode};
 use crate::value::Lambda;
+use crate::Value;
 
 /// Implemented by types that wish to observe internal happenings of
 /// Tvix.
@@ -33,6 +34,22 @@ pub trait Observer {
 
     /// Called when the compiler finishes compilation of a thunk.
     fn observe_compiled_thunk(&mut self, _: &Rc<Lambda>) {}
+
+    /// Called when the runtime enters a new call frame.
+    fn observe_enter_frame(&mut self, _arg_count: usize, _: &Rc<Lambda>, _call_depth: usize) {}
+
+    /// Called when the runtime exits a call frame.
+    fn observe_exit_frame(&mut self, _frame_at: usize) {}
+
+    /// Called when the runtime enters a builtin.
+    fn observe_enter_builtin(&mut self, _name: &'static str) {}
+
+    /// Called when the runtime exits a builtin.
+    fn observe_exit_builtin(&mut self, _name: &'static str) {}
+
+    /// Called when the runtime *begins* executing an instruction. The
+    /// provided stack is the state at the beginning of the operation.
+    fn observe_execute_op(&mut self, _ip: usize, _: &OpCode, _: &[Value]) {}
 }
 
 #[derive(Default)]

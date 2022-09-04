@@ -3,7 +3,7 @@ use std::{path::PathBuf, rc::Rc};
 use crate::{
     builtins::global_builtins,
     errors::{Error, ErrorKind, EvalResult},
-    observer::DisassemblingObserver,
+    observer::{DisassemblingObserver, NoOpObserver},
     value::Value,
 };
 
@@ -68,5 +68,6 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         return Err(err.clone());
     }
 
-    crate::vm::run_lambda(result.lambda)
+    let mut tracer = NoOpObserver::default();
+    crate::vm::run_lambda(&mut tracer, result.lambda)
 }

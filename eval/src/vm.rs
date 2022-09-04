@@ -6,6 +6,7 @@ use std::{cell::RefMut, rc::Rc};
 use crate::{
     chunk::Chunk,
     errors::{Error, ErrorKind, EvalResult},
+    observer::Observer,
     opcode::{CodeIdx, ConstantIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
     upvalues::UpvalueCarrier,
     value::{Closure, Lambda, NixAttrs, NixList, Thunk, Value},
@@ -25,8 +26,7 @@ impl CallFrame {
     }
 }
 
-#[derive(Default)]
-pub struct VM {
+pub struct VM<'o> {
     frames: Vec<CallFrame>,
     stack: Vec<Value>,
 
@@ -34,8 +34,7 @@ pub struct VM {
     // dynamically resolved (`with`).
     with_stack: Vec<usize>,
 
-    #[cfg(feature = "disassembler")]
-    pub tracer: crate::disassembler::Tracer,
+    observer: &'o mut dyn Observer,
 }
 
 /// This macro wraps a computation that returns an ErrorKind or a
@@ -111,7 +110,16 @@ macro_rules! cmp_op {
     }};
 }
 
-impl VM {
+impl<'o> VM<'o> {
+    pub fn new(observer: &'o mut dyn Observer) -> Self {
+        Self {
+            observer,
+            frames: vec![],
+            stack: vec![],
+            with_stack: vec![],
+        }
+    }
+
     fn frame(&self) -> &CallFrame {
         &self.frames[self.frames.len() - 1]
     }
@@ -171,13 +179,8 @@ impl VM {
         upvalues: Vec<Value>,
         arg_count: usize,
     ) -> EvalResult<Value> {
-        #[cfg(feature = "disassembler")]
-        self.tracer.literal(&format!(
-            "=== entering closure/{} @ {:p} [{}] ===",
-            arg_count,
-            lambda,
-            self.frames.len()
-        ));
+        self.observer
+            .observe_enter_frame(arg_count, &lambda, self.frames.len() + 1);
 
         let frame = CallFrame {
             lambda,
@@ -189,12 +192,7 @@ impl VM {
         self.frames.push(frame);
         let result = self.run();
 
-        #[cfg(feature = "disassembler")]
-        self.tracer.literal(&format!(
-            "=== exiting closure/{} [{}] ===",
-            arg_count,
-            self.frames.len()
-        ));
+        self.observer.observe_exit_frame(self.frames.len() + 1);
 
         result
     }
@@ -213,8 +211,8 @@ impl VM {
 
             let op = self.inc_ip();
 
-            #[cfg(feature = "disassembler")]
-            self.tracer.trace(&op, self.frame().ip, &self.stack);
+            self.observer
+                .observe_execute_op(self.frame().ip, &op, &self.stack);
 
             match op {
                 OpCode::OpConstant(idx) => {
@@ -450,15 +448,13 @@ impl VM {
                         }
 
                         Value::Builtin(builtin) => {
-                            #[cfg(feature = "disassembler")]
-                            self.tracer
-                                .literal(&format!("=== entering builtins.{} ===", builtin.name()));
+                            let builtin_name = builtin.name();
+                            self.observer.observe_enter_builtin(builtin_name);
 
                             let arg = self.pop();
                             let result = fallible!(self, builtin.apply(self, arg));
 
-                            #[cfg(feature = "disassembler")]
-                            self.tracer.literal("=== exiting builtin ===");
+                            self.observer.observe_exit_builtin(builtin_name);
 
                             self.push(result);
                         }
@@ -711,8 +707,8 @@ fn unwrap_or_clone_rc<T: Clone>(rc: Rc<T>) -> T {
     Rc::try_unwrap(rc).unwrap_or_else(|rc| (*rc).clone())
 }
 
-pub fn run_lambda(lambda: Rc<Lambda>) -> EvalResult<Value> {
-    let mut vm = VM::default();
+pub fn run_lambda(observer: &mut dyn Observer, lambda: Rc<Lambda>) -> EvalResult<Value> {
+    let mut vm = VM::new(observer);
     let value = vm.call(lambda, vec![], 0)?;
     vm.force_for_output(&value)?;
     Ok(value)
