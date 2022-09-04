@@ -130,10 +130,6 @@ pub struct LocalIdx(usize);
 
 /// Represents a scope known during compilation, which can be resolved
 /// directly to stack indices.
-///
-/// TODO(tazjin): `with`-stack
-/// TODO(tazjin): flag "specials" (e.g. note depth if builtins are
-/// overridden)
 #[derive(Debug, Default)]
 pub struct Scope {
     pub locals: Vec<Local>,
