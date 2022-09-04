@@ -36,6 +36,9 @@ macro_rules! force {
     };
 }
 
+/// Return all pure builtins, that is all builtins that do not rely on
+/// I/O outside of the VM and which can be used in any contexts (e.g.
+/// WASM).
 fn pure_builtins() -> Vec<Builtin> {
     vec![
         Builtin::new("add", 2, |mut args, _| {

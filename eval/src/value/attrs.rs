@@ -150,7 +150,8 @@ impl PartialEq for NixAttrs {
 }
 
 impl NixAttrs {
-    // Update one attribute set with the values of the other.
+    /// Return an attribute set containing the merge of the two
+    /// provided sets. Keys from the `other` set have precedence.
     pub fn update(self, other: Self) -> Self {
         // Short-circuit on some optimal cases:
         match (&self.0, &other.0) {
@@ -301,17 +302,19 @@ impl NixAttrs {
     }
 }
 
-// In Nix, name/value attribute pairs are frequently constructed from
-// literals. This particular case should avoid allocation of a map,
-// additional heap values etc. and use the optimised `KV` variant
-// instead.
-//
-// `slice` is the top of the stack from which the attrset is being
-// constructed, e.g.
-//
-//   slice: [ "value" 5 "name" "foo" ]
-//   index:   0       1 2      3
-//   stack:   3       2 1      0
+/// In Nix, name/value attribute pairs are frequently constructed from
+/// literals. This particular case should avoid allocation of a map,
+/// additional heap values etc. and use the optimised `KV` variant
+/// instead.
+///
+/// ```norust
+/// `slice` is the top of the stack from which the attrset is being
+/// constructed, e.g.
+///
+///   slice: [ "value" 5 "name" "foo" ]
+///   index:   0       1 2      3
+///   stack:   3       2 1      0
+/// ```
 fn attempt_optimise_kv(slice: &mut [Value]) -> Option<NixAttrs> {
     let (name_idx, value_idx) = {
         match (&slice[2], &slice[0]) {
@@ -340,8 +343,8 @@ fn attempt_optimise_kv(slice: &mut [Value]) -> Option<NixAttrs> {
     }))
 }
 
-// Set an attribute on an in-construction attribute set, while
-// checking against duplicate keys.
+/// Set an attribute on an in-construction attribute set, while
+/// checking against duplicate keys.
 fn set_attr(attrs: &mut NixAttrs, key: NixString, value: Value) -> Result<(), ErrorKind> {
     match attrs.0.map_mut().entry(key) {
         btree_map::Entry::Occupied(entry) => Err(ErrorKind::DuplicateAttrsKey {
@@ -355,12 +358,12 @@ fn set_attr(attrs: &mut NixAttrs, key: NixString, value: Value) -> Result<(), Er
     }
 }
 
-// Set a nested attribute inside of an attribute set, throwing a
-// duplicate key error if a non-hashmap entry already exists on the
-// path.
-//
-// There is some optimisation potential for this simple implementation
-// if it becomes a problem.
+/// Set a nested attribute inside of an attribute set, throwing a
+/// duplicate key error if a non-hashmap entry already exists on the
+/// path.
+///
+/// There is some optimisation potential for this simple implementation
+/// if it becomes a problem.
 fn set_nested_attr(
     attrs: &mut NixAttrs,
     key: NixString,

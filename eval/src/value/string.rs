@@ -72,12 +72,12 @@ impl NixString {
         }
     }
 
-    // Return a displayable representation of the string as an
-    // identifier.
-    //
-    // This is used when printing out strings used as e.g. attribute
-    // set keys, as those are only escaped in the presence of special
-    // characters.
+    /// Return a displayable representation of the string as an
+    /// identifier.
+    ///
+    /// This is used when printing out strings used as e.g. attribute
+    /// set keys, as those are only escaped in the presence of special
+    /// characters.
     pub fn ident_str(&self) -> Cow<str> {
         let escaped = nix_escape_string(self.as_str());
 
@@ -111,10 +111,10 @@ fn nix_escape_char(ch: char, next: Option<&char>) -> Option<&'static str> {
     }
 }
 
-// Escape a Nix string for display, as most user-visible representation
-// are escaped strings.
-//
-// Note that this does not add the outer pair of surrounding quotes.
+/// Escape a Nix string for display, as most user-visible representation
+/// are escaped strings.
+///
+/// Note that this does not add the outer pair of surrounding quotes.
 fn nix_escape_string(input: &str) -> Cow<str> {
     let mut iter = input.chars().enumerate().peekable();
 

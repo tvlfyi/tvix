@@ -30,8 +30,8 @@ pub struct VM<'o> {
     frames: Vec<CallFrame>,
     stack: Vec<Value>,
 
-    // Stack indices of attribute sets from which variables should be
-    // dynamically resolved (`with`).
+    /// Stack indices of attribute sets from which variables should be
+    /// dynamically resolved (`with`).
     with_stack: Vec<usize>,
 
     observer: &'o mut dyn Observer,
@@ -560,12 +560,12 @@ impl<'o> VM<'o> {
         }
     }
 
-    // Construct runtime representation of an attr path (essentially
-    // just a list of strings).
-    //
-    // The difference to the list construction operation is that this
-    // forces all elements into strings, as attribute set keys are
-    // required to be strict in Nix.
+    /// Construct runtime representation of an attr path (essentially
+    /// just a list of strings).
+    ///
+    /// The difference to the list construction operation is that this
+    /// forces all elements into strings, as attribute set keys are
+    /// required to be strict in Nix.
     fn run_attr_path(&mut self, count: usize) -> EvalResult<()> {
         debug_assert!(count > 1, "AttrPath needs at least two fragments");
         let mut path = Vec::with_capacity(count);
@@ -588,9 +588,9 @@ impl<'o> VM<'o> {
         Ok(())
     }
 
-    // Interpolate string fragments by popping the specified number of
-    // fragments of the stack, evaluating them to strings, and pushing
-    // the concatenated result string back on the stack.
+    /// Interpolate string fragments by popping the specified number of
+    /// fragments of the stack, evaluating them to strings, and pushing
+    /// the concatenated result string back on the stack.
     fn run_interpolate(&mut self, count: usize) -> EvalResult<()> {
         let mut out = String::new();
 

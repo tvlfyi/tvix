@@ -433,12 +433,13 @@ impl Compiler<'_, '_> {
         }
     }
 
-    // Compile list literals into equivalent bytecode. List
-    // construction is fairly simple, consisting of pushing code for
-    // each literal element and an instruction with the element count.
-    //
-    // The VM, after evaluating the code for each element, simply
-    // constructs the list from the given number of elements.
+    /// Compile list literals into equivalent bytecode. List
+    /// construction is fairly simple, consisting of pushing code for
+    /// each literal element and an instruction with the element
+    /// count.
+    ///
+    /// The VM, after evaluating the code for each element, simply
+    /// constructs the list from the given number of elements.
     fn compile_list(&mut self, slot: LocalIdx, node: ast::List) {
         let mut count = 0;
 
@@ -450,14 +451,14 @@ impl Compiler<'_, '_> {
         self.push_op(OpCode::OpList(Count(count)), &node);
     }
 
-    // Compile attribute set literals into equivalent bytecode.
-    //
-    // This is complicated by a number of features specific to Nix
-    // attribute sets, most importantly:
-    //
-    // 1. Keys can be dynamically constructed through interpolation.
-    // 2. Keys can refer to nested attribute sets.
-    // 3. Attribute sets can (optionally) be recursive.
+    /// Compile attribute set literals into equivalent bytecode.
+    ///
+    /// This is complicated by a number of features specific to Nix
+    /// attribute sets, most importantly:
+    ///
+    /// 1. Keys can be dynamically constructed through interpolation.
+    /// 2. Keys can refer to nested attribute sets.
+    /// 3. Attribute sets can (optionally) be recursive.
     fn compile_attr_set(&mut self, slot: LocalIdx, node: ast::AttrSet) {
         if node.rec_token().is_some() {
             todo!("recursive attribute sets are not yet implemented")
@@ -632,16 +633,18 @@ impl Compiler<'_, '_> {
         self.compile(slot, node.body().unwrap());
     }
 
-    // Compile conditional expressions using jumping instructions in the VM.
-    //
-    //                        ┌────────────────────┐
-    //                        │ 0  [ conditional ] │
-    //                        │ 1   JUMP_IF_FALSE →┼─┐
-    //                        │ 2  [  main body  ] │ │ Jump to else body if
-    //                       ┌┼─3─←     JUMP       │ │ condition is false.
-    //  Jump over else body  ││ 4  [  else body  ]←┼─┘
-    //  if condition is true.└┼─5─→     ...        │
-    //                        └────────────────────┘
+    /// Compile conditional expressions using jumping instructions in the VM.
+    ///
+    /// ```notrust
+    ///                        ┌────────────────────┐
+    ///                        │ 0  [ conditional ] │
+    ///                        │ 1   JUMP_IF_FALSE →┼─┐
+    ///                        │ 2  [  main body  ] │ │ Jump to else body if
+    ///                       ┌┼─3─←     JUMP       │ │ condition is false.
+    ///  Jump over else body  ││ 4  [  else body  ]←┼─┘
+    ///  if condition is true.└┼─5─→     ...        │
+    ///                        └────────────────────┘
+    /// ```
     fn compile_if_else(&mut self, slot: LocalIdx, node: ast::IfElse) {
         self.compile(slot, node.condition().unwrap());
         self.emit_force(&node.condition().unwrap());
@@ -663,7 +666,7 @@ impl Compiler<'_, '_> {
         self.patch_jump(else_idx); // patch jump *over* else body
     }
 
-    // Compile an `inherit` node of a `let`-expression.
+    /// Compile an `inherit` node of a `let`-expression.
     fn compile_let_inherit<I: Iterator<Item = ast::Inherit>>(
         &mut self,
         slot: LocalIdx,
@@ -714,11 +717,11 @@ impl Compiler<'_, '_> {
         }
     }
 
-    // Compile a standard `let ...; in ...` statement.
-    //
-    // Unless in a non-standard scope, the encountered values are
-    // simply pushed on the stack and their indices noted in the
-    // entries vector.
+    /// Compile a standard `let ...; in ...` statement.
+    ///
+    /// Unless in a non-standard scope, the encountered values are
+    /// simply pushed on the stack and their indices noted in the
+    /// entries vector.
     fn compile_let_in(&mut self, slot: LocalIdx, node: ast::LetIn) {
         self.begin_scope();
 
@@ -837,9 +840,9 @@ impl Compiler<'_, '_> {
         };
     }
 
-    // Compile `with` expressions by emitting instructions that
-    // pop/remove the indices of attribute sets that are implicitly in
-    // scope through `with` on the "with-stack".
+    /// Compile `with` expressions by emitting instructions that
+    /// pop/remove the indices of attribute sets that are implicitly
+    /// in scope through `with` on the "with-stack".
     fn compile_with(&mut self, slot: LocalIdx, node: ast::With) {
         self.begin_scope();
         // TODO: Detect if the namespace is just an identifier, and
@@ -1298,9 +1301,9 @@ impl Compiler<'_, '_> {
         }
     }
 
-    // Normalises identifier fragments into a single string vector for
-    // `let`-expressions; fails if fragments requiring dynamic computation
-    // are encountered.
+    /// Normalises identifier fragments into a single string vector
+    /// for `let`-expressions; fails if fragments requiring dynamic
+    /// computation are encountered.
     fn normalise_ident_path<I: Iterator<Item = ast::Attr>>(
         &self,
         path: I,

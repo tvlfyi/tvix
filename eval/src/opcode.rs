@@ -35,10 +35,10 @@ pub struct Count(pub usize);
 #[warn(variant_size_differences)]
 #[derive(Clone, Copy, Debug)]
 pub enum OpCode {
-    // Push a constant onto the stack.
+    /// Push a constant onto the stack.
     OpConstant(ConstantIdx),
 
-    // Discard a value from the stack.
+    /// Discard a value from the stack.
     OpPop,
 
     // Push a literal value.
@@ -93,13 +93,13 @@ pub enum OpCode {
     // Type assertion operators
     OpAssertBool,
 
-    // Access local identifiers with statically known positions.
+    /// Access local identifiers with statically known positions.
     OpGetLocal(StackIdx),
 
-    // Close scopes while leaving their expression value around.
+    /// Close scopes while leaving their expression value around.
     OpCloseScope(Count), // number of locals to pop
 
-    // Asserts stack top is a boolean, and true.
+    /// Asserts stack top is a boolean, and true.
     OpAssert,
 
     // Lambdas & closures

@@ -32,25 +32,25 @@ enum LocalName {
 /// Represents a single local already known to the compiler.
 #[derive(Debug)]
 pub struct Local {
-    // Identifier of this local. This is always a statically known
-    // value (Nix does not allow dynamic identifier names in locals),
-    // or a "phantom" value not accessible by users.
+    /// Identifier of this local. This is always a statically known
+    /// value (Nix does not allow dynamic identifier names in locals),
+    /// or a "phantom" value not accessible by users.
     name: LocalName,
 
-    // Source span at which this local was declared.
+    /// Source span at which this local was declared.
     pub span: codemap::Span,
 
-    // Scope depth of this local.
+    /// Scope depth of this local.
     pub depth: usize,
 
-    // Is this local initialised?
+    /// Is this local initialised?
     pub initialised: bool,
 
-    // Is this local known to have been used at all?
+    /// Is this local known to have been used at all?
     pub used: bool,
 
-    // Does this local need to be finalised after the enclosing scope
-    // is completely constructed?
+    /// Does this local need to be finalised after the enclosing scope
+    /// is completely constructed?
     pub needs_finaliser: bool,
 }
 
@@ -135,18 +135,18 @@ pub struct Scope {
     pub locals: Vec<Local>,
     pub upvalues: Vec<Upvalue>,
 
-    // How many scopes "deep" are these locals?
+    /// How many scopes "deep" are these locals?
     pub scope_depth: usize,
 
-    // Current size of the `with`-stack at runtime.
+    /// Current size of the `with`-stack at runtime.
     with_stack_size: usize,
 
-    // Users are allowed to override globally defined symbols like
-    // `true`, `false` or `null` in scopes. We call this "scope
-    // poisoning", as it requires runtime resolution of those tokens.
-    //
-    // To support this efficiently, the depth at which a poisoning
-    // occured is tracked here.
+    /// Users are allowed to override globally defined symbols like
+    /// `true`, `false` or `null` in scopes. We call this "scope
+    /// poisoning", as it requires runtime resolution of those tokens.
+    ///
+    /// To support this efficiently, the depth at which a poisoning
+    /// occured is tracked here.
     poisoned_tokens: HashMap<&'static str, usize>,
 }
 

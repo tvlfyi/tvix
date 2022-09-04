@@ -26,6 +26,9 @@ struct SourceSpan {
     count: usize,
 }
 
+/// A chunk is a representation of a sequence of bytecode
+/// instructions, associated constants and additional metadata as
+/// emitted by the compiler.
 #[derive(Clone, Debug, Default)]
 pub struct Chunk {
     pub code: Vec<OpCode>,

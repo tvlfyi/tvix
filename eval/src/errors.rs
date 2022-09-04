@@ -20,37 +20,37 @@ pub enum ErrorKind {
         rhs: &'static str,
     },
 
-    // Resolving a user-supplied path literal failed in some way.
+    /// Resolving a user-supplied path literal failed in some way.
     PathResolution(String),
 
-    // Dynamic keys are not allowed in let.
+    /// Dynamic keys are not allowed in let.
     DynamicKeyInLet(rnix::SyntaxNode),
 
-    // Unknown variable in statically known scope.
+    /// Unknown variable in statically known scope.
     UnknownStaticVariable,
 
-    // Unknown variable in dynamic scope (with, rec, ...).
+    /// Unknown variable in dynamic scope (with, rec, ...).
     UnknownDynamicVariable(String),
 
-    // User is defining the same variable twice at the same depth.
+    /// User is defining the same variable twice at the same depth.
     VariableAlreadyDefined(String),
 
-    // Attempt to call something that is not callable.
+    /// Attempt to call something that is not callable.
     NotCallable,
 
-    // Infinite recursion encountered while forcing thunks.
+    /// Infinite recursion encountered while forcing thunks.
     InfiniteRecursion,
 
     ParseErrors(Vec<rnix::parser::ParseError>),
 
     AssertionFailed,
 
-    // These are user-generated errors through builtins.
+    /// These are user-generated errors through builtins.
     Throw(String),
     Abort(String),
 
-    // An error occured while forcing a thunk, and needs to be chained
-    // up.
+    /// An error occured while forcing a thunk, and needs to be
+    /// chained up.
     ThunkForce(Box<Error>),
 }
 

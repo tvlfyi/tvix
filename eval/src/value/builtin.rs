@@ -39,7 +39,7 @@ pub struct Builtin {
     arity: usize,
     func: BuiltinFn,
 
-    // Partially applied function arguments.
+    /// Partially applied function arguments.
     partials: Vec<Value>,
 }
 
