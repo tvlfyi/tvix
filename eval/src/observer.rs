@@ -10,7 +10,6 @@ use std::rc::Rc;
 use tabwriter::TabWriter;
 
 use crate::chunk::Chunk;
-use crate::disassembler::disassemble_op;
 use crate::opcode::CodeIdx;
 use crate::value::Lambda;
 
@@ -72,7 +71,7 @@ impl<W: Write> DisassemblingObserver<W> {
         let width = format!("{:#x}", chunk.code.len() - 1).len();
 
         for (idx, _) in chunk.code.iter().enumerate() {
-            disassemble_op(&mut self.writer, &self.codemap, chunk, width, CodeIdx(idx));
+            let _ = chunk.disassemble_op(&mut self.writer, &self.codemap, width, CodeIdx(idx));
         }
     }
 }

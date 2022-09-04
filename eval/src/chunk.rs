@@ -1,4 +1,7 @@
+use std::io::Write;
 use std::ops::Index;
+
+use codemap::CodeMap;
 
 use crate::opcode::{CodeIdx, ConstantIdx, OpCode};
 use crate::value::Value;
@@ -96,5 +99,33 @@ impl Chunk {
         // lines are 0-indexed in the codemap, but users probably want
         // real line numbers
         codemap.look_up_span(span).begin.line + 1
+    }
+
+    /// Write the disassembler representation of the operation at
+    /// `idx` to the specified writer.
+    pub fn disassemble_op<W: Write>(
+        &self,
+        writer: &mut W,
+        codemap: &CodeMap,
+        width: usize,
+        idx: CodeIdx,
+    ) -> Result<(), std::io::Error> {
+        write!(writer, "{:#width$x}\t ", idx.0, width = width)?;
+
+        // Print continuation character if the previous operation was at
+        // the same line, otherwise print the line.
+        let line = self.get_line(codemap, idx);
+        if idx.0 > 0 && self.get_line(codemap, CodeIdx(idx.0 - 1)) == line {
+            write!(writer, "   |\t")?;
+        } else {
+            write!(writer, "{:4}\t", line)?;
+        }
+
+        match self[idx] {
+            OpCode::OpConstant(idx) => writeln!(writer, "OpConstant({}@{})", self[idx], idx.0),
+            op => writeln!(writer, "{:?}", op),
+        }?;
+
+        Ok(())
     }
 }
