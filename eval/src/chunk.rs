@@ -1,3 +1,5 @@
+use std::ops::Index;
+
 use crate::opcode::{CodeIdx, ConstantIdx, OpCode};
 use crate::value::Value;
 
@@ -31,6 +33,22 @@ pub struct Chunk {
     pub codemap: std::rc::Rc<codemap::CodeMap>,
 }
 
+impl Index<ConstantIdx> for Chunk {
+    type Output = Value;
+
+    fn index(&self, index: ConstantIdx) -> &Self::Output {
+        &self.constants[index.0]
+    }
+}
+
+impl Index<CodeIdx> for Chunk {
+    type Output = OpCode;
+
+    fn index(&self, index: CodeIdx) -> &Self::Output {
+        &self.code[index.0]
+    }
+}
+
 impl Chunk {
     pub fn push_op(&mut self, data: OpCode, span: codemap::Span) -> CodeIdx {
         let idx = self.code.len();
@@ -43,10 +61,6 @@ impl Chunk {
         let idx = self.constants.len();
         self.constants.push(data);
         ConstantIdx(idx)
-    }
-
-    pub fn constant(&self, idx: ConstantIdx) -> &Value {
-        &self.constants[idx.0]
     }
 
     // Span tracking implementation

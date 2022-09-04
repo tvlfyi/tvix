@@ -218,7 +218,7 @@ impl VM {
 
             match op {
                 OpCode::OpConstant(idx) => {
-                    let c = self.chunk().constant(idx).clone();
+                    let c = self.chunk()[idx].clone();
                     self.push(c);
                 }
 
@@ -477,7 +477,7 @@ impl VM {
                 }
 
                 OpCode::OpClosure(idx) => {
-                    let blueprint = match self.chunk().constant(idx) {
+                    let blueprint = match &self.chunk()[idx] {
                         Value::Blueprint(lambda) => lambda.clone(),
                         _ => panic!("compiler bug: non-blueprint in blueprint slot"),
                     };
@@ -501,7 +501,7 @@ impl VM {
                 }
 
                 OpCode::OpThunk(idx) => {
-                    let blueprint = match self.chunk().constant(idx) {
+                    let blueprint = match &self.chunk()[idx] {
                         Value::Blueprint(lambda) => lambda.clone(),
                         _ => panic!("compiler bug: non-blueprint in blueprint slot"),
                     };
@@ -594,7 +594,7 @@ impl VM {
 
     fn resolve_dynamic_upvalue(&mut self, ident_idx: ConstantIdx) -> EvalResult<Value> {
         let chunk = self.chunk();
-        let ident = fallible!(self, chunk.constant(ident_idx).to_str());
+        let ident = fallible!(self, chunk[ident_idx].to_str());
 
         // Peek at the current instruction (note: IP has already
         // advanced!) to see if it is actually data indicating a
