@@ -15,6 +15,27 @@ use crate::{
 
 use crate::arithmetic_op;
 
+/// Helper macro to ensure that a value has been forced. The structure
+/// of this is a little cumbersome as there are different reference
+/// types depending on whether the value is inside a thunk or not.
+macro_rules! force {
+    ( $vm:ident, $src:expr, $value:ident, $body:block ) => {
+        if let Value::Thunk(thunk) = $src {
+            thunk.force($vm)?;
+            let guard = thunk.value();
+            let $value: &Value = &guard;
+            $body
+        } else {
+            let $value: &Value = $src;
+            $body
+        }
+    };
+
+    ( $vm:ident, $value:ident, $body:block ) => {
+        force!($vm, &$value, $value, $body)
+    };
+}
+
 fn pure_builtins() -> Vec<Builtin> {
     vec![
         Builtin::new("add", 2, |mut args, _| {
@@ -96,9 +117,10 @@ fn pure_builtins() -> Vec<Builtin> {
                 args.pop().unwrap().to_str()?.as_str().to_owned(),
             ));
         }),
-        Builtin::new("toString", 1, |args, _| {
-            // TODO: toString is actually not the same as Display
-            Ok(Value::String(format!("{}", args[0]).into()))
+        Builtin::new("toString", 1, |args, vm| {
+            force!(vm, &args[0], value, {
+                Ok(Value::String(format!("{}", value).into()))
+            })
         }),
         Builtin::new("typeOf", 1, |args, _| {
             Ok(Value::String(args[0].type_of().into()))

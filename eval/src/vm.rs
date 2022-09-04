@@ -66,7 +66,7 @@ macro_rules! arithmetic_op {
         $self.push(result);
     }};
 
-    ( $a:ident, $b:ident, $op:tt ) => {{
+    ( $a:expr, $b:expr, $op:tt ) => {{
         match ($a, $b) {
             (Value::Integer(i1), Value::Integer(i2)) => Ok(Value::Integer(i1 $op i2)),
             (Value::Float(f1), Value::Float(f2)) => Ok(Value::Float(f1 $op f2)),
