@@ -900,7 +900,11 @@ impl Compiler<'_, '_> {
 
         // Pop the lambda context back off, and emit the finished
         // lambda as a constant.
-        let compiled = self.contexts.pop().unwrap();
+        let mut compiled = self.contexts.pop().unwrap();
+
+        // Check if tail-call optimisation is possible and perform it.
+        optimise_tail_call(&mut compiled.lambda.chunk);
+
         let lambda = Rc::new(compiled.lambda);
         self.observer.observe_compiled_lambda(&lambda);
 
@@ -947,7 +951,8 @@ impl Compiler<'_, '_> {
         content(self, node, slot);
         self.end_scope(node);
 
-        let thunk = self.contexts.pop().unwrap();
+        let mut thunk = self.contexts.pop().unwrap();
+        optimise_tail_call(&mut thunk.lambda.chunk);
         let lambda = Rc::new(thunk.lambda);
         self.observer.observe_compiled_thunk(&lambda);
 
@@ -1301,6 +1306,19 @@ impl Compiler<'_, '_> {
         path: I,
     ) -> EvalResult<Vec<String>> {
         path.map(|node| self.attr_to_string(node)).collect()
+    }
+}
+
+/// Perform tail-call optimisation if the last call within a
+/// compiled chunk is another call.
+fn optimise_tail_call(chunk: &mut Chunk) {
+    let last_op = chunk
+        .code
+        .last_mut()
+        .expect("compiler bug: chunk should never be empty");
+
+    if matches!(last_op, OpCode::OpCall) {
+        *last_op = OpCode::OpTailCall;
     }
 }
 
