@@ -873,6 +873,101 @@ impl Compiler<'_, '_> {
         self.end_scope(&node);
     }
 
+    /// Compiles pattern function arguments, such as `{ a, b }: ...`.
+    ///
+    /// These patterns are treated as a special case of locals binding
+    /// where the attribute set itself is placed on the first stack
+    /// slot of the call frame (either as a phantom, or named in case
+    /// of an `@` binding), and the function call sets up the rest of
+    /// the stack as if the parameters were rewritten into a `let`
+    /// binding.
+    ///
+    /// For example:
+    ///
+    /// ```nix
+    /// ({ a, b ? 2, c ? a * b, ... }@args: <body>)  { a = 10; }
+    /// ```
+    ///
+    /// would be compiled similarly to a binding such as
+    ///
+    /// ```nix
+    /// let args = { a = 10; };
+    /// in let a = args.a;
+    ///        b = args.a or 2;
+    ///        c = args.c or a * b;
+    ///    in <body>
+    /// ```
+    ///
+    /// The only tricky bit being that bindings have to fail if too
+    /// many arguments are provided. This is done by emitting a
+    /// special instruction that checks the set of keys from a
+    /// constant containing the expected keys.
+    fn compile_param_pattern(&mut self, pattern: ast::Pattern) {
+        let span = self.span_for(&pattern);
+        let set_idx = match pattern.pat_bind() {
+            Some(name) => self.declare_local(&name, name.ident().unwrap().to_string()),
+            None => self.scope_mut().declare_phantom(span),
+        };
+
+        // At call time, the attribute set is already at the top of
+        // the stack.
+        self.scope_mut().mark_initialised(set_idx);
+        self.emit_force(&pattern);
+
+        // Similar to `let ... in ...`, we now do multiple passes over
+        // the bindings to first declare them, then populate them, and
+        // then finalise any necessary recursion into the scope.
+        let mut entries: Vec<(LocalIdx, ast::PatEntry)> = vec![];
+        let mut indices: Vec<LocalIdx> = vec![];
+
+        for entry in pattern.pat_entries() {
+            let ident = entry.ident().unwrap();
+            let idx = self.declare_local(&ident, ident.to_string());
+            entries.push((idx, entry));
+            indices.push(idx);
+        }
+
+        // For each of the bindings, push the set on the stack and
+        // attempt to select from it.
+        let stack_idx = self.scope().stack_index(set_idx);
+        for (idx, entry) in entries.into_iter() {
+            self.push_op(OpCode::OpGetLocal(stack_idx), &pattern);
+            self.emit_literal_ident(&entry.ident().unwrap());
+
+            // Use the same mechanism as `compile_select_or` if a
+            // default value was provided, or simply select otherwise.
+            if let Some(default_expr) = entry.default() {
+                self.push_op(OpCode::OpAttrsTrySelect, &entry.ident().unwrap());
+
+                let jump_to_default =
+                    self.push_op(OpCode::OpJumpIfNotFound(JumpOffset(0)), &default_expr);
+
+                let jump_over_default = self.push_op(OpCode::OpJump(JumpOffset(0)), &default_expr);
+
+                self.patch_jump(jump_to_default);
+                self.compile(idx, default_expr);
+                self.patch_jump(jump_over_default);
+            } else {
+                self.push_op(OpCode::OpAttrsSelect, &entry.ident().unwrap());
+            }
+
+            self.scope_mut().mark_initialised(idx);
+        }
+
+        for idx in indices {
+            if self.scope()[idx].needs_finaliser {
+                let stack_idx = self.scope().stack_index(idx);
+                self.push_op(OpCode::OpFinalise(stack_idx), &pattern);
+            }
+        }
+
+        // TODO: strictly check if all keys have been consumed if
+        // there is no ellipsis.
+        if pattern.ellipsis_token().is_none() {
+            self.emit_warning(span, WarningKind::NotImplemented("closed formals"));
+        }
+    }
+
     fn compile_lambda(&mut self, outer_slot: LocalIdx, node: ast::Lambda) {
         self.new_context();
         let span = self.span_for(&node);
@@ -881,7 +976,8 @@ impl Compiler<'_, '_> {
 
         // Compile the function itself
         match node.param().unwrap() {
-            ast::Param::Pattern(_) => todo!("formals function definitions"),
+            ast::Param::Pattern(pat) => self.compile_param_pattern(pat),
+
             ast::Param::IdentParam(param) => {
                 let name = param
                     .ident()

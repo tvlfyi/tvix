@@ -7,6 +7,10 @@ pub enum WarningKind {
     UselessInherit,
     UnusedBinding,
     ShadowedGlobal(&'static str),
+
+    /// Tvix internal warning for features triggered by users that are
+    /// not actually implemented yet.
+    NotImplemented(&'static str),
 }
 
 #[derive(Debug)]
