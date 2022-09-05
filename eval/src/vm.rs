@@ -635,10 +635,17 @@ impl<'o> VM<'o> {
     }
 
     /// Resolve a dynamic identifier through the with-stack at runtime.
-    fn resolve_with(&self, ident: &str) -> EvalResult<Value> {
-        for idx in self.with_stack.iter().rev() {
-            let with = fallible!(self, self.stack[*idx].to_attrs());
-            match with.select(ident) {
+    fn resolve_with(&mut self, ident: &str) -> EvalResult<Value> {
+        // Iterate over the with_stack manually to avoid borrowing
+        // self, which is required for forcing the set.
+        for with_stack_idx in (0..self.with_stack.len()).rev() {
+            let with = self.stack[self.with_stack[with_stack_idx]].clone();
+
+            if let Value::Thunk(thunk) = &with {
+                fallible!(self, thunk.force(self));
+            }
+
+            match fallible!(self, with.to_attrs()).select(ident) {
                 None => continue,
                 Some(val) => return Ok(val.clone()),
             }

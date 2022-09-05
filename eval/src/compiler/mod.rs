@@ -862,7 +862,6 @@ impl Compiler<'_, '_> {
         // resolve that directly (thus avoiding duplication on the
         // stack).
         self.compile(slot, node.namespace().unwrap());
-        self.emit_force(&node.namespace().unwrap());
 
         let span = self.span_for(&node.namespace().unwrap());
 
