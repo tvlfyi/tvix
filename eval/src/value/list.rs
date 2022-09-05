@@ -32,6 +32,10 @@ impl NixList {
         self.0.len()
     }
 
+    pub fn get(&self, i: usize) -> Option<&Value> {
+        self.0.get(i)
+    }
+
     pub fn construct(count: usize, stack_slice: Vec<Value>) -> Self {
         debug_assert!(
             count == stack_slice.len(),

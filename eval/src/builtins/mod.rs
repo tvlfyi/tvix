@@ -75,6 +75,14 @@ fn pure_builtins() -> Vec<Builtin> {
             }
             Ok(Value::Integer(args[0].to_list()?.len() as i64))
         }),
+        Builtin::new("head", 1, |args, vm| {
+            force!(vm, &args[0], xs, {
+                match xs.to_list()?.get(0) {
+                    Some(x) => Ok(x.clone()),
+                    None => Err(ErrorKind::IndexOutOfBounds { index: 0 }),
+                }
+            })
+        }),
         Builtin::new("isAttrs", 1, |args, _| {
             Ok(Value::Bool(matches!(args[0], Value::Attrs(_))))
         }),
