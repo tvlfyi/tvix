@@ -62,10 +62,10 @@ fn run_prompt() {
                     continue;
                 }
 
+                rl.add_history_entry(&line);
                 match tvix_eval::interpret(&line, None) {
                     Ok(result) => {
                         println!("=> {} :: {}", result, result.type_of());
-                        rl.add_history_entry(line);
                     }
                     Err(err) => println!("{}", err),
                 }
