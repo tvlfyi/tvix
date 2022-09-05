@@ -207,6 +207,15 @@ impl NixAttrs {
         }
     }
 
+    /// Return the number of key-value entries in an attrset.
+    pub fn len(&self) -> usize {
+        match &self.0 {
+            AttrsRep::Map(map) => map.len(),
+            AttrsRep::Empty => 0,
+            AttrsRep::KV { .. } => 2,
+        }
+    }
+
     /// Select a value from an attribute set by key.
     pub fn select(&self, key: &str) -> Option<&Value> {
         self.0.select(key)
@@ -216,6 +225,7 @@ impl NixAttrs {
         self.0.contains(key)
     }
 
+    /// Provide an iterator over all values of the attribute set.
     #[allow(clippy::needless_lifetimes)]
     pub fn iter<'a>(&'a self) -> Iter<KeyValue<'a>> {
         Iter(match &self.0 {
@@ -232,8 +242,6 @@ impl NixAttrs {
             },
         })
     }
-
-    /// Provide an iterator over all values of the attribute set.
 
     /// Implement construction logic of an attribute set, to encapsulate
     /// logic about attribute set optimisations inside of this module.
