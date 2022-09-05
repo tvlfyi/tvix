@@ -17,7 +17,7 @@ mod scope;
 
 use path_clean::PathClean;
 use rnix::ast::{self, AstToken, HasEntry};
-use rowan::ast::AstNode;
+use rowan::ast::{AstChildren, AstNode};
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -451,25 +451,20 @@ impl Compiler<'_, '_> {
         self.push_op(OpCode::OpList(Count(count)), &node);
     }
 
-    /// Compile attribute set literals into equivalent bytecode.
-    ///
-    /// This is complicated by a number of features specific to Nix
-    /// attribute sets, most importantly:
-    ///
-    /// 1. Keys can be dynamically constructed through interpolation.
-    /// 2. Keys can refer to nested attribute sets.
-    /// 3. Attribute sets can (optionally) be recursive.
-    fn compile_attr_set(&mut self, slot: LocalIdx, node: ast::AttrSet) {
-        if node.rec_token().is_some() {
-            todo!("recursive attribute sets are not yet implemented")
-        }
-
+    /// Compiles inherited values in an attribute set. Inherited
+    /// values are *always* inherited from the outer scope, even if
+    /// there is a matching name within a recursive attribute set.
+    fn compile_inherit_attrs(
+        &mut self,
+        slot: LocalIdx,
+        inherits: AstChildren<ast::Inherit>,
+    ) -> usize {
+        // Count the number of inherited values, so that the outer
+        // constructor can emit the correct number of pairs when
+        // constructing attribute sets.
         let mut count = 0;
 
-        // Inherits have to be evaluated before entering the scope of
-        // a potentially recursive attribute sets (i.e. we always
-        // inherit "from the outside").
-        for inherit in node.inherits() {
+        for inherit in inherits {
             match inherit.from() {
                 Some(from) => {
                     for ident in inherit.idents() {
@@ -507,6 +502,24 @@ impl Compiler<'_, '_> {
                 }
             }
         }
+
+        count
+    }
+
+    /// Compile attribute set literals into equivalent bytecode.
+    ///
+    /// This is complicated by a number of features specific to Nix
+    /// attribute sets, most importantly:
+    ///
+    /// 1. Keys can be dynamically constructed through interpolation.
+    /// 2. Keys can refer to nested attribute sets.
+    /// 3. Attribute sets can (optionally) be recursive.
+    fn compile_attr_set(&mut self, slot: LocalIdx, node: ast::AttrSet) {
+        if node.rec_token().is_some() {
+            todo!("recursive attribute sets are not yet implemented")
+        }
+
+        let mut count = self.compile_inherit_attrs(slot, node.inherits());
 
         for kv in node.attrpath_values() {
             count += 1;
