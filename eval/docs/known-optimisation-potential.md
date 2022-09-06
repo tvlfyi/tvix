@@ -55,7 +55,9 @@ optimisations, but note the most important ones here.
   When accessing identifiers like `builtins.foo`, the compiler should
   not go through the trouble of setting up the attribute set on the
   stack and accessing `foo` from it if it knows that the scope for
-  `builtins` is unpoisoned.
+  `builtins` is unpoisoned. The same optimisation can also be done
+  for the other set operations like `builtins ? foo` and
+  `builtins.foo or alternative-implementation`.
 
   The same thing goes for resolving `with builtins;`, which should
   definitely resolve statically.
