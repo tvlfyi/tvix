@@ -82,7 +82,7 @@ impl<W: Write> DisassemblingObserver<W> {
             &mut self.writer,
             "=== compiled {} @ {:p} ({} ops) ===",
             kind,
-            lambda,
+            *lambda,
             lambda.chunk.code.len()
         );
     }
