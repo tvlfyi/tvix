@@ -101,6 +101,13 @@ fn pure_builtins() -> Vec<Builtin> {
                 Ok(Value::List(NixList::construct(output.len(), output)))
             })
         }),
+        Builtin::new("bitAnd", 2, |args, vm| {
+            force!(vm, &args[0], x, {
+                force!(vm, &args[1], y, {
+                    Ok(Value::Integer(x.as_int()? & y.as_int()?))
+                })
+            })
+        }),
         Builtin::new("catAttrs", 2, |mut args, _| {
             let list = args.pop().unwrap().to_list()?;
             let key = args.pop().unwrap().to_str()?;

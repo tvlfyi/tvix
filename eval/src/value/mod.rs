@@ -246,6 +246,7 @@ impl Value {
     }
 
     gen_cast!(as_bool, bool, "bool", Value::Bool(b), *b);
+    gen_cast!(as_int, i64, "int", Value::Integer(x), *x);
     gen_cast!(to_str, NixString, "string", Value::String(s), s.clone());
     gen_cast!(to_attrs, Rc<NixAttrs>, "set", Value::Attrs(a), a.clone());
     gen_cast!(to_list, NixList, "list", Value::List(l), l.clone());
