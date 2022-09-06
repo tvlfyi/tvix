@@ -781,7 +781,7 @@ impl Compiler<'_, '_> {
 
         // Deal with the body, then clean up the locals afterwards.
         self.compile(slot, node.body().unwrap());
-        self.end_scope(&node);
+        self.cleanup_scope(&node);
     }
 
     fn compile_ident(&mut self, slot: LocalIdx, node: ast::Ident) {
@@ -882,7 +882,7 @@ impl Compiler<'_, '_> {
 
         self.push_op(OpCode::OpPopWith, &node);
         self.scope_mut().pop_with();
-        self.end_scope(&node);
+        self.cleanup_scope(&node);
     }
 
     /// Compiles pattern function arguments, such as `{ a, b }: ...`.
@@ -1005,7 +1005,7 @@ impl Compiler<'_, '_> {
         }
 
         self.compile(slot, node.body().unwrap());
-        self.end_scope(&node);
+        self.cleanup_scope(&node);
 
         // TODO: determine and insert enclosing name, if available.
 
@@ -1060,7 +1060,7 @@ impl Compiler<'_, '_> {
         let slot = self.scope_mut().declare_phantom(span);
         self.begin_scope();
         content(self, node, slot);
-        self.end_scope(node);
+        self.cleanup_scope(node);
 
         let mut thunk = self.contexts.pop().unwrap();
         optimise_tail_call(&mut thunk.lambda.chunk);
@@ -1159,41 +1159,18 @@ impl Compiler<'_, '_> {
 
     /// Decrease scope depth of the current function and emit
     /// instructions to clean up the stack at runtime.
-    fn end_scope<N: AstNode>(&mut self, node: &N) {
-        debug_assert!(self.scope().scope_depth != 0, "can not end top scope");
-
-        // If this scope poisoned any builtins or special identifiers,
-        // they need to be reset.
-        let depth = self.scope().scope_depth;
-        self.scope_mut().unpoison(depth);
-
+    fn cleanup_scope<N: AstNode>(&mut self, node: &N) {
         // When ending a scope, all corresponding locals need to be
         // removed, but the value of the body needs to remain on the
         // stack. This is implemented by a separate instruction.
-        let mut pops = 0;
+        let (popcount, unused_spans) = self.scope_mut().end_scope();
 
-        // TL;DR - iterate from the back while things belonging to the
-        // ended scope still exist.
-        while self.scope().locals.last().unwrap().depth == depth {
-            if let Some(local) = self.scope_mut().locals.pop() {
-                // pop the local from the stack if it was actually
-                // initialised
-                if local.initialised {
-                    pops += 1;
-                }
-
-                // analyse whether the local was accessed during its
-                // lifetime, and emit a warning otherwise (unless the
-                // user explicitly chose to ignore it by prefixing the
-                // identifier with `_`)
-                if !local.used && !local.is_ignored() {
-                    self.emit_warning(local.span, WarningKind::UnusedBinding);
-                }
-            }
+        for span in unused_spans {
+            self.emit_warning(span, WarningKind::UnusedBinding);
         }
 
-        if pops > 0 {
-            self.push_op(OpCode::OpCloseScope(Count(pops)), node);
+        if popcount > 0 {
+            self.push_op(OpCode::OpCloseScope(Count(popcount)), node);
         }
 
         self.scope_mut().scope_depth -= 1;

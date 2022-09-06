@@ -188,11 +188,11 @@ impl Scope {
         self.poisoned_tokens.contains_key(name)
     }
 
-    /// "Unpoison" tokens that were poisoned at a given depth. Used
-    /// when scopes are closed.
-    pub fn unpoison(&mut self, depth: usize) {
+    /// "Unpoison" tokens that were poisoned at the current depth.
+    /// Used when scopes are closed.
+    fn unpoison(&mut self) {
         self.poisoned_tokens
-            .retain(|_, poisoned_at| *poisoned_at != depth);
+            .retain(|_, poisoned_at| *poisoned_at != self.scope_depth);
     }
 
     /// Increase the `with`-stack size of this scope.
@@ -283,5 +283,46 @@ impl Scope {
             .count();
 
         StackIdx(idx.0 - uninitialised_count)
+    }
+
+    /// Decrease the scope depth and remove all locals still tracked
+    /// for the current scope.
+    ///
+    /// Returns the count of locals that were dropped while marked as
+    /// initialised (used by the compiler to determine whether to emit
+    /// scope cleanup operations), as well as the spans of the
+    /// definitions of unused locals (used by the compiler to emit
+    /// unused binding warnings).
+    pub fn end_scope(&mut self) -> (usize, Vec<codemap::Span>) {
+        debug_assert!(self.scope_depth != 0, "can not end top scope");
+
+        // If this scope poisoned any builtins or special identifiers,
+        // they need to be reset.
+        self.unpoison();
+
+        let mut pops = 0;
+        let mut unused_spans = vec![];
+
+        // TL;DR - iterate from the back while things belonging to the
+        // ended scope still exist.
+        while self.locals.last().unwrap().depth == self.scope_depth {
+            if let Some(local) = self.locals.pop() {
+                // pop the local from the stack if it was actually
+                // initialised
+                if local.initialised {
+                    pops += 1;
+                }
+
+                // analyse whether the local was accessed during its
+                // lifetime, and emit a warning otherwise (unless the
+                // user explicitly chose to ignore it by prefixing the
+                // identifier with `_`)
+                if !local.used && !local.is_ignored() {
+                    unused_spans.push(local.span);
+                }
+            }
+        }
+
+        (pops, unused_spans)
     }
 }
