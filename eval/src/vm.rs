@@ -8,13 +8,13 @@ use crate::{
     errors::{Error, ErrorKind, EvalResult},
     observer::Observer,
     opcode::{CodeIdx, ConstantIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
-    upvalues::UpvalueCarrier,
+    upvalues::{UpvalueCarrier, Upvalues},
     value::{Builtin, Closure, Lambda, NixAttrs, NixList, Thunk, Value},
 };
 
 struct CallFrame {
     lambda: Rc<Lambda>,
-    upvalues: Vec<Value>,
+    upvalues: Upvalues,
     ip: usize,
     stack_offset: usize,
 }
@@ -22,7 +22,7 @@ struct CallFrame {
 impl CallFrame {
     /// Retrieve an upvalue from this frame at the given index.
     fn upvalue(&self, idx: UpvalueIdx) -> &Value {
-        &self.upvalues[idx.0]
+        &self.upvalues[idx]
     }
 }
 
@@ -176,7 +176,7 @@ impl<'o> VM<'o> {
     pub fn call(
         &mut self,
         lambda: Rc<Lambda>,
-        upvalues: Vec<Value>,
+        upvalues: Upvalues,
         arg_count: usize,
     ) -> EvalResult<Value> {
         self.observer
@@ -443,7 +443,7 @@ impl<'o> VM<'o> {
                     match callable {
                         Value::Closure(closure) => {
                             let result =
-                                self.call(closure.lambda(), closure.upvalues().to_vec(), 1)?;
+                                self.call(closure.lambda(), closure.upvalues().clone(), 1)?;
                             self.push(result)
                         }
 
@@ -468,7 +468,7 @@ impl<'o> VM<'o> {
                             // closure.
                             let mut frame = self.frame_mut();
                             frame.lambda = lambda;
-                            frame.upvalues = closure.upvalues().to_vec();
+                            frame.upvalues = closure.upvalues().clone();
                             frame.ip = 0; // reset instruction pointer to beginning
                         }
 
@@ -658,7 +658,7 @@ impl<'o> VM<'o> {
     fn populate_upvalues(
         &mut self,
         count: usize,
-        mut upvalues: RefMut<'_, Vec<Value>>,
+        mut upvalues: RefMut<'_, Upvalues>,
     ) -> EvalResult<()> {
         for _ in 0..count {
             match self.inc_ip() {
@@ -744,7 +744,7 @@ fn unwrap_or_clone_rc<T: Clone>(rc: Rc<T>) -> T {
 
 pub fn run_lambda(observer: &mut dyn Observer, lambda: Rc<Lambda>) -> EvalResult<Value> {
     let mut vm = VM::new(observer);
-    let value = vm.call(lambda, vec![], 0)?;
+    let value = vm.call(lambda, Upvalues::with_capacity(0), 0)?;
     vm.force_for_output(&value)?;
     Ok(value)
 }

@@ -24,7 +24,12 @@ use std::{
     rc::Rc,
 };
 
-use crate::{errors::ErrorKind, upvalues::UpvalueCarrier, vm::VM, Value};
+use crate::{
+    errors::ErrorKind,
+    upvalues::{UpvalueCarrier, Upvalues},
+    vm::VM,
+    Value,
+};
 
 use super::Lambda;
 
@@ -35,7 +40,7 @@ enum ThunkRepr {
     /// execution.
     Suspended {
         lambda: Rc<Lambda>,
-        upvalues: Vec<Value>,
+        upvalues: Upvalues,
     },
 
     /// Thunk currently under-evaluation; encountering a blackhole
@@ -52,7 +57,7 @@ pub struct Thunk(Rc<RefCell<ThunkRepr>>);
 impl Thunk {
     pub fn new(lambda: Rc<Lambda>) -> Self {
         Thunk(Rc::new(RefCell::new(ThunkRepr::Suspended {
-            upvalues: Vec::with_capacity(lambda.upvalue_count),
+            upvalues: Upvalues::with_capacity(lambda.upvalue_count),
             lambda: lambda.clone(),
         })))
     }
@@ -119,14 +124,14 @@ impl UpvalueCarrier for Thunk {
         panic!("upvalues() on non-suspended thunk");
     }
 
-    fn upvalues(&self) -> Ref<'_, [Value]> {
+    fn upvalues(&self) -> Ref<'_, Upvalues> {
         Ref::map(self.0.borrow(), |thunk| match thunk {
-            ThunkRepr::Suspended { upvalues, .. } => upvalues.as_slice(),
+            ThunkRepr::Suspended { upvalues, .. } => upvalues,
             _ => panic!("upvalues() on non-suspended thunk"),
         })
     }
 
-    fn upvalues_mut(&self) -> RefMut<'_, Vec<Value>> {
+    fn upvalues_mut(&self) -> RefMut<'_, Upvalues> {
         RefMut::map(self.0.borrow_mut(), |thunk| match thunk {
             ThunkRepr::Suspended { upvalues, .. } => upvalues,
             _ => panic!("upvalues() on non-suspended thunk"),

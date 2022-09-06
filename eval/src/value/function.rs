@@ -4,7 +4,10 @@ use std::{
     rc::Rc,
 };
 
-use crate::{chunk::Chunk, upvalues::UpvalueCarrier, Value};
+use crate::{
+    chunk::Chunk,
+    upvalues::{UpvalueCarrier, Upvalues},
+};
 
 #[derive(Clone, Debug)]
 pub struct Lambda {
@@ -30,7 +33,7 @@ impl Lambda {
 #[derive(Clone, Debug)]
 pub struct InnerClosure {
     pub lambda: Rc<Lambda>,
-    pub upvalues: Vec<Value>,
+    upvalues: Upvalues,
 }
 
 #[repr(transparent)]
@@ -40,7 +43,7 @@ pub struct Closure(Rc<RefCell<InnerClosure>>);
 impl Closure {
     pub fn new(lambda: Rc<Lambda>) -> Self {
         Closure(Rc::new(RefCell::new(InnerClosure {
-            upvalues: Vec::with_capacity(lambda.upvalue_count),
+            upvalues: Upvalues::with_capacity(lambda.upvalue_count),
             lambda,
         })))
     }
@@ -59,11 +62,11 @@ impl UpvalueCarrier for Closure {
         self.0.borrow().lambda.upvalue_count
     }
 
-    fn upvalues(&self) -> Ref<'_, [Value]> {
-        Ref::map(self.0.borrow(), |c| c.upvalues.as_slice())
+    fn upvalues(&self) -> Ref<'_, Upvalues> {
+        Ref::map(self.0.borrow(), |c| &c.upvalues)
     }
 
-    fn upvalues_mut(&self) -> RefMut<'_, Vec<Value>> {
+    fn upvalues_mut(&self) -> RefMut<'_, Upvalues> {
         RefMut::map(self.0.borrow_mut(), |c| &mut c.upvalues)
     }
 }
