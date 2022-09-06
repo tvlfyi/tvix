@@ -234,13 +234,13 @@ impl Scope {
     /// Declare a local variable that occupies a stack slot and should
     /// be accounted for, but is not directly accessible by users
     /// (e.g. attribute sets used for `with`).
-    pub fn declare_phantom(&mut self, span: codemap::Span) -> LocalIdx {
+    pub fn declare_phantom(&mut self, span: codemap::Span, initialised: bool) -> LocalIdx {
         let idx = self.locals.len();
         self.locals.push(Local {
-            name: LocalName::Phantom,
+            initialised,
             span,
+            name: LocalName::Phantom,
             depth: self.scope_depth,
-            initialised: false,
             needs_finaliser: false,
             used: true,
         });

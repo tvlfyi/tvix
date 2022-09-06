@@ -870,8 +870,7 @@ impl Compiler<'_, '_> {
         // directly accessible. As it must be accounted for to
         // calculate correct offsets, what we call a "phantom" local
         // is declared here.
-        let local_idx = self.scope_mut().declare_phantom(span);
-        self.scope_mut().mark_initialised(local_idx);
+        let local_idx = self.scope_mut().declare_phantom(span, true);
         let with_idx = self.scope().stack_index(local_idx);
 
         self.scope_mut().push_with();
@@ -918,7 +917,7 @@ impl Compiler<'_, '_> {
         let span = self.span_for(&pattern);
         let set_idx = match pattern.pat_bind() {
             Some(name) => self.declare_local(&name, name.ident().unwrap().to_string()),
-            None => self.scope_mut().declare_phantom(span),
+            None => self.scope_mut().declare_phantom(span, true),
         };
 
         // At call time, the attribute set is already at the top of
@@ -983,7 +982,7 @@ impl Compiler<'_, '_> {
     fn compile_lambda(&mut self, outer_slot: LocalIdx, node: ast::Lambda) {
         self.new_context();
         let span = self.span_for(&node);
-        let slot = self.scope_mut().declare_phantom(span);
+        let slot = self.scope_mut().declare_phantom(span, false);
         self.begin_scope();
 
         // Compile the function itself
@@ -1057,7 +1056,7 @@ impl Compiler<'_, '_> {
     {
         self.new_context();
         let span = self.span_for(node);
-        let slot = self.scope_mut().declare_phantom(span);
+        let slot = self.scope_mut().declare_phantom(span, false);
         self.begin_scope();
         content(self, node, slot);
         self.cleanup_scope(node);
@@ -1487,7 +1486,7 @@ pub fn compile(
     };
 
     let root_span = c.span_for(&expr);
-    let root_slot = c.scope_mut().declare_phantom(root_span);
+    let root_slot = c.scope_mut().declare_phantom(root_span, false);
     c.compile(root_slot, expr.clone());
 
     // The final operation of any top-level Nix program must always be
