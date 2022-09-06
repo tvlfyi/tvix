@@ -1,5 +1,6 @@
 use crate::spans::ToSpan;
 use crate::value::CoercionKind;
+use std::io;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -121,6 +122,12 @@ pub enum ErrorKind {
         errors: Vec<Error>,
     },
 
+    /// I/O errors
+    IO {
+        path: Option<PathBuf>,
+        error: Rc<io::Error>,
+    },
+
     /// Tvix internal warning for features triggered by users that are
     /// not actually implemented yet, and without which eval can not
     /// proceed.
@@ -139,6 +146,15 @@ impl From<ParseIntError> for ErrorKind {
 impl From<Error> for ErrorKind {
     fn from(e: Error) -> Self {
         Self::ThunkForce(Box::new(e))
+    }
+}
+
+impl From<io::Error> for ErrorKind {
+    fn from(e: io::Error) -> Self {
+        ErrorKind::IO {
+            path: None,
+            error: Rc::new(e),
+        }
     }
 }
 
@@ -304,6 +320,14 @@ to a missing value in the attribute set(s) included via `with`."#,
                     errors.len(),
                     path.to_string_lossy()
                 )
+            }
+
+            ErrorKind::IO { path, error } => {
+                write!(f, "I/O error: ")?;
+                if let Some(path) = path {
+                    write!(f, "{}: ", path.display())?;
+                }
+                write!(f, "{error}")
             }
 
             ErrorKind::NotImplemented(feature) => {
@@ -583,6 +607,7 @@ impl Error {
             | ErrorKind::ReadFileError { .. }
             | ErrorKind::ImportParseError { .. }
             | ErrorKind::ImportCompilerError { .. }
+            | ErrorKind::IO { .. }
             | ErrorKind::NotImplemented(_) => return None,
         };
 
@@ -620,6 +645,7 @@ impl Error {
             ErrorKind::ReadFileError { .. } => "E026",
             ErrorKind::ImportParseError { .. } => "E027",
             ErrorKind::ImportCompilerError { .. } => "E028",
+            ErrorKind::IO { .. } => "E029",
 
             // Placeholder error while Tvix is under construction.
             ErrorKind::NotImplemented(_) => "E999",

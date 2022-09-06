@@ -1,6 +1,7 @@
 use std::{
     cell::RefCell,
     collections::{BTreeMap, HashMap},
+    io,
     rc::Rc,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -8,13 +9,49 @@ use std::{
 use crate::{
     errors::ErrorKind,
     observer::NoOpObserver,
-    value::{Builtin, NixString, Thunk},
+    value::{Builtin, NixAttrs, NixString, Thunk},
     vm::VM,
     SourceCode, Value,
 };
 
 fn impure_builtins() -> Vec<Builtin> {
-    vec![]
+    vec![Builtin::new(
+        "readDir",
+        &[true],
+        |args: Vec<Value>, vm: &mut VM| {
+            let path = super::coerce_value_to_path(&args[0], vm)?;
+            let mk_err = |err: io::Error| ErrorKind::IO {
+                path: Some(path.clone()),
+                error: Rc::new(err),
+            };
+
+            let mut res = BTreeMap::new();
+            for entry in path.read_dir().map_err(mk_err)? {
+                let entry = entry.map_err(mk_err)?;
+                let file_type = entry
+                    .metadata()
+                    .map_err(|err| ErrorKind::IO {
+                        path: Some(entry.path()),
+                        error: Rc::new(err),
+                    })?
+                    .file_type();
+                let val = if file_type.is_dir() {
+                    "directory"
+                } else if file_type.is_file() {
+                    "regular"
+                } else if file_type.is_symlink() {
+                    "symlink"
+                } else {
+                    "unknown"
+                };
+                res.insert(
+                    entry.file_name().to_string_lossy().as_ref().into(),
+                    val.into(),
+                );
+            }
+            Ok(Value::attrs(NixAttrs::from_map(res)))
+        },
+    )]
 }
 
 /// Return all impure builtins, that is all builtins which may perform I/O

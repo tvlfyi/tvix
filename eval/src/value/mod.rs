@@ -371,6 +371,12 @@ impl From<i64> for Value {
     }
 }
 
+impl From<&str> for Value {
+    fn from(val: &str) -> Self {
+        Self::String(val.into())
+    }
+}
+
 fn type_error(expected: &'static str, actual: &Value) -> ErrorKind {
     ErrorKind::TypeError {
         expected,
