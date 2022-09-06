@@ -807,8 +807,9 @@ impl Compiler<'_, '_> {
         }
 
         // Second pass to place the values in the correct stack slots.
-        let indices: Vec<LocalIdx> = entries.iter().map(|(idx, _)| *idx).collect();
+        let mut indices: Vec<LocalIdx> = vec![];
         for (idx, value) in entries.into_iter() {
+            indices.push(idx);
             self.compile(idx, value);
 
             // Any code after this point will observe the value in the
