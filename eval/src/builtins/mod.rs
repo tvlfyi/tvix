@@ -16,7 +16,7 @@ use crate::{
     vm::VM,
 };
 
-use crate::arithmetic_op;
+use crate::{arithmetic_op, cmp_op};
 
 use self::versions::{VersionPart, VersionPartsIter};
 
@@ -160,6 +160,11 @@ fn pure_builtins() -> Vec<Builtin> {
                 .map(|list| Value::List(NixList::from(list)))
                 .map_err(Into::into)
         }),
+        Builtin::new(
+            "lessThan",
+            &[false, false],
+            |args, vm| cmp_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, <),
+        ),
         Builtin::new("hasAttr", &[true, true], |args, _| {
             let k = args[0].to_str()?;
             let xs = args[1].to_attrs()?;

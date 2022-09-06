@@ -1,0 +1,15 @@
+[
+  (builtins.lessThan 2 3)
+  (builtins.lessThan 2.0 3)
+  (builtins.lessThan 2 3.0)
+  (builtins.lessThan 2.0 3.0)
+  (builtins.lessThan 3 2)
+  (builtins.lessThan 3.0 2)
+  (builtins.lessThan 3 2.0)
+  (builtins.lessThan 3.0 2.0)
+  (builtins.lessThan 10 (builtins.add 9 2))
+  (builtins.lessThan (builtins.add 9 1) 11)
+  (builtins.lessThan (builtins.add 9 1) (builtins.add 9 2))
+  (builtins.lessThan "a" "b")
+  (builtins.lessThan "b" "a")
+]
