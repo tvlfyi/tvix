@@ -26,9 +26,9 @@ pub enum ErrorKind {
         name: String,
     },
 
-    // Attempted to index into a list beyond its boundaries.
+    /// Attempted to index into a list beyond its boundaries.
     IndexOutOfBounds {
-        index: usize,
+        index: i64,
     },
 
     TypeError {

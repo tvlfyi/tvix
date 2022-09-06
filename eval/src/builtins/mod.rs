@@ -140,6 +140,20 @@ fn pure_builtins() -> Vec<Builtin> {
             let a = args.pop().unwrap();
             arithmetic_op!(a, b, /)
         }),
+        Builtin::new("elemAt", 2, |args, vm| {
+            force!(vm, &args[0], value, {
+                let xs = value.to_list()?;
+                let i = args[1].as_int()?;
+                if i < 0 {
+                    Err(ErrorKind::IndexOutOfBounds { index: i })
+                } else {
+                    match xs.get(i as usize) {
+                        Some(x) => Ok(x.clone()),
+                        None => Err(ErrorKind::IndexOutOfBounds { index: i }),
+                    }
+                }
+            })
+        }),
         Builtin::new("length", 1, |args, vm| {
             if let Value::Thunk(t) = &args[0] {
                 t.force(vm)?;
