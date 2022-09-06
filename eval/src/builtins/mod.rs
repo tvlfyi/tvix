@@ -131,6 +131,17 @@ fn pure_builtins() -> Vec<Builtin> {
                 }
             }
         }),
+        Builtin::new("getAttr", &[true, true], |args, _| {
+            let k = args[0].to_str()?;
+            let xs = args[1].to_attrs()?;
+
+            match xs.select(k.as_str()) {
+                Some(x) => Ok(x.clone()),
+                None => Err(ErrorKind::AttributeNotFound {
+                    name: k.to_string(),
+                }),
+            }
+        }),
         Builtin::new("length", &[true], |args, _| {
             Ok(Value::Integer(args[0].to_list()?.len() as i64))
         }),
