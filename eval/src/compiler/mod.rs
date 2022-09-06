@@ -443,12 +443,29 @@ impl Compiler<'_, '_> {
     fn compile_list(&mut self, slot: LocalIdx, node: ast::List) {
         let mut count = 0;
 
+        // Open a temporary scope to correctly account for stack items
+        // that exist during the construction.
+        self.begin_scope();
+
         for item in node.items() {
+            // Start tracing new stack slots from the second list
+            // element onwards. The first list element is located in
+            // the stack slot of the list itself.
+            let item_slot = match count {
+                0 => slot,
+                _ => {
+                    let item_span = self.span_for(&item);
+                    self.scope_mut().declare_phantom(item_span, false)
+                }
+            };
+
             count += 1;
-            self.compile(slot, item);
+            self.compile(item_slot, item);
+            self.scope_mut().mark_initialised(item_slot);
         }
 
         self.push_op(OpCode::OpList(Count(count)), &node);
+        self.scope_mut().end_scope();
     }
 
     /// Compiles inherited values in an attribute set. Inherited
