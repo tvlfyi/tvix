@@ -134,6 +134,12 @@ fn pure_builtins() -> Vec<Builtin> {
         Builtin::new("length", &[true], |args, _| {
             Ok(Value::Integer(args[0].to_list()?.len() as i64))
         }),
+        Builtin::new("hasAttr", &[true, true], |args, _| {
+            let k = args[0].to_str()?;
+            let xs = args[1].to_attrs()?;
+
+            Ok(Value::Bool(xs.contains(k.as_str())))
+        }),
         Builtin::new("head", &[true], |args, _| match args[0].to_list()?.get(0) {
             Some(x) => Ok(x.clone()),
             None => Err(ErrorKind::IndexOutOfBounds { index: 0 }),
