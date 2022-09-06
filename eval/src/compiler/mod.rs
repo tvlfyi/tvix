@@ -473,6 +473,8 @@ impl Compiler<'_, '_> {
                         // First emit the identifier itself (this
                         // becomes the new key).
                         self.emit_literal_ident(&ident);
+                        let ident_span = self.span_for(&ident);
+                        self.scope_mut().declare_phantom(ident_span, true);
 
                         // Then emit the node that we're inheriting
                         // from.
@@ -482,22 +484,27 @@ impl Compiler<'_, '_> {
                         // instruction followed by a merge, rather
                         // than pushing/popping the same attrs
                         // potentially a lot of times.
-                        self.compile(slot, from.expr().unwrap());
+                        let val_idx = self.scope_mut().declare_phantom(ident_span, false);
+                        self.compile(val_idx, from.expr().unwrap());
                         self.emit_force(&from.expr().unwrap());
                         self.emit_literal_ident(&ident);
                         self.push_op(OpCode::OpAttrsSelect, &ident);
+                        self.scope_mut().mark_initialised(val_idx);
                     }
                 }
 
                 None => {
                     for ident in inherit.idents() {
+                        let ident_span = self.span_for(&ident);
                         count += 1;
 
                         // Emit the key to use for OpAttrs
                         self.emit_literal_ident(&ident);
+                        self.scope_mut().declare_phantom(ident_span, true);
 
                         // Emit the value.
                         self.compile_ident(slot, ident);
+                        self.scope_mut().declare_phantom(ident_span, true);
                     }
                 }
             }
@@ -519,6 +526,10 @@ impl Compiler<'_, '_> {
             todo!("recursive attribute sets are not yet implemented")
         }
 
+        // Open a scope to track the positions of the temporaries used
+        // by the `OpAttrs` instruction.
+        self.begin_scope();
+
         let mut count = self.compile_inherit_attrs(slot, node.inherits());
 
         for kv in node.attrpath_values() {
@@ -530,9 +541,32 @@ impl Compiler<'_, '_> {
             // runtime value representing the attribute path is
             // emitted.
             let mut key_count = 0;
+            let key_span = self.span_for(&kv.attrpath().unwrap());
+            let key_idx = self.scope_mut().declare_phantom(key_span, false);
+
             for fragment in kv.attrpath().unwrap().attrs() {
+                // Key fragments can contain dynamic expressions,
+                // which makes accounting for their stack slots very
+                // tricky.
+                //
+                // In order to ensure the locals are correctly cleaned
+                // up, we essentially treat any key fragment after the
+                // first one (which has a locals index that will
+                // become that of the final key itself) as being part
+                // of a separate scope, which results in the somewhat
+                // annoying setup logic below.
+                let fragment_slot = match key_count {
+                    0 => key_idx,
+                    1 => {
+                        self.begin_scope();
+                        self.scope_mut().declare_phantom(key_span, false)
+                    }
+                    _ => self.scope_mut().declare_phantom(key_span, false),
+                };
+
                 key_count += 1;
-                self.compile_attr(slot, fragment);
+                self.compile_attr(fragment_slot, fragment);
+                self.scope_mut().mark_initialised(fragment_slot);
             }
 
             // We're done with the key if there was only one fragment,
@@ -543,15 +577,26 @@ impl Compiler<'_, '_> {
                     OpCode::OpAttrPath(Count(key_count)),
                     &kv.attrpath().unwrap(),
                 );
+
+                // Close the temporary scope that was set up for the
+                // key fragments.
+                self.scope_mut().end_scope();
             }
 
             // The value is just compiled as normal so that its
             // resulting value is on the stack when the attribute set
             // is constructed at runtime.
+            let value_span = self.span_for(&kv.value().unwrap());
+            let value_slot = self.scope_mut().declare_phantom(value_span, false);
             self.compile(slot, kv.value().unwrap());
+            self.scope_mut().mark_initialised(value_slot);
         }
 
         self.push_op(OpCode::OpAttrs(Count(count)), &node);
+
+        // Remove the temporary scope, but do not emit any additional
+        // cleanup (OpAttrs consumes all of these locals).
+        self.scope_mut().end_scope();
     }
 
     fn compile_select(&mut self, slot: LocalIdx, node: ast::Select) {
