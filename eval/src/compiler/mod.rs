@@ -172,7 +172,9 @@ impl Compiler<'_, '_> {
             ast::Expr::IfElse(if_else) => self.compile_if_else(slot, if_else),
             ast::Expr::LetIn(let_in) => self.compile_let_in(slot, let_in),
             ast::Expr::Ident(ident) => self.compile_ident(slot, ident),
-            ast::Expr::With(with) => self.compile_with(slot, with),
+            ast::Expr::With(with) => {
+                self.thunk(slot, &with, |c, w, s| c.compile_with(s, w.clone()))
+            }
             ast::Expr::Lambda(lambda) => self.compile_lambda(slot, lambda),
             ast::Expr::Apply(apply) => {
                 self.thunk(slot, &apply, move |c, a, s| c.compile_apply(s, a.clone()))
