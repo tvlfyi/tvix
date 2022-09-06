@@ -16,18 +16,36 @@ use crate::{opcode::UpvalueIdx, Value};
 #[derive(Clone, Debug)]
 pub struct Upvalues {
     upvalues: Vec<Value>,
+    with_stack: Option<Vec<Value>>,
 }
 
 impl Upvalues {
     pub fn with_capacity(count: usize) -> Self {
         Upvalues {
             upvalues: Vec::with_capacity(count),
+            with_stack: None,
         }
     }
 
     /// Push an upvalue at the end of the upvalue list.
     pub fn push(&mut self, value: Value) {
         self.upvalues.push(value);
+    }
+
+    /// Set the captured with stack.
+    pub fn set_with_stack(&mut self, with_stack: Vec<Value>) {
+        self.with_stack = Some(with_stack);
+    }
+
+    pub fn with_stack(&self) -> Option<&Vec<Value>> {
+        self.with_stack.as_ref()
+    }
+
+    pub fn with_stack_len(&self) -> usize {
+        match &self.with_stack {
+            None => 0,
+            Some(stack) => stack.len(),
+        }
     }
 }
 

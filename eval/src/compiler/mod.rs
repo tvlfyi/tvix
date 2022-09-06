@@ -18,7 +18,6 @@ mod scope;
 use path_clean::PathClean;
 use rnix::ast::{self, AstToken, HasEntry};
 use rowan::ast::{AstChildren, AstNode};
-use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -45,6 +44,7 @@ pub struct CompilationOutput {
 struct LambdaCtx {
     lambda: Lambda,
     scope: Scope,
+    captures_with_stack: bool,
 }
 
 impl LambdaCtx {
@@ -52,6 +52,7 @@ impl LambdaCtx {
         LambdaCtx {
             lambda: Lambda::new_anonymous(),
             scope: Default::default(),
+            captures_with_stack: false,
         }
     }
 
@@ -59,6 +60,7 @@ impl LambdaCtx {
         LambdaCtx {
             lambda: Lambda::new_anonymous(),
             scope: self.scope.inherit(),
+            captures_with_stack: false,
         }
     }
 }
@@ -869,32 +871,18 @@ impl Compiler<'_, '_> {
                     return;
                 }
 
-                // Even worse - are we dealing with a dynamic upvalue?
-                if let Some(idx) =
-                    self.resolve_dynamic_upvalue(self.contexts.len() - 1, ident.text(), &node)
-                {
-                    // Edge case: Current scope *also* has a non-empty
-                    // `with`-stack. This means we need to resolve
-                    // both in this scope, and in the upvalues.
-                    if self.scope().has_with() {
-                        self.emit_literal_ident(&node);
-                        self.push_op(OpCode::OpResolveWithOrUpvalue(idx), &node);
-                        return;
-                    }
-
-                    self.push_op(OpCode::OpGetUpvalue(idx), &node);
+                // If there is a non-empty `with`-stack (or a parent
+                // context with one), emit a runtime dynamic
+                // resolution instruction.
+                if self.has_dynamic_ancestor() {
+                    self.emit_literal_ident(&node);
+                    self.push_op(OpCode::OpResolveWith, &node);
                     return;
                 }
 
-                if !self.scope().has_with() {
-                    self.emit_error(self.span_for(&node), ErrorKind::UnknownStaticVariable);
-                    return;
-                }
-
-                // Variable needs to be dynamically resolved at
-                // runtime.
-                self.emit_literal_ident(&node);
-                self.push_op(OpCode::OpResolveWith, &node);
+                // Otherwise, this variable is missing.
+                self.emit_error(self.span_for(&node), ErrorKind::UnknownStaticVariable);
+                return;
             }
 
             LocalPosition::Known(idx) => {
@@ -1078,6 +1066,12 @@ impl Compiler<'_, '_> {
         // Check if tail-call optimisation is possible and perform it.
         optimise_tail_call(&mut compiled.lambda.chunk);
 
+        // Capturing the with stack counts as an upvalue, as it is
+        // emitted as an upvalue data instruction.
+        if compiled.captures_with_stack {
+            compiled.lambda.upvalue_count += 1;
+        }
+
         let lambda = Rc::new(compiled.lambda);
         self.observer.observe_compiled_lambda(&lambda);
 
@@ -1095,7 +1089,12 @@ impl Compiler<'_, '_> {
         let blueprint_idx = self.chunk().push_constant(Value::Blueprint(lambda));
 
         self.push_op(OpCode::OpClosure(blueprint_idx), &node);
-        self.emit_upvalue_data(outer_slot, compiled.scope.upvalues);
+        self.emit_upvalue_data(
+            outer_slot,
+            &node,
+            compiled.scope.upvalues,
+            compiled.captures_with_stack,
+        );
     }
 
     fn compile_apply(&mut self, slot: LocalIdx, node: ast::Apply) {
@@ -1126,6 +1125,13 @@ impl Compiler<'_, '_> {
 
         let mut thunk = self.contexts.pop().unwrap();
         optimise_tail_call(&mut thunk.lambda.chunk);
+
+        // Capturing the with stack counts as an upvalue, as it is
+        // emitted as an upvalue data instruction.
+        if thunk.captures_with_stack {
+            thunk.lambda.upvalue_count += 1;
+        }
+
         let lambda = Rc::new(thunk.lambda);
         self.observer.observe_compiled_thunk(&lambda);
 
@@ -1140,12 +1146,23 @@ impl Compiler<'_, '_> {
         let blueprint_idx = self.chunk().push_constant(Value::Blueprint(lambda));
 
         self.push_op(OpCode::OpThunk(blueprint_idx), node);
-        self.emit_upvalue_data(outer_slot, thunk.scope.upvalues);
+        self.emit_upvalue_data(
+            outer_slot,
+            node,
+            thunk.scope.upvalues,
+            thunk.captures_with_stack,
+        );
     }
 
     /// Emit the data instructions that the runtime needs to correctly
-    /// assemble the provided upvalues array.
-    fn emit_upvalue_data(&mut self, slot: LocalIdx, upvalues: Vec<Upvalue>) {
+    /// assemble the upvalues struct.
+    fn emit_upvalue_data<T: AstNode>(
+        &mut self,
+        slot: LocalIdx,
+        node: &T,
+        upvalues: Vec<Upvalue>,
+        capture_with: bool,
+    ) {
         let this_depth = self.scope()[slot].depth;
         let this_stack_slot = self.scope().stack_index(slot);
 
@@ -1170,15 +1187,12 @@ impl Compiler<'_, '_> {
                 UpvalueKind::Upvalue(idx) => {
                     self.push_op(OpCode::DataUpvalueIdx(idx), &upvalue.node);
                 }
-
-                UpvalueKind::Dynamic { name, up } => {
-                    let idx = self.chunk().push_constant(Value::String(name.into()));
-                    self.push_op(OpCode::DataDynamicIdx(idx), &upvalue.node);
-                    if let Some(up) = up {
-                        self.push_op(OpCode::DataDynamicAncestor(up), &upvalue.node);
-                    }
-                }
             };
+        }
+
+        if capture_with {
+            // TODO(tazjin): probably better to emit span for the ident that caused this
+            self.push_op(OpCode::DataCaptureWith, node);
         }
     }
 
@@ -1322,58 +1336,25 @@ impl Compiler<'_, '_> {
         None
     }
 
-    /// If no static resolution for a potential upvalue was found,
-    /// finds the lowest lambda context that has a `with`-stack and
-    /// thread dynamic upvalues all the way through.
-    ///
-    /// At runtime, as closures are being constructed they either
-    /// capture a dynamically available upvalue, take an upvalue from
-    /// their "ancestor" or leave a sentinel value on the stack.
-    ///
-    /// As such an upvalue is actually accessed, an error is produced
-    /// when the sentinel is found. See the runtime's handling of
-    /// dynamic upvalues for details.
-    fn resolve_dynamic_upvalue(
-        &mut self,
-        at: usize,
-        name: &str,
-        node: &rnix::ast::Ident,
-    ) -> Option<UpvalueIdx> {
-        if at == 0 {
-            // There can not be any upvalue at the outermost context.
-            return None;
-        }
+    /// Determine whether the current lambda context has any ancestors
+    /// that use dynamic scope resolution, and mark contexts as
+    /// needing to capture their enclosing `with`-stack in their
+    /// upvalues.
+    fn has_dynamic_ancestor(&mut self) -> bool {
+        let mut ancestor_has_with = false;
 
-        if let Some((lowest_idx, _)) = self
-            .contexts
-            .iter()
-            .enumerate()
-            .find(|(_, c)| c.scope.has_with())
-        {
-            // An enclosing lambda context has dynamic values. Each
-            // context in the chain from that point on now needs to
-            // capture dynamic upvalues because we can not statically
-            // know at which level the correct one is located.
-            let name = SmolStr::new(name);
-            let mut upvalue_idx = None;
-
-            for idx in lowest_idx..=at {
-                upvalue_idx = Some(self.add_upvalue(
-                    idx,
-                    node,
-                    UpvalueKind::Dynamic {
-                        name: name.clone(),
-                        up: upvalue_idx,
-                    },
-                ));
+        for ctx in self.contexts.iter_mut() {
+            if ancestor_has_with {
+                // If the ancestor has an active with stack, mark this
+                // lambda context as needing to capture it.
+                ctx.captures_with_stack = true;
+            } else {
+                // otherwise, check this context and move on
+                ancestor_has_with = ctx.scope.has_with();
             }
-
-            // Return the outermost upvalue index (i.e. the one of the
-            // current context).
-            return upvalue_idx;
         }
 
-        None
+        ancestor_has_with
     }
 
     fn add_upvalue(

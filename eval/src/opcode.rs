@@ -125,6 +125,5 @@ pub enum OpCode {
     DataLocalIdx(StackIdx),
     DataDeferredLocal(StackIdx),
     DataUpvalueIdx(UpvalueIdx),
-    DataDynamicIdx(ConstantIdx),
-    DataDynamicAncestor(UpvalueIdx),
+    DataCaptureWith,
 }

@@ -15,8 +15,6 @@ use std::{
     ops::Index,
 };
 
-use smol_str::SmolStr;
-
 use crate::opcode::{StackIdx, UpvalueIdx};
 
 #[derive(Debug)]
@@ -102,17 +100,6 @@ pub enum UpvalueKind {
 
     /// This upvalue captures an enclosing upvalue.
     Upvalue(UpvalueIdx),
-
-    /// This upvalue captures a dynamically resolved value (i.e.
-    /// `with`).
-    ///
-    /// It stores the identifier with which to perform a dynamic
-    /// lookup, as well as the optional upvalue index in the enclosing
-    /// function (if any).
-    Dynamic {
-        name: SmolStr,
-        up: Option<UpvalueIdx>,
-    },
 }
 
 #[derive(Clone, Debug)]

@@ -7,7 +7,7 @@ use crate::{
     chunk::Chunk,
     errors::{Error, ErrorKind, EvalResult},
     observer::Observer,
-    opcode::{CodeIdx, ConstantIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
+    opcode::{CodeIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
     upvalues::{UpvalueCarrier, Upvalues},
     value::{Builtin, Closure, Lambda, NixAttrs, NixList, Thunk, Value},
 };
@@ -137,10 +137,6 @@ impl<'o> VM<'o> {
         let op = self.chunk().code[self.frame().ip];
         self.frame_mut().ip += 1;
         op
-    }
-
-    fn peek_op(&self) -> OpCode {
-        self.chunk().code[self.frame().ip]
     }
 
     fn pop(&mut self) -> Value {
@@ -478,11 +474,6 @@ impl<'o> VM<'o> {
 
                 OpCode::OpGetUpvalue(upv_idx) => {
                     let value = self.frame().upvalue(upv_idx).clone();
-                    if let Value::DynamicUpvalueMissing(name) = value {
-                        return Err(self
-                            .error(ErrorKind::UnknownDynamicVariable(name.as_str().to_string())));
-                    }
-
                     self.push(value);
                 }
 
@@ -552,8 +543,7 @@ impl<'o> VM<'o> {
                 OpCode::DataLocalIdx(_)
                 | OpCode::DataDeferredLocal(_)
                 | OpCode::DataUpvalueIdx(_)
-                | OpCode::DataDynamicIdx(_)
-                | OpCode::DataDynamicAncestor(_) => {
+                | OpCode::DataCaptureWith => {
                     panic!("VM bug: attempted to execute data-carrying operand")
                 }
             }
@@ -602,44 +592,30 @@ impl<'o> VM<'o> {
         Ok(())
     }
 
-    fn resolve_dynamic_upvalue(&mut self, ident_idx: ConstantIdx) -> EvalResult<Value> {
-        let chunk = self.chunk();
-        let ident = fallible!(self, chunk[ident_idx].to_str());
-
-        // Peek at the current instruction (note: IP has already
-        // advanced!) to see if it is actually data indicating a
-        // "fallback upvalue" in case the dynamic could not be
-        // resolved at this level.
-        let up = match self.peek_op() {
-            OpCode::DataDynamicAncestor(idx) => {
-                // advance ip past this data
-                self.inc_ip();
-                Some(idx)
-            }
-            _ => None,
-        };
-
-        match self.resolve_with(ident.as_str()) {
-            Ok(v) => Ok(v),
-
-            Err(Error {
-                kind: ErrorKind::UnknownDynamicVariable(_),
-                ..
-            }) => match up {
-                Some(idx) => Ok(self.frame().upvalue(idx).clone()),
-                None => Ok(Value::DynamicUpvalueMissing(ident)),
-            },
-
-            Err(err) => Err(err),
-        }
-    }
-
     /// Resolve a dynamic identifier through the with-stack at runtime.
     fn resolve_with(&mut self, ident: &str) -> EvalResult<Value> {
         // Iterate over the with_stack manually to avoid borrowing
         // self, which is required for forcing the set.
         for with_stack_idx in (0..self.with_stack.len()).rev() {
             let with = self.stack[self.with_stack[with_stack_idx]].clone();
+
+            if let Value::Thunk(thunk) = &with {
+                fallible!(self, thunk.force(self));
+            }
+
+            match fallible!(self, with.to_attrs()).select(ident) {
+                None => continue,
+                Some(val) => return Ok(val.clone()),
+            }
+        }
+
+        // Iterate over the captured with stack if one exists. This is
+        // extra tricky to do without a lot of cloning.
+        for idx in (0..self.frame().upvalues.with_stack_len()).rev() {
+            // This is safe because having an index here guarantees
+            // that the stack is present.
+            let with =
+                unsafe { self.frame().upvalues.with_stack().unwrap_unchecked()[idx].clone() };
 
             if let Value::Thunk(thunk) = &with {
                 fallible!(self, thunk.force(self));
@@ -671,13 +647,26 @@ impl<'o> VM<'o> {
                     upvalues.push(self.frame().upvalue(upv_idx).clone());
                 }
 
-                OpCode::DataDynamicIdx(ident_idx) => {
-                    let value = self.resolve_dynamic_upvalue(ident_idx)?;
-                    upvalues.push(value);
-                }
-
                 OpCode::DataDeferredLocal(idx) => {
                     upvalues.push(Value::DeferredUpvalue(idx));
+                }
+
+                OpCode::DataCaptureWith => {
+                    // Start the captured with_stack off of the
+                    // current call frame's captured with_stack, ...
+                    let mut captured_with_stack = self
+                        .frame()
+                        .upvalues
+                        .with_stack()
+                        .map(Clone::clone)
+                        // ... or make an empty one if there isn't one already.
+                        .unwrap_or_else(|| Vec::with_capacity(self.with_stack.len()));
+
+                    for idx in &self.with_stack {
+                        captured_with_stack.push(self.stack[*idx].clone());
+                    }
+
+                    upvalues.set_with_stack(captured_with_stack);
                 }
 
                 _ => panic!("compiler error: missing closure operand"),
