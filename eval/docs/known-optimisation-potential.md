@@ -50,12 +50,6 @@ optimisations, but note the most important ones here.
   can directly use the `value::function::Lambda` representation where
   possible.
 
-* Tail-call optimisation [hard]
-
-  We can statically detect the conditions for tail-call optimisation.
-  The compiler should do this, and it should then emit a new operation
-  for doing the tail-calls.
-
 * Optimise inner builtin access [medium]
 
   When accessing identifiers like `builtins.foo`, the compiler should
@@ -81,3 +75,12 @@ optimisations, but note the most important ones here.
   For details consult the commit with Gerrit change ID
   `I96828ab6a628136e0bac1bf03555faa4e6b74ece`, in which the initial
   attempt at doing this was reverted.
+
+* Avoid thunks if only identifier closing is required [medium]
+
+  Some constructs, like `with`, mostly do not change runtime behaviour
+  if thunked. However, they are wrapped in thunks to ensure that
+  deferred identifiers are resolved correctly.
+
+  This can be avoided, as we statically analyse the scope and should
+  be able to tell whether any such logic was required.
