@@ -80,6 +80,11 @@ pub enum ErrorKind {
     /// An error occurred when parsing an integer
     ParseIntError(ParseIntError),
 
+    /// A negative integer was used as a value representing length.
+    NegativeLength {
+        length: i64,
+    },
+
     /// Tvix internal warning for features triggered by users that are
     /// not actually implemented yet, and without which eval can not
     /// proceed.
@@ -213,6 +218,13 @@ to a missing value in the attribute set(s) included via `with`."#,
                 format!("invalid integer: {}", err)
             }
 
+            ErrorKind::NegativeLength { length } => {
+                format!(
+                    "cannot use a negative integer, {}, for a value representing length",
+                    length
+                )
+            }
+
             ErrorKind::NotImplemented(feature) => {
                 format!("feature not yet implemented in Tvix: {}", feature)
             }
@@ -244,6 +256,7 @@ to a missing value in the attribute set(s) included via `with`."#,
             ErrorKind::IndexOutOfBounds { .. } => "E019",
             ErrorKind::NotAnAbsolutePath(_) => "E020",
             ErrorKind::ParseIntError(_) => "E021",
+            ErrorKind::NegativeLength { .. } => "E022",
             ErrorKind::NotImplemented(_) => "E999",
         }
     }

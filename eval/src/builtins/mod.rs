@@ -4,6 +4,7 @@
 //! available builtins in Nix.
 
 use std::{
+    cmp,
     collections::{BTreeMap, HashMap},
     path::PathBuf,
     rc::Rc,
@@ -191,6 +192,34 @@ fn pure_builtins() -> Vec<Builtin> {
             let b = args.pop().unwrap();
             let a = args.pop().unwrap();
             arithmetic_op!(a, b, -)
+        }),
+        Builtin::new("substring", 3, |args, vm| {
+            let beg = args[0].force(vm)?.as_int()?;
+            let len = args[1].force(vm)?.as_int()?;
+            let x = args[2].force(vm)?.to_str()?;
+
+            if beg < 0 {
+                return Err(ErrorKind::IndexOutOfBounds { index: beg });
+            }
+            let beg = beg as usize;
+
+            // Nix doesn't assert that the length argument is
+            // non-negative when the starting index is GTE the
+            // string's length.
+            if beg >= x.as_str().len() {
+                return Ok(Value::String("".into()));
+            }
+
+            if len < 0 {
+                return Err(ErrorKind::NegativeLength { length: len });
+            }
+
+            let len = len as usize;
+            let end = cmp::min(beg + len, x.as_str().len());
+
+            Ok(Value::String(
+                x.as_str()[(beg as usize)..(end as usize)].into(),
+            ))
         }),
         Builtin::new("throw", 1, |mut args, _| {
             return Err(ErrorKind::Throw(

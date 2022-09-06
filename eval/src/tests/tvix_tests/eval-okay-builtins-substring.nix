@@ -1,0 +1,18 @@
+[
+  (builtins.substring 0 3 "testing")
+  (builtins.substring 0 300 "testing")
+  (builtins.substring 3 0 "testing")
+  (builtins.substring 1 5 "testing")
+  (builtins.substring 3 5 "testing")
+  (builtins.substring 300 300 "testing")
+  (builtins.substring 301 300 "testing")
+  (builtins.substring 0 0 "")
+  (builtins.substring 0 1 "")
+  (builtins.substring (builtins.add 0 1) 3 "testing")
+  (builtins.substring 1 (builtins.add 3 0) "testing")
+  (builtins.substring (builtins.add 0 1) (builtins.add 3 0) "testing")
+  (builtins.substring (builtins.add 0 1) (builtins.add 3 0) "testing")
+  (builtins.substring (builtins.add 0 1) (builtins.add 3 0) ("test" + "ing"))
+  (builtins.substring (builtins.add 0 1) (builtins.add 3 0) ("test" + "ing"))
+  (builtins.substring 300 (-10) "testing")
+]
