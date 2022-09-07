@@ -745,13 +745,38 @@ impl Compiler<'_, '_> {
         self.patch_jump(else_idx); // patch jump *over* else body
     }
 
-    /// Compile an `inherit` node of a `let`-expression.
-    fn compile_let_inherit<I: Iterator<Item = ast::Inherit>>(
-        &mut self,
-        slot: LocalIdx,
-        inherits: I,
-    ) {
-        for inherit in inherits {
+    /// Compile a standard `let ...; in ...` statement.
+    ///
+    /// Unless in a non-standard scope, the encountered values are
+    /// simply pushed on the stack and their indices noted in the
+    /// entries vector.
+    fn compile_let_in(&mut self, slot: LocalIdx, node: ast::LetIn) {
+        self.begin_scope();
+
+        // First pass to ensure that all identifiers are known;
+        // required for resolving recursion.
+        let mut entries: Vec<(LocalIdx, ast::Expr, Option<ast::Ident>)> = vec![];
+        for entry in node.attrpath_values() {
+            let mut path = match self.normalise_ident_path(entry.attrpath().unwrap().attrs()) {
+                Ok(p) => p,
+                Err(err) => {
+                    self.errors.push(err);
+                    continue;
+                }
+            };
+
+            if path.len() != 1 {
+                todo!("nested bindings in let expressions :(")
+            }
+
+            let idx = self.declare_local(&entry.attrpath().unwrap(), path.pop().unwrap());
+
+            entries.push((idx, entry.value().unwrap(), None));
+        }
+
+        // We also need to do such a pass for all inherits, we can even populate
+        // plain inherits directly, since they can't be (self) recursive.
+        for inherit in node.inherits() {
             match inherit.from() {
                 // Within a `let` binding, inheriting from the outer
                 // scope is a no-op *if* the identifier can be
@@ -783,55 +808,32 @@ impl Compiler<'_, '_> {
 
                 Some(from) => {
                     for ident in inherit.idents() {
-                        self.compile(slot, from.expr().unwrap());
-                        self.emit_force(&from.expr().unwrap());
-
-                        self.emit_literal_ident(&ident);
-                        self.push_op(OpCode::OpAttrsSelect, &ident);
                         let idx = self.declare_local(&ident, ident.ident_token().unwrap().text());
-                        self.scope_mut().mark_initialised(idx);
+                        entries.push((idx, from.expr().unwrap(), Some(ident)))
                     }
                 }
             }
         }
-    }
-
-    /// Compile a standard `let ...; in ...` statement.
-    ///
-    /// Unless in a non-standard scope, the encountered values are
-    /// simply pushed on the stack and their indices noted in the
-    /// entries vector.
-    fn compile_let_in(&mut self, slot: LocalIdx, node: ast::LetIn) {
-        self.begin_scope();
-
-        self.compile_let_inherit(slot, node.inherits());
-
-        // First pass to ensure that all identifiers are known;
-        // required for resolving recursion.
-        let mut entries: Vec<(LocalIdx, ast::Expr)> = vec![];
-        for entry in node.attrpath_values() {
-            let mut path = match self.normalise_ident_path(entry.attrpath().unwrap().attrs()) {
-                Ok(p) => p,
-                Err(err) => {
-                    self.errors.push(err);
-                    continue;
-                }
-            };
-
-            if path.len() != 1 {
-                todo!("nested bindings in let expressions :(")
-            }
-
-            let idx = self.declare_local(&entry.attrpath().unwrap(), path.pop().unwrap());
-
-            entries.push((idx, entry.value().unwrap()));
-        }
 
         // Second pass to place the values in the correct stack slots.
         let mut indices: Vec<LocalIdx> = vec![];
-        for (idx, value) in entries.into_iter() {
+        for (idx, value, path) in entries.into_iter() {
             indices.push(idx);
-            self.compile(idx, value);
+
+            // This entry is an inherit (from) expr, we need to select an attr
+            if let Some(ident) = path {
+                // Create a thunk wrapping value (which may be one as well) to
+                // avoid forcing the from expr too early.
+                self.thunk(idx, &value, move |c, n, s| {
+                    c.compile(s, n.clone());
+                    c.emit_force(n);
+
+                    c.emit_literal_ident(&ident);
+                    c.push_op(OpCode::OpAttrsSelect, &ident);
+                })
+            } else {
+                self.compile(idx, value);
+            }
 
             // Any code after this point will observe the value in the
             // right stack slot, so mark it as initialised.
