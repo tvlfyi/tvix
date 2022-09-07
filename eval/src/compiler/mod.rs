@@ -168,7 +168,9 @@ impl Compiler<'_, '_> {
                 c.compile_select(s, sel.clone())
             }),
 
-            ast::Expr::Assert(assert) => self.compile_assert(slot, assert),
+            ast::Expr::Assert(assert) => {
+                self.thunk(slot, &assert, move |c, a, s| c.compile_assert(s, a.clone()))
+            }
             ast::Expr::IfElse(if_else) => self.compile_if_else(slot, if_else),
             ast::Expr::LetIn(let_in) => self.compile_let_in(slot, let_in),
             ast::Expr::Ident(ident) => self.compile_ident(slot, ident),
