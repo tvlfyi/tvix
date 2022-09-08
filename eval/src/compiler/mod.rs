@@ -755,29 +755,14 @@ impl Compiler<'_, '_> {
     fn compile_let_in(&mut self, slot: LocalIdx, node: ast::LetIn) {
         self.begin_scope();
 
-        // First pass to ensure that all identifiers are known;
-        // required for resolving recursion.
-        let mut entries: Vec<(LocalIdx, ast::Expr, Option<ast::Ident>)> = vec![];
-        for entry in node.attrpath_values() {
-            let mut path = match self.normalise_ident_path(entry.attrpath().unwrap().attrs()) {
-                Ok(p) => p,
-                Err(err) => {
-                    self.errors.push(err);
-                    continue;
-                }
-            };
-
-            if path.len() != 1 {
-                todo!("nested bindings in let expressions :(")
-            }
-
-            let idx = self.declare_local(&entry.attrpath().unwrap(), path.pop().unwrap());
-
-            entries.push((idx, entry.value().unwrap(), None));
-        }
-
-        // We also need to do such a pass for all inherits, we can even populate
-        // plain inherits directly, since they can't be (self) recursive.
+        // First pass to find all plain inherits (if they are not useless).
+        // Since they always resolve to a higher scope, we can just compile and
+        // declare them immediately. This needs to happen *before* we declare
+        // any other locals in the scope or the stack order gets messed up.
+        // While we are looping through the inherits, already note all inherit
+        // (from) expressions, that may very well resolve recursively and need
+        // to be compiled like normal let in bindings.
+        let mut inherit_froms: Vec<(ast::Expr, ast::Ident)> = vec![];
         for inherit in node.inherits() {
             match inherit.from() {
                 // Within a `let` binding, inheriting from the outer
@@ -810,14 +795,43 @@ impl Compiler<'_, '_> {
 
                 Some(from) => {
                     for ident in inherit.idents() {
-                        let idx = self.declare_local(&ident, ident.ident_token().unwrap().text());
-                        entries.push((idx, from.expr().unwrap(), Some(ident)))
+                        inherit_froms.push((from.expr().unwrap(), ident));
                     }
                 }
             }
         }
+        // Second pass to ensure that all remaining identifiers (that may
+        // resolve recursively) are known.
+        // Track locals as an index, the expression of its values and optionally
+        // the ident of an attribute to select from it.
+        let mut entries: Vec<(LocalIdx, ast::Expr, Option<ast::Ident>)> = vec![];
 
-        // Second pass to place the values in the correct stack slots.
+        // Begin with the inherit (from)s since they all become a thunk anyway
+        for (from, ident) in inherit_froms {
+            let idx = self.declare_local(&ident, ident.ident_token().unwrap().text());
+            entries.push((idx, from, Some(ident)))
+        }
+
+        // Declare all regular bindings
+        for entry in node.attrpath_values() {
+            let mut path = match self.normalise_ident_path(entry.attrpath().unwrap().attrs()) {
+                Ok(p) => p,
+                Err(err) => {
+                    self.errors.push(err);
+                    continue;
+                }
+            };
+
+            if path.len() != 1 {
+                todo!("nested bindings in let expressions :(")
+            }
+
+            let idx = self.declare_local(&entry.attrpath().unwrap(), path.pop().unwrap());
+
+            entries.push((idx, entry.value().unwrap(), None));
+        }
+
+        // Third pass to place the values in the correct stack slots.
         let mut indices: Vec<LocalIdx> = vec![];
         for (idx, value, path) in entries.into_iter() {
             indices.push(idx);
@@ -842,7 +856,7 @@ impl Compiler<'_, '_> {
             self.scope_mut().mark_initialised(idx);
         }
 
-        // Third pass to emit finaliser instructions if necessary.
+        // Fourth pass to emit finaliser instructions if necessary.
         for idx in indices {
             if self.scope()[idx].needs_finaliser {
                 let stack_idx = self.scope().stack_index(idx);
