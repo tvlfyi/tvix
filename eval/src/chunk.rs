@@ -60,6 +60,28 @@ impl Chunk {
         CodeIdx(idx)
     }
 
+    /// Pop the last operation from the chunk and clean up its tracked
+    /// span. Used when the compiler backtracks.
+    pub fn pop_op(&mut self) {
+        // Simply drop the last op.
+        self.code.pop();
+
+        // If the last span only had this op, drop it, otherwise
+        // decrease its operation counter.
+        match self.spans.last_mut() {
+            // If the last span had more than one op, decrease the
+            // counter.
+            Some(span) if span.count > 1 => span.count -= 1,
+
+            // Otherwise, drop it.
+            Some(_) => {
+                self.spans.pop();
+            }
+
+            None => unreachable!(),
+        }
+    }
+
     pub fn push_constant(&mut self, data: Value) -> ConstantIdx {
         let idx = self.constants.len();
         self.constants.push(data);
