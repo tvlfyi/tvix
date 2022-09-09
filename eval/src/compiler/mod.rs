@@ -1212,40 +1212,57 @@ impl Compiler<'_, '_> {
         self.errors.push(Error { kind, span })
     }
 
-    /// Convert a non-dynamic string expression to a string if possible,
-    /// or raise an error.
-    fn expr_str_to_string(&self, expr: ast::Str) -> EvalResult<String> {
-        if expr.normalized_parts().len() == 1 {
-            if let ast::InterpolPart::Literal(s) = expr.normalized_parts().pop().unwrap() {
-                return Ok(s);
-            }
+    /// Convert a non-dynamic string expression to a string if possible.
+    fn expr_static_str(&self, node: &ast::Str) -> Option<String> {
+        let mut parts = node.normalized_parts();
+
+        if parts.len() != 1 {
+            return None;
         }
 
-        return Err(Error {
-            kind: ErrorKind::DynamicKeyInLet(expr.syntax().clone()),
-            span: self.span_for(&expr),
-        });
+        if let Some(ast::InterpolPart::Literal(lit)) = parts.pop() {
+            return Some(lit);
+        }
+
+        None
     }
 
-    /// Convert a single identifier path fragment to a string if possible,
-    /// or raise an error about the node being dynamic.
-    fn attr_to_string(&self, node: ast::Attr) -> EvalResult<String> {
+    /// Convert the provided `ast::Attr` into a statically known
+    /// string if possible.
+    fn expr_static_attr_str(&self, node: &ast::Attr) -> Option<String> {
         match node {
-            ast::Attr::Ident(ident) => Ok(ident.ident_token().unwrap().text().into()),
-            ast::Attr::Str(s) => self.expr_str_to_string(s),
+            ast::Attr::Ident(ident) => Some(ident.ident_token().unwrap().text().into()),
+            ast::Attr::Str(s) => self.expr_static_str(&s),
 
             // The dynamic node type is just a wrapper. C++ Nix does not
             // care about the dynamic wrapper when determining whether the
             // node itself is dynamic, it depends solely on the expression
             // inside (i.e. `let ${"a"} = 1; in a` is valid).
             ast::Attr::Dynamic(ref dynamic) => match dynamic.expr().unwrap() {
-                ast::Expr::Str(s) => self.expr_str_to_string(s),
-                _ => Err(Error {
-                    kind: ErrorKind::DynamicKeyInLet(node.syntax().clone()),
-                    span: self.span_for(&node),
-                }),
+                ast::Expr::Str(s) => self.expr_static_str(&s),
+                _ => None,
             },
         }
+    }
+
+    /// Construct the error returned when a dynamic attribute is found
+    /// in a `let`-expression.
+    fn dynamic_key_error<N>(&self, node: &N) -> Error
+    where
+        N: AstNode<Language = rnix::NixLanguage>,
+    {
+        Error {
+            kind: ErrorKind::DynamicKeyInLet(node.syntax().clone()),
+            span: self.span_for(node),
+        }
+    }
+
+    /// Convert a single identifier path fragment of a let binding to
+    /// a string if possible, or raise an error about the node being
+    /// dynamic.
+    fn binding_name(&self, node: ast::Attr) -> EvalResult<String> {
+        self.expr_static_attr_str(&node)
+            .ok_or_else(|| self.dynamic_key_error(&node))
     }
 
     /// Normalises identifier fragments into a single string vector
@@ -1255,7 +1272,7 @@ impl Compiler<'_, '_> {
         &self,
         path: I,
     ) -> EvalResult<Vec<String>> {
-        path.map(|node| self.attr_to_string(node)).collect()
+        path.map(|node| self.binding_name(node)).collect()
     }
 }
 
