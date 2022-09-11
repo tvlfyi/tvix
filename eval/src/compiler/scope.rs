@@ -310,6 +310,8 @@ impl Scope {
             }
         }
 
+        self.scope_depth -= 1;
+
         (pops, unused_spans)
     }
 }

@@ -1067,8 +1067,6 @@ impl Compiler<'_, '_> {
         if popcount > 0 {
             self.push_op(OpCode::OpCloseScope(Count(popcount)), node);
         }
-
-        self.scope_mut().scope_depth -= 1;
     }
 
     /// Open a new lambda context within which to compile a function,
