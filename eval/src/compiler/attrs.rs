@@ -33,7 +33,7 @@ impl Compiler<'_, '_> {
             let span = self.span_for(&node);
             self.emit_warning(
                 span,
-                WarningKind::NotImplemented("recursive attribute sets are not yet implemented"),
+                WarningKind::NotImplemented("recursive attribute sets"),
             );
         }
 

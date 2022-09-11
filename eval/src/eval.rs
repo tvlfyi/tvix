@@ -13,7 +13,7 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         location
             .as_ref()
             .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_else(|| "<repl>".into()),
+            .unwrap_or_else(|| "[tvix-repl]".into()),
         code.into(),
     );
     let codemap = Rc::new(codemap);
@@ -47,7 +47,7 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
             location,
             &file,
             global_builtins(),
-            &mut DisassemblingObserver::new(codemap, std::io::stderr()),
+            &mut DisassemblingObserver::new(codemap.clone(), std::io::stderr()),
         )
     } else {
         crate::compiler::compile(
@@ -60,12 +60,7 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
     }?;
 
     for warning in result.warnings {
-        eprintln!(
-            "warning: {:?} at `{}`[line {}]",
-            warning.kind,
-            file.source_slice(warning.span),
-            file.find_line(warning.span.low()) + 1
-        )
+        warning.fancy_format_stderr(&codemap);
     }
 
     for error in &result.errors {
