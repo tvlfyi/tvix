@@ -1257,6 +1257,7 @@ impl Compiler<'_, '_> {
 
     /// Convert the provided `ast::Attr` into a statically known
     /// string if possible.
+    // TODO(tazjin): these should probably be SmolStr
     fn expr_static_attr_str(&self, node: &ast::Attr) -> Option<String> {
         match node {
             ast::Attr::Ident(ident) => Some(ident.ident_token().unwrap().text().into()),
