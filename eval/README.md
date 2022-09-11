@@ -18,6 +18,29 @@ We expect this to have caught up in a handful of weeks (as of
 Please contact [TVL](https://tvl.fyi) with any questions you might
 have.
 
+## Building the evaluator
+
+If you are in a full checkout of the TVL depot, you can simply run `mg
+build` in this directory (or `mg build //tvix/eval` from anywhere in
+the repo).
+
+**Important note:** We only use and test Nix builds of our software
+against Nix 2.3. There are a variety of bugs and subtle problems in
+newer Nix versions which we do not have the bandwidth to address,
+builds in newer Nix versions may or may not work.
+
+The evaluator can also be built with standard Rust tooling (i.e.
+`cargo build`).
+
+If you would like to clone **only** the evaluator and build it
+directly with Rust tooling, you can do:
+
+```bash
+git clone https://code.tvl.fyi/depot.git:/tvix/eval.git tvix-eval
+
+cd tvix-eval && cargo build
+```
+
 ## Nix test suite
 
 C++ Nix implements a language test suite in the form of Nix source
