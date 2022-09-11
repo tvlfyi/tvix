@@ -716,7 +716,6 @@ impl Compiler<'_, '_> {
 
                 // Otherwise, this variable is missing.
                 self.emit_error(self.span_for(&node), ErrorKind::UnknownStaticVariable);
-                return;
             }
 
             LocalPosition::Known(idx) => {
@@ -1245,7 +1244,7 @@ impl Compiler<'_, '_> {
     fn expr_static_attr_str(&self, node: &ast::Attr) -> Option<String> {
         match node {
             ast::Attr::Ident(ident) => Some(ident.ident_token().unwrap().text().into()),
-            ast::Attr::Str(s) => self.expr_static_str(&s),
+            ast::Attr::Str(s) => self.expr_static_str(s),
 
             // The dynamic node type is just a wrapper. C++ Nix does not
             // care about the dynamic wrapper when determining whether the
