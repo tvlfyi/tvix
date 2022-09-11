@@ -2,18 +2,15 @@ Tvix Evaluator
 ==============
 
 This project implements an interpreter for the Nix programming
-language.
+language. You can experiment with an online version of the evaluator:
+[tvixbolt][].
 
 The interpreter aims to be compatible with `nixpkgs`, on the
 foundation of Nix 2.3.
 
-<!-- TODO(tazjin): Remove this note when appropriate -->
-Work on this project is *extremely in-progress*, and the state of the
-project in the public repository may not necessarily reflect the state
-of the private codebase, as we are slowly working on publishing it.
-
-We expect this to have caught up in a handful of weeks (as of
-2022-08-12).
+**Important note:** The evaluator is not yet feature-complete, and
+while the core mechanisms (compiler, runtime, ...) have stabilised
+somewhat, a lot of components are still changing rapidly.
 
 Please contact [TVL](https://tvl.fyi) with any questions you might
 have.
@@ -65,3 +62,4 @@ parser is now maintained by Nix community members.
 
 [rnix-parser]: https://github.com/nix-community/rnix-parser
 [rip]: https://www.redox-os.org/news/open-source-mental-health/
+[tvixbolt]: https://tazj.in/blobs/tvixbolt/
