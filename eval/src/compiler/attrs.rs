@@ -95,7 +95,7 @@ impl Compiler<'_, '_> {
             // is constructed at runtime.
             let value_span = self.span_for(&kv.value().unwrap());
             let value_slot = self.scope_mut().declare_phantom(value_span, false);
-            self.compile(slot, kv.value().unwrap());
+            self.compile(value_slot, kv.value().unwrap());
             self.scope_mut().mark_initialised(value_slot);
         }
 
