@@ -9,7 +9,7 @@ pub enum WarningKind {
     ShadowedGlobal(&'static str),
 
     /// Tvix internal warning for features triggered by users that are
-    /// not actually implemented yet.
+    /// not actually implemented yet, but do not cause runtime failures.
     NotImplemented(&'static str),
 }
 

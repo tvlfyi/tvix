@@ -58,6 +58,11 @@ pub enum ErrorKind {
     /// An error occured while forcing a thunk, and needs to be
     /// chained up.
     ThunkForce(Box<Error>),
+
+    /// Tvix internal warning for features triggered by users that are
+    /// not actually implemented yet, and without which eval can not
+    /// proceed.
+    NotImplemented(&'static str),
 }
 
 #[derive(Clone, Debug)]

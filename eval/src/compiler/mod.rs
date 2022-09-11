@@ -187,7 +187,10 @@ impl Compiler<'_, '_> {
             // their value on the stack.
             ast::Expr::Paren(paren) => self.compile(slot, paren.expr().unwrap()),
 
-            ast::Expr::LegacyLet(_) => todo!("legacy let"),
+            ast::Expr::LegacyLet(_) => {
+                let span = self.span_for(&expr);
+                self.emit_error(span, ErrorKind::NotImplemented("legacy let syntax"));
+            }
 
             ast::Expr::Root(_) => unreachable!("there cannot be more than one root"),
             ast::Expr::Error(_) => unreachable!("compile is only called on validated trees"),
@@ -238,7 +241,14 @@ impl Compiler<'_, '_> {
             buf
         } else {
             // TODO: decide what to do with findFile
-            todo!("other path types (e.g. <...> lookups) not yet implemented")
+            let span = self.span_for(&node);
+            self.emit_error(
+                span,
+                ErrorKind::NotImplemented(
+                    "other path types (e.g. <...> lookups) not yet implemented",
+                ),
+            );
+            return;
         };
 
         // TODO: Use https://github.com/rust-lang/rfcs/issues/2208
@@ -622,7 +632,12 @@ impl Compiler<'_, '_> {
             };
 
             if path.len() != 1 {
-                todo!("nested bindings in let expressions :(")
+                let span = self.span_for(&entry);
+                self.emit_error(
+                    span,
+                    ErrorKind::NotImplemented("nested bindings in let expressions :("),
+                );
+                continue;
             }
 
             let idx = self.declare_local(&entry.attrpath().unwrap(), path.pop().unwrap());

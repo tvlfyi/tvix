@@ -30,7 +30,11 @@ impl Compiler<'_, '_> {
     /// 3. Attribute sets can (optionally) be recursive.
     pub(super) fn compile_attr_set(&mut self, slot: LocalIdx, node: ast::AttrSet) {
         if node.rec_token().is_some() {
-            todo!("recursive attribute sets are not yet implemented")
+            let span = self.span_for(&node);
+            self.emit_warning(
+                span,
+                WarningKind::NotImplemented("recursive attribute sets are not yet implemented"),
+            );
         }
 
         // Open a scope to track the positions of the temporaries used
