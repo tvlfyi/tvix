@@ -258,6 +258,7 @@ impl Compiler<'_, '_> {
     }
 
     fn compile_str(&mut self, slot: LocalIdx, node: ast::Str) {
+        // TODO: thunk string construction if it is not a literal
         let mut count = 0;
 
         // The string parts are produced in literal order, however
@@ -271,7 +272,10 @@ impl Compiler<'_, '_> {
                 // Interpolated expressions are compiled as normal and
                 // dealt with by the VM before being assembled into
                 // the final string.
-                ast::InterpolPart::Interpolation(node) => self.compile(slot, node.expr().unwrap()),
+                ast::InterpolPart::Interpolation(node) => {
+                    self.compile(slot, node.expr().unwrap());
+                    self.emit_force(&node);
+                }
 
                 ast::InterpolPart::Literal(lit) => {
                     self.emit_constant(Value::String(lit.into()), &node);
