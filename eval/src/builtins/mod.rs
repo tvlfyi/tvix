@@ -125,8 +125,10 @@ fn pure_builtins() -> Vec<Builtin> {
                 Ok(Value::String(format!("{}", value).into()))
             })
         }),
-        Builtin::new("typeOf", 1, |args, _| {
-            Ok(Value::String(args[0].type_of().into()))
+        Builtin::new("typeOf", 1, |args, vm| {
+            force!(vm, &args[0], value, {
+                Ok(Value::String(value.type_of().into()))
+            })
         }),
     ]
 }
