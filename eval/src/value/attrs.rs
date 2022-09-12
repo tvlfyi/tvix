@@ -286,11 +286,7 @@ impl NixAttrs {
                     continue;
                 }
 
-                other => {
-                    return Err(ErrorKind::InvalidAttributeName {
-                        given: other.type_of(),
-                    })
-                }
+                other => return Err(ErrorKind::InvalidAttributeName(other)),
             }
         }
 

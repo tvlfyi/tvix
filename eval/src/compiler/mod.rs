@@ -1114,19 +1114,15 @@ impl Compiler<'_, '_> {
             self.scope_mut().poison(global_ident, depth);
         }
 
-        let mut shadowed = false;
         for other in self.scope().locals.iter().rev() {
             if other.has_name(&name) && other.depth == depth {
-                shadowed = true;
+                self.emit_error(
+                    self.span_for(node),
+                    ErrorKind::VariableAlreadyDefined(other.span),
+                );
+
                 break;
             }
-        }
-
-        if shadowed {
-            self.emit_error(
-                self.span_for(node),
-                ErrorKind::VariableAlreadyDefined(name.clone()),
-            );
         }
 
         let span = self.span_for(node);
@@ -1264,7 +1260,7 @@ impl Compiler<'_, '_> {
         N: AstNode<Language = rnix::NixLanguage>,
     {
         Error {
-            kind: ErrorKind::DynamicKeyInLet(node.syntax().clone()),
+            kind: ErrorKind::DynamicKeyInLet,
             span: self.span_for(node),
         }
     }
