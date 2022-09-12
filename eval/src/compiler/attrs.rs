@@ -113,12 +113,14 @@ impl Compiler<'_, '_> {
     pub(super) fn compile_has_attr(&mut self, slot: LocalIdx, node: ast::HasAttr) {
         // Put the attribute set on the stack.
         self.compile(slot, node.expr().unwrap());
+        self.emit_force(&node);
 
         // Push all path fragments with an operation for fetching the
         // next nested element, for all fragments except the last one.
         for (count, fragment) in node.attrpath().unwrap().attrs().enumerate() {
             if count > 0 {
                 self.push_op(OpCode::OpAttrsTrySelect, &fragment);
+                self.emit_force(&fragment);
             }
 
             self.compile_attr(slot, fragment);
