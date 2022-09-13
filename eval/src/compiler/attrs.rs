@@ -147,8 +147,8 @@ impl Compiler<'_, '_> {
         // TODO: multi-select instruction to avoid re-pushing attrs on
         // nested selects.
         for fragment in path.attrs() {
-            self.compile_attr(slot, fragment);
-            self.push_op(OpCode::OpAttrsSelect, &node);
+            self.compile_attr(slot, fragment.clone());
+            self.push_op(OpCode::OpAttrsSelect, &fragment);
         }
     }
 
