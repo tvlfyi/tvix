@@ -1,6 +1,8 @@
 //! This module implements the instruction set running on the abstract
 //! machine implemented by tvix.
 
+use std::ops::{AddAssign, Sub};
+
 /// Index of a constant in the current code chunk.
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug)]
@@ -10,6 +12,20 @@ pub struct ConstantIdx(pub usize);
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug)]
 pub struct CodeIdx(pub usize);
+
+impl AddAssign<usize> for CodeIdx {
+    fn add_assign(&mut self, rhs: usize) {
+        *self = CodeIdx(self.0 + rhs)
+    }
+}
+
+impl Sub<usize> for CodeIdx {
+    type Output = Self;
+
+    fn sub(self, rhs: usize) -> Self::Output {
+        CodeIdx(self.0 - rhs)
+    }
+}
 
 /// Index of a value in the runtime stack.
 #[repr(transparent)]

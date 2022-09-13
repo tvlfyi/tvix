@@ -13,9 +13,18 @@ use crate::{
 };
 
 struct CallFrame {
+    /// The lambda currently being executed.
     lambda: Rc<Lambda>,
+
+    /// Optional captured upvalues of this frame (if a thunk or
+    /// closure if being evaluated).
     upvalues: Upvalues,
-    ip: usize,
+
+    /// Instruction pointer to the instruction currently being
+    /// executed.
+    ip: CodeIdx,
+
+    /// Stack offset, i.e. the frames "view" into the VM's full stack.
     stack_offset: usize,
 }
 
@@ -134,7 +143,7 @@ impl<'o> VM<'o> {
     }
 
     fn inc_ip(&mut self) -> OpCode {
-        let op = self.chunk().code[self.frame().ip];
+        let op = self.chunk()[self.frame().ip];
         self.frame_mut().ip += 1;
         op
     }
@@ -154,7 +163,7 @@ impl<'o> VM<'o> {
     /// Returns the source span of the instruction currently being
     /// executed.
     fn current_span(&self) -> codemap::Span {
-        self.chunk().get_span(CodeIdx(self.frame().ip - 1))
+        self.chunk().get_span(self.frame().ip - 1)
     }
 
     /// Construct an error from the given ErrorKind and the source
@@ -181,7 +190,7 @@ impl<'o> VM<'o> {
         let frame = CallFrame {
             lambda,
             upvalues,
-            ip: 0,
+            ip: CodeIdx(0),
             stack_offset: self.stack.len() - arg_count,
         };
 
@@ -200,7 +209,7 @@ impl<'o> VM<'o> {
             // Break the loop if this call frame has already run to
             // completion, pop it off, and return the value to the
             // caller.
-            if self.frame().ip == self.chunk().code.len() {
+            if self.frame().ip.0 == self.chunk().code.len() {
                 self.frames.pop();
                 return Ok(self.pop());
             }
@@ -465,7 +474,7 @@ impl<'o> VM<'o> {
                             let mut frame = self.frame_mut();
                             frame.lambda = lambda;
                             frame.upvalues = closure.upvalues().clone();
-                            frame.ip = 0; // reset instruction pointer to beginning
+                            frame.ip = CodeIdx(0); // reset instruction pointer to beginning
                         }
 
                         _ => return Err(self.error(ErrorKind::NotCallable)),

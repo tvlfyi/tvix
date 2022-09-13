@@ -53,7 +53,7 @@ pub trait Observer {
 
     /// Called when the runtime *begins* executing an instruction. The
     /// provided stack is the state at the beginning of the operation.
-    fn observe_execute_op(&mut self, _ip: usize, _: &OpCode, _: &[Value]) {}
+    fn observe_execute_op(&mut self, _ip: CodeIdx, _: &OpCode, _: &[Value]) {}
 }
 
 #[derive(Default)]
@@ -162,8 +162,8 @@ impl<W: Write> Observer for TracingObserver<W> {
         );
     }
 
-    fn observe_execute_op(&mut self, ip: usize, op: &OpCode, stack: &[Value]) {
-        let _ = write!(&mut self.writer, "{:04} {:?}\t[ ", ip, op);
+    fn observe_execute_op(&mut self, ip: CodeIdx, op: &OpCode, stack: &[Value]) {
+        let _ = write!(&mut self.writer, "{:04} {:?}\t[ ", ip.0, op);
 
         for val in stack {
             let _ = write!(&mut self.writer, "{} ", val);
