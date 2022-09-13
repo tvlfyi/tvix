@@ -55,11 +55,11 @@ impl EvalWarning {
     fn message(&self, codemap: &CodeMap) -> String {
         match self.kind {
             WarningKind::DeprecatedLiteralURL => {
-                format!("URL literal syntax is deprecated, use a quoted string instead")
+                "URL literal syntax is deprecated, use a quoted string instead".to_string()
             }
 
             WarningKind::UselessInherit => {
-                format!("inherited variable already exists with the same value")
+                "inherited variable already exists with the same value".to_string()
             }
 
             WarningKind::UnusedBinding => {

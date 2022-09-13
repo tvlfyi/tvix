@@ -34,9 +34,9 @@ fn test_kv_attrs() {
     let kv_attrs = NixAttrs::construct(
         2,
         vec![
-            value_val.clone(),
+            value_val,
             forty_two_val.clone(),
-            name_val.clone(),
+            name_val,
             meaning_val.clone(),
         ],
     )
@@ -69,9 +69,9 @@ fn test_kv_attrs_iter() {
     let kv_attrs = NixAttrs::construct(
         2,
         vec![
-            value_val.clone(),
+            value_val,
             forty_two_val.clone(),
-            name_val.clone(),
+            name_val,
             meaning_val.clone(),
         ],
     )
