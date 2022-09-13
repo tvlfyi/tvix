@@ -165,7 +165,6 @@ impl Scope {
     pub fn inherit(&self) -> Self {
         Self {
             poisoned_tokens: self.poisoned_tokens.clone(),
-            scope_depth: self.scope_depth,
             ..Default::default()
         }
     }
