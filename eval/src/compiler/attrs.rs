@@ -39,7 +39,7 @@ impl Compiler<'_, '_> {
 
         // Open a scope to track the positions of the temporaries used
         // by the `OpAttrs` instruction.
-        self.begin_scope();
+        self.scope_mut().begin_scope();
 
         let mut count = self.compile_inherit_attrs(slot, node.inherits());
 
@@ -69,7 +69,7 @@ impl Compiler<'_, '_> {
                 let fragment_slot = match key_count {
                     0 => key_idx,
                     1 => {
-                        self.begin_scope();
+                        self.scope_mut().begin_scope();
                         self.scope_mut().declare_phantom(key_span, false)
                     }
                     _ => self.scope_mut().declare_phantom(key_span, false),

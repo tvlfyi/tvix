@@ -123,7 +123,7 @@ pub struct Scope {
     pub upvalues: Vec<Upvalue>,
 
     /// How many scopes "deep" are these locals?
-    pub scope_depth: usize,
+    scope_depth: usize,
 
     /// Current size of the `with`-stack at runtime.
     with_stack_size: usize,
@@ -272,6 +272,12 @@ impl Scope {
         StackIdx(idx.0 - uninitialised_count)
     }
 
+    /// Increase the current scope depth (e.g. within a new bindings
+    /// block, or `with`-scope).
+    pub fn begin_scope(&mut self) {
+        self.scope_depth += 1;
+    }
+
     /// Decrease the scope depth and remove all locals still tracked
     /// for the current scope.
     ///
@@ -313,5 +319,10 @@ impl Scope {
         self.scope_depth -= 1;
 
         (pops, unused_spans)
+    }
+
+    /// Access the current scope depth.
+    pub fn scope_depth(&self) -> usize {
+        self.scope_depth
     }
 }

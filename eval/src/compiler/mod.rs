@@ -427,7 +427,7 @@ impl Compiler<'_, '_> {
 
         // Open a temporary scope to correctly account for stack items
         // that exist during the construction.
-        self.begin_scope();
+        self.scope_mut().begin_scope();
 
         for item in node.items() {
             // Start tracing new stack slots from the second list
@@ -562,7 +562,7 @@ impl Compiler<'_, '_> {
     /// simply pushed on the stack and their indices noted in the
     /// entries vector.
     fn compile_let_in(&mut self, slot: LocalIdx, node: ast::LetIn) {
-        self.begin_scope();
+        self.scope_mut().begin_scope();
 
         // First pass to find all plain inherits (if they are not useless).
         // Since they always resolve to a higher scope, we can just compile and
@@ -741,7 +741,7 @@ impl Compiler<'_, '_> {
     /// pop/remove the indices of attribute sets that are implicitly
     /// in scope through `with` on the "with-stack".
     fn compile_with(&mut self, slot: LocalIdx, node: ast::With) {
-        self.begin_scope();
+        self.scope_mut().begin_scope();
         // TODO: Detect if the namespace is just an identifier, and
         // resolve that directly (thus avoiding duplication on the
         // stack).
@@ -867,7 +867,7 @@ impl Compiler<'_, '_> {
         self.new_context();
         let span = self.span_for(&node);
         let slot = self.scope_mut().declare_phantom(span, false);
-        self.begin_scope();
+        self.scope_mut().begin_scope();
 
         // Compile the function itself
         match node.param().unwrap() {
@@ -952,7 +952,7 @@ impl Compiler<'_, '_> {
         self.new_context();
         let span = self.span_for(node);
         let slot = self.scope_mut().declare_phantom(span, false);
-        self.begin_scope();
+        self.scope_mut().begin_scope();
         content(self, node, slot);
         self.cleanup_scope(node);
 
@@ -1060,12 +1060,6 @@ impl Compiler<'_, '_> {
         }
     }
 
-    /// Increase the scope depth of the current function (e.g. within
-    /// a new bindings block, or `with`-scope).
-    fn begin_scope(&mut self) {
-        self.scope_mut().scope_depth += 1;
-    }
-
     /// Decrease scope depth of the current function and emit
     /// instructions to clean up the stack at runtime.
     fn cleanup_scope<N: AstNode>(&mut self, node: &N) {
@@ -1097,7 +1091,7 @@ impl Compiler<'_, '_> {
     /// determine the stack offset of variables.
     fn declare_local<S: Into<String>, N: AstNode>(&mut self, node: &N, name: S) -> LocalIdx {
         let name = name.into();
-        let depth = self.scope().scope_depth;
+        let depth = self.scope().scope_depth();
 
         // Do this little dance to get ahold of the *static* key and
         // use it for poisoning if required.
