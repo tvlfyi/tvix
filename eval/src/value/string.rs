@@ -2,7 +2,7 @@
 //! backing implementations.
 use smol_str::SmolStr;
 use std::hash::Hash;
-use std::{borrow::Cow, fmt::Display};
+use std::{borrow::Cow, fmt::Display, str::Chars};
 
 #[derive(Clone, Debug)]
 enum StringRepr {
@@ -96,6 +96,13 @@ impl NixString {
         let mut s = self.as_str().to_owned();
         s.push_str(other.as_str());
         NixString(StringRepr::Heap(s))
+    }
+
+    pub fn chars(&self) -> Chars<'_> {
+        match &self.0 {
+            StringRepr::Heap(h) => h.chars(),
+            StringRepr::Smol(s) => s.chars(),
+        }
     }
 }
 

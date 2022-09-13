@@ -1,5 +1,6 @@
 use crate::value::CoercionKind;
 use std::fmt::Display;
+use std::path::PathBuf;
 
 use codemap::{CodeMap, Span};
 use codemap_diagnostic::{Diagnostic, Emitter, Level, SpanLabel, SpanStyle};
@@ -72,6 +73,9 @@ pub enum ErrorKind {
         from: &'static str,
         kind: CoercionKind,
     },
+
+    /// The given string doesn't represent an absolute path
+    NotAnAbsolutePath(PathBuf),
 
     /// Tvix internal warning for features triggered by users that are
     /// not actually implemented yet, and without which eval can not
@@ -189,6 +193,13 @@ to a missing value in the attribute set(s) included via `with`."#,
                 format!("cannot ({kindly}) coerce {from} to a string{hint}")
             }
 
+            ErrorKind::NotAnAbsolutePath(given) => {
+                format!(
+                    "string {} doesn't represent an absolute path",
+                    given.to_string_lossy()
+                )
+            }
+
             ErrorKind::NotImplemented(feature) => {
                 format!("feature not yet implemented in Tvix: {}", feature)
             }
@@ -218,6 +229,7 @@ to a missing value in the attribute set(s) included via `with`."#,
             ErrorKind::ThunkForce(_) => "E017",
             ErrorKind::NotCoercibleToString { .. } => "E018",
             ErrorKind::IndexOutOfBounds { .. } => "E019",
+            ErrorKind::NotAnAbsolutePath(_) => "E020",
             ErrorKind::NotImplemented(_) => "E999",
         }
     }

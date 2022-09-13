@@ -101,6 +101,8 @@ impl Value {
         kind: CoercionKind,
         vm: &mut VM,
     ) -> Result<NixString, ErrorKind> {
+        // TODO: eventually, this will need to handle string context and importing
+        // files into the Nix store depending on what context the coercion happens in
         if let Value::Thunk(t) = self {
             t.force(vm)?;
         }
