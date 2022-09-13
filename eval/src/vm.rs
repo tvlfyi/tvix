@@ -715,7 +715,14 @@ impl<'o> VM<'o> {
                 panic!("tvix bug: internal value left on stack: {:?}", value)
             }
 
-            _ => Ok(()),
+            Value::Null
+            | Value::Bool(_)
+            | Value::Integer(_)
+            | Value::Float(_)
+            | Value::String(_)
+            | Value::Path(_)
+            | Value::Closure(_)
+            | Value::Builtin(_) => Ok(()),
         }
     }
 
