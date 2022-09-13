@@ -169,6 +169,7 @@ impl PartialEq for Value {
             // compared instead. The compiler should ensure that
             // thunks under comparison have been forced, otherwise it
             // is a bug.
+            (Value::Thunk(lhs), Value::Thunk(rhs)) => &*lhs.value() == &*rhs.value(),
             (Value::Thunk(lhs), rhs) => &*lhs.value() == rhs,
             (lhs, Value::Thunk(rhs)) => lhs == &*rhs.value(),
 
