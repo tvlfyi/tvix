@@ -10,7 +10,7 @@ use std::{
 
 use crate::{
     errors::ErrorKind,
-    value::{Builtin, NixAttrs, NixList, NixString, Value},
+    value::{Builtin, CoercionKind, NixAttrs, NixList, NixString, Value},
 };
 
 use crate::arithmetic_op;
@@ -121,9 +121,9 @@ fn pure_builtins() -> Vec<Builtin> {
             ));
         }),
         Builtin::new("toString", 1, |args, vm| {
-            force!(vm, &args[0], value, {
-                Ok(Value::String(format!("{}", value).into()))
-            })
+            args[0]
+                .coerce_to_string(CoercionKind::Strong, vm)
+                .map(|s| Value::String(s))
         }),
         Builtin::new("typeOf", 1, |args, vm| {
             force!(vm, &args[0], value, {

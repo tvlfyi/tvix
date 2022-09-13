@@ -148,11 +148,11 @@ impl<'o> VM<'o> {
         op
     }
 
-    fn pop(&mut self) -> Value {
+    pub fn pop(&mut self) -> Value {
         self.stack.pop().expect("runtime stack empty")
     }
 
-    fn push(&mut self, value: Value) {
+    pub fn push(&mut self, value: Value) {
         self.stack.push(value)
     }
 
@@ -726,7 +726,7 @@ impl<'o> VM<'o> {
         }
     }
 
-    fn call_builtin(&mut self, builtin: Builtin) -> EvalResult<()> {
+    pub fn call_builtin(&mut self, builtin: Builtin) -> EvalResult<()> {
         let builtin_name = builtin.name();
         self.observer.observe_enter_builtin(builtin_name);
 
