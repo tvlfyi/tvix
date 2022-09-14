@@ -258,33 +258,47 @@ impl Compiler<'_, '_> {
     }
 
     fn compile_str(&mut self, slot: LocalIdx, node: ast::Str) {
-        // TODO: thunk string construction if it is not a literal
-        let mut count = 0;
+        let parts = node.normalized_parts();
+        let count = parts.len();
 
-        // The string parts are produced in literal order, however
-        // they need to be reversed on the stack in order to
-        // efficiently create the real string in case of
-        // interpolation.
-        for part in node.normalized_parts().into_iter().rev() {
-            count += 1;
+        if count != 1 {
+            self.thunk(slot, &node, |c, n, s| {
+                // The string parts are produced in literal order, however
+                // they need to be reversed on the stack in order to
+                // efficiently create the real string in case of
+                // interpolation.
+                for part in parts.into_iter().rev() {
+                    match part {
+                        // Interpolated expressions are compiled as normal and
+                        // dealt with by the VM before being assembled into
+                        // the final string. We need to force them here,
+                        // so OpInterpolate definitely has a string to consume.
+                        // TODO(sterni): coerce to string
+                        ast::InterpolPart::Interpolation(ipol) => {
+                            c.compile(s, ipol.expr().unwrap());
+                            c.emit_force(&ipol);
+                        }
 
-            match part {
-                // Interpolated expressions are compiled as normal and
-                // dealt with by the VM before being assembled into
-                // the final string.
+                        ast::InterpolPart::Literal(lit) => {
+                            c.emit_constant(Value::String(lit.into()), n);
+                        }
+                    }
+                }
+
+                c.push_op(OpCode::OpInterpolate(Count(count)), n);
+            });
+        } else {
+            match &parts[0] {
+                // Since we only have a single part, it is okay if this yields a thunk
+                // TODO(sterni): coerce to string
                 ast::InterpolPart::Interpolation(node) => {
                     self.compile(slot, node.expr().unwrap());
-                    self.emit_force(&node);
                 }
 
                 ast::InterpolPart::Literal(lit) => {
-                    self.emit_constant(Value::String(lit.into()), &node);
+                    self.emit_constant(Value::String(lit.as_str().into()), &node);
                 }
             }
-        }
-
-        if count != 1 {
-            self.push_op(OpCode::OpInterpolate(Count(count)), &node);
         }
     }
 
