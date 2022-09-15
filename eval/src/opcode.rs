@@ -105,6 +105,9 @@ pub enum OpCode {
 
     // Strings
     OpInterpolate(Count),
+    /// Force the Value on the stack and coerce it to a string, always using
+    /// `CoercionKind::Weak`.
+    OpCoerceToString,
 
     // Type assertion operators
     OpAssertBool,

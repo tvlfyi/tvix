@@ -9,7 +9,7 @@ use crate::{
     observer::Observer,
     opcode::{CodeIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
     upvalues::{UpvalueCarrier, Upvalues},
-    value::{Builtin, Closure, Lambda, NixAttrs, NixList, Thunk, Value},
+    value::{Builtin, Closure, CoercionKind, Lambda, NixAttrs, NixList, Thunk, Value},
 };
 
 struct CallFrame {
@@ -343,6 +343,16 @@ impl<'o> VM<'o> {
                 }
 
                 OpCode::OpInterpolate(Count(count)) => self.run_interpolate(count)?,
+
+                OpCode::OpCoerceToString => {
+                    // TODO: handle string context, copying to store
+                    let string = fallible!(
+                        self,
+                        // note that coerce_to_string also forces
+                        self.pop().coerce_to_string(CoercionKind::Weak, self)
+                    );
+                    self.push(Value::String(string));
+                }
 
                 OpCode::OpJump(JumpOffset(offset)) => {
                     debug_assert!(offset != 0);

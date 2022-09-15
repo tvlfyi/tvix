@@ -257,48 +257,58 @@ impl Compiler<'_, '_> {
         self.emit_constant(value, &node);
     }
 
-    fn compile_str(&mut self, slot: LocalIdx, node: ast::Str) {
-        let parts = node.normalized_parts();
+    /// Helper that compiles the given string parts strictly. The caller
+    /// (`compile_str`) needs to figure out if the result of compiling this
+    /// needs to be thunked or not.
+    fn compile_str_parts(
+        &mut self,
+        slot: LocalIdx,
+        parent_node: &ast::Str,
+        parts: Vec<ast::InterpolPart<String>>,
+    ) {
         let count = parts.len();
 
-        if count != 1 {
-            self.thunk(slot, &node, |c, n, s| {
-                // The string parts are produced in literal order, however
-                // they need to be reversed on the stack in order to
-                // efficiently create the real string in case of
-                // interpolation.
-                for part in parts.into_iter().rev() {
-                    match part {
-                        // Interpolated expressions are compiled as normal and
-                        // dealt with by the VM before being assembled into
-                        // the final string. We need to force them here,
-                        // so OpInterpolate definitely has a string to consume.
-                        // TODO(sterni): coerce to string
-                        ast::InterpolPart::Interpolation(ipol) => {
-                            c.compile(s, ipol.expr().unwrap());
-                            c.emit_force(&ipol);
-                        }
-
-                        ast::InterpolPart::Literal(lit) => {
-                            c.emit_constant(Value::String(lit.into()), n);
-                        }
-                    }
-                }
-
-                c.push_op(OpCode::OpInterpolate(Count(count)), n);
-            });
-        } else {
-            match &parts[0] {
-                // Since we only have a single part, it is okay if this yields a thunk
-                // TODO(sterni): coerce to string
-                ast::InterpolPart::Interpolation(node) => {
-                    self.compile(slot, node.expr().unwrap());
+        // The string parts are produced in literal order, however
+        // they need to be reversed on the stack in order to
+        // efficiently create the real string in case of
+        // interpolation.
+        for part in parts.into_iter().rev() {
+            match part {
+                // Interpolated expressions are compiled as normal and
+                // dealt with by the VM before being assembled into
+                // the final string. We need to coerce them here,
+                // so OpInterpolate definitely has a string to consume.
+                ast::InterpolPart::Interpolation(ipol) => {
+                    self.compile(slot, ipol.expr().unwrap());
+                    // implicitly forces as well
+                    self.push_op(OpCode::OpCoerceToString, &ipol);
                 }
 
                 ast::InterpolPart::Literal(lit) => {
-                    self.emit_constant(Value::String(lit.as_str().into()), &node);
+                    self.emit_constant(Value::String(lit.into()), parent_node);
                 }
             }
+        }
+
+        if count != 1 {
+            self.push_op(OpCode::OpInterpolate(Count(count)), parent_node);
+        }
+    }
+
+    fn compile_str(&mut self, slot: LocalIdx, node: ast::Str) {
+        let parts = node.normalized_parts();
+
+        // We need to thunk string expressions if they are the result of
+        // interpolation. A string that only consists of a single part (`"${foo}"`)
+        // can't desugar to the enclosed expression (`foo`) because we need to
+        // coerce the result to a string value. This would require forcing the
+        // value of the inner expression, so we need to wrap it in another thunk.
+        if parts.len() != 1 || matches!(&parts[0], ast::InterpolPart::Interpolation(_)) {
+            self.thunk(slot, &node, move |c, n, s| {
+                c.compile_str_parts(s, n, parts);
+            });
+        } else {
+            self.compile_str_parts(slot, &node, parts);
         }
     }
 
