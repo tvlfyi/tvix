@@ -476,68 +476,6 @@ impl Compiler<'_, '_> {
         self.scope_mut().end_scope();
     }
 
-    /// Compiles inherited values in an attribute set. Inherited
-    /// values are *always* inherited from the outer scope, even if
-    /// there is a matching name within a recursive attribute set.
-    fn compile_inherit_attrs(
-        &mut self,
-        slot: LocalIdx,
-        inherits: AstChildren<ast::Inherit>,
-    ) -> usize {
-        // Count the number of inherited values, so that the outer
-        // constructor can emit the correct number of pairs when
-        // constructing attribute sets.
-        let mut count = 0;
-
-        for inherit in inherits {
-            match inherit.from() {
-                Some(from) => {
-                    for ident in inherit.idents() {
-                        count += 1;
-
-                        // First emit the identifier itself (this
-                        // becomes the new key).
-                        self.emit_literal_ident(&ident);
-                        let ident_span = self.span_for(&ident);
-                        self.scope_mut().declare_phantom(ident_span, true);
-
-                        // Then emit the node that we're inheriting
-                        // from.
-                        //
-                        // TODO: Likely significant optimisation
-                        // potential in having a multi-select
-                        // instruction followed by a merge, rather
-                        // than pushing/popping the same attrs
-                        // potentially a lot of times.
-                        let val_idx = self.scope_mut().declare_phantom(ident_span, false);
-                        self.compile(val_idx, from.expr().unwrap());
-                        self.emit_force(&from.expr().unwrap());
-                        self.emit_literal_ident(&ident);
-                        self.push_op(OpCode::OpAttrsSelect, &ident);
-                        self.scope_mut().mark_initialised(val_idx);
-                    }
-                }
-
-                None => {
-                    for ident in inherit.idents() {
-                        let ident_span = self.span_for(&ident);
-                        count += 1;
-
-                        // Emit the key to use for OpAttrs
-                        self.emit_literal_ident(&ident);
-                        self.scope_mut().declare_phantom(ident_span, true);
-
-                        // Emit the value.
-                        self.compile_ident(slot, ident);
-                        self.scope_mut().declare_phantom(ident_span, true);
-                    }
-                }
-            }
-        }
-
-        count
-    }
-
     fn compile_assert(&mut self, slot: LocalIdx, node: ast::Assert) {
         // Compile the assertion condition to leave its value on the stack.
         self.compile(slot, node.condition().unwrap());
