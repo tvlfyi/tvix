@@ -266,13 +266,11 @@ impl Compiler<'_, '_> {
         parent_node: &ast::Str,
         parts: Vec<ast::InterpolPart<String>>,
     ) {
-        let count = parts.len();
-
         // The string parts are produced in literal order, however
         // they need to be reversed on the stack in order to
         // efficiently create the real string in case of
         // interpolation.
-        for part in parts.into_iter().rev() {
+        for part in parts.iter().rev() {
             match part {
                 // Interpolated expressions are compiled as normal and
                 // dealt with by the VM before being assembled into
@@ -281,17 +279,17 @@ impl Compiler<'_, '_> {
                 ast::InterpolPart::Interpolation(ipol) => {
                     self.compile(slot, ipol.expr().unwrap());
                     // implicitly forces as well
-                    self.push_op(OpCode::OpCoerceToString, &ipol);
+                    self.push_op(OpCode::OpCoerceToString, ipol);
                 }
 
                 ast::InterpolPart::Literal(lit) => {
-                    self.emit_constant(Value::String(lit.into()), parent_node);
+                    self.emit_constant(Value::String(lit.as_str().into()), parent_node);
                 }
             }
         }
 
-        if count != 1 {
-            self.push_op(OpCode::OpInterpolate(Count(count)), parent_node);
+        if parts.len() != 1 {
+            self.push_op(OpCode::OpInterpolate(Count(parts.len())), parent_node);
         }
     }
 
