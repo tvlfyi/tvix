@@ -188,10 +188,7 @@ impl Compiler<'_, '_> {
             // their value on the stack.
             ast::Expr::Paren(paren) => self.compile(slot, paren.expr().unwrap()),
 
-            ast::Expr::LegacyLet(_) => {
-                let span = self.span_for(&expr);
-                self.emit_error(span, ErrorKind::NotImplemented("legacy let syntax"));
-            }
+            ast::Expr::LegacyLet(legacy_let) => self.compile_legacy_let(slot, legacy_let),
 
             ast::Expr::Root(_) => unreachable!("there cannot be more than one root"),
             ast::Expr::Error(_) => unreachable!("compile is only called on validated trees"),
@@ -995,6 +992,17 @@ impl Compiler<'_, '_> {
         self.compile(slot, node.lambda().unwrap());
         self.emit_force(&node.lambda().unwrap());
         self.push_op(OpCode::OpCall, &node);
+    }
+
+    fn compile_legacy_let(&mut self, slot: LocalIdx, node: ast::LegacyLet) {
+        self.scope_mut().begin_scope();
+        self.compile_recursive_scope(slot, true, &node);
+        self.push_op(OpCode::OpAttrs(Count(node.entries().count())), &node);
+        self.emit_constant(Value::String(SmolStr::new_inline("body").into()), &node);
+        self.push_op(OpCode::OpAttrsSelect, &node);
+
+        let warning_span = self.span_for(&node);
+        self.emit_warning(warning_span, WarningKind::DeprecatedLegacyLet);
     }
 
     /// Compile an expression into a runtime thunk which should be

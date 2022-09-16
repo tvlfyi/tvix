@@ -10,6 +10,7 @@ pub enum WarningKind {
     UselessInherit,
     UnusedBinding,
     ShadowedGlobal(&'static str),
+    DeprecatedLegacyLet,
 
     /// Tvix internal warning for features triggered by users that are
     /// not actually implemented yet, but do not cause runtime failures.
@@ -75,6 +76,10 @@ impl EvalWarning {
                 format!("declared variable '{}' shadows a built-in global!", name)
             }
 
+            WarningKind::DeprecatedLegacyLet => {
+                "legacy `let` syntax used, please rewrite this as `let .. in ...`".to_string()
+            }
+
             WarningKind::NotImplemented(what) => {
                 format!("feature not yet implemented in tvix: {}", what)
             }
@@ -89,6 +94,7 @@ impl EvalWarning {
             WarningKind::UselessInherit => "W002",
             WarningKind::UnusedBinding => "W003",
             WarningKind::ShadowedGlobal(_) => "W004",
+            WarningKind::DeprecatedLegacyLet => "W005",
             WarningKind::NotImplemented(_) => "W999",
         }
     }
