@@ -520,12 +520,10 @@ impl Compiler<'_, '_> {
         self.patch_jump(else_idx); // patch jump *over* else body
     }
 
-    /// Compile a standard `let ...; in ...` statement.
-    ///
-    /// Unless in a non-standard scope, the encountered values are
-    /// simply pushed on the stack and their indices noted in the
-    /// entries vector.
-    fn compile_let_in(&mut self, slot: LocalIdx, node: ast::LetIn) {
+    fn compile_recursive_scope<N>(&mut self, slot: LocalIdx, node: &N)
+    where
+        N: AstNode + ast::HasEntry,
+    {
         self.scope_mut().begin_scope();
 
         // First pass to find all plain inherits (if they are not useless).
@@ -638,9 +636,18 @@ impl Compiler<'_, '_> {
         for idx in indices {
             if self.scope()[idx].needs_finaliser {
                 let stack_idx = self.scope().stack_index(idx);
-                self.push_op(OpCode::OpFinalise(stack_idx), &node);
+                self.push_op(OpCode::OpFinalise(stack_idx), node);
             }
         }
+    }
+
+    /// Compile a standard `let ...; in ...` statement.
+    ///
+    /// Unless in a non-standard scope, the encountered values are
+    /// simply pushed on the stack and their indices noted in the
+    /// entries vector.
+    fn compile_let_in(&mut self, slot: LocalIdx, node: ast::LetIn) {
+        self.compile_recursive_scope(slot, &node);
 
         // Deal with the body, then clean up the locals afterwards.
         self.compile(slot, node.body().unwrap());
