@@ -15,10 +15,11 @@
 
 mod attrs;
 mod scope;
+mod spans;
 
 use path_clean::PathClean;
 use rnix::ast::{self, AstToken, HasEntry};
-use rowan::ast::{AstChildren, AstNode};
+use rowan::ast::AstChildren;
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -32,6 +33,7 @@ use crate::value::{Closure, Lambda, Thunk, Value};
 use crate::warnings::{EvalWarning, WarningKind};
 
 use self::scope::{LocalIdx, LocalPosition, Scope, Upvalue, UpvalueKind};
+use self::spans::ToSpan;
 
 /// Represents the result of compiling a piece of Nix code. If
 /// compilation was successful, the resulting bytecode can be passed
@@ -119,24 +121,16 @@ impl Compiler<'_, '_> {
         &mut self.context_mut().scope
     }
 
-    fn span_for<N: AstNode>(&self, node: &N) -> codemap::Span {
-        let rowan_span = node.syntax().text_range();
-        self.file.span.subspan(
-            u32::from(rowan_span.start()) as u64,
-            u32::from(rowan_span.end()) as u64,
-        )
-    }
-
     /// Push a single instruction to the current bytecode chunk and
     /// track the source span from which it was compiled.
-    fn push_op<T: AstNode>(&mut self, data: OpCode, node: &T) -> CodeIdx {
+    fn push_op<T: ToSpan>(&mut self, data: OpCode, node: &T) -> CodeIdx {
         let span = self.span_for(node);
         self.chunk().push_op(data, span)
     }
 
     /// Emit a single constant to the current bytecode chunk and track
     /// the source span from which it was compiled.
-    fn emit_constant<T: AstNode>(&mut self, value: Value, node: &T) {
+    fn emit_constant<T: ToSpan>(&mut self, value: Value, node: &T) {
         let idx = self.chunk().push_constant(value);
         self.push_op(OpCode::OpConstant(idx), node);
     }
@@ -520,7 +514,7 @@ impl Compiler<'_, '_> {
 
     fn compile_recursive_scope<N>(&mut self, slot: LocalIdx, rec_attrs: bool, node: &N)
     where
-        N: AstNode + ast::HasEntry,
+        N: ToSpan + ast::HasEntry,
     {
         self.scope_mut().begin_scope();
 
@@ -1010,7 +1004,7 @@ impl Compiler<'_, '_> {
     // TODO: almost the same as Compiler::compile_lambda; unify?
     fn thunk<N, F>(&mut self, outer_slot: LocalIdx, node: &N, content: F)
     where
-        N: AstNode + Clone,
+        N: ToSpan + Clone,
         F: FnOnce(&mut Compiler, &N, LocalIdx),
     {
         self.new_context();
@@ -1053,7 +1047,7 @@ impl Compiler<'_, '_> {
 
     /// Emit the data instructions that the runtime needs to correctly
     /// assemble the upvalues struct.
-    fn emit_upvalue_data<T: AstNode>(
+    fn emit_upvalue_data<T: ToSpan>(
         &mut self,
         slot: LocalIdx,
         node: &T,
@@ -1126,7 +1120,7 @@ impl Compiler<'_, '_> {
 
     /// Decrease scope depth of the current function and emit
     /// instructions to clean up the stack at runtime.
-    fn cleanup_scope<N: AstNode>(&mut self, node: &N) {
+    fn cleanup_scope<N: ToSpan>(&mut self, node: &N) {
         // When ending a scope, all corresponding locals need to be
         // removed, but the value of the body needs to remain on the
         // stack. This is implemented by a separate instruction.
@@ -1153,7 +1147,7 @@ impl Compiler<'_, '_> {
     /// Declare a local variable known in the scope that is being
     /// compiled by pushing it to the locals. This is used to
     /// determine the stack offset of variables.
-    fn declare_local<S: Into<String>, N: AstNode>(&mut self, node: &N, name: S) -> LocalIdx {
+    fn declare_local<S: Into<String>, N: ToSpan>(&mut self, node: &N, name: S) -> LocalIdx {
         let name = name.into();
         let depth = self.scope().scope_depth();
 
@@ -1266,7 +1260,7 @@ impl Compiler<'_, '_> {
         idx
     }
 
-    fn emit_force<N: AstNode>(&mut self, node: &N) {
+    fn emit_force<N: ToSpan>(&mut self, node: &N) {
         self.push_op(OpCode::OpForce, node);
     }
 
@@ -1316,7 +1310,7 @@ impl Compiler<'_, '_> {
     /// in a `let`-expression.
     fn dynamic_key_error<N>(&self, node: &N) -> Error
     where
-        N: AstNode<Language = rnix::NixLanguage>,
+        N: ToSpan,
     {
         Error {
             kind: ErrorKind::DynamicKeyInLet,
