@@ -19,6 +19,7 @@ mod scope;
 use path_clean::PathClean;
 use rnix::ast::{self, AstToken, HasEntry};
 use rowan::ast::{AstChildren, AstNode};
+use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -520,7 +521,7 @@ impl Compiler<'_, '_> {
         self.patch_jump(else_idx); // patch jump *over* else body
     }
 
-    fn compile_recursive_scope<N>(&mut self, slot: LocalIdx, node: &N)
+    fn compile_recursive_scope<N>(&mut self, slot: LocalIdx, rec_attrs: bool, node: &N)
     where
         N: AstNode + ast::HasEntry,
     {
@@ -539,23 +540,31 @@ impl Compiler<'_, '_> {
                 // Within a `let` binding, inheriting from the outer
                 // scope is a no-op *if* the identifier can be
                 // statically resolved.
-                None if !self.scope().has_with() => {
+                None if !rec_attrs && !self.scope().has_with() => {
                     self.emit_warning(self.span_for(&inherit), WarningKind::UselessInherit);
                     continue;
                 }
 
                 None => {
                     for ident in inherit.idents() {
-                        // If the identifier resolves statically, it
-                        // has precedence over dynamic bindings, and
-                        // the inherit is useless.
-                        if matches!(
-                            self.scope_mut()
-                                .resolve_local(ident.ident_token().unwrap().text()),
-                            LocalPosition::Known(_)
-                        ) {
+                        // If the identifier resolves statically in a
+                        // `let`, it has precedence over dynamic
+                        // bindings, and the inherit is useless.
+                        if !rec_attrs
+                            && matches!(
+                                self.scope_mut()
+                                    .resolve_local(ident.ident_token().unwrap().text()),
+                                LocalPosition::Known(_)
+                            )
+                        {
                             self.emit_warning(self.span_for(&ident), WarningKind::UselessInherit);
                             continue;
+                        }
+
+                        if rec_attrs {
+                            self.emit_literal_ident(&ident);
+                            let span = self.span_for(&ident);
+                            self.scope_mut().declare_phantom(span, true);
                         }
 
                         self.compile_ident(slot, ident.clone());
@@ -586,8 +595,13 @@ impl Compiler<'_, '_> {
             },
         }
 
+        struct KeySlot {
+            slot: LocalIdx,
+            name: SmolStr,
+        }
+
         struct TrackedBinding {
-            key_slot: Option<LocalIdx>,
+            key_slot: Option<KeySlot>,
             value_slot: LocalIdx,
             kind: BindingKind,
         }
@@ -600,11 +614,21 @@ impl Compiler<'_, '_> {
 
         // Begin with the inherit (from)s since they all become a thunk anyway
         for (from, ident) in inherit_froms {
-            let idx = self.declare_local(&ident, ident.ident_token().unwrap().text());
+            let key_slot = if rec_attrs {
+                let span = self.span_for(&ident);
+                Some(KeySlot {
+                    slot: self.scope_mut().declare_phantom(span, false),
+                    name: SmolStr::new(ident.ident_token().unwrap().text()),
+                })
+            } else {
+                None
+            };
+
+            let value_slot = self.declare_local(&ident, ident.ident_token().unwrap().text());
 
             bindings.push(TrackedBinding {
-                key_slot: None,
-                value_slot: idx,
+                key_slot,
+                value_slot,
                 kind: BindingKind::InheritFrom {
                     ident,
                     namespace: from,
@@ -626,16 +650,26 @@ impl Compiler<'_, '_> {
                 let span = self.span_for(&entry);
                 self.emit_error(
                     span,
-                    ErrorKind::NotImplemented("nested bindings in let expressions :("),
+                    ErrorKind::NotImplemented("nested bindings in recursive scope :("),
                 );
                 continue;
             }
 
-            let idx = self.declare_local(&entry.attrpath().unwrap(), path.pop().unwrap());
+            let key_slot = if rec_attrs {
+                let span = self.span_for(&entry.attrpath().unwrap());
+                Some(KeySlot {
+                    slot: self.scope_mut().declare_phantom(span, false),
+                    name: SmolStr::new(&path[0]),
+                })
+            } else {
+                None
+            };
+
+            let value_slot = self.declare_local(&entry.attrpath().unwrap(), path.pop().unwrap());
 
             bindings.push(TrackedBinding {
-                key_slot: None,
-                value_slot: idx,
+                key_slot,
+                value_slot,
                 kind: BindingKind::Plain {
                     expr: entry.value().unwrap(),
                 },
@@ -643,9 +677,20 @@ impl Compiler<'_, '_> {
         }
 
         // Third pass to place the values in the correct stack slots.
-        let mut indices: Vec<LocalIdx> = vec![];
+        let mut value_indices: Vec<LocalIdx> = vec![];
         for binding in bindings.into_iter() {
-            indices.push(binding.value_slot);
+            value_indices.push(binding.value_slot);
+
+            if let Some(key_slot) = binding.key_slot {
+                // TODO: emit_constant should be able to take a span directly
+                let span = self.scope()[key_slot.slot].span;
+                let idx = self
+                    .chunk()
+                    .push_constant(Value::String(key_slot.name.into()));
+
+                self.chunk().push_op(OpCode::OpConstant(idx), span);
+                self.scope_mut().mark_initialised(key_slot.slot);
+            }
 
             match binding.kind {
                 // This entry is an inherit (from) expr. The value is
@@ -673,7 +718,7 @@ impl Compiler<'_, '_> {
         }
 
         // Fourth pass to emit finaliser instructions if necessary.
-        for idx in indices {
+        for idx in value_indices {
             if self.scope()[idx].needs_finaliser {
                 let stack_idx = self.scope().stack_index(idx);
                 self.push_op(OpCode::OpFinalise(stack_idx), node);
@@ -687,7 +732,7 @@ impl Compiler<'_, '_> {
     /// simply pushed on the stack and their indices noted in the
     /// entries vector.
     fn compile_let_in(&mut self, slot: LocalIdx, node: ast::LetIn) {
-        self.compile_recursive_scope(slot, &node);
+        self.compile_recursive_scope(slot, false, &node);
 
         // Deal with the body, then clean up the locals afterwards.
         self.compile(slot, node.body().unwrap());

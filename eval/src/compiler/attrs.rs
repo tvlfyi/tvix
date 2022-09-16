@@ -215,25 +215,23 @@ impl Compiler<'_, '_> {
     /// 2. Keys can refer to nested attribute sets.
     /// 3. Attribute sets can (optionally) be recursive.
     pub(super) fn compile_attr_set(&mut self, slot: LocalIdx, node: ast::AttrSet) {
-        if node.rec_token().is_some() {
-            let span = self.span_for(&node);
-            self.emit_warning(
-                span,
-                WarningKind::NotImplemented("recursive attribute sets"),
-            );
-        }
-
         // Open a scope to track the positions of the temporaries used
         // by the `OpAttrs` instruction.
         self.scope_mut().begin_scope();
 
-        let mut count = self.compile_inherit_attrs(slot, node.inherits());
+        if node.rec_token().is_some() {
+            self.compile_recursive_scope(slot, true, &node);
+            self.push_op(OpCode::OpAttrs(Count(node.entries().count())), &node);
+        } else {
+            let mut count = self.compile_inherit_attrs(slot, node.inherits());
 
-        let dynamic_entries = self.compile_static_attr_entries(&mut count, node.attrpath_values());
+            let dynamic_entries =
+                self.compile_static_attr_entries(&mut count, node.attrpath_values());
 
-        self.compile_dynamic_attr_entries(&mut count, dynamic_entries);
+            self.compile_dynamic_attr_entries(&mut count, dynamic_entries);
 
-        self.push_op(OpCode::OpAttrs(Count(count)), &node);
+            self.push_op(OpCode::OpAttrs(Count(count)), &node);
+        }
 
         // Remove the temporary scope, but do not emit any additional
         // cleanup (OpAttrs consumes all of these locals).
