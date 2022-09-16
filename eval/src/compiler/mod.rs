@@ -571,16 +571,45 @@ impl Compiler<'_, '_> {
                 }
             }
         }
-        // Second pass to ensure that all remaining identifiers (that may
-        // resolve recursively) are known.
-        // Track locals as an index, the expression of its values and optionally
-        // the ident of an attribute to select from it.
-        let mut entries: Vec<(LocalIdx, ast::Expr, Option<ast::Ident>)> = vec![];
+
+        // Data structures to track the bindings observed in the
+        // second path, and forward the information needed to compile
+        // their value.
+        enum BindingKind {
+            InheritFrom {
+                namespace: ast::Expr,
+                ident: ast::Ident,
+            },
+
+            Plain {
+                expr: ast::Expr,
+            },
+        }
+
+        struct TrackedBinding {
+            key_slot: Option<LocalIdx>,
+            value_slot: LocalIdx,
+            kind: BindingKind,
+        }
+
+        // Vector to track these observed bindings.
+        let mut bindings: Vec<TrackedBinding> = vec![];
+
+        // Begin second pass to ensure that all remaining identifiers
+        // (that may resolve recursively) are known.
 
         // Begin with the inherit (from)s since they all become a thunk anyway
         for (from, ident) in inherit_froms {
             let idx = self.declare_local(&ident, ident.ident_token().unwrap().text());
-            entries.push((idx, from, Some(ident)))
+
+            bindings.push(TrackedBinding {
+                key_slot: None,
+                value_slot: idx,
+                kind: BindingKind::InheritFrom {
+                    ident,
+                    namespace: from,
+                },
+            });
         }
 
         // Declare all regular bindings
@@ -604,32 +633,43 @@ impl Compiler<'_, '_> {
 
             let idx = self.declare_local(&entry.attrpath().unwrap(), path.pop().unwrap());
 
-            entries.push((idx, entry.value().unwrap(), None));
+            bindings.push(TrackedBinding {
+                key_slot: None,
+                value_slot: idx,
+                kind: BindingKind::Plain {
+                    expr: entry.value().unwrap(),
+                },
+            });
         }
 
         // Third pass to place the values in the correct stack slots.
         let mut indices: Vec<LocalIdx> = vec![];
-        for (idx, value, path) in entries.into_iter() {
-            indices.push(idx);
+        for binding in bindings.into_iter() {
+            indices.push(binding.value_slot);
 
-            // This entry is an inherit (from) expr, we need to select an attr
-            if let Some(ident) = path {
-                // Create a thunk wrapping value (which may be one as well) to
-                // avoid forcing the from expr too early.
-                self.thunk(idx, &value, move |c, n, s| {
-                    c.compile(s, n.clone());
-                    c.emit_force(n);
+            match binding.kind {
+                // This entry is an inherit (from) expr. The value is
+                // placed on the stack by selecting an attribute.
+                BindingKind::InheritFrom { namespace, ident } => {
+                    // Create a thunk wrapping value (which may be one as well) to
+                    // avoid forcing the from expr too early.
+                    self.thunk(binding.value_slot, &namespace, move |c, n, s| {
+                        c.compile(s, n.clone());
+                        c.emit_force(n);
 
-                    c.emit_literal_ident(&ident);
-                    c.push_op(OpCode::OpAttrsSelect, &ident);
-                })
-            } else {
-                self.compile(idx, value);
+                        c.emit_literal_ident(&ident);
+                        c.push_op(OpCode::OpAttrsSelect, &ident);
+                    })
+                }
+
+                // Binding is "just" a plain expression that needs to
+                // be compiled.
+                BindingKind::Plain { expr } => self.compile(binding.value_slot, expr),
             }
 
             // Any code after this point will observe the value in the
             // right stack slot, so mark it as initialised.
-            self.scope_mut().mark_initialised(idx);
+            self.scope_mut().mark_initialised(binding.value_slot);
         }
 
         // Fourth pass to emit finaliser instructions if necessary.
@@ -641,7 +681,7 @@ impl Compiler<'_, '_> {
         }
     }
 
-    /// Compile a standard `let ...; in ...` statement.
+    /// Compile a standard `let ...; in ...` expression.
     ///
     /// Unless in a non-standard scope, the encountered values are
     /// simply pushed on the stack and their indices noted in the
