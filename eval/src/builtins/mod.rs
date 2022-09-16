@@ -202,7 +202,7 @@ fn pure_builtins() -> Vec<Builtin> {
         Builtin::new("toString", 1, |args, vm| {
             args[0]
                 .coerce_to_string(CoercionKind::Strong, vm)
-                .map(|s| Value::String(s))
+                .map(Value::String)
         }),
         Builtin::new("typeOf", 1, |args, vm| {
             force!(vm, &args[0], value, {

@@ -126,10 +126,7 @@ impl Value {
             // `__toString` is preferred.
             (Value::Attrs(attrs), _) => {
                 match (attrs.select("__toString"), attrs.select("outPath")) {
-                    (None, None) => Err(ErrorKind::NotCoercibleToString {
-                        from: "set",
-                        kind: kind,
-                    }),
+                    (None, None) => Err(ErrorKind::NotCoercibleToString { from: "set", kind }),
 
                     (Some(f), _) => {
                         // use a closure here to deal with the thunk borrow we need to do below
@@ -165,7 +162,7 @@ impl Value {
                             let guard = t.value();
                             call_to_string(&*guard, vm)
                         } else {
-                            call_to_string(&f, vm)
+                            call_to_string(f, vm)
                         }
                     }
 
@@ -199,7 +196,7 @@ impl Value {
                         Ok(a.concat(&" ".into()).concat(s))
                     })
                     // None from reduce indicates empty iterator
-                    .unwrap_or(Ok("".into()))
+                    .unwrap_or_else(|| Ok("".into()))
             }
 
             (Value::Closure(_), _)
@@ -210,7 +207,7 @@ impl Value {
             | (Value::Float(_), _)
             | (Value::List(_), _) => Err(ErrorKind::NotCoercibleToString {
                 from: self.type_of(),
-                kind: kind,
+                kind,
             }),
 
             (Value::AttrPath(_), _)
@@ -314,7 +311,7 @@ impl PartialEq for Value {
             // compared instead. The compiler should ensure that
             // thunks under comparison have been forced, otherwise it
             // is a bug.
-            (Value::Thunk(lhs), Value::Thunk(rhs)) => &*lhs.value() == &*rhs.value(),
+            (Value::Thunk(lhs), Value::Thunk(rhs)) => *lhs.value() == *rhs.value(),
             (Value::Thunk(lhs), rhs) => &*lhs.value() == rhs,
             (lhs, Value::Thunk(rhs)) => lhs == &*rhs.value(),
 
