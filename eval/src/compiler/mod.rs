@@ -200,7 +200,7 @@ impl Compiler<'_, '_> {
             }
 
             ast::LiteralKind::Uri(u) => {
-                self.emit_warning(self.span_for(&node), WarningKind::DeprecatedLiteralURL);
+                self.emit_warning(&node, WarningKind::DeprecatedLiteralURL);
                 self.emit_constant(Value::String(u.syntax().text().into()), &node);
             }
         }
@@ -218,7 +218,7 @@ impl Compiler<'_, '_> {
                 Some(buf) => buf,
                 None => {
                     self.emit_error(
-                        self.span_for(&node),
+                        &node,
                         ErrorKind::PathResolution("failed to determine home directory".into()),
                     );
                     return;
@@ -233,9 +233,8 @@ impl Compiler<'_, '_> {
             buf
         } else {
             // TODO: decide what to do with findFile
-            let span = self.span_for(&node);
             self.emit_error(
-                span,
+                &node,
                 ErrorKind::NotImplemented(
                     "other path types (e.g. <...> lookups) not yet implemented",
                 ),
@@ -532,7 +531,7 @@ impl Compiler<'_, '_> {
                 // scope is a no-op *if* the identifier can be
                 // statically resolved.
                 None if !rec_attrs && !self.scope().has_with() => {
-                    self.emit_warning(self.span_for(&inherit), WarningKind::UselessInherit);
+                    self.emit_warning(&inherit, WarningKind::UselessInherit);
                     continue;
                 }
 
@@ -548,7 +547,7 @@ impl Compiler<'_, '_> {
                                 LocalPosition::Known(_)
                             )
                         {
-                            self.emit_warning(self.span_for(&ident), WarningKind::UselessInherit);
+                            self.emit_warning(&ident, WarningKind::UselessInherit);
                             continue;
                         }
 
@@ -638,9 +637,8 @@ impl Compiler<'_, '_> {
             };
 
             if path.len() != 1 {
-                let span = self.span_for(&entry);
                 self.emit_error(
-                    span,
+                    &entry,
                     ErrorKind::NotImplemented("nested bindings in recursive scope :("),
                 );
                 continue;
@@ -762,7 +760,7 @@ impl Compiler<'_, '_> {
                 }
 
                 // Otherwise, this variable is missing.
-                self.emit_error(self.span_for(&node), ErrorKind::UnknownStaticVariable);
+                self.emit_error(&node, ErrorKind::UnknownStaticVariable);
             }
 
             LocalPosition::Known(idx) => {
@@ -906,7 +904,7 @@ impl Compiler<'_, '_> {
         // TODO: strictly check if all keys have been consumed if
         // there is no ellipsis.
         if pattern.ellipsis_token().is_none() {
-            self.emit_warning(span, WarningKind::NotImplemented("closed formals"));
+            self.emit_warning(&pattern, WarningKind::NotImplemented("closed formals"));
         }
     }
 
@@ -989,14 +987,12 @@ impl Compiler<'_, '_> {
     }
 
     fn compile_legacy_let(&mut self, slot: LocalIdx, node: ast::LegacyLet) {
+        self.emit_warning(&node, WarningKind::DeprecatedLegacyLet);
         self.scope_mut().begin_scope();
         self.compile_recursive_scope(slot, true, &node);
         self.push_op(OpCode::OpAttrs(Count(node.entries().count())), &node);
         self.emit_constant(Value::String(SmolStr::new_inline("body").into()), &node);
         self.push_op(OpCode::OpAttrsSelect, &node);
-
-        let warning_span = self.span_for(&node);
-        self.emit_warning(warning_span, WarningKind::DeprecatedLegacyLet);
     }
 
     /// Compile an expression into a runtime thunk which should be
@@ -1126,7 +1122,7 @@ impl Compiler<'_, '_> {
         // stack. This is implemented by a separate instruction.
         let (popcount, unused_spans) = self.scope_mut().end_scope();
 
-        for span in unused_spans {
+        for span in &unused_spans {
             self.emit_warning(span, WarningKind::UnusedBinding);
         }
 
@@ -1159,19 +1155,13 @@ impl Compiler<'_, '_> {
         };
 
         if let Some(global_ident) = key {
-            self.emit_warning(
-                self.span_for(node),
-                WarningKind::ShadowedGlobal(global_ident),
-            );
+            self.emit_warning(node, WarningKind::ShadowedGlobal(global_ident));
             self.scope_mut().poison(global_ident, depth);
         }
 
         for other in self.scope().locals.iter().rev() {
             if other.has_name(&name) && other.depth == depth {
-                self.emit_error(
-                    self.span_for(node),
-                    ErrorKind::VariableAlreadyDefined(other.span),
-                );
+                self.emit_error(node, ErrorKind::VariableAlreadyDefined(other.span));
 
                 break;
             }
@@ -1264,11 +1254,13 @@ impl Compiler<'_, '_> {
         self.push_op(OpCode::OpForce, node);
     }
 
-    fn emit_warning(&mut self, span: codemap::Span, kind: WarningKind) {
+    fn emit_warning<N: ToSpan>(&mut self, node: &N, kind: WarningKind) {
+        let span = self.span_for(node);
         self.warnings.push(EvalWarning { kind, span })
     }
 
-    fn emit_error(&mut self, span: codemap::Span, kind: ErrorKind) {
+    fn emit_error<N: ToSpan>(&mut self, node: &N, kind: ErrorKind) {
+        let span = self.span_for(node);
         self.errors.push(Error { kind, span })
     }
 
