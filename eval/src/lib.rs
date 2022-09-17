@@ -11,6 +11,8 @@ mod vm;
 mod warnings;
 
 #[cfg(test)]
+mod properties;
+#[cfg(test)]
 mod tests;
 
 // Re-export the public interface used by other crates.

@@ -177,3 +177,14 @@ impl Display for NixString {
         f.write_str("\"")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::properties::{eq_laws, hash_laws, ord_laws};
+
+    eq_laws!(NixString);
+    hash_laws!(NixString);
+    ord_laws!(NixString);
+}
