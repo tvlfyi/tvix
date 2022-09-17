@@ -256,7 +256,7 @@ impl Compiler<'_, '_> {
 
         // After the last fragment, emit the actual instruction that
         // leaves a boolean on the stack.
-        self.push_op(OpCode::OpAttrsIsSet, &node);
+        self.push_op(OpCode::OpHasAttr, &node);
     }
 
     pub(super) fn compile_select(&mut self, slot: LocalIdx, node: ast::Select) {

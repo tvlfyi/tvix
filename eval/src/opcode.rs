@@ -91,7 +91,7 @@ pub enum OpCode {
     OpAttrsUpdate,
     OpAttrsSelect,
     OpAttrsTrySelect,
-    OpAttrsIsSet,
+    OpHasAttr,
 
     // `with`-handling
     OpPushWith(StackIdx),

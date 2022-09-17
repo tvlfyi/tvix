@@ -317,7 +317,7 @@ impl<'o> VM<'o> {
                     self.push(value);
                 }
 
-                OpCode::OpAttrsIsSet => {
+                OpCode::OpHasAttr => {
                     let key = fallible!(self, self.pop().to_str());
                     let result = match self.pop() {
                         Value::Attrs(attrs) => attrs.contains(key.as_str()),
