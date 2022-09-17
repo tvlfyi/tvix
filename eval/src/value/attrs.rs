@@ -149,6 +149,35 @@ impl PartialEq for NixAttrs {
     }
 }
 
+#[cfg(feature = "arbitrary")]
+mod arbitrary {
+    use super::*;
+
+    use proptest::prelude::*;
+    use proptest::prop_oneof;
+    use proptest::strategy::{BoxedStrategy, Just, Strategy};
+
+    impl Arbitrary for NixAttrs {
+        type Parameters = <BTreeMap<NixString, Value> as Arbitrary>::Parameters;
+
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
+            prop_oneof![
+                Just(Self(AttrsRep::Empty)),
+                (
+                    any_with::<Value>(args.2.clone()),
+                    any_with::<Value>(args.2.clone())
+                )
+                    .prop_map(|(name, value)| Self(AttrsRep::KV { name, value })),
+                any_with::<BTreeMap<NixString, Value>>(args)
+                    .prop_map(|map| Self(AttrsRep::Map(map)))
+            ]
+            .boxed()
+        }
+    }
+}
+
 impl NixAttrs {
     /// Return an attribute set containing the merge of the two
     /// provided sets. Keys from the `other` set have precedence.

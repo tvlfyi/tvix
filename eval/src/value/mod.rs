@@ -3,6 +3,8 @@
 use std::rc::Rc;
 use std::{fmt::Display, path::PathBuf};
 
+#[cfg(feature = "arbitrary")]
+mod arbitrary;
 mod attrs;
 mod builtin;
 mod function;

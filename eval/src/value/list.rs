@@ -20,6 +20,25 @@ impl Display for NixList {
     }
 }
 
+#[cfg(feature = "arbitrary")]
+mod arbitrary {
+    use proptest::{
+        prelude::{any_with, Arbitrary},
+        strategy::{BoxedStrategy, Strategy},
+    };
+
+    use super::*;
+
+    impl Arbitrary for NixList {
+        type Parameters = <Vec<Value> as Arbitrary>::Parameters;
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
+            any_with::<Vec<Value>>(args).prop_map(Self).boxed()
+        }
+    }
+}
+
 impl NixList {
     pub fn concat(&self, other: &Self) -> Self {
         let mut lhs = self.clone();
