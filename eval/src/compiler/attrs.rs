@@ -3,7 +3,7 @@
 
 use super::*;
 
-impl Compiler<'_, '_> {
+impl Compiler<'_> {
     pub(super) fn compile_attr(&mut self, slot: LocalIdx, node: ast::Attr) {
         match node {
             ast::Attr::Dynamic(dynamic) => {

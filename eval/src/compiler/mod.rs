@@ -24,6 +24,7 @@ use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::chunk::Chunk;
 use crate::errors::{Error, ErrorKind, EvalResult};
@@ -73,7 +74,7 @@ impl LambdaCtx {
 /// implicitly be resolvable in the global scope.
 type GlobalsMap = HashMap<&'static str, Rc<dyn Fn(&mut Compiler, rnix::ast::Ident)>>;
 
-struct Compiler<'code, 'observer> {
+struct Compiler<'observer> {
     contexts: Vec<LambdaCtx>,
     warnings: Vec<EvalWarning>,
     errors: Vec<Error>,
@@ -90,7 +91,7 @@ struct Compiler<'code, 'observer> {
     /// File reference in the codemap contains all known source code
     /// and is used to track the spans from which instructions where
     /// derived.
-    file: &'code codemap::File,
+    file: Arc<codemap::File>,
 
     /// Carry an observer for the compilation process, which is called
     /// whenever a chunk is emitted.
@@ -99,7 +100,7 @@ struct Compiler<'code, 'observer> {
 
 // Helper functions for emitting code and metadata to the internal
 // structures of the compiler.
-impl Compiler<'_, '_> {
+impl Compiler<'_> {
     fn context(&self) -> &LambdaCtx {
         &self.contexts[self.contexts.len() - 1]
     }
@@ -137,7 +138,7 @@ impl Compiler<'_, '_> {
 }
 
 // Actual code-emitting AST traversal methods.
-impl Compiler<'_, '_> {
+impl Compiler<'_> {
     fn compile(&mut self, slot: LocalIdx, expr: ast::Expr) {
         match expr {
             ast::Expr::Literal(literal) => self.compile_literal(literal),
@@ -1386,7 +1387,7 @@ fn prepare_globals(additional: HashMap<&'static str, Value>) -> GlobalsMap {
 pub fn compile(
     expr: ast::Expr,
     location: Option<PathBuf>,
-    file: &codemap::File,
+    file: Arc<codemap::File>,
     globals: HashMap<&'static str, Value>,
     observer: &mut dyn Observer,
 ) -> EvalResult<CompilationOutput> {

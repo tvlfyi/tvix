@@ -45,7 +45,7 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         crate::compiler::compile(
             root_expr,
             location,
-            &file,
+            file.clone(),
             global_builtins(),
             &mut DisassemblingObserver::new(codemap.clone(), std::io::stderr()),
         )
@@ -53,7 +53,7 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         crate::compiler::compile(
             root_expr,
             location,
-            &file,
+            file.clone(),
             global_builtins(),
             &mut NoOpObserver::default(),
         )
