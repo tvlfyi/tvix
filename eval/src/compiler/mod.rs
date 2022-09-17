@@ -190,20 +190,17 @@ impl Compiler<'_, '_> {
     }
 
     fn compile_literal(&mut self, node: ast::Literal) {
-        match node.kind() {
-            ast::LiteralKind::Float(f) => {
-                self.emit_constant(Value::Float(f.value().unwrap()), &node);
-            }
-
-            ast::LiteralKind::Integer(i) => {
-                self.emit_constant(Value::Integer(i.value().unwrap()), &node);
-            }
+        let value = match node.kind() {
+            ast::LiteralKind::Float(f) => Value::Float(f.value().unwrap()),
+            ast::LiteralKind::Integer(i) => Value::Integer(i.value().unwrap()),
 
             ast::LiteralKind::Uri(u) => {
                 self.emit_warning(&node, WarningKind::DeprecatedLiteralURL);
-                self.emit_constant(Value::String(u.syntax().text().into()), &node);
+                Value::String(u.syntax().text().into())
             }
-        }
+        };
+
+        self.emit_constant(value, &node);
     }
 
     fn compile_path(&mut self, node: ast::Path) {
