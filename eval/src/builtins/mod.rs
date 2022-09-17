@@ -17,6 +17,10 @@ use crate::{
 
 use crate::arithmetic_op;
 
+use self::versions::VersionPartsIter;
+
+pub mod versions;
+
 /// Helper macro to ensure that a value has been forced. The structure
 /// of this is a little cumbersome as there are different reference
 /// types depending on whether the value is inside a thunk or not.
@@ -134,6 +138,25 @@ fn pure_builtins() -> Vec<Builtin> {
             }
 
             Ok(Value::List(NixList::construct(output.len(), output)))
+        }),
+        Builtin::new("compareVersions", 2, |mut args, vm| {
+            if let Value::Thunk(t) = &args[0] {
+                t.force(vm)?;
+            }
+            if let Value::Thunk(t) = &args[1] {
+                t.force(vm)?;
+            }
+
+            let s1 = args.pop().unwrap().to_str()?;
+            let s1 = VersionPartsIter::new(s1.as_str());
+            let s2 = args.pop().unwrap().to_str()?;
+            let s2 = VersionPartsIter::new(s2.as_str());
+
+            match s1.cmp(s2) {
+                std::cmp::Ordering::Less => Ok(Value::Integer(1)),
+                std::cmp::Ordering::Equal => Ok(Value::Integer(0)),
+                std::cmp::Ordering::Greater => Ok(Value::Integer(-1)),
+            }
         }),
         Builtin::new("div", 2, |mut args, _| {
             let b = args.pop().unwrap();
