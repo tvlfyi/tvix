@@ -58,6 +58,23 @@ impl Hash for NixString {
     }
 }
 
+#[cfg(feature = "arbitrary")]
+mod arbitrary {
+    use super::*;
+    use proptest::prelude::{any_with, Arbitrary};
+    use proptest::strategy::{BoxedStrategy, Strategy};
+
+    impl Arbitrary for NixString {
+        type Parameters = <String as Arbitrary>::Parameters;
+
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
+            any_with::<String>(args).prop_map(Self::from).boxed()
+        }
+    }
+}
+
 impl NixString {
     pub const NAME: Self = NixString(StringRepr::Smol(SmolStr::new_inline("name")));
     pub const NAME_REF: &'static Self = &Self::NAME;
