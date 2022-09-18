@@ -1,5 +1,7 @@
 //! This module implements the backing representation of runtime
 //! values in the Nix language.
+use std::cell::Ref;
+use std::ops::Deref;
 use std::rc::Rc;
 use std::{fmt::Display, path::PathBuf};
 
@@ -93,6 +95,26 @@ pub enum CoercionKind {
     /// booleans, integers, floats and lists of coercible types. Equivalent to
     /// `coerceMore` in C++ Nix.
     Strong,
+}
+
+/// A reference to a [`Value`] returned by a call to [`Value::force`], whether the value was
+/// originally a thunk or not.
+///
+/// Implements [`Deref`] to [`Value`], so can generally be used as a [`Value`]
+pub(crate) enum ForceResult<'a> {
+    ForcedThunk(Ref<'a, Value>),
+    Immediate(&'a Value),
+}
+
+impl<'a> Deref for ForceResult<'a> {
+    type Target = Value;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            ForceResult::ForcedThunk(r) => r,
+            ForceResult::Immediate(v) => v,
+        }
+    }
 }
 
 impl Value {
@@ -290,6 +312,17 @@ impl Value {
             // types) or false.
             // TODO(tazjin): mirror Lambda equality behaviour
             _ => Ok(false),
+        }
+    }
+
+    /// Ensure `self` is forced if it is a thunk, and return a reference to the resulting value.
+    pub(crate) fn force(&self, vm: &mut VM) -> Result<ForceResult, ErrorKind> {
+        match self {
+            Self::Thunk(thunk) => {
+                thunk.force(vm)?;
+                Ok(ForceResult::ForcedThunk(thunk.value()))
+            }
+            _ => Ok(ForceResult::Immediate(self)),
         }
     }
 }

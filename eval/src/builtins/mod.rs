@@ -21,49 +21,27 @@ use self::versions::VersionPartsIter;
 
 pub mod versions;
 
-/// Helper macro to ensure that a value has been forced. The structure
-/// of this is a little cumbersome as there are different reference
-/// types depending on whether the value is inside a thunk or not.
-macro_rules! force {
-    ( $vm:ident, $src:expr, $value:ident, $body:block ) => {
-        if let Value::Thunk(thunk) = $src {
-            thunk.force($vm)?;
-            let guard = thunk.value();
-            let $value: &Value = &guard;
-            $body
-        } else {
-            let $value: &Value = $src;
-            $body
-        }
-    };
-
-    ( $vm:ident, $value:ident, $body:block ) => {
-        force!($vm, &$value, $value, $body)
-    };
-}
-
 /// Coerce a Nix Value to a plain path, e.g. in order to access the file it
 /// points to in an I/O builtin. This coercion can _never_ be performed in
 /// a Nix program directly (i.e. the trick `path: /. + path` to convert from
 /// a string to a path wouldn't hit this code), so the target file
 /// doesn't need to be realised or imported into the Nix store.
 pub fn coerce_value_to_path(v: &Value, vm: &mut VM) -> Result<PathBuf, ErrorKind> {
-    force!(vm, v, value, {
-        match value {
-            Value::Thunk(t) => coerce_value_to_path(&t.value(), vm),
-            Value::Path(p) => Ok(p.clone()),
-            _ => value
-                .coerce_to_string(CoercionKind::Weak, vm)
-                .map(|s| PathBuf::from(s.as_str()))
-                .and_then(|path| {
-                    if path.is_absolute() {
-                        Ok(path)
-                    } else {
-                        Err(ErrorKind::NotAnAbsolutePath(path))
-                    }
-                }),
-        }
-    })
+    let value = v.force(vm)?;
+    match &*value {
+        Value::Thunk(t) => coerce_value_to_path(&t.value(), vm),
+        Value::Path(p) => Ok(p.clone()),
+        _ => value
+            .coerce_to_string(CoercionKind::Weak, vm)
+            .map(|s| PathBuf::from(s.as_str()))
+            .and_then(|path| {
+                if path.is_absolute() {
+                    Ok(path)
+                } else {
+                    Err(ErrorKind::NotAnAbsolutePath(path))
+                }
+            }),
+    }
 }
 
 /// Return all pure builtins, that is all builtins that do not rely on
@@ -82,49 +60,41 @@ fn pure_builtins() -> Vec<Builtin> {
             ));
         }),
         Builtin::new("attrNames", 1, |args, vm| {
-            force!(vm, &args[0], value, {
-                let xs = value.to_attrs()?;
-                let mut output = Vec::with_capacity(xs.len());
+            let value = args[0].force(vm)?;
+            let xs = value.to_attrs()?;
+            let mut output = Vec::with_capacity(xs.len());
 
-                for (key, _val) in xs.iter() {
-                    output.push(Value::String(key.clone()));
-                }
+            for (key, _val) in xs.iter() {
+                output.push(Value::String(key.clone()));
+            }
 
-                Ok(Value::List(NixList::construct(output.len(), output)))
-            })
+            Ok(Value::List(NixList::construct(output.len(), output)))
         }),
         Builtin::new("attrValues", 1, |args, vm| {
-            force!(vm, &args[0], value, {
-                let xs = value.to_attrs()?;
-                let mut output = Vec::with_capacity(xs.len());
+            let value = args[0].force(vm)?;
+            let xs = value.to_attrs()?;
+            let mut output = Vec::with_capacity(xs.len());
 
-                for (_key, val) in xs.iter() {
-                    output.push(val.clone());
-                }
+            for (_key, val) in xs.iter() {
+                output.push(val.clone());
+            }
 
-                Ok(Value::List(NixList::construct(output.len(), output)))
-            })
+            Ok(Value::List(NixList::construct(output.len(), output)))
         }),
         Builtin::new("bitAnd", 2, |args, vm| {
-            force!(vm, &args[0], x, {
-                force!(vm, &args[1], y, {
-                    Ok(Value::Integer(x.as_int()? & y.as_int()?))
-                })
-            })
+            let x = args[0].force(vm)?;
+            let y = args[1].force(vm)?;
+            Ok(Value::Integer(x.as_int()? & y.as_int()?))
         }),
         Builtin::new("bitOr", 2, |args, vm| {
-            force!(vm, &args[0], x, {
-                force!(vm, &args[1], y, {
-                    Ok(Value::Integer(x.as_int()? | y.as_int()?))
-                })
-            })
+            let x = args[0].force(vm)?;
+            let y = args[1].force(vm)?;
+            Ok(Value::Integer(x.as_int()? | y.as_int()?))
         }),
         Builtin::new("bitXor", 2, |args, vm| {
-            force!(vm, &args[0], x, {
-                force!(vm, &args[1], y, {
-                    Ok(Value::Integer(x.as_int()? ^ y.as_int()?))
-                })
-            })
+            let x = args[0].force(vm)?;
+            let y = args[1].force(vm)?;
+            Ok(Value::Integer(x.as_int()? ^ y.as_int()?))
         }),
         Builtin::new("catAttrs", 2, |mut args, _| {
             let list = args.pop().unwrap().to_list()?;
@@ -140,16 +110,9 @@ fn pure_builtins() -> Vec<Builtin> {
             Ok(Value::List(NixList::construct(output.len(), output)))
         }),
         Builtin::new("compareVersions", 2, |mut args, vm| {
-            if let Value::Thunk(t) = &args[0] {
-                t.force(vm)?;
-            }
-            if let Value::Thunk(t) = &args[1] {
-                t.force(vm)?;
-            }
-
-            let s1 = args.pop().unwrap().to_str()?;
+            let s1 = args[0].force(vm)?.to_str()?;
             let s1 = VersionPartsIter::new(s1.as_str());
-            let s2 = args.pop().unwrap().to_str()?;
+            let s2 = args[1].force(vm)?.to_str()?;
             let s2 = VersionPartsIter::new(s2.as_str());
 
             match s1.cmp(s2) {
@@ -164,18 +127,17 @@ fn pure_builtins() -> Vec<Builtin> {
             arithmetic_op!(a, b, /)
         }),
         Builtin::new("elemAt", 2, |args, vm| {
-            force!(vm, &args[0], value, {
-                let xs = value.to_list()?;
-                let i = args[1].as_int()?;
-                if i < 0 {
-                    Err(ErrorKind::IndexOutOfBounds { index: i })
-                } else {
-                    match xs.get(i as usize) {
-                        Some(x) => Ok(x.clone()),
-                        None => Err(ErrorKind::IndexOutOfBounds { index: i }),
-                    }
+            let value = args[0].force(vm)?;
+            let xs = value.to_list()?;
+            let i = args[1].as_int()?;
+            if i < 0 {
+                Err(ErrorKind::IndexOutOfBounds { index: i })
+            } else {
+                match xs.get(i as usize) {
+                    Some(x) => Ok(x.clone()),
+                    None => Err(ErrorKind::IndexOutOfBounds { index: i }),
                 }
-            })
+            }
         }),
         Builtin::new("length", 1, |args, vm| {
             if let Value::Thunk(t) = &args[0] {
@@ -184,12 +146,11 @@ fn pure_builtins() -> Vec<Builtin> {
             Ok(Value::Integer(args[0].to_list()?.len() as i64))
         }),
         Builtin::new("head", 1, |args, vm| {
-            force!(vm, &args[0], xs, {
-                match xs.to_list()?.get(0) {
-                    Some(x) => Ok(x.clone()),
-                    None => Err(ErrorKind::IndexOutOfBounds { index: 0 }),
-                }
-            })
+            let xs = args[0].force(vm)?;
+            match xs.to_list()?.get(0) {
+                Some(x) => Ok(x.clone()),
+                None => Err(ErrorKind::IndexOutOfBounds { index: 0 }),
+            }
         }),
         Builtin::new("isAttrs", 1, |args, _| {
             Ok(Value::Bool(matches!(args[0], Value::Attrs(_))))
@@ -242,9 +203,8 @@ fn pure_builtins() -> Vec<Builtin> {
                 .map(Value::String)
         }),
         Builtin::new("typeOf", 1, |args, vm| {
-            force!(vm, &args[0], value, {
-                Ok(Value::String(value.type_of().into()))
-            })
+            let value = args[0].force(vm)?;
+            Ok(Value::String(value.type_of().into()))
         }),
     ]
 }
