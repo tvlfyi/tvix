@@ -58,3 +58,11 @@ bindings.
 In practice, we can further specialise this and compile each scope
 directly into the form expected by `OpAttrs` (that is, leaving
 attribute names on the stack) before each value's position.
+
+C++ Nix's Implementation
+------------------------
+
+* [`ExprAttrs`](https://github.com/NixOS/nix/blob/2097c30b08af19a9b42705fbc07463bea60dfb5b/src/libexpr/nixexpr.hh#L241-L268)
+  (AST representation of attribute sets)
+* [`ExprAttrs::eval`](https://github.com/NixOS/nix/blob/075bf6e5565aff9fba0ea02f3333c82adf4dccee/src/libexpr/eval.cc#L1333-L1414)
+* [`addAttr`](https://github.com/NixOS/nix/blob/master/src/libexpr/parser.y#L98-L156) (`ExprAttrs` construction in the parser)
