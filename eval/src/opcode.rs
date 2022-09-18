@@ -86,6 +86,10 @@ pub enum OpCode {
     OpJumpIfNotFound(JumpOffset),
 
     // Attribute sets
+    /// Construct an attribute set from the given number of key-value pairs on the top of the stack
+    ///
+    /// Note that this takes the count of *pairs*, not the number of *stack values* - the actual
+    /// number of values popped off the stack will be twice the argument to this op
     OpAttrs(Count),
     OpAttrPath(Count),
     OpAttrsUpdate,
