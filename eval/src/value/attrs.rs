@@ -11,6 +11,7 @@ use std::fmt::Display;
 use std::rc::Rc;
 
 use crate::errors::ErrorKind;
+use crate::vm::VM;
 
 use super::string::NixString;
 use super::Value;
@@ -287,7 +288,7 @@ impl NixAttrs {
     }
 
     /// Compare `self` against `other` for equality using Nix equality semantics
-    pub fn nix_eq(&self, other: &Self) -> Result<bool, ErrorKind> {
+    pub fn nix_eq(&self, other: &Self, vm: &mut VM) -> Result<bool, ErrorKind> {
         match (&self.0, &other.0) {
             (AttrsRep::Empty, AttrsRep::Empty) => Ok(true),
 
@@ -316,7 +317,7 @@ impl NixAttrs {
                     name: n2,
                     value: v2,
                 },
-            ) => Ok(n1.nix_eq(n2)? && v1.nix_eq(v2)?),
+            ) => Ok(n1.nix_eq(n2, vm)? && v1.nix_eq(v2, vm)?),
 
             (AttrsRep::Map(map), AttrsRep::KV { name, value })
             | (AttrsRep::KV { name, value }, AttrsRep::Map(map)) => {
@@ -327,7 +328,7 @@ impl NixAttrs {
                 if let (Some(m_name), Some(m_value)) =
                     (map.get(&NixString::NAME), map.get(&NixString::VALUE))
                 {
-                    return Ok(name.nix_eq(m_name)? && value.nix_eq(m_value)?);
+                    return Ok(name.nix_eq(m_name, vm)? && value.nix_eq(m_value, vm)?);
                 }
 
                 Ok(false)
@@ -340,7 +341,7 @@ impl NixAttrs {
 
                 for (k, v1) in m1 {
                     if let Some(v2) = m2.get(k) {
-                        if !v1.nix_eq(v2)? {
+                        if !v1.nix_eq(v2, vm)? {
                             return Ok(false);
                         }
                     } else {

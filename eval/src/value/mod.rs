@@ -254,13 +254,15 @@ impl Value {
     gen_is!(is_number, Value::Integer(_) | Value::Float(_));
     gen_is!(is_bool, Value::Bool(_));
 
-    /// Compare `self` against `other` for equality using Nix equality semantics
-    pub fn nix_eq(&self, other: &Self) -> Result<bool, ErrorKind> {
+    /// Compare `self` against `other` for equality using Nix equality semantics.
+    ///
+    /// Takes a reference to the `VM` to allow forcing thunks during comparison
+    pub fn nix_eq(&self, other: &Self, vm: &mut VM) -> Result<bool, ErrorKind> {
         match (self, other) {
             // Trivial comparisons
             (Value::Null, Value::Null) => Ok(true),
             (Value::Bool(b1), Value::Bool(b2)) => Ok(b1 == b2),
-            (Value::List(l1), Value::List(l2)) => l1.nix_eq(l2),
+            (Value::List(l1), Value::List(l2)) => l1.nix_eq(l2, vm),
             (Value::String(s1), Value::String(s2)) => Ok(s1 == s2),
             (Value::Path(p1), Value::Path(p2)) => Ok(p1 == p2),
 
@@ -271,7 +273,7 @@ impl Value {
             (Value::Float(f), Value::Integer(i)) => Ok(*i as f64 == *f),
 
             // Optimised attribute set comparison
-            (Value::Attrs(a1), Value::Attrs(a2)) => Ok(Rc::ptr_eq(a1, a2) || a1.nix_eq(a2)?),
+            (Value::Attrs(a1), Value::Attrs(a2)) => Ok(Rc::ptr_eq(a1, a2) || a1.nix_eq(a2, vm)?),
 
             // If either value is a thunk, the inner value must be
             // compared instead. The compiler should ensure that
@@ -340,33 +342,50 @@ mod tests {
     fn test_name() {}
 
     mod nix_eq {
+        use crate::observer::NoOpObserver;
+
         use super::*;
         use proptest::prelude::ProptestConfig;
         use test_strategy::proptest;
 
         #[proptest(ProptestConfig { cases: 5, ..Default::default() })]
         fn reflexive(x: Value) {
-            assert!(x.nix_eq(&x).unwrap())
+            let mut observer = NoOpObserver {};
+            let mut vm = VM::new(&mut observer);
+
+            assert!(x.nix_eq(&x, &mut vm).unwrap())
         }
 
         #[proptest(ProptestConfig { cases: 5, ..Default::default() })]
         fn symmetric(x: Value, y: Value) {
-            assert_eq!(x.nix_eq(&y).unwrap(), y.nix_eq(&x).unwrap())
+            let mut observer = NoOpObserver {};
+            let mut vm = VM::new(&mut observer);
+
+            assert_eq!(
+                x.nix_eq(&y, &mut vm).unwrap(),
+                y.nix_eq(&x, &mut vm).unwrap()
+            )
         }
 
         #[proptest(ProptestConfig { cases: 5, ..Default::default() })]
         fn transitive(x: Value, y: Value, z: Value) {
-            if x.nix_eq(&y).unwrap() && y.nix_eq(&z).unwrap() {
-                assert!(x.nix_eq(&z).unwrap())
+            let mut observer = NoOpObserver {};
+            let mut vm = VM::new(&mut observer);
+
+            if x.nix_eq(&y, &mut vm).unwrap() && y.nix_eq(&z, &mut vm).unwrap() {
+                assert!(x.nix_eq(&z, &mut vm).unwrap())
             }
         }
 
         #[test]
         fn list_int_float_fungibility() {
+            let mut observer = NoOpObserver {};
+            let mut vm = VM::new(&mut observer);
+
             let v1 = Value::List(NixList::from(vec![Value::Integer(1)]));
             let v2 = Value::List(NixList::from(vec![Value::Float(1.0)]));
 
-            assert!(v1.nix_eq(&v2).unwrap())
+            assert!(v1.nix_eq(&v2, &mut vm).unwrap())
         }
     }
 }

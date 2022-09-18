@@ -1,24 +1,38 @@
 use super::*;
 
 mod nix_eq {
+    use crate::observer::NoOpObserver;
+
     use super::*;
     use proptest::prelude::ProptestConfig;
     use test_strategy::proptest;
 
     #[proptest(ProptestConfig { cases: 5, ..Default::default() })]
     fn reflexive(x: NixAttrs) {
-        assert!(x.nix_eq(&x).unwrap())
+        let mut observer = NoOpObserver {};
+        let mut vm = VM::new(&mut observer);
+
+        assert!(x.nix_eq(&x, &mut vm).unwrap())
     }
 
     #[proptest(ProptestConfig { cases: 5, ..Default::default() })]
     fn symmetric(x: NixAttrs, y: NixAttrs) {
-        assert_eq!(x.nix_eq(&y).unwrap(), y.nix_eq(&x).unwrap())
+        let mut observer = NoOpObserver {};
+        let mut vm = VM::new(&mut observer);
+
+        assert_eq!(
+            x.nix_eq(&y, &mut vm).unwrap(),
+            y.nix_eq(&x, &mut vm).unwrap()
+        )
     }
 
     #[proptest(ProptestConfig { cases: 5, ..Default::default() })]
     fn transitive(x: NixAttrs, y: NixAttrs, z: NixAttrs) {
-        if x.nix_eq(&y).unwrap() && y.nix_eq(&z).unwrap() {
-            assert!(x.nix_eq(&z).unwrap())
+        let mut observer = NoOpObserver {};
+        let mut vm = VM::new(&mut observer);
+
+        if x.nix_eq(&y, &mut vm).unwrap() && y.nix_eq(&z, &mut vm).unwrap() {
+            assert!(x.nix_eq(&z, &mut vm).unwrap())
         }
     }
 }
