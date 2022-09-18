@@ -332,3 +332,19 @@ fn type_error(expected: &'static str, actual: &Value) -> ErrorKind {
         actual: actual.type_of(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::properties::eq_laws;
+    use proptest::prelude::ProptestConfig;
+
+    use super::*;
+
+    eq_laws!(
+        Value,
+        ProptestConfig {
+            cases: 20,
+            ..Default::default()
+        }
+    );
+}

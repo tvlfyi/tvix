@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 241ec68db9f684f4280d4c7907f7105e7b746df433fbb5cbd6bf45323a7f3be0 # shrinks to input = _ReflexiveArgs { x: List(NixList([List(NixList([Path("𑁯")]))])) }
