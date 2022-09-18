@@ -192,7 +192,10 @@ impl Compiler<'_, '_> {
     fn compile_literal(&mut self, node: ast::Literal) {
         let value = match node.kind() {
             ast::LiteralKind::Float(f) => Value::Float(f.value().unwrap()),
-            ast::LiteralKind::Integer(i) => Value::Integer(i.value().unwrap()),
+            ast::LiteralKind::Integer(i) => match i.value() {
+                Ok(v) => Value::Integer(v),
+                Err(err) => return self.emit_error(&node, err.into()),
+            },
 
             ast::LiteralKind::Uri(u) => {
                 self.emit_warning(&node, WarningKind::DeprecatedLiteralURL);

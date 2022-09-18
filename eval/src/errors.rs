@@ -1,6 +1,6 @@
 use crate::value::CoercionKind;
-use std::fmt::Display;
 use std::path::PathBuf;
+use std::{fmt::Display, num::ParseIntError};
 
 use codemap::{CodeMap, Span};
 use codemap_diagnostic::{Diagnostic, Emitter, Level, SpanLabel, SpanStyle};
@@ -77,10 +77,19 @@ pub enum ErrorKind {
     /// The given string doesn't represent an absolute path
     NotAnAbsolutePath(PathBuf),
 
+    /// An error occurred when parsing an integer
+    ParseIntError(ParseIntError),
+
     /// Tvix internal warning for features triggered by users that are
     /// not actually implemented yet, and without which eval can not
     /// proceed.
     NotImplemented(&'static str),
+}
+
+impl From<ParseIntError> for ErrorKind {
+    fn from(e: ParseIntError) -> Self {
+        Self::ParseIntError(e)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -200,6 +209,10 @@ to a missing value in the attribute set(s) included via `with`."#,
                 )
             }
 
+            ErrorKind::ParseIntError(err) => {
+                format!("invalid integer: {}", err)
+            }
+
             ErrorKind::NotImplemented(feature) => {
                 format!("feature not yet implemented in Tvix: {}", feature)
             }
@@ -230,6 +243,7 @@ to a missing value in the attribute set(s) included via `with`."#,
             ErrorKind::NotCoercibleToString { .. } => "E018",
             ErrorKind::IndexOutOfBounds { .. } => "E019",
             ErrorKind::NotAnAbsolutePath(_) => "E020",
+            ErrorKind::ParseIntError(_) => "E021",
             ErrorKind::NotImplemented(_) => "E999",
         }
     }
