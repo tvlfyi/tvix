@@ -1,30 +1,35 @@
 use std::{
-    env, fs,
+    fs,
     path::{Path, PathBuf},
-    process,
 };
 
+use clap::Parser;
 use rustyline::{error::ReadlineError, Editor};
 
-fn main() {
-    let mut args = env::args();
-    if args.len() > 2 {
-        println!("Usage: tvix-eval [script]");
-        process::exit(1);
-    }
+#[derive(Parser)]
+struct Args {
+    /// Path to a script to evaluate
+    script: Option<PathBuf>,
 
-    if let Some(file) = args.nth(1) {
-        run_file(&file);
+    #[clap(flatten)]
+    eval_options: tvix_eval::Options,
+}
+
+fn main() {
+    let args = Args::parse();
+
+    if let Some(file) = &args.script {
+        run_file(file, args.eval_options)
     } else {
-        run_prompt();
+        run_prompt(args.eval_options)
     }
 }
 
-fn run_file(file: &str) {
+fn run_file(file: &Path, eval_options: tvix_eval::Options) {
     let contents = fs::read_to_string(file).expect("failed to read the input file");
     let path = Path::new(file).to_owned();
 
-    match tvix_eval::interpret(&contents, Some(path)) {
+    match tvix_eval::interpret(&contents, Some(path), eval_options) {
         Ok(result) => println!("=> {} :: {}", result, result.type_of()),
         Err(err) => eprintln!("{}", err),
     }
@@ -38,7 +43,7 @@ fn state_dir() -> Option<PathBuf> {
     path
 }
 
-fn run_prompt() {
+fn run_prompt(eval_options: tvix_eval::Options) {
     let mut rl = Editor::<()>::new().expect("should be able to launch rustyline");
 
     let history_path = match state_dir() {
@@ -63,7 +68,7 @@ fn run_prompt() {
                 }
 
                 rl.add_history_entry(&line);
-                match tvix_eval::interpret(&line, None) {
+                match tvix_eval::interpret(&line, None, eval_options) {
                     Ok(result) => {
                         println!("=> {} :: {}", result, result.type_of());
                     }

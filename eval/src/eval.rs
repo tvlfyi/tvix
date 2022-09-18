@@ -7,7 +7,24 @@ use crate::{
     value::Value,
 };
 
-pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
+/// Runtime options for the Tvix interpreter
+#[derive(Debug, Clone, Copy, Default)]
+#[cfg_attr(feature = "repl", derive(clap::Parser))]
+pub struct Options {
+    /// Dump the raw AST to stdout before interpreting
+    #[cfg_attr(feature = "repl", clap(long, env = "TVIX_DISPLAY_AST"))]
+    display_ast: bool,
+
+    /// Dump the bytecode to stdout before evaluating
+    #[cfg_attr(feature = "repl", clap(long, env = "TVIX_DUMP_BYTECODE"))]
+    dump_bytecode: bool,
+
+    /// Trace the runtime of the VM
+    #[cfg_attr(feature = "repl", clap(long, env = "TVIX_TRACE_RUNTIME"))]
+    trace_runtime: bool,
+}
+
+pub fn interpret(code: &str, location: Option<PathBuf>, options: Options) -> EvalResult<Value> {
     let mut codemap = codemap::CodeMap::new();
     let file = codemap.add_file(
         location
@@ -37,11 +54,11 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         .expr()
         .expect("expression should exist if no errors occured");
 
-    if std::env::var("TVIX_DISPLAY_AST").is_ok() {
+    if options.display_ast {
         println!("{:?}", root_expr);
     }
 
-    let result = if std::env::var("TVIX_DUMP_BYTECODE").is_ok() {
+    let result = if options.dump_bytecode {
         crate::compiler::compile(
             root_expr,
             location,
@@ -76,7 +93,7 @@ pub fn interpret(code: &str, location: Option<PathBuf>) -> EvalResult<Value> {
         return Err(err.clone());
     }
 
-    if std::env::var("TVIX_TRACE_RUNTIME").is_ok() {
+    if options.trace_runtime {
         crate::vm::run_lambda(&mut TracingObserver::new(std::io::stderr()), result.lambda)
     } else {
         crate::vm::run_lambda(&mut NoOpObserver::default(), result.lambda)

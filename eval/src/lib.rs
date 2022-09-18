@@ -21,6 +21,6 @@ mod tests;
 pub use crate::builtins::global_builtins;
 pub use crate::compiler::compile;
 pub use crate::errors::EvalResult;
-pub use crate::eval::interpret;
+pub use crate::eval::{interpret, Options};
 pub use crate::value::Value;
 pub use crate::vm::run_lambda;

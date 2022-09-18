@@ -23,6 +23,7 @@ codemap = "0.1.3"
 codemap-diagnostic = "0.1.1"
 proptest = { version = "1.0.0", default_features = false, features = ["std", "alloc", "break-dead-code", "tempfile"], optional = true }
 test-strategy = { version = "0.2.1", optional = true }
+clap = { version = "3.2.22", optional = true, features = ["derive", "env"] }
 
 # rnix has not been released in a while (as of 2022-09-18), we will
 # use it from git.
@@ -45,7 +46,7 @@ default = [ "repl", "arbitrary" ]
 nix_tests = []
 
 # Enables building the binary (tvix-eval REPL)
-repl = [ "dep:rustyline" ]
+repl = [ "dep:rustyline", "dep:clap" ]
 
 # Enables Arbitrary impls for internal types (required to run tests)
 arbitrary = [ "proptest", "test-strategy" ]
