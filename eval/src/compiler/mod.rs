@@ -98,6 +98,44 @@ struct Compiler<'observer> {
     observer: &'observer mut dyn Observer,
 }
 
+/// Compiler construction
+impl<'observer> Compiler<'observer> {
+    pub(crate) fn new(
+        location: Option<PathBuf>,
+        file: Arc<codemap::File>,
+        globals: HashMap<&'static str, Value>,
+        observer: &'observer mut dyn Observer,
+    ) -> EvalResult<Self> {
+        let mut root_dir = match location {
+            Some(dir) => Ok(dir),
+            None => std::env::current_dir().map_err(|e| Error {
+                kind: ErrorKind::PathResolution(format!(
+                    "could not determine current directory: {}",
+                    e
+                )),
+                span: file.span,
+            }),
+        }?;
+
+        // If the path passed from the caller points to a file, the
+        // filename itself needs to be truncated as this must point to a
+        // directory.
+        if root_dir.is_file() {
+            root_dir.pop();
+        }
+
+        Ok(Self {
+            root_dir,
+            file,
+            observer,
+            globals: prepare_globals(globals),
+            contexts: vec![LambdaCtx::new()],
+            warnings: vec![],
+            errors: vec![],
+        })
+    }
+}
+
 // Helper functions for emitting code and metadata to the internal
 // structures of the compiler.
 impl Compiler<'_> {
@@ -1392,33 +1430,7 @@ pub fn compile(
     globals: HashMap<&'static str, Value>,
     observer: &mut dyn Observer,
 ) -> EvalResult<CompilationOutput> {
-    let mut root_dir = match location {
-        Some(dir) => Ok(dir),
-        None => std::env::current_dir().map_err(|e| Error {
-            kind: ErrorKind::PathResolution(format!(
-                "could not determine current directory: {}",
-                e
-            )),
-            span: file.span,
-        }),
-    }?;
-
-    // If the path passed from the caller points to a file, the
-    // filename itself needs to be truncated as this must point to a
-    // directory.
-    if root_dir.is_file() {
-        root_dir.pop();
-    }
-
-    let mut c = Compiler {
-        root_dir,
-        file,
-        observer,
-        globals: prepare_globals(globals),
-        contexts: vec![LambdaCtx::new()],
-        warnings: vec![],
-        errors: vec![],
-    };
+    let mut c = Compiler::new(location, file, globals, observer)?;
 
     let root_span = c.span_for(&expr);
     let root_slot = c.scope_mut().declare_phantom(root_span, false);
