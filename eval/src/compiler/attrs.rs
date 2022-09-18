@@ -270,13 +270,15 @@ impl Compiler<'_> {
 
         // Push the set onto the stack
         self.compile(slot, set.clone());
-        self.emit_force(&set);
 
         // Compile each key fragment and emit access instructions.
         //
         // TODO: multi-select instruction to avoid re-pushing attrs on
         // nested selects.
         for fragment in path.attrs() {
+            // Force the current set value.
+            self.emit_force(&fragment);
+
             self.compile_attr(slot, fragment.clone());
             self.push_op(OpCode::OpAttrsSelect, &fragment);
         }
@@ -319,10 +321,10 @@ impl Compiler<'_> {
         default: ast::Expr,
     ) {
         self.compile(slot, set.clone());
-        self.emit_force(&set);
         let mut jumps = vec![];
 
         for fragment in path.attrs() {
+            self.emit_force(&fragment);
             self.compile_attr(slot, fragment.clone());
             self.push_op(OpCode::OpAttrsTrySelect, &fragment);
             jumps.push(self.push_op(OpCode::OpJumpIfNotFound(JumpOffset(0)), &fragment));
