@@ -299,6 +299,7 @@ impl PartialEq for Value {
             (Value::Bool(b1), Value::Bool(b2)) => b1 == b2,
             (Value::List(l1), Value::List(l2)) => l1 == l2,
             (Value::String(s1), Value::String(s2)) => s1 == s2,
+            (Value::Path(p1), Value::Path(p2)) => p1 == p2,
 
             // Numerical comparisons (they work between float & int)
             (Value::Integer(i1), Value::Integer(i2)) => i1 == i2,
