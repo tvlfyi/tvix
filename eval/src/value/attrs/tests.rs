@@ -1,15 +1,27 @@
-use proptest::prelude::ProptestConfig;
-
 use super::*;
-use crate::properties::eq_laws;
 
-eq_laws!(
-    NixAttrs,
-    ProptestConfig {
-        cases: 5,
-        ..Default::default()
+mod nix_eq {
+    use super::*;
+    use proptest::prelude::ProptestConfig;
+    use test_strategy::proptest;
+
+    #[proptest(ProptestConfig { cases: 5, ..Default::default() })]
+    fn reflexive(x: NixAttrs) {
+        assert!(x.nix_eq(&x).unwrap())
     }
-);
+
+    #[proptest(ProptestConfig { cases: 5, ..Default::default() })]
+    fn symmetric(x: NixAttrs, y: NixAttrs) {
+        assert_eq!(x.nix_eq(&y).unwrap(), y.nix_eq(&x).unwrap())
+    }
+
+    #[proptest(ProptestConfig { cases: 5, ..Default::default() })]
+    fn transitive(x: NixAttrs, y: NixAttrs, z: NixAttrs) {
+        if x.nix_eq(&y).unwrap() && y.nix_eq(&z).unwrap() {
+            assert!(x.nix_eq(&z).unwrap())
+        }
+    }
+}
 
 #[test]
 fn test_empty_attrs() {

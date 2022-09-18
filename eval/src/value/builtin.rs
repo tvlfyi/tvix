@@ -87,3 +87,10 @@ impl Display for Builtin {
         }
     }
 }
+
+/// Builtins are uniquely identified by their name
+impl PartialEq for Builtin {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}

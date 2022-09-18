@@ -1,6 +1,8 @@
 //! This module implements Nix lists.
 use std::fmt::Display;
 
+use crate::errors::ErrorKind;
+
 use super::Value;
 
 #[repr(transparent)]
@@ -17,6 +19,12 @@ impl Display for NixList {
         }
 
         f.write_str("]")
+    }
+}
+
+impl From<Vec<Value>> for NixList {
+    fn from(vs: Vec<Value>) -> Self {
+        Self(vs)
     }
 }
 
@@ -72,5 +80,20 @@ impl NixList {
 
     pub fn into_iter(self) -> std::vec::IntoIter<Value> {
         self.0.into_iter()
+    }
+
+    /// Compare `self` against `other` for equality using Nix equality semantics
+    pub fn nix_eq(&self, other: &Self) -> Result<bool, ErrorKind> {
+        if self.len() != other.len() {
+            return Ok(false);
+        }
+
+        for (v1, v2) in self.iter().zip(other.iter()) {
+            if !v1.nix_eq(v2)? {
+                return Ok(false);
+            }
+        }
+
+        Ok(true)
     }
 }

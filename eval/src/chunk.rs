@@ -17,7 +17,7 @@ use crate::value::Value;
 /// the textual representation of that span from the codemap, or to
 /// even re-parse the AST using rnix to create more semantically
 /// interesting errors.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct SourceSpan {
     /// Span into the [codemap::Codemap].
     span: codemap::Span,
@@ -29,7 +29,7 @@ struct SourceSpan {
 /// A chunk is a representation of a sequence of bytecode
 /// instructions, associated constants and additional metadata as
 /// emitted by the compiler.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Chunk {
     pub code: Vec<OpCode>,
     pub constants: Vec<Value>,

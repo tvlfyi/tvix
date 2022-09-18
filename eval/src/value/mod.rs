@@ -24,7 +24,7 @@ pub use string::NixString;
 pub use thunk::Thunk;
 
 #[warn(variant_size_differences)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     Null,
     Bool(bool),
@@ -253,6 +253,40 @@ impl Value {
 
     gen_is!(is_number, Value::Integer(_) | Value::Float(_));
     gen_is!(is_bool, Value::Bool(_));
+
+    /// Compare `self` against `other` for equality using Nix equality semantics
+    pub fn nix_eq(&self, other: &Self) -> Result<bool, ErrorKind> {
+        match (self, other) {
+            // Trivial comparisons
+            (Value::Null, Value::Null) => Ok(true),
+            (Value::Bool(b1), Value::Bool(b2)) => Ok(b1 == b2),
+            (Value::List(l1), Value::List(l2)) => l1.nix_eq(l2),
+            (Value::String(s1), Value::String(s2)) => Ok(s1 == s2),
+            (Value::Path(p1), Value::Path(p2)) => Ok(p1 == p2),
+
+            // Numerical comparisons (they work between float & int)
+            (Value::Integer(i1), Value::Integer(i2)) => Ok(i1 == i2),
+            (Value::Integer(i), Value::Float(f)) => Ok(*i as f64 == *f),
+            (Value::Float(f1), Value::Float(f2)) => Ok(f1 == f2),
+            (Value::Float(f), Value::Integer(i)) => Ok(*i as f64 == *f),
+
+            // Optimised attribute set comparison
+            (Value::Attrs(a1), Value::Attrs(a2)) => Ok(Rc::ptr_eq(a1, a2) || a1.nix_eq(a2)?),
+
+            // If either value is a thunk, the inner value must be
+            // compared instead. The compiler should ensure that
+            // thunks under comparison have been forced, otherwise it
+            // is a bug.
+            (Value::Thunk(lhs), Value::Thunk(rhs)) => Ok(*lhs.value() == *rhs.value()),
+            (Value::Thunk(lhs), rhs) => Ok(&*lhs.value() == rhs),
+            (lhs, Value::Thunk(rhs)) => Ok(lhs == &*rhs.value()),
+
+            // Everything else is either incomparable (e.g. internal
+            // types) or false.
+            // TODO(tazjin): mirror Lambda equality behaviour
+            _ => Ok(false),
+        }
+    }
 }
 
 impl Display for Value {
@@ -291,41 +325,6 @@ impl Display for Value {
     }
 }
 
-impl PartialEq for Value {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            // Trivial comparisons
-            (Value::Null, Value::Null) => true,
-            (Value::Bool(b1), Value::Bool(b2)) => b1 == b2,
-            (Value::List(l1), Value::List(l2)) => l1 == l2,
-            (Value::String(s1), Value::String(s2)) => s1 == s2,
-            (Value::Path(p1), Value::Path(p2)) => p1 == p2,
-
-            // Numerical comparisons (they work between float & int)
-            (Value::Integer(i1), Value::Integer(i2)) => i1 == i2,
-            (Value::Integer(i), Value::Float(f)) => *i as f64 == *f,
-            (Value::Float(f1), Value::Float(f2)) => f1 == f2,
-            (Value::Float(f), Value::Integer(i)) => *i as f64 == *f,
-
-            // Optimised attribute set comparison
-            (Value::Attrs(a1), Value::Attrs(a2)) => Rc::ptr_eq(a1, a2) || { a1 == a2 },
-
-            // If either value is a thunk, the inner value must be
-            // compared instead. The compiler should ensure that
-            // thunks under comparison have been forced, otherwise it
-            // is a bug.
-            (Value::Thunk(lhs), Value::Thunk(rhs)) => *lhs.value() == *rhs.value(),
-            (Value::Thunk(lhs), rhs) => &*lhs.value() == rhs,
-            (lhs, Value::Thunk(rhs)) => lhs == &*rhs.value(),
-
-            // Everything else is either incomparable (e.g. internal
-            // types) or false.
-            // TODO(tazjin): mirror Lambda equality behaviour
-            _ => false,
-        }
-    }
-}
-
 fn type_error(expected: &'static str, actual: &Value) -> ErrorKind {
     ErrorKind::TypeError {
         expected,
@@ -335,16 +334,39 @@ fn type_error(expected: &'static str, actual: &Value) -> ErrorKind {
 
 #[cfg(test)]
 mod tests {
-    use crate::properties::eq_laws;
-    use proptest::prelude::ProptestConfig;
-
     use super::*;
 
-    eq_laws!(
-        Value,
-        ProptestConfig {
-            cases: 20,
-            ..Default::default()
+    #[test]
+    fn test_name() {}
+
+    mod nix_eq {
+        use super::*;
+        use proptest::prelude::ProptestConfig;
+        use test_strategy::proptest;
+
+        #[proptest(ProptestConfig { cases: 5, ..Default::default() })]
+        fn reflexive(x: Value) {
+            assert!(x.nix_eq(&x).unwrap())
         }
-    );
+
+        #[proptest(ProptestConfig { cases: 5, ..Default::default() })]
+        fn symmetric(x: Value, y: Value) {
+            assert_eq!(x.nix_eq(&y).unwrap(), y.nix_eq(&x).unwrap())
+        }
+
+        #[proptest(ProptestConfig { cases: 5, ..Default::default() })]
+        fn transitive(x: Value, y: Value, z: Value) {
+            if x.nix_eq(&y).unwrap() && y.nix_eq(&z).unwrap() {
+                assert!(x.nix_eq(&z).unwrap())
+            }
+        }
+
+        #[test]
+        fn list_int_float_fungibility() {
+            let v1 = Value::List(NixList::from(vec![Value::Integer(1)]));
+            let v2 = Value::List(NixList::from(vec![Value::Float(1.0)]));
+
+            assert!(v1.nix_eq(&v2).unwrap())
+        }
+    }
 }

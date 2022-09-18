@@ -34,7 +34,7 @@ use crate::{
 use super::Lambda;
 
 /// Internal representation of the different states of a thunk.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum ThunkRepr {
     /// Thunk is closed over some values, suspended and awaiting
     /// execution.
@@ -51,7 +51,7 @@ enum ThunkRepr {
     Evaluated(Value),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Thunk(Rc<RefCell<ThunkRepr>>);
 
 impl Thunk {

@@ -9,7 +9,7 @@ use crate::{
     upvalues::{UpvalueCarrier, Upvalues},
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Lambda {
     // name: Option<NixString>,
     pub(crate) chunk: Chunk,
@@ -30,14 +30,14 @@ impl Lambda {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct InnerClosure {
     pub lambda: Rc<Lambda>,
     upvalues: Upvalues,
 }
 
 #[repr(transparent)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Closure(Rc<RefCell<InnerClosure>>);
 
 impl Closure {

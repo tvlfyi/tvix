@@ -13,7 +13,7 @@ use crate::{opcode::UpvalueIdx, Value};
 /// Structure for carrying upvalues inside of thunks & closures. The
 /// implementation of this struct encapsulates the logic for capturing
 /// and accessing upvalues.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Upvalues {
     upvalues: Vec<Value>,
     with_stack: Option<Vec<Value>>,

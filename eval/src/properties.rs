@@ -35,7 +35,6 @@ macro_rules! eq_laws {
 
             #[proptest($config)]
             fn transitive(#[$meta] x: $ty, #[$meta] y: $ty, #[$meta] z: $ty) {
-                dbg!(&x, &y, &z);
                 if x == y && y == z {
                     assert!(x == z);
                 }
