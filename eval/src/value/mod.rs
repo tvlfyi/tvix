@@ -275,11 +275,14 @@ impl Value {
             // Optimised attribute set comparison
             (Value::Attrs(a1), Value::Attrs(a2)) => Ok(Rc::ptr_eq(a1, a2) || a1.nix_eq(a2, vm)?),
 
-            // If either value is a thunk, the inner value must be
-            // compared instead. The compiler should ensure that
-            // thunks under comparison have been forced, otherwise it
-            // is a bug.
-            (Value::Thunk(lhs), Value::Thunk(rhs)) => Ok(*lhs.value() == *rhs.value()),
+            // If either value is a thunk, the thunk should be forced, and then the resulting value
+            // must be compared instead.
+            (Value::Thunk(lhs), Value::Thunk(rhs)) => {
+                lhs.force(vm)?;
+                rhs.force(vm)?;
+
+                Ok(*lhs.value() == *rhs.value())
+            }
             (Value::Thunk(lhs), rhs) => Ok(&*lhs.value() == rhs),
             (lhs, Value::Thunk(rhs)) => Ok(lhs == &*rhs.value()),
 
