@@ -39,7 +39,7 @@ itertools = "0.10.3"
 tempdir = "0.3.7"
 
 [features]
-default = [ "repl", "arbitrary" ]
+default = [ "repl", "impure", "arbitrary" ]
 
 # Enables running the Nix language test suite from the original C++
 # Nix implementation (at version 2.3) against Tvix.
@@ -47,6 +47,9 @@ nix_tests = []
 
 # Enables building the binary (tvix-eval REPL)
 repl = [ "dep:rustyline", "dep:clap" ]
+
+# Enables operations in the VM which depend on the ability to perform I/O
+impure = []
 
 # Enables Arbitrary impls for internal types (required to run tests)
 arbitrary = [ "proptest", "test-strategy" ]

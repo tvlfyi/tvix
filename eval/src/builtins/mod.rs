@@ -20,6 +20,8 @@ use crate::arithmetic_op;
 
 use self::versions::{VersionPart, VersionPartsIter};
 
+#[cfg(feature = "impure")]
+mod impure;
 pub mod versions;
 
 /// Coerce a Nix Value to a plain path, e.g. in order to access the file it
@@ -292,8 +294,16 @@ fn pure_builtins() -> Vec<Builtin> {
 fn builtins_set() -> NixAttrs {
     let mut map: BTreeMap<NixString, Value> = BTreeMap::new();
 
-    for builtin in pure_builtins() {
-        map.insert(builtin.name().into(), Value::Builtin(builtin));
+    let mut add_builtins = |builtins: Vec<Builtin>| {
+        for builtin in builtins {
+            map.insert(builtin.name().into(), Value::Builtin(builtin));
+        }
+    };
+
+    add_builtins(pure_builtins());
+    #[cfg(feature = "impure")]
+    {
+        add_builtins(impure::builtins());
     }
 
     NixAttrs::from_map(map)
