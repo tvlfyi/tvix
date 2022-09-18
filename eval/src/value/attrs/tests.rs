@@ -1,4 +1,15 @@
+use proptest::prelude::ProptestConfig;
+
 use super::*;
+use crate::properties::eq_laws;
+
+eq_laws!(
+    NixAttrs,
+    ProptestConfig {
+        cases: 5,
+        ..Default::default()
+    }
+);
 
 #[test]
 fn test_empty_attrs() {
