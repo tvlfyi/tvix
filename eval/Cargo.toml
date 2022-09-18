@@ -24,11 +24,11 @@ codemap-diagnostic = "0.1.1"
 proptest = { version = "1.0.0", default_features = false, features = ["std", "alloc", "break-dead-code", "tempfile"], optional = true }
 test-strategy = { version = "0.2.1", optional = true }
 
-# rnix has not been released in a while (as of 2022-09-01), we will
+# rnix has not been released in a while (as of 2022-09-18), we will
 # use it from git.
 [dependencies.rnix]
 git = "https://github.com/nix-community/rnix-parser.git"
-rev = "97b438e34be5211a4b48aeed9cc3ded489b4d6da"
+rev = "7d0d929c22ad27bdcc0779afe445b541d3ce9631"
 
 [dev-dependencies]
 criterion = "0.3.6"
