@@ -5,7 +5,7 @@ use std::ops::{AddAssign, Sub};
 
 /// Index of a constant in the current code chunk.
 #[repr(transparent)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ConstantIdx(pub usize);
 
 /// Index of an instruction in the current code chunk.
@@ -39,17 +39,17 @@ pub struct UpvalueIdx(pub usize);
 
 /// Offset by which an instruction pointer should change in a jump.
 #[repr(transparent)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct JumpOffset(pub usize);
 
 /// Provided count for an instruction (could represent e.g. a number
 /// of elements).
 #[repr(transparent)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Count(pub usize);
 
 #[warn(variant_size_differences)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OpCode {
     /// Push a constant onto the stack.
     OpConstant(ConstantIdx),

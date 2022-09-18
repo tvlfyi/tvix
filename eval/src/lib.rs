@@ -13,6 +13,8 @@ mod warnings;
 #[cfg(test)]
 mod properties;
 #[cfg(test)]
+mod test_utils;
+#[cfg(test)]
 mod tests;
 
 // Re-export the public interface used by other crates.
