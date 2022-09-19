@@ -154,35 +154,45 @@ fn pure_builtins() -> Vec<Builtin> {
             Some(x) => Ok(x.clone()),
             None => Err(ErrorKind::IndexOutOfBounds { index: 0 }),
         }),
-        Builtin::new("isAttrs", &[true], |args, _| {
-            Ok(Value::Bool(matches!(args[0], Value::Attrs(_))))
+        // For `is*` predicates we force manually, as Value::force also unwraps any Thunks
+        Builtin::new("isAttrs", &[false], |args, vm| {
+            let value = args[0].force(vm)?;
+            Ok(Value::Bool(matches!(*value, Value::Attrs(_))))
         }),
-        Builtin::new("isBool", &[true], |args, _| {
-            Ok(Value::Bool(matches!(args[0], Value::Bool(_))))
+        Builtin::new("isBool", &[false], |args, vm| {
+            let value = args[0].force(vm)?;
+            Ok(Value::Bool(matches!(*value, Value::Bool(_))))
         }),
-        Builtin::new("isFloat", &[true], |args, _| {
-            Ok(Value::Bool(matches!(args[0], Value::Float(_))))
+        Builtin::new("isFloat", &[false], |args, vm| {
+            let value = args[0].force(vm)?;
+            Ok(Value::Bool(matches!(*value, Value::Float(_))))
         }),
-        Builtin::new("isFunction", &[true], |args, _| {
+        Builtin::new("isFunction", &[false], |args, vm| {
+            let value = args[0].force(vm)?;
             Ok(Value::Bool(matches!(
-                args[0],
+                *value,
                 Value::Closure(_) | Value::Builtin(_)
             )))
         }),
-        Builtin::new("isInt", &[true], |args, _| {
-            Ok(Value::Bool(matches!(args[0], Value::Integer(_))))
+        Builtin::new("isInt", &[false], |args, vm| {
+            let value = args[0].force(vm)?;
+            Ok(Value::Bool(matches!(*value, Value::Integer(_))))
         }),
-        Builtin::new("isList", &[true], |args, _| {
-            Ok(Value::Bool(matches!(args[0], Value::List(_))))
+        Builtin::new("isList", &[false], |args, vm| {
+            let value = args[0].force(vm)?;
+            Ok(Value::Bool(matches!(*value, Value::List(_))))
         }),
-        Builtin::new("isNull", &[true], |args, _| {
-            Ok(Value::Bool(matches!(args[0], Value::Null)))
+        Builtin::new("isNull", &[false], |args, vm| {
+            let value = args[0].force(vm)?;
+            Ok(Value::Bool(matches!(*value, Value::Null)))
         }),
-        Builtin::new("isPath", &[true], |args, _| {
-            Ok(Value::Bool(matches!(args[0], Value::Path(_))))
+        Builtin::new("isPath", &[false], |args, vm| {
+            let value = args[0].force(vm)?;
+            Ok(Value::Bool(matches!(*value, Value::Path(_))))
         }),
-        Builtin::new("isString", &[true], |args, _| {
-            Ok(Value::Bool(matches!(args[0], Value::String(_))))
+        Builtin::new("isString", &[false], |args, vm| {
+            let value = args[0].force(vm)?;
+            Ok(Value::Bool(matches!(*value, Value::String(_))))
         }),
         Builtin::new("mul", &[true, true], |mut args, _| {
             let b = args.pop().unwrap();
