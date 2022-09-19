@@ -1,7 +1,7 @@
-inherited: false
-owners:
-  - adisbladis
-  - flokli
-  - grfn
-  - sterni
-  - tazjin
+set noparent
+
+adisbladis
+flokli
+grfn
+sterni
+tazjin
