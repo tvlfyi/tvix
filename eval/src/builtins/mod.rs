@@ -238,7 +238,8 @@ fn pure_builtins() -> Vec<Builtin> {
                 args.pop().unwrap().to_str()?.as_str().to_owned(),
             ));
         }),
-        Builtin::new("toString", &[true], |args, vm| {
+        // coerce_to_string forces for us
+        Builtin::new("toString", &[false], |args, vm| {
             args[0]
                 .coerce_to_string(CoercionKind::Strong, vm)
                 .map(Value::String)
