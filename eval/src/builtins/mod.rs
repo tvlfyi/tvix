@@ -18,7 +18,7 @@ use crate::{
 
 use crate::arithmetic_op;
 
-use self::versions::VersionPartsIter;
+use self::versions::{VersionPart, VersionPartsIter};
 
 pub mod versions;
 
@@ -212,6 +212,21 @@ fn pure_builtins() -> Vec<Builtin> {
             let b = args.pop().unwrap();
             let a = args.pop().unwrap();
             arithmetic_op!(a, b, *)
+        }),
+        Builtin::new("splitVersion", &[true], |args, _| {
+            let s = args[0].to_str()?;
+            let s = VersionPartsIter::new(s.as_str());
+
+            let parts = s
+                .map(|s| {
+                    Value::String(match s {
+                        // TODO(sterni): we should avoid converting back and forth here
+                        VersionPart::Number(n) => format!("{n}").into(),
+                        VersionPart::Word(w) => w.into(),
+                    })
+                })
+                .collect::<Vec<Value>>();
+            Ok(Value::List(NixList::construct(parts.len(), parts)))
         }),
         Builtin::new("sub", &[true, true], |mut args, _| {
             let b = args.pop().unwrap();
