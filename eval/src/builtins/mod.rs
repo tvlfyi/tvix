@@ -87,13 +87,14 @@ fn pure_builtins() -> Vec<Builtin> {
         Builtin::new("bitXor", &[true, true], |args, _| {
             Ok(Value::Integer(args[0].as_int()? ^ args[1].as_int()?))
         }),
-        Builtin::new("catAttrs", &[true, true], |mut args, _| {
-            let list = args.pop().unwrap().to_list()?;
-            let key = args.pop().unwrap().to_str()?;
+        Builtin::new("catAttrs", &[true, true], |args, vm| {
+            let key = args[0].to_str()?;
+            let list = args[1].to_list()?;
             let mut output = vec![];
 
-            for set in list.into_iter() {
-                if let Some(value) = set.to_attrs()?.select(key.as_str()) {
+            for item in list.into_iter() {
+                let set = item.force(vm)?.to_attrs()?;
+                if let Some(value) = set.select(key.as_str()) {
                     output.push(value.clone());
                 }
             }
