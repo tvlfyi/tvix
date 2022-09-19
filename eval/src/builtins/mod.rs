@@ -55,10 +55,8 @@ fn pure_builtins() -> Vec<Builtin> {
             let a = args.pop().unwrap();
             arithmetic_op!(a, b, +)
         }),
-        Builtin::new("abort", &[true], |mut args, _| {
-            return Err(ErrorKind::Abort(
-                args.pop().unwrap().to_str()?.as_str().to_owned(),
-            ));
+        Builtin::new("abort", &[true], |args, _| {
+            return Err(ErrorKind::Abort(args[0].to_str()?.to_string()));
         }),
         Builtin::new("attrNames", &[true], |args, _| {
             let xs = args[0].to_attrs()?;
@@ -233,10 +231,8 @@ fn pure_builtins() -> Vec<Builtin> {
                 Ok(Value::List(NixList::construct(output.len(), output)))
             }
         }),
-        Builtin::new("throw", &[true], |mut args, _| {
-            return Err(ErrorKind::Throw(
-                args.pop().unwrap().to_str()?.as_str().to_owned(),
-            ));
+        Builtin::new("throw", &[true], |args, _| {
+            return Err(ErrorKind::Throw(args[0].to_str()?.to_string()));
         }),
         // coerce_to_string forces for us
         Builtin::new("toString", &[false], |args, vm| {
