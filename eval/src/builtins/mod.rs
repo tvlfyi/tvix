@@ -109,9 +109,9 @@ fn pure_builtins() -> Vec<Builtin> {
             let s2 = VersionPartsIter::new(s2.as_str());
 
             match s1.cmp(s2) {
-                std::cmp::Ordering::Less => Ok(Value::Integer(1)),
+                std::cmp::Ordering::Less => Ok(Value::Integer(-1)),
                 std::cmp::Ordering::Equal => Ok(Value::Integer(0)),
-                std::cmp::Ordering::Greater => Ok(Value::Integer(-1)),
+                std::cmp::Ordering::Greater => Ok(Value::Integer(1)),
             }
         }),
         Builtin::new("div", &[true, true], |mut args, _| {
