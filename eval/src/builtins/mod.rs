@@ -12,8 +12,7 @@ use std::{
 
 use crate::{
     errors::ErrorKind,
-    upvalues::UpvalueCarrier,
-    value::{Builtin, Closure, CoercionKind, NixAttrs, NixList, NixString, Value},
+    value::{Builtin, CoercionKind, NixAttrs, NixList, NixString, Value},
     vm::VM,
 };
 
@@ -147,14 +146,13 @@ fn pure_builtins() -> Vec<Builtin> {
         }),
         Builtin::new("map", &[true, true], |args, vm| {
             let list: NixList = args[1].to_list()?;
-            let func: Closure = args[0].to_closure()?;
 
             list.into_iter()
                 .map(|val| {
                     // Leave the argument on the stack before calling the
                     // function.
                     vm.push(val);
-                    vm.call(func.lambda(), func.upvalues().clone(), 1)
+                    vm.call_value(&args[0])
                 })
                 .collect::<Result<Vec<Value>, _>>()
                 .map(|list| Value::List(NixList::from(list)))

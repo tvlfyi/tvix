@@ -175,7 +175,28 @@ impl<'o> VM<'o> {
         }
     }
 
-    #[allow(clippy::let_and_return)] // due to disassembler
+    /// Execute the given value in this VM's context, if it is a
+    /// callable.
+    ///
+    /// The stack of the VM must be prepared with all required
+    /// arguments before calling this and the value must have already
+    /// been forced.
+    pub fn call_value(&mut self, callable: &Value) -> EvalResult<Value> {
+        match callable {
+            Value::Closure(c) => self.call(c.lambda(), c.upvalues().clone(), 1),
+
+            Value::Builtin(b) => {
+                self.call_builtin(b.clone())?;
+                Ok(self.pop())
+            }
+
+            Value::Thunk(t) => self.call_value(&t.value()),
+
+            // TODO: this isn't guaranteed to be a useful span, actually
+            _ => Err(self.error(ErrorKind::NotCallable)),
+        }
+    }
+
     /// Execute the given lambda in this VM's context, returning its
     /// value after its stack frame completes.
     pub fn call(
@@ -456,17 +477,7 @@ impl<'o> VM<'o> {
 
                 OpCode::OpCall => {
                     let callable = self.pop();
-                    match callable {
-                        Value::Closure(closure) => {
-                            let result =
-                                self.call(closure.lambda(), closure.upvalues().clone(), 1)?;
-                            self.push(result)
-                        }
-
-                        Value::Builtin(builtin) => self.call_builtin(builtin)?,
-
-                        _ => return Err(self.error(ErrorKind::NotCallable)),
-                    };
+                    self.call_value(&callable)?;
                 }
 
                 OpCode::OpTailCall => {

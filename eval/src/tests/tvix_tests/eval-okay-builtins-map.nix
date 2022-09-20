@@ -11,6 +11,9 @@
     in builtins.map (x: x * n) [ 1 2 3 4 5 ]
   )
 
+  # same, but with a builtin
+  (builtins.map (builtins.mul 2) [ 1 2 3 4 5 ])
+
   # from global scope
   (map (x: x) [ 1 2 3 4 5 ])
 ]

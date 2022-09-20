@@ -16,7 +16,6 @@ mod thunk;
 
 use crate::errors::ErrorKind;
 use crate::opcode::StackIdx;
-use crate::upvalues::UpvalueCarrier;
 use crate::vm::VM;
 pub use attrs::NixAttrs;
 pub use builtin::Builtin;
@@ -155,22 +154,9 @@ impl Value {
                     (Some(f), _) => {
                         // use a closure here to deal with the thunk borrow we need to do below
                         let call_to_string = |value: &Value, vm: &mut VM| {
-                            // TODO(sterni): calling logic should be extracted into a helper
-                            let result = match value {
-                                Value::Closure(c) => {
-                                    vm.push(self.clone());
-                                    vm.call(c.lambda(), c.upvalues().clone(), 1)
-                                        .map_err(|e| e.kind)
-                                }
-
-                                Value::Builtin(b) => {
-                                    vm.push(self.clone());
-                                    vm.call_builtin(b.clone()).map_err(|e| e.kind)?;
-                                    Ok(vm.pop())
-                                }
-
-                                _ => Err(ErrorKind::NotCallable),
-                            }?;
+                            // Leave self on the stack as an argument to the function call.
+                            vm.push(self.clone());
+                            let result = vm.call_value(value)?;
 
                             match result {
                                 Value::String(s) => Ok(s),
