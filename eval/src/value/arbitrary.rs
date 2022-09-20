@@ -63,7 +63,7 @@ fn leaf_value() -> impl Strategy<Value = Value> {
 }
 
 fn non_internal_value() -> impl Strategy<Value = Value> {
-    leaf_value().prop_recursive(10, 256, 10, |inner| {
+    leaf_value().prop_recursive(3, 5, 5, |inner| {
         prop_oneof![
             any_with::<NixAttrs>((
                 Default::default(),

@@ -7,7 +7,7 @@ mod nix_eq {
     use proptest::prelude::ProptestConfig;
     use test_strategy::proptest;
 
-    #[proptest(ProptestConfig { cases: 5, ..Default::default() })]
+    #[proptest(ProptestConfig { cases: 2, ..Default::default() })]
     fn reflexive(x: NixAttrs) {
         let mut observer = NoOpObserver {};
         let mut vm = VM::new(&mut observer);
@@ -15,7 +15,7 @@ mod nix_eq {
         assert!(x.nix_eq(&x, &mut vm).unwrap())
     }
 
-    #[proptest(ProptestConfig { cases: 5, ..Default::default() })]
+    #[proptest(ProptestConfig { cases: 2, ..Default::default() })]
     fn symmetric(x: NixAttrs, y: NixAttrs) {
         let mut observer = NoOpObserver {};
         let mut vm = VM::new(&mut observer);
@@ -26,7 +26,7 @@ mod nix_eq {
         )
     }
 
-    #[proptest(ProptestConfig { cases: 5, ..Default::default() })]
+    #[proptest(ProptestConfig { cases: 2, ..Default::default() })]
     fn transitive(x: NixAttrs, y: NixAttrs, z: NixAttrs) {
         let mut observer = NoOpObserver {};
         let mut vm = VM::new(&mut observer);
