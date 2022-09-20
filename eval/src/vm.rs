@@ -193,7 +193,7 @@ impl<'o> VM<'o> {
             Value::Thunk(t) => self.call_value(&t.value()),
 
             // TODO: this isn't guaranteed to be a useful span, actually
-            _ => Err(self.error(ErrorKind::NotCallable)),
+            other => Err(self.error(ErrorKind::NotCallable(other.type_of()))),
         }
     }
 
@@ -499,7 +499,7 @@ impl<'o> VM<'o> {
                             frame.ip = CodeIdx(0); // reset instruction pointer to beginning
                         }
 
-                        _ => return Err(self.error(ErrorKind::NotCallable)),
+                        _ => return Err(self.error(ErrorKind::NotCallable(callable.type_of()))),
                     }
                 }
 

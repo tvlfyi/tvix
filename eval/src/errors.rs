@@ -60,7 +60,7 @@ pub enum ErrorKind {
     VariableAlreadyDefined(Span),
 
     /// Attempt to call something that is not callable.
-    NotCallable,
+    NotCallable(&'static str),
 
     /// Infinite recursion encountered while forcing thunks.
     InfiniteRecursion,
@@ -191,8 +191,11 @@ to a missing value in the attribute set(s) included via `with`."#,
 
             ErrorKind::VariableAlreadyDefined(_) => "variable has already been defined".to_string(),
 
-            ErrorKind::NotCallable => {
-                "this value is not callable (i.e. not a function or builtin)".to_string()
+            ErrorKind::NotCallable(other_type) => {
+                format!(
+                    "only functions and builtins can be called, but this is a '{}'",
+                    other_type
+                )
             }
 
             ErrorKind::InfiniteRecursion => "infinite recursion encountered".to_string(),
@@ -261,7 +264,7 @@ to a missing value in the attribute set(s) included via `with`."#,
             ErrorKind::UnknownStaticVariable => "E010",
             ErrorKind::UnknownDynamicVariable(_) => "E011",
             ErrorKind::VariableAlreadyDefined(_) => "E012",
-            ErrorKind::NotCallable => "E013",
+            ErrorKind::NotCallable(_) => "E013",
             ErrorKind::InfiniteRecursion => "E014",
             ErrorKind::ParseErrors(_) => "E015",
             ErrorKind::DuplicateAttrsKey { .. } => "E016",
