@@ -220,8 +220,7 @@ fn pure_builtins() -> Vec<Builtin> {
             let parts = s
                 .map(|s| {
                     Value::String(match s {
-                        // TODO(sterni): we should avoid converting back and forth here
-                        VersionPart::Number(n) => format!("{n}").into(),
+                        VersionPart::Number(n) => n.into(),
                         VersionPart::Word(w) => w.into(),
                     })
                 })

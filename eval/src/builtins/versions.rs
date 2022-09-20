@@ -6,7 +6,7 @@ use std::ops::RangeInclusive;
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub enum VersionPart<'a> {
     Word(&'a str),
-    Number(u64),
+    Number(&'a str),
 }
 
 /// Type used to hold information about a VersionPart during creation
@@ -46,7 +46,7 @@ impl<'a> Iterator for VersionPartsIter<'a> {
             match cached_part {
                 InternalPart::Break => return None,
                 InternalPart::Number { range } => {
-                    return Some(VersionPart::Number(self.version[range].parse().unwrap()))
+                    return Some(VersionPart::Number(&self.version[range]))
                 }
                 InternalPart::Word { range } => {
                     return Some(VersionPart::Word(&self.version[range]))
@@ -61,7 +61,7 @@ impl<'a> Iterator for VersionPartsIter<'a> {
                 let cached_part = std::mem::replace(&mut self.cached_part, InternalPart::Break);
                 match cached_part {
                     InternalPart::Number { range } => {
-                        Some(VersionPart::Number(self.version[range].parse().unwrap()))
+                        Some(VersionPart::Number(&self.version[range]))
                     }
                     InternalPart::Word { range } => Some(VersionPart::Word(&self.version[range])),
                     InternalPart::Break => self.next(),
@@ -98,7 +98,7 @@ impl<'a> Iterator for VersionPartsIter<'a> {
                         self.next()
                     }
                     InternalPart::Number { range } => {
-                        Some(VersionPart::Number(self.version[range].parse().unwrap()))
+                        Some(VersionPart::Number(&self.version[range]))
                     }
                     InternalPart::Break => self.next(),
                 }
