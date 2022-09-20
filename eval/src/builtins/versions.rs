@@ -57,7 +57,7 @@ impl<'a> Iterator for VersionPartsIter<'a> {
         let (pos, char) = char.unwrap();
         match char {
             // Divider encountered
-            '.' | '_' => {
+            '.' | '-' => {
                 let cached_part = std::mem::replace(&mut self.cached_part, InternalPart::Break);
                 match cached_part {
                     InternalPart::Number { range } => {
