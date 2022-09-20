@@ -374,9 +374,6 @@ fn type_error(expected: &'static str, actual: &Value) -> ErrorKind {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_name() {}
-
     mod nix_eq {
         use crate::observer::NoOpObserver;
 
