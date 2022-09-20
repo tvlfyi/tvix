@@ -100,6 +100,15 @@ impl From<ParseIntError> for ErrorKind {
     }
 }
 
+/// Implementation used if errors occur while forcing thunks (which
+/// can potentially be threaded through a few contexts, i.e. nested
+/// thunks).
+impl From<Error> for ErrorKind {
+    fn from(e: Error) -> Self {
+        Self::ThunkForce(Box::new(e))
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Error {
     pub kind: ErrorKind,
