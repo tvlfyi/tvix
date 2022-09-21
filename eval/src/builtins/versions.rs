@@ -28,10 +28,6 @@ impl Ord for VersionPart<'_> {
                 n1.cmp(&n2)
             }
 
-            // empty Word always looses
-            (VersionPart::Word(""), VersionPart::Number(_)) => Ordering::Less,
-            (VersionPart::Number(_), VersionPart::Word("")) => Ordering::Greater,
-
             // `pre` looses unless the other part is also a `pre`
             (VersionPart::Word("pre"), VersionPart::Word("pre")) => Ordering::Equal,
             (VersionPart::Word("pre"), _) => Ordering::Less,
