@@ -71,7 +71,7 @@ macro_rules! arithmetic_op {
     ( $self:ident, $op:tt ) => {{
         let b = $self.pop();
         let a = $self.pop();
-        let result = fallible!($self, arithmetic_op!(a, b, $op));
+        let result = fallible!($self, arithmetic_op!(&a, &b, $op));
         $self.push(result);
     }};
 
@@ -79,8 +79,8 @@ macro_rules! arithmetic_op {
         match ($a, $b) {
             (Value::Integer(i1), Value::Integer(i2)) => Ok(Value::Integer(i1 $op i2)),
             (Value::Float(f1), Value::Float(f2)) => Ok(Value::Float(f1 $op f2)),
-            (Value::Integer(i1), Value::Float(f2)) => Ok(Value::Float(i1 as f64 $op f2)),
-            (Value::Float(f1), Value::Integer(i2)) => Ok(Value::Float(f1 $op i2 as f64)),
+            (Value::Integer(i1), Value::Float(f2)) => Ok(Value::Float(*i1 as f64 $op f2)),
+            (Value::Float(f1), Value::Integer(i2)) => Ok(Value::Float(f1 $op *i2 as f64)),
 
             (v1, v2) => Err(ErrorKind::TypeError {
                 expected: "number (either int or float)",
@@ -264,7 +264,7 @@ impl<'o> VM<'o> {
                     let result = if let (Value::String(s1), Value::String(s2)) = (&a, &b) {
                         Value::String(s1.concat(s2))
                     } else {
-                        fallible!(self, arithmetic_op!(a, b, +))
+                        fallible!(self, arithmetic_op!(&a, &b, +))
                     };
 
                     self.push(result)

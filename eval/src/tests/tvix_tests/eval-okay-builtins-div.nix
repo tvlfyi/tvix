@@ -7,4 +7,5 @@
   (builtins.div 1.0 2)
   (builtins.div 1 2.0)
   (builtins.div 1.0 2.0)
+  (builtins.div (builtins.div 84 4) 0.5)
 ]
