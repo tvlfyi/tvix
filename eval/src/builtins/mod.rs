@@ -103,9 +103,9 @@ fn pure_builtins() -> Vec<Builtin> {
         }),
         Builtin::new("compareVersions", &[true, true], |args, _| {
             let s1 = args[0].to_str()?;
-            let s1 = VersionPartsIter::new(s1.as_str());
+            let s1 = VersionPartsIter::new_for_cmp(s1.as_str());
             let s2 = args[1].to_str()?;
-            let s2 = VersionPartsIter::new(s2.as_str());
+            let s2 = VersionPartsIter::new_for_cmp(s2.as_str());
 
             match s1.cmp(s2) {
                 std::cmp::Ordering::Less => Ok(Value::Integer(-1)),

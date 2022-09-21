@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::iter::{once, Chain, Once};
 use std::ops::RangeInclusive;
 
 /// Version strings can be broken up into Parts.
@@ -68,6 +69,20 @@ impl<'a> VersionPartsIter<'a> {
             iter: version.char_indices(),
             version,
         }
+    }
+
+    /// Create an iterator that yields all version parts followed by an additional
+    /// `VersionPart::Word("")` part (i.e. you can think of this as
+    /// `builtins.splitVersion version ++ [ "" ]`). This is necessary, because
+    /// Nix's `compareVersions` is not entirely lexicographical: If we have two
+    /// equal versions, but one is longer, the longer one is only considered
+    /// greater if the first additional part of the longer version is not `pre`,
+    /// e.g. `2.3 > 2.3pre`. It is otherwise lexicographical, so peculiar behavior
+    /// like `2.3 < 2.3.0pre` ensues. Luckily for us, this means that we can
+    /// lexicographically compare two version strings, _if_ we append an extra
+    /// component to both versions.
+    pub fn new_for_cmp(version: &'a str) -> Chain<Self, Once<VersionPart>> {
+        Self::new(version).chain(once(VersionPart::Word("")))
     }
 }
 
