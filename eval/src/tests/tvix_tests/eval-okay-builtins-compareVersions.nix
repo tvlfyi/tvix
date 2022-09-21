@@ -25,6 +25,11 @@ in
   (cmp "2.3" "2.3prepre")
   (cmp "2.3pre" "2.3prepre")
   (cmp "2.3prepre" "2.3prepre")
+  # check that the plain word comparison (via Ord) behaves the same
+  (cmp "foo" "bar")
+  (cmp "FoO" "fOo")
+  (cmp "foo" "fooo")
+  (cmp "foopre" "foo")
   # Subset of test cases from eval-okay-versions.nix shipped by C++ Nix
   (cmp "1.0" "2.3")
   (cmp "2.1" "2.3")
