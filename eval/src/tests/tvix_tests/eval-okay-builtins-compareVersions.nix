@@ -19,6 +19,12 @@ in
   (cmp "1a.b" "1a.2")
   (cmp "1" "")
   (cmp "1.0" "1.0.0")
+  (cmp "2.3" "2.3pre")
+  (cmp "2.3" "2.3.0pre")
+  (cmp "2.3pre" "2.3.0pre")
+  (cmp "2.3" "2.3prepre")
+  (cmp "2.3pre" "2.3prepre")
+  (cmp "2.3prepre" "2.3prepre")
   # Subset of test cases from eval-okay-versions.nix shipped by C++ Nix
   (cmp "1.0" "2.3")
   (cmp "2.1" "2.3")
