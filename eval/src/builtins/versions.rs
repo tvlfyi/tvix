@@ -1,12 +1,48 @@
+use std::cmp::Ordering;
 use std::ops::RangeInclusive;
 
 /// Version strings can be broken up into Parts.
 /// One Part represents either a string of digits or characters.
 /// '.' and '_' represent deviders between parts and are not included in any part.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum VersionPart<'a> {
     Word(&'a str),
     Number(&'a str),
+}
+
+impl PartialOrd for VersionPart<'_> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for VersionPart<'_> {
+    fn cmp(self: &Self, other: &Self) -> Ordering {
+        match (self, other) {
+            (VersionPart::Number(s1), VersionPart::Number(s2)) => {
+                // Note: C++ Nix uses `int`, but probably doesn't make a difference
+                // We trust that the splitting was done correctly and parsing will work
+                let n1: u64 = s1.parse().unwrap();
+                let n2: u64 = s2.parse().unwrap();
+                n1.cmp(&n2)
+            }
+
+            // empty Word always looses
+            (VersionPart::Word(""), VersionPart::Number(_)) => Ordering::Less,
+            (VersionPart::Number(_), VersionPart::Word("")) => Ordering::Greater,
+
+            // `pre` looses unless the other part is also a `pre`
+            (VersionPart::Word("pre"), VersionPart::Word("pre")) => Ordering::Equal,
+            (VersionPart::Word("pre"), _) => Ordering::Less,
+            (_, VersionPart::Word("pre")) => Ordering::Greater,
+
+            // Number wins against Word
+            (VersionPart::Number(_), VersionPart::Word(_)) => Ordering::Greater,
+            (VersionPart::Word(_), VersionPart::Number(_)) => Ordering::Less,
+
+            (VersionPart::Word(w1), VersionPart::Word(w2)) => w1.cmp(w2),
+        }
+    }
 }
 
 /// Type used to hold information about a VersionPart during creation
