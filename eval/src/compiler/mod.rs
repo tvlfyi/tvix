@@ -552,10 +552,11 @@ impl Compiler<'_> {
         self.patch_jump(else_idx); // patch jump *over* else body
     }
 
-    fn compile_recursive_scope<N>(&mut self, slot: LocalIdx, rec_attrs: bool, node: &N)
+    fn compile_recursive_scope<N>(&mut self, slot: LocalIdx, rec_attrs: bool, node: &N) -> usize
     where
         N: ToSpan + ast::HasEntry,
     {
+        let mut count = 0;
         self.scope_mut().begin_scope();
 
         // First pass to find all plain inherits (if they are not useless).
@@ -587,6 +588,8 @@ impl Compiler<'_> {
                                 continue;
                             }
                         };
+
+                        count += 1;
 
                         // If the identifier resolves statically in a
                         // `let`, it has precedence over dynamic
@@ -625,6 +628,7 @@ impl Compiler<'_> {
                             }
                         };
 
+                        count += 1;
                         inherit_froms.push((from.expr().unwrap(), name, self.span_for(&attr)));
                     }
                 }
@@ -632,7 +636,7 @@ impl Compiler<'_> {
         }
 
         // Data structures to track the bindings observed in the
-        // second path, and forward the information needed to compile
+        // second pass, and forward the information needed to compile
         // their value.
         enum BindingKind {
             InheritFrom {
@@ -689,6 +693,8 @@ impl Compiler<'_> {
 
         // Declare all regular bindings
         for entry in node.attrpath_values() {
+            count += 1;
+
             let mut path = match self.normalise_ident_path(entry.attrpath().unwrap().attrs()) {
                 Ok(p) => p,
                 Err(err) => {
@@ -773,6 +779,8 @@ impl Compiler<'_> {
                 self.push_op(OpCode::OpFinalise(stack_idx), node);
             }
         }
+
+        count
     }
 
     /// Compile a standard `let ...; in ...` expression.

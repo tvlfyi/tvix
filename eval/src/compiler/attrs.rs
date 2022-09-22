@@ -241,8 +241,8 @@ impl Compiler<'_> {
         self.scope_mut().begin_scope();
 
         if node.rec_token().is_some() {
-            self.compile_recursive_scope(slot, true, &node);
-            self.push_op(OpCode::OpAttrs(Count(node.entries().count())), &node);
+            let count = self.compile_recursive_scope(slot, true, &node);
+            self.push_op(OpCode::OpAttrs(Count(count)), &node);
         } else {
             let mut count = self.compile_inherit_attrs(slot, node.inherits());
 
