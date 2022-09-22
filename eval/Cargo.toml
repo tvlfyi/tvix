@@ -25,11 +25,11 @@ proptest = { version = "1.0.0", default_features = false, features = ["std", "al
 test-strategy = { version = "0.2.1", optional = true }
 clap = { version = "3.2.22", optional = true, features = ["derive", "env"] }
 
-# rnix has not been released in a while (as of 2022-09-18), we will
+# rnix has not been released in a while (as of 2022-09-23), we will
 # use it from git.
 [dependencies.rnix]
 git = "https://github.com/nix-community/rnix-parser.git"
-rev = "7d0d929c22ad27bdcc0779afe445b541d3ce9631"
+rev = "85a045afd33e073a3eab4c0ea2f515b6bed557ab"
 
 [dev-dependencies]
 criterion = "0.3.6"

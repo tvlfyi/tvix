@@ -886,7 +886,7 @@ dependencies = [
 [[package]]
 name = "rnix"
 version = "0.11.0-dev"
-source = "git+https://github.com/nix-community/rnix-parser.git?rev=7d0d929c22ad27bdcc0779afe445b541d3ce9631#7d0d929c22ad27bdcc0779afe445b541d3ce9631"
+source = "git+https://github.com/nix-community/rnix-parser.git?rev=85a045afd33e073a3eab4c0ea2f515b6bed557ab#85a045afd33e073a3eab4c0ea2f515b6bed557ab"
 dependencies = [
  "rowan",
 ]

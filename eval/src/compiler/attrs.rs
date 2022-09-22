@@ -36,14 +36,25 @@ impl Compiler<'_> {
         for inherit in inherits {
             match inherit.from() {
                 Some(from) => {
-                    for ident in inherit.idents() {
+                    for attr in inherit.attrs() {
                         count += 1;
+
+                        let name = match self.expr_static_attr_str(&attr) {
+                            Some(name) => name,
+                            None => {
+                                // TODO(tazjin): error variant for dynamic
+                                // key in *inherit* (or generalise it)
+                                self.emit_error(&attr, ErrorKind::DynamicKeyInLet);
+                                continue;
+                            }
+                        };
+
+                        let name_span = self.span_for(&attr);
 
                         // First emit the identifier itself (this
                         // becomes the new key).
-                        self.emit_literal_ident(&ident);
-                        let ident_span = self.span_for(&ident);
-                        self.scope_mut().declare_phantom(ident_span, true);
+                        self.emit_constant(Value::String(SmolStr::new(&name).into()), &attr);
+                        self.scope_mut().declare_phantom(name_span, true);
 
                         // Then emit the node that we're inheriting
                         // from.
@@ -53,27 +64,37 @@ impl Compiler<'_> {
                         // instruction followed by a merge, rather
                         // than pushing/popping the same attrs
                         // potentially a lot of times.
-                        let val_idx = self.scope_mut().declare_phantom(ident_span, false);
+                        let val_idx = self.scope_mut().declare_phantom(name_span, false);
                         self.compile(val_idx, from.expr().unwrap());
                         self.emit_force(&from.expr().unwrap());
-                        self.emit_literal_ident(&ident);
-                        self.push_op(OpCode::OpAttrsSelect, &ident);
+                        self.emit_constant(Value::String(name.into()), &attr);
+                        self.push_op(OpCode::OpAttrsSelect, &attr);
                         self.scope_mut().mark_initialised(val_idx);
                     }
                 }
 
                 None => {
-                    for ident in inherit.idents() {
-                        let ident_span = self.span_for(&ident);
+                    for attr in inherit.attrs() {
                         count += 1;
 
                         // Emit the key to use for OpAttrs
-                        self.emit_literal_ident(&ident);
-                        self.scope_mut().declare_phantom(ident_span, true);
+                        let name = match self.expr_static_attr_str(&attr) {
+                            Some(name) => name,
+                            None => {
+                                // TODO(tazjin): error variant for dynamic
+                                // key in *inherit* (or generalise it)
+                                self.emit_error(&attr, ErrorKind::DynamicKeyInLet);
+                                continue;
+                            }
+                        };
+
+                        let name_span = self.span_for(&attr);
+                        self.emit_constant(Value::String(SmolStr::new(&name).into()), &attr);
+                        self.scope_mut().declare_phantom(name_span, true);
 
                         // Emit the value.
-                        self.compile_ident(slot, ident);
-                        self.scope_mut().declare_phantom(ident_span, true);
+                        self.compile_identifier_access(slot, &name, &attr);
+                        self.scope_mut().declare_phantom(name_span, true);
                     }
                 }
             }

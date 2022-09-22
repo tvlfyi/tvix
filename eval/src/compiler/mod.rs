@@ -17,6 +17,7 @@ mod attrs;
 mod scope;
 mod spans;
 
+use codemap::Span;
 use path_clean::PathClean;
 use rnix::ast::{self, AstToken, HasEntry};
 use rowan::ast::AstChildren;
@@ -72,7 +73,7 @@ impl LambdaCtx {
 
 /// Alias for the map of globally available functions that should
 /// implicitly be resolvable in the global scope.
-type GlobalsMap = HashMap<&'static str, Rc<dyn Fn(&mut Compiler, rnix::ast::Ident)>>;
+type GlobalsMap = HashMap<&'static str, Rc<dyn Fn(&mut Compiler, Span)>>;
 
 struct Compiler<'observer> {
     contexts: Vec<LambdaCtx>,
@@ -564,7 +565,7 @@ impl Compiler<'_> {
         // While we are looping through the inherits, already note all inherit
         // (from) expressions, that may very well resolve recursively and need
         // to be compiled like normal let in bindings.
-        let mut inherit_froms: Vec<(ast::Expr, ast::Ident)> = vec![];
+        let mut inherit_froms: Vec<(ast::Expr, String, Span)> = vec![];
         for inherit in node.inherits() {
             match inherit.from() {
                 // Within a `let` binding, inheriting from the outer
@@ -576,36 +577,55 @@ impl Compiler<'_> {
                 }
 
                 None => {
-                    for ident in inherit.idents() {
+                    for attr in inherit.attrs() {
+                        let name = match self.expr_static_attr_str(&attr) {
+                            Some(name) => name,
+                            None => {
+                                // TODO(tazjin): error variant for dynamic
+                                // key in *inherit* (or generalise it)
+                                self.emit_error(&attr, ErrorKind::DynamicKeyInLet);
+                                continue;
+                            }
+                        };
+
                         // If the identifier resolves statically in a
                         // `let`, it has precedence over dynamic
                         // bindings, and the inherit is useless.
                         if !rec_attrs
                             && matches!(
-                                self.scope_mut()
-                                    .resolve_local(ident.ident_token().unwrap().text()),
+                                self.scope_mut().resolve_local(&name),
                                 LocalPosition::Known(_)
                             )
                         {
-                            self.emit_warning(&ident, WarningKind::UselessInherit);
+                            self.emit_warning(&attr, WarningKind::UselessInherit);
                             continue;
                         }
 
                         if rec_attrs {
-                            self.emit_literal_ident(&ident);
-                            let span = self.span_for(&ident);
+                            self.emit_constant(Value::String(SmolStr::new(&name).into()), &attr);
+                            let span = self.span_for(&attr);
                             self.scope_mut().declare_phantom(span, true);
                         }
 
-                        self.compile_ident(slot, ident.clone());
-                        let idx = self.declare_local(&ident, ident.ident_token().unwrap().text());
+                        self.compile_identifier_access(slot, &name, &attr);
+                        let idx = self.declare_local(&attr, &name);
                         self.scope_mut().mark_initialised(idx);
                     }
                 }
 
                 Some(from) => {
-                    for ident in inherit.idents() {
-                        inherit_froms.push((from.expr().unwrap(), ident));
+                    for attr in inherit.attrs() {
+                        let name = match self.expr_static_attr_str(&attr) {
+                            Some(name) => name,
+                            None => {
+                                // TODO(tazjin): error variant for dynamic
+                                // key in *inherit* (or generalise it)
+                                self.emit_error(&attr, ErrorKind::DynamicKeyInLet);
+                                continue;
+                            }
+                        };
+
+                        inherit_froms.push((from.expr().unwrap(), name, self.span_for(&attr)));
                     }
                 }
             }
@@ -617,7 +637,8 @@ impl Compiler<'_> {
         enum BindingKind {
             InheritFrom {
                 namespace: ast::Expr,
-                ident: ast::Ident,
+                name: SmolStr,
+                span: Span,
             },
 
             Plain {
@@ -643,25 +664,25 @@ impl Compiler<'_> {
         // (that may resolve recursively) are known.
 
         // Begin with the inherit (from)s since they all become a thunk anyway
-        for (from, ident) in inherit_froms {
+        for (from, name, span) in inherit_froms {
             let key_slot = if rec_attrs {
-                let span = self.span_for(&ident);
                 Some(KeySlot {
                     slot: self.scope_mut().declare_phantom(span, false),
-                    name: SmolStr::new(ident.ident_token().unwrap().text()),
+                    name: SmolStr::new(&name),
                 })
             } else {
                 None
             };
 
-            let value_slot = self.declare_local(&ident, ident.ident_token().unwrap().text());
+            let value_slot = self.declare_local(&span, &name);
 
             bindings.push(TrackedBinding {
                 key_slot,
                 value_slot,
                 kind: BindingKind::InheritFrom {
-                    ident,
                     namespace: from,
+                    name: SmolStr::new(&name),
+                    span,
                 },
             });
         }
@@ -711,28 +732,27 @@ impl Compiler<'_> {
             value_indices.push(binding.value_slot);
 
             if let Some(key_slot) = binding.key_slot {
-                // TODO: emit_constant should be able to take a span directly
                 let span = self.scope()[key_slot.slot].span;
-                let idx = self
-                    .chunk()
-                    .push_constant(Value::String(key_slot.name.into()));
-
-                self.chunk().push_op(OpCode::OpConstant(idx), span);
+                self.emit_constant(Value::String(key_slot.name.into()), &span);
                 self.scope_mut().mark_initialised(key_slot.slot);
             }
 
             match binding.kind {
                 // This entry is an inherit (from) expr. The value is
                 // placed on the stack by selecting an attribute.
-                BindingKind::InheritFrom { namespace, ident } => {
+                BindingKind::InheritFrom {
+                    namespace,
+                    name,
+                    span,
+                } => {
                     // Create a thunk wrapping value (which may be one as well) to
                     // avoid forcing the from expr too early.
                     self.thunk(binding.value_slot, &namespace, move |c, n, s| {
                         c.compile(s, n.clone());
                         c.emit_force(n);
 
-                        c.emit_literal_ident(&ident);
-                        c.push_op(OpCode::OpAttrsSelect, &ident);
+                        c.emit_constant(Value::String(name.into()), &span);
+                        c.push_op(OpCode::OpAttrsSelect, &span);
                     })
                 }
 
@@ -768,25 +788,27 @@ impl Compiler<'_> {
         self.cleanup_scope(&node);
     }
 
-    fn compile_ident(&mut self, slot: LocalIdx, node: ast::Ident) {
-        let ident = node.ident_token().unwrap();
-
+    /// Resolve and compile access to an identifier in the scope.
+    fn compile_identifier_access<N: ToSpan + Clone>(
+        &mut self,
+        slot: LocalIdx,
+        ident: &str,
+        node: &N,
+    ) {
         // If the identifier is a global, and it is not poisoned, emit
         // the global directly.
-        if let Some(global) = self.globals.get(ident.text()) {
-            if !self.scope().is_poisoned(ident.text()) {
-                global.clone()(self, node.clone());
+        if let Some(global) = self.globals.get(ident) {
+            if !self.scope().is_poisoned(ident) {
+                global.clone()(self, self.span_for(node));
                 return;
             }
         }
 
-        match self.scope_mut().resolve_local(ident.text()) {
+        match self.scope_mut().resolve_local(ident) {
             LocalPosition::Unknown => {
                 // Are we possibly dealing with an upvalue?
-                if let Some(idx) =
-                    self.resolve_upvalue(self.contexts.len() - 1, ident.text(), &node)
-                {
-                    self.push_op(OpCode::OpGetUpvalue(idx), &node);
+                if let Some(idx) = self.resolve_upvalue(self.contexts.len() - 1, ident, node) {
+                    self.push_op(OpCode::OpGetUpvalue(idx), node);
                     return;
                 }
 
@@ -794,24 +816,24 @@ impl Compiler<'_> {
                 // context with one), emit a runtime dynamic
                 // resolution instruction.
                 if self.has_dynamic_ancestor() {
-                    self.emit_literal_ident(&node);
-                    self.push_op(OpCode::OpResolveWith, &node);
+                    self.emit_constant(Value::String(SmolStr::new(ident).into()), node);
+                    self.push_op(OpCode::OpResolveWith, node);
                     return;
                 }
 
                 // Otherwise, this variable is missing.
-                self.emit_error(&node, ErrorKind::UnknownStaticVariable);
+                self.emit_error(node, ErrorKind::UnknownStaticVariable);
             }
 
             LocalPosition::Known(idx) => {
                 let stack_idx = self.scope().stack_index(idx);
-                self.push_op(OpCode::OpGetLocal(stack_idx), &node);
+                self.push_op(OpCode::OpGetLocal(stack_idx), node);
             }
 
             // This identifier is referring to a value from the same
             // scope which is not yet defined. This identifier access
             // must be thunked.
-            LocalPosition::Recursive(idx) => self.thunk(slot, &node, move |compiler, node, _| {
+            LocalPosition::Recursive(idx) => self.thunk(slot, node, move |compiler, node, _| {
                 let upvalue_idx = compiler.add_upvalue(
                     compiler.contexts.len() - 1,
                     node,
@@ -820,6 +842,11 @@ impl Compiler<'_> {
                 compiler.push_op(OpCode::OpGetUpvalue(upvalue_idx), node);
             }),
         };
+    }
+
+    fn compile_ident(&mut self, slot: LocalIdx, node: ast::Ident) {
+        let ident = node.ident_token().unwrap();
+        self.compile_identifier_access(slot, ident.text(), &node);
     }
 
     /// Compile `with` expressions by emitting instructions that
@@ -1104,15 +1131,15 @@ impl Compiler<'_> {
                     // resolution must be deferred until the scope is
                     // fully initialised and can be finalised.
                     if this_depth == target_depth && this_stack_slot < stack_idx {
-                        self.push_op(OpCode::DataDeferredLocal(stack_idx), &upvalue.node);
+                        self.push_op(OpCode::DataDeferredLocal(stack_idx), &upvalue.span);
                         self.scope_mut().mark_needs_finaliser(slot);
                     } else {
-                        self.push_op(OpCode::DataLocalIdx(stack_idx), &upvalue.node);
+                        self.push_op(OpCode::DataLocalIdx(stack_idx), &upvalue.span);
                     }
                 }
 
                 UpvalueKind::Upvalue(idx) => {
-                    self.push_op(OpCode::DataUpvalueIdx(idx), &upvalue.node);
+                    self.push_op(OpCode::DataUpvalueIdx(idx), &upvalue.span);
                 }
             };
         }
@@ -1211,11 +1238,11 @@ impl Compiler<'_> {
         self.scope_mut().declare_local(name, span)
     }
 
-    fn resolve_upvalue(
+    fn resolve_upvalue<N: ToSpan>(
         &mut self,
         ctx_idx: usize,
         name: &str,
-        node: &rnix::ast::Ident,
+        node: &N,
     ) -> Option<UpvalueIdx> {
         if ctx_idx == 0 {
             // There can not be any upvalue at the outermost context.
@@ -1266,10 +1293,10 @@ impl Compiler<'_> {
         ancestor_has_with
     }
 
-    fn add_upvalue(
+    fn add_upvalue<N: ToSpan>(
         &mut self,
         ctx_idx: usize,
-        node: &rnix::ast::Ident,
+        node: &N,
         kind: UpvalueKind,
     ) -> UpvalueIdx {
         // If there is already an upvalue closing over the specified
@@ -1280,10 +1307,11 @@ impl Compiler<'_> {
             }
         }
 
-        self.contexts[ctx_idx].scope.upvalues.push(Upvalue {
-            kind,
-            node: node.clone(),
-        });
+        let span = self.span_for(node);
+        self.contexts[ctx_idx]
+            .scope
+            .upvalues
+            .push(Upvalue { kind, span });
 
         let idx = UpvalueIdx(self.contexts[ctx_idx].lambda.upvalue_count);
         self.contexts[ctx_idx].lambda.upvalue_count += 1;
@@ -1394,29 +1422,29 @@ fn prepare_globals(additional: HashMap<&'static str, Value>) -> GlobalsMap {
 
     globals.insert(
         "true",
-        Rc::new(|compiler, node| {
-            compiler.push_op(OpCode::OpTrue, &node);
+        Rc::new(|compiler, span| {
+            compiler.push_op(OpCode::OpTrue, &span);
         }),
     );
 
     globals.insert(
         "false",
-        Rc::new(|compiler, node| {
-            compiler.push_op(OpCode::OpFalse, &node);
+        Rc::new(|compiler, span| {
+            compiler.push_op(OpCode::OpFalse, &span);
         }),
     );
 
     globals.insert(
         "null",
-        Rc::new(|compiler, node| {
-            compiler.push_op(OpCode::OpNull, &node);
+        Rc::new(|compiler, span| {
+            compiler.push_op(OpCode::OpNull, &span);
         }),
     );
 
     for (ident, value) in additional.into_iter() {
         globals.insert(
             ident,
-            Rc::new(move |compiler, node| compiler.emit_constant(value.clone(), &node)),
+            Rc::new(move |compiler, span| compiler.emit_constant(value.clone(), &span)),
         );
     }
 
