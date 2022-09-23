@@ -29,6 +29,7 @@ pub mod versions;
 /// a Nix program directly (i.e. the trick `path: /. + path` to convert from
 /// a string to a path wouldn't hit this code), so the target file
 /// doesn't need to be realised or imported into the Nix store.
+#[allow(dead_code)] // TODO(sterni): remove this once the function is in use
 pub fn coerce_value_to_path(v: &Value, vm: &mut VM) -> Result<PathBuf, ErrorKind> {
     let value = v.force(vm)?;
     match &*value {
