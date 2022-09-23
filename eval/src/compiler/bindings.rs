@@ -261,85 +261,6 @@ impl Compiler<'_> {
         }
     }
 
-    /// Compiles inherited values in an attribute set. Inherited
-    /// values are *always* inherited from the outer scope, even if
-    /// there is a matching name within a recursive attribute set.
-    fn compile_inherit_attrs(
-        &mut self,
-        slot: LocalIdx,
-        inherits: AstChildren<ast::Inherit>,
-    ) -> usize {
-        // Count the number of inherited values, so that the outer
-        // constructor can emit the correct number of pairs when
-        // constructing attribute sets.
-        let mut count = 0;
-
-        for inherit in inherits {
-            match inherit.from() {
-                Some(from) => {
-                    for attr in inherit.attrs() {
-                        count += 1;
-
-                        let name = match self.expr_static_attr_str(&attr) {
-                            Some(name) => name,
-                            None => {
-                                self.emit_error(&attr, ErrorKind::DynamicKeyInScope("inherit"));
-                                continue;
-                            }
-                        };
-
-                        let name_span = self.span_for(&attr);
-
-                        // First emit the identifier itself (this
-                        // becomes the new key).
-                        self.emit_constant(Value::String(SmolStr::new(&name).into()), &attr);
-                        self.scope_mut().declare_phantom(name_span, true);
-
-                        // Then emit the node that we're inheriting
-                        // from.
-                        //
-                        // TODO: Likely significant optimisation
-                        // potential in having a multi-select
-                        // instruction followed by a merge, rather
-                        // than pushing/popping the same attrs
-                        // potentially a lot of times.
-                        let val_idx = self.scope_mut().declare_phantom(name_span, false);
-                        self.compile(val_idx, from.expr().unwrap());
-                        self.emit_force(&from.expr().unwrap());
-                        self.emit_constant(Value::String(name.into()), &attr);
-                        self.push_op(OpCode::OpAttrsSelect, &attr);
-                        self.scope_mut().mark_initialised(val_idx);
-                    }
-                }
-
-                None => {
-                    for attr in inherit.attrs() {
-                        count += 1;
-
-                        // Emit the key to use for OpAttrs
-                        let name = match self.expr_static_attr_str(&attr) {
-                            Some(name) => name,
-                            None => {
-                                self.emit_error(&attr, ErrorKind::DynamicKeyInScope("inherit"));
-                                continue;
-                            }
-                        };
-
-                        let name_span = self.span_for(&attr);
-                        self.emit_constant(Value::String(SmolStr::new(&name).into()), &attr);
-                        self.scope_mut().declare_phantom(name_span, true);
-
-                        // Emit the value.
-                        self.compile_identifier_access(slot, &name, &attr);
-                        self.scope_mut().declare_phantom(name_span, true);
-                    }
-                }
-            }
-        }
-
-        count
-    }
-
     /// Compile the statically known entries of an attribute set. Which
     /// keys are which is not known from the iterator, so discovered
     /// dynamic keys are returned from here.
@@ -481,7 +402,14 @@ impl Compiler<'_> {
             let count = self.compile_recursive_scope(slot, BindingsKind::RecAttrs, &node);
             self.push_op(OpCode::OpAttrs(Count(count)), &node);
         } else {
-            let mut count = self.compile_inherit_attrs(slot, node.inherits());
+            let mut count = 0;
+
+            // TODO: merge this with the above, for now only inherit is unified
+            let mut bindings: Vec<TrackedBinding> = vec![];
+            let inherit_froms =
+                self.compile_plain_inherits(slot, BindingsKind::Attrs, &mut count, &node);
+            self.declare_namespaced_inherits(BindingsKind::Attrs, inherit_froms, &mut bindings);
+            self.bind_values(bindings);
 
             let dynamic_entries =
                 self.compile_static_attr_entries(&mut count, node.attrpath_values());
