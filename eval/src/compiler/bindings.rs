@@ -32,6 +32,25 @@ struct TrackedBinding {
     binding: Binding,
 }
 
+/// What kind of bindings scope is being compiled?
+#[derive(Clone, Copy, PartialEq)]
+enum BindingsKind {
+    /// Standard `let ... in ...`-expression.
+    LetIn,
+
+    /// Non-recursive attribute set.
+    Attrs,
+
+    /// Recursive attribute set.
+    RecAttrs,
+}
+
+impl BindingsKind {
+    fn is_attrs(&self) -> bool {
+        matches!(self, BindingsKind::Attrs | BindingsKind::RecAttrs)
+    }
+}
+
 /// AST-traversing functions related to bindings.
 impl Compiler<'_> {
     fn compile_inherits<N>(
@@ -39,7 +58,7 @@ impl Compiler<'_> {
         slot: LocalIdx,
         count: &mut usize,
         bindings: &mut Vec<TrackedBinding>,
-        rec_attrs: bool,
+        kind: BindingsKind,
         node: &N,
     ) where
         N: ToSpan + ast::HasEntry,
@@ -57,7 +76,7 @@ impl Compiler<'_> {
                 // Within a `let` binding, inheriting from the outer
                 // scope is a no-op *if* the identifier can be
                 // statically resolved.
-                None if !rec_attrs && !self.scope().has_with() => {
+                None if !kind.is_attrs() && !self.scope().has_with() => {
                     self.emit_warning(&inherit, WarningKind::UselessInherit);
                     continue;
                 }
@@ -77,7 +96,7 @@ impl Compiler<'_> {
                         // If the identifier resolves statically in a
                         // `let`, it has precedence over dynamic
                         // bindings, and the inherit is useless.
-                        if !rec_attrs
+                        if kind == BindingsKind::LetIn
                             && matches!(
                                 self.scope_mut().resolve_local(&name),
                                 LocalPosition::Known(_)
@@ -87,7 +106,7 @@ impl Compiler<'_> {
                             continue;
                         }
 
-                        if rec_attrs {
+                        if kind == BindingsKind::RecAttrs {
                             self.emit_constant(Value::String(SmolStr::new(&name).into()), &attr);
                             let span = self.span_for(&attr);
                             self.scope_mut().declare_phantom(span, true);
@@ -118,7 +137,7 @@ impl Compiler<'_> {
 
         // Begin with the inherit (from)s since they all become a thunk anyway
         for (from, name, span) in inherit_froms {
-            let key_slot = if rec_attrs {
+            let key_slot = if kind.is_attrs() {
                 Some(KeySlot {
                     slot: self.scope_mut().declare_phantom(span, false),
                     name: SmolStr::new(&name),
@@ -358,7 +377,7 @@ impl Compiler<'_> {
         self.scope_mut().begin_scope();
 
         if node.rec_token().is_some() {
-            let count = self.compile_recursive_scope(slot, true, &node);
+            let count = self.compile_recursive_scope(slot, BindingsKind::RecAttrs, &node);
             self.push_op(OpCode::OpAttrs(Count(count)), &node);
         } else {
             let mut count = self.compile_inherit_attrs(slot, node.inherits());
@@ -376,7 +395,7 @@ impl Compiler<'_> {
         self.scope_mut().end_scope();
     }
 
-    fn compile_recursive_scope<N>(&mut self, slot: LocalIdx, rec_attrs: bool, node: &N) -> usize
+    fn compile_recursive_scope<N>(&mut self, slot: LocalIdx, kind: BindingsKind, node: &N) -> usize
     where
         N: ToSpan + ast::HasEntry,
     {
@@ -386,7 +405,7 @@ impl Compiler<'_> {
         // Vector to track these observed bindings.
         let mut bindings: Vec<TrackedBinding> = vec![];
 
-        self.compile_inherits(slot, &mut count, &mut bindings, rec_attrs, node);
+        self.compile_inherits(slot, &mut count, &mut bindings, kind, node);
 
         // Declare all regular bindings
         for entry in node.attrpath_values() {
@@ -408,7 +427,7 @@ impl Compiler<'_> {
                 continue;
             }
 
-            let key_slot = if rec_attrs {
+            let key_slot = if kind.is_attrs() {
                 let span = self.span_for(&entry.attrpath().unwrap());
                 Some(KeySlot {
                     slot: self.scope_mut().declare_phantom(span, false),
@@ -486,7 +505,7 @@ impl Compiler<'_> {
     /// simply pushed on the stack and their indices noted in the
     /// entries vector.
     pub(super) fn compile_let_in(&mut self, slot: LocalIdx, node: ast::LetIn) {
-        self.compile_recursive_scope(slot, false, &node);
+        self.compile_recursive_scope(slot, BindingsKind::LetIn, &node);
 
         // Deal with the body, then clean up the locals afterwards.
         self.compile(slot, node.body().unwrap());
@@ -496,7 +515,7 @@ impl Compiler<'_> {
     pub(super) fn compile_legacy_let(&mut self, slot: LocalIdx, node: ast::LegacyLet) {
         self.emit_warning(&node, WarningKind::DeprecatedLegacyLet);
         self.scope_mut().begin_scope();
-        self.compile_recursive_scope(slot, true, &node);
+        self.compile_recursive_scope(slot, BindingsKind::RecAttrs, &node);
         self.push_op(OpCode::OpAttrs(Count(node.entries().count())), &node);
         self.emit_constant(Value::String(SmolStr::new_inline("body").into()), &node);
         self.push_op(OpCode::OpAttrsSelect, &node);
