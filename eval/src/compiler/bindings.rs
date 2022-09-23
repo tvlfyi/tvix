@@ -53,19 +53,23 @@ impl BindingsKind {
 
 /// AST-traversing functions related to bindings.
 impl Compiler<'_> {
-    fn compile_inherits<N>(
+    /// Compile all inherits of a node with entries that do *not* have a
+    /// namespace to inherit from, and return the remaining ones that do.
+    fn compile_plain_inherits<N>(
         &mut self,
         slot: LocalIdx,
-        count: &mut usize,
-        bindings: &mut Vec<TrackedBinding>,
         kind: BindingsKind,
+        count: &mut usize,
         node: &N,
-    ) where
+    ) -> Vec<(ast::Expr, String, Span)>
+    where
         N: ToSpan + ast::HasEntry,
     {
-        // First pass over all inherits resolves only those without
-        // namespaces. Since they always resolve to a higher scope, we
-        // can just compile and declare them immediately.
+        // Pass over all inherits, resolving only those without namespaces.
+        // Since they always resolve in a higher scope, we can just compile and
+        // declare them immediately.
+        //
+        // Inherits with namespaces are returned to the caller.
         let mut inherit_froms: Vec<(ast::Expr, String, Span)> = vec![];
 
         for inherit in node.inherits() {
@@ -145,9 +149,21 @@ impl Compiler<'_> {
             }
         }
 
-        // Second pass over the inherits that have a namespace, to declare them
-        // in the tracked bindings. Compiling the values into their slots is the
-        // job of the caller.
+        inherit_froms
+    }
+
+    /// Declare all namespaced inherits, that is inherits which are inheriting
+    /// values from an attribute set.
+    ///
+    /// This only ensures that the locals stack is aware of the inherits, it
+    /// does not yet emit bytecode that places them on the stack. This is up to
+    /// the owner of the `bindings` vector, which this function will populate.
+    fn declare_namespaced_inherits(
+        &mut self,
+        kind: BindingsKind,
+        inherit_froms: Vec<(ast::Expr, String, Span)>,
+        bindings: &mut Vec<TrackedBinding>,
+    ) {
         for (from, name, span) in inherit_froms {
             let key_slot = if kind.is_attrs() {
                 // In an attribute set, the keys themselves are placed
@@ -425,10 +441,11 @@ impl Compiler<'_> {
         let mut count = 0;
         self.scope_mut().begin_scope();
 
-        // Vector to track these observed bindings.
+        // Vector to track all observed bindings.
         let mut bindings: Vec<TrackedBinding> = vec![];
 
-        self.compile_inherits(slot, &mut count, &mut bindings, kind, node);
+        let inherit_froms = self.compile_plain_inherits(slot, kind, &mut count, node);
+        self.declare_namespaced_inherits(kind, inherit_froms, &mut bindings);
 
         // Declare all regular bindings
         for entry in node.attrpath_values() {
