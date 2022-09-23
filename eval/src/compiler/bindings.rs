@@ -199,6 +199,68 @@ impl Compiler<'_> {
         }
     }
 
+    /// Declare all regular bindings (i.e. `key = value;`) in a bindings scope,
+    /// but do not yet compile their values.
+    fn declare_bindings<N>(
+        &mut self,
+        kind: BindingsKind,
+        count: &mut usize,
+        bindings: &mut Vec<TrackedBinding>,
+        node: &N,
+    ) where
+        N: ToSpan + ast::HasEntry,
+    {
+        for entry in node.attrpath_values() {
+            *count += 1;
+
+            let mut path = match self.normalise_ident_path(entry.attrpath().unwrap().attrs()) {
+                Ok(p) => p,
+                Err(err) => {
+                    self.errors.push(err);
+                    continue;
+                }
+            };
+
+            if path.len() != 1 {
+                self.emit_error(
+                    &entry,
+                    ErrorKind::NotImplemented("nested bindings in recursive scope :("),
+                );
+                continue;
+            }
+
+            let key_span = self.span_for(&entry.attrpath().unwrap());
+            let key_slot = if kind.is_attrs() {
+                Some(KeySlot {
+                    slot: self.scope_mut().declare_phantom(key_span, false),
+                    name: SmolStr::new(&path[0]),
+                })
+            } else {
+                None
+            };
+
+            let value_slot = match kind {
+                // In recursive scopes, the value needs to be
+                // accessible on the stack.
+                BindingsKind::LetIn | BindingsKind::RecAttrs => {
+                    self.declare_local(&key_span, path.pop().unwrap())
+                }
+
+                // In non-recursive attribute sets, the value is
+                // inaccessible (only consumed by `OpAttrs`).
+                BindingsKind::Attrs => self.scope_mut().declare_phantom(key_span, false),
+            };
+
+            bindings.push(TrackedBinding {
+                key_slot,
+                value_slot,
+                binding: Binding::Plain {
+                    expr: entry.value().unwrap(),
+                },
+            });
+        }
+    }
+
     /// Compiles inherited values in an attribute set. Inherited
     /// values are *always* inherited from the outer scope, even if
     /// there is a matching name within a recursive attribute set.
@@ -499,47 +561,7 @@ impl Compiler<'_> {
 
         let inherit_froms = self.compile_plain_inherits(slot, kind, &mut count, node);
         self.declare_namespaced_inherits(kind, inherit_froms, &mut bindings);
-
-        // Declare all regular bindings
-        for entry in node.attrpath_values() {
-            count += 1;
-
-            let mut path = match self.normalise_ident_path(entry.attrpath().unwrap().attrs()) {
-                Ok(p) => p,
-                Err(err) => {
-                    self.errors.push(err);
-                    continue;
-                }
-            };
-
-            if path.len() != 1 {
-                self.emit_error(
-                    &entry,
-                    ErrorKind::NotImplemented("nested bindings in recursive scope :("),
-                );
-                continue;
-            }
-
-            let key_slot = if kind.is_attrs() {
-                let span = self.span_for(&entry.attrpath().unwrap());
-                Some(KeySlot {
-                    slot: self.scope_mut().declare_phantom(span, false),
-                    name: SmolStr::new(&path[0]),
-                })
-            } else {
-                None
-            };
-
-            let value_slot = self.declare_local(&entry.attrpath().unwrap(), path.pop().unwrap());
-
-            bindings.push(TrackedBinding {
-                key_slot,
-                value_slot,
-                binding: Binding::Plain {
-                    expr: entry.value().unwrap(),
-                },
-            });
-        }
+        self.declare_bindings(kind, &mut count, &mut bindings, node);
 
         // Actually bind values and ensure they are on the stack.
         self.bind_values(bindings);
