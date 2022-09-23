@@ -47,8 +47,8 @@ pub enum ErrorKind {
     /// Resolving a user-supplied path literal failed in some way.
     PathResolution(String),
 
-    /// Dynamic keys are not allowed in let.
-    DynamicKeyInLet,
+    /// Dynamic keys are not allowed in some scopes.
+    DynamicKeyInScope(&'static str),
 
     /// Unknown variable in statically known scope.
     UnknownStaticVariable,
@@ -175,8 +175,8 @@ impl Error {
 
             ErrorKind::PathResolution(err) => format!("could not resolve path: {}", err),
 
-            ErrorKind::DynamicKeyInLet => {
-                "dynamically evaluated keys are not allowed in let-bindings".to_string()
+            ErrorKind::DynamicKeyInScope(scope) => {
+                format!("dynamically evaluated keys are not allowed in {}", scope)
             }
 
             ErrorKind::UnknownStaticVariable => "variable not found".to_string(),
@@ -260,7 +260,7 @@ to a missing value in the attribute set(s) included via `with`."#,
             ErrorKind::TypeError { .. } => "E006",
             ErrorKind::Incomparable { .. } => "E007",
             ErrorKind::PathResolution(_) => "E008",
-            ErrorKind::DynamicKeyInLet => "E009",
+            ErrorKind::DynamicKeyInScope(_) => "E009",
             ErrorKind::UnknownStaticVariable => "E010",
             ErrorKind::UnknownDynamicVariable(_) => "E011",
             ErrorKind::VariableAlreadyDefined(_) => "E012",

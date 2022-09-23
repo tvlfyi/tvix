@@ -56,9 +56,7 @@ impl Compiler<'_> {
                         let name = match self.expr_static_attr_str(&attr) {
                             Some(name) => name,
                             None => {
-                                // TODO(tazjin): error variant for dynamic
-                                // key in *inherit* (or generalise it)
-                                self.emit_error(&attr, ErrorKind::DynamicKeyInLet);
+                                self.emit_error(&attr, ErrorKind::DynamicKeyInScope("inherit"));
                                 continue;
                             }
                         };
@@ -95,9 +93,7 @@ impl Compiler<'_> {
                         let name = match self.expr_static_attr_str(&attr) {
                             Some(name) => name,
                             None => {
-                                // TODO(tazjin): error variant for dynamic
-                                // key in *inherit* (or generalise it)
-                                self.emit_error(&attr, ErrorKind::DynamicKeyInLet);
+                                self.emit_error(&attr, ErrorKind::DynamicKeyInScope("inherit"));
                                 continue;
                             }
                         };
@@ -303,9 +299,7 @@ impl Compiler<'_> {
                         let name = match self.expr_static_attr_str(&attr) {
                             Some(name) => name,
                             None => {
-                                // TODO(tazjin): error variant for dynamic
-                                // key in *inherit* (or generalise it)
-                                self.emit_error(&attr, ErrorKind::DynamicKeyInLet);
+                                self.emit_error(&attr, ErrorKind::DynamicKeyInScope("inherit"));
                                 continue;
                             }
                         };
@@ -342,9 +336,7 @@ impl Compiler<'_> {
                         let name = match self.expr_static_attr_str(&attr) {
                             Some(name) => name,
                             None => {
-                                // TODO(tazjin): error variant for dynamic
-                                // key in *inherit* (or generalise it)
-                                self.emit_error(&attr, ErrorKind::DynamicKeyInLet);
+                                self.emit_error(&attr, ErrorKind::DynamicKeyInScope("inherit"));
                                 continue;
                             }
                         };
@@ -627,8 +619,14 @@ impl Compiler<'_> {
     /// a string if possible, or raise an error about the node being
     /// dynamic.
     fn binding_name(&self, node: ast::Attr) -> EvalResult<String> {
-        self.expr_static_attr_str(&node)
-            .ok_or_else(|| self.dynamic_key_error(&node))
+        match self.expr_static_attr_str(&node) {
+            Some(s) => Ok(s),
+            None => Err(Error {
+                // this code path will go away soon, hence the TODO below
+                kind: ErrorKind::DynamicKeyInScope("TODO"),
+                span: self.span_for(&node),
+            }),
+        }
     }
 
     /// Normalises identifier fragments into a single string vector
@@ -639,18 +637,6 @@ impl Compiler<'_> {
         path: I,
     ) -> EvalResult<Vec<String>> {
         path.map(|node| self.binding_name(node)).collect()
-    }
-
-    /// Construct the error returned when a dynamic attribute is found
-    /// in a `let`-expression.
-    fn dynamic_key_error<N>(&self, node: &N) -> Error
-    where
-        N: ToSpan,
-    {
-        Error {
-            kind: ErrorKind::DynamicKeyInLet,
-            span: self.span_for(node),
-        }
     }
 
     /// Convert a non-dynamic string expression to a string if possible.
