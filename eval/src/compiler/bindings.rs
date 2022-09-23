@@ -60,7 +60,7 @@ impl Compiler<'_> {
         kind: BindingsKind,
         count: &mut usize,
         node: &N,
-    ) -> Vec<(ast::Expr, String, Span)>
+    ) -> Vec<(ast::Expr, SmolStr, Span)>
     where
         N: ToSpan + ast::HasEntry,
     {
@@ -69,7 +69,7 @@ impl Compiler<'_> {
         // declare them immediately.
         //
         // Inherits with namespaces are returned to the caller.
-        let mut inherit_froms: Vec<(ast::Expr, String, Span)> = vec![];
+        let mut inherit_froms: Vec<(ast::Expr, SmolStr, Span)> = vec![];
 
         for inherit in node.inherits() {
             match inherit.from() {
@@ -107,7 +107,7 @@ impl Compiler<'_> {
 
                         // Place key on the stack when compiling attribute sets.
                         if kind.is_attrs() {
-                            self.emit_constant(Value::String(SmolStr::new(&name).into()), &attr);
+                            self.emit_constant(Value::String(name.clone().into()), &attr);
                             let span = self.span_for(&attr);
                             self.scope_mut().declare_phantom(span, true);
                         }
@@ -124,7 +124,7 @@ impl Compiler<'_> {
                             let span = self.span_for(&attr);
                             self.scope_mut().declare_phantom(span, false)
                         } else {
-                            self.declare_local(&attr, &name)
+                            self.declare_local(&attr, name)
                         };
 
                         self.scope_mut().mark_initialised(idx);
@@ -160,7 +160,7 @@ impl Compiler<'_> {
     fn declare_namespaced_inherits(
         &mut self,
         kind: BindingsKind,
-        inherit_froms: Vec<(ast::Expr, String, Span)>,
+        inherit_froms: Vec<(ast::Expr, SmolStr, Span)>,
         bindings: &mut Vec<TrackedBinding>,
     ) {
         for (from, name, span) in inherit_froms {
@@ -170,7 +170,7 @@ impl Compiler<'_> {
                 // consumed by `OpAttrs`).
                 Some(KeySlot {
                     slot: self.scope_mut().declare_phantom(span, false),
-                    name: SmolStr::new(&name),
+                    name: name.clone(),
                 })
             } else {
                 None
@@ -179,7 +179,9 @@ impl Compiler<'_> {
             let value_slot = match kind {
                 // In recursive scopes, the value needs to be accessible on the
                 // stack.
-                BindingsKind::LetIn | BindingsKind::RecAttrs => self.declare_local(&span, &name),
+                BindingsKind::LetIn | BindingsKind::RecAttrs => {
+                    self.declare_local(&span, name.clone())
+                }
 
                 // In non-recursive attribute sets, the value is inaccessible
                 // (only consumed by `OpAttrs`).
@@ -191,7 +193,7 @@ impl Compiler<'_> {
                 value_slot,
                 binding: Binding::InheritFrom {
                     namespace: from,
-                    name: SmolStr::new(&name),
+                    name,
                     span,
                 },
             });
@@ -212,27 +214,34 @@ impl Compiler<'_> {
         for entry in node.attrpath_values() {
             *count += 1;
 
-            let mut path = match self.normalise_ident_path(entry.attrpath().unwrap().attrs()) {
-                Ok(p) => p,
-                Err(err) => {
-                    self.errors.push(err);
+            let path = entry.attrpath().unwrap().attrs().collect::<Vec<_>>();
+            if path.len() != 1 {
+                self.emit_error(&entry, ErrorKind::NotImplemented("nested bindings :("));
+                continue;
+            }
+
+            let name = match self.expr_static_attr_str(&path[0]) {
+                Some(name) => name,
+
+                None if kind.is_attrs() => {
+                    self.emit_error(
+                        &entry,
+                        ErrorKind::NotImplemented("dynamic keys in `rec` sets"),
+                    );
+                    continue;
+                }
+
+                None => {
+                    self.emit_error(&path[0], ErrorKind::DynamicKeyInScope("let-expression"));
                     continue;
                 }
             };
 
-            if path.len() != 1 {
-                self.emit_error(
-                    &entry,
-                    ErrorKind::NotImplemented("nested bindings in recursive scope :("),
-                );
-                continue;
-            }
-
-            let key_span = self.span_for(&entry.attrpath().unwrap());
+            let key_span = self.span_for(&path[0]);
             let key_slot = if kind.is_attrs() {
                 Some(KeySlot {
+                    name: name.clone(),
                     slot: self.scope_mut().declare_phantom(key_span, false),
-                    name: SmolStr::new(&path[0]),
                 })
             } else {
                 None
@@ -241,9 +250,7 @@ impl Compiler<'_> {
             let value_slot = match kind {
                 // In recursive scopes, the value needs to be accessible on the
                 // stack.
-                BindingsKind::LetIn | BindingsKind::RecAttrs => {
-                    self.declare_local(&key_span, path.pop().unwrap())
-                }
+                BindingsKind::LetIn | BindingsKind::RecAttrs => self.declare_local(&key_span, name),
 
                 // In non-recursive attribute sets, the value is inaccessible
                 // (only consumed by `OpAttrs`).
@@ -273,7 +280,7 @@ impl Compiler<'_> {
         'entries: for kv in entries {
             // Attempt to turn the attrpath into a list of static strings, but
             // abort this process if any dynamic fragments are encountered.
-            let static_attrpath: Option<Vec<String>> = kv
+            let static_attrpath: Option<Vec<SmolStr>> = kv
                 .attrpath()
                 .unwrap()
                 .attrs()
@@ -630,31 +637,8 @@ impl Compiler<'_> {
         idx
     }
 
-    /// Convert a single identifier path fragment of a let binding to a string
-    /// if possible, or raise an error about the node being dynamic.
-    fn binding_name(&self, node: ast::Attr) -> EvalResult<String> {
-        match self.expr_static_attr_str(&node) {
-            Some(s) => Ok(s),
-            None => Err(Error {
-                // this code path will go away soon, hence the TODO below
-                kind: ErrorKind::DynamicKeyInScope("TODO"),
-                span: self.span_for(&node),
-            }),
-        }
-    }
-
-    /// Normalises identifier fragments into a single string vector for
-    /// `let`-expressions; fails if fragments requiring dynamic computation are
-    /// encountered.
-    fn normalise_ident_path<I: Iterator<Item = ast::Attr>>(
-        &self,
-        path: I,
-    ) -> EvalResult<Vec<String>> {
-        path.map(|node| self.binding_name(node)).collect()
-    }
-
     /// Convert a non-dynamic string expression to a string if possible.
-    fn expr_static_str(&self, node: &ast::Str) -> Option<String> {
+    fn expr_static_str(&self, node: &ast::Str) -> Option<SmolStr> {
         let mut parts = node.normalized_parts();
 
         if parts.len() != 1 {
@@ -662,7 +646,7 @@ impl Compiler<'_> {
         }
 
         if let Some(ast::InterpolPart::Literal(lit)) = parts.pop() {
-            return Some(lit);
+            return Some(SmolStr::new(&lit));
         }
 
         None
@@ -671,7 +655,7 @@ impl Compiler<'_> {
     /// Convert the provided `ast::Attr` into a statically known string if
     /// possible.
     // TODO(tazjin): these should probably be SmolStr
-    fn expr_static_attr_str(&self, node: &ast::Attr) -> Option<String> {
+    fn expr_static_attr_str(&self, node: &ast::Attr) -> Option<SmolStr> {
         match node {
             ast::Attr::Ident(ident) => Some(ident.ident_token().unwrap().text().into()),
             ast::Attr::Str(s) => self.expr_static_str(s),
