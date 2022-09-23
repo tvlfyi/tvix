@@ -175,7 +175,7 @@ impl<'o> VM<'o> {
 
     /// Construct an error from the given ErrorKind and the source
     /// span of the current instruction.
-    fn error(&self, kind: ErrorKind) -> Error {
+    pub fn error(&self, kind: ErrorKind) -> Error {
         Error {
             kind,
             span: self.current_span(),

@@ -132,6 +132,35 @@ fn pure_builtins() -> Vec<Builtin> {
                 }
             }
         }),
+        Builtin::new("filter", &[true, true], |args, vm| {
+            let list: NixList = args[1].to_list()?;
+
+            list.into_iter()
+                .filter_map(|elem| {
+                    vm.push(elem.clone());
+
+                    let result = match vm.call_value(&args[0]) {
+                        Err(err) => return Some(Err(err)),
+                        Ok(result) => result,
+                    };
+
+                    // Must be assigned to a local to avoid a borrowcheck
+                    // failure related to the ForceResult destructor.
+                    let result = match result.force(vm) {
+                        Err(err) => Some(Err(vm.error(err))),
+                        Ok(value) => match value.as_bool() {
+                            Ok(true) => Some(Ok(elem)),
+                            Ok(false) => None,
+                            Err(err) => Some(Err(vm.error(err))),
+                        },
+                    };
+
+                    result
+                })
+                .collect::<Result<Vec<Value>, _>>()
+                .map(|list| Value::List(NixList::from(list)))
+                .map_err(Into::into)
+        }),
         Builtin::new("getAttr", &[true, true], |args, _| {
             let k = args[0].to_str()?;
             let xs = args[1].to_attrs()?;
