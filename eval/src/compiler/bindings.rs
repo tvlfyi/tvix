@@ -1,14 +1,13 @@
-//! This module implements compiler logic related to name/value
-//! binding definitions (that is, attribute sets and let-expressions).
+//! This module implements compiler logic related to name/value binding
+//! definitions (that is, attribute sets and let-expressions).
 //!
-//! In the case of recursive scopes these cases share almost all of
-//! their (fairly complex) logic.
+//! In the case of recursive scopes these cases share almost all of their
+//! (fairly complex) logic.
 
 use super::*;
 
-// Data structures to track the bindings observed in the
-// second pass, and forward the information needed to compile
-// their value.
+// Data structures to track the bindings observed in the second pass, and
+// forward the information needed to compile their value.
 enum Binding {
     InheritFrom {
         namespace: ast::Expr,
@@ -91,9 +90,9 @@ impl Compiler<'_> {
                             }
                         };
 
-                        // If the identifier resolves statically in a
-                        // `let`, it has precedence over dynamic
-                        // bindings, and the inherit is useless.
+                        // If the identifier resolves statically in a `let`, it
+                        // has precedence over dynamic bindings, and the inherit
+                        // is useless.
                         if kind == BindingsKind::LetIn
                             && matches!(
                                 self.scope_mut().resolve_local(&name),
@@ -166,9 +165,9 @@ impl Compiler<'_> {
     ) {
         for (from, name, span) in inherit_froms {
             let key_slot = if kind.is_attrs() {
-                // In an attribute set, the keys themselves are placed
-                // on the stack but their stack slot is inaccessible
-                // (it is only consumed by `OpAttrs`).
+                // In an attribute set, the keys themselves are placed on the
+                // stack but their stack slot is inaccessible (it is only
+                // consumed by `OpAttrs`).
                 Some(KeySlot {
                     slot: self.scope_mut().declare_phantom(span, false),
                     name: SmolStr::new(&name),
@@ -178,12 +177,12 @@ impl Compiler<'_> {
             };
 
             let value_slot = match kind {
-                // In recursive scopes, the value needs to be
-                // accessible on the stack.
+                // In recursive scopes, the value needs to be accessible on the
+                // stack.
                 BindingsKind::LetIn | BindingsKind::RecAttrs => self.declare_local(&span, &name),
 
-                // In non-recursive attribute sets, the value is
-                // inaccessible (only consumed by `OpAttrs`).
+                // In non-recursive attribute sets, the value is inaccessible
+                // (only consumed by `OpAttrs`).
                 BindingsKind::Attrs => self.scope_mut().declare_phantom(span, false),
             };
 
@@ -240,14 +239,14 @@ impl Compiler<'_> {
             };
 
             let value_slot = match kind {
-                // In recursive scopes, the value needs to be
-                // accessible on the stack.
+                // In recursive scopes, the value needs to be accessible on the
+                // stack.
                 BindingsKind::LetIn | BindingsKind::RecAttrs => {
                     self.declare_local(&key_span, path.pop().unwrap())
                 }
 
-                // In non-recursive attribute sets, the value is
-                // inaccessible (only consumed by `OpAttrs`).
+                // In non-recursive attribute sets, the value is inaccessible
+                // (only consumed by `OpAttrs`).
                 BindingsKind::Attrs => self.scope_mut().declare_phantom(key_span, false),
             };
 
@@ -261,9 +260,9 @@ impl Compiler<'_> {
         }
     }
 
-    /// Compile the statically known entries of an attribute set. Which
-    /// keys are which is not known from the iterator, so discovered
-    /// dynamic keys are returned from here.
+    /// Compile the statically known entries of an attribute set. Which keys are
+    /// which is not known from the iterator, so discovered dynamic keys are
+    /// returned from here.
     fn compile_static_attr_entries(
         &mut self,
         count: &mut usize,
@@ -272,9 +271,8 @@ impl Compiler<'_> {
         let mut dynamic_attrs: Vec<ast::AttrpathValue> = vec![];
 
         'entries: for kv in entries {
-            // Attempt to turn the attrpath into a list of static
-            // strings, but abort this process if any dynamic
-            // fragments are encountered.
+            // Attempt to turn the attrpath into a list of static strings, but
+            // abort this process if any dynamic fragments are encountered.
             let static_attrpath: Option<Vec<String>> = kv
                 .attrpath()
                 .unwrap()
@@ -290,9 +288,9 @@ impl Compiler<'_> {
                 }
             };
 
-            // At this point we can increase the counter because we
-            // know that this particular attribute is static and can
-            // thus be processed here.
+            // At this point we can increase the counter because we know that
+            // this particular attribute is static and can thus be processed
+            // here.
             *count += 1;
 
             let key_count = fragments.len();
@@ -300,9 +298,8 @@ impl Compiler<'_> {
                 self.emit_constant(Value::String(fragment.into()), &kv.attrpath().unwrap());
             }
 
-            // We're done with the key if there was only one fragment,
-            // otherwise we need to emit an instruction to construct
-            // the attribute path.
+            // We're done with the key if there was only one fragment, otherwise
+            // we need to emit an instruction to construct the attribute path.
             if key_count > 1 {
                 self.push_op(
                     OpCode::OpAttrPath(Count(key_count)),
@@ -310,9 +307,8 @@ impl Compiler<'_> {
                 );
             }
 
-            // The value is just compiled as normal so that its
-            // resulting value is on the stack when the attribute set
-            // is constructed at runtime.
+            // The value is just compiled as normal so that its resulting value
+            // is on the stack when the attribute set is constructed at runtime.
             let value_span = self.span_for(&kv.value().unwrap());
             let value_slot = self.scope_mut().declare_phantom(value_span, false);
             self.compile(value_slot, kv.value().unwrap());
@@ -322,8 +318,8 @@ impl Compiler<'_> {
         dynamic_attrs
     }
 
-    /// Compile the dynamic entries of an attribute set, where keys
-    /// are only known at runtime.
+    /// Compile the dynamic entries of an attribute set, where keys are only
+    /// known at runtime.
     fn compile_dynamic_attr_entries(
         &mut self,
         count: &mut usize,
@@ -337,16 +333,14 @@ impl Compiler<'_> {
             let key_idx = self.scope_mut().declare_phantom(key_span, false);
 
             for fragment in entry.attrpath().unwrap().attrs() {
-                // Key fragments can contain dynamic expressions,
-                // which makes accounting for their stack slots very
-                // tricky.
+                // Key fragments can contain dynamic expressions, which makes
+                // accounting for their stack slots very tricky.
                 //
-                // In order to ensure the locals are correctly cleaned
-                // up, we essentially treat any key fragment after the
-                // first one (which has a locals index that will
-                // become that of the final key itself) as being part
-                // of a separate scope, which results in the somewhat
-                // annoying setup logic below.
+                // In order to ensure the locals are correctly cleaned up, we
+                // essentially treat any key fragment after the first one (which
+                // has a locals index that will become that of the final key
+                // itself) as being part of a separate scope, which results in
+                // the somewhat annoying setup logic below.
                 let fragment_slot = match key_count {
                     0 => key_idx,
                     1 => {
@@ -361,23 +355,21 @@ impl Compiler<'_> {
                 self.scope_mut().mark_initialised(fragment_slot);
             }
 
-            // We're done with the key if there was only one fragment,
-            // otherwise we need to emit an instruction to construct
-            // the attribute path.
+            // We're done with the key if there was only one fragment, otherwise
+            // we need to emit an instruction to construct the attribute path.
             if key_count > 1 {
                 self.push_op(
                     OpCode::OpAttrPath(Count(key_count)),
                     &entry.attrpath().unwrap(),
                 );
 
-                // Close the temporary scope that was set up for the
-                // key fragments.
+                // Close the temporary scope that was set up for the key
+                // fragments.
                 self.scope_mut().end_scope();
             }
 
-            // The value is just compiled as normal so that its
-            // resulting value is on the stack when the attribute set
-            // is constructed at runtime.
+            // The value is just compiled as normal so that its resulting value
+            // is on the stack when the attribute set is constructed at runtime.
             let value_span = self.span_for(&entry.value().unwrap());
             let value_slot = self.scope_mut().declare_phantom(value_span, false);
             self.compile(value_slot, entry.value().unwrap());
@@ -387,15 +379,15 @@ impl Compiler<'_> {
 
     /// Compile attribute set literals into equivalent bytecode.
     ///
-    /// This is complicated by a number of features specific to Nix
-    /// attribute sets, most importantly:
+    /// This is complicated by a number of features specific to Nix attribute
+    /// sets, most importantly:
     ///
     /// 1. Keys can be dynamically constructed through interpolation.
     /// 2. Keys can refer to nested attribute sets.
     /// 3. Attribute sets can (optionally) be recursive.
     pub(super) fn compile_attr_set(&mut self, slot: LocalIdx, node: ast::AttrSet) {
-        // Open a scope to track the positions of the temporaries used
-        // by the `OpAttrs` instruction.
+        // Open a scope to track the positions of the temporaries used by the
+        // `OpAttrs` instruction.
         self.scope_mut().begin_scope();
 
         if node.rec_token().is_some() {
@@ -419,8 +411,8 @@ impl Compiler<'_> {
             self.push_op(OpCode::OpAttrs(Count(count)), &node);
         }
 
-        // Remove the temporary scope, but do not emit any additional
-        // cleanup (OpAttrs consumes all of these locals).
+        // Remove the temporary scope, but do not emit any additional cleanup
+        // (OpAttrs consumes all of these locals).
         self.scope_mut().end_scope();
     }
 
@@ -439,15 +431,15 @@ impl Compiler<'_> {
             }
 
             match binding.binding {
-                // This entry is an inherit (from) expr. The value is
-                // placed on the stack by selecting an attribute.
+                // This entry is an inherit (from) expr. The value is placed on
+                // the stack by selecting an attribute.
                 Binding::InheritFrom {
                     namespace,
                     name,
                     span,
                 } => {
-                    // Create a thunk wrapping value (which may be one as well) to
-                    // avoid forcing the from expr too early.
+                    // Create a thunk wrapping value (which may be one as well)
+                    // to avoid forcing the from expr too early.
                     self.thunk(binding.value_slot, &namespace, move |c, n, s| {
                         c.compile(s, n.clone());
                         c.emit_force(n);
@@ -457,13 +449,13 @@ impl Compiler<'_> {
                     })
                 }
 
-                // Binding is "just" a plain expression that needs to
-                // be compiled.
+                // Binding is "just" a plain expression that needs to be
+                // compiled.
                 Binding::Plain { expr } => self.compile(binding.value_slot, expr),
             }
 
-            // Any code after this point will observe the value in the
-            // right stack slot, so mark it as initialised.
+            // Any code after this point will observe the value in the right
+            // stack slot, so mark it as initialised.
             self.scope_mut().mark_initialised(binding.value_slot);
         }
 
@@ -499,9 +491,8 @@ impl Compiler<'_> {
 
     /// Compile a standard `let ...; in ...` expression.
     ///
-    /// Unless in a non-standard scope, the encountered values are
-    /// simply pushed on the stack and their indices noted in the
-    /// entries vector.
+    /// Unless in a non-standard scope, the encountered values are simply pushed
+    /// on the stack and their indices noted in the entries vector.
     pub(super) fn compile_let_in(&mut self, slot: LocalIdx, node: ast::LetIn) {
         self.compile_recursive_scope(slot, BindingsKind::LetIn, &node);
 
@@ -526,8 +517,8 @@ impl Compiler<'_> {
         ident: &str,
         node: &N,
     ) {
-        // If the identifier is a global, and it is not poisoned, emit
-        // the global directly.
+        // If the identifier is a global, and it is not poisoned, emit the
+        // global directly.
         if let Some(global) = self.globals.get(ident) {
             if !self.scope().is_poisoned(ident) {
                 global.clone()(self, self.span_for(node));
@@ -543,9 +534,8 @@ impl Compiler<'_> {
                     return;
                 }
 
-                // If there is a non-empty `with`-stack (or a parent
-                // context with one), emit a runtime dynamic
-                // resolution instruction.
+                // If there is a non-empty `with`-stack (or a parent context
+                // with one), emit a runtime dynamic resolution instruction.
                 if self.has_dynamic_ancestor() {
                     self.emit_constant(Value::String(SmolStr::new(ident).into()), node);
                     self.push_op(OpCode::OpResolveWith, node);
@@ -561,9 +551,8 @@ impl Compiler<'_> {
                 self.push_op(OpCode::OpGetLocal(stack_idx), node);
             }
 
-            // This identifier is referring to a value from the same
-            // scope which is not yet defined. This identifier access
-            // must be thunked.
+            // This identifier is referring to a value from the same scope which
+            // is not yet defined. This identifier access must be thunked.
             LocalPosition::Recursive(idx) => self.thunk(slot, node, move |compiler, node, _| {
                 let upvalue_idx = compiler.add_upvalue(
                     compiler.contexts.len() - 1,
@@ -596,10 +585,10 @@ impl Compiler<'_> {
 
         // Determine whether the upvalue is a local in the enclosing context.
         match self.contexts[ctx_idx - 1].scope.resolve_local(name) {
-            // recursive upvalues are dealt with the same way as
-            // standard known ones, as thunks and closures are
-            // guaranteed to be placed on the stack (i.e. in the right
-            // position) *during* their runtime construction
+            // recursive upvalues are dealt with the same way as standard known
+            // ones, as thunks and closures are guaranteed to be placed on the
+            // stack (i.e. in the right position) *during* their runtime
+            // construction
             LocalPosition::Known(idx) | LocalPosition::Recursive(idx) => {
                 return Some(self.add_upvalue(ctx_idx, node, UpvalueKind::Local(idx)))
             }
@@ -607,9 +596,8 @@ impl Compiler<'_> {
             LocalPosition::Unknown => { /* continue below */ }
         };
 
-        // If the upvalue comes from even further up, we need to
-        // recurse to make sure that the upvalues are created at each
-        // level.
+        // If the upvalue comes from even further up, we need to recurse to make
+        // sure that the upvalues are created at each level.
         if let Some(idx) = self.resolve_upvalue(ctx_idx - 1, name, node) {
             return Some(self.add_upvalue(ctx_idx, node, UpvalueKind::Upvalue(idx)));
         }
@@ -623,8 +611,8 @@ impl Compiler<'_> {
         node: &N,
         kind: UpvalueKind,
     ) -> UpvalueIdx {
-        // If there is already an upvalue closing over the specified
-        // index, retrieve that instead.
+        // If there is already an upvalue closing over the specified index,
+        // retrieve that instead.
         for (idx, existing) in self.contexts[ctx_idx].scope.upvalues.iter().enumerate() {
             if existing.kind == kind {
                 return UpvalueIdx(idx);
@@ -642,9 +630,8 @@ impl Compiler<'_> {
         idx
     }
 
-    /// Convert a single identifier path fragment of a let binding to
-    /// a string if possible, or raise an error about the node being
-    /// dynamic.
+    /// Convert a single identifier path fragment of a let binding to a string
+    /// if possible, or raise an error about the node being dynamic.
     fn binding_name(&self, node: ast::Attr) -> EvalResult<String> {
         match self.expr_static_attr_str(&node) {
             Some(s) => Ok(s),
@@ -656,9 +643,9 @@ impl Compiler<'_> {
         }
     }
 
-    /// Normalises identifier fragments into a single string vector
-    /// for `let`-expressions; fails if fragments requiring dynamic
-    /// computation are encountered.
+    /// Normalises identifier fragments into a single string vector for
+    /// `let`-expressions; fails if fragments requiring dynamic computation are
+    /// encountered.
     fn normalise_ident_path<I: Iterator<Item = ast::Attr>>(
         &self,
         path: I,
@@ -681,18 +668,18 @@ impl Compiler<'_> {
         None
     }
 
-    /// Convert the provided `ast::Attr` into a statically known
-    /// string if possible.
+    /// Convert the provided `ast::Attr` into a statically known string if
+    /// possible.
     // TODO(tazjin): these should probably be SmolStr
     fn expr_static_attr_str(&self, node: &ast::Attr) -> Option<String> {
         match node {
             ast::Attr::Ident(ident) => Some(ident.ident_token().unwrap().text().into()),
             ast::Attr::Str(s) => self.expr_static_str(s),
 
-            // The dynamic node type is just a wrapper. C++ Nix does not
-            // care about the dynamic wrapper when determining whether the
-            // node itself is dynamic, it depends solely on the expression
-            // inside (i.e. `let ${"a"} = 1; in a` is valid).
+            // The dynamic node type is just a wrapper. C++ Nix does not care
+            // about the dynamic wrapper when determining whether the node
+            // itself is dynamic, it depends solely on the expression inside
+            // (i.e. `let ${"a"} = 1; in a` is valid).
             ast::Attr::Dynamic(ref dynamic) => match dynamic.expr().unwrap() {
                 ast::Expr::Str(s) => self.expr_static_str(&s),
                 _ => None,
