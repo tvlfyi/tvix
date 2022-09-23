@@ -434,6 +434,59 @@ impl Compiler<'_> {
         self.scope_mut().end_scope();
     }
 
+    /// Actually binds all tracked bindings by emitting the bytecode that places
+    /// them in their stack slots.
+    fn bind_values(&mut self, bindings: Vec<TrackedBinding>) {
+        let mut value_indices: Vec<LocalIdx> = vec![];
+
+        for binding in bindings.into_iter() {
+            value_indices.push(binding.value_slot);
+
+            if let Some(key_slot) = binding.key_slot {
+                let span = self.scope()[key_slot.slot].span;
+                self.emit_constant(Value::String(key_slot.name.into()), &span);
+                self.scope_mut().mark_initialised(key_slot.slot);
+            }
+
+            match binding.binding {
+                // This entry is an inherit (from) expr. The value is
+                // placed on the stack by selecting an attribute.
+                Binding::InheritFrom {
+                    namespace,
+                    name,
+                    span,
+                } => {
+                    // Create a thunk wrapping value (which may be one as well) to
+                    // avoid forcing the from expr too early.
+                    self.thunk(binding.value_slot, &namespace, move |c, n, s| {
+                        c.compile(s, n.clone());
+                        c.emit_force(n);
+
+                        c.emit_constant(Value::String(name.into()), &span);
+                        c.push_op(OpCode::OpAttrsSelect, &span);
+                    })
+                }
+
+                // Binding is "just" a plain expression that needs to
+                // be compiled.
+                Binding::Plain { expr } => self.compile(binding.value_slot, expr),
+            }
+
+            // Any code after this point will observe the value in the
+            // right stack slot, so mark it as initialised.
+            self.scope_mut().mark_initialised(binding.value_slot);
+        }
+
+        // Final pass to emit finaliser instructions if necessary.
+        for idx in value_indices {
+            if self.scope()[idx].needs_finaliser {
+                let stack_idx = self.scope().stack_index(idx);
+                let span = self.scope()[idx].span;
+                self.push_op(OpCode::OpFinalise(stack_idx), &span);
+            }
+        }
+    }
+
     fn compile_recursive_scope<N>(&mut self, slot: LocalIdx, kind: BindingsKind, node: &N) -> usize
     where
         N: ToSpan + ast::HasEntry,
@@ -488,53 +541,8 @@ impl Compiler<'_> {
             });
         }
 
-        // Third pass to place the values in the correct stack slots.
-        let mut value_indices: Vec<LocalIdx> = vec![];
-        for binding in bindings.into_iter() {
-            value_indices.push(binding.value_slot);
-
-            if let Some(key_slot) = binding.key_slot {
-                let span = self.scope()[key_slot.slot].span;
-                self.emit_constant(Value::String(key_slot.name.into()), &span);
-                self.scope_mut().mark_initialised(key_slot.slot);
-            }
-
-            match binding.binding {
-                // This entry is an inherit (from) expr. The value is
-                // placed on the stack by selecting an attribute.
-                Binding::InheritFrom {
-                    namespace,
-                    name,
-                    span,
-                } => {
-                    // Create a thunk wrapping value (which may be one as well) to
-                    // avoid forcing the from expr too early.
-                    self.thunk(binding.value_slot, &namespace, move |c, n, s| {
-                        c.compile(s, n.clone());
-                        c.emit_force(n);
-
-                        c.emit_constant(Value::String(name.into()), &span);
-                        c.push_op(OpCode::OpAttrsSelect, &span);
-                    })
-                }
-
-                // Binding is "just" a plain expression that needs to
-                // be compiled.
-                Binding::Plain { expr } => self.compile(binding.value_slot, expr),
-            }
-
-            // Any code after this point will observe the value in the
-            // right stack slot, so mark it as initialised.
-            self.scope_mut().mark_initialised(binding.value_slot);
-        }
-
-        // Fourth pass to emit finaliser instructions if necessary.
-        for idx in value_indices {
-            if self.scope()[idx].needs_finaliser {
-                let stack_idx = self.scope().stack_index(idx);
-                self.push_op(OpCode::OpFinalise(stack_idx), node);
-            }
-        }
+        // Actually bind values and ensure they are on the stack.
+        self.bind_values(bindings);
 
         count
     }
