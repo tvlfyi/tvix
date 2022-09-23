@@ -34,6 +34,113 @@ struct TrackedBinding {
 
 /// AST-traversing functions related to bindings.
 impl Compiler<'_> {
+    fn compile_inherits<N>(
+        &mut self,
+        slot: LocalIdx,
+        count: &mut usize,
+        bindings: &mut Vec<TrackedBinding>,
+        rec_attrs: bool,
+        node: &N,
+    ) where
+        N: ToSpan + ast::HasEntry,
+    {
+        // First pass to find all plain inherits (if they are not useless).
+        // Since they always resolve to a higher scope, we can just compile and
+        // declare them immediately. This needs to happen *before* we declare
+        // any other locals in the scope or the stack order gets messed up.
+        // While we are looping through the inherits, already note all inherit
+        // (from) expressions, that may very well resolve recursively and need
+        // to be compiled like normal let in bindings.
+        let mut inherit_froms: Vec<(ast::Expr, String, Span)> = vec![];
+        for inherit in node.inherits() {
+            match inherit.from() {
+                // Within a `let` binding, inheriting from the outer
+                // scope is a no-op *if* the identifier can be
+                // statically resolved.
+                None if !rec_attrs && !self.scope().has_with() => {
+                    self.emit_warning(&inherit, WarningKind::UselessInherit);
+                    continue;
+                }
+
+                None => {
+                    for attr in inherit.attrs() {
+                        let name = match self.expr_static_attr_str(&attr) {
+                            Some(name) => name,
+                            None => {
+                                self.emit_error(&attr, ErrorKind::DynamicKeyInScope("inherit"));
+                                continue;
+                            }
+                        };
+
+                        *count += 1;
+
+                        // If the identifier resolves statically in a
+                        // `let`, it has precedence over dynamic
+                        // bindings, and the inherit is useless.
+                        if !rec_attrs
+                            && matches!(
+                                self.scope_mut().resolve_local(&name),
+                                LocalPosition::Known(_)
+                            )
+                        {
+                            self.emit_warning(&attr, WarningKind::UselessInherit);
+                            continue;
+                        }
+
+                        if rec_attrs {
+                            self.emit_constant(Value::String(SmolStr::new(&name).into()), &attr);
+                            let span = self.span_for(&attr);
+                            self.scope_mut().declare_phantom(span, true);
+                        }
+
+                        self.compile_identifier_access(slot, &name, &attr);
+                        let idx = self.declare_local(&attr, &name);
+                        self.scope_mut().mark_initialised(idx);
+                    }
+                }
+
+                Some(from) => {
+                    for attr in inherit.attrs() {
+                        let name = match self.expr_static_attr_str(&attr) {
+                            Some(name) => name,
+                            None => {
+                                self.emit_error(&attr, ErrorKind::DynamicKeyInScope("inherit"));
+                                continue;
+                            }
+                        };
+
+                        *count += 1;
+                        inherit_froms.push((from.expr().unwrap(), name, self.span_for(&attr)));
+                    }
+                }
+            }
+        }
+
+        // Begin with the inherit (from)s since they all become a thunk anyway
+        for (from, name, span) in inherit_froms {
+            let key_slot = if rec_attrs {
+                Some(KeySlot {
+                    slot: self.scope_mut().declare_phantom(span, false),
+                    name: SmolStr::new(&name),
+                })
+            } else {
+                None
+            };
+
+            let value_slot = self.declare_local(&span, &name);
+
+            bindings.push(TrackedBinding {
+                key_slot,
+                value_slot,
+                binding: Binding::InheritFrom {
+                    namespace: from,
+                    name: SmolStr::new(&name),
+                    span,
+                },
+            });
+        }
+    }
+
     /// Compiles inherited values in an attribute set. Inherited
     /// values are *always* inherited from the outer scope, even if
     /// there is a matching name within a recursive attribute set.
@@ -276,107 +383,10 @@ impl Compiler<'_> {
         let mut count = 0;
         self.scope_mut().begin_scope();
 
-        // First pass to find all plain inherits (if they are not useless).
-        // Since they always resolve to a higher scope, we can just compile and
-        // declare them immediately. This needs to happen *before* we declare
-        // any other locals in the scope or the stack order gets messed up.
-        // While we are looping through the inherits, already note all inherit
-        // (from) expressions, that may very well resolve recursively and need
-        // to be compiled like normal let in bindings.
-        let mut inherit_froms: Vec<(ast::Expr, String, Span)> = vec![];
-        for inherit in node.inherits() {
-            match inherit.from() {
-                // Within a `let` binding, inheriting from the outer
-                // scope is a no-op *if* the identifier can be
-                // statically resolved.
-                None if !rec_attrs && !self.scope().has_with() => {
-                    self.emit_warning(&inherit, WarningKind::UselessInherit);
-                    continue;
-                }
-
-                None => {
-                    for attr in inherit.attrs() {
-                        let name = match self.expr_static_attr_str(&attr) {
-                            Some(name) => name,
-                            None => {
-                                self.emit_error(&attr, ErrorKind::DynamicKeyInScope("inherit"));
-                                continue;
-                            }
-                        };
-
-                        count += 1;
-
-                        // If the identifier resolves statically in a
-                        // `let`, it has precedence over dynamic
-                        // bindings, and the inherit is useless.
-                        if !rec_attrs
-                            && matches!(
-                                self.scope_mut().resolve_local(&name),
-                                LocalPosition::Known(_)
-                            )
-                        {
-                            self.emit_warning(&attr, WarningKind::UselessInherit);
-                            continue;
-                        }
-
-                        if rec_attrs {
-                            self.emit_constant(Value::String(SmolStr::new(&name).into()), &attr);
-                            let span = self.span_for(&attr);
-                            self.scope_mut().declare_phantom(span, true);
-                        }
-
-                        self.compile_identifier_access(slot, &name, &attr);
-                        let idx = self.declare_local(&attr, &name);
-                        self.scope_mut().mark_initialised(idx);
-                    }
-                }
-
-                Some(from) => {
-                    for attr in inherit.attrs() {
-                        let name = match self.expr_static_attr_str(&attr) {
-                            Some(name) => name,
-                            None => {
-                                self.emit_error(&attr, ErrorKind::DynamicKeyInScope("inherit"));
-                                continue;
-                            }
-                        };
-
-                        count += 1;
-                        inherit_froms.push((from.expr().unwrap(), name, self.span_for(&attr)));
-                    }
-                }
-            }
-        }
-
         // Vector to track these observed bindings.
         let mut bindings: Vec<TrackedBinding> = vec![];
 
-        // Begin second pass to ensure that all remaining identifiers
-        // (that may resolve recursively) are known.
-
-        // Begin with the inherit (from)s since they all become a thunk anyway
-        for (from, name, span) in inherit_froms {
-            let key_slot = if rec_attrs {
-                Some(KeySlot {
-                    slot: self.scope_mut().declare_phantom(span, false),
-                    name: SmolStr::new(&name),
-                })
-            } else {
-                None
-            };
-
-            let value_slot = self.declare_local(&span, &name);
-
-            bindings.push(TrackedBinding {
-                key_slot,
-                value_slot,
-                binding: Binding::InheritFrom {
-                    namespace: from,
-                    name: SmolStr::new(&name),
-                    span,
-                },
-            });
-        }
+        self.compile_inherits(slot, &mut count, &mut bindings, rec_attrs, node);
 
         // Declare all regular bindings
         for entry in node.attrpath_values() {
