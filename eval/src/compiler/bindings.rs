@@ -9,7 +9,7 @@ use super::*;
 // Data structures to track the bindings observed in the
 // second pass, and forward the information needed to compile
 // their value.
-enum BindingKind {
+enum Binding {
     InheritFrom {
         namespace: ast::Expr,
         name: SmolStr,
@@ -29,7 +29,7 @@ struct KeySlot {
 struct TrackedBinding {
     key_slot: Option<KeySlot>,
     value_slot: LocalIdx,
-    kind: BindingKind,
+    binding: Binding,
 }
 
 /// AST-traversing functions related to bindings.
@@ -370,7 +370,7 @@ impl Compiler<'_> {
             bindings.push(TrackedBinding {
                 key_slot,
                 value_slot,
-                kind: BindingKind::InheritFrom {
+                binding: Binding::InheritFrom {
                     namespace: from,
                     name: SmolStr::new(&name),
                     span,
@@ -413,7 +413,7 @@ impl Compiler<'_> {
             bindings.push(TrackedBinding {
                 key_slot,
                 value_slot,
-                kind: BindingKind::Plain {
+                binding: Binding::Plain {
                     expr: entry.value().unwrap(),
                 },
             });
@@ -430,10 +430,10 @@ impl Compiler<'_> {
                 self.scope_mut().mark_initialised(key_slot.slot);
             }
 
-            match binding.kind {
+            match binding.binding {
                 // This entry is an inherit (from) expr. The value is
                 // placed on the stack by selecting an attribute.
-                BindingKind::InheritFrom {
+                Binding::InheritFrom {
                     namespace,
                     name,
                     span,
@@ -451,7 +451,7 @@ impl Compiler<'_> {
 
                 // Binding is "just" a plain expression that needs to
                 // be compiled.
-                BindingKind::Plain { expr } => self.compile(binding.value_slot, expr),
+                Binding::Plain { expr } => self.compile(binding.value_slot, expr),
             }
 
             // Any code after this point will observe the value in the
