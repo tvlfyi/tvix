@@ -63,19 +63,15 @@ impl Compiler<'_> {
     ) where
         N: ToSpan + ast::HasEntry,
     {
-        // First pass to find all plain inherits (if they are not useless).
-        // Since they always resolve to a higher scope, we can just compile and
-        // declare them immediately. This needs to happen *before* we declare
-        // any other locals in the scope or the stack order gets messed up.
-        // While we are looping through the inherits, already note all inherit
-        // (from) expressions, that may very well resolve recursively and need
-        // to be compiled like normal let in bindings.
+        // First pass over all inherits resolves only those without
+        // namespaces. Since they always resolve to a higher scope, we
+        // can just compile and declare them immediately.
         let mut inherit_froms: Vec<(ast::Expr, String, Span)> = vec![];
+
         for inherit in node.inherits() {
             match inherit.from() {
-                // Within a `let` binding, inheriting from the outer
-                // scope is a no-op *if* the identifier can be
-                // statically resolved.
+                // Within a `let` binding, inheriting from the outer scope is a
+                // no-op *if* the scope is fully static.
                 None if !kind.is_attrs() && !self.scope().has_with() => {
                     self.emit_warning(&inherit, WarningKind::UselessInherit);
                     continue;
@@ -91,8 +87,6 @@ impl Compiler<'_> {
                             }
                         };
 
-                        *count += 1;
-
                         // If the identifier resolves statically in a
                         // `let`, it has precedence over dynamic
                         // bindings, and the inherit is useless.
@@ -106,14 +100,30 @@ impl Compiler<'_> {
                             continue;
                         }
 
-                        if kind == BindingsKind::RecAttrs {
+                        *count += 1;
+
+                        // Place key on the stack when compiling attribute sets.
+                        if kind.is_attrs() {
                             self.emit_constant(Value::String(SmolStr::new(&name).into()), &attr);
                             let span = self.span_for(&attr);
                             self.scope_mut().declare_phantom(span, true);
                         }
 
+                        // Place the value on the stack. Note that because plain
+                        // inherits are always in the outer scope, the slot of
+                        // *this* scope itself is used.
                         self.compile_identifier_access(slot, &name, &attr);
-                        let idx = self.declare_local(&attr, &name);
+
+                        // In non-recursive attribute sets, the key slot must be
+                        // a phantom (i.e. the identifier can not be resolved in
+                        // this scope).
+                        let idx = if kind == BindingsKind::Attrs {
+                            let span = self.span_for(&attr);
+                            self.scope_mut().declare_phantom(span, false)
+                        } else {
+                            self.declare_local(&attr, &name)
+                        };
+
                         self.scope_mut().mark_initialised(idx);
                     }
                 }
@@ -135,9 +145,14 @@ impl Compiler<'_> {
             }
         }
 
-        // Begin with the inherit (from)s since they all become a thunk anyway
+        // Second pass over the inherits that have a namespace, to declare them
+        // in the tracked bindings. Compiling the values into their slots is the
+        // job of the caller.
         for (from, name, span) in inherit_froms {
             let key_slot = if kind.is_attrs() {
+                // In an attribute set, the keys themselves are placed
+                // on the stack but their stack slot is inaccessible
+                // (it is only consumed by `OpAttrs`).
                 Some(KeySlot {
                     slot: self.scope_mut().declare_phantom(span, false),
                     name: SmolStr::new(&name),
@@ -146,7 +161,15 @@ impl Compiler<'_> {
                 None
             };
 
-            let value_slot = self.declare_local(&span, &name);
+            let value_slot = match kind {
+                // In recursive scopes, the value needs to be
+                // accessible on the stack.
+                BindingsKind::LetIn | BindingsKind::RecAttrs => self.declare_local(&span, &name),
+
+                // In non-recursive attribute sets, the value is
+                // inaccessible (only consumed by `OpAttrs`).
+                BindingsKind::Attrs => self.scope_mut().declare_phantom(span, false),
+            };
 
             bindings.push(TrackedBinding {
                 key_slot,
