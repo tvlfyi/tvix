@@ -308,7 +308,6 @@ impl<'o> VM<'o> {
                 OpCode::OpFalse => self.push(Value::Bool(false)),
 
                 OpCode::OpAttrs(Count(count)) => self.run_attrset(count)?,
-                OpCode::OpAttrPath(Count(count)) => self.run_attr_path(count)?,
 
                 OpCode::OpAttrsUpdate => {
                     let rhs = unwrap_or_clone_rc(fallible!(self, self.pop().to_attrs()));
@@ -588,24 +587,6 @@ impl<'o> VM<'o> {
         }
     }
 
-    /// Construct runtime representation of an attr path (essentially
-    /// just a list of strings).
-    ///
-    /// The difference to the list construction operation is that this
-    /// forces all elements into strings, as attribute set keys are
-    /// required to be strict in Nix.
-    fn run_attr_path(&mut self, count: usize) -> EvalResult<()> {
-        debug_assert!(count > 1, "AttrPath needs at least two fragments");
-        let mut path = Vec::with_capacity(count);
-
-        for _ in 0..count {
-            path.push(fallible!(self, self.pop().to_str()));
-        }
-
-        self.push(Value::AttrPath(path));
-        Ok(())
-    }
-
     fn run_attrset(&mut self, count: usize) -> EvalResult<()> {
         let attrs = fallible!(
             self,
@@ -736,8 +717,7 @@ impl<'o> VM<'o> {
 
             // If any of these internal values are encountered here a
             // critical error has happened (likely a compiler bug).
-            Value::AttrPath(_)
-            | Value::AttrNotFound
+            Value::AttrNotFound
             | Value::DynamicUpvalueMissing(_)
             | Value::Blueprint(_)
             | Value::DeferredUpvalue(_) => {

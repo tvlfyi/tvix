@@ -91,7 +91,6 @@ pub enum OpCode {
     /// Note that this takes the count of *pairs*, not the number of *stack values* - the actual
     /// number of values popped off the stack will be twice the argument to this op
     OpAttrs(Count),
-    OpAttrPath(Count),
     OpAttrsUpdate,
     OpAttrsSelect,
     OpAttrsTrySelect,

@@ -41,7 +41,6 @@ pub enum Value {
     // Internal values that, while they technically exist at runtime,
     // are never returned to or created directly by users.
     Thunk(Thunk),
-    AttrPath(Vec<NixString>),
     AttrNotFound,
     DynamicUpvalueMissing(NixString),
     Blueprint(Rc<Lambda>),
@@ -220,8 +219,7 @@ impl Value {
                 kind,
             }),
 
-            (Value::AttrPath(_), _)
-            | (Value::AttrNotFound, _)
+            (Value::AttrNotFound, _)
             | (Value::DynamicUpvalueMissing(_), _)
             | (Value::Blueprint(_), _)
             | (Value::DeferredUpvalue(_), _) => {
@@ -244,7 +242,6 @@ impl Value {
 
             // Internal types
             Value::Thunk(_)
-            | Value::AttrPath(_)
             | Value::AttrNotFound
             | Value::DynamicUpvalueMissing(_)
             | Value::Blueprint(_)
@@ -338,7 +335,6 @@ impl Display for Value {
             Value::Thunk(t) => t.fmt(f),
 
             // internal types
-            Value::AttrPath(path) => write!(f, "internal[attrpath({})]", path.len()),
             Value::AttrNotFound => f.write_str("internal[not found]"),
             Value::Blueprint(_) => f.write_str("internal[blueprint]"),
             Value::DeferredUpvalue(_) => f.write_str("internal[deferred_upvalue]"),

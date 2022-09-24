@@ -8,7 +8,6 @@
 use std::collections::btree_map;
 use std::collections::BTreeMap;
 use std::fmt::Display;
-use std::rc::Rc;
 
 use crate::errors::ErrorKind;
 use crate::vm::VM;
@@ -248,22 +247,10 @@ impl NixAttrs {
 
         for _ in 0..count {
             let value = stack_slice.pop().unwrap();
-
-            // It is at this point that nested attribute sets need to
-            // be constructed (if they exist).
-            //
             let key = stack_slice.pop().unwrap();
+
             match key {
                 Value::String(ks) => set_attr(&mut attrs, ks, value)?,
-
-                Value::AttrPath(mut path) => {
-                    set_nested_attr(
-                        &mut attrs,
-                        path.pop().expect("AttrPath is never empty"),
-                        path,
-                        value,
-                    )?;
-                }
 
                 Value::Null => {
                     // This is in fact valid, but leads to the value
@@ -408,66 +395,6 @@ fn set_attr(attrs: &mut NixAttrs, key: NixString, value: Value) -> Result<(), Er
             Ok(())
         }
     }
-}
-
-/// Set a nested attribute inside of an attribute set, throwing a
-/// duplicate key error if a non-hashmap entry already exists on the
-/// path.
-///
-/// There is some optimisation potential for this simple implementation
-/// if it becomes a problem.
-fn set_nested_attr(
-    attrs: &mut NixAttrs,
-    key: NixString,
-    mut path: Vec<NixString>,
-    value: Value,
-) -> Result<(), ErrorKind> {
-    // If there is no next key we are at the point where we
-    // should insert the value itself.
-    if path.is_empty() {
-        return set_attr(attrs, key, value);
-    }
-
-    // If there is not we go one step further down, in which case we
-    // need to ensure that there either is no entry, or the existing
-    // entry is a hashmap into which to insert the next value.
-    //
-    // If a value of a different type exists, the user specified a
-    // duplicate key.
-    match attrs.0.map_mut().entry(key) {
-        // Vacant entry -> new attribute set is needed.
-        btree_map::Entry::Vacant(entry) => {
-            let mut map = NixAttrs(AttrsRep::Map(BTreeMap::new()));
-
-            // TODO(tazjin): technically recursing further is not
-            // required, we can create the whole hierarchy here, but
-            // it's noisy.
-            set_nested_attr(&mut map, path.pop().expect("next key exists"), path, value)?;
-
-            entry.insert(Value::Attrs(Rc::new(map)));
-        }
-
-        // Occupied entry: Either error out if there is something
-        // other than attrs, or insert the next value.
-        btree_map::Entry::Occupied(mut entry) => match entry.get_mut() {
-            Value::Attrs(attrs) => {
-                set_nested_attr(
-                    Rc::make_mut(attrs),
-                    path.pop().expect("next key exists"),
-                    path,
-                    value,
-                )?;
-            }
-
-            _ => {
-                return Err(ErrorKind::DuplicateAttrsKey {
-                    key: entry.key().as_str().to_string(),
-                })
-            }
-        },
-    }
-
-    Ok(())
 }
 
 /// Internal helper type to track the iteration status of an iterator
