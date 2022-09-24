@@ -22,14 +22,14 @@ enum Binding {
 
 enum KeySlot {
     /// There is no key slot (`let`-expressions do not emit their key).
-    None,
+    None { name: SmolStr },
 
     /// The key is statically known and has a slot.
     Static { slot: LocalIdx, name: SmolStr },
 
     /// The key is dynamic, i.e. only known at runtime, and must be compiled
     /// into its slot.
-    Dynamic { slot: LocalIdx, expr: ast::Expr },
+    Dynamic { slot: LocalIdx, attr: ast::Attr },
 }
 
 struct TrackedBinding {
@@ -180,7 +180,7 @@ impl Compiler<'_> {
                     name: name.clone(),
                 }
             } else {
-                KeySlot::None
+                KeySlot::None { name: name.clone() }
             };
 
             let value_slot = match kind {
@@ -221,22 +221,25 @@ impl Compiler<'_> {
         for entry in node.attrpath_values() {
             *count += 1;
 
-            let path = entry.attrpath().unwrap().attrs().collect::<Vec<_>>();
+            let mut path = entry.attrpath().unwrap().attrs().collect::<Vec<_>>();
             if path.len() != 1 {
                 self.emit_error(&entry, ErrorKind::NotImplemented("nested bindings :("));
                 continue;
             }
 
-            let name = match self.expr_static_attr_str(&path[0]) {
-                Some(name) => name,
+            let key_span = self.span_for(&path[0]);
+            let key_slot = match self.expr_static_attr_str(&path[0]) {
+                Some(name) if kind.is_attrs() => KeySlot::Static {
+                    name,
+                    slot: self.scope_mut().declare_phantom(key_span, false),
+                },
 
-                None if kind.is_attrs() => {
-                    self.emit_error(
-                        &entry,
-                        ErrorKind::NotImplemented("dynamic keys in `rec` sets"),
-                    );
-                    continue;
-                }
+                Some(name) => KeySlot::None { name },
+
+                None if kind.is_attrs() => KeySlot::Dynamic {
+                    attr: path.pop().unwrap(),
+                    slot: self.scope_mut().declare_phantom(key_span, false),
+                },
 
                 None => {
                     self.emit_error(&path[0], ErrorKind::DynamicKeyInScope("let-expression"));
@@ -244,20 +247,20 @@ impl Compiler<'_> {
                 }
             };
 
-            let key_span = self.span_for(&path[0]);
-            let key_slot = if kind.is_attrs() {
-                KeySlot::Static {
-                    name: name.clone(),
-                    slot: self.scope_mut().declare_phantom(key_span, false),
-                }
-            } else {
-                KeySlot::None
-            };
-
             let value_slot = match kind {
-                // In recursive scopes, the value needs to be accessible on the
-                // stack.
-                BindingsKind::LetIn | BindingsKind::RecAttrs => self.declare_local(&key_span, name),
+                BindingsKind::LetIn | BindingsKind::RecAttrs => match &key_slot {
+                    // In recursive scopes, the value needs to be accessible on the
+                    // stack if it is statically known
+                    KeySlot::None { name } | KeySlot::Static { name, .. } => {
+                        self.declare_local(&key_span, name.as_str())
+                    }
+
+                    // Dynamic values are never resolvable (as their names are
+                    // of course only known at runtime).
+                    //
+                    // Note: This branch is unreachable in `let`-expressions.
+                    KeySlot::Dynamic { .. } => self.scope_mut().declare_phantom(key_span, false),
+                },
 
                 // In non-recursive attribute sets, the value is inaccessible
                 // (only consumed by `OpAttrs`).
@@ -439,7 +442,7 @@ impl Compiler<'_> {
             value_indices.push(binding.value_slot);
 
             match binding.key_slot {
-                KeySlot::None => {} // nothing to do here
+                KeySlot::None { .. } => {} // nothing to do here
 
                 KeySlot::Static { slot, name } => {
                     let span = self.scope()[slot].span;
@@ -447,8 +450,9 @@ impl Compiler<'_> {
                     self.scope_mut().mark_initialised(slot);
                 }
 
-                KeySlot::Dynamic { .. } => {
-                    todo!("dynamic keys not ye timplemented")
+                KeySlot::Dynamic { slot, attr } => {
+                    self.compile_attr(slot, attr);
+                    self.scope_mut().mark_initialised(slot);
                 }
             }
 
