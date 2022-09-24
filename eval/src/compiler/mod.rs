@@ -553,7 +553,7 @@ impl Compiler<'_> {
         }
 
         // Push the set onto the stack
-        self.compile(slot, set.clone());
+        self.compile(slot, set);
 
         // Compile each key fragment and emit access instructions.
         //
@@ -604,7 +604,7 @@ impl Compiler<'_> {
         path: ast::Attrpath,
         default: ast::Expr,
     ) {
-        self.compile(slot, set.clone());
+        self.compile(slot, set);
         let mut jumps = vec![];
 
         for fragment in path.attrs() {

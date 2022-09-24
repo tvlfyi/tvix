@@ -162,7 +162,7 @@ impl Error {
                 format!("list index '{}' is out of bounds", index)
             }
 
-            ErrorKind::TailEmptyList => format!("'tail' called on an empty list"),
+            ErrorKind::TailEmptyList => "'tail' called on an empty list".to_string(),
 
             ErrorKind::TypeError { expected, actual } => format!(
                 "expected value of type '{}', but found a '{}'",

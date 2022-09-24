@@ -18,7 +18,7 @@ impl PartialOrd for VersionPart<'_> {
 }
 
 impl Ord for VersionPart<'_> {
-    fn cmp(self: &Self, other: &Self) -> Ordering {
+    fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
             (VersionPart::Number(s1), VersionPart::Number(s2)) => {
                 // Note: C++ Nix uses `int`, but probably doesn't make a difference

@@ -59,7 +59,7 @@ fn pure_builtins() -> Vec<Builtin> {
             |args, vm| arithmetic_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, +),
         ),
         Builtin::new("abort", &[true], |args, _| {
-            return Err(ErrorKind::Abort(args[0].to_str()?.to_string()));
+            Err(ErrorKind::Abort(args[0].to_str()?.to_string()))
         }),
         Builtin::new("attrNames", &[true], |args, _| {
             let xs = args[0].to_attrs()?;
@@ -313,7 +313,7 @@ fn pure_builtins() -> Vec<Builtin> {
             }
         }),
         Builtin::new("throw", &[true], |args, _| {
-            return Err(ErrorKind::Throw(args[0].to_str()?.to_string()));
+            Err(ErrorKind::Throw(args[0].to_str()?.to_string()))
         }),
         // coerce_to_string forces for us
         Builtin::new("toString", &[false], |args, vm| {
