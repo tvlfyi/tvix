@@ -20,13 +20,20 @@ enum Binding {
     },
 }
 
-struct KeySlot {
-    slot: LocalIdx,
-    name: SmolStr,
+enum KeySlot {
+    /// There is no key slot (`let`-expressions do not emit their key).
+    None,
+
+    /// The key is statically known and has a slot.
+    Static { slot: LocalIdx, name: SmolStr },
+
+    /// The key is dynamic, i.e. only known at runtime, and must be compiled
+    /// into its slot.
+    Dynamic { slot: LocalIdx, expr: ast::Expr },
 }
 
 struct TrackedBinding {
-    key_slot: Option<KeySlot>,
+    key_slot: KeySlot,
     value_slot: LocalIdx,
     binding: Binding,
 }
@@ -168,12 +175,12 @@ impl Compiler<'_> {
                 // In an attribute set, the keys themselves are placed on the
                 // stack but their stack slot is inaccessible (it is only
                 // consumed by `OpAttrs`).
-                Some(KeySlot {
+                KeySlot::Static {
                     slot: self.scope_mut().declare_phantom(span, false),
                     name: name.clone(),
-                })
+                }
             } else {
-                None
+                KeySlot::None
             };
 
             let value_slot = match kind {
@@ -239,12 +246,12 @@ impl Compiler<'_> {
 
             let key_span = self.span_for(&path[0]);
             let key_slot = if kind.is_attrs() {
-                Some(KeySlot {
+                KeySlot::Static {
                     name: name.clone(),
                     slot: self.scope_mut().declare_phantom(key_span, false),
-                })
+                }
             } else {
-                None
+                KeySlot::None
             };
 
             let value_slot = match kind {
@@ -431,10 +438,18 @@ impl Compiler<'_> {
         for binding in bindings.into_iter() {
             value_indices.push(binding.value_slot);
 
-            if let Some(key_slot) = binding.key_slot {
-                let span = self.scope()[key_slot.slot].span;
-                self.emit_constant(Value::String(key_slot.name.into()), &span);
-                self.scope_mut().mark_initialised(key_slot.slot);
+            match binding.key_slot {
+                KeySlot::None => {} // nothing to do here
+
+                KeySlot::Static { slot, name } => {
+                    let span = self.scope()[slot].span;
+                    self.emit_constant(Value::String(name.into()), &span);
+                    self.scope_mut().mark_initialised(slot);
+                }
+
+                KeySlot::Dynamic { .. } => {
+                    todo!("dynamic keys not ye timplemented")
+                }
             }
 
             match binding.binding {
