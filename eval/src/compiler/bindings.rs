@@ -277,123 +277,6 @@ impl Compiler<'_> {
         }
     }
 
-    /// Compile the statically known entries of an attribute set. Which keys are
-    /// which is not known from the iterator, so discovered dynamic keys are
-    /// returned from here.
-    fn compile_static_attr_entries(
-        &mut self,
-        count: &mut usize,
-        entries: AstChildren<ast::AttrpathValue>,
-    ) -> Vec<ast::AttrpathValue> {
-        let mut dynamic_attrs: Vec<ast::AttrpathValue> = vec![];
-
-        'entries: for kv in entries {
-            // Attempt to turn the attrpath into a list of static strings, but
-            // abort this process if any dynamic fragments are encountered.
-            let static_attrpath: Option<Vec<SmolStr>> = kv
-                .attrpath()
-                .unwrap()
-                .attrs()
-                .map(|a| self.expr_static_attr_str(&a))
-                .collect();
-
-            let fragments = match static_attrpath {
-                Some(fragments) => fragments,
-                None => {
-                    dynamic_attrs.push(kv);
-                    continue 'entries;
-                }
-            };
-
-            // At this point we can increase the counter because we know that
-            // this particular attribute is static and can thus be processed
-            // here.
-            *count += 1;
-
-            let key_count = fragments.len();
-            for fragment in fragments.into_iter() {
-                self.emit_constant(Value::String(fragment.into()), &kv.attrpath().unwrap());
-            }
-
-            // We're done with the key if there was only one fragment, otherwise
-            // we need to emit an instruction to construct the attribute path.
-            if key_count > 1 {
-                self.push_op(
-                    OpCode::OpAttrPath(Count(key_count)),
-                    &kv.attrpath().unwrap(),
-                );
-            }
-
-            // The value is just compiled as normal so that its resulting value
-            // is on the stack when the attribute set is constructed at runtime.
-            let value_span = self.span_for(&kv.value().unwrap());
-            let value_slot = self.scope_mut().declare_phantom(value_span, false);
-            self.compile(value_slot, kv.value().unwrap());
-            self.scope_mut().mark_initialised(value_slot);
-        }
-
-        dynamic_attrs
-    }
-
-    /// Compile the dynamic entries of an attribute set, where keys are only
-    /// known at runtime.
-    fn compile_dynamic_attr_entries(
-        &mut self,
-        count: &mut usize,
-        entries: Vec<ast::AttrpathValue>,
-    ) {
-        for entry in entries.into_iter() {
-            *count += 1;
-
-            let mut key_count = 0;
-            let key_span = self.span_for(&entry.attrpath().unwrap());
-            let key_idx = self.scope_mut().declare_phantom(key_span, false);
-
-            for fragment in entry.attrpath().unwrap().attrs() {
-                // Key fragments can contain dynamic expressions, which makes
-                // accounting for their stack slots very tricky.
-                //
-                // In order to ensure the locals are correctly cleaned up, we
-                // essentially treat any key fragment after the first one (which
-                // has a locals index that will become that of the final key
-                // itself) as being part of a separate scope, which results in
-                // the somewhat annoying setup logic below.
-                let fragment_slot = match key_count {
-                    0 => key_idx,
-                    1 => {
-                        self.scope_mut().begin_scope();
-                        self.scope_mut().declare_phantom(key_span, false)
-                    }
-                    _ => self.scope_mut().declare_phantom(key_span, false),
-                };
-
-                key_count += 1;
-                self.compile_attr(fragment_slot, fragment);
-                self.scope_mut().mark_initialised(fragment_slot);
-            }
-
-            // We're done with the key if there was only one fragment, otherwise
-            // we need to emit an instruction to construct the attribute path.
-            if key_count > 1 {
-                self.push_op(
-                    OpCode::OpAttrPath(Count(key_count)),
-                    &entry.attrpath().unwrap(),
-                );
-
-                // Close the temporary scope that was set up for the key
-                // fragments.
-                self.scope_mut().end_scope();
-            }
-
-            // The value is just compiled as normal so that its resulting value
-            // is on the stack when the attribute set is constructed at runtime.
-            let value_span = self.span_for(&entry.value().unwrap());
-            let value_slot = self.scope_mut().declare_phantom(value_span, false);
-            self.compile(value_slot, entry.value().unwrap());
-            self.scope_mut().mark_initialised(value_slot);
-        }
-    }
-
     /// Compile attribute set literals into equivalent bytecode.
     ///
     /// This is complicated by a number of features specific to Nix attribute
@@ -407,26 +290,14 @@ impl Compiler<'_> {
         // `OpAttrs` instruction.
         self.scope_mut().begin_scope();
 
-        if node.rec_token().is_some() {
-            let count = self.compile_recursive_scope(slot, BindingsKind::RecAttrs, &node);
-            self.push_op(OpCode::OpAttrs(Count(count)), &node);
+        let kind = if node.rec_token().is_some() {
+            BindingsKind::RecAttrs
         } else {
-            let mut count = 0;
+            BindingsKind::Attrs
+        };
 
-            // TODO: merge this with the above, for now only inherit is unified
-            let mut bindings: Vec<TrackedBinding> = vec![];
-            let inherit_froms =
-                self.compile_plain_inherits(slot, BindingsKind::Attrs, &mut count, &node);
-            self.declare_namespaced_inherits(BindingsKind::Attrs, inherit_froms, &mut bindings);
-            self.bind_values(bindings);
-
-            let dynamic_entries =
-                self.compile_static_attr_entries(&mut count, node.attrpath_values());
-
-            self.compile_dynamic_attr_entries(&mut count, dynamic_entries);
-
-            self.push_op(OpCode::OpAttrs(Count(count)), &node);
-        }
+        let count = self.compile_recursive_scope(slot, kind, &node);
+        self.push_op(OpCode::OpAttrs(Count(count)), &node);
 
         // Remove the temporary scope, but do not emit any additional cleanup
         // (OpAttrs consumes all of these locals).

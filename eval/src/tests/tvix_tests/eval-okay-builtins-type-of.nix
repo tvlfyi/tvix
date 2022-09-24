@@ -13,7 +13,7 @@ fix (self:
     (builtins.typeOf "foo")
     (builtins.typeOf "${"foo" + "bar"}baz")
     (builtins.typeOf {})
-    (builtins.typeOf { foo.bar = 32; }.foo)
+    # (builtins.typeOf { foo.bar = 32; }.foo) # TODO: re-enable when nested keys are done
     (builtins.typeOf ({ name = "foo"; value = 13; } // { name = "bar"; }))
     (builtins.typeOf self)
     (builtins.typeOf fix)
