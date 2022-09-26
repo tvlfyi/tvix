@@ -3,7 +3,7 @@
 # anywhere, it just functions as a CI check for now.
 { pkgs, ... }:
 
-pkgs.runCommandNoCC "tvix-cc-proto" { } ''
+pkgs.runCommand "tvix-cc-proto" { } ''
   mkdir $out
   ${pkgs.protobuf}/bin/protoc -I ${./.} evaluator.proto --cpp_out=$out
 ''
