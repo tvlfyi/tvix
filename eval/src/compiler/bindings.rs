@@ -38,6 +38,29 @@ struct TrackedBinding {
     binding: Binding,
 }
 
+struct TrackedBindings {
+    kind: BindingsKind,
+    bindings: Vec<TrackedBinding>,
+}
+
+impl TrackedBindings {
+    fn new(kind: BindingsKind) -> Self {
+        TrackedBindings {
+            kind,
+            bindings: vec![],
+        }
+    }
+
+    /// Add a completely new binding to the tracked bindings.
+    fn track_new(&mut self, key_slot: KeySlot, value_slot: LocalIdx, binding: Binding) {
+        self.bindings.push(TrackedBinding {
+            key_slot,
+            value_slot,
+            binding,
+        });
+    }
+}
+
 /// What kind of bindings scope is being compiled?
 #[derive(Clone, Copy, PartialEq)]
 enum BindingsKind {
@@ -168,7 +191,7 @@ impl Compiler<'_> {
         &mut self,
         kind: BindingsKind,
         inherit_froms: Vec<(ast::Expr, SmolStr, Span)>,
-        bindings: &mut Vec<TrackedBinding>,
+        bindings: &mut TrackedBindings,
     ) {
         for (from, name, span) in inherit_froms {
             let key_slot = if kind.is_attrs() {
@@ -195,15 +218,15 @@ impl Compiler<'_> {
                 BindingsKind::Attrs => self.scope_mut().declare_phantom(span, false),
             };
 
-            bindings.push(TrackedBinding {
+            bindings.track_new(
                 key_slot,
                 value_slot,
-                binding: Binding::InheritFrom {
+                Binding::InheritFrom {
                     namespace: from,
                     name,
                     span,
                 },
-            });
+            );
         }
     }
 
@@ -213,7 +236,7 @@ impl Compiler<'_> {
         &mut self,
         kind: BindingsKind,
         count: &mut usize,
-        bindings: &mut Vec<TrackedBinding>,
+        bindings: &mut TrackedBindings,
         node: &N,
     ) where
         N: ToSpan + ast::HasEntry,
@@ -267,13 +290,13 @@ impl Compiler<'_> {
                 BindingsKind::Attrs => self.scope_mut().declare_phantom(key_span, false),
             };
 
-            bindings.push(TrackedBinding {
+            bindings.track_new(
                 key_slot,
                 value_slot,
-                binding: Binding::Plain {
+                Binding::Plain {
                     expr: entry.value().unwrap(),
                 },
-            });
+            );
         }
     }
 
@@ -306,10 +329,10 @@ impl Compiler<'_> {
 
     /// Actually binds all tracked bindings by emitting the bytecode that places
     /// them in their stack slots.
-    fn bind_values(&mut self, bindings: Vec<TrackedBinding>) {
+    fn bind_values(&mut self, bindings: TrackedBindings) {
         let mut value_indices: Vec<LocalIdx> = vec![];
 
-        for binding in bindings.into_iter() {
+        for binding in bindings.bindings.into_iter() {
             value_indices.push(binding.value_slot);
 
             match binding.key_slot {
@@ -374,7 +397,7 @@ impl Compiler<'_> {
         self.scope_mut().begin_scope();
 
         // Vector to track all observed bindings.
-        let mut bindings: Vec<TrackedBinding> = vec![];
+        let mut bindings = TrackedBindings::new(kind);
 
         let inherit_froms = self.compile_plain_inherits(slot, kind, &mut count, node);
         self.declare_namespaced_inherits(kind, inherit_froms, &mut bindings);
