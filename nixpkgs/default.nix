@@ -25,6 +25,9 @@ let
       // {
         allowUnfree = true;
         allowBroken = true;
+        # Forbids our meta.ci attribute
+        # https://github.com/NixOS/nixpkgs/pull/191171#issuecomment-1260650771
+        checkMeta = false;
       };
 
     inherit localSystem;
