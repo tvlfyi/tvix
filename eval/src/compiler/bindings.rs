@@ -296,7 +296,7 @@ impl Compiler<'_> {
             BindingsKind::Attrs
         };
 
-        let count = self.compile_recursive_scope(slot, kind, &node);
+        let count = self.compile_bindings(slot, kind, &node);
         self.push_op(OpCode::OpAttrs(Count(count)), &node);
 
         // Remove the temporary scope, but do not emit any additional cleanup
@@ -366,7 +366,7 @@ impl Compiler<'_> {
         }
     }
 
-    fn compile_recursive_scope<N>(&mut self, slot: LocalIdx, kind: BindingsKind, node: &N) -> usize
+    fn compile_bindings<N>(&mut self, slot: LocalIdx, kind: BindingsKind, node: &N) -> usize
     where
         N: ToSpan + ast::HasEntry,
     {
@@ -391,7 +391,7 @@ impl Compiler<'_> {
     /// Unless in a non-standard scope, the encountered values are simply pushed
     /// on the stack and their indices noted in the entries vector.
     pub(super) fn compile_let_in(&mut self, slot: LocalIdx, node: ast::LetIn) {
-        self.compile_recursive_scope(slot, BindingsKind::LetIn, &node);
+        self.compile_bindings(slot, BindingsKind::LetIn, &node);
 
         // Deal with the body, then clean up the locals afterwards.
         self.compile(slot, node.body().unwrap());
@@ -401,7 +401,7 @@ impl Compiler<'_> {
     pub(super) fn compile_legacy_let(&mut self, slot: LocalIdx, node: ast::LegacyLet) {
         self.emit_warning(&node, WarningKind::DeprecatedLegacyLet);
         self.scope_mut().begin_scope();
-        self.compile_recursive_scope(slot, BindingsKind::RecAttrs, &node);
+        self.compile_bindings(slot, BindingsKind::RecAttrs, &node);
         self.push_op(OpCode::OpAttrs(Count(node.entries().count())), &node);
         self.emit_constant(Value::String(SmolStr::new_inline("body").into()), &node);
         self.push_op(OpCode::OpAttrsSelect, &node);
