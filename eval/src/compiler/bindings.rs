@@ -4,7 +4,7 @@
 //! In the case of recursive scopes these cases share almost all of their
 //! (fairly complex) logic.
 
-use rnix::ast::AttrpathValue;
+use rnix::ast::{AttrpathValue, HasEntry};
 
 use super::*;
 
@@ -27,6 +27,29 @@ impl BindingsKind {
     }
 }
 
+// Internal representation of an attribute set used for merging sets, or
+// inserting nested keys.
+#[derive(Clone)]
+struct AttributeSet {
+    /// Original span at which this set was first encountered.
+    span: Span,
+
+    /// Tracks the kind of set (rec or not).
+    kind: BindingsKind,
+
+    /// All inherited entries
+    inherits: Vec<ast::Inherit>,
+
+    /// All internal entries
+    entries: Vec<ast::AttrpathValue>,
+}
+
+impl ToSpan for AttributeSet {
+    fn span_for(&self, _: &codemap::File) -> Span {
+        self.span
+    }
+}
+
 // Data structures to track the bindings observed in the second pass, and
 // forward the information needed to compile their value.
 enum Binding {
@@ -39,19 +62,60 @@ enum Binding {
     Plain {
         expr: ast::Expr,
     },
+
+    Set(AttributeSet),
 }
 
 impl Binding {
-    fn merge(&mut self, _expr: ast::Expr) -> Option<ErrorKind> {
+    fn merge(&mut self, c: &mut Compiler, expr: ast::Expr) {
         match self {
-            Binding::InheritFrom { name, .. } => {
-                Some(ErrorKind::UnmergeableInherit { name: name.clone() })
+            Binding::InheritFrom { name, ref span, .. } => {
+                c.emit_error(span, ErrorKind::UnmergeableInherit { name: name.clone() })
             }
 
-            Binding::Plain { expr } => match expr {
-                ast::Expr::AttrSet(_) => todo!(),
-                _ => Some(ErrorKind::UnmergeableValue),
+            Binding::Plain { expr: existing } => match existing {
+                ast::Expr::AttrSet(existing) => {
+                    if let ast::Expr::AttrSet(new) = expr {
+                        let merged = AttributeSet {
+                            span: c.span_for(existing),
+
+                            // Kind of the attrs depends on the first time it is
+                            // encountered. We actually believe this to be a Nix
+                            // bug: https://github.com/NixOS/nix/issues/7111
+                            kind: if existing.rec_token().is_some() {
+                                BindingsKind::RecAttrs
+                            } else {
+                                BindingsKind::Attrs
+                            },
+
+                            inherits: ast::HasEntry::inherits(existing)
+                                .chain(ast::HasEntry::inherits(&new))
+                                .collect(),
+
+                            entries: ast::HasEntry::attrpath_values(existing)
+                                .chain(ast::HasEntry::attrpath_values(&new))
+                                .collect(),
+                        };
+
+                        *self = Binding::Set(merged);
+                    } else {
+                        todo!()
+                    }
+                }
+
+                _ => c.emit_error(&expr, ErrorKind::UnmergeableValue),
             },
+
+            Binding::Set(existing) => {
+                if let ast::Expr::AttrSet(new) = expr {
+                    existing.inherits.extend(ast::HasEntry::inherits(&new));
+                    existing
+                        .entries
+                        .extend(ast::HasEntry::attrpath_values(&new));
+                } else {
+                    todo!()
+                }
+            }
         }
     }
 }
@@ -133,9 +197,7 @@ impl TrackedBindings {
         };
 
         // No more excuses ... the binding can be merged!
-        if let Some(err) = binding.binding.merge(value) {
-            c.emit_error(entry, err);
-        }
+        binding.binding.merge(c, value);
 
         true
     }
@@ -147,6 +209,33 @@ impl TrackedBindings {
             value_slot,
             binding,
         });
+    }
+}
+
+/// Wrapper around the `ast::HasEntry` trait as that trait can not be
+/// implemented for custom types.
+trait HasEntryProxy {
+    fn inherits(&self) -> Box<dyn Iterator<Item = ast::Inherit>>;
+    fn attrpath_values(&self) -> Box<dyn Iterator<Item = ast::AttrpathValue>>;
+}
+
+impl<N: HasEntry> HasEntryProxy for N {
+    fn inherits(&self) -> Box<dyn Iterator<Item = ast::Inherit>> {
+        Box::new(ast::HasEntry::inherits(self))
+    }
+
+    fn attrpath_values(&self) -> Box<dyn Iterator<Item = ast::AttrpathValue>> {
+        Box::new(ast::HasEntry::attrpath_values(self))
+    }
+}
+
+impl HasEntryProxy for AttributeSet {
+    fn inherits(&self) -> Box<dyn Iterator<Item = ast::Inherit>> {
+        Box::new(self.inherits.clone().into_iter())
+    }
+
+    fn attrpath_values(&self) -> Box<dyn Iterator<Item = ast::AttrpathValue>> {
+        Box::new(self.entries.clone().into_iter())
     }
 }
 
@@ -162,7 +251,7 @@ impl Compiler<'_> {
         node: &N,
     ) -> Vec<(ast::Expr, SmolStr, Span)>
     where
-        N: ToSpan + ast::HasEntry,
+        N: ToSpan + HasEntryProxy,
     {
         // Pass over all inherits, resolving only those without namespaces.
         // Since they always resolve in a higher scope, we can just compile and
@@ -309,7 +398,7 @@ impl Compiler<'_> {
         bindings: &mut TrackedBindings,
         node: &N,
     ) where
-        N: ToSpan + ast::HasEntry,
+        N: ToSpan + HasEntryProxy,
     {
         for entry in node.attrpath_values() {
             if bindings.try_merge(self, &entry) {
@@ -450,6 +539,14 @@ impl Compiler<'_> {
                 // Binding is "just" a plain expression that needs to be
                 // compiled.
                 Binding::Plain { expr } => self.compile(binding.value_slot, expr),
+
+                // Binding is a merged or nested attribute set, and needs to be
+                // recursively compiled as another binding.
+                Binding::Set(set) => self.thunk(binding.value_slot, &set, |c, n, s| {
+                    c.scope_mut().begin_scope();
+                    c.compile_bindings(binding.value_slot, set.kind, &set);
+                    c.scope_mut().end_scope();
+                }),
             }
 
             // Any code after this point will observe the value in the right
@@ -469,7 +566,7 @@ impl Compiler<'_> {
 
     fn compile_bindings<N>(&mut self, slot: LocalIdx, kind: BindingsKind, node: &N)
     where
-        N: ToSpan + ast::HasEntry,
+        N: ToSpan + HasEntryProxy,
     {
         let mut count = 0;
         self.scope_mut().begin_scope();
