@@ -77,44 +77,39 @@ impl Binding {
                 c.emit_error(span, ErrorKind::UnmergeableInherit { name: name.clone() })
             }
 
-            Binding::Plain { expr: existing } => match existing {
+            // If the value is not yet a nested binding, flip the representation
+            // and recurse.
+            Binding::Plain { expr } => match expr {
                 ast::Expr::AttrSet(existing) => {
-                    if let ast::Expr::AttrSet(new) = value {
-                        let merged = AttributeSet {
-                            nesting_level: 0, // TODO
+                    let nested = AttributeSet {
+                        nesting_level: 0, // TODO
+                        span: c.span_for(existing),
 
-                            span: c.span_for(existing),
+                        // Kind of the attrs depends on the first time it is
+                        // encountered. We actually believe this to be a Nix
+                        // bug: https://github.com/NixOS/nix/issues/7111
+                        kind: if existing.rec_token().is_some() {
+                            BindingsKind::RecAttrs
+                        } else {
+                            BindingsKind::Attrs
+                        },
 
-                            // Kind of the attrs depends on the first time it is
-                            // encountered. We actually believe this to be a Nix
-                            // bug: https://github.com/NixOS/nix/issues/7111
-                            kind: if existing.rec_token().is_some() {
-                                BindingsKind::RecAttrs
-                            } else {
-                                BindingsKind::Attrs
-                            },
+                        inherits: ast::HasEntry::inherits(existing).collect(),
 
-                            inherits: ast::HasEntry::inherits(existing)
-                                .chain(ast::HasEntry::inherits(&new))
-                                .collect(),
+                        entries: ast::HasEntry::attrpath_values(existing)
+                            .map(|entry| {
+                                let span = c.span_for(&entry);
+                                (
+                                    span,
+                                    entry.attrpath().unwrap().attrs(),
+                                    entry.value().unwrap(),
+                                )
+                            })
+                            .collect(),
+                    };
 
-                            entries: ast::HasEntry::attrpath_values(existing)
-                                .chain(ast::HasEntry::attrpath_values(&new))
-                                .map(|entry| {
-                                    let span = c.span_for(&entry);
-                                    (
-                                        span,
-                                        entry.attrpath().unwrap().attrs(),
-                                        entry.value().unwrap(),
-                                    )
-                                })
-                                .collect(),
-                        };
-
-                        *self = Binding::Set(merged);
-                    } else {
-                        todo!()
-                    }
+                    *self = Binding::Set(nested);
+                    self.merge(c, value);
                 }
 
                 _ => c.emit_error(&value, ErrorKind::UnmergeableValue),
