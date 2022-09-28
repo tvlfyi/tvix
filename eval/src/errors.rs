@@ -95,6 +95,10 @@ pub enum ErrorKind {
         name: SmolStr,
     },
 
+    /// Nested attributes can not be merged with values that are not
+    /// literal attribute sets.
+    UnmergeableValue,
+
     /// Tvix internal warning for features triggered by users that are
     /// not actually implemented yet, and without which eval can not
     /// proceed.
@@ -256,6 +260,11 @@ to a missing value in the attribute set(s) included via `with`."#,
                 )
             }
 
+            ErrorKind::UnmergeableValue => {
+                "nested attribute sets or keys can only be merged with literal attribute sets"
+                    .into()
+            }
+
             ErrorKind::NotImplemented(feature) => {
                 format!("feature not yet implemented in Tvix: {}", feature)
             }
@@ -290,6 +299,7 @@ to a missing value in the attribute set(s) included via `with`."#,
             ErrorKind::NegativeLength { .. } => "E022",
             ErrorKind::TailEmptyList { .. } => "E023",
             ErrorKind::UnmergeableInherit { .. } => "E024",
+            ErrorKind::UnmergeableValue => "E025",
             ErrorKind::NotImplemented(_) => "E999",
         }
     }

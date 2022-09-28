@@ -48,7 +48,10 @@ impl Binding {
                 Some(ErrorKind::UnmergeableInherit { name: name.clone() })
             }
 
-            Binding::Plain { .. } => todo!(),
+            Binding::Plain { expr } => match expr {
+                ast::Expr::AttrSet(_) => todo!(),
+                _ => Some(ErrorKind::UnmergeableValue),
+            },
         }
     }
 }
