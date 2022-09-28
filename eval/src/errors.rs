@@ -4,6 +4,7 @@ use std::{fmt::Display, num::ParseIntError};
 
 use codemap::{CodeMap, Span};
 use codemap_diagnostic::{Diagnostic, Emitter, Level, SpanLabel, SpanStyle};
+use smol_str::SmolStr;
 
 use crate::Value;
 
@@ -86,6 +87,12 @@ pub enum ErrorKind {
     /// A negative integer was used as a value representing length.
     NegativeLength {
         length: i64,
+    },
+
+    // Errors specific to nested attribute sets and merges thereof.
+    /// Nested attributes can not be merged with an inherited value.
+    UnmergeableInherit {
+        name: SmolStr,
     },
 
     /// Tvix internal warning for features triggered by users that are
@@ -242,6 +249,13 @@ to a missing value in the attribute set(s) included via `with`."#,
                 )
             }
 
+            ErrorKind::UnmergeableInherit { name } => {
+                format!(
+                    "cannot merge a nested attribute set into the inherited entry '{}'",
+                    name
+                )
+            }
+
             ErrorKind::NotImplemented(feature) => {
                 format!("feature not yet implemented in Tvix: {}", feature)
             }
@@ -275,6 +289,7 @@ to a missing value in the attribute set(s) included via `with`."#,
             ErrorKind::ParseIntError(_) => "E021",
             ErrorKind::NegativeLength { .. } => "E022",
             ErrorKind::TailEmptyList { .. } => "E023",
+            ErrorKind::UnmergeableInherit { .. } => "E024",
             ErrorKind::NotImplemented(_) => "E999",
         }
     }

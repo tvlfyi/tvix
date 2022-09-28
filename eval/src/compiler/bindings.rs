@@ -4,7 +4,28 @@
 //! In the case of recursive scopes these cases share almost all of their
 //! (fairly complex) logic.
 
+use rnix::ast::AttrpathValue;
+
 use super::*;
+
+/// What kind of bindings scope is being compiled?
+#[derive(Clone, Copy, PartialEq)]
+enum BindingsKind {
+    /// Standard `let ... in ...`-expression.
+    LetIn,
+
+    /// Non-recursive attribute set.
+    Attrs,
+
+    /// Recursive attribute set.
+    RecAttrs,
+}
+
+impl BindingsKind {
+    fn is_attrs(&self) -> bool {
+        matches!(self, BindingsKind::Attrs | BindingsKind::RecAttrs)
+    }
+}
 
 // Data structures to track the bindings observed in the second pass, and
 // forward the information needed to compile their value.
@@ -18,6 +39,18 @@ enum Binding {
     Plain {
         expr: ast::Expr,
     },
+}
+
+impl Binding {
+    fn merge(&mut self, _expr: ast::Expr) -> Option<ErrorKind> {
+        match self {
+            Binding::InheritFrom { name, .. } => {
+                Some(ErrorKind::UnmergeableInherit { name: name.clone() })
+            }
+
+            Binding::Plain { .. } => todo!(),
+        }
+    }
 }
 
 enum KeySlot {
@@ -38,6 +71,19 @@ struct TrackedBinding {
     binding: Binding,
 }
 
+impl TrackedBinding {
+    /// Does this binding match the given key?
+    ///
+    /// Used to determine which binding to merge another one into.
+    fn matches(&self, key: &str) -> bool {
+        match &self.key_slot {
+            KeySlot::None { name } => name == key,
+            KeySlot::Static { name, .. } => name == key,
+            KeySlot::Dynamic { .. } => false,
+        }
+    }
+}
+
 struct TrackedBindings {
     kind: BindingsKind,
     bindings: Vec<TrackedBinding>,
@@ -51,6 +97,46 @@ impl TrackedBindings {
         }
     }
 
+    /// Attempt to merge an entry into an existing matching binding, assuming
+    /// that the provided binding is mergable (i.e. either a nested key or an
+    /// attribute set literal).
+    ///
+    /// Returns true if the binding was merged, false if it needs to be compiled
+    /// separately as a new binding.
+    fn try_merge(&mut self, c: &mut Compiler, entry: &AttrpathValue) -> bool {
+        let path = entry.attrpath().unwrap().attrs().collect::<Vec<_>>();
+        let value = entry.value().unwrap();
+
+        // If the path only has one element, and if the entry is not an attribute
+        // set literal, the entry can not be merged.
+        if path.len() == 1 && !matches!(value, ast::Expr::AttrSet(_)) {
+            return false;
+        }
+
+        // If the first element of the path is not statically known, the entry
+        // can not be merged.
+        let name = match c.expr_static_attr_str(&path[0]) {
+            Some(name) => name,
+            None => return false,
+        };
+
+        // If there is no existing binding with this key, the entry can not be
+        // merged.
+        // TODO: benchmark whether using a map or something is useful over the
+        // `find` here
+        let binding = match self.bindings.iter_mut().find(|b| b.matches(&name)) {
+            Some(b) => b,
+            None => return false,
+        };
+
+        // No more excuses ... the binding can be merged!
+        if let Some(err) = binding.binding.merge(value) {
+            c.emit_error(entry, err);
+        }
+
+        true
+    }
+
     /// Add a completely new binding to the tracked bindings.
     fn track_new(&mut self, key_slot: KeySlot, value_slot: LocalIdx, binding: Binding) {
         self.bindings.push(TrackedBinding {
@@ -58,25 +144,6 @@ impl TrackedBindings {
             value_slot,
             binding,
         });
-    }
-}
-
-/// What kind of bindings scope is being compiled?
-#[derive(Clone, Copy, PartialEq)]
-enum BindingsKind {
-    /// Standard `let ... in ...`-expression.
-    LetIn,
-
-    /// Non-recursive attribute set.
-    Attrs,
-
-    /// Recursive attribute set.
-    RecAttrs,
-}
-
-impl BindingsKind {
-    fn is_attrs(&self) -> bool {
-        matches!(self, BindingsKind::Attrs | BindingsKind::RecAttrs)
     }
 }
 
@@ -242,16 +309,25 @@ impl Compiler<'_> {
         N: ToSpan + ast::HasEntry,
     {
         for entry in node.attrpath_values() {
+            if bindings.try_merge(self, &entry) {
+                // Binding is nested, or already exists and was merged, move on.
+                continue;
+            }
+
             *count += 1;
 
-            let mut path = entry.attrpath().unwrap().attrs().collect::<Vec<_>>();
-            if path.len() != 1 {
+            let (key, mut path) = {
+                let mut path = entry.attrpath().unwrap().attrs();
+                (path.next().unwrap(), path.peekable())
+            };
+
+            if path.peek().is_some() {
                 self.emit_error(&entry, ErrorKind::NotImplemented("nested bindings :("));
                 continue;
             }
 
-            let key_span = self.span_for(&path[0]);
-            let key_slot = match self.expr_static_attr_str(&path[0]) {
+            let key_span = self.span_for(&key);
+            let key_slot = match self.expr_static_attr_str(&key) {
                 Some(name) if kind.is_attrs() => KeySlot::Static {
                     name,
                     slot: self.scope_mut().declare_phantom(key_span, false),
@@ -260,12 +336,12 @@ impl Compiler<'_> {
                 Some(name) => KeySlot::None { name },
 
                 None if kind.is_attrs() => KeySlot::Dynamic {
-                    attr: path.pop().unwrap(),
+                    attr: key,
                     slot: self.scope_mut().declare_phantom(key_span, false),
                 },
 
                 None => {
-                    self.emit_error(&path[0], ErrorKind::DynamicKeyInScope("let-expression"));
+                    self.emit_error(&key, ErrorKind::DynamicKeyInScope("let-expression"));
                     continue;
                 }
             };
