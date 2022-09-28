@@ -4,7 +4,8 @@
 //! In the case of recursive scopes these cases share almost all of their
 //! (fairly complex) logic.
 
-use rnix::ast::{AttrpathValue, HasEntry};
+use rnix::ast::HasEntry;
+use rowan::ast::AstChildren;
 
 use super::*;
 
@@ -41,7 +42,10 @@ struct AttributeSet {
     inherits: Vec<ast::Inherit>,
 
     /// All internal entries
-    entries: Vec<ast::AttrpathValue>,
+    entries: Vec<(Span, AstChildren<ast::Attr>, ast::Expr)>,
+
+    /// How deeply nested is this attribute set in the literal definition?
+    nesting_level: usize,
 }
 
 impl ToSpan for AttributeSet {
@@ -67,7 +71,7 @@ enum Binding {
 }
 
 impl Binding {
-    fn merge(&mut self, c: &mut Compiler, expr: ast::Expr) {
+    fn merge(&mut self, c: &mut Compiler, value: ast::Expr) {
         match self {
             Binding::InheritFrom { name, ref span, .. } => {
                 c.emit_error(span, ErrorKind::UnmergeableInherit { name: name.clone() })
@@ -75,8 +79,10 @@ impl Binding {
 
             Binding::Plain { expr: existing } => match existing {
                 ast::Expr::AttrSet(existing) => {
-                    if let ast::Expr::AttrSet(new) = expr {
+                    if let ast::Expr::AttrSet(new) = value {
                         let merged = AttributeSet {
+                            nesting_level: 0, // TODO
+
                             span: c.span_for(existing),
 
                             // Kind of the attrs depends on the first time it is
@@ -94,6 +100,14 @@ impl Binding {
 
                             entries: ast::HasEntry::attrpath_values(existing)
                                 .chain(ast::HasEntry::attrpath_values(&new))
+                                .map(|entry| {
+                                    let span = c.span_for(&entry);
+                                    (
+                                        span,
+                                        entry.attrpath().unwrap().attrs(),
+                                        entry.value().unwrap(),
+                                    )
+                                })
                                 .collect(),
                         };
 
@@ -103,15 +117,22 @@ impl Binding {
                     }
                 }
 
-                _ => c.emit_error(&expr, ErrorKind::UnmergeableValue),
+                _ => c.emit_error(&value, ErrorKind::UnmergeableValue),
             },
 
             Binding::Set(existing) => {
-                if let ast::Expr::AttrSet(new) = expr {
+                if let ast::Expr::AttrSet(new) = value {
                     existing.inherits.extend(ast::HasEntry::inherits(&new));
                     existing
                         .entries
-                        .extend(ast::HasEntry::attrpath_values(&new));
+                        .extend(ast::HasEntry::attrpath_values(&new).map(|entry| {
+                            let span = c.span_for(&entry);
+                            (
+                                span,
+                                entry.attrpath().unwrap().attrs(),
+                                entry.value().unwrap(),
+                            )
+                        }));
                 } else {
                     todo!()
                 }
@@ -170,9 +191,15 @@ impl TrackedBindings {
     ///
     /// Returns true if the binding was merged, false if it needs to be compiled
     /// separately as a new binding.
-    fn try_merge(&mut self, c: &mut Compiler, entry: &AttrpathValue) -> bool {
-        let path = entry.attrpath().unwrap().attrs().collect::<Vec<_>>();
-        let value = entry.value().unwrap();
+    fn try_merge<I: Iterator<Item = ast::Attr>>(
+        &mut self,
+        c: &mut Compiler,
+        _nesting_level: usize,
+        span: Span,
+        path: I,
+        value: ast::Expr,
+    ) -> bool {
+        let path = path.collect::<Vec<_>>();
 
         // If the path only has one element, and if the entry is not an attribute
         // set literal, the entry can not be merged.
@@ -216,7 +243,13 @@ impl TrackedBindings {
 /// implemented for custom types.
 trait HasEntryProxy {
     fn inherits(&self) -> Box<dyn Iterator<Item = ast::Inherit>>;
-    fn attrpath_values(&self) -> Box<dyn Iterator<Item = ast::AttrpathValue>>;
+
+    fn attributes(
+        &self,
+        file: Arc<codemap::File>,
+    ) -> Box<dyn Iterator<Item = (Span, AstChildren<ast::Attr>, ast::Expr)>>;
+
+    fn nesting_level(&self) -> usize;
 }
 
 impl<N: HasEntry> HasEntryProxy for N {
@@ -224,8 +257,21 @@ impl<N: HasEntry> HasEntryProxy for N {
         Box::new(ast::HasEntry::inherits(self))
     }
 
-    fn attrpath_values(&self) -> Box<dyn Iterator<Item = ast::AttrpathValue>> {
-        Box::new(ast::HasEntry::attrpath_values(self))
+    fn attributes(
+        &self,
+        file: Arc<codemap::File>,
+    ) -> Box<dyn Iterator<Item = (Span, AstChildren<ast::Attr>, ast::Expr)>> {
+        Box::new(ast::HasEntry::attrpath_values(self).map(move |entry| {
+            (
+                entry.span_for(&file),
+                entry.attrpath().unwrap().attrs(),
+                entry.value().unwrap(),
+            )
+        }))
+    }
+
+    fn nesting_level(&self) -> usize {
+        0
     }
 }
 
@@ -234,8 +280,15 @@ impl HasEntryProxy for AttributeSet {
         Box::new(self.inherits.clone().into_iter())
     }
 
-    fn attrpath_values(&self) -> Box<dyn Iterator<Item = ast::AttrpathValue>> {
+    fn attributes(
+        &self,
+        _: Arc<codemap::File>,
+    ) -> Box<dyn Iterator<Item = (Span, AstChildren<ast::Attr>, ast::Expr)>> {
         Box::new(self.entries.clone().into_iter())
+    }
+
+    fn nesting_level(&self) -> usize {
+        self.nesting_level
     }
 }
 
@@ -400,21 +453,27 @@ impl Compiler<'_> {
     ) where
         N: ToSpan + HasEntryProxy,
     {
-        for entry in node.attrpath_values() {
-            if bindings.try_merge(self, &entry) {
+        for (span, path, value) in node.attributes(self.file.clone()) {
+            let mut path = path.skip(node.nesting_level());
+
+            if bindings.try_merge(
+                self,
+                node.nesting_level(),
+                span,
+                path.clone(),
+                value.clone(),
+            ) {
                 // Binding is nested, or already exists and was merged, move on.
                 continue;
             }
 
             *count += 1;
 
-            let (key, mut path) = {
-                let mut path = entry.attrpath().unwrap().attrs();
-                (path.next().unwrap(), path.peekable())
-            };
+            let key = path.next().unwrap();
+            let mut path = path.peekable();
 
             if path.peek().is_some() {
-                self.emit_error(&entry, ErrorKind::NotImplemented("nested bindings :("));
+                self.emit_error(&span, ErrorKind::NotImplemented("nested bindings :("));
                 continue;
             }
 
@@ -458,13 +517,7 @@ impl Compiler<'_> {
                 BindingsKind::Attrs => self.scope_mut().declare_phantom(key_span, false),
             };
 
-            bindings.track_new(
-                key_slot,
-                value_slot,
-                Binding::Plain {
-                    expr: entry.value().unwrap(),
-                },
-            );
+            bindings.track_new(key_slot, value_slot, Binding::Plain { expr: value });
         }
     }
 
@@ -542,7 +595,7 @@ impl Compiler<'_> {
 
                 // Binding is a merged or nested attribute set, and needs to be
                 // recursively compiled as another binding.
-                Binding::Set(set) => self.thunk(binding.value_slot, &set, |c, n, s| {
+                Binding::Set(set) => self.thunk(binding.value_slot, &set, |c, _, _| {
                     c.scope_mut().begin_scope();
                     c.compile_bindings(binding.value_slot, set.kind, &set);
                     c.scope_mut().end_scope();
