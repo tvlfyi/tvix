@@ -19,7 +19,7 @@ mod spans;
 
 use codemap::Span;
 use path_clean::PathClean;
-use rnix::ast::{self, AstToken, HasEntry};
+use rnix::ast::{self, AstToken};
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};

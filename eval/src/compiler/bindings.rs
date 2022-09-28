@@ -319,8 +319,7 @@ impl Compiler<'_> {
             BindingsKind::Attrs
         };
 
-        let count = self.compile_bindings(slot, kind, &node);
-        self.push_op(OpCode::OpAttrs(Count(count)), &node);
+        self.compile_bindings(slot, kind, &node);
 
         // Remove the temporary scope, but do not emit any additional cleanup
         // (OpAttrs consumes all of these locals).
@@ -389,7 +388,7 @@ impl Compiler<'_> {
         }
     }
 
-    fn compile_bindings<N>(&mut self, slot: LocalIdx, kind: BindingsKind, node: &N) -> usize
+    fn compile_bindings<N>(&mut self, slot: LocalIdx, kind: BindingsKind, node: &N)
     where
         N: ToSpan + ast::HasEntry,
     {
@@ -406,7 +405,9 @@ impl Compiler<'_> {
         // Actually bind values and ensure they are on the stack.
         self.bind_values(bindings);
 
-        count
+        if kind.is_attrs() {
+            self.push_op(OpCode::OpAttrs(Count(count)), node);
+        }
     }
 
     /// Compile a standard `let ...; in ...` expression.
@@ -425,7 +426,6 @@ impl Compiler<'_> {
         self.emit_warning(&node, WarningKind::DeprecatedLegacyLet);
         self.scope_mut().begin_scope();
         self.compile_bindings(slot, BindingsKind::RecAttrs, &node);
-        self.push_op(OpCode::OpAttrs(Count(node.entries().count())), &node);
         self.emit_constant(Value::String(SmolStr::new_inline("body").into()), &node);
         self.push_op(OpCode::OpAttrsSelect, &node);
     }
