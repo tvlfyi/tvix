@@ -712,7 +712,8 @@ impl<'o> VM<'o> {
 
             Value::Thunk(thunk) => {
                 fallible!(self, thunk.force(self));
-                self.force_for_output(&thunk.value())
+                let value = thunk.value().clone();
+                self.force_for_output(&value)
             }
 
             // If any of these internal values are encountered here a
