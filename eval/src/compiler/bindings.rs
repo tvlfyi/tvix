@@ -43,9 +43,6 @@ struct AttributeSet {
 
     /// All internal entries
     entries: Vec<(Span, AstChildren<ast::Attr>, ast::Expr)>,
-
-    /// How deeply nested is this attribute set in the literal definition?
-    nesting_level: usize,
 }
 
 impl ToSpan for AttributeSet {
@@ -82,7 +79,6 @@ impl Binding {
             Binding::Plain { expr } => match expr {
                 ast::Expr::AttrSet(existing) => {
                     let nested = AttributeSet {
-                        nesting_level: 0, // TODO
                         span: c.span_for(existing),
 
                         // Kind of the attrs depends on the first time it is
@@ -189,7 +185,6 @@ impl TrackedBindings {
     fn try_merge<I: Iterator<Item = ast::Attr>>(
         &mut self,
         c: &mut Compiler,
-        _nesting_level: usize,
         span: Span,
         path: I,
         value: ast::Expr,
@@ -243,8 +238,6 @@ trait HasEntryProxy {
         &self,
         file: Arc<codemap::File>,
     ) -> Box<dyn Iterator<Item = (Span, AstChildren<ast::Attr>, ast::Expr)>>;
-
-    fn nesting_level(&self) -> usize;
 }
 
 impl<N: HasEntry> HasEntryProxy for N {
@@ -264,10 +257,6 @@ impl<N: HasEntry> HasEntryProxy for N {
             )
         }))
     }
-
-    fn nesting_level(&self) -> usize {
-        0
-    }
 }
 
 impl HasEntryProxy for AttributeSet {
@@ -280,10 +269,6 @@ impl HasEntryProxy for AttributeSet {
         _: Arc<codemap::File>,
     ) -> Box<dyn Iterator<Item = (Span, AstChildren<ast::Attr>, ast::Expr)>> {
         Box::new(self.entries.clone().into_iter())
-    }
-
-    fn nesting_level(&self) -> usize {
-        self.nesting_level
     }
 }
 
@@ -448,16 +433,8 @@ impl Compiler<'_> {
     ) where
         N: ToSpan + HasEntryProxy,
     {
-        for (span, path, value) in node.attributes(self.file.clone()) {
-            let mut path = path.skip(node.nesting_level());
-
-            if bindings.try_merge(
-                self,
-                node.nesting_level(),
-                span,
-                path.clone(),
-                value.clone(),
-            ) {
+        for (span, mut path, value) in node.attributes(self.file.clone()) {
+            if bindings.try_merge(self, span, path.clone(), value.clone()) {
                 // Binding is nested, or already exists and was merged, move on.
                 continue;
             }
