@@ -204,6 +204,42 @@ impl<'o> VM<'o> {
         }
     }
 
+    fn tail_call_value(&mut self, callable: Value) -> EvalResult<()> {
+        match callable {
+            Value::Builtin(builtin) => self.call_builtin(builtin),
+            Value::Thunk(thunk) => self.tail_call_value(thunk.value().clone()),
+
+            Value::Closure(closure) => {
+                let lambda = closure.lambda();
+                self.observer.observe_tail_call(self.frames.len(), &lambda);
+
+                // Replace the current call frames internals with
+                // that of the tail-called closure.
+                let mut frame = self.frame_mut();
+                frame.lambda = lambda;
+                frame.upvalues = closure.upvalues().clone();
+                frame.ip = CodeIdx(0); // reset instruction pointer to beginning
+                Ok(())
+            }
+
+            // Attribute sets with a __functor attribute are callable.
+            Value::Attrs(ref attrs) => match attrs.select("__functor") {
+                None => Err(self.error(ErrorKind::NotCallable(callable.type_of()))),
+                Some(functor) => {
+                    // The functor receives the set itself as its first argument
+                    // and needs to be called with it. However, this call is
+                    // synthetic (i.e. there is no corresponding OpCall for the
+                    // first call in the bytecode.)
+                    self.push(callable.clone());
+                    let primed = self.call_value(functor)?;
+                    self.tail_call_value(primed)
+                }
+            },
+
+            _ => Err(self.error(ErrorKind::NotCallable(callable.type_of()))),
+        }
+    }
+
     /// Execute the given lambda in this VM's context, returning its
     /// value after its stack frame completes.
     pub fn call(
@@ -488,25 +524,7 @@ impl<'o> VM<'o> {
 
                 OpCode::OpTailCall => {
                     let callable = self.pop();
-
-                    match callable {
-                        Value::Builtin(builtin) => self.call_builtin(builtin)?,
-
-                        Value::Closure(closure) => {
-                            let lambda = closure.lambda();
-                            self.observer.observe_tail_call(self.frames.len(), &lambda);
-
-                            // Replace the current call frames
-                            // internals with that of the tail-called
-                            // closure.
-                            let mut frame = self.frame_mut();
-                            frame.lambda = lambda;
-                            frame.upvalues = closure.upvalues().clone();
-                            frame.ip = CodeIdx(0); // reset instruction pointer to beginning
-                        }
-
-                        _ => return Err(self.error(ErrorKind::NotCallable(callable.type_of()))),
-                    }
+                    self.tail_call_value(callable)?;
                 }
 
                 OpCode::OpGetUpvalue(upv_idx) => {
