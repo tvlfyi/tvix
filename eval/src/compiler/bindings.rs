@@ -196,16 +196,12 @@ impl TrackedBinding {
 }
 
 struct TrackedBindings {
-    kind: BindingsKind,
     bindings: Vec<TrackedBinding>,
 }
 
 impl TrackedBindings {
-    fn new(kind: BindingsKind) -> Self {
-        TrackedBindings {
-            kind,
-            bindings: vec![],
-        }
+    fn new() -> Self {
+        TrackedBindings { bindings: vec![] }
     }
 
     /// Attempt to merge an entry into an existing matching binding, assuming
@@ -633,7 +629,7 @@ impl Compiler<'_> {
         self.scope_mut().begin_scope();
 
         // Vector to track all observed bindings.
-        let mut bindings = TrackedBindings::new(kind);
+        let mut bindings = TrackedBindings::new();
 
         let inherit_froms = self.compile_plain_inherits(slot, kind, &mut count, node);
         self.declare_namespaced_inherits(kind, inherit_froms, &mut bindings);
