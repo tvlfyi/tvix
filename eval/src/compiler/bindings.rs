@@ -51,6 +51,36 @@ impl ToSpan for AttributeSet {
     }
 }
 
+impl AttributeSet {
+    fn from_ast(c: &Compiler, node: &ast::AttrSet) -> Self {
+        AttributeSet {
+            span: c.span_for(node),
+
+            // Kind of the attrs depends on the first time it is
+            // encountered. We actually believe this to be a Nix
+            // bug: https://github.com/NixOS/nix/issues/7111
+            kind: if node.rec_token().is_some() {
+                BindingsKind::RecAttrs
+            } else {
+                BindingsKind::Attrs
+            },
+
+            inherits: ast::HasEntry::inherits(node).collect(),
+
+            entries: ast::HasEntry::attrpath_values(node)
+                .map(|entry| {
+                    let span = c.span_for(&entry);
+                    (
+                        span,
+                        entry.attrpath().unwrap().attrs(),
+                        entry.value().unwrap(),
+                    )
+                })
+                .collect(),
+        }
+    }
+}
+
 // Data structures to track the bindings observed in the second pass, and
 // forward the information needed to compile their value.
 enum Binding {
@@ -78,32 +108,7 @@ impl Binding {
             // and recurse.
             Binding::Plain { expr } => match expr {
                 ast::Expr::AttrSet(existing) => {
-                    let nested = AttributeSet {
-                        span: c.span_for(existing),
-
-                        // Kind of the attrs depends on the first time it is
-                        // encountered. We actually believe this to be a Nix
-                        // bug: https://github.com/NixOS/nix/issues/7111
-                        kind: if existing.rec_token().is_some() {
-                            BindingsKind::RecAttrs
-                        } else {
-                            BindingsKind::Attrs
-                        },
-
-                        inherits: ast::HasEntry::inherits(existing).collect(),
-
-                        entries: ast::HasEntry::attrpath_values(existing)
-                            .map(|entry| {
-                                let span = c.span_for(&entry);
-                                (
-                                    span,
-                                    entry.attrpath().unwrap().attrs(),
-                                    entry.value().unwrap(),
-                                )
-                            })
-                            .collect(),
-                    };
-
+                    let nested = AttributeSet::from_ast(c, existing);
                     *self = Binding::Set(nested);
                     self.merge(c, value);
                 }
