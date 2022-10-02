@@ -61,6 +61,20 @@ fn pure_builtins() -> Vec<Builtin> {
         Builtin::new("abort", &[true], |args, _| {
             Err(ErrorKind::Abort(args[0].to_str()?.to_string()))
         }),
+        Builtin::new("all", &[true, true], |args, vm| {
+            for value in args[1].to_list()?.into_iter() {
+                let pred_result = {
+                    vm.push(value);
+                    vm.call_value(&args[0])
+                }?;
+
+                if !pred_result.force(vm)?.as_bool()? {
+                    return Ok(Value::Bool(false));
+                }
+            }
+
+            Ok(Value::Bool(true))
+        }),
         Builtin::new("attrNames", &[true], |args, _| {
             let xs = args[0].to_attrs()?;
             let mut output = Vec::with_capacity(xs.len());
