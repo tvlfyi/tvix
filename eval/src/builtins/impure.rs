@@ -3,8 +3,6 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use smol_str::SmolStr;
-
 use crate::{
     value::{Builtin, NixString},
     Value,
@@ -21,6 +19,18 @@ pub(super) fn builtins() -> BTreeMap<NixString, Value> {
         .into_iter()
         .map(|b| (b.name().into(), Value::Builtin(b)))
         .collect();
+
+    // currentTime pins the time at which evaluation was started
+    {
+        let seconds = match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(dur) => dur.as_secs() as i64,
+
+            // This case is hit if the system time is *before* epoch.
+            Err(err) => -(err.duration().as_secs() as i64),
+        };
+
+        map.insert(NixString::from("currentTime"), Value::Integer(seconds));
+    }
 
     map
 }
