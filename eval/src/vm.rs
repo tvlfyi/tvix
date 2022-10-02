@@ -589,7 +589,12 @@ impl<'o> VM<'o> {
                         Value::Thunk(thunk) => thunk
                             .resolve_deferred_upvalues(&self.stack[self.frame().stack_offset..]),
 
-                        v => panic!("compiler error: invalid finaliser value: {}", v),
+                        // In functions with "formals" attributes, it is
+                        // possible for `OpFinalise` to be called on a
+                        // non-capturing value, in which case it is a no-op.
+                        //
+                        // TODO: detect this in some phase and skip the finalise; fail here
+                        _ => { /* TODO: panic here again to catch bugs */ }
                     }
                 }
 
