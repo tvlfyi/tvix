@@ -116,6 +116,20 @@ fn pure_builtins() -> Vec<Builtin> {
                 std::cmp::Ordering::Greater => Ok(Value::Integer(1)),
             }
         }),
+        Builtin::new("concatLists", &[true], |args, vm| {
+            let list = args[0].to_list()?;
+            let lists = list
+                .into_iter()
+                .map(|elem| {
+                    let value = elem.force(vm)?;
+                    value.to_list()
+                })
+                .collect::<Result<Vec<NixList>, ErrorKind>>()?;
+
+            Ok(Value::List(NixList::from(
+                lists.into_iter().flatten().collect::<Vec<Value>>(),
+            )))
+        }),
         Builtin::new(
             "div",
             &[false, false],
