@@ -79,10 +79,6 @@ impl NixList {
         self.0.iter()
     }
 
-    pub fn into_iter(self) -> std::vec::IntoIter<Value> {
-        self.0.into_iter()
-    }
-
     /// Compare `self` against `other` for equality using Nix equality semantics
     pub fn nix_eq(&self, other: &Self, vm: &mut VM) -> Result<bool, ErrorKind> {
         if self.len() != other.len() {
@@ -96,5 +92,14 @@ impl NixList {
         }
 
         Ok(true)
+    }
+}
+
+impl IntoIterator for NixList {
+    type Item = Value;
+    type IntoIter = std::vec::IntoIter<Value>;
+
+    fn into_iter(self) -> std::vec::IntoIter<Value> {
+        self.0.into_iter()
     }
 }
