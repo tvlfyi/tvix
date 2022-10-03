@@ -60,7 +60,7 @@ pub fn interpret(code: &str, location: Option<PathBuf>, options: Options) -> Eva
 
     let result = if options.dump_bytecode {
         crate::compiler::compile(
-            root_expr,
+            &root_expr,
             location,
             file.clone(),
             global_builtins(),
@@ -68,7 +68,7 @@ pub fn interpret(code: &str, location: Option<PathBuf>, options: Options) -> Eva
         )
     } else {
         crate::compiler::compile(
-            root_expr,
+            &root_expr,
             location,
             file.clone(),
             global_builtins(),

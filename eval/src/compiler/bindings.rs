@@ -533,7 +533,7 @@ impl Compiler<'_> {
     /// 1. Keys can be dynamically constructed through interpolation.
     /// 2. Keys can refer to nested attribute sets.
     /// 3. Attribute sets can (optionally) be recursive.
-    pub(super) fn compile_attr_set(&mut self, slot: LocalIdx, node: ast::AttrSet) {
+    pub(super) fn compile_attr_set(&mut self, slot: LocalIdx, node: &ast::AttrSet) {
         // Open a scope to track the positions of the temporaries used by the
         // `OpAttrs` instruction.
         self.scope_mut().begin_scope();
@@ -544,7 +544,7 @@ impl Compiler<'_> {
             BindingsKind::Attrs
         };
 
-        self.compile_bindings(slot, kind, &node);
+        self.compile_bindings(slot, kind, node);
 
         // Remove the temporary scope, but do not emit any additional cleanup
         // (OpAttrs consumes all of these locals).
@@ -569,7 +569,7 @@ impl Compiler<'_> {
                 }
 
                 KeySlot::Dynamic { slot, attr } => {
-                    self.compile_attr(slot, attr);
+                    self.compile_attr(slot, &attr);
                     self.scope_mut().mark_initialised(slot);
                 }
             }
@@ -584,9 +584,9 @@ impl Compiler<'_> {
                 } => {
                     // Create a thunk wrapping value (which may be one as well)
                     // to avoid forcing the from expr too early.
-                    self.thunk(binding.value_slot, &namespace, move |c, n, s| {
-                        c.compile(s, n.clone());
-                        c.emit_force(n);
+                    self.thunk(binding.value_slot, &namespace, |c, s| {
+                        c.compile(s, &namespace);
+                        c.emit_force(&namespace);
 
                         c.emit_constant(Value::String(name.into()), &span);
                         c.push_op(OpCode::OpAttrsSelect, &span);
@@ -595,11 +595,11 @@ impl Compiler<'_> {
 
                 // Binding is "just" a plain expression that needs to be
                 // compiled.
-                Binding::Plain { expr } => self.compile(binding.value_slot, expr),
+                Binding::Plain { expr } => self.compile(binding.value_slot, &expr),
 
                 // Binding is a merged or nested attribute set, and needs to be
                 // recursively compiled as another binding.
-                Binding::Set(set) => self.thunk(binding.value_slot, &set, |c, _, _| {
+                Binding::Set(set) => self.thunk(binding.value_slot, &set, |c, _| {
                     c.scope_mut().begin_scope();
                     c.compile_bindings(binding.value_slot, set.kind, &set);
                     c.scope_mut().end_scope();
@@ -647,20 +647,20 @@ impl Compiler<'_> {
     ///
     /// Unless in a non-standard scope, the encountered values are simply pushed
     /// on the stack and their indices noted in the entries vector.
-    pub(super) fn compile_let_in(&mut self, slot: LocalIdx, node: ast::LetIn) {
-        self.compile_bindings(slot, BindingsKind::LetIn, &node);
+    pub(super) fn compile_let_in(&mut self, slot: LocalIdx, node: &ast::LetIn) {
+        self.compile_bindings(slot, BindingsKind::LetIn, node);
 
         // Deal with the body, then clean up the locals afterwards.
-        self.compile(slot, node.body().unwrap());
-        self.cleanup_scope(&node);
+        self.compile(slot, &node.body().unwrap());
+        self.cleanup_scope(node);
     }
 
-    pub(super) fn compile_legacy_let(&mut self, slot: LocalIdx, node: ast::LegacyLet) {
-        self.emit_warning(&node, WarningKind::DeprecatedLegacyLet);
+    pub(super) fn compile_legacy_let(&mut self, slot: LocalIdx, node: &ast::LegacyLet) {
+        self.emit_warning(node, WarningKind::DeprecatedLegacyLet);
         self.scope_mut().begin_scope();
-        self.compile_bindings(slot, BindingsKind::RecAttrs, &node);
-        self.emit_constant(Value::String(SmolStr::new_inline("body").into()), &node);
-        self.push_op(OpCode::OpAttrsSelect, &node);
+        self.compile_bindings(slot, BindingsKind::RecAttrs, node);
+        self.emit_constant(Value::String(SmolStr::new_inline("body").into()), node);
+        self.push_op(OpCode::OpAttrsSelect, node);
     }
 
     /// Resolve and compile access to an identifier in the scope.
@@ -706,7 +706,7 @@ impl Compiler<'_> {
 
             // This identifier is referring to a value from the same scope which
             // is not yet defined. This identifier access must be thunked.
-            LocalPosition::Recursive(idx) => self.thunk(slot, node, move |compiler, node, _| {
+            LocalPosition::Recursive(idx) => self.thunk(slot, node, move |compiler, _| {
                 let upvalue_idx = compiler.add_upvalue(
                     compiler.contexts.len() - 1,
                     node,
@@ -717,9 +717,9 @@ impl Compiler<'_> {
         };
     }
 
-    pub(super) fn compile_ident(&mut self, slot: LocalIdx, node: ast::Ident) {
+    pub(super) fn compile_ident(&mut self, slot: LocalIdx, node: &ast::Ident) {
         let ident = node.ident_token().unwrap();
-        self.compile_identifier_access(slot, ident.text(), &node);
+        self.compile_identifier_access(slot, ident.text(), node);
     }
 }
 
