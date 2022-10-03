@@ -3,12 +3,10 @@
 //! See //tvix/eval/docs/builtins.md for a some context on the
 //! available builtins in Nix.
 
-use std::{
-    cmp,
-    collections::{BTreeMap, HashMap},
-    path::PathBuf,
-    rc::Rc,
-};
+use std::cmp;
+use std::collections::{BTreeMap, HashMap};
+use std::path::PathBuf;
+use std::rc::Rc;
 
 use crate::{
     errors::ErrorKind,
@@ -385,7 +383,7 @@ fn builtins_set() -> NixAttrs {
     add_builtins(pure_builtins());
     #[cfg(feature = "impure")]
     {
-        add_builtins(impure::builtins());
+        map.extend(impure::builtins());
     }
 
     NixAttrs::from_map(map)
