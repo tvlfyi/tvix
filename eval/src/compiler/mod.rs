@@ -28,7 +28,7 @@ use std::sync::Arc;
 
 use crate::chunk::Chunk;
 use crate::errors::{Error, ErrorKind, EvalResult};
-use crate::observer::Observer;
+use crate::observer::CompilerObserver;
 use crate::opcode::{CodeIdx, Count, JumpOffset, OpCode, UpvalueIdx};
 use crate::value::{Closure, Lambda, Thunk, Value};
 use crate::warnings::{EvalWarning, WarningKind};
@@ -95,7 +95,7 @@ struct Compiler<'observer> {
 
     /// Carry an observer for the compilation process, which is called
     /// whenever a chunk is emitted.
-    observer: &'observer mut dyn Observer,
+    observer: &'observer mut dyn CompilerObserver,
 }
 
 /// Compiler construction
@@ -104,7 +104,7 @@ impl<'observer> Compiler<'observer> {
         location: Option<PathBuf>,
         file: Arc<codemap::File>,
         globals: HashMap<&'static str, Value>,
-        observer: &'observer mut dyn Observer,
+        observer: &'observer mut dyn CompilerObserver,
     ) -> EvalResult<Self> {
         let mut root_dir = match location {
             Some(dir) => Ok(dir),
@@ -1146,7 +1146,7 @@ pub fn compile(
     location: Option<PathBuf>,
     file: Arc<codemap::File>,
     globals: HashMap<&'static str, Value>,
-    observer: &mut dyn Observer,
+    observer: &mut dyn CompilerObserver,
 ) -> EvalResult<CompilationOutput> {
     let mut c = Compiler::new(location, file, globals, observer)?;
 

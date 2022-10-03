@@ -6,7 +6,7 @@ use std::{cell::RefMut, rc::Rc};
 use crate::{
     chunk::Chunk,
     errors::{Error, ErrorKind, EvalResult},
-    observer::Observer,
+    observer::RuntimeObserver,
     opcode::{CodeIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
     upvalues::{UpvalueCarrier, Upvalues},
     value::{Builtin, Closure, CoercionKind, Lambda, NixAttrs, NixList, Thunk, Value},
@@ -43,7 +43,7 @@ pub struct VM<'o> {
     /// dynamically resolved (`with`).
     with_stack: Vec<usize>,
 
-    observer: &'o mut dyn Observer,
+    observer: &'o mut dyn RuntimeObserver,
 }
 
 /// This macro wraps a computation that returns an ErrorKind or a
@@ -127,7 +127,7 @@ macro_rules! cmp_op {
 }
 
 impl<'o> VM<'o> {
-    pub fn new(observer: &'o mut dyn Observer) -> Self {
+    pub fn new(observer: &'o mut dyn RuntimeObserver) -> Self {
         Self {
             observer,
             frames: vec![],
@@ -780,7 +780,7 @@ fn unwrap_or_clone_rc<T: Clone>(rc: Rc<T>) -> T {
     Rc::try_unwrap(rc).unwrap_or_else(|rc| (*rc).clone())
 }
 
-pub fn run_lambda(observer: &mut dyn Observer, lambda: Rc<Lambda>) -> EvalResult<Value> {
+pub fn run_lambda(observer: &mut dyn RuntimeObserver, lambda: Rc<Lambda>) -> EvalResult<Value> {
     let mut vm = VM::new(observer);
     let value = vm.call(lambda, Upvalues::with_capacity(0), 0)?;
     vm.force_for_output(&value)?;

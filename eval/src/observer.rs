@@ -1,9 +1,11 @@
-//! Implements a trait for things that wish to observe internal state
+//! Implements traits for things that wish to observe internal state
 //! changes of tvix-eval.
 //!
 //! This can be used to gain insights from compilation, to trace the
 //! runtime, and so on.
-
+//!
+//! All methods are optional, that is, observers can implement only
+/// what they are interested in observing.
 use codemap::CodeMap;
 use std::io::Write;
 use std::rc::Rc;
@@ -15,11 +17,8 @@ use crate::value::Lambda;
 use crate::Value;
 
 /// Implemented by types that wish to observe internal happenings of
-/// Tvix.
-///
-/// All methods are optional, that is, observers can implement only
-/// what they are interested in observing.
-pub trait Observer {
+/// the Tvix compiler.
+pub trait CompilerObserver {
     /// Called when the compiler finishes compilation of the top-level
     /// of an expression (usually the root Nix expression of a file).
     fn observe_compiled_toplevel(&mut self, _: &Rc<Lambda>) {}
@@ -34,7 +33,11 @@ pub trait Observer {
 
     /// Called when the compiler finishes compilation of a thunk.
     fn observe_compiled_thunk(&mut self, _: &Rc<Lambda>) {}
+}
 
+/// Implemented by types that wish to observe internal happenings of
+/// the Tvix virtual machine at runtime.
+pub trait RuntimeObserver {
     /// Called when the runtime enters a new call frame.
     fn observe_enter_frame(&mut self, _arg_count: usize, _: &Rc<Lambda>, _call_depth: usize) {}
 
@@ -59,7 +62,8 @@ pub trait Observer {
 #[derive(Default)]
 pub struct NoOpObserver {}
 
-impl Observer for NoOpObserver {}
+impl CompilerObserver for NoOpObserver {}
+impl RuntimeObserver for NoOpObserver {}
 
 /// An observer that prints disassembled chunk information to its
 /// internal writer whenwever the compiler emits a toplevel function,
@@ -97,7 +101,7 @@ impl<W: Write> DisassemblingObserver<W> {
     }
 }
 
-impl<W: Write> Observer for DisassemblingObserver<W> {
+impl<W: Write> CompilerObserver for DisassemblingObserver<W> {
     fn observe_compiled_toplevel(&mut self, lambda: &Rc<Lambda>) {
         self.lambda_header("toplevel", lambda);
         self.disassemble_chunk(&lambda.chunk);
@@ -131,7 +135,7 @@ impl<W: Write> TracingObserver<W> {
     }
 }
 
-impl<W: Write> Observer for TracingObserver<W> {
+impl<W: Write> RuntimeObserver for TracingObserver<W> {
     fn observe_enter_frame(&mut self, arg_count: usize, lambda: &Rc<Lambda>, call_depth: usize) {
         let _ = writeln!(
             &mut self.writer,
