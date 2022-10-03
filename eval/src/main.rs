@@ -72,7 +72,7 @@ fn run_prompt(eval_options: tvix_eval::Options) {
                     Ok(result) => {
                         println!("=> {} :: {}", result, result.type_of());
                     }
-                    Err(err) => println!("{}", err),
+                    Err(_) => { /* interpret takes care of error formatting */ }
                 }
             }
             Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => break,

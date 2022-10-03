@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::{fmt::Display, num::ParseIntError};
 
 use codemap::{CodeMap, Span};
-use codemap_diagnostic::{Diagnostic, Emitter, Level, SpanLabel, SpanStyle};
+use codemap_diagnostic::{ColorConfig, Diagnostic, Emitter, Level, SpanLabel, SpanStyle};
 use smol_str::SmolStr;
 
 use crate::Value;
@@ -139,6 +139,12 @@ impl Error {
         let mut out = vec![];
         Emitter::vec(&mut out, Some(codemap)).emit(&[self.diagnostic(codemap)]);
         String::from_utf8_lossy(&out).to_string()
+    }
+
+    /// Render a fancy, human-readable output of this error and print
+    /// it to stderr.
+    pub fn fancy_format_stderr(&self, codemap: &CodeMap) {
+        Emitter::stderr(ColorConfig::Auto, Some(codemap)).emit(&[self.diagnostic(codemap)]);
     }
 
     /// Create the optional span label displayed as an annotation on

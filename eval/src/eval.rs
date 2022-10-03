@@ -81,21 +81,22 @@ pub fn interpret(code: &str, location: Option<PathBuf>, options: Options) -> Eva
     }
 
     for error in &result.errors {
-        eprintln!(
-            "compiler error: {:?} at `{}`[line {}]",
-            error.kind,
-            file.source_slice(error.span),
-            file.find_line(error.span.low()) + 1
-        );
+        error.fancy_format_stderr(&codemap);
     }
 
     if let Some(err) = result.errors.last() {
         return Err(err.clone());
     }
 
-    if options.trace_runtime {
+    let result = if options.trace_runtime {
         crate::vm::run_lambda(&mut TracingObserver::new(std::io::stderr()), result.lambda)
     } else {
         crate::vm::run_lambda(&mut NoOpObserver::default(), result.lambda)
+    };
+
+    if let Err(err) = &result {
+        err.fancy_format_stderr(&codemap);
     }
+
+    result
 }
