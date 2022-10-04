@@ -374,6 +374,12 @@ fn pure_builtins() -> Vec<Builtin> {
 fn builtins_set() -> NixAttrs {
     let mut map: BTreeMap<NixString, Value> = BTreeMap::new();
 
+    // Pure-value builtins
+    map.insert(
+        "nixVersion".into(),
+        Value::String("2.3-compat-tvix-0.1".into()),
+    );
+
     let mut add_builtins = |builtins: Vec<Builtin>| {
         for builtin in builtins {
             map.insert(builtin.name().into(), Value::Builtin(builtin));
