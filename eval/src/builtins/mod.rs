@@ -54,12 +54,12 @@ fn pure_builtins() -> Vec<Builtin> {
         Builtin::new(
             "add",
             &[false, false],
-            |args, vm| arithmetic_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, +),
+            |args: Vec<Value>, vm: &mut VM| arithmetic_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, +),
         ),
-        Builtin::new("abort", &[true], |args, _| {
+        Builtin::new("abort", &[true], |args: Vec<Value>, _: &mut VM| {
             Err(ErrorKind::Abort(args[0].to_str()?.to_string()))
         }),
-        Builtin::new("all", &[true, true], |args, vm| {
+        Builtin::new("all", &[true, true], |args: Vec<Value>, vm: &mut VM| {
             for value in args[1].to_list()?.into_iter() {
                 let pred_result = {
                     vm.push(value);
@@ -73,7 +73,7 @@ fn pure_builtins() -> Vec<Builtin> {
 
             Ok(Value::Bool(true))
         }),
-        Builtin::new("any", &[true, true], |args, vm| {
+        Builtin::new("any", &[true, true], |args: Vec<Value>, vm: &mut VM| {
             for value in args[1].to_list()?.into_iter() {
                 let pred_result = {
                     vm.push(value);
@@ -87,7 +87,7 @@ fn pure_builtins() -> Vec<Builtin> {
 
             Ok(Value::Bool(false))
         }),
-        Builtin::new("attrNames", &[true], |args, _| {
+        Builtin::new("attrNames", &[true], |args: Vec<Value>, _: &mut VM| {
             let xs = args[0].to_attrs()?;
             let mut output = Vec::with_capacity(xs.len());
 
@@ -97,7 +97,7 @@ fn pure_builtins() -> Vec<Builtin> {
 
             Ok(Value::List(NixList::construct(output.len(), output)))
         }),
-        Builtin::new("attrValues", &[true], |args, _| {
+        Builtin::new("attrValues", &[true], |args: Vec<Value>, _: &mut VM| {
             let xs = args[0].to_attrs()?;
             let mut output = Vec::with_capacity(xs.len());
 
@@ -107,42 +107,50 @@ fn pure_builtins() -> Vec<Builtin> {
 
             Ok(Value::List(NixList::construct(output.len(), output)))
         }),
-        Builtin::new("bitAnd", &[true, true], |args, _| {
+        Builtin::new("bitAnd", &[true, true], |args: Vec<Value>, _: &mut VM| {
             Ok(Value::Integer(args[0].as_int()? & args[1].as_int()?))
         }),
-        Builtin::new("bitOr", &[true, true], |args, _| {
+        Builtin::new("bitOr", &[true, true], |args: Vec<Value>, _: &mut VM| {
             Ok(Value::Integer(args[0].as_int()? | args[1].as_int()?))
         }),
-        Builtin::new("bitXor", &[true, true], |args, _| {
+        Builtin::new("bitXor", &[true, true], |args: Vec<Value>, _: &mut VM| {
             Ok(Value::Integer(args[0].as_int()? ^ args[1].as_int()?))
         }),
-        Builtin::new("catAttrs", &[true, true], |args, vm| {
-            let key = args[0].to_str()?;
-            let list = args[1].to_list()?;
-            let mut output = vec![];
+        Builtin::new(
+            "catAttrs",
+            &[true, true],
+            |args: Vec<Value>, vm: &mut VM| {
+                let key = args[0].to_str()?;
+                let list = args[1].to_list()?;
+                let mut output = vec![];
 
-            for item in list.into_iter() {
-                let set = item.force(vm)?.to_attrs()?;
-                if let Some(value) = set.select(key.as_str()) {
-                    output.push(value.clone());
+                for item in list.into_iter() {
+                    let set = item.force(vm)?.to_attrs()?;
+                    if let Some(value) = set.select(key.as_str()) {
+                        output.push(value.clone());
+                    }
                 }
-            }
 
-            Ok(Value::List(NixList::construct(output.len(), output)))
-        }),
-        Builtin::new("compareVersions", &[true, true], |args, _| {
-            let s1 = args[0].to_str()?;
-            let s1 = VersionPartsIter::new_for_cmp(s1.as_str());
-            let s2 = args[1].to_str()?;
-            let s2 = VersionPartsIter::new_for_cmp(s2.as_str());
+                Ok(Value::List(NixList::construct(output.len(), output)))
+            },
+        ),
+        Builtin::new(
+            "compareVersions",
+            &[true, true],
+            |args: Vec<Value>, _: &mut VM| {
+                let s1 = args[0].to_str()?;
+                let s1 = VersionPartsIter::new_for_cmp(s1.as_str());
+                let s2 = args[1].to_str()?;
+                let s2 = VersionPartsIter::new_for_cmp(s2.as_str());
 
-            match s1.cmp(s2) {
-                std::cmp::Ordering::Less => Ok(Value::Integer(-1)),
-                std::cmp::Ordering::Equal => Ok(Value::Integer(0)),
-                std::cmp::Ordering::Greater => Ok(Value::Integer(1)),
-            }
-        }),
-        Builtin::new("concatLists", &[true], |args, vm| {
+                match s1.cmp(s2) {
+                    std::cmp::Ordering::Less => Ok(Value::Integer(-1)),
+                    std::cmp::Ordering::Equal => Ok(Value::Integer(0)),
+                    std::cmp::Ordering::Greater => Ok(Value::Integer(1)),
+                }
+            },
+        ),
+        Builtin::new("concatLists", &[true], |args: Vec<Value>, vm: &mut VM| {
             let list = args[0].to_list()?;
             let lists = list
                 .into_iter()
@@ -159,9 +167,9 @@ fn pure_builtins() -> Vec<Builtin> {
         Builtin::new(
             "div",
             &[false, false],
-            |args, vm| arithmetic_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, /),
+            |args: Vec<Value>, vm: &mut VM| arithmetic_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, /),
         ),
-        Builtin::new("elemAt", &[true, true], |args, _| {
+        Builtin::new("elemAt", &[true, true], |args: Vec<Value>, _: &mut VM| {
             let xs = args[0].to_list()?;
             let i = args[1].as_int()?;
             if i < 0 {
@@ -173,7 +181,7 @@ fn pure_builtins() -> Vec<Builtin> {
                 }
             }
         }),
-        Builtin::new("filter", &[true, true], |args, vm| {
+        Builtin::new("filter", &[true, true], |args: Vec<Value>, vm: &mut VM| {
             let list: NixList = args[1].to_list()?;
 
             list.into_iter()
@@ -202,7 +210,7 @@ fn pure_builtins() -> Vec<Builtin> {
                 .map(|list| Value::List(NixList::from(list)))
                 .map_err(Into::into)
         }),
-        Builtin::new("getAttr", &[true, true], |args, _| {
+        Builtin::new("getAttr", &[true, true], |args: Vec<Value>, _: &mut VM| {
             let k = args[0].to_str()?;
             let xs = args[1].to_attrs()?;
 
@@ -213,10 +221,10 @@ fn pure_builtins() -> Vec<Builtin> {
                 }),
             }
         }),
-        Builtin::new("length", &[true], |args, _| {
+        Builtin::new("length", &[true], |args: Vec<Value>, _: &mut VM| {
             Ok(Value::Integer(args[0].to_list()?.len() as i64))
         }),
-        Builtin::new("map", &[true, true], |args, vm| {
+        Builtin::new("map", &[true, true], |args: Vec<Value>, vm: &mut VM| {
             let list: NixList = args[1].to_list()?;
 
             list.into_iter()
@@ -233,64 +241,66 @@ fn pure_builtins() -> Vec<Builtin> {
         Builtin::new(
             "lessThan",
             &[false, false],
-            |args, vm| cmp_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, <),
+            |args: Vec<Value>, vm: &mut VM| cmp_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, <),
         ),
-        Builtin::new("hasAttr", &[true, true], |args, _| {
+        Builtin::new("hasAttr", &[true, true], |args: Vec<Value>, _: &mut VM| {
             let k = args[0].to_str()?;
             let xs = args[1].to_attrs()?;
 
             Ok(Value::Bool(xs.contains(k.as_str())))
         }),
-        Builtin::new("head", &[true], |args, _| match args[0].to_list()?.get(0) {
-            Some(x) => Ok(x.clone()),
-            None => Err(ErrorKind::IndexOutOfBounds { index: 0 }),
+        Builtin::new("head", &[true], |args: Vec<Value>, _: &mut VM| {
+            match args[0].to_list()?.get(0) {
+                Some(x) => Ok(x.clone()),
+                None => Err(ErrorKind::IndexOutOfBounds { index: 0 }),
+            }
         }),
         // For `is*` predicates we force manually, as Value::force also unwraps any Thunks
-        Builtin::new("isAttrs", &[false], |args, vm| {
+        Builtin::new("isAttrs", &[false], |args: Vec<Value>, vm: &mut VM| {
             let value = args[0].force(vm)?;
             Ok(Value::Bool(matches!(*value, Value::Attrs(_))))
         }),
-        Builtin::new("isBool", &[false], |args, vm| {
+        Builtin::new("isBool", &[false], |args: Vec<Value>, vm: &mut VM| {
             let value = args[0].force(vm)?;
             Ok(Value::Bool(matches!(*value, Value::Bool(_))))
         }),
-        Builtin::new("isFloat", &[false], |args, vm| {
+        Builtin::new("isFloat", &[false], |args: Vec<Value>, vm: &mut VM| {
             let value = args[0].force(vm)?;
             Ok(Value::Bool(matches!(*value, Value::Float(_))))
         }),
-        Builtin::new("isFunction", &[false], |args, vm| {
+        Builtin::new("isFunction", &[false], |args: Vec<Value>, vm: &mut VM| {
             let value = args[0].force(vm)?;
             Ok(Value::Bool(matches!(
                 *value,
                 Value::Closure(_) | Value::Builtin(_)
             )))
         }),
-        Builtin::new("isInt", &[false], |args, vm| {
+        Builtin::new("isInt", &[false], |args: Vec<Value>, vm: &mut VM| {
             let value = args[0].force(vm)?;
             Ok(Value::Bool(matches!(*value, Value::Integer(_))))
         }),
-        Builtin::new("isList", &[false], |args, vm| {
+        Builtin::new("isList", &[false], |args: Vec<Value>, vm: &mut VM| {
             let value = args[0].force(vm)?;
             Ok(Value::Bool(matches!(*value, Value::List(_))))
         }),
-        Builtin::new("isNull", &[false], |args, vm| {
+        Builtin::new("isNull", &[false], |args: Vec<Value>, vm: &mut VM| {
             let value = args[0].force(vm)?;
             Ok(Value::Bool(matches!(*value, Value::Null)))
         }),
-        Builtin::new("isPath", &[false], |args, vm| {
+        Builtin::new("isPath", &[false], |args: Vec<Value>, vm: &mut VM| {
             let value = args[0].force(vm)?;
             Ok(Value::Bool(matches!(*value, Value::Path(_))))
         }),
-        Builtin::new("isString", &[false], |args, vm| {
+        Builtin::new("isString", &[false], |args: Vec<Value>, vm: &mut VM| {
             let value = args[0].force(vm)?;
             Ok(Value::Bool(matches!(*value, Value::String(_))))
         }),
         Builtin::new(
             "mul",
             &[false, false],
-            |args, vm| arithmetic_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, *),
+            |args: Vec<Value>, vm: &mut VM| arithmetic_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, *),
         ),
-        Builtin::new("splitVersion", &[true], |args, _| {
+        Builtin::new("splitVersion", &[true], |args: Vec<Value>, _: &mut VM| {
             let s = args[0].to_str()?;
             let s = VersionPartsIter::new(s.as_str());
 
@@ -304,7 +314,7 @@ fn pure_builtins() -> Vec<Builtin> {
                 .collect::<Vec<Value>>();
             Ok(Value::List(NixList::construct(parts.len(), parts)))
         }),
-        Builtin::new("stringLength", &[false], |args, vm| {
+        Builtin::new("stringLength", &[false], |args: Vec<Value>, vm: &mut VM| {
             // also forces the value
             let s = args[0].coerce_to_string(CoercionKind::Weak, vm)?;
             Ok(Value::Integer(s.as_str().len() as i64))
@@ -312,37 +322,41 @@ fn pure_builtins() -> Vec<Builtin> {
         Builtin::new(
             "sub",
             &[false, false],
-            |args, vm| arithmetic_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, -),
+            |args: Vec<Value>, vm: &mut VM| arithmetic_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, -),
         ),
-        Builtin::new("substring", &[true, true, true], |args, _| {
-            let beg = args[0].as_int()?;
-            let len = args[1].as_int()?;
-            let x = args[2].to_str()?;
+        Builtin::new(
+            "substring",
+            &[true, true, true],
+            |args: Vec<Value>, _: &mut VM| {
+                let beg = args[0].as_int()?;
+                let len = args[1].as_int()?;
+                let x = args[2].to_str()?;
 
-            if beg < 0 {
-                return Err(ErrorKind::IndexOutOfBounds { index: beg });
-            }
-            let beg = beg as usize;
+                if beg < 0 {
+                    return Err(ErrorKind::IndexOutOfBounds { index: beg });
+                }
+                let beg = beg as usize;
 
-            // Nix doesn't assert that the length argument is
-            // non-negative when the starting index is GTE the
-            // string's length.
-            if beg >= x.as_str().len() {
-                return Ok(Value::String("".into()));
-            }
+                // Nix doesn't assert that the length argument is
+                // non-negative when the starting index is GTE the
+                // string's length.
+                if beg >= x.as_str().len() {
+                    return Ok(Value::String("".into()));
+                }
 
-            if len < 0 {
-                return Err(ErrorKind::NegativeLength { length: len });
-            }
+                if len < 0 {
+                    return Err(ErrorKind::NegativeLength { length: len });
+                }
 
-            let len = len as usize;
-            let end = cmp::min(beg + len, x.as_str().len());
+                let len = len as usize;
+                let end = cmp::min(beg + len, x.as_str().len());
 
-            Ok(Value::String(
-                x.as_str()[(beg as usize)..(end as usize)].into(),
-            ))
-        }),
-        Builtin::new("tail", &[true], |args, _| {
+                Ok(Value::String(
+                    x.as_str()[(beg as usize)..(end as usize)].into(),
+                ))
+            },
+        ),
+        Builtin::new("tail", &[true], |args: Vec<Value>, _: &mut VM| {
             let xs = args[0].to_list()?;
 
             if xs.len() == 0 {
@@ -352,16 +366,16 @@ fn pure_builtins() -> Vec<Builtin> {
                 Ok(Value::List(NixList::construct(output.len(), output)))
             }
         }),
-        Builtin::new("throw", &[true], |args, _| {
+        Builtin::new("throw", &[true], |args: Vec<Value>, _: &mut VM| {
             Err(ErrorKind::Throw(args[0].to_str()?.to_string()))
         }),
         // coerce_to_string forces for us
-        Builtin::new("toString", &[false], |args, vm| {
+        Builtin::new("toString", &[false], |args: Vec<Value>, vm: &mut VM| {
             args[0]
                 .coerce_to_string(CoercionKind::Strong, vm)
                 .map(Value::String)
         }),
-        Builtin::new("typeOf", &[false], |args, vm| {
+        Builtin::new("typeOf", &[false], |args: Vec<Value>, vm: &mut VM| {
             // We force manually here because it also unwraps the Thunk
             // representation, if any.
             // TODO(sterni): it'd be nice if we didn't have to worry about this

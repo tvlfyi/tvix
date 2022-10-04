@@ -7,10 +7,13 @@ use crate::{errors::ErrorKind, vm::VM};
 
 use super::Value;
 
-use std::fmt::{Debug, Display};
+use std::{
+    fmt::{Debug, Display},
+    rc::Rc,
+};
 
-/// Function pointer type for builtins implemented directly by backing
-/// Rust code.
+/// Trait for closure types of builtins implemented directly by
+/// backing Rust code.
 ///
 /// Builtins declare their arity and are passed a vector with the
 /// right number of arguments. Additionally, as they might have to
@@ -19,7 +22,8 @@ use std::fmt::{Debug, Display};
 ///
 /// Errors returned from a builtin will be annotated with the location
 /// of the call to the builtin.
-pub type BuiltinFn = fn(arg: Vec<Value>, vm: &mut VM) -> Result<Value, ErrorKind>;
+pub trait BuiltinFn: Fn(Vec<Value>, &mut VM) -> Result<Value, ErrorKind> {}
+impl<F: Fn(Vec<Value>, &mut VM) -> Result<Value, ErrorKind>> BuiltinFn for F {}
 
 /// Represents a single built-in function which directly executes Rust
 /// code that operates on a Nix value.
@@ -40,18 +44,22 @@ pub struct Builtin {
     /// or 2) and whether they need to be forced. `true` causes the
     /// corresponding argument to be forced before `func` is called.
     strict_args: &'static [bool],
-    func: BuiltinFn,
+    func: Rc<dyn BuiltinFn>,
 
     /// Partially applied function arguments.
     partials: Vec<Value>,
 }
 
 impl Builtin {
-    pub fn new(name: &'static str, strict_args: &'static [bool], func: BuiltinFn) -> Self {
+    pub fn new<F: BuiltinFn + 'static>(
+        name: &'static str,
+        strict_args: &'static [bool],
+        func: F,
+    ) -> Self {
         Builtin {
             name,
             strict_args,
-            func,
+            func: Rc::new(func),
             partials: vec![],
         }
     }
