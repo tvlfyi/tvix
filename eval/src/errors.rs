@@ -291,7 +291,6 @@ to a missing value in the attribute set(s) included via `with`."#,
             ErrorKind::InfiniteRecursion => "E014",
             ErrorKind::ParseErrors(_) => "E015",
             ErrorKind::DuplicateAttrsKey { .. } => "E016",
-            ErrorKind::ThunkForce(_) => "E017",
             ErrorKind::NotCoercibleToString { .. } => "E018",
             ErrorKind::IndexOutOfBounds { .. } => "E019",
             ErrorKind::NotAnAbsolutePath(_) => "E020",
@@ -301,6 +300,13 @@ to a missing value in the attribute set(s) included via `with`."#,
             ErrorKind::UnmergeableInherit { .. } => "E024",
             ErrorKind::UnmergeableValue => "E025",
             ErrorKind::NotImplemented(_) => "E999",
+
+            // TODO: thunk force errors should yield a chained
+            // diagnostic, but until then we just forward the error
+            // code from the inner error.
+            //
+            // The error code for thunk forces is E017.
+            ErrorKind::ThunkForce(ref err) => err.code(),
         }
     }
 
