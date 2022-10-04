@@ -262,7 +262,7 @@ to a missing value in the attribute set(s) included via `with`."#,
 
             ErrorKind::NotAnAbsolutePath(given) => {
                 format!(
-                    "string {} doesn't represent an absolute path",
+                    "string '{}' does not represent an absolute path",
                     given.to_string_lossy()
                 )
             }

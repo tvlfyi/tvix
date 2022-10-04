@@ -52,18 +52,7 @@ pub fn builtins_import(
         "import",
         &[true],
         move |mut args: Vec<Value>, vm: &mut VM| {
-            let path = match args.pop().unwrap() {
-                Value::Path(path) => path,
-                Value::String(_) => {
-                    return Err(ErrorKind::NotImplemented("importing from string-paths"))
-                }
-                other => {
-                    return Err(ErrorKind::TypeError {
-                        expected: "path or string",
-                        actual: other.type_of(),
-                    })
-                }
-            };
+            let path = super::coerce_value_to_path(&args.pop().unwrap(), vm)?;
 
             let contents =
                 std::fs::read_to_string(&path).map_err(|err| ErrorKind::ReadFileError {
