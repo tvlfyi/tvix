@@ -58,12 +58,21 @@ pub fn interpret(code: &str, location: Option<PathBuf>, options: Options) -> Eva
         println!("{:?}", root_expr);
     }
 
+    // TODO: encapsulate this import weirdness in builtins
+    let mut builtins = global_builtins();
+
+    #[cfg(feature = "impure")]
+    builtins.insert(
+        "import",
+        Value::Builtin(crate::builtins::impure::builtins_import(source.clone())),
+    );
+
     let result = if options.dump_bytecode {
         crate::compiler::compile(
             &root_expr,
             location,
             file.clone(),
-            global_builtins(),
+            builtins,
             &mut DisassemblingObserver::new(source.clone(), std::io::stderr()),
         )
     } else {
@@ -71,7 +80,7 @@ pub fn interpret(code: &str, location: Option<PathBuf>, options: Options) -> Eva
             &root_expr,
             location,
             file.clone(),
-            global_builtins(),
+            builtins,
             &mut NoOpObserver::default(),
         )
     }?;

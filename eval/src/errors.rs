@@ -1,5 +1,6 @@
 use crate::value::CoercionKind;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::{fmt::Display, num::ParseIntError};
 
 use codemap::Span;
@@ -98,6 +99,24 @@ pub enum ErrorKind {
     /// Nested attributes can not be merged with values that are not
     /// literal attribute sets.
     UnmergeableValue,
+
+    /// Tvix failed to read a file from disk for some reason.
+    ReadFileError {
+        path: PathBuf,
+        error: Rc<std::io::Error>,
+    },
+
+    /// Parse errors occured while importing a file.
+    ImportParseError {
+        path: PathBuf,
+        errors: Vec<rnix::parser::ParseError>,
+    },
+
+    /// Compilation errors occured while importing a file.
+    ImportCompilerError {
+        path: PathBuf,
+        errors: Vec<Error>,
+    },
 
     /// Tvix internal warning for features triggered by users that are
     /// not actually implemented yet, and without which eval can not
@@ -271,6 +290,34 @@ to a missing value in the attribute set(s) included via `with`."#,
                     .into()
             }
 
+            ErrorKind::ReadFileError { path, error } => {
+                format!(
+                    "failed to read file '{}': {}",
+                    path.to_string_lossy(),
+                    error
+                )
+            }
+
+            ErrorKind::ImportParseError { errors, path } => {
+                format!(
+                    "{} parse errors occured while importing '{}'",
+                    errors.len(),
+                    path.to_string_lossy()
+                )
+            }
+
+            ErrorKind::ImportCompilerError { errors, path } => {
+                // TODO: chain display of these errors, though this is
+                // probably not the right place for that (should
+                // branch into a more elaborate diagnostic() call
+                // below).
+                format!(
+                    "{} errors occured while importing '{}'",
+                    errors.len(),
+                    path.to_string_lossy()
+                )
+            }
+
             ErrorKind::NotImplemented(feature) => {
                 format!("feature not yet implemented in Tvix: {}", feature)
             }
@@ -305,6 +352,11 @@ to a missing value in the attribute set(s) included via `with`."#,
             ErrorKind::TailEmptyList { .. } => "E023",
             ErrorKind::UnmergeableInherit { .. } => "E024",
             ErrorKind::UnmergeableValue => "E025",
+            ErrorKind::ReadFileError { .. } => "E026",
+            ErrorKind::ImportParseError { .. } => "E027",
+            ErrorKind::ImportCompilerError { .. } => "E028",
+
+            // Placeholder error while Tvix is under construction.
             ErrorKind::NotImplemented(_) => "E999",
 
             // TODO: thunk force errors should yield a chained

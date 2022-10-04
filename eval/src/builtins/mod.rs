@@ -19,7 +19,7 @@ use crate::{arithmetic_op, cmp_op};
 use self::versions::{VersionPart, VersionPartsIter};
 
 #[cfg(feature = "impure")]
-mod impure;
+pub mod impure;
 pub mod versions;
 
 /// Coerce a Nix Value to a plain path, e.g. in order to access the file it
