@@ -1,10 +1,9 @@
 use std::io::Write;
 use std::ops::Index;
 
-use codemap::CodeMap;
-
 use crate::opcode::{CodeIdx, ConstantIdx, OpCode};
 use crate::value::Value;
+use crate::SourceCode;
 
 /// Represents a source location from which one or more operations
 /// were compiled.
@@ -117,21 +116,12 @@ impl Chunk {
         panic!("compiler error: chunk missing span for offset {}", offset.0);
     }
 
-    /// Retrieve the line from which the instruction at `offset` was
-    /// compiled in the specified codemap.
-    pub fn get_line(&self, codemap: &codemap::CodeMap, offset: CodeIdx) -> usize {
-        let span = self.get_span(offset);
-        // lines are 0-indexed in the codemap, but users probably want
-        // real line numbers
-        codemap.look_up_span(span).begin.line + 1
-    }
-
     /// Write the disassembler representation of the operation at
     /// `idx` to the specified writer.
     pub fn disassemble_op<W: Write>(
         &self,
         writer: &mut W,
-        codemap: &CodeMap,
+        source: &SourceCode,
         width: usize,
         idx: CodeIdx,
     ) -> Result<(), std::io::Error> {
@@ -139,8 +129,8 @@ impl Chunk {
 
         // Print continuation character if the previous operation was at
         // the same line, otherwise print the line.
-        let line = self.get_line(codemap, idx);
-        if idx.0 > 0 && self.get_line(codemap, CodeIdx(idx.0 - 1)) == line {
+        let line = source.get_line(self.get_span(idx));
+        if idx.0 > 0 && source.get_line(self.get_span(CodeIdx(idx.0 - 1))) == line {
             write!(writer, "   |\t")?;
         } else {
             write!(writer, "{:4}\t", line)?;

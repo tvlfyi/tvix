@@ -6,7 +6,6 @@
 //!
 //! All methods are optional, that is, observers can implement only
 /// what they are interested in observing.
-use codemap::CodeMap;
 use std::io::Write;
 use std::rc::Rc;
 use tabwriter::TabWriter;
@@ -14,6 +13,7 @@ use tabwriter::TabWriter;
 use crate::chunk::Chunk;
 use crate::opcode::{CodeIdx, OpCode};
 use crate::value::Lambda;
+use crate::SourceCode;
 use crate::Value;
 
 /// Implemented by types that wish to observe internal happenings of
@@ -69,14 +69,14 @@ impl RuntimeObserver for NoOpObserver {}
 /// internal writer whenwever the compiler emits a toplevel function,
 /// closure or thunk.
 pub struct DisassemblingObserver<W: Write> {
-    codemap: Rc<CodeMap>,
+    source: SourceCode,
     writer: TabWriter<W>,
 }
 
 impl<W: Write> DisassemblingObserver<W> {
-    pub fn new(codemap: Rc<CodeMap>, writer: W) -> Self {
+    pub fn new(source: SourceCode, writer: W) -> Self {
         Self {
-            codemap,
+            source,
             writer: TabWriter::new(writer),
         }
     }
@@ -96,7 +96,7 @@ impl<W: Write> DisassemblingObserver<W> {
         let width = format!("{:#x}", chunk.code.len() - 1).len();
 
         for (idx, _) in chunk.code.iter().enumerate() {
-            let _ = chunk.disassemble_op(&mut self.writer, &self.codemap, width, CodeIdx(idx));
+            let _ = chunk.disassemble_op(&mut self.writer, &self.source, width, CodeIdx(idx));
         }
     }
 }

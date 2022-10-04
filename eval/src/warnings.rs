@@ -1,8 +1,9 @@
 //! Implements warnings that are emitted in cases where code passed to
 //! Tvix exhibits problems that the user could address.
 
-use codemap::CodeMap;
 use codemap_diagnostic::{ColorConfig, Diagnostic, Emitter, Level, SpanLabel, SpanStyle};
+
+use crate::SourceCode;
 
 #[derive(Debug)]
 pub enum WarningKind {
@@ -27,17 +28,18 @@ impl EvalWarning {
     /// Render a fancy, human-readable output of this warning and
     /// return it as a String. Note that this version of the output
     /// does not include any colours or font styles.
-    pub fn fancy_format_str(&self, codemap: &CodeMap) -> String {
+    pub fn fancy_format_str(&self, source: &SourceCode) -> String {
         let mut out = vec![];
-        Emitter::vec(&mut out, Some(codemap)).emit(&[self.diagnostic(codemap)]);
+        Emitter::vec(&mut out, Some(&*source.codemap())).emit(&[self.diagnostic(source)]);
         String::from_utf8_lossy(&out).to_string()
     }
 
     /// Render a fancy, human-readable output of this warning and
     /// print it to stderr. If rendered in a terminal that supports
     /// colours and font styles, the output will include those.
-    pub fn fancy_format_stderr(&self, codemap: &CodeMap) {
-        Emitter::stderr(ColorConfig::Auto, Some(codemap)).emit(&[self.diagnostic(codemap)]);
+    pub fn fancy_format_stderr(&self, source: &SourceCode) {
+        Emitter::stderr(ColorConfig::Auto, Some(&*source.codemap()))
+            .emit(&[self.diagnostic(source)]);
     }
 
     /// Create the optional span label displayed as an annotation on
@@ -53,7 +55,7 @@ impl EvalWarning {
 
     /// Create the primary warning message displayed to users for a
     /// warning.
-    fn message(&self, codemap: &CodeMap) -> String {
+    fn message(&self, source: &SourceCode) -> String {
         match self.kind {
             WarningKind::DeprecatedLiteralURL => {
                 "URL literal syntax is deprecated, use a quoted string instead".to_string()
@@ -64,11 +66,9 @@ impl EvalWarning {
             }
 
             WarningKind::UnusedBinding => {
-                let file = codemap.find_file(self.span.low());
-
                 format!(
                     "variable '{}' is declared, but never used:",
-                    file.source_slice(self.span)
+                    source.source_slice(self.span)
                 )
             }
 
@@ -99,7 +99,7 @@ impl EvalWarning {
         }
     }
 
-    fn diagnostic(&self, codemap: &CodeMap) -> Diagnostic {
+    fn diagnostic(&self, source: &SourceCode) -> Diagnostic {
         let span_label = SpanLabel {
             label: self.span_label(),
             span: self.span,
@@ -108,7 +108,7 @@ impl EvalWarning {
 
         Diagnostic {
             level: Level::Warning,
-            message: self.message(codemap),
+            message: self.message(source),
             spans: vec![span_label],
             code: Some(self.code().into()),
         }

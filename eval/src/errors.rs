@@ -2,11 +2,11 @@ use crate::value::CoercionKind;
 use std::path::PathBuf;
 use std::{fmt::Display, num::ParseIntError};
 
-use codemap::{CodeMap, Span};
+use codemap::Span;
 use codemap_diagnostic::{ColorConfig, Diagnostic, Emitter, Level, SpanLabel, SpanStyle};
 use smol_str::SmolStr;
 
-use crate::Value;
+use crate::{SourceCode, Value};
 
 #[derive(Clone, Debug)]
 pub enum ErrorKind {
@@ -135,16 +135,16 @@ impl Display for Error {
 pub type EvalResult<T> = Result<T, Error>;
 
 impl Error {
-    pub fn fancy_format_str(&self, codemap: &CodeMap) -> String {
+    pub fn fancy_format_str(&self, source: &SourceCode) -> String {
         let mut out = vec![];
-        Emitter::vec(&mut out, Some(codemap)).emit(&[self.diagnostic(codemap)]);
+        Emitter::vec(&mut out, Some(&*source.codemap())).emit(&[self.diagnostic()]);
         String::from_utf8_lossy(&out).to_string()
     }
 
     /// Render a fancy, human-readable output of this error and print
     /// it to stderr.
-    pub fn fancy_format_stderr(&self, codemap: &CodeMap) {
-        Emitter::stderr(ColorConfig::Auto, Some(codemap)).emit(&[self.diagnostic(codemap)]);
+    pub fn fancy_format_stderr(&self, source: &SourceCode) {
+        Emitter::stderr(ColorConfig::Auto, Some(&*source.codemap())).emit(&[self.diagnostic()]);
     }
 
     /// Create the optional span label displayed as an annotation on
@@ -154,7 +154,7 @@ impl Error {
     }
 
     /// Create the primary error message displayed to users.
-    fn message(&self, codemap: &CodeMap) -> String {
+    fn message(&self) -> String {
         match &self.kind {
             ErrorKind::Throw(msg) => format!("error thrown: {}", msg),
             ErrorKind::Abort(msg) => format!("evaluation aborted: {}", msg),
@@ -224,7 +224,7 @@ to a missing value in the attribute set(s) included via `with`."#,
             // TODO(tazjin): trace through the whole chain of thunk
             // forcing errors with secondary spans, instead of just
             // delegating to the inner error
-            ErrorKind::ThunkForce(err) => err.message(codemap),
+            ErrorKind::ThunkForce(err) => err.message(),
 
             ErrorKind::NotCoercibleToString { kind, from } => {
                 let kindly = match kind {
@@ -316,7 +316,7 @@ to a missing value in the attribute set(s) included via `with`."#,
         }
     }
 
-    fn diagnostic(&self, codemap: &CodeMap) -> Diagnostic {
+    fn diagnostic(&self) -> Diagnostic {
         let span_label = SpanLabel {
             label: self.span_label(),
             span: self.span,
@@ -325,7 +325,7 @@ to a missing value in the attribute set(s) included via `with`."#,
 
         Diagnostic {
             level: Level::Error,
-            message: self.message(codemap),
+            message: self.message(),
             spans: vec![span_label],
             code: Some(self.code().into()),
         }

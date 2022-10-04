@@ -1,10 +1,11 @@
-use std::{path::PathBuf, rc::Rc};
+use std::path::PathBuf;
 
 use crate::{
     builtins::global_builtins,
     errors::{Error, ErrorKind, EvalResult},
     observer::{DisassemblingObserver, NoOpObserver, TracingObserver},
     value::Value,
+    SourceCode,
 };
 
 /// Runtime options for the Tvix interpreter
@@ -25,15 +26,14 @@ pub struct Options {
 }
 
 pub fn interpret(code: &str, location: Option<PathBuf>, options: Options) -> EvalResult<Value> {
-    let mut codemap = codemap::CodeMap::new();
-    let file = codemap.add_file(
+    let source = SourceCode::new();
+    let file = source.add_file(
         location
             .as_ref()
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|| "[tvix-repl]".into()),
         code.into(),
     );
-    let codemap = Rc::new(codemap);
 
     let parsed = rnix::ast::Root::parse(code);
     let errors = parsed.errors();
@@ -64,7 +64,7 @@ pub fn interpret(code: &str, location: Option<PathBuf>, options: Options) -> Eva
             location,
             file.clone(),
             global_builtins(),
-            &mut DisassemblingObserver::new(codemap.clone(), std::io::stderr()),
+            &mut DisassemblingObserver::new(source.clone(), std::io::stderr()),
         )
     } else {
         crate::compiler::compile(
@@ -77,11 +77,11 @@ pub fn interpret(code: &str, location: Option<PathBuf>, options: Options) -> Eva
     }?;
 
     for warning in result.warnings {
-        warning.fancy_format_stderr(&codemap);
+        warning.fancy_format_stderr(&source);
     }
 
     for error in &result.errors {
-        error.fancy_format_stderr(&codemap);
+        error.fancy_format_stderr(&source);
     }
 
     if let Some(err) = result.errors.last() {
@@ -95,7 +95,7 @@ pub fn interpret(code: &str, location: Option<PathBuf>, options: Options) -> Eva
     };
 
     if let Err(err) = &result {
-        err.fancy_format_stderr(&codemap);
+        err.fancy_format_stderr(&source);
     }
 
     result
