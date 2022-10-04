@@ -21,6 +21,7 @@ use codemap::Span;
 use path_clean::PathClean;
 use rnix::ast::{self, AstToken};
 use smol_str::SmolStr;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -103,7 +104,7 @@ impl<'observer> Compiler<'observer> {
     pub(crate) fn new(
         location: Option<PathBuf>,
         file: Arc<codemap::File>,
-        globals: HashMap<&'static str, Value>,
+        globals: Rc<RefCell<HashMap<&'static str, Value>>>,
         observer: &'observer mut dyn CompilerObserver,
     ) -> EvalResult<Self> {
         let mut root_dir = match location {
@@ -124,11 +125,13 @@ impl<'observer> Compiler<'observer> {
             root_dir.pop();
         }
 
+        let globals = globals.borrow();
+
         Ok(Self {
             root_dir,
             file,
             observer,
-            globals: prepare_globals(globals),
+            globals: prepare_globals(&globals),
             contexts: vec![LambdaCtx::new()],
             warnings: vec![],
             errors: vec![],
@@ -1103,7 +1106,7 @@ fn optimise_tail_call(chunk: &mut Chunk) {
 /// Note that all builtin functions are *not* considered part of the
 /// language in this sense and MUST be supplied as additional global
 /// values, including the `builtins` set itself.
-fn prepare_globals(additional: HashMap<&'static str, Value>) -> GlobalsMap {
+fn prepare_globals(additional: &HashMap<&'static str, Value>) -> GlobalsMap {
     let mut globals: GlobalsMap = HashMap::new();
 
     globals.insert(
@@ -1127,7 +1130,8 @@ fn prepare_globals(additional: HashMap<&'static str, Value>) -> GlobalsMap {
         }),
     );
 
-    for (ident, value) in additional.into_iter() {
+    for (ident, value) in additional.iter() {
+        let value: Value = value.clone();
         globals.insert(
             ident,
             Rc::new(move |compiler, span| compiler.emit_constant(value.clone(), &span)),
@@ -1141,7 +1145,7 @@ pub fn compile(
     expr: &ast::Expr,
     location: Option<PathBuf>,
     file: Arc<codemap::File>,
-    globals: HashMap<&'static str, Value>,
+    globals: Rc<RefCell<HashMap<&'static str, Value>>>,
     observer: &mut dyn CompilerObserver,
 ) -> EvalResult<CompilationOutput> {
     let mut c = Compiler::new(location, file, globals, observer)?;
