@@ -115,5 +115,11 @@ pub fn interpret(code: &str, location: Option<PathBuf>, options: Options) -> Eva
         err.fancy_format_stderr(&source);
     }
 
-    result
+    result.map(|r| {
+        for warning in r.warnings {
+            warning.fancy_format_stderr(&source);
+        }
+
+        r.value
+    })
 }

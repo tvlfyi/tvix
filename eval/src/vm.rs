@@ -10,6 +10,7 @@ use crate::{
     opcode::{CodeIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
     upvalues::{UpvalueCarrier, Upvalues},
     value::{Builtin, Closure, CoercionKind, Lambda, NixAttrs, NixList, Thunk, Value},
+    warnings::{EvalWarning, WarningKind},
 };
 
 struct CallFrame {
@@ -43,7 +44,16 @@ pub struct VM<'o> {
     /// dynamically resolved (`with`).
     with_stack: Vec<usize>,
 
+    /// Runtime warnings collected during evaluation.
+    warnings: Vec<EvalWarning>,
+
     observer: &'o mut dyn RuntimeObserver,
+}
+
+/// The result of a VM's runtime evaluation.
+pub struct RuntimeResult {
+    pub value: Value,
+    pub warnings: Vec<EvalWarning>,
 }
 
 /// This macro wraps a computation that returns an ErrorKind or a
@@ -133,6 +143,7 @@ impl<'o> VM<'o> {
             frames: vec![],
             stack: vec![],
             with_stack: vec![],
+            warnings: vec![],
         }
     }
 
@@ -180,6 +191,20 @@ impl<'o> VM<'o> {
             kind,
             span: self.current_span(),
         }
+    }
+
+    /// Push an already constructed warning.
+    pub fn push_warning(&mut self, warning: EvalWarning) {
+        self.warnings.push(warning);
+    }
+
+    /// Emit a warning with the given WarningKind and the source span
+    /// of the current instruction.
+    pub fn emit_warning(&mut self, kind: WarningKind) {
+        self.push_warning(EvalWarning {
+            kind,
+            span: self.current_span(),
+        });
     }
 
     /// Execute the given value in this VM's context, if it is a
@@ -780,9 +805,16 @@ fn unwrap_or_clone_rc<T: Clone>(rc: Rc<T>) -> T {
     Rc::try_unwrap(rc).unwrap_or_else(|rc| (*rc).clone())
 }
 
-pub fn run_lambda(observer: &mut dyn RuntimeObserver, lambda: Rc<Lambda>) -> EvalResult<Value> {
+pub fn run_lambda(
+    observer: &mut dyn RuntimeObserver,
+    lambda: Rc<Lambda>,
+) -> EvalResult<RuntimeResult> {
     let mut vm = VM::new(observer);
     let value = vm.call(lambda, Upvalues::with_capacity(0), 0)?;
     vm.force_for_output(&value)?;
-    Ok(value)
+
+    Ok(RuntimeResult {
+        value,
+        warnings: vm.warnings,
+    })
 }
