@@ -16,23 +16,22 @@ impl ToSpan for Span {
     }
 }
 
+impl ToSpan for rnix::TextRange {
+    fn span_for(&self, file: &File) -> Span {
+        file.span
+            .subspan(u32::from(self.start()) as u64, u32::from(self.end()) as u64)
+    }
+}
+
 impl ToSpan for rnix::SyntaxToken {
     fn span_for(&self, file: &File) -> Span {
-        let rowan_span = self.text_range();
-        file.span.subspan(
-            u32::from(rowan_span.start()) as u64,
-            u32::from(rowan_span.end()) as u64,
-        )
+        self.text_range().span_for(file)
     }
 }
 
 impl ToSpan for rnix::SyntaxNode {
     fn span_for(&self, file: &File) -> Span {
-        let rowan_span = self.text_range();
-        file.span.subspan(
-            u32::from(rowan_span.start()) as u64,
-            u32::from(rowan_span.end()) as u64,
-        )
+        self.text_range().span_for(file)
     }
 }
 
