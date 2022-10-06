@@ -392,7 +392,42 @@ impl Error {
     /// Create the optional span label displayed as an annotation on
     /// the underlined span of the error.
     fn span_label(&self) -> Option<String> {
-        None
+        let label = match &self.kind {
+            ErrorKind::DuplicateAttrsKey { .. } => "in this attribute set",
+            ErrorKind::InvalidAttributeName(_) => "in this attribute set",
+            ErrorKind::PathResolution(_) => "in this path literal",
+
+            // The spans for some errors don't have any more descriptive stuff
+            // in them, or we don't utilise it yet.
+            ErrorKind::Throw(_)
+            | ErrorKind::Abort(_)
+            | ErrorKind::AssertionFailed
+            | ErrorKind::AttributeNotFound { .. }
+            | ErrorKind::IndexOutOfBounds { .. }
+            | ErrorKind::TailEmptyList
+            | ErrorKind::TypeError { .. }
+            | ErrorKind::Incomparable { .. }
+            | ErrorKind::DynamicKeyInScope(_)
+            | ErrorKind::UnknownStaticVariable
+            | ErrorKind::UnknownDynamicVariable(_)
+            | ErrorKind::VariableAlreadyDefined(_)
+            | ErrorKind::NotCallable(_)
+            | ErrorKind::InfiniteRecursion
+            | ErrorKind::ParseErrors(_)
+            | ErrorKind::ThunkForce(_)
+            | ErrorKind::NotCoercibleToString { .. }
+            | ErrorKind::NotAnAbsolutePath(_)
+            | ErrorKind::ParseIntError(_)
+            | ErrorKind::NegativeLength { .. }
+            | ErrorKind::UnmergeableInherit { .. }
+            | ErrorKind::UnmergeableValue
+            | ErrorKind::ReadFileError { .. }
+            | ErrorKind::ImportParseError { .. }
+            | ErrorKind::ImportCompilerError { .. }
+            | ErrorKind::NotImplemented(_) => return None,
+        };
+
+        Some(label.into())
     }
 
     /// Create the primary error message displayed to users.
