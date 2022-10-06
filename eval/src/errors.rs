@@ -601,6 +601,27 @@ to a missing value in the attribute set(s) included via `with`."#,
                 spans_for_parse_errors(&file, errors)
             }
 
+            // Unwrap thunk errors to the innermost one
+            // TODO: limit the number of intermediates!
+            ErrorKind::ThunkForce(err) => {
+                let mut labels = err.spans(source);
+
+                // Only add this thunk to the "cause chain" if it span isn't
+                // exactly identical to the next-higher level, which is very
+                // common for the last thunk in a chain.
+                if let Some(label) = labels.last() {
+                    if label.span != self.span {
+                        labels.push(SpanLabel {
+                            label: Some("while evaluating this".into()),
+                            span: self.span,
+                            style: SpanStyle::Secondary,
+                        });
+                    }
+                }
+
+                labels
+            }
+
             // All other errors pretty much have the same shape.
             _ => {
                 vec![SpanLabel {
