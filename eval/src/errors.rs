@@ -1,9 +1,11 @@
+use crate::spans::ToSpan;
 use crate::value::CoercionKind;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::{fmt::Display, num::ParseIntError};
 
-use codemap::Span;
+use codemap::{File, Span};
 use codemap_diagnostic::{ColorConfig, Diagnostic, Emitter, Level, SpanLabel, SpanStyle};
 use smol_str::SmolStr;
 
@@ -109,6 +111,7 @@ pub enum ErrorKind {
     /// Parse errors occured while importing a file.
     ImportParseError {
         path: PathBuf,
+        file: Arc<File>,
         errors: Vec<rnix::parser::ParseError>,
     },
 
@@ -153,17 +156,237 @@ impl Display for Error {
 
 pub type EvalResult<T> = Result<T, Error>;
 
+/// Human-readable names for rnix syntaxes.
+fn name_for_syntax(syntax: &rnix::SyntaxKind) -> &'static str {
+    match syntax {
+        rnix::SyntaxKind::TOKEN_COMMENT => "a comment",
+        rnix::SyntaxKind::TOKEN_WHITESPACE => "whitespace",
+        rnix::SyntaxKind::TOKEN_ASSERT => "`assert`-keyword",
+        rnix::SyntaxKind::TOKEN_ELSE => "`else`-keyword",
+        rnix::SyntaxKind::TOKEN_IN => "`in`-keyword",
+        rnix::SyntaxKind::TOKEN_IF => "`if`-keyword",
+        rnix::SyntaxKind::TOKEN_INHERIT => "`inherit`-keyword",
+        rnix::SyntaxKind::TOKEN_LET => "`let`-keyword",
+        rnix::SyntaxKind::TOKEN_OR => "`or`-keyword",
+        rnix::SyntaxKind::TOKEN_REC => "`rec`-keyword",
+        rnix::SyntaxKind::TOKEN_THEN => "`then`-keyword",
+        rnix::SyntaxKind::TOKEN_WITH => "`with`-keyword",
+        rnix::SyntaxKind::TOKEN_L_BRACE => "{",
+        rnix::SyntaxKind::TOKEN_R_BRACE => "}",
+        rnix::SyntaxKind::TOKEN_L_BRACK => "[",
+        rnix::SyntaxKind::TOKEN_R_BRACK => "]",
+        rnix::SyntaxKind::TOKEN_ASSIGN => "=",
+        rnix::SyntaxKind::TOKEN_AT => "@",
+        rnix::SyntaxKind::TOKEN_COLON => ":",
+        rnix::SyntaxKind::TOKEN_COMMA => "`,`",
+        rnix::SyntaxKind::TOKEN_DOT => ".",
+        rnix::SyntaxKind::TOKEN_ELLIPSIS => "...",
+        rnix::SyntaxKind::TOKEN_QUESTION => "?",
+        rnix::SyntaxKind::TOKEN_SEMICOLON => ";",
+        rnix::SyntaxKind::TOKEN_L_PAREN => "(",
+        rnix::SyntaxKind::TOKEN_R_PAREN => ")",
+        rnix::SyntaxKind::TOKEN_CONCAT => "++",
+        rnix::SyntaxKind::TOKEN_INVERT => "!",
+        rnix::SyntaxKind::TOKEN_UPDATE => "//",
+        rnix::SyntaxKind::TOKEN_ADD => "+",
+        rnix::SyntaxKind::TOKEN_SUB => "-",
+        rnix::SyntaxKind::TOKEN_MUL => "*",
+        rnix::SyntaxKind::TOKEN_DIV => "/",
+        rnix::SyntaxKind::TOKEN_AND_AND => "&&",
+        rnix::SyntaxKind::TOKEN_EQUAL => "==",
+        rnix::SyntaxKind::TOKEN_IMPLICATION => "->",
+        rnix::SyntaxKind::TOKEN_LESS => "<",
+        rnix::SyntaxKind::TOKEN_LESS_OR_EQ => "<=",
+        rnix::SyntaxKind::TOKEN_MORE => ">",
+        rnix::SyntaxKind::TOKEN_MORE_OR_EQ => ">=",
+        rnix::SyntaxKind::TOKEN_NOT_EQUAL => "!=",
+        rnix::SyntaxKind::TOKEN_OR_OR => "||",
+        rnix::SyntaxKind::TOKEN_FLOAT => "a float",
+        rnix::SyntaxKind::TOKEN_IDENT => "an identifier",
+        rnix::SyntaxKind::TOKEN_INTEGER => "an integer",
+        rnix::SyntaxKind::TOKEN_INTERPOL_END => "}",
+        rnix::SyntaxKind::TOKEN_INTERPOL_START => "${",
+        rnix::SyntaxKind::TOKEN_PATH => "a path",
+        rnix::SyntaxKind::TOKEN_URI => "a literal URI",
+        rnix::SyntaxKind::TOKEN_STRING_CONTENT => "content of a string",
+        rnix::SyntaxKind::TOKEN_STRING_END => "\"",
+        rnix::SyntaxKind::TOKEN_STRING_START => "\"",
+
+        rnix::SyntaxKind::NODE_APPLY => "a function application",
+        rnix::SyntaxKind::NODE_ASSERT => "an assertion",
+        rnix::SyntaxKind::NODE_ATTRPATH => "an attribute path",
+        rnix::SyntaxKind::NODE_DYNAMIC => "a dynamic identifier",
+
+        rnix::SyntaxKind::NODE_IDENT => "an identifier",
+        rnix::SyntaxKind::NODE_IF_ELSE => "an `if`-expression",
+        rnix::SyntaxKind::NODE_SELECT => "a `select`-expression",
+        rnix::SyntaxKind::NODE_INHERIT => "inherited values",
+        rnix::SyntaxKind::NODE_INHERIT_FROM => "inherited values",
+        rnix::SyntaxKind::NODE_STRING => "a string",
+        rnix::SyntaxKind::NODE_INTERPOL => "an interpolation",
+        rnix::SyntaxKind::NODE_LAMBDA => "a function",
+        rnix::SyntaxKind::NODE_IDENT_PARAM => "a function parameter",
+        rnix::SyntaxKind::NODE_LEGACY_LET => "a legacy `let`-expression",
+        rnix::SyntaxKind::NODE_LET_IN => "a `let`-expression",
+        rnix::SyntaxKind::NODE_LIST => "a list",
+        rnix::SyntaxKind::NODE_BIN_OP => "a binary operator",
+        rnix::SyntaxKind::NODE_PAREN => "a parenthesised expression",
+        rnix::SyntaxKind::NODE_PATTERN => "a function argument pattern",
+        rnix::SyntaxKind::NODE_PAT_BIND => "an argument pattern binding",
+        rnix::SyntaxKind::NODE_PAT_ENTRY => "an argument pattern entry",
+        rnix::SyntaxKind::NODE_ROOT => "a Nix expression",
+        rnix::SyntaxKind::NODE_ATTR_SET => "an attribute set",
+        rnix::SyntaxKind::NODE_ATTRPATH_VALUE => "an attribute set entry",
+        rnix::SyntaxKind::NODE_UNARY_OP => "a unary operator",
+        rnix::SyntaxKind::NODE_LITERAL => "a literal value",
+        rnix::SyntaxKind::NODE_WITH => "a `with`-expression",
+        rnix::SyntaxKind::NODE_PATH => "a path",
+        rnix::SyntaxKind::NODE_HAS_ATTR => "`?`-operator",
+
+        // TODO(tazjin): unsure what these variants are, lets crash!
+        rnix::SyntaxKind::NODE_ERROR => todo!("NODE_ERROR found, tell tazjin!"),
+        rnix::SyntaxKind::TOKEN_ERROR => todo!("TOKEN_ERROR found, tell tazjin!"),
+        _ => todo!(),
+    }
+}
+
+/// Construct the string representation for a list of expected parser tokens.
+fn expected_syntax(one_of: &[rnix::SyntaxKind]) -> String {
+    match one_of.len() {
+        0 => "nothing".into(),
+        1 => format!("'{}'", name_for_syntax(&one_of[0])),
+        _ => {
+            let mut out: String = "one of: ".into();
+            let end = one_of.len() - 1;
+
+            for (idx, item) in one_of.iter().enumerate() {
+                if idx != 0 {
+                    out.push_str(", ");
+                } else if idx == end {
+                    out.push_str(", or ");
+                };
+
+                out.push_str(name_for_syntax(item));
+            }
+
+            out
+        }
+    }
+}
+
+/// Process a list of parse errors into a set of span labels, annotating parse
+/// errors.
+fn spans_for_parse_errors(file: &File, errors: &[rnix::parser::ParseError]) -> Vec<SpanLabel> {
+    // rnix has a tendency to emit some identical errors more than once, but
+    // they do not enhance the user experience necessarily, so we filter them
+    // out
+    let mut had_eof = false;
+
+    errors
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, err)| {
+            let (span, label): (Span, String) = match err {
+                rnix::parser::ParseError::Unexpected(range) => (
+                    range.span_for(file),
+                    "found an unexpected syntax element here".into(),
+                ),
+
+                rnix::parser::ParseError::UnexpectedExtra(range) => (
+                    range.span_for(file),
+                    "found unexpected extra elements at the root of the expression".into(),
+                ),
+
+                rnix::parser::ParseError::UnexpectedWanted(found, range, wanted) => {
+                    let span = range.span_for(file);
+                    (
+                        span,
+                        format!(
+                            "found '{}', but expected {}",
+                            name_for_syntax(&found),
+                            expected_syntax(&wanted),
+                        ),
+                    )
+                }
+
+                rnix::parser::ParseError::UnexpectedEOF => {
+                    if had_eof {
+                        return None;
+                    }
+
+                    had_eof = true;
+
+                    (
+                        file.span,
+                        "code ended unexpectedly while the parser still expected more".into(),
+                    )
+                }
+
+                rnix::parser::ParseError::UnexpectedEOFWanted(wanted) => {
+                    had_eof = true;
+
+                    (
+                        file.span,
+                        format!(
+                            "code ended unexpectedly, but wanted {}",
+                            expected_syntax(&wanted)
+                        ),
+                    )
+                }
+
+                rnix::parser::ParseError::DuplicatedArgs(range, name) => (
+                    range.span_for(file),
+                    format!(
+                        "the function argument pattern '{}' was bound more than once",
+                        name
+                    ),
+                ),
+
+                rnix::parser::ParseError::RecursionLimitExceeded => (
+                    file.span,
+                    format!(
+                        "this code exceeds the parser's recursion limit, please report a Tvix bug"
+                    ),
+                ),
+
+                // TODO: can rnix even still throw this? it's semantic!
+                rnix::parser::ParseError::UnexpectedDoubleBind(range) => (
+                    range.span_for(file),
+                    "this pattern was bound more than once".into(),
+                ),
+
+                // The error enum is marked as `#[non_exhaustive]` in rnix,
+                // which disables the compiler error for missing a variant. This
+                // feature makes it possible for users to miss critical updates
+                // of enum variants for a more exciting runtime experience.
+                new => todo!("new parse error variant: {}", new),
+            };
+
+            Some(SpanLabel {
+                span,
+                label: Some(label),
+                style: if idx == 0 {
+                    SpanStyle::Primary
+                } else {
+                    SpanStyle::Secondary
+                },
+            })
+        })
+        .collect()
+}
+
 impl Error {
     pub fn fancy_format_str(&self, source: &SourceCode) -> String {
         let mut out = vec![];
-        Emitter::vec(&mut out, Some(&*source.codemap())).emit(&[self.diagnostic()]);
+        Emitter::vec(&mut out, Some(&*source.codemap())).emit(&[self.diagnostic(source)]);
         String::from_utf8_lossy(&out).to_string()
     }
 
     /// Render a fancy, human-readable output of this error and print
     /// it to stderr.
     pub fn fancy_format_stderr(&self, source: &SourceCode) {
-        Emitter::stderr(ColorConfig::Auto, Some(&*source.codemap())).emit(&[self.diagnostic()]);
+        Emitter::stderr(ColorConfig::Auto, Some(&*source.codemap()))
+            .emit(&[self.diagnostic(source)]);
     }
 
     /// Create the optional span label displayed as an annotation on
@@ -236,9 +459,8 @@ to a missing value in the attribute set(s) included via `with`."#,
 
             ErrorKind::InfiniteRecursion => "infinite recursion encountered".to_string(),
 
-            // TODO(tazjin): these errors should actually end up with
-            // individual spans etc.
-            ErrorKind::ParseErrors(errors) => format!("failed to parse Nix code: {:?}", errors),
+            // Errors themselves ignored here & handled in Self::spans instead
+            ErrorKind::ParseErrors(_) => format!("failed to parse Nix code:"),
 
             // TODO(tazjin): trace through the whole chain of thunk
             // forcing errors with secondary spans, instead of just
@@ -298,10 +520,10 @@ to a missing value in the attribute set(s) included via `with`."#,
                 )
             }
 
-            ErrorKind::ImportParseError { errors, path } => {
+            // Errors themselves ignored here & handled in Self::spans instead
+            ErrorKind::ImportParseError { path, .. } => {
                 format!(
-                    "{} parse errors occured while importing '{}'",
-                    errors.len(),
+                    "parse errors occured while importing '{}'",
                     path.to_string_lossy()
                 )
             }
@@ -368,17 +590,33 @@ to a missing value in the attribute set(s) included via `with`."#,
         }
     }
 
-    fn diagnostic(&self) -> Diagnostic {
-        let span_label = SpanLabel {
-            label: self.span_label(),
-            span: self.span,
-            style: SpanStyle::Primary,
-        };
+    fn spans(&self, source: &SourceCode) -> Vec<SpanLabel> {
+        match &self.kind {
+            ErrorKind::ImportParseError { errors, file, .. } => {
+                spans_for_parse_errors(&file, errors)
+            }
 
+            ErrorKind::ParseErrors(errors) => {
+                let file = source.get_file(self.span);
+                spans_for_parse_errors(&file, errors)
+            }
+
+            // All other errors pretty much have the same shape.
+            _ => {
+                vec![SpanLabel {
+                    label: self.span_label(),
+                    span: self.span,
+                    style: SpanStyle::Primary,
+                }]
+            }
+        }
+    }
+
+    fn diagnostic(&self, source: &SourceCode) -> Diagnostic {
         Diagnostic {
             level: Level::Error,
             message: self.message(),
-            spans: vec![span_label],
+            spans: self.spans(source),
             code: Some(self.code().into()),
         }
     }

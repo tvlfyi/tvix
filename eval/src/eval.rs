@@ -39,13 +39,12 @@ pub fn interpret(code: &str, location: Option<PathBuf>, options: Options) -> Eva
     let errors = parsed.errors();
 
     if !errors.is_empty() {
-        for err in errors {
-            eprintln!("parse error: {}", err);
-        }
-        return Err(Error {
+        let err = Error {
             kind: ErrorKind::ParseErrors(errors.to_vec()),
             span: file.span,
-        });
+        };
+        err.fancy_format_stderr(&source);
+        return Err(err);
     }
 
     // If we've reached this point, there are no errors.

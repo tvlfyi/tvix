@@ -54,4 +54,10 @@ impl SourceCode {
             c.find_file(span.low()).source_slice(span)
         })
     }
+
+    /// Returns the reference to the file structure that a given span
+    /// is in.
+    pub fn get_file(&self, span: Span) -> Arc<codemap::File> {
+        self.codemap().look_up_span(span).file
+    }
 }
