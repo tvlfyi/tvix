@@ -6,6 +6,7 @@ mod eval;
 pub mod observer;
 mod opcode;
 mod source;
+mod spans;
 mod upvalues;
 mod value;
 mod vm;

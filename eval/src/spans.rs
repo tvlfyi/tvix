@@ -1,11 +1,12 @@
-//! Utilities for dealing with span tracking in the compiler.
+//! Utilities for dealing with span tracking in the compiler and in
+//! error reporting.
 
-use super::*;
 use codemap::{File, Span};
+use rnix::ast;
 use rowan::ast::AstNode;
 
 /// Trait implemented by all types from which we can retrieve a span.
-pub(super) trait ToSpan {
+pub trait ToSpan {
     fn span_for(&self, file: &File) -> Span;
 }
 
@@ -76,9 +77,3 @@ expr_to_span!(ast::Select);
 expr_to_span!(ast::Str);
 expr_to_span!(ast::UnaryOp);
 expr_to_span!(ast::With);
-
-impl Compiler<'_> {
-    pub(super) fn span_for<S: ToSpan>(&self, to_span: &S) -> Span {
-        to_span.span_for(&self.file)
-    }
-}

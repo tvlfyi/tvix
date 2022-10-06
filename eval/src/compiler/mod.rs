@@ -15,7 +15,6 @@
 
 mod bindings;
 mod scope;
-mod spans;
 
 use codemap::Span;
 use path_clean::PathClean;
@@ -31,11 +30,11 @@ use crate::chunk::Chunk;
 use crate::errors::{Error, ErrorKind, EvalResult};
 use crate::observer::CompilerObserver;
 use crate::opcode::{CodeIdx, Count, JumpOffset, OpCode, UpvalueIdx};
+use crate::spans::ToSpan;
 use crate::value::{Closure, Lambda, Thunk, Value};
 use crate::warnings::{EvalWarning, WarningKind};
 
 use self::scope::{LocalIdx, LocalPosition, Scope, Upvalue, UpvalueKind};
-use self::spans::ToSpan;
 
 /// Represents the result of compiling a piece of Nix code. If
 /// compilation was successful, the resulting bytecode can be passed
@@ -97,6 +96,12 @@ struct Compiler<'observer> {
     /// Carry an observer for the compilation process, which is called
     /// whenever a chunk is emitted.
     observer: &'observer mut dyn CompilerObserver,
+}
+
+impl Compiler<'_> {
+    pub(super) fn span_for<S: ToSpan>(&self, to_span: &S) -> Span {
+        to_span.span_for(&self.file)
+    }
 }
 
 /// Compiler construction
