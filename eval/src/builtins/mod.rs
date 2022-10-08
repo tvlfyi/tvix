@@ -164,6 +164,19 @@ fn pure_builtins() -> Vec<Builtin> {
             )))
         }),
         Builtin::new(
+            "concatMap",
+            &[true, true],
+            |args: Vec<Value>, vm: &mut VM| {
+                let list = args[1].to_list()?;
+                let mut res = Vec::new();
+                for val in list {
+                    vm.push(val);
+                    res.extend(vm.call_value(&args[0])?.force(vm)?.to_list()?);
+                }
+                Ok(Value::List(res.into()))
+            },
+        ),
+        Builtin::new(
             "div",
             &[false, false],
             |args: Vec<Value>, vm: &mut VM| arithmetic_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, /),
