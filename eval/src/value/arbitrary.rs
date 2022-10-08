@@ -1,7 +1,7 @@
 //! Support for configurable generation of arbitrary nix values
 
 use proptest::{prelude::*, strategy::BoxedStrategy};
-use std::{ffi::OsString, rc::Rc};
+use std::ffi::OsString;
 
 use super::{NixAttrs, NixList, NixString, Value};
 
@@ -70,7 +70,7 @@ fn non_internal_value() -> impl Strategy<Value = Value> {
                 Default::default(),
                 Parameters::Strategy(inner.clone())
             ))
-            .prop_map(|a| Value::Attrs(Rc::new(a))),
+            .prop_map(Value::attrs),
             any_with::<NixList>((Default::default(), Parameters::Strategy(inner)))
                 .prop_map(Value::List)
         ]

@@ -115,6 +115,14 @@ impl<'a> Deref for ForceResult<'a> {
     }
 }
 
+/// Constructors
+impl Value {
+    /// Construct a [`Value::Attrs`] from a [`NixAttrs`].
+    pub fn attrs(attrs: NixAttrs) -> Self {
+        Self::Attrs(Rc::new(attrs))
+    }
+}
+
 impl Value {
     /// Coerce a `Value` to a string. See `CoercionKind` for a rundown of what
     /// input types are accepted under what circumstances.

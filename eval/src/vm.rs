@@ -374,7 +374,7 @@ impl<'o> VM<'o> {
                     let rhs = unwrap_or_clone_rc(fallible!(self, self.pop().to_attrs()));
                     let lhs = unwrap_or_clone_rc(fallible!(self, self.pop().to_attrs()));
 
-                    self.push(Value::Attrs(Rc::new(lhs.update(rhs))))
+                    self.push(Value::attrs(lhs.update(rhs)))
                 }
 
                 OpCode::OpAttrsSelect => {
@@ -641,7 +641,7 @@ impl<'o> VM<'o> {
             NixAttrs::construct(count, self.stack.split_off(self.stack.len() - count * 2))
         );
 
-        self.push(Value::Attrs(Rc::new(attrs)));
+        self.push(Value::attrs(attrs));
         Ok(())
     }
 

@@ -6,7 +6,6 @@
 use std::cmp;
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
-use std::rc::Rc;
 
 use crate::{
     errors::ErrorKind,
@@ -439,7 +438,7 @@ pub fn global_builtins() -> HashMap<&'static str, Value> {
         }
     }
 
-    globals.insert("builtins", Value::Attrs(Rc::new(builtins)));
+    globals.insert("builtins", Value::attrs(builtins));
 
     globals
 }
