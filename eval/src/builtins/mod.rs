@@ -294,6 +294,23 @@ fn pure_builtins() -> Vec<Builtin> {
             let value = args[0].force(vm)?;
             Ok(Value::Bool(matches!(*value, Value::String(_))))
         }),
+        Builtin::new("listToAttrs", &[true], |args: Vec<Value>, vm: &mut VM| {
+            let list = args[0].to_list()?;
+            let mut map = BTreeMap::new();
+            for val in list {
+                let attrs = val.force(vm)?.to_attrs()?;
+                let get = |key| {
+                    attrs
+                        .select(key)
+                        .ok_or(ErrorKind::AttributeNotFound { name: key.into() })
+                };
+                let name = get("name")?.to_str()?;
+                let value = get("value")?.clone();
+                // Map entries earlier in the list take precedence over entries later in the list
+                map.entry(name).or_insert(value);
+            }
+            Ok(Value::attrs(NixAttrs::from_map(map)))
+        }),
         Builtin::new(
             "mul",
             &[false, false],
