@@ -222,6 +222,17 @@ fn pure_builtins() -> Vec<Builtin> {
                 .map(|list| Value::List(NixList::from(list)))
                 .map_err(Into::into)
         }),
+        Builtin::new("genList", &[true, true], |args: Vec<Value>, vm: &mut VM| {
+            let len = args[1].as_int()?;
+            (0..len)
+                .map(|i| {
+                    vm.push(i.into());
+                    vm.call_value(&args[0])
+                })
+                .collect::<Result<Vec<Value>, _>>()
+                .map(|list| Value::List(NixList::from(list)))
+                .map_err(Into::into)
+        }),
         Builtin::new("getAttr", &[true, true], |args: Vec<Value>, _: &mut VM| {
             let k = args[0].to_str()?;
             let xs = args[1].to_attrs()?;

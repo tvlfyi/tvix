@@ -359,6 +359,12 @@ impl Display for Value {
     }
 }
 
+impl From<i64> for Value {
+    fn from(i: i64) -> Self {
+        Self::Integer(i)
+    }
+}
+
 fn type_error(expected: &'static str, actual: &Value) -> ErrorKind {
     ErrorKind::TypeError {
         expected,
