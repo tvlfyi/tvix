@@ -150,7 +150,166 @@ pub struct Error {
 
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{:?}", self.kind)
+        match &self.kind {
+            ErrorKind::Throw(msg) => write!(f, "error thrown: {}", msg),
+            ErrorKind::Abort(msg) => write!(f, "evaluation aborted: {}", msg),
+            ErrorKind::AssertionFailed => write!(f, "assertion failed"),
+
+            ErrorKind::DuplicateAttrsKey { key } => {
+                write!(f, "attribute key '{}' already defined", key)
+            }
+
+            ErrorKind::InvalidAttributeName(val) => write!(
+                f,
+                "found attribute name '{}' of type '{}', but attribute names must be strings",
+                val,
+                val.type_of()
+            ),
+
+            ErrorKind::AttributeNotFound { name } => write!(
+                f,
+                "attribute with name '{}' could not be found in the set",
+                name
+            ),
+
+            ErrorKind::IndexOutOfBounds { index } => {
+                write!(f, "list index '{}' is out of bounds", index)
+            }
+
+            ErrorKind::TailEmptyList => write!(f, "'tail' called on an empty list"),
+
+            ErrorKind::TypeError { expected, actual } => write!(
+                f,
+                "expected value of type '{}', but found a '{}'",
+                expected, actual
+            ),
+
+            ErrorKind::Incomparable { lhs, rhs } => {
+                write!(f, "can not compare a {} with a {}", lhs, rhs)
+            }
+
+            ErrorKind::PathResolution(err) => write!(f, "could not resolve path: {}", err),
+
+            ErrorKind::DynamicKeyInScope(scope) => {
+                write!(f, "dynamically evaluated keys are not allowed in {}", scope)
+            }
+
+            ErrorKind::UnknownStaticVariable => write!(f, "variable not found"),
+
+            ErrorKind::UnknownDynamicVariable(name) => write!(
+                f,
+                r#"variable '{}' could not be found
+
+Note that this occured within a `with`-expression. The problem may be related
+to a missing value in the attribute set(s) included via `with`."#,
+                name
+            ),
+
+            ErrorKind::VariableAlreadyDefined(_) => write!(f, "variable has already been defined"),
+
+            ErrorKind::NotCallable(other_type) => {
+                write!(
+                    f,
+                    "only functions and builtins can be called, but this is a '{}'",
+                    other_type
+                )
+            }
+
+            ErrorKind::InfiniteRecursion => write!(f, "infinite recursion encountered"),
+
+            // Errors themselves ignored here & handled in Self::spans instead
+            ErrorKind::ParseErrors(_) => write!(f, "failed to parse Nix code:"),
+
+            // TODO(tazjin): trace through the whole chain of thunk
+            // forcing errors with secondary spans, instead of just
+            // delegating to the inner error
+            ErrorKind::ThunkForce(err) => write!(f, "{err}"),
+
+            ErrorKind::NotCoercibleToString { kind, from } => {
+                let kindly = match kind {
+                    CoercionKind::Strong => "strongly",
+                    CoercionKind::Weak => "weakly",
+                };
+
+                let hint = if *from == "set" {
+                    ", missing a `__toString` or `outPath` attribute"
+                } else {
+                    ""
+                };
+
+                write!(f, "cannot ({kindly}) coerce {from} to a string{hint}")
+            }
+
+            ErrorKind::NotAnAbsolutePath(given) => {
+                write!(
+                    f,
+                    "string '{}' does not represent an absolute path",
+                    given.to_string_lossy()
+                )
+            }
+
+            ErrorKind::ParseIntError(err) => {
+                write!(f, "invalid integer: {}", err)
+            }
+
+            ErrorKind::NegativeLength { length } => {
+                write!(
+                    f,
+                    "cannot use a negative integer, {}, for a value representing length",
+                    length
+                )
+            }
+
+            ErrorKind::UnmergeableInherit { name } => {
+                write!(
+                    f,
+                    "cannot merge a nested attribute set into the inherited entry '{}'",
+                    name
+                )
+            }
+
+            ErrorKind::UnmergeableValue => {
+                write!(
+                    f,
+                    "nested attribute sets or keys can only be merged with literal attribute sets"
+                )
+            }
+
+            ErrorKind::ReadFileError { path, error } => {
+                write!(
+                    f,
+                    "failed to read file '{}': {}",
+                    path.to_string_lossy(),
+                    error
+                )
+            }
+
+            // Errors themselves ignored here & handled in Self::spans instead
+            ErrorKind::ImportParseError { path, .. } => {
+                write!(
+                    f,
+                    "parse errors occured while importing '{}'",
+                    path.to_string_lossy()
+                )
+            }
+
+            ErrorKind::ImportCompilerError { errors, path } => {
+                // TODO: chain display of these errors, though this is
+                // probably not the right place for that (should
+                // branch into a more elaborate diagnostic() call
+                // below).
+                write!(
+                    f,
+                    "{} errors occured while importing '{}'",
+                    errors.len(),
+                    path.to_string_lossy()
+                )
+            }
+
+            ErrorKind::NotImplemented(feature) => {
+                write!(f, "feature not yet implemented in Tvix: {}", feature)
+            }
+        }
     }
 }
 
@@ -430,157 +589,6 @@ impl Error {
         Some(label.into())
     }
 
-    /// Create the primary error message displayed to users.
-    fn message(&self) -> String {
-        match &self.kind {
-            ErrorKind::Throw(msg) => format!("error thrown: {}", msg),
-            ErrorKind::Abort(msg) => format!("evaluation aborted: {}", msg),
-            ErrorKind::AssertionFailed => "assertion failed".to_string(),
-
-            ErrorKind::DuplicateAttrsKey { key } => {
-                format!("attribute key '{}' already defined", key)
-            }
-
-            ErrorKind::InvalidAttributeName(val) => format!(
-                "found attribute name '{}' of type '{}', but attribute names must be strings",
-                val,
-                val.type_of()
-            ),
-
-            ErrorKind::AttributeNotFound { name } => format!(
-                "attribute with name '{}' could not be found in the set",
-                name
-            ),
-
-            ErrorKind::IndexOutOfBounds { index } => {
-                format!("list index '{}' is out of bounds", index)
-            }
-
-            ErrorKind::TailEmptyList => "'tail' called on an empty list".to_string(),
-
-            ErrorKind::TypeError { expected, actual } => format!(
-                "expected value of type '{}', but found a '{}'",
-                expected, actual
-            ),
-
-            ErrorKind::Incomparable { lhs, rhs } => {
-                format!("can not compare a {} with a {}", lhs, rhs)
-            }
-
-            ErrorKind::PathResolution(err) => format!("could not resolve path: {}", err),
-
-            ErrorKind::DynamicKeyInScope(scope) => {
-                format!("dynamically evaluated keys are not allowed in {}", scope)
-            }
-
-            ErrorKind::UnknownStaticVariable => "variable not found".to_string(),
-
-            ErrorKind::UnknownDynamicVariable(name) => format!(
-                r#"variable '{}' could not be found
-
-Note that this occured within a `with`-expression. The problem may be related
-to a missing value in the attribute set(s) included via `with`."#,
-                name
-            ),
-
-            ErrorKind::VariableAlreadyDefined(_) => "variable has already been defined".to_string(),
-
-            ErrorKind::NotCallable(other_type) => {
-                format!(
-                    "only functions and builtins can be called, but this is a '{}'",
-                    other_type
-                )
-            }
-
-            ErrorKind::InfiniteRecursion => "infinite recursion encountered".to_string(),
-
-            // Errors themselves ignored here & handled in Self::spans instead
-            ErrorKind::ParseErrors(_) => format!("failed to parse Nix code:"),
-
-            // TODO(tazjin): trace through the whole chain of thunk
-            // forcing errors with secondary spans, instead of just
-            // delegating to the inner error
-            ErrorKind::ThunkForce(err) => err.message(),
-
-            ErrorKind::NotCoercibleToString { kind, from } => {
-                let kindly = match kind {
-                    CoercionKind::Strong => "strongly",
-                    CoercionKind::Weak => "weakly",
-                };
-
-                let hint = if *from == "set" {
-                    ", missing a `__toString` or `outPath` attribute"
-                } else {
-                    ""
-                };
-
-                format!("cannot ({kindly}) coerce {from} to a string{hint}")
-            }
-
-            ErrorKind::NotAnAbsolutePath(given) => {
-                format!(
-                    "string '{}' does not represent an absolute path",
-                    given.to_string_lossy()
-                )
-            }
-
-            ErrorKind::ParseIntError(err) => {
-                format!("invalid integer: {}", err)
-            }
-
-            ErrorKind::NegativeLength { length } => {
-                format!(
-                    "cannot use a negative integer, {}, for a value representing length",
-                    length
-                )
-            }
-
-            ErrorKind::UnmergeableInherit { name } => {
-                format!(
-                    "cannot merge a nested attribute set into the inherited entry '{}'",
-                    name
-                )
-            }
-
-            ErrorKind::UnmergeableValue => {
-                "nested attribute sets or keys can only be merged with literal attribute sets"
-                    .into()
-            }
-
-            ErrorKind::ReadFileError { path, error } => {
-                format!(
-                    "failed to read file '{}': {}",
-                    path.to_string_lossy(),
-                    error
-                )
-            }
-
-            // Errors themselves ignored here & handled in Self::spans instead
-            ErrorKind::ImportParseError { path, .. } => {
-                format!(
-                    "parse errors occured while importing '{}'",
-                    path.to_string_lossy()
-                )
-            }
-
-            ErrorKind::ImportCompilerError { errors, path } => {
-                // TODO: chain display of these errors, though this is
-                // probably not the right place for that (should
-                // branch into a more elaborate diagnostic() call
-                // below).
-                format!(
-                    "{} errors occured while importing '{}'",
-                    errors.len(),
-                    path.to_string_lossy()
-                )
-            }
-
-            ErrorKind::NotImplemented(feature) => {
-                format!("feature not yet implemented in Tvix: {}", feature)
-            }
-        }
-    }
-
     /// Return the unique error code for this variant which can be
     /// used to refer users to documentation.
     fn code(&self) -> &'static str {
@@ -671,7 +679,7 @@ to a missing value in the attribute set(s) included via `with`."#,
     fn diagnostic(&self, source: &SourceCode) -> Diagnostic {
         Diagnostic {
             level: Level::Error,
-            message: self.message(),
+            message: self.to_string(),
             spans: self.spans(source),
             code: Some(self.code().into()),
         }
