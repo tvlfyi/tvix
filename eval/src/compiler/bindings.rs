@@ -659,6 +659,11 @@ impl Compiler<'_> {
         self.emit_warning(node, WarningKind::DeprecatedLegacyLet);
         self.scope_mut().begin_scope();
         self.compile_bindings(slot, BindingsKind::RecAttrs, node);
+
+        // Remove the temporary scope, but do not emit any additional cleanup
+        // (OpAttrs consumes all of these locals).
+        self.scope_mut().end_scope();
+
         self.emit_constant(Value::String(SmolStr::new_inline("body").into()), node);
         self.push_op(OpCode::OpAttrsSelect, node);
     }
