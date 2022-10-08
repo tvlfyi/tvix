@@ -52,7 +52,10 @@ pub fn builtins_import(
         "import",
         &[true],
         move |mut args: Vec<Value>, vm: &mut VM| {
-            let path = super::coerce_value_to_path(&args.pop().unwrap(), vm)?;
+            let mut path = super::coerce_value_to_path(&args.pop().unwrap(), vm)?;
+            if path.is_dir() {
+                path.push("default.nix");
+            }
 
             let contents =
                 std::fs::read_to_string(&path).map_err(|err| ErrorKind::ReadFileError {
