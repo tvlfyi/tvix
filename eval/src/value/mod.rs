@@ -288,8 +288,14 @@ impl Value {
 
                 Ok(*lhs.value() == *rhs.value())
             }
-            (Value::Thunk(lhs), rhs) => Ok(&*lhs.value() == rhs),
-            (lhs, Value::Thunk(rhs)) => Ok(lhs == &*rhs.value()),
+            (Value::Thunk(lhs), rhs) => {
+                lhs.force(vm)?;
+                Ok(&*lhs.value() == rhs)
+            }
+            (lhs, Value::Thunk(rhs)) => {
+                rhs.force(vm)?;
+                Ok(lhs == &*rhs.value())
+            }
 
             // Everything else is either incomparable (e.g. internal
             // types) or false.
