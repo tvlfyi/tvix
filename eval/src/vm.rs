@@ -229,6 +229,31 @@ impl<'o> VM<'o> {
         }
     }
 
+    /// Call the given `callable` value with the given list of `args`
+    ///
+    /// # Panics
+    ///
+    /// Panics if the passed list of `args` is empty
+    #[track_caller]
+    pub fn call_with<I>(&mut self, callable: &Value, args: I) -> EvalResult<Value>
+    where
+        I: IntoIterator<Item = Value>,
+    {
+        let mut num_args = 0_usize;
+        for arg in args {
+            num_args += 1;
+            self.push(arg);
+        }
+        if num_args == 0 {
+            panic!("call_with called with an empty list of args");
+        }
+        let mut res = self.call_value(callable)?;
+        for _ in 0..(num_args - 1) {
+            res = self.call_value(&res)?;
+        }
+        Ok(res)
+    }
+
     fn tail_call_value(&mut self, callable: Value) -> EvalResult<()> {
         match callable {
             Value::Builtin(builtin) => self.call_builtin(builtin),

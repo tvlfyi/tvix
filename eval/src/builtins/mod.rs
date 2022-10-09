@@ -60,10 +60,7 @@ fn pure_builtins() -> Vec<Builtin> {
         }),
         Builtin::new("all", &[true, true], |args: Vec<Value>, vm: &mut VM| {
             for value in args[1].to_list()?.into_iter() {
-                let pred_result = {
-                    vm.push(value);
-                    vm.call_value(&args[0])
-                }?;
+                let pred_result = vm.call_with(&args[0], [value])?;
 
                 if !pred_result.force(vm)?.as_bool()? {
                     return Ok(Value::Bool(false));
@@ -74,10 +71,7 @@ fn pure_builtins() -> Vec<Builtin> {
         }),
         Builtin::new("any", &[true, true], |args: Vec<Value>, vm: &mut VM| {
             for value in args[1].to_list()?.into_iter() {
-                let pred_result = {
-                    vm.push(value);
-                    vm.call_value(&args[0])
-                }?;
+                let pred_result = vm.call_with(&args[0], [value])?;
 
                 if pred_result.force(vm)?.as_bool()? {
                     return Ok(Value::Bool(true));
@@ -170,8 +164,7 @@ fn pure_builtins() -> Vec<Builtin> {
                 let list = args[1].to_list()?;
                 let mut res = Vec::new();
                 for val in list {
-                    vm.push(val);
-                    res.extend(vm.call_value(&args[0])?.force(vm)?.to_list()?);
+                    res.extend(vm.call_with(&args[0], [val])?.force(vm)?.to_list()?);
                 }
                 Ok(Value::List(res.into()))
             },
@@ -198,9 +191,7 @@ fn pure_builtins() -> Vec<Builtin> {
 
             list.into_iter()
                 .filter_map(|elem| {
-                    vm.push(elem.clone());
-
-                    let result = match vm.call_value(&args[0]) {
+                    let result = match vm.call_with(&args[0], [elem.clone()]) {
                         Err(err) => return Some(Err(err)),
                         Ok(result) => result,
                     };
@@ -231,10 +222,7 @@ fn pure_builtins() -> Vec<Builtin> {
                 let op = args.pop().unwrap();
                 for val in list {
                     val.force(vm)?;
-                    vm.push(val);
-                    vm.push(res);
-                    let partial = vm.call_value(&op)?;
-                    res = vm.call_value(&partial)?;
+                    res = vm.call_with(&op, [val, res])?;
                 }
 
                 Ok(res)
@@ -243,10 +231,7 @@ fn pure_builtins() -> Vec<Builtin> {
         Builtin::new("genList", &[true, true], |args: Vec<Value>, vm: &mut VM| {
             let len = args[1].as_int()?;
             (0..len)
-                .map(|i| {
-                    vm.push(i.into());
-                    vm.call_value(&args[0])
-                })
+                .map(|i| vm.call_with(&args[0], [i.into()]))
                 .collect::<Result<Vec<Value>, _>>()
                 .map(|list| Value::List(NixList::from(list)))
                 .map_err(Into::into)
@@ -269,12 +254,7 @@ fn pure_builtins() -> Vec<Builtin> {
             let list: NixList = args[1].to_list()?;
 
             list.into_iter()
-                .map(|val| {
-                    // Leave the argument on the stack before calling the
-                    // function.
-                    vm.push(val);
-                    vm.call_value(&args[0])
-                })
+                .map(|val| vm.call_with(&args[0], [val]))
                 .collect::<Result<Vec<Value>, _>>()
                 .map(|list| Value::List(NixList::from(list)))
                 .map_err(Into::into)
