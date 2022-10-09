@@ -222,6 +222,24 @@ fn pure_builtins() -> Vec<Builtin> {
                 .map(|list| Value::List(NixList::from(list)))
                 .map_err(Into::into)
         }),
+        Builtin::new(
+            "foldl'",
+            &[true, false, true],
+            |mut args: Vec<Value>, vm: &mut VM| {
+                let list = args.pop().unwrap().to_list()?;
+                let mut res = args.pop().unwrap();
+                let op = args.pop().unwrap();
+                for val in list {
+                    val.force(vm)?;
+                    vm.push(val);
+                    vm.push(res);
+                    let partial = vm.call_value(&op)?;
+                    res = vm.call_value(&partial)?;
+                }
+
+                Ok(res)
+            },
+        ),
         Builtin::new("genList", &[true, true], |args: Vec<Value>, vm: &mut VM| {
             let len = args[1].as_int()?;
             (0..len)
