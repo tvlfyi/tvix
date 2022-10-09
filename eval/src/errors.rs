@@ -3,6 +3,7 @@ use crate::value::CoercionKind;
 use std::io;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::str::Utf8Error;
 use std::sync::Arc;
 use std::{fmt::Display, num::ParseIntError};
 
@@ -137,6 +138,12 @@ pub enum ErrorKind {
 impl From<ParseIntError> for ErrorKind {
     fn from(e: ParseIntError) -> Self {
         Self::ParseIntError(e)
+    }
+}
+
+impl From<Utf8Error> for ErrorKind {
+    fn from(_: Utf8Error) -> Self {
+        Self::NotImplemented("FromUtf8Error not handled: https://b.tvl.fyi/issues/189")
     }
 }
 
