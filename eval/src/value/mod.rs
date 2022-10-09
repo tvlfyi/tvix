@@ -115,6 +115,15 @@ impl<'a> Deref for ForceResult<'a> {
     }
 }
 
+impl<T> From<T> for Value
+where
+    T: Into<NixString>,
+{
+    fn from(t: T) -> Self {
+        Self::String(t.into())
+    }
+}
+
 /// Constructors
 impl Value {
     /// Construct a [`Value::Attrs`] from a [`NixAttrs`].
