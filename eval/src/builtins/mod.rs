@@ -381,6 +381,31 @@ fn pure_builtins() -> Vec<Builtin> {
                 Ok(Value::attrs(NixAttrs::from_map(res)))
             },
         ),
+        Builtin::new("parseDrvName", &[true], |args: Vec<Value>, vm: &mut VM| {
+            // This replicates cppnix's (mis?)handling of codepoints
+            // above U+007f following 0x2d ('-')
+            let s = args[0].coerce_to_string(CoercionKind::Weak, vm)?;
+            let slice: &[u8] = s.as_str().as_ref();
+            let (name, dash_and_version) = slice.split_at(
+                slice
+                    .windows(2)
+                    .enumerate()
+                    .find_map(|x| match x {
+                        (idx, [b'-', c1]) if !c1.is_ascii_alphabetic() => Some(idx),
+                        _ => None,
+                    })
+                    .unwrap_or(slice.len()),
+            );
+            let version = dash_and_version
+                .split_first()
+                .map(|x| core::str::from_utf8(x.1))
+                .unwrap_or(Ok(""))?
+                .into();
+            Ok(Value::attrs(NixAttrs::from_map(BTreeMap::from([
+                (NixString::NAME, core::str::from_utf8(name)?.into()),
+                ("version".into(), version),
+            ]))))
+        }),
         Builtin::new("splitVersion", &[true], |args: Vec<Value>, _: &mut VM| {
             let s = args[0].to_str()?;
             let s = VersionPartsIter::new(s.as_str());
