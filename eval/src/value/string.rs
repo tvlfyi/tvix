@@ -2,6 +2,7 @@
 //! backing implementations.
 use smol_str::SmolStr;
 use std::hash::Hash;
+use std::ops::Deref;
 use std::{borrow::Cow, fmt::Display, str::Chars};
 
 #[derive(Clone, Debug)]
@@ -175,6 +176,20 @@ impl Display for NixString {
         f.write_str("\"")?;
         f.write_str(&nix_escape_string(self.as_str()))?;
         f.write_str("\"")
+    }
+}
+
+impl AsRef<str> for NixString {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl Deref for NixString {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_str()
     }
 }
 

@@ -170,6 +170,22 @@ fn pure_builtins() -> Vec<Builtin> {
             },
         ),
         Builtin::new(
+            "concatStringsSep",
+            &[true, true],
+            |args: Vec<Value>, vm: &mut VM| {
+                let separator = args[0].to_str()?;
+                let list = args[1].to_list()?;
+                let mut res = String::new();
+                for (i, val) in list.into_iter().enumerate() {
+                    if i != 0 {
+                        res.push_str(&separator);
+                    }
+                    res.push_str(&val.force(vm)?.coerce_to_string(CoercionKind::Weak, vm)?);
+                }
+                Ok(res.into())
+            },
+        ),
+        Builtin::new(
             "div",
             &[false, false],
             |args: Vec<Value>, vm: &mut VM| arithmetic_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, /),
