@@ -162,7 +162,7 @@ impl ErrorKind {
     /// Returns `true` if this error can be caught by `builtins.tryEval`
     pub fn is_catchable(&self) -> bool {
         match self {
-            Self::Throw(_) | Self::AssertionFailed => true,
+            Self::Throw(_) | Self::AssertionFailed | Self::PathResolution(_) => true,
             Self::ThunkForce(err) => err.kind.is_catchable(),
             _ => false,
         }
