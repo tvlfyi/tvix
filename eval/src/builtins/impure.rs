@@ -15,10 +15,11 @@ use crate::{
 };
 
 fn impure_builtins() -> Vec<Builtin> {
-    vec![Builtin::new(
-        "readDir",
-        &[true],
-        |args: Vec<Value>, vm: &mut VM| {
+    vec![
+        Builtin::new("pathExists", &[true], |args: Vec<Value>, vm: &mut VM| {
+            Ok(super::coerce_value_to_path(&args[0], vm)?.exists().into())
+        }),
+        Builtin::new("readDir", &[true], |args: Vec<Value>, vm: &mut VM| {
             let path = super::coerce_value_to_path(&args[0], vm)?;
             let mk_err = |err: io::Error| ErrorKind::IO {
                 path: Some(path.clone()),
@@ -50,8 +51,8 @@ fn impure_builtins() -> Vec<Builtin> {
                 );
             }
             Ok(Value::attrs(NixAttrs::from_map(res)))
-        },
-    )]
+        }),
+    ]
 }
 
 /// Return all impure builtins, that is all builtins which may perform I/O
