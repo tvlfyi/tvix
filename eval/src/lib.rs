@@ -12,6 +12,7 @@ mod value;
 mod vm;
 mod warnings;
 
+mod nix_path;
 #[cfg(test)]
 mod properties;
 #[cfg(test)]
