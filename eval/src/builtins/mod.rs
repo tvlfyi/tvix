@@ -431,6 +431,21 @@ fn pure_builtins() -> Vec<Builtin> {
         Builtin::new("throw", &[true], |args: Vec<Value>, _: &mut VM| {
             Err(ErrorKind::Throw(args[0].to_str()?.to_string()))
         }),
+        Builtin::new("tryEval", &[false], |args: Vec<Value>, vm: &mut VM| {
+            let mut res = BTreeMap::new();
+            match args[0].force(vm) {
+                Ok(value) => {
+                    res.insert("value".into(), (*value).clone());
+                    res.insert("success".into(), true.into());
+                }
+                Err(e) if e.is_catchable() => {
+                    res.insert("value".into(), false.into());
+                    res.insert("success".into(), false.into());
+                }
+                Err(e) => return Err(e),
+            }
+            Ok(Value::attrs(NixAttrs::from_map(res)))
+        }),
         // coerce_to_string forces for us
         Builtin::new("toString", &[false], |args: Vec<Value>, vm: &mut VM| {
             args[0]

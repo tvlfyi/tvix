@@ -158,6 +158,17 @@ impl From<io::Error> for ErrorKind {
     }
 }
 
+impl ErrorKind {
+    /// Returns `true` if this error can be caught by `builtins.tryEval`
+    pub fn is_catchable(&self) -> bool {
+        match self {
+            Self::Throw(_) | Self::AssertionFailed => true,
+            Self::ThunkForce(err) => err.kind.is_catchable(),
+            _ => false,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Error {
     pub kind: ErrorKind,
