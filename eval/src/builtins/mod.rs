@@ -4,7 +4,7 @@
 //! available builtins in Nix.
 
 use std::cmp;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 
 use crate::{
@@ -361,6 +361,25 @@ fn pure_builtins() -> Vec<Builtin> {
             "mul",
             &[false, false],
             |args: Vec<Value>, vm: &mut VM| arithmetic_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, *),
+        ),
+        Builtin::new(
+            "removeAttrs",
+            &[true, true],
+            |args: Vec<Value>, _: &mut VM| {
+                let attrs = args[0].to_attrs()?;
+                let keys = args[1]
+                    .to_list()?
+                    .into_iter()
+                    .map(|v| v.to_str())
+                    .collect::<Result<HashSet<_>, _>>()?;
+                let mut res = BTreeMap::new();
+                for (k, v) in attrs.iter() {
+                    if !keys.contains(k) {
+                        res.insert(k.clone(), v.clone());
+                    }
+                }
+                Ok(Value::attrs(NixAttrs::from_map(res)))
+            },
         ),
         Builtin::new("splitVersion", &[true], |args: Vec<Value>, _: &mut VM| {
             let s = args[0].to_str()?;
