@@ -121,8 +121,8 @@ pub enum OpCode {
     /// Close scopes while leaving their expression value around.
     OpCloseScope(Count), // number of locals to pop
 
-    /// Asserts stack top is a boolean, and true.
-    OpAssert,
+    /// Return an error indicating that an `assert` failed
+    OpAssertFail,
 
     // Lambdas & closures
     OpCall,

@@ -630,16 +630,34 @@ impl Compiler<'_> {
         self.patch_jump(final_jump);
     }
 
+    /// Compile `assert` expressions using jumping instructions in the VM.
+    ///
+    /// ```notrust
+    ///                        ┌─────────────────────┐
+    ///                        │ 0  [ conditional ]  │
+    ///                        │ 1   JUMP_IF_FALSE  →┼─┐
+    ///                        │ 2  [  main body  ]  │ │ Jump to else body if
+    ///                       ┌┼─3─←     JUMP        │ │ condition is false.
+    ///  Jump over else body  ││ 4   OP_ASSERT_FAIL ←┼─┘
+    ///  if condition is true.└┼─5─→     ...         │
+    ///                        └─────────────────────┘
+    /// ```
     fn compile_assert(&mut self, slot: LocalIdx, node: &ast::Assert) {
         // Compile the assertion condition to leave its value on the stack.
         self.compile(slot, &node.condition().unwrap());
         self.emit_force(&node.condition().unwrap());
-        self.push_op(OpCode::OpAssert, &node.condition().unwrap());
+        let then_idx = self.push_op(OpCode::OpJumpIfFalse(JumpOffset(0)), node);
 
-        // The runtime will abort evaluation at this point if the
-        // assertion failed, if not the body simply continues on like
-        // normal.
+        self.push_op(OpCode::OpPop, node);
         self.compile(slot, &node.body().unwrap());
+
+        let else_idx = self.push_op(OpCode::OpJump(JumpOffset(0)), node);
+
+        self.patch_jump(then_idx);
+        self.push_op(OpCode::OpPop, node);
+        self.push_op(OpCode::OpAssertFail, &node.condition().unwrap());
+
+        self.patch_jump(else_idx);
     }
 
     /// Compile conditional expressions using jumping instructions in the VM.
