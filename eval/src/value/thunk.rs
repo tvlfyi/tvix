@@ -87,10 +87,9 @@ impl Thunk {
                         std::mem::replace(&mut *thunk_mut, ThunkRepr::Blackhole)
                     {
                         drop(thunk_mut);
-                        let evaluated = ThunkRepr::Evaluated(
-                            vm.call(lambda, upvalues, 0)
-                                .map_err(|e| ErrorKind::ThunkForce(Box::new(e)))?,
-                        );
+                        vm.enter_frame(lambda, upvalues, 0)
+                            .map_err(|e| ErrorKind::ThunkForce(Box::new(e)))?;
+                        let evaluated = ThunkRepr::Evaluated(vm.pop());
                         (*self.0.borrow_mut()) = evaluated;
                     }
                 }

@@ -219,14 +219,11 @@ impl<'o> VM<'o> {
     /// The stack of the VM must be prepared with all required
     /// arguments before calling this and the value must have already
     /// been forced.
-    pub fn call_value(&mut self, callable: &Value) -> EvalResult<Value> {
+    pub fn call_value(&mut self, callable: &Value) -> EvalResult<()> {
         match callable {
-            Value::Closure(c) => self.call(c.lambda(), c.upvalues().clone(), 1),
+            Value::Closure(c) => self.enter_frame(c.lambda(), c.upvalues().clone(), 1),
 
-            Value::Builtin(b) => {
-                self.call_builtin(b.clone())?;
-                Ok(self.pop())
-            }
+            Value::Builtin(b) => self.call_builtin(b.clone()),
 
             Value::Thunk(t) => self.call_value(&t.value()),
 
@@ -250,13 +247,19 @@ impl<'o> VM<'o> {
             num_args += 1;
             self.push(arg);
         }
+
         if num_args == 0 {
             panic!("call_with called with an empty list of args");
         }
-        let mut res = self.call_value(callable)?;
+
+        self.call_value(callable)?;
+        let mut res = self.pop();
+
         for _ in 0..(num_args - 1) {
-            res = self.call_value(&res)?;
+            self.call_value(&res)?;
+            res = self.pop();
         }
+
         Ok(res)
     }
 
@@ -287,7 +290,8 @@ impl<'o> VM<'o> {
                     // synthetic (i.e. there is no corresponding OpCall for the
                     // first call in the bytecode.)
                     self.push(callable.clone());
-                    let primed = self.call_value(functor)?;
+                    self.call_value(functor)?;
+                    let primed = self.pop();
                     self.tail_call_value(primed)
                 }
             },
@@ -298,12 +302,12 @@ impl<'o> VM<'o> {
 
     /// Execute the given lambda in this VM's context, returning its
     /// value after its stack frame completes.
-    pub fn call(
+    pub fn enter_frame(
         &mut self,
         lambda: Rc<Lambda>,
         upvalues: Upvalues,
         arg_count: usize,
-    ) -> EvalResult<Value> {
+    ) -> EvalResult<()> {
         self.observer
             .observe_enter_frame(arg_count, &lambda, self.frames.len() + 1);
 
@@ -322,16 +326,19 @@ impl<'o> VM<'o> {
         result
     }
 
-    /// Run the VM's current stack frame to completion and return the
-    /// value.
-    fn run(&mut self) -> EvalResult<Value> {
+    /// Run the VM's current call frame to completion.
+    ///
+    /// On successful return, the top of the stack is the value that
+    /// the frame evaluated to. The frame itself is popped off. It is
+    /// up to the caller to consume the value.
+    fn run(&mut self) -> EvalResult<()> {
         loop {
             // Break the loop if this call frame has already run to
             // completion, pop it off, and return the value to the
             // caller.
             if self.frame().ip.0 == self.chunk().code.len() {
                 self.frames.pop();
-                return Ok(self.pop());
+                return Ok(());
             }
 
             let op = self.inc_ip();
@@ -853,7 +860,8 @@ pub fn run_lambda(
     lambda: Rc<Lambda>,
 ) -> EvalResult<RuntimeResult> {
     let mut vm = VM::new(nix_path, observer);
-    let value = vm.call(lambda, Upvalues::with_capacity(0), 0)?;
+    vm.enter_frame(lambda, Upvalues::with_capacity(0), 0)?;
+    let value = vm.pop();
     vm.force_for_output(&value)?;
 
     Ok(RuntimeResult {

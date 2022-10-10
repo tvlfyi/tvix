@@ -163,7 +163,8 @@ impl Value {
                         let call_to_string = |value: &Value, vm: &mut VM| {
                             // Leave self on the stack as an argument to the function call.
                             vm.push(self.clone());
-                            let result = vm.call_value(value)?;
+                            vm.call_value(value)?;
+                            let result = vm.pop();
 
                             match result {
                                 Value::String(s) => Ok(s),
