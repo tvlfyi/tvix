@@ -42,7 +42,7 @@ pub trait RuntimeObserver {
     fn observe_enter_frame(&mut self, _arg_count: usize, _: &Rc<Lambda>, _call_depth: usize) {}
 
     /// Called when the runtime exits a call frame.
-    fn observe_exit_frame(&mut self, _frame_at: usize) {}
+    fn observe_exit_frame(&mut self, _frame_at: usize, _stack: &[Value]) {}
 
     /// Called when the runtime replaces the current call frame for a
     /// tail call.
@@ -52,7 +52,7 @@ pub trait RuntimeObserver {
     fn observe_enter_builtin(&mut self, _name: &'static str) {}
 
     /// Called when the runtime exits a builtin.
-    fn observe_exit_builtin(&mut self, _name: &'static str) {}
+    fn observe_exit_builtin(&mut self, _name: &'static str, _stack: &[Value]) {}
 
     /// Called when the runtime *begins* executing an instruction. The
     /// provided stack is the state at the beginning of the operation.
@@ -146,16 +146,28 @@ impl<W: Write> RuntimeObserver for TracingObserver<W> {
         );
     }
 
-    fn observe_exit_frame(&mut self, frame_at: usize) {
-        let _ = writeln!(&mut self.writer, "=== exiting frame {} ===", frame_at);
+    fn observe_exit_frame(&mut self, frame_at: usize, stack: &[Value]) {
+        let _ = write!(&mut self.writer, "=== exiting frame {} ===\t[ ", frame_at);
+
+        for val in stack {
+            let _ = write!(&mut self.writer, "{} ", val);
+        }
+
+        let _ = writeln!(&mut self.writer, "]");
     }
 
     fn observe_enter_builtin(&mut self, name: &'static str) {
         let _ = writeln!(&mut self.writer, "=== entering builtin {} ===", name);
     }
 
-    fn observe_exit_builtin(&mut self, name: &'static str) {
-        let _ = writeln!(&mut self.writer, "=== exiting builtin {} ===", name);
+    fn observe_exit_builtin(&mut self, name: &'static str, stack: &[Value]) {
+        let _ = write!(&mut self.writer, "=== exiting builtin {} ===\t[ ", name);
+
+        for val in stack {
+            let _ = write!(&mut self.writer, "{} ", val);
+        }
+
+        let _ = writeln!(&mut self.writer, "]");
     }
 
     fn observe_tail_call(&mut self, frame_at: usize, lambda: &Rc<Lambda>) {

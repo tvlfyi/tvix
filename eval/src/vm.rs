@@ -336,7 +336,8 @@ impl<'o> VM<'o> {
         self.frames.push(frame);
         let result = self.run();
 
-        self.observer.observe_exit_frame(self.frames.len() + 1);
+        self.observer
+            .observe_exit_frame(self.frames.len() + 1, &self.stack);
 
         result
     }
@@ -855,7 +856,8 @@ impl<'o> VM<'o> {
         let arg = self.pop();
         let result = fallible!(self, builtin.apply(self, arg));
 
-        self.observer.observe_exit_builtin(builtin_name);
+        self.observer
+            .observe_exit_builtin(builtin_name, &self.stack);
 
         self.push(result);
 
