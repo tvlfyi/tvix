@@ -383,6 +383,12 @@ impl From<String> for Value {
     }
 }
 
+impl From<PathBuf> for Value {
+    fn from(path: PathBuf) -> Self {
+        Self::Path(path)
+    }
+}
+
 fn type_error(expected: &'static str, actual: &Value) -> ErrorKind {
     ErrorKind::TypeError {
         expected,

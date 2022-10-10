@@ -1,7 +1,9 @@
 //! This module implements the virtual (or abstract) machine that runs
 //! Tvix bytecode.
 
-use std::{cell::RefMut, rc::Rc};
+use std::{cell::RefMut, path::PathBuf, rc::Rc};
+
+use path_clean::PathClean;
 
 use crate::{
     chunk::Chunk,
@@ -347,10 +349,17 @@ impl<'o> VM<'o> {
                     let b = self.pop();
                     let a = self.pop();
 
-                    let result = if let (Value::String(s1), Value::String(s2)) = (&a, &b) {
-                        Value::String(s1.concat(s2))
-                    } else {
-                        fallible!(self, arithmetic_op!(&a, &b, +))
+                    let result = match (&a, &b) {
+                        (Value::String(s1), Value::String(s2)) => Value::String(s1.concat(s2)),
+                        (Value::Path(p), v) => {
+                            let mut path = p.to_string_lossy().into_owned();
+                            path.push_str(
+                                &v.coerce_to_string(CoercionKind::Weak, self)
+                                    .map_err(|ek| self.error(ek))?,
+                            );
+                            PathBuf::from(path).clean().into()
+                        }
+                        _ => fallible!(self, arithmetic_op!(&a, &b, +)),
                     };
 
                     self.push(result)
