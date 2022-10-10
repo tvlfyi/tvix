@@ -227,6 +227,21 @@ impl<'o> VM<'o> {
 
             Value::Thunk(t) => self.call_value(&t.value()),
 
+            // Attribute sets with a __functor attribute are callable.
+            Value::Attrs(ref attrs) => match attrs.select("__functor") {
+                None => Err(self.error(ErrorKind::NotCallable(callable.type_of()))),
+                Some(functor) => {
+                    // The functor receives the set itself as its first argument
+                    // and needs to be called with it. However, this call is
+                    // synthetic (i.e. there is no corresponding OpCall for the
+                    // first call in the bytecode.)
+                    self.push(callable.clone());
+                    self.call_value(functor)?;
+                    let primed = self.pop();
+                    self.call_value(&primed)
+                }
+            },
+
             // TODO: this isn't guaranteed to be a useful span, actually
             other => Err(self.error(ErrorKind::NotCallable(other.type_of()))),
         }
