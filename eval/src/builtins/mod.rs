@@ -431,6 +431,18 @@ fn pure_builtins() -> Vec<Builtin> {
         Builtin::new("throw", &[true], |args: Vec<Value>, _: &mut VM| {
             Err(ErrorKind::Throw(args[0].to_str()?.to_string()))
         }),
+        Builtin::new(
+            "trace",
+            &[true, true],
+            |mut args: Vec<Value>, _: &mut VM| {
+                let value = args.pop().unwrap();
+                let trace_value = args.pop().unwrap();
+                // TODO(grfn): `trace` should be pluggable and capturable, probably via a method on
+                // the VM
+                println!("trace: {} :: {}", trace_value, trace_value.type_of());
+                Ok(value)
+            },
+        ),
         Builtin::new("tryEval", &[false], |args: Vec<Value>, vm: &mut VM| {
             let mut res = BTreeMap::new();
             match args[0].force(vm) {
