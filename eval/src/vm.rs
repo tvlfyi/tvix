@@ -362,342 +362,357 @@ impl<'o> VM<'o> {
             self.observer
                 .observe_execute_op(self.frame().ip, &op, &self.stack);
 
-            match op {
-                OpCode::OpConstant(idx) => {
-                    let c = self.chunk()[idx].clone();
-                    self.push(c);
-                }
+            let res = self.run_op(op);
 
-                OpCode::OpPop => {
-                    self.pop();
-                }
-
-                OpCode::OpAdd => {
-                    let b = self.pop();
-                    let a = self.pop();
-
-                    let result = match (&a, &b) {
-                        (Value::String(s1), Value::String(s2)) => Value::String(s1.concat(s2)),
-                        (Value::Path(p), v) => {
-                            let mut path = p.to_string_lossy().into_owned();
-                            path.push_str(
-                                &v.coerce_to_string(CoercionKind::Weak, self)
-                                    .map_err(|ek| self.error(ek))?,
-                            );
-                            PathBuf::from(path).clean().into()
-                        }
-                        _ => fallible!(self, arithmetic_op!(&a, &b, +)),
-                    };
-
-                    self.push(result)
-                }
-
-                OpCode::OpSub => arithmetic_op!(self, -),
-                OpCode::OpMul => arithmetic_op!(self, *),
-                OpCode::OpDiv => arithmetic_op!(self, /),
-
-                OpCode::OpInvert => {
-                    let v = fallible!(self, self.pop().as_bool());
-                    self.push(Value::Bool(!v));
-                }
-
-                OpCode::OpNegate => match self.pop() {
-                    Value::Integer(i) => self.push(Value::Integer(-i)),
-                    Value::Float(f) => self.push(Value::Float(-f)),
-                    v => {
-                        return Err(self.error(ErrorKind::TypeError {
-                            expected: "number (either int or float)",
-                            actual: v.type_of(),
-                        }));
-                    }
-                },
-
-                OpCode::OpEqual => {
-                    let v2 = self.pop();
-                    let v1 = self.pop();
-                    let res = fallible!(self, v1.nix_eq(&v2, self));
-
-                    self.push(Value::Bool(res))
-                }
-
-                OpCode::OpLess => cmp_op!(self, <),
-                OpCode::OpLessOrEq => cmp_op!(self, <=),
-                OpCode::OpMore => cmp_op!(self, >),
-                OpCode::OpMoreOrEq => cmp_op!(self, >=),
-
-                OpCode::OpNull => self.push(Value::Null),
-                OpCode::OpTrue => self.push(Value::Bool(true)),
-                OpCode::OpFalse => self.push(Value::Bool(false)),
-
-                OpCode::OpAttrs(Count(count)) => self.run_attrset(count)?,
-
-                OpCode::OpAttrsUpdate => {
-                    let rhs = unwrap_or_clone_rc(fallible!(self, self.pop().to_attrs()));
-                    let lhs = unwrap_or_clone_rc(fallible!(self, self.pop().to_attrs()));
-
-                    self.push(Value::attrs(lhs.update(rhs)))
-                }
-
-                OpCode::OpAttrsSelect => {
-                    let key = fallible!(self, self.pop().to_str());
-                    let attrs = fallible!(self, self.pop().to_attrs());
-
-                    match attrs.select(key.as_str()) {
-                        Some(value) => self.push(value.clone()),
-
-                        None => {
-                            return Err(self.error(ErrorKind::AttributeNotFound {
-                                name: key.as_str().to_string(),
-                            }))
-                        }
-                    }
-                }
-
-                OpCode::OpAttrsTrySelect => {
-                    let key = fallible!(self, self.pop().to_str());
-                    let value = match self.pop() {
-                        Value::Attrs(attrs) => match attrs.select(key.as_str()) {
-                            Some(value) => value.clone(),
-                            None => Value::AttrNotFound,
-                        },
-
-                        _ => Value::AttrNotFound,
-                    };
-
-                    self.push(value);
-                }
-
-                OpCode::OpHasAttr => {
-                    let key = fallible!(self, self.pop().to_str());
-                    let result = match self.pop() {
-                        Value::Attrs(attrs) => attrs.contains(key.as_str()),
-
-                        // Nix allows use of `?` on non-set types, but
-                        // always returns false in those cases.
-                        _ => false,
-                    };
-
-                    self.push(Value::Bool(result));
-                }
-
-                OpCode::OpList(Count(count)) => {
-                    let list =
-                        NixList::construct(count, self.stack.split_off(self.stack.len() - count));
-                    self.push(Value::List(list));
-                }
-
-                OpCode::OpConcat => {
-                    let rhs = fallible!(self, self.pop().to_list());
-                    let lhs = fallible!(self, self.pop().to_list());
-                    self.push(Value::List(lhs.concat(&rhs)))
-                }
-
-                OpCode::OpInterpolate(Count(count)) => self.run_interpolate(count)?,
-
-                OpCode::OpCoerceToString => {
-                    // TODO: handle string context, copying to store
-                    let string = fallible!(
-                        self,
-                        // note that coerce_to_string also forces
-                        self.pop().coerce_to_string(CoercionKind::Weak, self)
-                    );
-                    self.push(Value::String(string));
-                }
-
-                OpCode::OpFindFile => {
-                    let path = self.pop().to_str().map_err(|e| self.error(e))?;
-                    let resolved = self.nix_path.resolve(path).map_err(|e| self.error(e))?;
-                    self.push(resolved.into());
-                }
-
-                OpCode::OpJump(JumpOffset(offset)) => {
-                    debug_assert!(offset != 0);
-                    self.frame_mut().ip += offset;
-                }
-
-                OpCode::OpJumpIfTrue(JumpOffset(offset)) => {
-                    debug_assert!(offset != 0);
-                    if fallible!(self, self.peek(0).as_bool()) {
-                        self.frame_mut().ip += offset;
-                    }
-                }
-
-                OpCode::OpJumpIfFalse(JumpOffset(offset)) => {
-                    debug_assert!(offset != 0);
-                    if !fallible!(self, self.peek(0).as_bool()) {
-                        self.frame_mut().ip += offset;
-                    }
-                }
-
-                OpCode::OpJumpIfNotFound(JumpOffset(offset)) => {
-                    debug_assert!(offset != 0);
-                    if matches!(self.peek(0), Value::AttrNotFound) {
-                        self.pop();
-                        self.frame_mut().ip += offset;
-                    }
-                }
-
-                // These assertion operations error out if the stack
-                // top is not of the expected type. This is necessary
-                // to implement some specific behaviours of Nix
-                // exactly.
-                OpCode::OpAssertBool => {
-                    let val = self.peek(0);
-                    if !val.is_bool() {
-                        return Err(self.error(ErrorKind::TypeError {
-                            expected: "bool",
-                            actual: val.type_of(),
-                        }));
-                    }
-                }
-
-                // Remove the given number of elements from the stack,
-                // but retain the top value.
-                OpCode::OpCloseScope(Count(count)) => {
-                    // Immediately move the top value into the right
-                    // position.
-                    let target_idx = self.stack.len() - 1 - count;
-                    self.stack[target_idx] = self.pop();
-
-                    // Then drop the remaining values.
-                    for _ in 0..(count - 1) {
-                        self.pop();
-                    }
-                }
-
-                OpCode::OpGetLocal(StackIdx(local_idx)) => {
-                    let idx = self.frame().stack_offset + local_idx;
-                    self.push(self.stack[idx].clone());
-                }
-
-                OpCode::OpPushWith(StackIdx(idx)) => {
-                    self.with_stack.push(self.frame().stack_offset + idx)
-                }
-
-                OpCode::OpPopWith => {
-                    self.with_stack.pop();
-                }
-
-                OpCode::OpResolveWith => {
-                    let ident = fallible!(self, self.pop().to_str());
-                    let value = self.resolve_with(ident.as_str())?;
-                    self.push(value)
-                }
-
-                OpCode::OpResolveWithOrUpvalue(idx) => {
-                    let ident = fallible!(self, self.pop().to_str());
-                    match self.resolve_with(ident.as_str()) {
-                        // Variable found in local `with`-stack.
-                        Ok(value) => self.push(value),
-
-                        // Variable not found => check upvalues.
-                        Err(Error {
-                            kind: ErrorKind::UnknownDynamicVariable(_),
-                            ..
-                        }) => {
-                            let value = self.frame().upvalue(idx).clone();
-                            self.push(value);
-                        }
-
-                        Err(err) => return Err(err),
-                    }
-                }
-
-                OpCode::OpAssertFail => {
-                    return Err(self.error(ErrorKind::AssertionFailed));
-                }
-
-                OpCode::OpCall => {
-                    let callable = self.pop();
-                    self.call_value(&callable)?;
-                }
-
-                OpCode::OpTailCall => {
-                    let callable = self.pop();
-                    self.tail_call_value(callable)?;
-                }
-
-                OpCode::OpGetUpvalue(upv_idx) => {
-                    let value = self.frame().upvalue(upv_idx).clone();
-                    self.push(value);
-                }
-
-                OpCode::OpClosure(idx) => {
-                    let blueprint = match &self.chunk()[idx] {
-                        Value::Blueprint(lambda) => lambda.clone(),
-                        _ => panic!("compiler bug: non-blueprint in blueprint slot"),
-                    };
-
-                    let upvalue_count = blueprint.upvalue_count;
-                    debug_assert!(
-                        upvalue_count > 0,
-                        "OpClosure should not be called for plain lambdas"
-                    );
-
-                    let closure = Closure::new(blueprint);
-                    let upvalues = closure.upvalues_mut();
-                    self.push(Value::Closure(closure.clone()));
-
-                    // From this point on we internally mutate the
-                    // closure object's upvalues. The closure is
-                    // already in its stack slot, which means that it
-                    // can capture itself as an upvalue for
-                    // self-recursion.
-                    self.populate_upvalues(upvalue_count, upvalues)?;
-                }
-
-                OpCode::OpThunk(idx) => {
-                    let blueprint = match &self.chunk()[idx] {
-                        Value::Blueprint(lambda) => lambda.clone(),
-                        _ => panic!("compiler bug: non-blueprint in blueprint slot"),
-                    };
-
-                    let upvalue_count = blueprint.upvalue_count;
-                    let thunk = Thunk::new(blueprint, self.current_span());
-                    let upvalues = thunk.upvalues_mut();
-
-                    self.push(Value::Thunk(thunk.clone()));
-                    self.populate_upvalues(upvalue_count, upvalues)?;
-                }
-
-                OpCode::OpForce => {
-                    let mut value = self.pop();
-
-                    if let Value::Thunk(thunk) = value {
-                        fallible!(self, thunk.force(self));
-                        value = thunk.value().clone();
-                    }
-
-                    self.push(value);
-                }
-
-                OpCode::OpFinalise(StackIdx(idx)) => {
-                    match &self.stack[self.frame().stack_offset + idx] {
-                        Value::Closure(closure) => closure
-                            .resolve_deferred_upvalues(&self.stack[self.frame().stack_offset..]),
-
-                        Value::Thunk(thunk) => thunk
-                            .resolve_deferred_upvalues(&self.stack[self.frame().stack_offset..]),
-
-                        // In functions with "formals" attributes, it is
-                        // possible for `OpFinalise` to be called on a
-                        // non-capturing value, in which case it is a no-op.
-                        //
-                        // TODO: detect this in some phase and skip the finalise; fail here
-                        _ => { /* TODO: panic here again to catch bugs */ }
-                    }
-                }
-
-                // Data-carrying operands should never be executed,
-                // that is a critical error in the VM.
-                OpCode::DataLocalIdx(_)
-                | OpCode::DataDeferredLocal(_)
-                | OpCode::DataUpvalueIdx(_)
-                | OpCode::DataCaptureWith => {
-                    panic!("VM bug: attempted to execute data-carrying operand")
-                }
+            if self.frame().ip.0 == self.chunk().code.len() {
+                self.frames.pop();
+                return res;
+            } else {
+                res?;
             }
         }
+    }
+
+    fn run_op(&mut self, op: OpCode) -> EvalResult<()> {
+        match op {
+            OpCode::OpConstant(idx) => {
+                let c = self.chunk()[idx].clone();
+                self.push(c);
+            }
+
+            OpCode::OpPop => {
+                self.pop();
+            }
+
+            OpCode::OpAdd => {
+                let b = self.pop();
+                let a = self.pop();
+
+                let result = match (&a, &b) {
+                    (Value::String(s1), Value::String(s2)) => Value::String(s1.concat(s2)),
+                    (Value::Path(p), v) => {
+                        let mut path = p.to_string_lossy().into_owned();
+                        path.push_str(
+                            &v.coerce_to_string(CoercionKind::Weak, self)
+                                .map_err(|ek| self.error(ek))?,
+                        );
+                        PathBuf::from(path).clean().into()
+                    }
+                    _ => fallible!(self, arithmetic_op!(&a, &b, +)),
+                };
+
+                self.push(result)
+            }
+
+            OpCode::OpSub => arithmetic_op!(self, -),
+            OpCode::OpMul => arithmetic_op!(self, *),
+            OpCode::OpDiv => arithmetic_op!(self, /),
+
+            OpCode::OpInvert => {
+                let v = fallible!(self, self.pop().as_bool());
+                self.push(Value::Bool(!v));
+            }
+
+            OpCode::OpNegate => match self.pop() {
+                Value::Integer(i) => self.push(Value::Integer(-i)),
+                Value::Float(f) => self.push(Value::Float(-f)),
+                v => {
+                    return Err(self.error(ErrorKind::TypeError {
+                        expected: "number (either int or float)",
+                        actual: v.type_of(),
+                    }));
+                }
+            },
+
+            OpCode::OpEqual => {
+                let v2 = self.pop();
+                let v1 = self.pop();
+                let res = fallible!(self, v1.nix_eq(&v2, self));
+
+                self.push(Value::Bool(res))
+            }
+
+            OpCode::OpLess => cmp_op!(self, <),
+            OpCode::OpLessOrEq => cmp_op!(self, <=),
+            OpCode::OpMore => cmp_op!(self, >),
+            OpCode::OpMoreOrEq => cmp_op!(self, >=),
+
+            OpCode::OpNull => self.push(Value::Null),
+            OpCode::OpTrue => self.push(Value::Bool(true)),
+            OpCode::OpFalse => self.push(Value::Bool(false)),
+
+            OpCode::OpAttrs(Count(count)) => self.run_attrset(count)?,
+
+            OpCode::OpAttrsUpdate => {
+                let rhs = unwrap_or_clone_rc(fallible!(self, self.pop().to_attrs()));
+                let lhs = unwrap_or_clone_rc(fallible!(self, self.pop().to_attrs()));
+
+                self.push(Value::attrs(lhs.update(rhs)))
+            }
+
+            OpCode::OpAttrsSelect => {
+                let key = fallible!(self, self.pop().to_str());
+                let attrs = fallible!(self, self.pop().to_attrs());
+
+                match attrs.select(key.as_str()) {
+                    Some(value) => self.push(value.clone()),
+
+                    None => {
+                        return Err(self.error(ErrorKind::AttributeNotFound {
+                            name: key.as_str().to_string(),
+                        }))
+                    }
+                }
+            }
+
+            OpCode::OpAttrsTrySelect => {
+                let key = fallible!(self, self.pop().to_str());
+                let value = match self.pop() {
+                    Value::Attrs(attrs) => match attrs.select(key.as_str()) {
+                        Some(value) => value.clone(),
+                        None => Value::AttrNotFound,
+                    },
+
+                    _ => Value::AttrNotFound,
+                };
+
+                self.push(value);
+            }
+
+            OpCode::OpHasAttr => {
+                let key = fallible!(self, self.pop().to_str());
+                let result = match self.pop() {
+                    Value::Attrs(attrs) => attrs.contains(key.as_str()),
+
+                    // Nix allows use of `?` on non-set types, but
+                    // always returns false in those cases.
+                    _ => false,
+                };
+
+                self.push(Value::Bool(result));
+            }
+
+            OpCode::OpList(Count(count)) => {
+                let list =
+                    NixList::construct(count, self.stack.split_off(self.stack.len() - count));
+                self.push(Value::List(list));
+            }
+
+            OpCode::OpConcat => {
+                let rhs = fallible!(self, self.pop().to_list());
+                let lhs = fallible!(self, self.pop().to_list());
+                self.push(Value::List(lhs.concat(&rhs)))
+            }
+
+            OpCode::OpInterpolate(Count(count)) => self.run_interpolate(count)?,
+
+            OpCode::OpCoerceToString => {
+                // TODO: handle string context, copying to store
+                let string = fallible!(
+                    self,
+                    // note that coerce_to_string also forces
+                    self.pop().coerce_to_string(CoercionKind::Weak, self)
+                );
+                self.push(Value::String(string));
+            }
+
+            OpCode::OpFindFile => {
+                let path = self.pop().to_str().map_err(|e| self.error(e))?;
+                let resolved = self.nix_path.resolve(path).map_err(|e| self.error(e))?;
+                self.push(resolved.into());
+            }
+
+            OpCode::OpJump(JumpOffset(offset)) => {
+                debug_assert!(offset != 0);
+                self.frame_mut().ip += offset;
+            }
+
+            OpCode::OpJumpIfTrue(JumpOffset(offset)) => {
+                debug_assert!(offset != 0);
+                if fallible!(self, self.peek(0).as_bool()) {
+                    self.frame_mut().ip += offset;
+                }
+            }
+
+            OpCode::OpJumpIfFalse(JumpOffset(offset)) => {
+                debug_assert!(offset != 0);
+                if !fallible!(self, self.peek(0).as_bool()) {
+                    self.frame_mut().ip += offset;
+                }
+            }
+
+            OpCode::OpJumpIfNotFound(JumpOffset(offset)) => {
+                debug_assert!(offset != 0);
+                if matches!(self.peek(0), Value::AttrNotFound) {
+                    self.pop();
+                    self.frame_mut().ip += offset;
+                }
+            }
+
+            // These assertion operations error out if the stack
+            // top is not of the expected type. This is necessary
+            // to implement some specific behaviours of Nix
+            // exactly.
+            OpCode::OpAssertBool => {
+                let val = self.peek(0);
+                if !val.is_bool() {
+                    return Err(self.error(ErrorKind::TypeError {
+                        expected: "bool",
+                        actual: val.type_of(),
+                    }));
+                }
+            }
+
+            // Remove the given number of elements from the stack,
+            // but retain the top value.
+            OpCode::OpCloseScope(Count(count)) => {
+                // Immediately move the top value into the right
+                // position.
+                let target_idx = self.stack.len() - 1 - count;
+                self.stack[target_idx] = self.pop();
+
+                // Then drop the remaining values.
+                for _ in 0..(count - 1) {
+                    self.pop();
+                }
+            }
+
+            OpCode::OpGetLocal(StackIdx(local_idx)) => {
+                let idx = self.frame().stack_offset + local_idx;
+                self.push(self.stack[idx].clone());
+            }
+
+            OpCode::OpPushWith(StackIdx(idx)) => {
+                self.with_stack.push(self.frame().stack_offset + idx)
+            }
+
+            OpCode::OpPopWith => {
+                self.with_stack.pop();
+            }
+
+            OpCode::OpResolveWith => {
+                let ident = fallible!(self, self.pop().to_str());
+                let value = self.resolve_with(ident.as_str())?;
+                self.push(value)
+            }
+
+            OpCode::OpResolveWithOrUpvalue(idx) => {
+                let ident = fallible!(self, self.pop().to_str());
+                match self.resolve_with(ident.as_str()) {
+                    // Variable found in local `with`-stack.
+                    Ok(value) => self.push(value),
+
+                    // Variable not found => check upvalues.
+                    Err(Error {
+                        kind: ErrorKind::UnknownDynamicVariable(_),
+                        ..
+                    }) => {
+                        let value = self.frame().upvalue(idx).clone();
+                        self.push(value);
+                    }
+
+                    Err(err) => return Err(err),
+                }
+            }
+
+            OpCode::OpAssertFail => {
+                return Err(self.error(ErrorKind::AssertionFailed));
+            }
+
+            OpCode::OpCall => {
+                let callable = self.pop();
+                self.call_value(&callable)?;
+            }
+
+            OpCode::OpTailCall => {
+                let callable = self.pop();
+                self.tail_call_value(callable)?;
+            }
+
+            OpCode::OpGetUpvalue(upv_idx) => {
+                let value = self.frame().upvalue(upv_idx).clone();
+                self.push(value);
+            }
+
+            OpCode::OpClosure(idx) => {
+                let blueprint = match &self.chunk()[idx] {
+                    Value::Blueprint(lambda) => lambda.clone(),
+                    _ => panic!("compiler bug: non-blueprint in blueprint slot"),
+                };
+
+                let upvalue_count = blueprint.upvalue_count;
+                debug_assert!(
+                    upvalue_count > 0,
+                    "OpClosure should not be called for plain lambdas"
+                );
+
+                let closure = Closure::new(blueprint);
+                let upvalues = closure.upvalues_mut();
+                self.push(Value::Closure(closure.clone()));
+
+                // From this point on we internally mutate the
+                // closure object's upvalues. The closure is
+                // already in its stack slot, which means that it
+                // can capture itself as an upvalue for
+                // self-recursion.
+                self.populate_upvalues(upvalue_count, upvalues)?;
+            }
+
+            OpCode::OpThunk(idx) => {
+                let blueprint = match &self.chunk()[idx] {
+                    Value::Blueprint(lambda) => lambda.clone(),
+                    _ => panic!("compiler bug: non-blueprint in blueprint slot"),
+                };
+
+                let upvalue_count = blueprint.upvalue_count;
+                let thunk = Thunk::new(blueprint, self.current_span());
+                let upvalues = thunk.upvalues_mut();
+
+                self.push(Value::Thunk(thunk.clone()));
+                self.populate_upvalues(upvalue_count, upvalues)?;
+            }
+
+            OpCode::OpForce => {
+                let mut value = self.pop();
+
+                if let Value::Thunk(thunk) = value {
+                    fallible!(self, thunk.force(self));
+                    value = thunk.value().clone();
+                }
+
+                self.push(value);
+            }
+
+            OpCode::OpFinalise(StackIdx(idx)) => {
+                match &self.stack[self.frame().stack_offset + idx] {
+                    Value::Closure(closure) => {
+                        closure.resolve_deferred_upvalues(&self.stack[self.frame().stack_offset..])
+                    }
+
+                    Value::Thunk(thunk) => {
+                        thunk.resolve_deferred_upvalues(&self.stack[self.frame().stack_offset..])
+                    }
+
+                    // In functions with "formals" attributes, it is
+                    // possible for `OpFinalise` to be called on a
+                    // non-capturing value, in which case it is a no-op.
+                    //
+                    // TODO: detect this in some phase and skip the finalise; fail here
+                    _ => { /* TODO: panic here again to catch bugs */ }
+                }
+            }
+
+            // Data-carrying operands should never be executed,
+            // that is a critical error in the VM.
+            OpCode::DataLocalIdx(_)
+            | OpCode::DataDeferredLocal(_)
+            | OpCode::DataUpvalueIdx(_)
+            | OpCode::DataCaptureWith => {
+                panic!("VM bug: attempted to execute data-carrying operand")
+            }
+        }
+
+        Ok(())
     }
 
     fn run_attrset(&mut self, count: usize) -> EvalResult<()> {
