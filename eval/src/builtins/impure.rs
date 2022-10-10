@@ -1,6 +1,7 @@
 use std::{
     cell::RefCell,
     collections::{BTreeMap, HashMap},
+    env,
     fs::File,
     io::{self, Read},
     rc::Rc,
@@ -10,13 +11,18 @@ use std::{
 use crate::{
     errors::ErrorKind,
     observer::NoOpObserver,
-    value::{Builtin, NixAttrs, NixString, Thunk},
+    value::{Builtin, CoercionKind, NixAttrs, NixString, Thunk},
     vm::VM,
     SourceCode, Value,
 };
 
 fn impure_builtins() -> Vec<Builtin> {
     vec![
+        Builtin::new("getEnv", &[true], |args: Vec<Value>, vm: &mut VM| {
+            Ok(env::var(args[0].coerce_to_string(CoercionKind::Weak, vm)?)
+                .unwrap_or_else(|_| "".into())
+                .into())
+        }),
         Builtin::new("pathExists", &[true], |args: Vec<Value>, vm: &mut VM| {
             Ok(super::coerce_value_to_path(&args[0], vm)?.exists().into())
         }),
