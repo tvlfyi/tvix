@@ -186,7 +186,7 @@ impl<'o> VM<'o> {
 
     /// Returns the source span of the instruction currently being
     /// executed.
-    fn current_span(&self) -> codemap::Span {
+    pub(crate) fn current_span(&self) -> codemap::Span {
         self.chunk().get_span(self.frame().ip - 1)
     }
 
@@ -637,7 +637,7 @@ impl<'o> VM<'o> {
                     };
 
                     let upvalue_count = blueprint.upvalue_count;
-                    let thunk = Thunk::new(blueprint);
+                    let thunk = Thunk::new(blueprint, self.current_span());
                     let upvalues = thunk.upvalues_mut();
 
                     self.push(Value::Thunk(thunk.clone()));

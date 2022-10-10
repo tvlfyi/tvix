@@ -940,7 +940,7 @@ impl Compiler<'_> {
         // Emit the thunk directly if it does not close over the
         // environment.
         if lambda.upvalue_count == 0 {
-            self.emit_constant(Value::Thunk(Thunk::new(lambda)), node);
+            self.emit_constant(Value::Thunk(Thunk::new(lambda, span)), node);
             return;
         }
 

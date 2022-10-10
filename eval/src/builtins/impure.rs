@@ -151,7 +151,7 @@ pub fn builtins_import(
 
             // Compilation succeeded, we can construct a thunk from whatever it spat
             // out and return that.
-            Ok(Value::Thunk(Thunk::new(result.lambda)))
+            Ok(Value::Thunk(Thunk::new(result.lambda, vm.current_span())))
         },
     )
 }

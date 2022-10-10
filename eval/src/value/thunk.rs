@@ -24,8 +24,10 @@ use std::{
     rc::Rc,
 };
 
+use codemap::Span;
+
 use crate::{
-    errors::ErrorKind,
+    errors::{Error, ErrorKind},
     upvalues::{UpvalueCarrier, Upvalues},
     vm::VM,
     Value,
@@ -52,14 +54,20 @@ enum ThunkRepr {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Thunk(Rc<RefCell<ThunkRepr>>);
+pub struct Thunk {
+    inner: Rc<RefCell<ThunkRepr>>,
+    span: Span,
+}
 
 impl Thunk {
-    pub fn new(lambda: Rc<Lambda>) -> Self {
-        Thunk(Rc::new(RefCell::new(ThunkRepr::Suspended {
-            upvalues: Upvalues::with_capacity(lambda.upvalue_count),
-            lambda: lambda.clone(),
-        })))
+    pub fn new(lambda: Rc<Lambda>, span: Span) -> Self {
+        Thunk {
+            inner: Rc::new(RefCell::new(ThunkRepr::Suspended {
+                upvalues: Upvalues::with_capacity(lambda.upvalue_count),
+                lambda: lambda.clone(),
+            })),
+            span,
+        }
     }
 
     /// Evaluate the content of a thunk, potentially repeatedly, until
@@ -71,11 +79,11 @@ impl Thunk {
     /// are replaced.
     pub fn force(&self, vm: &mut VM) -> Result<(), ErrorKind> {
         loop {
-            let mut thunk_mut = self.0.borrow_mut();
+            let mut thunk_mut = self.inner.borrow_mut();
 
             match *thunk_mut {
                 ThunkRepr::Evaluated(Value::Thunk(ref inner_thunk)) => {
-                    let inner_repr = inner_thunk.0.borrow().clone();
+                    let inner_repr = inner_thunk.inner.borrow().clone();
                     *thunk_mut = inner_repr;
                 }
 
@@ -87,10 +95,14 @@ impl Thunk {
                         std::mem::replace(&mut *thunk_mut, ThunkRepr::Blackhole)
                     {
                         drop(thunk_mut);
-                        vm.enter_frame(lambda, upvalues, 0)
-                            .map_err(|e| ErrorKind::ThunkForce(Box::new(e)))?;
+                        vm.enter_frame(lambda, upvalues, 0).map_err(|e| {
+                            ErrorKind::ThunkForce(Box::new(Error {
+                                span: self.span,
+                                ..e
+                            }))
+                        })?;
                         let evaluated = ThunkRepr::Evaluated(vm.pop());
-                        (*self.0.borrow_mut()) = evaluated;
+                        (*self.inner.borrow_mut()) = evaluated;
                     }
                 }
             }
@@ -104,7 +116,7 @@ impl Thunk {
     // difficult to represent in the type system without impacting the
     // API too much.
     pub fn value(&self) -> Ref<Value> {
-        Ref::map(self.0.borrow(), |thunk| {
+        Ref::map(self.inner.borrow(), |thunk| {
             if let ThunkRepr::Evaluated(value) = thunk {
                 return value;
             }
@@ -116,7 +128,7 @@ impl Thunk {
 
 impl UpvalueCarrier for Thunk {
     fn upvalue_count(&self) -> usize {
-        if let ThunkRepr::Suspended { lambda, .. } = &*self.0.borrow() {
+        if let ThunkRepr::Suspended { lambda, .. } = &*self.inner.borrow() {
             return lambda.upvalue_count;
         }
 
@@ -124,23 +136,23 @@ impl UpvalueCarrier for Thunk {
     }
 
     fn upvalues(&self) -> Ref<'_, Upvalues> {
-        Ref::map(self.0.borrow(), |thunk| match thunk {
+        Ref::map(self.inner.borrow(), |thunk| match thunk {
             ThunkRepr::Suspended { upvalues, .. } => upvalues,
             _ => panic!("upvalues() on non-suspended thunk"),
         })
     }
 
     fn upvalues_mut(&self) -> RefMut<'_, Upvalues> {
-        RefMut::map(self.0.borrow_mut(), |thunk| match thunk {
+        RefMut::map(self.inner.borrow_mut(), |thunk| match thunk {
             ThunkRepr::Suspended { upvalues, .. } => upvalues,
-            _ => panic!("upvalues() on non-suspended thunk"),
+            thunk => panic!("upvalues() on non-suspended thunk: {thunk:?}"),
         })
     }
 }
 
 impl Display for Thunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.0.try_borrow() {
+        match self.inner.try_borrow() {
             Ok(repr) => match &*repr {
                 ThunkRepr::Evaluated(v) => v.fmt(f),
                 _ => f.write_str("internal[thunk]"),
