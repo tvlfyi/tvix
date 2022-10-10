@@ -3,6 +3,7 @@
 use smol_str::SmolStr;
 use std::hash::Hash;
 use std::ops::Deref;
+use std::path::Path;
 use std::{borrow::Cow, fmt::Display, str::Chars};
 
 #[derive(Clone, Debug)]
@@ -182,6 +183,12 @@ impl Display for NixString {
 impl AsRef<str> for NixString {
     fn as_ref(&self) -> &str {
         self.as_str()
+    }
+}
+
+impl AsRef<Path> for NixString {
+    fn as_ref(&self) -> &Path {
+        self.as_str().as_ref()
     }
 }
 

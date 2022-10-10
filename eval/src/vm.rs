@@ -8,6 +8,7 @@ use path_clean::PathClean;
 use crate::{
     chunk::Chunk,
     errors::{Error, ErrorKind, EvalResult},
+    nix_path::NixPath,
     observer::RuntimeObserver,
     opcode::{CodeIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
     upvalues::{UpvalueCarrier, Upvalues},
@@ -48,6 +49,8 @@ pub struct VM<'o> {
 
     /// Runtime warnings collected during evaluation.
     warnings: Vec<EvalWarning>,
+
+    nix_path: NixPath,
 
     observer: &'o mut dyn RuntimeObserver,
 }
@@ -139,8 +142,9 @@ macro_rules! cmp_op {
 }
 
 impl<'o> VM<'o> {
-    pub fn new(observer: &'o mut dyn RuntimeObserver) -> Self {
+    pub fn new(nix_path: NixPath, observer: &'o mut dyn RuntimeObserver) -> Self {
         Self {
+            nix_path,
             observer,
             frames: vec![],
             stack: vec![],
@@ -475,6 +479,12 @@ impl<'o> VM<'o> {
                         self.pop().coerce_to_string(CoercionKind::Weak, self)
                     );
                     self.push(Value::String(string));
+                }
+
+                OpCode::OpFindFile => {
+                    let path = self.pop().to_str().map_err(|e| self.error(e))?;
+                    let resolved = self.nix_path.resolve(path).map_err(|e| self.error(e))?;
+                    self.push(resolved.into());
                 }
 
                 OpCode::OpJump(JumpOffset(offset)) => {
@@ -838,10 +848,11 @@ fn unwrap_or_clone_rc<T: Clone>(rc: Rc<T>) -> T {
 }
 
 pub fn run_lambda(
+    nix_path: NixPath,
     observer: &mut dyn RuntimeObserver,
     lambda: Rc<Lambda>,
 ) -> EvalResult<RuntimeResult> {
-    let mut vm = VM::new(observer);
+    let mut vm = VM::new(nix_path, observer);
     let value = vm.call(lambda, Upvalues::with_capacity(0), 0)?;
     vm.force_for_output(&value)?;
 

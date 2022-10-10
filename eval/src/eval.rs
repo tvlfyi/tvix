@@ -3,13 +3,14 @@ use std::{cell::RefCell, path::PathBuf, rc::Rc};
 use crate::{
     builtins::global_builtins,
     errors::{Error, ErrorKind, EvalResult},
+    nix_path::NixPath,
     observer::{DisassemblingObserver, NoOpObserver, TracingObserver},
     value::Value,
     SourceCode,
 };
 
 /// Runtime options for the Tvix interpreter
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "repl", derive(clap::Parser))]
 pub struct Options {
     /// Dump the raw AST to stdout before interpreting
@@ -23,6 +24,10 @@ pub struct Options {
     /// Trace the runtime of the VM
     #[cfg_attr(feature = "repl", clap(long, env = "TVIX_TRACE_RUNTIME"))]
     trace_runtime: bool,
+
+    /// A colon-separated list of directories to use to resolve `<...>`-style paths
+    #[cfg_attr(feature = "repl", clap(long, short = 'I', env = "NIX_PATH"))]
+    nix_path: Option<NixPath>,
 }
 
 pub fn interpret(code: &str, location: Option<PathBuf>, options: Options) -> EvalResult<Value> {
@@ -105,9 +110,17 @@ pub fn interpret(code: &str, location: Option<PathBuf>, options: Options) -> Eva
     }
 
     let result = if options.trace_runtime {
-        crate::vm::run_lambda(&mut TracingObserver::new(std::io::stderr()), result.lambda)
+        crate::vm::run_lambda(
+            options.nix_path.unwrap_or_default(),
+            &mut TracingObserver::new(std::io::stderr()),
+            result.lambda,
+        )
     } else {
-        crate::vm::run_lambda(&mut NoOpObserver::default(), result.lambda)
+        crate::vm::run_lambda(
+            options.nix_path.unwrap_or_default(),
+            &mut NoOpObserver::default(),
+            result.lambda,
+        )
     };
 
     if let Err(err) = &result {

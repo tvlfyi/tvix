@@ -188,7 +188,7 @@ impl Compiler<'_> {
     fn compile(&mut self, slot: LocalIdx, expr: &ast::Expr) {
         match expr {
             ast::Expr::Literal(literal) => self.compile_literal(literal),
-            ast::Expr::Path(path) => self.compile_path(path),
+            ast::Expr::Path(path) => self.compile_path(slot, path),
             ast::Expr::Str(s) => self.compile_str(slot, s),
 
             ast::Expr::UnaryOp(op) => self.compile_unary_op(slot, op),
@@ -249,7 +249,7 @@ impl Compiler<'_> {
         self.emit_constant(value, node);
     }
 
-    fn compile_path(&mut self, node: &ast::Path) {
+    fn compile_path(&mut self, slot: LocalIdx, node: &ast::Path) {
         // TODO(tazjin): placeholder implementation while waiting for
         // https://github.com/nix-community/rnix-parser/pull/96
 
@@ -274,13 +274,24 @@ impl Compiler<'_> {
             let mut buf = self.root_dir.clone();
             buf.push(&raw_path);
             buf
-        } else {
+        } else if raw_path.starts_with('<') {
             // TODO: decide what to do with findFile
+            if raw_path.len() == 2 {
+                return self.emit_error(
+                    node,
+                    ErrorKind::PathResolution("Empty <> path not allowed".into()),
+                );
+            }
+            let path = &raw_path[1..(raw_path.len() - 1)];
+            // Make a thunk to resolve the path (without using `findFile`, at least for now?)
+            return self.thunk(slot, node, move |c, _| {
+                c.emit_constant(path.into(), node);
+                c.push_op(OpCode::OpFindFile, node);
+            });
+        } else {
             self.emit_error(
                 node,
-                ErrorKind::NotImplemented(
-                    "other path types (e.g. <...> lookups) not yet implemented",
-                ),
+                ErrorKind::NotImplemented("other path types not yet implemented"),
             );
             return;
         };

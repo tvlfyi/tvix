@@ -66,7 +66,7 @@ fn run_prompt(eval_options: tvix_eval::Options) {
                 }
 
                 rl.add_history_entry(&line);
-                match tvix_eval::interpret(&line, None, eval_options) {
+                match tvix_eval::interpret(&line, None, eval_options.clone()) {
                     Ok(result) => {
                         println!("=> {} :: {}", result, result.type_of());
                     }

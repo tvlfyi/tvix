@@ -112,6 +112,12 @@ pub enum OpCode {
     /// `CoercionKind::Weak`.
     OpCoerceToString,
 
+    // Paths
+    /// Attempt to resolve the Value on the stack using the configured [`NixPath`][]
+    ///
+    /// [`NixPath`]: crate::nix_path::NixPath
+    OpFindFile,
+
     // Type assertion operators
     OpAssertBool,
 
