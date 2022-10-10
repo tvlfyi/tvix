@@ -113,9 +113,9 @@ pub enum OpCode {
     OpCoerceToString,
 
     // Paths
-    /// Attempt to resolve the Value on the stack using the configured [`NixPath`][]
+    /// Attempt to resolve the Value on the stack using the configured [`NixSearchPath`][]
     ///
-    /// [`NixPath`]: crate::nix_path::NixPath
+    /// [`NixSearchPath`]: crate::nix_search_path::NixSearchPath
     OpFindFile,
 
     // Type assertion operators

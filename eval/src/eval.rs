@@ -3,7 +3,7 @@ use std::{cell::RefCell, path::PathBuf, rc::Rc};
 use crate::{
     builtins::global_builtins,
     errors::{Error, ErrorKind, EvalResult},
-    nix_path::NixPath,
+    nix_search_path::NixSearchPath,
     observer::{DisassemblingObserver, NoOpObserver, TracingObserver},
     value::Value,
     SourceCode,
@@ -27,7 +27,7 @@ pub struct Options {
 
     /// A colon-separated list of directories to use to resolve `<...>`-style paths
     #[cfg_attr(feature = "repl", clap(long, short = 'I', env = "NIX_PATH"))]
-    nix_path: Option<NixPath>,
+    nix_search_path: Option<NixSearchPath>,
 }
 
 pub fn interpret(code: &str, location: Option<PathBuf>, options: Options) -> EvalResult<Value> {
@@ -111,13 +111,13 @@ pub fn interpret(code: &str, location: Option<PathBuf>, options: Options) -> Eva
 
     let result = if options.trace_runtime {
         crate::vm::run_lambda(
-            options.nix_path.unwrap_or_default(),
+            options.nix_search_path.unwrap_or_default(),
             &mut TracingObserver::new(std::io::stderr()),
             result.lambda,
         )
     } else {
         crate::vm::run_lambda(
-            options.nix_path.unwrap_or_default(),
+            options.nix_search_path.unwrap_or_default(),
             &mut NoOpObserver::default(),
             result.lambda,
         )

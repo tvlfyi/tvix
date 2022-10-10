@@ -6,11 +6,11 @@ use std::str::FromStr;
 use crate::errors::ErrorKind;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum NixPathEntry {
+enum NixSearchPathEntry {
     /// Resolve subdirectories of this path within `<...>` brackets. This
     /// corresponds to bare paths within the `NIX_PATH` environment variable
     ///
-    /// For example, with `NixPathEntry::Path("/example")` and the following
+    /// For example, with `NixSearchPathEntry::Path("/example")` and the following
     /// directory structure:
     ///
     /// ```notrust
@@ -27,7 +27,7 @@ enum NixPathEntry {
     /// Resolve paths starting with `prefix` as subdirectories of `path`. This
     /// corresponds to `prefix=path` within the `NIX_PATH` environment variable.
     ///
-    /// For example, with `NixPathEntry::Prefix { prefix: "prefix", path:
+    /// For example, with `NixSearchPathEntry::Prefix { prefix: "prefix", path:
     /// "/example" }` and the following directory structure:
     ///
     /// ```notrust
@@ -42,7 +42,7 @@ enum NixPathEntry {
     Prefix { prefix: PathBuf, path: PathBuf },
 }
 
-impl NixPathEntry {
+impl NixSearchPathEntry {
     fn resolve(&self, lookup_path: &Path) -> io::Result<Option<PathBuf>> {
         let resolve_in =
             |parent: &Path, lookup_path: &Path| match parent.join(lookup_path).canonicalize() {
@@ -52,8 +52,8 @@ impl NixPathEntry {
             };
 
         match self {
-            NixPathEntry::Path(p) => resolve_in(p, lookup_path),
-            NixPathEntry::Prefix { prefix, path } => {
+            NixSearchPathEntry::Path(p) => resolve_in(p, lookup_path),
+            NixSearchPathEntry::Prefix { prefix, path } => {
                 if let Ok(child_path) = lookup_path.strip_prefix(prefix) {
                     resolve_in(path, child_path)
                 } else {
@@ -64,7 +64,7 @@ impl NixPathEntry {
     }
 }
 
-impl FromStr for NixPathEntry {
+impl FromStr for NixSearchPathEntry {
     type Err = Infallible;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -83,14 +83,14 @@ impl FromStr for NixPathEntry {
 ///
 /// This struct can be constructed by parsing a string using the [`FromStr`]
 /// impl, or via [`str::parse`]. Nix `<...>` paths can then be resolved using
-/// [`NixPath::resolve`].
+/// [`NixSearchPath::resolve`].
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct NixPath {
-    entries: Vec<NixPathEntry>,
+pub struct NixSearchPath {
+    entries: Vec<NixSearchPathEntry>,
 }
 
-impl NixPath {
-    /// Attempt to resolve the given `path` within this [`NixPath`] using the
+impl NixSearchPath {
+    /// Attempt to resolve the given `path` within this [`NixSearchPath`] using the
     /// path resolution rules for `<...>`-style paths
     #[allow(dead_code)] // TODO(grfn)
     pub fn resolve<P>(&self, path: P) -> Result<PathBuf, ErrorKind>
@@ -110,7 +110,7 @@ impl NixPath {
     }
 }
 
-impl FromStr for NixPath {
+impl FromStr for NixSearchPath {
     type Err = Infallible;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -118,7 +118,7 @@ impl FromStr for NixPath {
             .split(':')
             .map(|s| s.parse())
             .collect::<Result<Vec<_>, _>>()?;
-        Ok(NixPath { entries })
+        Ok(NixSearchPath { entries })
     }
 }
 
@@ -132,11 +132,11 @@ mod tests {
         #[test]
         fn bare_paths() {
             assert_eq!(
-                NixPath::from_str("/foo/bar:/baz").unwrap(),
-                NixPath {
+                NixSearchPath::from_str("/foo/bar:/baz").unwrap(),
+                NixSearchPath {
                     entries: vec![
-                        NixPathEntry::Path("/foo/bar".into()),
-                        NixPathEntry::Path("/baz".into())
+                        NixSearchPathEntry::Path("/foo/bar".into()),
+                        NixSearchPathEntry::Path("/baz".into())
                     ],
                 }
             );
@@ -145,14 +145,14 @@ mod tests {
         #[test]
         fn mixed_prefix_and_paths() {
             assert_eq!(
-                NixPath::from_str("nixpkgs=/my/nixpkgs:/etc/nixos").unwrap(),
-                NixPath {
+                NixSearchPath::from_str("nixpkgs=/my/nixpkgs:/etc/nixos").unwrap(),
+                NixSearchPath {
                     entries: vec![
-                        NixPathEntry::Prefix {
+                        NixSearchPathEntry::Prefix {
                             prefix: "nixpkgs".into(),
                             path: "/my/nixpkgs".into()
                         },
-                        NixPathEntry::Path("/etc/nixos".into())
+                        NixSearchPathEntry::Path("/etc/nixos".into())
                     ],
                 }
             );
@@ -168,15 +168,15 @@ mod tests {
 
         #[test]
         fn simple_dir() {
-            let nix_path = NixPath::from_str("./.").unwrap();
-            let res = nix_path.resolve("src").unwrap();
+            let nix_search_path = NixSearchPath::from_str("./.").unwrap();
+            let res = nix_search_path.resolve("src").unwrap();
             assert_eq!(res, current_dir().unwrap().join("src").clean());
         }
 
         #[test]
         fn failed_resolution() {
-            let nix_path = NixPath::from_str("./.").unwrap();
-            let err = nix_path.resolve("nope").unwrap_err();
+            let nix_search_path = NixSearchPath::from_str("./.").unwrap();
+            let err = nix_search_path.resolve("nope").unwrap_err();
             assert!(
                 matches!(err, ErrorKind::PathResolution(..)),
                 "err = {err:?}"
@@ -185,22 +185,22 @@ mod tests {
 
         #[test]
         fn second_in_path() {
-            let nix_path = NixPath::from_str("./.:/").unwrap();
-            let res = nix_path.resolve("bin").unwrap();
+            let nix_search_path = NixSearchPath::from_str("./.:/").unwrap();
+            let res = nix_search_path.resolve("bin").unwrap();
             assert_eq!(res, Path::new("/bin"));
         }
 
         #[test]
         fn prefix() {
-            let nix_path = NixPath::from_str("/:tvix=.").unwrap();
-            let res = nix_path.resolve("tvix/src").unwrap();
+            let nix_search_path = NixSearchPath::from_str("/:tvix=.").unwrap();
+            let res = nix_search_path.resolve("tvix/src").unwrap();
             assert_eq!(res, current_dir().unwrap().join("src").clean());
         }
 
         #[test]
         fn matching_prefix() {
-            let nix_path = NixPath::from_str("/:tvix=.").unwrap();
-            let res = nix_path.resolve("tvix").unwrap();
+            let nix_search_path = NixSearchPath::from_str("/:tvix=.").unwrap();
+            let res = nix_search_path.resolve("tvix").unwrap();
             assert_eq!(res, current_dir().unwrap().clean());
         }
     }
