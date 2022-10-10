@@ -8,6 +8,9 @@ struct Args {
     /// Path to a script to evaluate
     script: Option<PathBuf>,
 
+    #[clap(long, short = 'E')]
+    expr: Option<String>,
+
     #[clap(flatten)]
     eval_options: tvix_eval::Options,
 }
@@ -17,6 +20,10 @@ fn main() {
 
     if let Some(file) = args.script {
         run_file(file, args.eval_options)
+    } else if let Some(expr) = args.expr {
+        if let Ok(result) = tvix_eval::interpret(&expr, None, args.eval_options) {
+            println!("=> {} :: {}", result, result.type_of())
+        }
     } else {
         run_prompt(args.eval_options)
     }
