@@ -1,6 +1,7 @@
 //! This module implements Nix language strings and their different
 //! backing implementations.
 use smol_str::SmolStr;
+use std::ffi::OsStr;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::path::Path;
@@ -183,6 +184,12 @@ impl Display for NixString {
 impl AsRef<str> for NixString {
     fn as_ref(&self) -> &str {
         self.as_str()
+    }
+}
+
+impl AsRef<OsStr> for NixString {
+    fn as_ref(&self) -> &OsStr {
+        self.as_str().as_ref()
     }
 }
 

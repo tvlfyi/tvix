@@ -1,7 +1,8 @@
 use std::{
     cell::RefCell,
     collections::{BTreeMap, HashMap},
-    io,
+    fs::File,
+    io::{self, Read},
     rc::Rc,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -51,6 +52,11 @@ fn impure_builtins() -> Vec<Builtin> {
                 );
             }
             Ok(Value::attrs(NixAttrs::from_map(res)))
+        }),
+        Builtin::new("readFile", &[true], |args: Vec<Value>, vm: &mut VM| {
+            let mut buf = String::new();
+            File::open(&super::coerce_value_to_path(&args[0], vm)?)?.read_to_string(&mut buf)?;
+            Ok(buf.into())
         }),
     ]
 }
