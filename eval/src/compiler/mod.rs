@@ -212,7 +212,9 @@ impl Compiler<'_> {
             ast::Expr::Assert(assert) => {
                 self.thunk(slot, assert, move |c, s| c.compile_assert(s, assert))
             }
-            ast::Expr::IfElse(if_else) => self.compile_if_else(slot, if_else),
+            ast::Expr::IfElse(if_else) => {
+                self.thunk(slot, if_else, move |c, s| c.compile_if_else(s, if_else))
+            }
             ast::Expr::LetIn(let_in) => self.compile_let_in(slot, let_in),
             ast::Expr::Ident(ident) => self.compile_ident(slot, ident),
             ast::Expr::With(with) => self.thunk(slot, with, |c, s| c.compile_with(s, with)),
