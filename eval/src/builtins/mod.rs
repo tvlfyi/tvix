@@ -174,6 +174,14 @@ fn pure_builtins() -> Vec<Builtin> {
             &[false, false],
             |args: Vec<Value>, vm: &mut VM| arithmetic_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, /),
         ),
+        Builtin::new("elem", &[true, true], |args: Vec<Value>, vm: &mut VM| {
+            for val in args[1].to_list()? {
+                if val.nix_eq(&args[0], vm)? {
+                    return Ok(true.into());
+                }
+            }
+            Ok(false.into())
+        }),
         Builtin::new("elemAt", &[true, true], |args: Vec<Value>, _: &mut VM| {
             let xs = args[0].to_list()?;
             let i = args[1].as_int()?;
