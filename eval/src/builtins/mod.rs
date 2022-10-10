@@ -271,6 +271,11 @@ fn pure_builtins() -> Vec<Builtin> {
                 Ok(res)
             },
         ),
+        Builtin::new("fromJSON", &[true], |args: Vec<Value>, _: &mut VM| {
+            let json_str = args[0].to_str()?;
+            let json: serde_json::Value = serde_json::from_str(&json_str)?;
+            json.try_into()
+        }),
         Builtin::new("genList", &[true, true], |args: Vec<Value>, vm: &mut VM| {
             let len = args[1].as_int()?;
             (0..len)

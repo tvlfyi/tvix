@@ -390,6 +390,54 @@ impl From<PathBuf> for Value {
     }
 }
 
+impl From<Vec<Value>> for Value {
+    fn from(val: Vec<Value>) -> Self {
+        Self::List(NixList::from(val))
+    }
+}
+
+impl TryFrom<serde_json::Value> for Value {
+    type Error = ErrorKind;
+
+    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+        // TODO(grfn): Replace with a real serde::Deserialize impl (for perf)
+        match value {
+            serde_json::Value::Null => Ok(Self::Null),
+            serde_json::Value::Bool(b) => Ok(Self::Bool(b)),
+            serde_json::Value::Number(n) => {
+                if let Some(i) = n.as_i64() {
+                    Ok(Self::Integer(i))
+                } else if let Some(f) = n.as_f64() {
+                    Ok(Self::Float(f))
+                } else {
+                    Err(ErrorKind::FromJsonError(format!(
+                        "JSON number not representable as Nix value: {n}"
+                    )))
+                }
+            }
+            serde_json::Value::String(s) => Ok(s.into()),
+            serde_json::Value::Array(a) => Ok(a
+                .into_iter()
+                .map(Value::try_from)
+                .collect::<Result<Vec<_>, _>>()?
+                .into()),
+            serde_json::Value::Object(obj) => {
+                match (obj.len(), obj.get("name"), obj.get("value")) {
+                    (2, Some(name), Some(value)) => Ok(Self::attrs(NixAttrs::from_kv(
+                        name.clone().try_into()?,
+                        value.clone().try_into()?,
+                    ))),
+                    _ => Ok(Self::attrs(NixAttrs::from_map(
+                        obj.into_iter()
+                            .map(|(k, v)| Ok((k.into(), v.try_into()?)))
+                            .collect::<Result<_, ErrorKind>>()?,
+                    ))),
+                }
+            }
+        }
+    }
+}
+
 fn type_error(expected: &'static str, actual: &Value) -> ErrorKind {
     ErrorKind::TypeError {
         expected,
