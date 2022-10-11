@@ -17,6 +17,7 @@ maybe to get rid of the behavior in all implementations for good. Below is an
 * [Behaviour of nested attribute sets depends on definition order][i7111]
 * [Partially constructed attribute sets are observable during dynamic attr names construction][i7012]
 * [Nix parsers merges multiple attribute set literals for the same key incorrectly depending on definition order](i7115)
+* [builtins.foldl' doesn't seem to be strict](p7158)
 
 On the other hand, there is behavior that seems to violate one's expectation
 about the language at first, but has good enough reasons from an implementor's
@@ -37,3 +38,4 @@ perspective to keep them:
 [i7111]: https://github.com/NixOS/nix/issues/7111
 [i7012]: https://github.com/NixOS/nix/issues/7012
 [i7115]: https://github.com/NixOS/nix/issues/7115
+[p7158]: https://github.com/NixOS/nix/pull/7158
