@@ -276,6 +276,7 @@ impl Value {
     gen_cast!(to_list, NixList, "list", Value::List(l), l.clone());
     gen_cast!(to_closure, Closure, "lambda", Value::Closure(c), c.clone());
 
+    gen_is!(is_path, Value::Path(_));
     gen_is!(is_number, Value::Integer(_) | Value::Float(_));
     gen_is!(is_bool, Value::Bool(_));
 
