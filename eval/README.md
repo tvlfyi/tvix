@@ -19,7 +19,7 @@ have.
 
 If you are in a full checkout of the TVL depot, you can simply run `mg
 build` in this directory (or `mg build //tvix/eval` from anywhere in
-the repo).
+the repo).  The `mg` command is found in `/tools/magrathea`.
 
 **Important note:** We only use and test Nix builds of our software
 against Nix 2.3. There are a variety of bugs and subtle problems in
