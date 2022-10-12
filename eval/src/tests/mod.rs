@@ -1,4 +1,5 @@
 use crate::eval::interpret;
+use crate::eval::Options;
 use pretty_assertions::assert_eq;
 
 use test_generator::test_resources;
@@ -12,7 +13,7 @@ fn eval_okay_test(code_path: &str) {
     let code = std::fs::read_to_string(code_path).expect("should be able to read test code");
     let exp = std::fs::read_to_string(exp_path).expect("should be able to read test expectation");
 
-    let result = interpret(&code, Some(code_path.into()), Default::default())
+    let result = interpret(&code, Some(code_path.into()), Options::test_options())
         .expect("evaluation of eval-okay test should succeed");
     let result_str = format!("{}", result);
 
@@ -29,7 +30,7 @@ fn eval_okay_test(code_path: &str) {
 fn identity(code_path: &str) {
     let code = std::fs::read_to_string(code_path).expect("should be able to read test code");
 
-    let result = interpret(&code, None, Default::default())
+    let result = interpret(&code, None, Options::test_options())
         .expect("evaluation of identity test should succeed");
     let result_str = format!("{}", result);
 

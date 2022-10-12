@@ -25,9 +25,26 @@ pub struct Options {
     #[cfg_attr(feature = "repl", clap(long, env = "TVIX_TRACE_RUNTIME"))]
     trace_runtime: bool,
 
+    /// Print warnings
+    #[cfg_attr(
+        feature = "repl",
+        clap(long, env = "TVIX_WARNINGS", default_value = "true")
+    )]
+    warnings: bool,
+
     /// A colon-separated list of directories to use to resolve `<...>`-style paths
     #[cfg_attr(feature = "repl", clap(long, short = 'I', env = "NIX_PATH"))]
     nix_search_path: Option<NixSearchPath>,
+}
+
+impl Options {
+    #[cfg(test)]
+    pub(crate) fn test_options() -> Options {
+        Options {
+            warnings: false,
+            ..Options::default()
+        }
+    }
 }
 
 pub fn interpret(code: &str, location: Option<PathBuf>, options: Options) -> EvalResult<Value> {
@@ -97,8 +114,10 @@ pub fn interpret(code: &str, location: Option<PathBuf>, options: Options) -> Eva
         )
     }?;
 
-    for warning in result.warnings {
-        warning.fancy_format_stderr(&source);
+    if options.warnings {
+        for warning in result.warnings {
+            warning.fancy_format_stderr(&source);
+        }
     }
 
     for error in &result.errors {
@@ -128,10 +147,11 @@ pub fn interpret(code: &str, location: Option<PathBuf>, options: Options) -> Eva
     }
 
     result.map(|r| {
-        for warning in r.warnings {
-            warning.fancy_format_stderr(&source);
+        if options.warnings {
+            for warning in r.warnings {
+                warning.fancy_format_stderr(&source);
+            }
         }
-
         r.value
     })
 }
