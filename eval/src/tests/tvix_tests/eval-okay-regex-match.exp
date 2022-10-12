@@ -1,0 +1,1 @@
+[ true true false true true true true false false true false [ "foobar" ] [ "FOO" ] [ "/path/to/" "/path/to" "foobar" "nix" ] [ null null "foobar" "cc" ] ]

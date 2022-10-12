@@ -7,6 +7,8 @@ use std::cmp;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 
+use regex::Regex;
+
 use crate::{
     errors::ErrorKind,
     value::{Builtin, CoercionKind, NixAttrs, NixList, NixString, Value},
@@ -381,6 +383,24 @@ fn pure_builtins() -> Vec<Builtin> {
                 .map(|list| Value::List(NixList::from(list)))
                 .map_err(Into::into)
         }),
+        Builtin::new(
+            "match",
+            &[true, true],
+            |mut args: Vec<Value>, _: &mut VM| {
+                let s = args.pop().unwrap().to_str()?;
+                let re = args.pop().unwrap().to_str()?;
+                let re: Regex = Regex::new(&format!("^{}$", re.as_str())).unwrap();
+                match re.captures(&s) {
+                    Some(caps) => Ok(caps
+                        .iter()
+                        .skip(1)
+                        .map(|grp| grp.map(|g| Value::from(g.as_str())).unwrap_or(Value::Null))
+                        .collect::<Vec<Value>>()
+                        .into()),
+                    None => Ok(Value::Null),
+                }
+            },
+        ),
         Builtin::new(
             "mul",
             &[false, false],
