@@ -381,18 +381,6 @@ impl From<i64> for Value {
     }
 }
 
-impl From<&str> for Value {
-    fn from(val: &str) -> Self {
-        Self::String(val.into())
-    }
-}
-
-impl From<String> for Value {
-    fn from(val: String) -> Self {
-        Self::String(val.into())
-    }
-}
-
 impl From<PathBuf> for Value {
     fn from(path: PathBuf) -> Self {
         Self::Path(path)
