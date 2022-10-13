@@ -11,6 +11,7 @@ mod attrs;
 mod builtin;
 mod function;
 mod list;
+mod path;
 mod string;
 mod thunk;
 
@@ -21,6 +22,7 @@ pub use attrs::NixAttrs;
 pub use builtin::Builtin;
 pub use function::{Closure, Lambda};
 pub use list::NixList;
+pub use path::canon_path;
 pub use string::NixString;
 pub use thunk::Thunk;
 

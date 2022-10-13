@@ -3,8 +3,6 @@
 
 use std::{cell::RefMut, path::PathBuf, rc::Rc};
 
-use path_clean::PathClean;
-
 use crate::{
     chunk::Chunk,
     errors::{Error, ErrorKind, EvalResult},
@@ -396,7 +394,7 @@ impl<'o> VM<'o> {
                             &v.coerce_to_string(CoercionKind::Weak, self)
                                 .map_err(|ek| self.error(ek))?,
                         );
-                        PathBuf::from(path).clean().into()
+                        crate::value::canon_path(PathBuf::from(path)).into()
                     }
                     _ => fallible!(self, arithmetic_op!(&a, &b, +)),
                 };

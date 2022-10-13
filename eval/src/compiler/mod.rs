@@ -17,7 +17,6 @@ mod bindings;
 mod scope;
 
 use codemap::Span;
-use path_clean::PathClean;
 use rnix::ast::{self, AstToken};
 use smol_str::SmolStr;
 use std::cell::RefCell;
@@ -300,7 +299,7 @@ impl Compiler<'_> {
 
         // TODO: Use https://github.com/rust-lang/rfcs/issues/2208
         // once it is available
-        let value = Value::Path(path.clean());
+        let value = Value::Path(crate::value::canon_path(path));
         self.emit_constant(value, node);
     }
 
