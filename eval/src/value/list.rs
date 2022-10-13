@@ -102,3 +102,13 @@ impl IntoIterator for NixList {
         self.0.into_iter()
     }
 }
+
+impl<'a> IntoIterator for &'a NixList {
+    type Item = &'a Value;
+
+    type IntoIter = std::slice::Iter<'a, Value>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}

@@ -20,6 +20,7 @@
 
 use std::{
     cell::{Ref, RefCell, RefMut},
+    collections::HashSet,
     fmt::Display,
     rc::Rc,
 };
@@ -86,13 +87,12 @@ impl Thunk {
         })))
     }
 
-    /// Evaluate the content of a thunk, potentially repeatedly, until
-    /// a non-thunk value is returned.
+    /// Evaluate the content of a thunk, potentially repeatedly, until a
+    /// non-thunk value is returned.
     ///
-    /// This will change the existing thunk (and thus all references
-    /// to it, providing memoization) through interior mutability. In
-    /// case of nested thunks, the intermediate thunk representations
-    /// are replaced.
+    /// This will change the existing thunk (and thus all references to it,
+    /// providing memoization) through interior mutability. In case of nested
+    /// thunks, the intermediate thunk representations are replaced.
     pub fn force(&self, vm: &mut VM) -> Result<(), ErrorKind> {
         loop {
             let mut thunk_mut = self.0.borrow_mut();
@@ -198,5 +198,22 @@ impl Display for Thunk {
 
             _ => f.write_str("internal[thunk]"),
         }
+    }
+}
+
+/// A wrapper type for tracking which thunks have already been seen in a
+/// context. This is necessary for cycle detection.
+///
+/// The inner `HashSet` is not available on the outside, as it would be
+/// potentially unsafe to interact with the pointers in the set.
+#[derive(Default)]
+pub struct ThunkSet(HashSet<*mut ThunkRepr>);
+
+impl ThunkSet {
+    /// Check whether the given thunk has already been seen. Will mark the thunk
+    /// as seen otherwise.
+    pub fn insert(&mut self, thunk: &Thunk) -> bool {
+        let ptr: *mut ThunkRepr = thunk.0.as_ptr();
+        self.0.insert(ptr)
     }
 }

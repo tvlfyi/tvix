@@ -27,6 +27,8 @@ pub use path::canon_path;
 pub use string::NixString;
 pub use thunk::Thunk;
 
+use self::thunk::ThunkSet;
+
 #[warn(variant_size_differences)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
@@ -339,6 +341,49 @@ impl Value {
                 Ok(ForceResult::ForcedThunk(thunk.value()))
             }
             _ => Ok(ForceResult::Immediate(self)),
+        }
+    }
+
+    /// Ensure `self` is *deeply* forced, including all recursive sub-values
+    pub(crate) fn deep_force(
+        &self,
+        vm: &mut VM,
+        thunk_set: &mut ThunkSet,
+    ) -> Result<(), ErrorKind> {
+        match self {
+            Value::Null
+            | Value::Bool(_)
+            | Value::Integer(_)
+            | Value::Float(_)
+            | Value::String(_)
+            | Value::Path(_)
+            | Value::Closure(_)
+            | Value::Builtin(_)
+            | Value::AttrNotFound
+            | Value::Blueprint(_)
+            | Value::DeferredUpvalue(_)
+            | Value::UnresolvedPath(_) => Ok(()),
+            Value::Attrs(a) => {
+                for (_, v) in a.iter() {
+                    v.deep_force(vm, thunk_set)?;
+                }
+                Ok(())
+            }
+            Value::List(l) => {
+                for val in l {
+                    val.deep_force(vm, thunk_set)?;
+                }
+                Ok(())
+            }
+            Value::Thunk(thunk) => {
+                if !thunk_set.insert(thunk) {
+                    return Ok(());
+                }
+
+                thunk.force(vm)?;
+                let value = thunk.value().clone();
+                value.deep_force(vm, thunk_set)
+            }
         }
     }
 }

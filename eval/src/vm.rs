@@ -3,8 +3,6 @@
 
 use std::{ops::DerefMut, path::PathBuf, rc::Rc};
 
-use codemap::Span;
-
 use crate::{
     chunk::Chunk,
     errors::{Error, ErrorKind, EvalResult},
@@ -858,57 +856,6 @@ impl<'o> VM<'o> {
         Ok(())
     }
 
-    /// Strictly evaluate the supplied value for outputting it. This
-    /// will ensure that lists and attribute sets do not contain
-    /// chunks which, for users, are displayed in a strange and often
-    /// unexpected way.
-    fn force_for_output(&mut self, value: &Value, root_span: Span) -> EvalResult<()> {
-        match value {
-            Value::Attrs(attrs) => {
-                for (_, value) in attrs.iter() {
-                    self.force_for_output(value, root_span)?;
-                }
-                Ok(())
-            }
-
-            Value::List(list) => list
-                .iter()
-                .try_for_each(|elem| self.force_for_output(elem, root_span)),
-
-            Value::Thunk(thunk) => {
-                // This force is "synthetic", in that there is no
-                // outer expression from which a top-level span for
-                // the call can be derived, so we need to set this
-                // span manually.
-                thunk.force(self).map_err(|kind| Error {
-                    kind,
-                    span: root_span,
-                })?;
-
-                let value = thunk.value().clone();
-                self.force_for_output(&value, root_span)
-            }
-
-            // If any of these internal values are encountered here a
-            // critical error has happened (likely a compiler bug).
-            Value::AttrNotFound
-            | Value::Blueprint(_)
-            | Value::DeferredUpvalue(_)
-            | Value::UnresolvedPath(_) => {
-                panic!("tvix bug: internal value left on stack: {:?}", value)
-            }
-
-            Value::Null
-            | Value::Bool(_)
-            | Value::Integer(_)
-            | Value::Float(_)
-            | Value::String(_)
-            | Value::Path(_)
-            | Value::Closure(_)
-            | Value::Builtin(_) => Ok(()),
-        }
-    }
-
     pub fn call_builtin(&mut self, builtin: Builtin) -> EvalResult<()> {
         let builtin_name = builtin.name();
         self.observer.observe_enter_builtin(builtin_name);
@@ -939,8 +886,8 @@ pub fn run_lambda(
     let mut vm = VM::new(nix_search_path, observer);
 
     // Retain the top-level span of the expression in this lambda, as
-    // synthetic "calls" in force_for_output will otherwise not have a
-    // span to fall back to.
+    // synthetic "calls" in deep_force will otherwise not have a span
+    // to fall back to.
     //
     // We exploit the fact that the compiler emits a final instruction
     // with the span of the entire file for top-level expressions.
@@ -948,7 +895,13 @@ pub fn run_lambda(
 
     vm.enter_frame(lambda, Upvalues::with_capacity(0), 0)?;
     let value = vm.pop();
-    vm.force_for_output(&value, root_span)?;
+
+    value
+        .deep_force(&mut vm, &mut Default::default())
+        .map_err(|kind| Error {
+            kind,
+            span: root_span,
+        })?;
 
     Ok(RuntimeResult {
         value,

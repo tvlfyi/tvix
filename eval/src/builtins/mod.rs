@@ -192,6 +192,16 @@ fn pure_builtins() -> Vec<Builtin> {
             },
         ),
         Builtin::new(
+            "deepSeq",
+            &[true, true],
+            |mut args: Vec<Value>, vm: &mut VM| {
+                let arg2 = args.pop().unwrap();
+                let arg1 = args.pop().unwrap();
+                arg1.deep_force(vm, &mut Default::default())?;
+                Ok(arg2)
+            },
+        ),
+        Builtin::new(
             "div",
             &[false, false],
             |args: Vec<Value>, vm: &mut VM| arithmetic_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, /),
