@@ -127,6 +127,10 @@ mod arbitrary {
 }
 
 impl NixAttrs {
+    pub fn empty() -> Self {
+        Self(AttrsRep::Empty)
+    }
+
     /// Return an attribute set containing the merge of the two
     /// provided sets. Keys from the `other` set have precedence.
     pub fn update(self, other: Self) -> Self {

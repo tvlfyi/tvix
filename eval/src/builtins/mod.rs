@@ -273,6 +273,21 @@ fn pure_builtins() -> Vec<Builtin> {
                 Ok(res)
             },
         ),
+        Builtin::new("functionArgs", &[true], |args: Vec<Value>, _: &mut VM| {
+            let lambda = args[0].to_closure()?.lambda();
+            let formals = if let Some(formals) = &lambda.formals {
+                formals
+            } else {
+                return Ok(Value::attrs(NixAttrs::empty()));
+            };
+            Ok(Value::attrs(NixAttrs::from_map(
+                formals
+                    .arguments
+                    .iter()
+                    .map(|(k, v)| (k.clone(), (*v).into()))
+                    .collect(),
+            )))
+        }),
         Builtin::new("fromJSON", &[true], |args: Vec<Value>, _: &mut VM| {
             let json_str = args[0].to_str()?;
             let json: serde_json::Value = serde_json::from_str(&json_str)?;
