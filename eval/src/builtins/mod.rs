@@ -50,14 +50,14 @@ pub fn coerce_value_to_path(v: &Value, vm: &mut VM) -> Result<PathBuf, ErrorKind
 /// WASM).
 fn pure_builtins() -> Vec<Builtin> {
     vec![
+        Builtin::new("abort", &[true], |args: Vec<Value>, _: &mut VM| {
+            Err(ErrorKind::Abort(args[0].to_str()?.to_string()))
+        }),
         Builtin::new(
             "add",
             &[false, false],
             |args: Vec<Value>, vm: &mut VM| arithmetic_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, +),
         ),
-        Builtin::new("abort", &[true], |args: Vec<Value>, _: &mut VM| {
-            Err(ErrorKind::Abort(args[0].to_str()?.to_string()))
-        }),
         Builtin::new("all", &[true, true], |args: Vec<Value>, vm: &mut VM| {
             for value in args[1].to_list()?.into_iter() {
                 let pred_result = vm.call_with(&args[0], [value])?;
@@ -276,23 +276,6 @@ fn pure_builtins() -> Vec<Builtin> {
                 }),
             }
         }),
-        Builtin::new("length", &[true], |args: Vec<Value>, _: &mut VM| {
-            Ok(Value::Integer(args[0].to_list()?.len() as i64))
-        }),
-        Builtin::new("map", &[true, true], |args: Vec<Value>, vm: &mut VM| {
-            let list: NixList = args[1].to_list()?;
-
-            list.into_iter()
-                .map(|val| vm.call_with(&args[0], [val]))
-                .collect::<Result<Vec<Value>, _>>()
-                .map(|list| Value::List(NixList::from(list)))
-                .map_err(Into::into)
-        }),
-        Builtin::new(
-            "lessThan",
-            &[false, false],
-            |args: Vec<Value>, vm: &mut VM| cmp_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, <),
-        ),
         Builtin::new("hasAttr", &[true, true], |args: Vec<Value>, _: &mut VM| {
             let k = args[0].to_str()?;
             let xs = args[1].to_attrs()?;
@@ -345,6 +328,14 @@ fn pure_builtins() -> Vec<Builtin> {
             let value = args[0].force(vm)?;
             Ok(Value::Bool(matches!(*value, Value::String(_))))
         }),
+        Builtin::new("length", &[true], |args: Vec<Value>, _: &mut VM| {
+            Ok(Value::Integer(args[0].to_list()?.len() as i64))
+        }),
+        Builtin::new(
+            "lessThan",
+            &[false, false],
+            |args: Vec<Value>, vm: &mut VM| cmp_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, <),
+        ),
         Builtin::new("listToAttrs", &[true], |args: Vec<Value>, vm: &mut VM| {
             let list = args[0].to_list()?;
             let mut map = BTreeMap::new();
@@ -362,29 +353,19 @@ fn pure_builtins() -> Vec<Builtin> {
             }
             Ok(Value::attrs(NixAttrs::from_map(map)))
         }),
+        Builtin::new("map", &[true, true], |args: Vec<Value>, vm: &mut VM| {
+            let list: NixList = args[1].to_list()?;
+
+            list.into_iter()
+                .map(|val| vm.call_with(&args[0], [val]))
+                .collect::<Result<Vec<Value>, _>>()
+                .map(|list| Value::List(NixList::from(list)))
+                .map_err(Into::into)
+        }),
         Builtin::new(
             "mul",
             &[false, false],
             |args: Vec<Value>, vm: &mut VM| arithmetic_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, *),
-        ),
-        Builtin::new(
-            "removeAttrs",
-            &[true, true],
-            |args: Vec<Value>, _: &mut VM| {
-                let attrs = args[0].to_attrs()?;
-                let keys = args[1]
-                    .to_list()?
-                    .into_iter()
-                    .map(|v| v.to_str())
-                    .collect::<Result<HashSet<_>, _>>()?;
-                let mut res = BTreeMap::new();
-                for (k, v) in attrs.iter() {
-                    if !keys.contains(k) {
-                        res.insert(k.clone(), v.clone());
-                    }
-                }
-                Ok(Value::attrs(NixAttrs::from_map(res)))
-            },
         ),
         Builtin::new("parseDrvName", &[true], |args: Vec<Value>, _vm: &mut VM| {
             // This replicates cppnix's (mis?)handling of codepoints
@@ -411,6 +392,25 @@ fn pure_builtins() -> Vec<Builtin> {
                 ("version".into(), version),
             ]))))
         }),
+        Builtin::new(
+            "removeAttrs",
+            &[true, true],
+            |args: Vec<Value>, _: &mut VM| {
+                let attrs = args[0].to_attrs()?;
+                let keys = args[1]
+                    .to_list()?
+                    .into_iter()
+                    .map(|v| v.to_str())
+                    .collect::<Result<HashSet<_>, _>>()?;
+                let mut res = BTreeMap::new();
+                for (k, v) in attrs.iter() {
+                    if !keys.contains(k) {
+                        res.insert(k.clone(), v.clone());
+                    }
+                }
+                Ok(Value::attrs(NixAttrs::from_map(res)))
+            },
+        ),
         Builtin::new("splitVersion", &[true], |args: Vec<Value>, _: &mut VM| {
             let s = args[0].to_str()?;
             let s = VersionPartsIter::new(s.as_str());
@@ -480,6 +480,12 @@ fn pure_builtins() -> Vec<Builtin> {
         Builtin::new("throw", &[true], |args: Vec<Value>, _: &mut VM| {
             Err(ErrorKind::Throw(args[0].to_str()?.to_string()))
         }),
+        // coerce_to_string forces for us
+        Builtin::new("toString", &[false], |args: Vec<Value>, vm: &mut VM| {
+            args[0]
+                .coerce_to_string(CoercionKind::Strong, vm)
+                .map(Value::String)
+        }),
         Builtin::new(
             "trace",
             &[true, true],
@@ -506,12 +512,6 @@ fn pure_builtins() -> Vec<Builtin> {
                 Err(e) => return Err(e),
             }
             Ok(Value::attrs(NixAttrs::from_map(res)))
-        }),
-        // coerce_to_string forces for us
-        Builtin::new("toString", &[false], |args: Vec<Value>, vm: &mut VM| {
-            args[0]
-                .coerce_to_string(CoercionKind::Strong, vm)
-                .map(Value::String)
         }),
         Builtin::new("typeOf", &[false], |args: Vec<Value>, vm: &mut VM| {
             // We force manually here because it also unwraps the Thunk
