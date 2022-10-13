@@ -100,7 +100,6 @@ pub enum OpCode {
     OpPushWith(StackIdx),
     OpPopWith,
     OpResolveWith,
-    OpResolveWithOrUpvalue(UpvalueIdx),
 
     // Lists
     OpList(Count),

@@ -597,25 +597,6 @@ impl<'o> VM<'o> {
                 self.push(value)
             }
 
-            OpCode::OpResolveWithOrUpvalue(idx) => {
-                let ident = fallible!(self, self.pop().to_str());
-                match self.resolve_with(ident.as_str()) {
-                    // Variable found in local `with`-stack.
-                    Ok(value) => self.push(value),
-
-                    // Variable not found => check upvalues.
-                    Err(Error {
-                        kind: ErrorKind::UnknownDynamicVariable(_),
-                        ..
-                    }) => {
-                        let value = self.frame().upvalue(idx).clone();
-                        self.push(value);
-                    }
-
-                    Err(err) => return Err(err),
-                }
-            }
-
             OpCode::OpAssertFail => {
                 return Err(self.error(ErrorKind::AssertionFailed));
             }
