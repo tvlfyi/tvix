@@ -381,10 +381,10 @@ fn pure_builtins() -> Vec<Builtin> {
                 Ok(Value::attrs(NixAttrs::from_map(res)))
             },
         ),
-        Builtin::new("parseDrvName", &[true], |args: Vec<Value>, vm: &mut VM| {
+        Builtin::new("parseDrvName", &[true], |args: Vec<Value>, _vm: &mut VM| {
             // This replicates cppnix's (mis?)handling of codepoints
             // above U+007f following 0x2d ('-')
-            let s = args[0].coerce_to_string(CoercionKind::Weak, vm)?;
+            let s = args[0].to_str()?;
             let slice: &[u8] = s.as_str().as_ref();
             let (name, dash_and_version) = slice.split_at(
                 slice
