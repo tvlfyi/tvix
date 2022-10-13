@@ -490,6 +490,11 @@ fn pure_builtins() -> Vec<Builtin> {
                 Ok(Value::attrs(NixAttrs::from_map(res)))
             },
         ),
+        Builtin::new("seq", &[true, true], |mut args: Vec<Value>, _: &mut VM| {
+            // The builtin calling infra has already forced both args for us, so we just return the
+            // second and ignore the first
+            Ok(args.pop().unwrap())
+        }),
         Builtin::new("splitVersion", &[true], |args: Vec<Value>, _: &mut VM| {
             let s = args[0].to_str()?;
             let s = VersionPartsIter::new(s.as_str());
