@@ -21,12 +21,11 @@ use self::versions::{VersionPart, VersionPartsIter};
 pub mod impure;
 pub mod versions;
 
-/// Coerce a Nix Value to a plain path, e.g. in order to access the file it
-/// points to in an I/O builtin. This coercion can _never_ be performed in
-/// a Nix program directly (i.e. the trick `path: /. + path` to convert from
-/// a string to a path wouldn't hit this code), so the target file
-/// doesn't need to be realised or imported into the Nix store.
-#[allow(dead_code)] // TODO(sterni): remove this once the function is in use
+/// Coerce a Nix Value to a plain path, e.g. in order to access the
+/// file it points to via either `builtins.toPath` or an impure
+/// builtin. This coercion can _never_ be performed in a Nix program
+/// without using builtins (i.e. the trick `path: /. + path` to
+/// convert from a string to a path wouldn't hit this code).
 pub fn coerce_value_to_path(v: &Value, vm: &mut VM) -> Result<PathBuf, ErrorKind> {
     let value = v.force(vm)?;
     match &*value {
@@ -512,6 +511,10 @@ fn pure_builtins() -> Vec<Builtin> {
                 Err(e) => return Err(e),
             }
             Ok(Value::attrs(NixAttrs::from_map(res)))
+        }),
+        Builtin::new("toPath", &[false], |args: Vec<Value>, vm: &mut VM| {
+            let path: Value = crate::value::canon_path(coerce_value_to_path(&args[0], vm)?).into();
+            Ok(path.coerce_to_string(CoercionKind::Weak, vm)?.into())
         }),
         Builtin::new("typeOf", &[false], |args: Vec<Value>, vm: &mut VM| {
             // We force manually here because it also unwraps the Thunk
