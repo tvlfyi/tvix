@@ -186,8 +186,8 @@ mod tests {
         #[test]
         fn second_in_path() {
             let nix_search_path = NixSearchPath::from_str("./.:/").unwrap();
-            let res = nix_search_path.resolve("bin").unwrap();
-            assert_eq!(res, Path::new("/bin"));
+            let res = nix_search_path.resolve("etc").unwrap();
+            assert_eq!(res, Path::new("/etc"));
         }
 
         #[test]
