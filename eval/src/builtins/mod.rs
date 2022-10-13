@@ -309,6 +309,21 @@ fn pure_builtins() -> Vec<Builtin> {
                 None => Err(ErrorKind::IndexOutOfBounds { index: 0 }),
             }
         }),
+        Builtin::new(
+            "intersectAttrs",
+            &[true, true],
+            |args: Vec<Value>, _: &mut VM| {
+                let mut res = BTreeMap::new();
+                let attrs1 = args[0].to_attrs()?;
+                let attrs2 = args[1].to_attrs()?;
+                for (k, v) in attrs2.iter() {
+                    if attrs1.contains(k) {
+                        res.insert(k.clone(), v.clone());
+                    }
+                }
+                Ok(Value::attrs(NixAttrs::from_map(res)))
+            },
+        ),
         // For `is*` predicates we force manually, as Value::force also unwraps any Thunks
         Builtin::new("isAttrs", &[false], |args: Vec<Value>, vm: &mut VM| {
             let value = args[0].force(vm)?;
