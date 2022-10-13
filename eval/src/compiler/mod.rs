@@ -112,7 +112,7 @@ impl<'observer> Compiler<'observer> {
         observer: &'observer mut dyn CompilerObserver,
     ) -> EvalResult<Self> {
         let mut root_dir = match location {
-            Some(dir) if dir.is_absolute() => Ok(dir),
+            Some(dir) if cfg!(target_arch = "wasm32") || dir.is_absolute() => Ok(dir),
             _ => {
                 let current_dir = std::env::current_dir().map_err(|e| Error {
                     kind: ErrorKind::PathResolution(format!(
@@ -138,7 +138,9 @@ impl<'observer> Compiler<'observer> {
 
         let globals = globals.borrow();
 
+        #[cfg(not(target_arch = "wasm32"))]
         debug_assert!(root_dir.is_absolute());
+
         Ok(Self {
             root_dir,
             file,
