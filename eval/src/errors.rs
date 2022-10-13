@@ -1,5 +1,5 @@
 use crate::spans::ToSpan;
-use crate::value::CoercionKind;
+use crate::value::{CoercionKind, NixString};
 use std::io;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -131,6 +131,12 @@ pub enum ErrorKind {
 
     /// Errors converting JSON to a value
     FromJsonError(String),
+
+    /// An unexpected argument was supplied to a function that takes formal parameters
+    UnexpectedArgument {
+        arg: NixString,
+        formals_span: Span,
+    },
 
     /// Tvix internal warning for features triggered by users that are
     /// not actually implemented yet, and without which eval can not
@@ -355,6 +361,14 @@ to a missing value in the attribute set(s) included via `with`."#,
 
             ErrorKind::FromJsonError(msg) => {
                 write!(f, "Error converting JSON to a Nix value: {msg}")
+            }
+
+            ErrorKind::UnexpectedArgument { arg, .. } => {
+                write!(
+                    f,
+                    "Unexpected argument `{}` supplied to function",
+                    arg.as_str()
+                )
             }
 
             ErrorKind::NotImplemented(feature) => {
@@ -606,6 +620,7 @@ impl Error {
             ErrorKind::DuplicateAttrsKey { .. } => "in this attribute set",
             ErrorKind::InvalidAttributeName(_) => "in this attribute set",
             ErrorKind::PathResolution(_) => "in this path literal",
+            ErrorKind::UnexpectedArgument { .. } => "in this function call",
 
             // The spans for some errors don't have any more descriptive stuff
             // in them, or we don't utilise it yet.
@@ -675,6 +690,7 @@ impl Error {
             ErrorKind::ImportCompilerError { .. } => "E028",
             ErrorKind::IO { .. } => "E029",
             ErrorKind::FromJsonError { .. } => "E030",
+            ErrorKind::UnexpectedArgument { .. } => "E031",
 
             // Placeholder error while Tvix is under construction.
             ErrorKind::NotImplemented(_) => "E999",
@@ -718,6 +734,21 @@ impl Error {
                 }
 
                 labels
+            }
+
+            ErrorKind::UnexpectedArgument { formals_span, .. } => {
+                vec![
+                    SpanLabel {
+                        label: self.span_label(),
+                        span: self.span,
+                        style: SpanStyle::Primary,
+                    },
+                    SpanLabel {
+                        label: Some("the accepted arguments".into()),
+                        span: *formals_span,
+                        style: SpanStyle::Secondary,
+                    },
+                ]
             }
 
             // All other errors pretty much have the same shape.

@@ -2,8 +2,11 @@
 use std::{
     cell::{Ref, RefCell, RefMut},
     collections::HashMap,
+    hash::Hash,
     rc::Rc,
 };
+
+use codemap::Span;
 
 use crate::{
     chunk::Chunk,
@@ -19,6 +22,23 @@ pub(crate) struct Formals {
 
     /// Do the formals of this function accept extra arguments
     pub(crate) ellipsis: bool,
+
+    /// The span of the formals themselves, to use to emit errors
+    pub(crate) span: Span,
+}
+
+impl Formals {
+    /// Returns true if the given arg is a valid argument to these formals.
+    ///
+    /// This is true if it is either listed in the list of arguments, or the formals have an
+    /// ellipsis
+    pub(crate) fn contains<Q>(&self, arg: &Q) -> bool
+    where
+        Q: ?Sized + Hash + Eq,
+        NixString: std::borrow::Borrow<Q>,
+    {
+        self.ellipsis || self.arguments.contains_key(&arg)
+    }
 }
 
 /// The opcodes for a thunk or closure, plus the number of

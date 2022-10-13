@@ -202,7 +202,7 @@ impl NixAttrs {
         self.0.contains(key)
     }
 
-    /// Provide an iterator over all values of the attribute set.
+    /// Construct an iterator over all the key-value pairs in the attribute set.
     #[allow(clippy::needless_lifetimes)]
     pub fn iter<'a>(&'a self) -> Iter<KeyValue<'a>> {
         Iter(match &self.0 {
@@ -215,8 +215,17 @@ impl NixAttrs {
             } => KeyValue::KV {
                 name,
                 value,
-                at: IterKV::Name,
+                at: IterKV::default(),
             },
+        })
+    }
+
+    /// Construct an iterator over all the keys of the attribute set
+    pub fn keys(&self) -> Keys {
+        Keys(match &self.0 {
+            AttrsRep::Empty => KeysInner::Empty,
+            AttrsRep::Map(m) => KeysInner::Map(m.keys()),
+            AttrsRep::KV { .. } => KeysInner::KV(IterKV::default()),
         })
     }
 
@@ -405,11 +414,22 @@ fn set_attr(attrs: &mut NixAttrs, key: NixString, value: Value) -> Result<(), Er
 
 /// Internal helper type to track the iteration status of an iterator
 /// over the name/value representation.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum IterKV {
+    #[default]
     Name,
     Value,
     Done,
+}
+
+impl IterKV {
+    fn next(&mut self) {
+        match *self {
+            Self::Name => *self = Self::Value,
+            Self::Value => *self = Self::Done,
+            Self::Done => {}
+        }
+    }
 }
 
 /// Iterator representation over the keys *and* values of an attribute
@@ -443,17 +463,45 @@ impl<'a> Iterator for Iter<KeyValue<'a>> {
 
             KeyValue::KV { name, value, at } => match at {
                 IterKV::Name => {
-                    *at = IterKV::Value;
+                    at.next();
                     Some((NixString::NAME_REF, name))
                 }
 
                 IterKV::Value => {
-                    *at = IterKV::Done;
+                    at.next();
                     Some((NixString::VALUE_REF, value))
                 }
 
                 IterKV::Done => None,
             },
+        }
+    }
+}
+
+enum KeysInner<'a> {
+    Empty,
+    KV(IterKV),
+    Map(btree_map::Keys<'a, NixString, Value>),
+}
+
+pub struct Keys<'a>(KeysInner<'a>);
+
+impl<'a> Iterator for Keys<'a> {
+    type Item = &'a NixString;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match &mut self.0 {
+            KeysInner::Empty => None,
+            KeysInner::KV(at @ IterKV::Name) => {
+                at.next();
+                Some(NixString::NAME_REF)
+            }
+            KeysInner::KV(at @ IterKV::Value) => {
+                at.next();
+                Some(NixString::VALUE_REF)
+            }
+            KeysInner::KV(IterKV::Done) => None,
+            KeysInner::Map(m) => m.next(),
         }
     }
 }

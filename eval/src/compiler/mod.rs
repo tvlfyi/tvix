@@ -787,6 +787,11 @@ impl Compiler<'_> {
         self.scope_mut().mark_initialised(set_idx);
         self.emit_force(pattern);
 
+        let ellipsis = pattern.ellipsis_token().is_some();
+        if !ellipsis {
+            self.push_op(OpCode::OpValidateClosedFormals, pattern);
+        }
+
         // Similar to `let ... in ...`, we now do multiple passes over
         // the bindings to first declare them, then populate them, and
         // then finalise any necessary recursion into the scope.
@@ -837,16 +842,10 @@ impl Compiler<'_> {
             }
         }
 
-        // TODO: strictly check if all keys have been consumed if
-        // there is no ellipsis.
-        let ellipsis = pattern.ellipsis_token().is_some();
-        if !ellipsis {
-            self.emit_warning(pattern, WarningKind::NotImplemented("closed formals"));
-        }
-
         Formals {
             arguments,
             ellipsis,
+            span,
         }
     }
 

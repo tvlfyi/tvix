@@ -500,6 +500,21 @@ impl<'o> VM<'o> {
                 self.push(Value::Bool(result));
             }
 
+            OpCode::OpValidateClosedFormals => {
+                let formals = self.frame().lambda.formals.as_ref().expect(
+                    "OpValidateClosedFormals called within the frame of a lambda without formals",
+                );
+                let args = self.peek(0).to_attrs().map_err(|err| self.error(err))?;
+                for arg in args.keys() {
+                    if !formals.contains(arg) {
+                        return Err(self.error(ErrorKind::UnexpectedArgument {
+                            arg: arg.clone(),
+                            formals_span: formals.span,
+                        }));
+                    }
+                }
+            }
+
             OpCode::OpList(Count(count)) => {
                 let list =
                     NixList::construct(count, self.stack.split_off(self.stack.len() - count));

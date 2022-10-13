@@ -98,6 +98,12 @@ pub enum OpCode {
     OpAttrsTrySelect,
     OpHasAttr,
 
+    /// Throw an error if the attribute set at the top of the stack has any attributes
+    /// other than those listed in the formals of the current lambda
+    ///
+    /// Panics if the current frame is not a lambda with formals
+    OpValidateClosedFormals,
+
     // `with`-handling
     OpPushWith(StackIdx),
     OpPopWith,
