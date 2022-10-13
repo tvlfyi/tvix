@@ -112,14 +112,21 @@ impl<'observer> Compiler<'observer> {
         observer: &'observer mut dyn CompilerObserver,
     ) -> EvalResult<Self> {
         let mut root_dir = match location {
-            Some(dir) => Ok(dir),
-            None => std::env::current_dir().map_err(|e| Error {
-                kind: ErrorKind::PathResolution(format!(
-                    "could not determine current directory: {}",
-                    e
-                )),
-                span: file.span,
-            }),
+            Some(dir) if dir.is_absolute() => Ok(dir),
+            _ => {
+                let current_dir = std::env::current_dir().map_err(|e| Error {
+                    kind: ErrorKind::PathResolution(format!(
+                        "could not determine current directory: {}",
+                        e
+                    )),
+                    span: file.span,
+                })?;
+                if let Some(dir) = location {
+                    Ok(current_dir.join(dir))
+                } else {
+                    Ok(current_dir)
+                }
+            }
         }?;
 
         // If the path passed from the caller points to a file, the
@@ -131,6 +138,7 @@ impl<'observer> Compiler<'observer> {
 
         let globals = globals.borrow();
 
+        debug_assert!(root_dir.is_absolute());
         Ok(Self {
             root_dir,
             file,
