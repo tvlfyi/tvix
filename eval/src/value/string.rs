@@ -1,5 +1,6 @@
 //! This module implements Nix language strings and their different
 //! backing implementations.
+use rnix::ast;
 use smol_str::SmolStr;
 use std::ffi::OsStr;
 use std::hash::Hash;
@@ -52,6 +53,12 @@ impl From<String> for NixString {
 impl From<SmolStr> for NixString {
     fn from(s: SmolStr) -> Self {
         NixString(StringRepr::Smol(s))
+    }
+}
+
+impl From<ast::Ident> for NixString {
+    fn from(ident: ast::Ident) -> Self {
+        ident.ident_token().unwrap().text().into()
     }
 }
 

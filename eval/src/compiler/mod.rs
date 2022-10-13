@@ -30,7 +30,7 @@ use crate::errors::{Error, ErrorKind, EvalResult};
 use crate::observer::CompilerObserver;
 use crate::opcode::{CodeIdx, Count, JumpOffset, OpCode, UpvalueIdx};
 use crate::spans::ToSpan;
-use crate::value::{Closure, Lambda, Thunk, Value};
+use crate::value::{Closure, Formals, Lambda, Thunk, Value};
 use crate::warnings::{EvalWarning, WarningKind};
 
 use self::scope::{LocalIdx, LocalPosition, Scope, Upvalue, UpvalueKind};
@@ -775,7 +775,7 @@ impl Compiler<'_> {
     /// many arguments are provided. This is done by emitting a
     /// special instruction that checks the set of keys from a
     /// constant containing the expected keys.
-    fn compile_param_pattern(&mut self, pattern: &ast::Pattern) {
+    fn compile_param_pattern(&mut self, pattern: &ast::Pattern) -> Formals {
         let span = self.span_for(pattern);
         let set_idx = match pattern.pat_bind() {
             Some(name) => self.declare_local(&name, name.ident().unwrap().to_string()),
@@ -792,12 +792,15 @@ impl Compiler<'_> {
         // then finalise any necessary recursion into the scope.
         let mut entries: Vec<(LocalIdx, ast::PatEntry)> = vec![];
         let mut indices: Vec<LocalIdx> = vec![];
+        let mut arguments = HashMap::default();
 
         for entry in pattern.pat_entries() {
             let ident = entry.ident().unwrap();
             let idx = self.declare_local(&ident, ident.to_string());
+            let has_default = entry.default().is_some();
             entries.push((idx, entry));
             indices.push(idx);
+            arguments.insert(ident.into(), has_default);
         }
 
         // For each of the bindings, push the set on the stack and
@@ -836,15 +839,22 @@ impl Compiler<'_> {
 
         // TODO: strictly check if all keys have been consumed if
         // there is no ellipsis.
-        if pattern.ellipsis_token().is_none() {
+        let ellipsis = pattern.ellipsis_token().is_some();
+        if !ellipsis {
             self.emit_warning(pattern, WarningKind::NotImplemented("closed formals"));
+        }
+
+        Formals {
+            arguments,
+            ellipsis,
         }
     }
 
     fn compile_lambda(&mut self, slot: LocalIdx, node: &ast::Lambda) {
-        // Compile the function itself
-        match node.param().unwrap() {
-            ast::Param::Pattern(pat) => self.compile_param_pattern(&pat),
+        // Compile the function itself, recording its formal arguments (if any)
+        // for later use
+        let formals = match node.param().unwrap() {
+            ast::Param::Pattern(pat) => Some(self.compile_param_pattern(&pat)),
 
             ast::Param::IdentParam(param) => {
                 let name = param
@@ -857,10 +867,12 @@ impl Compiler<'_> {
 
                 let idx = self.declare_local(&param, &name);
                 self.scope_mut().mark_initialised(idx);
+                None
             }
-        }
+        };
 
         self.compile(slot, &node.body().unwrap());
+        self.context_mut().lambda.formals = formals;
     }
 
     fn thunk<N, F>(&mut self, outer_slot: LocalIdx, node: &N, content: F)
@@ -1005,10 +1017,7 @@ impl Compiler<'_> {
     /// several operations related to attribute sets, where
     /// identifiers are used as string keys.
     fn emit_literal_ident(&mut self, ident: &ast::Ident) {
-        self.emit_constant(
-            Value::String(ident.ident_token().unwrap().text().into()),
-            ident,
-        );
+        self.emit_constant(Value::String(ident.clone().into()), ident);
     }
 
     /// Patch the jump instruction at the given index, setting its

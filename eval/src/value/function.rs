@@ -1,6 +1,7 @@
 //! This module implements the runtime representation of functions.
 use std::{
     cell::{Ref, RefCell, RefMut},
+    collections::HashMap,
     rc::Rc,
 };
 
@@ -9,6 +10,17 @@ use crate::{
     upvalues::{UpvalueCarrier, Upvalues},
 };
 
+use super::NixString;
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Formals {
+    /// Map from argument name, to whether that argument is required
+    pub(crate) arguments: HashMap<NixString, bool>,
+
+    /// Do the formals of this function accept extra arguments
+    pub(crate) ellipsis: bool,
+}
+
 /// The opcodes for a thunk or closure, plus the number of
 /// non-executable opcodes which are allowed after an OpClosure or
 /// OpThunk referencing it.  At runtime `Lambda` is usually wrapped
@@ -16,7 +28,6 @@ use crate::{
 /// quite large).
 #[derive(Debug, PartialEq)]
 pub struct Lambda {
-    // name: Option<NixString>,
     pub(crate) chunk: Chunk,
 
     /// Number of upvalues which the code in this Lambda closes
@@ -24,14 +35,15 @@ pub struct Lambda {
     /// runtime.  Information about the variables is emitted using
     /// data-carrying opcodes (see [`OpCode::DataLocalIdx`]).
     pub(crate) upvalue_count: usize,
+    pub(crate) formals: Option<Formals>,
 }
 
 impl Lambda {
     pub fn new_anonymous() -> Self {
         Lambda {
-            // name: None,
             chunk: Default::default(),
             upvalue_count: 0,
+            formals: None,
         }
     }
 
