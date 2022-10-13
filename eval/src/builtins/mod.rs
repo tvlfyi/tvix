@@ -100,6 +100,11 @@ fn pure_builtins() -> Vec<Builtin> {
 
             Ok(Value::List(NixList::construct(output.len(), output)))
         }),
+        Builtin::new("baseNameOf", &[true], |args: Vec<Value>, vm: &mut VM| {
+            let s = args[0].coerce_to_string(CoercionKind::Weak, vm)?;
+            let result: String = s.rsplit_once('/').map(|(_, x)| x).unwrap_or(&s).into();
+            Ok(result.into())
+        }),
         Builtin::new("bitAnd", &[true, true], |args: Vec<Value>, _: &mut VM| {
             Ok(Value::Integer(args[0].as_int()? & args[1].as_int()?))
         }),
