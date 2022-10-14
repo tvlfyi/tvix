@@ -121,9 +121,7 @@ pub struct Upvalue {
     pub span: codemap::Span,
 }
 
-/// Represents the index of a local in the scope's local array, which
-/// is subtly different from its `StackIdx` (which excludes
-/// uninitialised values in between).
+/// The index of a local in the scope's local array at compile time.
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd)]
 pub struct LocalIdx(usize);

@@ -27,12 +27,16 @@ impl Sub<usize> for CodeIdx {
     }
 }
 
-/// Index of a value in the runtime stack.
+/// Index of a value in the runtime stack.  This is an offset
+/// *relative to* the VM value stack_base of the CallFrame
+/// containing the opcode which contains this StackIdx.
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd)]
 pub struct StackIdx(pub usize);
 
-/// Index of an upvalue within a closure's upvalue list.
+/// Index of an upvalue within a closure's bound-variable upvalue
+/// list.  This is an absolute index into the Upvalues of the
+/// CallFrame containing the opcode which contains this UpvalueIdx.
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct UpvalueIdx(pub usize);
