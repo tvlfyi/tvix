@@ -38,11 +38,21 @@ impl CallFrame {
 }
 
 pub struct VM<'o> {
+    /// The VM call stack.  One element is pushed onto this stack
+    /// each time a function is called or a thunk is forced.
     frames: Vec<CallFrame>,
+
+    /// The VM value stack.  This is actually a "stack of stacks",
+    /// with one stack-of-Values for each CallFrame in frames.  This
+    /// is represented as a Vec<Value> rather than as
+    /// Vec<Vec<Value>> or a Vec<Value> inside CallFrame for
+    /// efficiency reasons: it avoids having to allocate a Vec on
+    /// the heap each time a CallFrame is entered.
     stack: Vec<Value>,
 
-    /// Stack indices of attribute sets from which variables should be
-    /// dynamically resolved (`with`).
+    /// Stack indices (absolute indexes into `stack`) of attribute
+    /// sets from which variables should be dynamically resolved
+    /// (`with`).
     with_stack: Vec<usize>,
 
     /// Runtime warnings collected during evaluation.
