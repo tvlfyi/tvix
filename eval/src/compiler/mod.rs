@@ -227,7 +227,11 @@ impl Compiler<'_> {
             ast::Expr::LetIn(let_in) => self.compile_let_in(slot, let_in),
             ast::Expr::Ident(ident) => self.compile_ident(slot, ident),
             ast::Expr::With(with) => self.thunk(slot, with, |c, s| c.compile_with(s, with)),
-            ast::Expr::Lambda(lambda) => self.compile_lambda(slot, lambda),
+            ast::Expr::Lambda(lambda) => {
+                self.compile_lambda_or_thunk(false, slot, lambda, |c, s| {
+                    c.compile_lambda(s, lambda)
+                })
+            }
             ast::Expr::Apply(apply) => {
                 self.thunk(slot, apply, move |c, s| c.compile_apply(s, apply))
             }
@@ -837,12 +841,7 @@ impl Compiler<'_> {
         }
     }
 
-    fn compile_lambda(&mut self, outer_slot: LocalIdx, node: &ast::Lambda) {
-        self.new_context();
-        let span = self.span_for(node);
-        let slot = self.scope_mut().declare_phantom(span, false);
-        self.scope_mut().begin_scope();
-
+    fn compile_lambda(&mut self, slot: LocalIdx, node: &ast::Lambda) {
         // Compile the function itself
         match node.param().unwrap() {
             ast::Param::Pattern(pat) => self.compile_param_pattern(&pat),
@@ -862,6 +861,33 @@ impl Compiler<'_> {
         }
 
         self.compile(slot, &node.body().unwrap());
+    }
+
+    fn thunk<N, F>(&mut self, outer_slot: LocalIdx, node: &N, content: F)
+    where
+        N: ToSpan,
+        F: FnOnce(&mut Compiler, LocalIdx),
+    {
+        self.compile_lambda_or_thunk(true, outer_slot, node, content)
+    }
+
+    /// Compile an expression into a runtime cloure or thunk
+    fn compile_lambda_or_thunk<N, F>(
+        &mut self,
+        is_thunk: bool,
+        outer_slot: LocalIdx,
+        node: &N,
+        content: F,
+    ) where
+        N: ToSpan,
+        F: FnOnce(&mut Compiler, LocalIdx),
+    {
+        self.new_context();
+        let span = self.span_for(node);
+        let slot = self.scope_mut().declare_phantom(span, false);
+        self.scope_mut().begin_scope();
+
+        content(self, slot);
         self.cleanup_scope(node);
 
         // TODO: determine and insert enclosing name, if available.
@@ -880,22 +906,40 @@ impl Compiler<'_> {
         }
 
         let lambda = Rc::new(compiled.lambda);
-        self.observer.observe_compiled_lambda(&lambda);
+        if is_thunk {
+            self.observer.observe_compiled_thunk(&lambda);
+        } else {
+            self.observer.observe_compiled_lambda(&lambda);
+        }
 
-        // If the function is not a closure, just emit it directly and
-        // move on.
+        // If no upvalues are captured, emit directly and move on.
         if lambda.upvalue_count == 0 {
-            self.emit_constant(Value::Closure(Closure::new(lambda)), node);
+            self.emit_constant(
+                if is_thunk {
+                    Value::Thunk(Thunk::new(lambda, span))
+                } else {
+                    Value::Closure(Closure::new(lambda))
+                },
+                node,
+            );
             return;
         }
 
-        // If the function is a closure, we need to emit the variable
-        // number of operands that allow the runtime to close over the
+        // Otherwise, we need to emit the variable number of
+        // operands that allow the runtime to close over the
         // upvalues and leave a blueprint in the constant index from
-        // which the runtime closure can be constructed.
+        // which the result can be constructed.
         let blueprint_idx = self.chunk().push_constant(Value::Blueprint(lambda));
 
-        self.push_op(OpCode::OpClosure(blueprint_idx), node);
+        self.push_op(
+            if is_thunk {
+                OpCode::OpThunk(blueprint_idx)
+            } else {
+                OpCode::OpClosure(blueprint_idx)
+            },
+            node,
+        );
+
         self.emit_upvalue_data(
             outer_slot,
             node,
@@ -913,52 +957,6 @@ impl Compiler<'_> {
         self.compile(slot, &node.lambda().unwrap());
         self.emit_force(&node.lambda().unwrap());
         self.push_op(OpCode::OpCall, node);
-    }
-
-    /// Compile an expression into a runtime thunk which should be
-    /// lazily evaluated when accessed.
-    // TODO: almost the same as Compiler::compile_lambda; unify?
-    fn thunk<N, F>(&mut self, outer_slot: LocalIdx, node: &N, content: F)
-    where
-        N: ToSpan,
-        F: FnOnce(&mut Compiler, LocalIdx),
-    {
-        self.new_context();
-        let span = self.span_for(node);
-        let slot = self.scope_mut().declare_phantom(span, false);
-        self.scope_mut().begin_scope();
-        content(self, slot);
-        self.cleanup_scope(node);
-
-        let mut thunk = self.contexts.pop().unwrap();
-        optimise_tail_call(&mut thunk.lambda.chunk);
-
-        // Capturing the with stack counts as an upvalue, as it is
-        // emitted as an upvalue data instruction.
-        if thunk.captures_with_stack {
-            thunk.lambda.upvalue_count += 1;
-        }
-
-        let lambda = Rc::new(thunk.lambda);
-        self.observer.observe_compiled_thunk(&lambda);
-
-        // Emit the thunk directly if it does not close over the
-        // environment.
-        if lambda.upvalue_count == 0 {
-            self.emit_constant(Value::Thunk(Thunk::new(lambda, span)), node);
-            return;
-        }
-
-        // Otherwise prepare for runtime construction of the thunk.
-        let blueprint_idx = self.chunk().push_constant(Value::Blueprint(lambda));
-
-        self.push_op(OpCode::OpThunk(blueprint_idx), node);
-        self.emit_upvalue_data(
-            outer_slot,
-            node,
-            thunk.scope.upvalues,
-            thunk.captures_with_stack,
-        );
     }
 
     /// Emit the data instructions that the runtime needs to correctly
