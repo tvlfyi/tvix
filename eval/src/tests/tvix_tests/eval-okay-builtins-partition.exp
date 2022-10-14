@@ -1,0 +1,1 @@
+[ { right = [ 1 2 3 4 5 ]; wrong = [ ]; } { right = [ ]; wrong = [ 1 2 3 4 5 ]; } { right = [ 2 ]; wrong = [ 1 3 4 5 ]; } { right = [ [ 1 2 ] [ 3 4 ] ]; wrong = [ [ 1 ] [ 2 ] [ 3 ] ]; } ]

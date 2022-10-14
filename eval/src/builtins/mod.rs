@@ -447,6 +447,31 @@ fn pure_builtins() -> Vec<Builtin> {
             ]))))
         }),
         Builtin::new(
+            "partition",
+            &[true, true],
+            |args: Vec<Value>, vm: &mut VM| {
+                let mut right: Vec<Value> = vec![];
+                let mut wrong: Vec<Value> = vec![];
+
+                let list: NixList = args[1].to_list()?;
+                for elem in list.into_iter() {
+                    let result = vm.call_with(&args[0], [elem.clone()])?;
+
+                    if result.force(vm)?.as_bool()? {
+                        right.push(elem);
+                    } else {
+                        wrong.push(elem);
+                    };
+                }
+
+                let mut res: BTreeMap<NixString, Value> = BTreeMap::new();
+                res.insert("right".into(), Value::List(right.into()));
+                res.insert("wrong".into(), Value::List(wrong.into()));
+
+                Ok(Value::attrs(NixAttrs::from_map(res)))
+            },
+        ),
+        Builtin::new(
             "removeAttrs",
             &[true, true],
             |args: Vec<Value>, _: &mut VM| {
