@@ -741,11 +741,9 @@ impl<'o> VM<'o> {
         // Iterate over the captured with stack if one exists. This is
         // extra tricky to do without a lot of cloning.
         for idx in (0..self.frame().upvalues.with_stack_len()).rev() {
-            // This is safe because having an index here guarantees
+            // This will not panic because having an index here guarantees
             // that the stack is present.
-            let with =
-                unsafe { self.frame().upvalues.with_stack().unwrap_unchecked()[idx].clone() };
-
+            let with = self.frame().upvalues.with_stack().unwrap()[idx].clone();
             if let Value::Thunk(thunk) = &with {
                 fallible!(self, thunk.force(self));
             }
