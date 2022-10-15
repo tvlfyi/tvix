@@ -44,7 +44,6 @@ pub enum Value {
     // are never returned to or created directly by users.
     Thunk(Thunk),
     AttrNotFound,
-    DynamicUpvalueMissing(NixString),
     Blueprint(Rc<Lambda>),
     DeferredUpvalue(StackIdx),
 }
@@ -240,7 +239,6 @@ impl Value {
             }),
 
             (Value::AttrNotFound, _)
-            | (Value::DynamicUpvalueMissing(_), _)
             | (Value::Blueprint(_), _)
             | (Value::DeferredUpvalue(_), _) => {
                 panic!("tvix bug: .coerce_to_string() called on internal value")
@@ -263,7 +261,6 @@ impl Value {
             // Internal types
             Value::Thunk(_)
             | Value::AttrNotFound
-            | Value::DynamicUpvalueMissing(_)
             | Value::Blueprint(_)
             | Value::DeferredUpvalue(_) => "internal",
         }
@@ -365,9 +362,6 @@ impl Display for Value {
             Value::AttrNotFound => f.write_str("internal[not found]"),
             Value::Blueprint(_) => f.write_str("internal[blueprint]"),
             Value::DeferredUpvalue(_) => f.write_str("internal[deferred_upvalue]"),
-            Value::DynamicUpvalueMissing(name) => {
-                write!(f, "internal[no_dyn_upvalue({name})]")
-            }
         }
     }
 }

@@ -836,10 +836,7 @@ impl<'o> VM<'o> {
 
             // If any of these internal values are encountered here a
             // critical error has happened (likely a compiler bug).
-            Value::AttrNotFound
-            | Value::DynamicUpvalueMissing(_)
-            | Value::Blueprint(_)
-            | Value::DeferredUpvalue(_) => {
+            Value::AttrNotFound | Value::Blueprint(_) | Value::DeferredUpvalue(_) => {
                 panic!("tvix bug: internal value left on stack: {:?}", value)
             }
 
