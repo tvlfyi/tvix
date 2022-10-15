@@ -1,17 +1,9 @@
 //! This module implements the runtime representation of functions.
-use std::{
-    cell::{Ref, RefCell, RefMut},
-    collections::HashMap,
-    hash::Hash,
-    rc::Rc,
-};
+use std::{collections::HashMap, hash::Hash, rc::Rc};
 
 use codemap::Span;
 
-use crate::{
-    chunk::Chunk,
-    upvalues::{UpvalueCarrier, Upvalues},
-};
+use crate::{chunk::Chunk, upvalues::Upvalues};
 
 use super::NixString;
 
@@ -42,8 +34,8 @@ impl Formals {
 }
 
 /// The opcodes for a thunk or closure, plus the number of
-/// non-executable opcodes which are allowed after an OpClosure or
-/// OpThunk referencing it.  At runtime `Lambda` is usually wrapped
+/// non-executable opcodes which are allowed after an OpThunkClosure or
+/// OpThunkSuspended referencing it.  At runtime `Lambda` is usually wrapped
 /// in `Rc` to avoid copying the `Chunk` it holds (which can be
 /// quite large).
 #[derive(Debug, PartialEq)]
@@ -73,42 +65,37 @@ impl Lambda {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct InnerClosure {
+pub struct Closure {
     pub lambda: Rc<Lambda>,
-    upvalues: Upvalues,
+    pub upvalues: Upvalues,
+    /// true if all upvalues have been realised
+    #[cfg(debug_assertions)]
+    pub is_finalised: bool,
 }
-
-#[repr(transparent)]
-#[derive(Clone, Debug, PartialEq)]
-pub struct Closure(Rc<RefCell<InnerClosure>>);
 
 impl Closure {
     pub fn new(lambda: Rc<Lambda>) -> Self {
-        Closure(Rc::new(RefCell::new(InnerClosure {
-            upvalues: Upvalues::with_capacity(lambda.upvalue_count),
-            lambda,
-        })))
+        Self::new_with_upvalues(Upvalues::with_capacity(lambda.upvalue_count), lambda)
     }
 
-    pub fn chunk(&self) -> Ref<'_, Chunk> {
-        Ref::map(self.0.borrow(), |c| &c.lambda.chunk)
+    pub fn new_with_upvalues(upvalues: Upvalues, lambda: Rc<Lambda>) -> Self {
+        Closure {
+            upvalues,
+            lambda,
+            #[cfg(debug_assertions)]
+            is_finalised: true,
+        }
+    }
+
+    pub fn chunk(&self) -> &Chunk {
+        &self.lambda.chunk
     }
 
     pub fn lambda(&self) -> Rc<Lambda> {
-        self.0.borrow().lambda.clone()
-    }
-}
-
-impl UpvalueCarrier for Closure {
-    fn upvalue_count(&self) -> usize {
-        self.0.borrow().lambda.upvalue_count
+        self.lambda.clone()
     }
 
-    fn upvalues(&self) -> Ref<'_, Upvalues> {
-        Ref::map(self.0.borrow(), |c| &c.upvalues)
-    }
-
-    fn upvalues_mut(&self) -> RefMut<'_, Upvalues> {
-        RefMut::map(self.0.borrow_mut(), |c| &mut c.upvalues)
+    pub fn upvalues(&self) -> &Upvalues {
+        &self.upvalues
     }
 }

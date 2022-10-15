@@ -144,25 +144,27 @@ pub enum OpCode {
     OpCall,
     OpTailCall,
     OpGetUpvalue(UpvalueIdx),
+    // A Closure which has upvalues but no self-references
     OpClosure(ConstantIdx),
-
-    // Thunks
-    OpThunk(ConstantIdx),
+    // A Closure which has self-references (direct or via upvalues)
+    OpThunkClosure(ConstantIdx),
+    // A suspended thunk, used to ensure laziness
+    OpThunkSuspended(ConstantIdx),
     OpForce,
 
     /// Finalise initialisation of the upvalues of the value in the
     /// given stack index after the scope is fully bound.
     OpFinalise(StackIdx),
 
-    // [`OpClosure`] and [`OpThunk`] have a variable number of
-    // arguments to the instruction, which is represented here by
-    // making their data part of the opcodes.  Each of these two
-    // opcodes has a `ConstantIdx`, which must reference a
-    // `Value::Blueprint(Lambda)`.  The `upvalue_count` field in
-    // that `Lambda` indicates the number of arguments it takes, and
-    // the `OpClosure` or `OpThunk` must be followed by exactly this
-    // number of `Data*` opcodes.  The VM skips over these by
-    // advancing the instruction pointer.
+    // [`OpClosure`], [`OpThunkSuspended`], and [`OpThunkClosure`] have a
+    // variable number of arguments to the instruction, which is
+    // represented here by making their data part of the opcodes.
+    // Each of these two opcodes has a `ConstantIdx`, which must
+    // reference a `Value::Blueprint(Lambda)`.  The `upvalue_count`
+    // field in that `Lambda` indicates the number of arguments it
+    // takes, and the opcode must be followed by exactly this number
+    // of `Data*` opcodes.  The VM skips over these by advancing the
+    // instruction pointer.
     //
     // It is illegal for a `Data*` opcode to appear anywhere else.
     DataLocalIdx(StackIdx),

@@ -1,7 +1,7 @@
 //! This module implements the virtual (or abstract) machine that runs
 //! Tvix bytecode.
 
-use std::{cell::RefMut, path::PathBuf, rc::Rc};
+use std::{ops::DerefMut, path::PathBuf, rc::Rc};
 
 use crate::{
     chunk::Chunk,
@@ -9,7 +9,7 @@ use crate::{
     nix_search_path::NixSearchPath,
     observer::RuntimeObserver,
     opcode::{CodeIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
-    upvalues::{UpvalueCarrier, Upvalues},
+    upvalues::Upvalues,
     value::{Builtin, Closure, CoercionKind, Lambda, NixAttrs, NixList, Thunk, Value},
     warnings::{EvalWarning, WarningKind},
 };
@@ -675,30 +675,37 @@ impl<'o> VM<'o> {
                     upvalue_count > 0,
                     "OpClosure should not be called for plain lambdas"
                 );
-
-                let closure = Closure::new(blueprint);
-                let upvalues = closure.upvalues_mut();
-                self.push(Value::Closure(closure.clone()));
-
-                // From this point on we internally mutate the
-                // closure object's upvalues. The closure is
-                // already in its stack slot, which means that it
-                // can capture itself as an upvalue for
-                // self-recursion.
-                self.populate_upvalues(upvalue_count, upvalues)?;
+                let mut upvalues = Upvalues::with_capacity(blueprint.upvalue_count);
+                self.populate_upvalues(upvalue_count, &mut upvalues)?;
+                self.push(Value::Closure(Closure::new_with_upvalues(
+                    upvalues, blueprint,
+                )));
             }
 
-            OpCode::OpThunk(idx) => {
+            OpCode::OpThunkSuspended(idx) | OpCode::OpThunkClosure(idx) => {
                 let blueprint = match &self.chunk()[idx] {
                     Value::Blueprint(lambda) => lambda.clone(),
                     _ => panic!("compiler bug: non-blueprint in blueprint slot"),
                 };
 
                 let upvalue_count = blueprint.upvalue_count;
-                let thunk = Thunk::new(blueprint, self.current_span());
+                let thunk = if matches!(op, OpCode::OpThunkClosure(_)) {
+                    debug_assert!(
+                        upvalue_count > 0,
+                        "OpThunkClosure should not be called for plain lambdas"
+                    );
+                    Thunk::new_closure(blueprint)
+                } else {
+                    Thunk::new_suspended(blueprint, self.current_span())
+                };
                 let upvalues = thunk.upvalues_mut();
-
                 self.push(Value::Thunk(thunk.clone()));
+
+                // From this point on we internally mutate the
+                // upvalues. The closure (if `is_closure`) is
+                // already in its stack slot, which means that it
+                // can capture itself as an upvalue for
+                // self-recursion.
                 self.populate_upvalues(upvalue_count, upvalues)?;
             }
 
@@ -715,13 +722,9 @@ impl<'o> VM<'o> {
 
             OpCode::OpFinalise(StackIdx(idx)) => {
                 match &self.stack[self.frame().stack_offset + idx] {
-                    Value::Closure(closure) => {
-                        closure.resolve_deferred_upvalues(&self.stack[self.frame().stack_offset..])
-                    }
+                    Value::Closure(_) => panic!("attempted to finalise a closure"),
 
-                    Value::Thunk(thunk) => {
-                        thunk.resolve_deferred_upvalues(&self.stack[self.frame().stack_offset..])
-                    }
+                    Value::Thunk(thunk) => thunk.finalise(&self.stack[self.frame().stack_offset..]),
 
                     // In functions with "formals" attributes, it is
                     // possible for `OpFinalise` to be called on a
@@ -809,21 +812,23 @@ impl<'o> VM<'o> {
     fn populate_upvalues(
         &mut self,
         count: usize,
-        mut upvalues: RefMut<'_, Upvalues>,
+        mut upvalues: impl DerefMut<Target = Upvalues>,
     ) -> EvalResult<()> {
         for _ in 0..count {
             match self.inc_ip() {
                 OpCode::DataLocalIdx(StackIdx(local_idx)) => {
                     let idx = self.frame().stack_offset + local_idx;
-                    upvalues.push(self.stack[idx].clone());
+                    upvalues.deref_mut().push(self.stack[idx].clone());
                 }
 
                 OpCode::DataUpvalueIdx(upv_idx) => {
-                    upvalues.push(self.frame().upvalue(upv_idx).clone());
+                    upvalues
+                        .deref_mut()
+                        .push(self.frame().upvalue(upv_idx).clone());
                 }
 
                 OpCode::DataDeferredLocal(idx) => {
-                    upvalues.push(Value::DeferredUpvalue(idx));
+                    upvalues.deref_mut().push(Value::DeferredUpvalue(idx));
                 }
 
                 OpCode::DataCaptureWith => {
@@ -841,7 +846,7 @@ impl<'o> VM<'o> {
                         captured_with_stack.push(self.stack[*idx].clone());
                     }
 
-                    upvalues.set_with_stack(captured_with_stack);
+                    upvalues.deref_mut().set_with_stack(captured_with_stack);
                 }
 
                 _ => panic!("compiler error: missing closure operand"),

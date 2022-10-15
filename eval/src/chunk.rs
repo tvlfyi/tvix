@@ -1,5 +1,5 @@
 use std::io::Write;
-use std::ops::Index;
+use std::ops::{Index, IndexMut};
 
 use crate::opcode::{CodeIdx, ConstantIdx, OpCode};
 use crate::value::Value;
@@ -48,6 +48,12 @@ impl Index<CodeIdx> for Chunk {
 
     fn index(&self, index: CodeIdx) -> &Self::Output {
         &self.code[index.0]
+    }
+}
+
+impl IndexMut<CodeIdx> for Chunk {
+    fn index_mut(&mut self, index: CodeIdx) -> &mut Self::Output {
+        &mut self.code[index.0]
     }
 }
 

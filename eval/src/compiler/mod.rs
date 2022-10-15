@@ -927,7 +927,7 @@ impl Compiler<'_> {
         if lambda.upvalue_count == 0 {
             self.emit_constant(
                 if is_thunk {
-                    Value::Thunk(Thunk::new(lambda, span))
+                    Value::Thunk(Thunk::new_suspended(lambda, span))
                 } else {
                     Value::Closure(Closure::new(lambda))
                 },
@@ -942,11 +942,11 @@ impl Compiler<'_> {
         // which the result can be constructed.
         let blueprint_idx = self.chunk().push_constant(Value::Blueprint(lambda));
 
-        self.push_op(
+        let code_idx = self.push_op(
             if is_thunk {
-                OpCode::OpThunk(blueprint_idx)
+                OpCode::OpThunkSuspended(blueprint_idx)
             } else {
-                OpCode::OpClosure(blueprint_idx)
+                OpCode::OpThunkClosure(blueprint_idx)
             },
             node,
         );
@@ -957,6 +957,23 @@ impl Compiler<'_> {
             compiled.scope.upvalues,
             compiled.captures_with_stack,
         );
+
+        if !is_thunk && !self.scope()[outer_slot].needs_finaliser {
+            if !self.scope()[outer_slot].must_thunk {
+                // The closure has upvalues, but is not recursive.  Therefore no thunk is required,
+                // which saves us the overhead of Rc<RefCell<>>
+                self.chunk()[code_idx] = OpCode::OpClosure(blueprint_idx);
+            } else {
+                // This case occurs when a closure has upvalue-references to itself but does not need a
+                // finaliser.  Since no OpFinalise will be emitted later on we synthesize one here.
+                // It is needed here only to set [`Closure::is_finalised`] which is used for sanity checks.
+                #[cfg(debug_assertions)]
+                self.push_op(
+                    OpCode::OpFinalise(self.scope().stack_index(outer_slot)),
+                    &self.span_for(node),
+                );
+            }
+        }
     }
 
     fn compile_apply(&mut self, slot: LocalIdx, node: &ast::Apply) {
@@ -996,6 +1013,10 @@ impl Compiler<'_> {
                         self.push_op(OpCode::DataDeferredLocal(stack_idx), &upvalue.span);
                         self.scope_mut().mark_needs_finaliser(slot);
                     } else {
+                        // a self-reference
+                        if this_depth == target_depth && this_stack_slot == stack_idx {
+                            self.scope_mut().mark_must_thunk(slot);
+                        }
                         self.push_op(OpCode::DataLocalIdx(stack_idx), &upvalue.span);
                     }
                 }

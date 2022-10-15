@@ -50,6 +50,9 @@ pub struct Local {
     /// Does this local need to be finalised after the enclosing scope
     /// is completely constructed?
     pub needs_finaliser: bool,
+
+    /// Does this local's upvalues contain a reference to itself?
+    pub must_thunk: bool,
 }
 
 impl Local {
@@ -228,6 +231,7 @@ impl Scope {
             name: LocalName::Phantom,
             depth: self.scope_depth,
             needs_finaliser: false,
+            must_thunk: false,
             used: true,
         });
 
@@ -243,6 +247,7 @@ impl Scope {
             depth: self.scope_depth,
             initialised: false,
             needs_finaliser: false,
+            must_thunk: false,
             used: false,
         });
 
@@ -257,6 +262,12 @@ impl Scope {
     /// Mark local as needing a finaliser.
     pub fn mark_needs_finaliser(&mut self, idx: LocalIdx) {
         self.locals[idx.0].needs_finaliser = true;
+    }
+
+    /// Mark local as must be wrapped in a thunk.  This happens if
+    /// the local has a reference to itself in its upvalues.
+    pub fn mark_must_thunk(&mut self, idx: LocalIdx) {
+        self.locals[idx.0].must_thunk = true;
     }
 
     /// Compute the runtime stack index for a given local by
