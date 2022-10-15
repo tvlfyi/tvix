@@ -117,6 +117,9 @@ pub enum OpCode {
     /// [`NixSearchPath`]: crate::nix_search_path::NixSearchPath
     OpFindFile,
 
+    /// Attempt to resolve a path literal relative to the home dir
+    OpResolveHomePath,
+
     // Type assertion operators
     OpAssertBool,
 
