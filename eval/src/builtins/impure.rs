@@ -11,15 +11,15 @@ use std::{
 use crate::{
     errors::ErrorKind,
     observer::NoOpObserver,
-    value::{Builtin, CoercionKind, NixAttrs, NixString, Thunk},
+    value::{Builtin, NixAttrs, NixString, Thunk},
     vm::VM,
     SourceCode, Value,
 };
 
 fn impure_builtins() -> Vec<Builtin> {
     vec![
-        Builtin::new("getEnv", &[true], |args: Vec<Value>, vm: &mut VM| {
-            Ok(env::var(args[0].coerce_to_string(CoercionKind::Weak, vm)?)
+        Builtin::new("getEnv", &[true], |args: Vec<Value>, _: &mut VM| {
+            Ok(env::var(args[0].to_str()?)
                 .unwrap_or_else(|_| "".into())
                 .into())
         }),
