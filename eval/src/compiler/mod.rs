@@ -296,7 +296,7 @@ impl Compiler<'_> {
             let path = &raw_path[1..(raw_path.len() - 1)];
             // Make a thunk to resolve the path (without using `findFile`, at least for now?)
             return self.thunk(slot, node, move |c, _| {
-                c.emit_constant(path.into(), node);
+                c.emit_constant(Value::UnresolvedPath(path.into()), node);
                 c.push_op(OpCode::OpFindFile, node);
             });
         } else {

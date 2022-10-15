@@ -46,6 +46,7 @@ pub enum Value {
     AttrNotFound,
     Blueprint(Rc<Lambda>),
     DeferredUpvalue(StackIdx),
+    UnresolvedPath(PathBuf),
 }
 
 // Helper macros to generate the to_*/as_* macros while accounting for
@@ -240,7 +241,8 @@ impl Value {
 
             (Value::AttrNotFound, _)
             | (Value::Blueprint(_), _)
-            | (Value::DeferredUpvalue(_), _) => {
+            | (Value::DeferredUpvalue(_), _)
+            | (Value::UnresolvedPath(_), _) => {
                 panic!("tvix bug: .coerce_to_string() called on internal value")
             }
         }
@@ -262,7 +264,8 @@ impl Value {
             Value::Thunk(_)
             | Value::AttrNotFound
             | Value::Blueprint(_)
-            | Value::DeferredUpvalue(_) => "internal",
+            | Value::DeferredUpvalue(_)
+            | Value::UnresolvedPath(_) => "internal",
         }
     }
 
@@ -362,6 +365,7 @@ impl Display for Value {
             Value::AttrNotFound => f.write_str("internal[not found]"),
             Value::Blueprint(_) => f.write_str("internal[blueprint]"),
             Value::DeferredUpvalue(_) => f.write_str("internal[deferred_upvalue]"),
+            Value::UnresolvedPath(_) => f.write_str("internal[unresolved_path]"),
         }
     }
 }
