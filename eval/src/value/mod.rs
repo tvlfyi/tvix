@@ -43,8 +43,13 @@ pub enum Value {
     // Internal values that, while they technically exist at runtime,
     // are never returned to or created directly by users.
     Thunk(Thunk),
+
+    // See [`compiler::compile_select_or()`] for explanation
     AttrNotFound,
+
+    // this can only occur in Chunk::Constants and nowhere else
     Blueprint(Rc<Lambda>),
+
     DeferredUpvalue(StackIdx),
     UnresolvedPath(PathBuf),
 }

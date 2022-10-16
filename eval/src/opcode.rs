@@ -48,6 +48,8 @@ pub struct JumpOffset(pub usize);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Count(pub usize);
 
+/// All variants of this enum carry a bounded amount of data to
+/// ensure that no heap allocations are needed for an Opcode.
 #[warn(variant_size_differences)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OpCode {
@@ -146,12 +148,17 @@ pub enum OpCode {
     /// given stack index after the scope is fully bound.
     OpFinalise(StackIdx),
 
-    // The closure and thunk creation instructions have a variable
-    // number of arguments to the instruction, which is represented
-    // here by making their data part of the opcodes.
+    // [`OpClosure`] and [`OpThunk`] have a variable number of
+    // arguments to the instruction, which is represented here by
+    // making their data part of the opcodes.  Each of these two
+    // opcodes has a `ConstantIdx`, which must reference a
+    // `Value::Blueprint(Lambda)`.  The `upvalue_count` field in
+    // that `Lambda` indicates the number of arguments it takes, and
+    // the `OpClosure` or `OpThunk` must be followed by exactly this
+    // number of `Data*` opcodes.  The VM skips over these by
+    // advancing the instruction pointer.
     //
-    // The VM skips over these by advancing the instruction pointer
-    // according to the count.
+    // It is illegal for a `Data*` opcode to appear anywhere else.
     DataLocalIdx(StackIdx),
     DataDeferredLocal(StackIdx),
     DataUpvalueIdx(UpvalueIdx),
