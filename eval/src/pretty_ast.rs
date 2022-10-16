@@ -135,17 +135,16 @@ impl<'a> Serialize for SerializeAST<&'a ast::Path> {
 
 impl<'a> Serialize for SerializeAST<&'a ast::Literal> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut map = serializer.serialize_map(Some(2))?;
+        map.serialize_entry("kind", "literal")?;
+
         match self.0.kind() {
-            ast::LiteralKind::Float(val) => serializer.serialize_f64(val.value().unwrap()),
-            ast::LiteralKind::Integer(val) => serializer.serialize_i64(val.value().unwrap()),
-            ast::LiteralKind::Uri(val) => {
-                let url = val.syntax().text();
-                let mut map = serializer.serialize_map(Some(2))?;
-                map.serialize_entry("kind", "url")?;
-                map.serialize_entry("url", url)?;
-                map.end()
-            }
-        }
+            ast::LiteralKind::Float(val) => map.serialize_entry("float", &val.value().unwrap()),
+            ast::LiteralKind::Integer(val) => map.serialize_entry("int", &val.value().unwrap()),
+            ast::LiteralKind::Uri(val) => map.serialize_entry("uri", val.syntax().text()),
+        }?;
+
+        map.end()
     }
 }
 
