@@ -9,7 +9,7 @@ use crate::{
     upvalues::{UpvalueCarrier, Upvalues},
 };
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Lambda {
     // name: Option<NixString>,
     pub(crate) chunk: Chunk,
