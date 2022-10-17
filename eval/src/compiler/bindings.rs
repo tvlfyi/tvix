@@ -694,9 +694,16 @@ impl Compiler<'_> {
 
                 // If there is a non-empty `with`-stack (or a parent context
                 // with one), emit a runtime dynamic resolution instruction.
+                //
+                // Since it is possible for users to e.g. assign a variable to a
+                // dynamic resolution without actually using it, this operation
+                // is wrapped in an extra thunk.
                 if self.has_dynamic_ancestor() {
-                    self.emit_constant(Value::String(SmolStr::new(ident).into()), node);
-                    self.push_op(OpCode::OpResolveWith, node);
+                    self.thunk(slot, node, |c, _| {
+                        c.context_mut().captures_with_stack = true;
+                        c.emit_constant(Value::String(SmolStr::new(ident).into()), node);
+                        c.push_op(OpCode::OpResolveWith, node);
+                    });
                     return;
                 }
 

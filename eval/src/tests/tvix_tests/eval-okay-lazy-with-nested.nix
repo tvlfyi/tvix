@@ -2,5 +2,4 @@
 # from it is actually accessed.
 
 with (abort "should not be evaluated");
-
-42
+let a = dynamic; in 42
