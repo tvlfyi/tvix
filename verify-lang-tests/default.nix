@@ -46,7 +46,9 @@ let
     # Ordering change after 2.3
     "eval-okay-xml.nix" = [ nix ];
     # Missing builtins in Nix 2.3
+    "eval-okay-ceil.nix" = [ nix ];
     "eval-okay-floor-ceil.nix" = [ nix ];
+    "eval-okay-floor.nix" = [ nix ];
     "eval-okay-groupBy.nix" = [ nix ];
     "eval-okay-zipAttrsWith.nix" = [ nix ];
     # Comparable lists are not in Nix 2.3

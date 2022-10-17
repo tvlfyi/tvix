@@ -134,6 +134,9 @@ fn pure_builtins() -> Vec<Builtin> {
                 Ok(Value::List(NixList::construct(output.len(), output)))
             },
         ),
+        Builtin::new("ceil", &[true], |args: Vec<Value>, _: &mut VM| {
+            Ok(Value::Integer(args[0].as_float()?.ceil() as i64))
+        }),
         Builtin::new(
             "compareVersions",
             &[true, true],
@@ -268,6 +271,9 @@ fn pure_builtins() -> Vec<Builtin> {
                 .collect::<Result<Vec<Value>, _>>()
                 .map(|list| Value::List(NixList::from(list)))
                 .map_err(Into::into)
+        }),
+        Builtin::new("floor", &[true], |args: Vec<Value>, _: &mut VM| {
+            Ok(Value::Integer(args[0].as_float()?.floor() as i64))
         }),
         Builtin::new(
             "foldl'",
