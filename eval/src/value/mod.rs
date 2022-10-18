@@ -79,6 +79,19 @@ macro_rules! gen_cast {
     };
 }
 
+/// Generate an `as_*_mut/to_*_mut` accessor method that returns either the
+/// expected type, or a type error.
+macro_rules! gen_cast_mut {
+    ( $name:ident, $type:ty, $expected:expr, $variant:ident) => {
+        pub fn $name(&mut self) -> Result<&mut $type, ErrorKind> {
+            match self {
+                Value::$variant(x) => Ok(x),
+                other => Err(type_error($expected, &other)),
+            }
+        }
+    };
+}
+
 /// Generate an `is_*` type-checking method.
 macro_rules! gen_is {
     ( $name:ident, $variant:pat ) => {
@@ -283,6 +296,8 @@ impl Value {
     gen_cast!(to_attrs, Rc<NixAttrs>, "set", Value::Attrs(a), a.clone());
     gen_cast!(to_list, NixList, "list", Value::List(l), l.clone());
     gen_cast!(to_closure, Closure, "lambda", Value::Closure(c), c.clone());
+
+    gen_cast_mut!(as_list_mut, NixList, "list", List);
 
     gen_is!(is_path, Value::Path(_));
     gen_is!(is_number, Value::Integer(_) | Value::Float(_));

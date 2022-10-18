@@ -323,6 +323,17 @@ fn pure_builtins() -> Vec<Builtin> {
                 }),
             }
         }),
+        Builtin::new("groupBy", &[true, true], |args: Vec<Value>, vm: &mut VM| {
+            let mut res: BTreeMap<NixString, Value> = BTreeMap::new();
+            for val in args[1].to_list()? {
+                let key = vm.call_with(&args[0], [val.clone()])?.force(vm)?.to_str()?;
+                res.entry(key)
+                    .or_insert_with(|| Value::List(NixList::new()))
+                    .as_list_mut()?
+                    .push(val);
+            }
+            Ok(Value::attrs(NixAttrs::from_map(res)))
+        }),
         Builtin::new("hasAttr", &[true, true], |args: Vec<Value>, _: &mut VM| {
             let k = args[0].to_str()?;
             let xs = args[1].to_attrs()?;
