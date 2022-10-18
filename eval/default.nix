@@ -108,6 +108,7 @@ lib.fix (self: depot.third_party.naersk.buildPackage (lib.fix (naerskArgs: {
 
           case "$(basename $i)" in
             eval-okay-search-path.nix) ;&
+            eval-okay-tail-call-1.nix | \
             eval-okay-fromjson.nix)
               # TODO(sterni,grfn): fix these tests
               echo "SKIPPED: $i"

@@ -14,20 +14,31 @@ fn eval_test(code_path: &str, expect_success: bool) {
 
     match interpret(&code, Some(code_path.into()), Options::test_options()) {
         Ok(result) => {
-            if !expect_success {
-                panic!(
-                    "test should have failed, but succeeded with output {}",
-                    result
-                );
-            }
             let result_str = format!("{}", result);
-            let exp =
-                std::fs::read_to_string(exp_path).expect("should be able to read test expectation");
-            assert_eq!(
-                result_str,
-                exp.trim(),
-                "result value representation (left) must match expectation (right)"
-            );
+            if let Ok(exp) = std::fs::read_to_string(exp_path) {
+                if expect_success {
+                    assert_eq!(
+                        result_str,
+                        exp.trim(),
+                        "result value representation (left) must match expectation (right)"
+                    );
+                } else {
+                    assert_ne!(
+                        result_str,
+                        exp.trim(),
+                        "test passed unexpectedly!  consider moving it out of notyetpassing"
+                    );
+                }
+            } else {
+                if expect_success {
+                    panic!("should be able to read test expectation");
+                } else {
+                    panic!(
+                        "test should have failed, but succeeded with output {}",
+                        result
+                    );
+                }
+            }
         }
         Err(e) => {
             if expect_success {
@@ -67,11 +78,34 @@ fn eval_okay(code_path: &str) {
     eval_test(code_path, true)
 }
 
-// eval-fail-* tests from the original Nix test suite.
+// eval-okay-* tests from the original Nix test suite.
 #[cfg(feature = "nix_tests")]
 #[test_resources("src/tests/nix_tests/eval-okay-*.nix")]
 fn nix_eval_okay(code_path: &str) {
     eval_test(code_path, true)
+}
+
+// eval-okay-* tests from the original Nix test suite which do not yet pass for tvix
+//
+// Eventually there will be none of these left, and this function
+// will disappear :) Until then, to run these tests, use `cargo test
+// --features expected_failures`.
+//
+// Please don't submit failing tests unless they're in
+// notyetpassing; this makes the test suite much more useful for
+// regression testing, since there should always be zero non-ignored
+// failing tests.
+//
+// Unfortunately test_generator is unmaintained, so the PRs to make
+// it understand #[ignored] has been sitting for two years, so we
+// can't use `cargo test --include-ignored`, which is the normal way
+// of handling this situation.
+//
+//   https://github.com/frehberg/test-generator/pull/10
+//   https://github.com/frehberg/test-generator/pull/8
+#[test_resources("src/tests/nix_tests/notyetpassing/eval-okay-*.nix")]
+fn nix_eval_okay_currently_failing(code_path: &str) {
+    eval_test(code_path, false)
 }
 
 // eval-fail-* tests contain a snippet of Nix code, which is
