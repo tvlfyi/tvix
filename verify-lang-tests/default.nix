@@ -34,25 +34,25 @@ let
             (builtins.map (parseTest dir))
             (builtins.filter (t: t != null))
           ]
-      ) [ "nix_tests" "tvix_tests" ];
+      ) [ "nix_tests" "nix_tests/notyetpassing" "tvix_tests" ];
 
   skippedLangTests = {
     # TODO(sterni): set up NIX_PATH in sandbox
-    "nix_tests/eval-okay-search-path.nix" = true;
+    "eval-okay-search-path.nix" = true;
     # Floating point precision differs between tvix and Nix
-    "tvix_tests/eval-okay-fromjson.nix" = true;
-    # C++ Nix can't do TCO
-    "nix_tests/eval-okay-tail-call-1.nix" = true;
+    "eval-okay-fromjson.nix" = true;
+    # C++ Nix can't TCO
+    "eval-okay-tail-call-1.nix" = true;
     # Ordering change after 2.3
-    "nix_tests/eval-okay-xml.nix" = [ nix ];
+    "eval-okay-xml.nix" = [ nix ];
     # Missing builtins in Nix 2.3
-    "nix_tests/eval-okay-floor-ceil.nix" = [ nix ];
-    "nix_tests/eval-okay-groupBy.nix" = [ nix ];
-    "nix_tests/eval-okay-zipAttrsWith.nix" = [ nix ];
+    "eval-okay-floor-ceil.nix" = [ nix ];
+    "eval-okay-groupBy.nix" = [ nix ];
+    "eval-okay-zipAttrsWith.nix" = [ nix ];
     # Comparable lists are not in Nix 2.3
-    "nix_tests/eval-okay-sort.nix" = [ nix ];
+    "eval-okay-sort.nix" = [ nix ];
     # getAttrPos gains support for functionArgs-returned sets after 2.3
-    "nix_tests/eval-okay-getattrpos-functionargs.nix" = [ nix ];
+    "eval-okay-getattrpos-functionargs.nix" = [ nix ];
   };
 
   runCppNixLangTests = cpp-nix:
@@ -76,7 +76,7 @@ let
           # or if we are missing an exp file for an eval-okay test.
           skip =
             let
-              doSkip = skippedLangTests.${fileName} or false;
+              doSkip = skippedLangTests.${builtins.baseNameOf fileName} or false;
             in
             if type == "eval" && expectedSuccess && (expFile == null) then true
             else if builtins.isBool doSkip then doSkip
