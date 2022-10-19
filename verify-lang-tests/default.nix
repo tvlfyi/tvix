@@ -44,7 +44,15 @@ let
     # C++ Nix can't do TCO
     "nix_tests/eval-okay-tail-call-1.nix" = true;
     # Ordering change after 2.3
-    "nix_tests/eval-okay-xml.nix" = [ nix_latest ];
+    "nix_tests/eval-okay-xml.nix" = [ nix ];
+    # Missing builtins in Nix 2.3
+    "nix_tests/eval-okay-floor-ceil.nix" = [ nix ];
+    "nix_tests/eval-okay-groupBy.nix" = [ nix ];
+    "nix_tests/eval-okay-zipAttrsWith.nix" = [ nix ];
+    # Comparable lists are not in Nix 2.3
+    "nix_tests/eval-okay-sort.nix" = [ nix ];
+    # getAttrPos gains support for functionArgs-returned sets after 2.3
+    "nix_tests/eval-okay-getattrpos-functionargs.nix" = [ nix ];
   };
 
   runCppNixLangTests = cpp-nix:
