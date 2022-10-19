@@ -9,8 +9,15 @@ fn eval_test(code_path: &str, expect_success: bool) {
         .strip_suffix("nix")
         .expect("test files always end in .nix");
     let exp_path = format!("{}exp", base);
+    let exp_xml_path = std::path::PathBuf::from(format!("{}exp.xml", base));
 
     let code = std::fs::read_to_string(code_path).expect("should be able to read test code");
+
+    if exp_xml_path.exists() {
+        // We can't test them at the moment because we don't have XML output yet.
+        // Checking for success / failure only is a bit disingenious.
+        return;
+    }
 
     match interpret(&code, Some(code_path.into()), Options::test_options()) {
         Ok(result) => {
