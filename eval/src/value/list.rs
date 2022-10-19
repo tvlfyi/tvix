@@ -50,10 +50,9 @@ mod arbitrary {
 
 impl NixList {
     pub fn concat(&self, other: &Self) -> Self {
-        let mut lhs = self.clone();
-        let mut rhs = other.clone();
-        lhs.0.append(&mut rhs.0);
-        lhs
+        let mut ret = self.clone();
+        ret.0.extend_from_slice(&other.0);
+        ret
     }
 
     pub fn len(&self) -> usize {
