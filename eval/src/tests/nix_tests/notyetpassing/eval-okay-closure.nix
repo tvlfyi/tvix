@@ -8,6 +8,6 @@ let
       else [{key = builtins.sub key 9;} {key = builtins.sub key 13; foo = true;}];
   };
 
-  sort = (import ./lib.nix).sortBy (a: b: builtins.lessThan a.key b.key);
+  sort = (import ./../lib.nix).sortBy (a: b: builtins.lessThan a.key b.key);
 
 in sort closure
