@@ -56,6 +56,8 @@ let
     "eval-okay-compare-lists.nix" = [ nix ];
     # getAttrPos gains support for functionArgs-returned sets after 2.3
     "eval-okay-getattrpos-functionargs.nix" = [ nix ];
+    # groupBy appeared (long) after 2.3
+    "eval-okay-builtins-groupby-thunk.nix" = [ nix ];
   };
 
   runCppNixLangTests = cpp-nix:
