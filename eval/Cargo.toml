@@ -42,7 +42,7 @@ itertools = "0.10.3"
 tempdir = "0.3.7"
 
 [features]
-default = [ "repl", "impure", "arbitrary" ]
+default = [ "repl", "impure", "arbitrary", "nix_tests" ]
 
 # Enables running the Nix language test suite from the original C++
 # Nix implementation (at version 2.3) against Tvix.
