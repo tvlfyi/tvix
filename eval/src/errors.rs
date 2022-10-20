@@ -50,8 +50,11 @@ pub enum ErrorKind {
         rhs: &'static str,
     },
 
-    /// Resolving a user-supplied path literal failed in some way.
-    PathResolution(String),
+    /// Resolving a user-supplied angle brackets path literal failed in some way.
+    NixPathResolution(String),
+
+    /// Resolving a user-supplied relative or home-relative path literal failed in some way.
+    RelativePathResolution(String),
 
     /// Dynamic keys are not allowed in some scopes.
     DynamicKeyInScope(&'static str),
@@ -178,7 +181,7 @@ impl ErrorKind {
     /// Returns `true` if this error can be caught by `builtins.tryEval`
     pub fn is_catchable(&self) -> bool {
         match self {
-            Self::Throw(_) | Self::AssertionFailed | Self::PathResolution(_) => true,
+            Self::Throw(_) | Self::AssertionFailed | Self::NixPathResolution(_) => true,
             Self::ThunkForce(err) => err.kind.is_catchable(),
             _ => false,
         }
@@ -238,7 +241,9 @@ impl Display for Error {
                 write!(f, "can not compare a {} with a {}", lhs, rhs)
             }
 
-            ErrorKind::PathResolution(err) => write!(f, "could not resolve path: {}", err),
+            ErrorKind::NixPathResolution(err) | ErrorKind::RelativePathResolution(err) => {
+                write!(f, "could not resolve path: {}", err)
+            }
 
             ErrorKind::DynamicKeyInScope(scope) => {
                 write!(f, "dynamically evaluated keys are not allowed in {}", scope)
@@ -619,7 +624,9 @@ impl Error {
         let label = match &self.kind {
             ErrorKind::DuplicateAttrsKey { .. } => "in this attribute set",
             ErrorKind::InvalidAttributeName(_) => "in this attribute set",
-            ErrorKind::PathResolution(_) => "in this path literal",
+            ErrorKind::NixPathResolution(_) | ErrorKind::RelativePathResolution(_) => {
+                "in this path literal"
+            }
             ErrorKind::UnexpectedArgument { .. } => "in this function call",
 
             // The spans for some errors don't have any more descriptive stuff
@@ -668,7 +675,7 @@ impl Error {
             ErrorKind::AttributeNotFound { .. } => "E005",
             ErrorKind::TypeError { .. } => "E006",
             ErrorKind::Incomparable { .. } => "E007",
-            ErrorKind::PathResolution(_) => "E008",
+            ErrorKind::NixPathResolution(_) => "E008",
             ErrorKind::DynamicKeyInScope(_) => "E009",
             ErrorKind::UnknownStaticVariable => "E010",
             ErrorKind::UnknownDynamicVariable(_) => "E011",
@@ -691,6 +698,7 @@ impl Error {
             ErrorKind::IO { .. } => "E029",
             ErrorKind::FromJsonError { .. } => "E030",
             ErrorKind::UnexpectedArgument { .. } => "E031",
+            ErrorKind::RelativePathResolution(_) => "E032",
 
             // Placeholder error while Tvix is under construction.
             ErrorKind::NotImplemented(_) => "E999",

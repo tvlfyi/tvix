@@ -555,7 +555,7 @@ impl<'o> VM<'o> {
                 Value::UnresolvedPath(path) => {
                     match dirs::home_dir() {
                         None => {
-                            return Err(self.error(ErrorKind::PathResolution(
+                            return Err(self.error(ErrorKind::RelativePathResolution(
                                 "failed to determine home directory".into(),
                             )));
                         }
