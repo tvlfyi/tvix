@@ -3,6 +3,8 @@
 
 use std::{ops::DerefMut, path::PathBuf, rc::Rc};
 
+use codemap::Span;
+
 use crate::{
     chunk::Chunk,
     errors::{Error, ErrorKind, EvalResult},
@@ -860,21 +862,31 @@ impl<'o> VM<'o> {
     /// will ensure that lists and attribute sets do not contain
     /// chunks which, for users, are displayed in a strange and often
     /// unexpected way.
-    fn force_for_output(&mut self, value: &Value) -> EvalResult<()> {
+    fn force_for_output(&mut self, value: &Value, root_span: Span) -> EvalResult<()> {
         match value {
             Value::Attrs(attrs) => {
                 for (_, value) in attrs.iter() {
-                    self.force_for_output(value)?;
+                    self.force_for_output(value, root_span)?;
                 }
                 Ok(())
             }
 
-            Value::List(list) => list.iter().try_for_each(|elem| self.force_for_output(elem)),
+            Value::List(list) => list
+                .iter()
+                .try_for_each(|elem| self.force_for_output(elem, root_span)),
 
             Value::Thunk(thunk) => {
-                fallible!(self, thunk.force(self));
+                // This force is "synthetic", in that there is no
+                // outer expression from which a top-level span for
+                // the call can be derived, so we need to set this
+                // span manually.
+                thunk.force(self).map_err(|kind| Error {
+                    kind,
+                    span: root_span,
+                })?;
+
                 let value = thunk.value().clone();
-                self.force_for_output(&value)
+                self.force_for_output(&value, root_span)
             }
 
             // If any of these internal values are encountered here a
@@ -925,9 +937,18 @@ pub fn run_lambda(
     lambda: Rc<Lambda>,
 ) -> EvalResult<RuntimeResult> {
     let mut vm = VM::new(nix_search_path, observer);
+
+    // Retain the top-level span of the expression in this lambda, as
+    // synthetic "calls" in force_for_output will otherwise not have a
+    // span to fall back to.
+    //
+    // We exploit the fact that the compiler emits a final instruction
+    // with the span of the entire file for top-level expressions.
+    let root_span = lambda.chunk.get_span(CodeIdx(lambda.chunk.code.len() - 1));
+
     vm.enter_frame(lambda, Upvalues::with_capacity(0), 0)?;
     let value = vm.pop();
-    vm.force_for_output(&value)?;
+    vm.force_for_output(&value, root_span)?;
 
     Ok(RuntimeResult {
         value,
