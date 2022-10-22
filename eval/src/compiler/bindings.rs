@@ -323,8 +323,8 @@ impl Compiler<'_> {
         for inherit in node.inherits() {
             match inherit.from() {
                 // Within a `let` binding, inheriting from the outer scope is a
-                // no-op *if* the scope is fully static.
-                None if !kind.is_attrs() && !self.scope().has_with() => {
+                // no-op *if* there are no dynamic bindings.
+                None if !kind.is_attrs() && !self.has_dynamic_ancestor() => {
                     self.emit_warning(&inherit, WarningKind::UselessInherit);
                     continue;
                 }
