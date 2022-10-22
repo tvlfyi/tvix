@@ -996,20 +996,15 @@ impl Compiler<'_> {
         upvalues: Vec<Upvalue>,
         capture_with: bool,
     ) {
-        let this_depth = self.scope()[slot].depth;
-        let this_stack_slot = self.scope().stack_index(slot);
-
         for upvalue in upvalues {
             match upvalue.kind {
                 UpvalueKind::Local(idx) => {
-                    let target_depth = self.scope()[idx].depth;
+                    let target = &self.scope()[idx];
                     let stack_idx = self.scope().stack_index(idx);
 
-                    // If the upvalue slot is located at the same
-                    // depth, but *after* the closure, the upvalue
-                    // resolution must be deferred until the scope is
-                    // fully initialised and can be finalised.
-                    if this_depth == target_depth && this_stack_slot < stack_idx {
+                    // If the target is not yet initialised, we need to defer
+                    // the local access
+                    if !target.initialised {
                         self.push_op(OpCode::DataDeferredLocal(stack_idx), &upvalue.span);
                         self.scope_mut().mark_needs_finaliser(slot);
                     } else {
