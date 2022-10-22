@@ -1014,7 +1014,7 @@ impl Compiler<'_> {
                         self.scope_mut().mark_needs_finaliser(slot);
                     } else {
                         // a self-reference
-                        if this_depth == target_depth && this_stack_slot == stack_idx {
+                        if slot == idx {
                             self.scope_mut().mark_must_thunk(slot);
                         }
                         self.push_op(OpCode::DataLocalIdx(stack_idx), &upvalue.span);
