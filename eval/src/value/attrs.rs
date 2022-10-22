@@ -7,12 +7,13 @@
 //! some peculiarities that are encapsulated within this module.
 use std::collections::btree_map;
 use std::collections::BTreeMap;
-use std::fmt::Display;
 
 use crate::errors::ErrorKind;
 use crate::vm::VM;
 
 use super::string::NixString;
+use super::thunk::ThunkSet;
+use super::TotalDisplay;
 use super::Value;
 
 #[cfg(test)]
@@ -74,19 +75,26 @@ impl AttrsRep {
 #[derive(Clone, Debug, PartialEq)]
 pub struct NixAttrs(AttrsRep);
 
-impl Display for NixAttrs {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl TotalDisplay for NixAttrs {
+    fn total_fmt(&self, f: &mut std::fmt::Formatter<'_>, set: &mut ThunkSet) -> std::fmt::Result {
         f.write_str("{ ")?;
 
         match &self.0 {
             AttrsRep::KV { name, value } => {
-                write!(f, "name = {}; ", name)?;
-                write!(f, "value = {}; ", value)?;
+                f.write_str("name = ")?;
+                name.total_fmt(f, set)?;
+                f.write_str("; ")?;
+
+                f.write_str("value = ")?;
+                value.total_fmt(f, set)?;
+                f.write_str("; ")?;
             }
 
             AttrsRep::Map(map) => {
                 for (name, value) in map {
-                    write!(f, "{} = {}; ", name.ident_str(), value)?;
+                    write!(f, "{} = ", name.ident_str())?;
+                    value.total_fmt(f, set)?;
+                    f.write_str("; ")?;
                 }
             }
 

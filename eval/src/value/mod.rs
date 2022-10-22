@@ -1,9 +1,9 @@
 //! This module implements the backing representation of runtime
 //! values in the Nix language.
-use std::cell::Ref;
 use std::ops::Deref;
+use std::path::PathBuf;
 use std::rc::Rc;
-use std::{fmt::Display, path::PathBuf};
+use std::{cell::Ref, fmt::Display};
 
 #[cfg(feature = "arbitrary")]
 mod arbitrary;
@@ -388,8 +388,18 @@ impl Value {
     }
 }
 
+trait TotalDisplay {
+    fn total_fmt(&self, f: &mut std::fmt::Formatter<'_>, set: &mut ThunkSet) -> std::fmt::Result;
+}
+
 impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.total_fmt(f, &mut Default::default())
+    }
+}
+
+impl TotalDisplay for Value {
+    fn total_fmt(&self, f: &mut std::fmt::Formatter<'_>, set: &mut ThunkSet) -> std::fmt::Result {
         match self {
             Value::Null => f.write_str("null"),
             Value::Bool(true) => f.write_str("true"),
@@ -397,8 +407,8 @@ impl Display for Value {
             Value::Integer(num) => write!(f, "{}", num),
             Value::String(s) => s.fmt(f),
             Value::Path(p) => p.display().fmt(f),
-            Value::Attrs(attrs) => attrs.fmt(f),
-            Value::List(list) => list.fmt(f),
+            Value::Attrs(attrs) => attrs.total_fmt(f, set),
+            Value::List(list) => list.total_fmt(f, set),
             Value::Closure(_) => f.write_str("lambda"), // TODO: print position
             Value::Builtin(builtin) => builtin.fmt(f),
 
@@ -408,15 +418,15 @@ impl Display for Value {
                 write!(f, "{}", format!("{:.5}", num).trim_end_matches(['.', '0']))
             }
 
-            // Delegate thunk display to the type, as it must handle
-            // the case of already evaluated thunks.
-            Value::Thunk(t) => t.fmt(f),
-
             // internal types
             Value::AttrNotFound => f.write_str("internal[not found]"),
             Value::Blueprint(_) => f.write_str("internal[blueprint]"),
             Value::DeferredUpvalue(_) => f.write_str("internal[deferred_upvalue]"),
             Value::UnresolvedPath(_) => f.write_str("internal[unresolved_path]"),
+
+            // Delegate thunk display to the type, as it must handle
+            // the case of already evaluated or cyclic thunks.
+            Value::Thunk(t) => t.total_fmt(f, set),
         }
     }
 }

@@ -21,7 +21,6 @@
 use std::{
     cell::{Ref, RefCell, RefMut},
     collections::HashSet,
-    fmt::Display,
     rc::Rc,
 };
 
@@ -35,7 +34,7 @@ use crate::{
     Value,
 };
 
-use super::Lambda;
+use super::{Lambda, TotalDisplay};
 
 /// Internal representation of the different states of a thunk.
 ///
@@ -188,11 +187,15 @@ impl Thunk {
     }
 }
 
-impl Display for Thunk {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl TotalDisplay for Thunk {
+    fn total_fmt(&self, f: &mut std::fmt::Formatter<'_>, set: &mut ThunkSet) -> std::fmt::Result {
+        if !set.insert(self) {
+            return f.write_str("<CYCLE>");
+        }
+
         match self.0.try_borrow() {
             Ok(repr) => match &*repr {
-                ThunkRepr::Evaluated(v) => v.fmt(f),
+                ThunkRepr::Evaluated(v) => v.total_fmt(f, set),
                 _ => f.write_str("internal[thunk]"),
             },
 

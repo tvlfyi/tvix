@@ -1,21 +1,21 @@
 //! This module implements Nix lists.
-use std::fmt::Display;
-
 use crate::errors::ErrorKind;
 use crate::vm::VM;
 
+use super::thunk::ThunkSet;
+use super::TotalDisplay;
 use super::Value;
 
 #[repr(transparent)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct NixList(Vec<Value>);
 
-impl Display for NixList {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl TotalDisplay for NixList {
+    fn total_fmt(&self, f: &mut std::fmt::Formatter<'_>, set: &mut ThunkSet) -> std::fmt::Result {
         f.write_str("[ ")?;
 
         for v in &self.0 {
-            v.fmt(f)?;
+            v.total_fmt(f, set)?;
             f.write_str(" ")?;
         }
 
