@@ -9,6 +9,7 @@ use std::path::PathBuf;
 
 use regex::Regex;
 
+use crate::warnings::WarningKind;
 use crate::{
     errors::ErrorKind,
     value::{Builtin, CoercionKind, NixAttrs, NixList, NixString, Value},
@@ -636,6 +637,22 @@ fn pure_builtins() -> Vec<Builtin> {
     ]
 }
 
+/// Placeholder builtins that technically have a function which we do
+/// not yet implement, but which is also not easily observable from
+/// within a pure evaluation context.
+///
+/// These are used as a crutch to make progress on nixpkgs evaluation.
+fn placeholders() -> Vec<Builtin> {
+    vec![Builtin::new(
+        "addErrorContext",
+        &[false, false],
+        |mut args: Vec<Value>, vm: &mut VM| {
+            vm.emit_warning(WarningKind::NotImplemented("builtins.addErrorContext"));
+            Ok(args.pop().unwrap())
+        },
+    )]
+}
+
 fn builtins_set() -> NixAttrs {
     let mut map: BTreeMap<NixString, Value> = BTreeMap::new();
 
@@ -652,6 +669,8 @@ fn builtins_set() -> NixAttrs {
     };
 
     add_builtins(pure_builtins());
+    add_builtins(placeholders());
+
     #[cfg(feature = "impure")]
     {
         map.extend(impure::builtins());
