@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::str::Utf8Error;
 use std::sync::Arc;
-use std::{fmt::Display, num::ParseIntError};
+use std::{fmt::Debug, fmt::Display, num::ParseIntError};
 
 use codemap::{File, Span};
 use codemap_diagnostic::{ColorConfig, Diagnostic, Emitter, Level, SpanLabel, SpanStyle};
@@ -139,6 +139,13 @@ pub enum ErrorKind {
     UnexpectedArgument {
         arg: NixString,
         formals_span: Span,
+    },
+
+    /// Variant for code paths that are known bugs in Tvix (usually
+    /// issues with the compiler/VM interaction).
+    TvixBug {
+        msg: &'static str,
+        metadata: Option<Rc<dyn Debug>>,
     },
 
     /// Tvix internal warning for features triggered by users that are
@@ -374,6 +381,16 @@ to a missing value in the attribute set(s) included via `with`."#,
                     "Unexpected argument `{}` supplied to function",
                     arg.as_str()
                 )
+            }
+
+            ErrorKind::TvixBug { msg, metadata } => {
+                write!(f, "Tvix bug: {}", msg)?;
+
+                if let Some(metadata) = metadata {
+                    write!(f, "; metadata: {:?}", metadata)?;
+                }
+
+                Ok(())
             }
 
             ErrorKind::NotImplemented(feature) => {
@@ -658,6 +675,7 @@ impl Error {
             | ErrorKind::ImportCompilerError { .. }
             | ErrorKind::IO { .. }
             | ErrorKind::FromJsonError(_)
+            | ErrorKind::TvixBug { .. }
             | ErrorKind::NotImplemented(_) => return None,
         };
 
@@ -699,6 +717,10 @@ impl Error {
             ErrorKind::FromJsonError { .. } => "E030",
             ErrorKind::UnexpectedArgument { .. } => "E031",
             ErrorKind::RelativePathResolution(_) => "E032",
+
+            // Special error code that is not part of the normal
+            // ordering.
+            ErrorKind::TvixBug { .. } => "E998",
 
             // Placeholder error while Tvix is under construction.
             ErrorKind::NotImplemented(_) => "E999",
