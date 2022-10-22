@@ -1,6 +1,7 @@
 //! This module implements the virtual (or abstract) machine that runs
 //! Tvix bytecode.
 
+use serde_json::json;
 use std::{ops::DerefMut, path::PathBuf, rc::Rc};
 
 use crate::{
@@ -818,7 +819,22 @@ impl<'o> VM<'o> {
             match self.inc_ip() {
                 OpCode::DataLocalIdx(StackIdx(local_idx)) => {
                     let idx = self.frame().stack_offset + local_idx;
-                    upvalues.deref_mut().push(self.stack[idx].clone());
+
+                    let val = match self.stack.get(idx) {
+                        Some(val) => val.clone(),
+                        None => {
+                            return Err(self.error(ErrorKind::TvixBug {
+                                msg: "upvalue to be captured was missing on stack",
+                                metadata: Some(Rc::new(json!({
+                                    "ip": format!("{:#x}", self.frame().ip.0 - 1),
+                                    "local_idx": local_idx,
+                                    "stack_idx": idx,
+                                }))),
+                            }))
+                        }
+                    };
+
+                    upvalues.deref_mut().push(val);
                 }
 
                 OpCode::DataUpvalueIdx(upv_idx) => {
