@@ -15,6 +15,8 @@ use std::{
     ops::Index,
 };
 
+use smol_str::SmolStr;
+
 use crate::opcode::{StackIdx, UpvalueIdx};
 
 #[derive(Debug)]
@@ -68,6 +70,14 @@ impl Local {
 
             // Phantoms are *never* accessible by a name.
             LocalName::Phantom => false,
+        }
+    }
+
+    /// Retrieve the name of the given local (if available).
+    pub fn name(&self) -> Option<SmolStr> {
+        match &self.name {
+            LocalName::Phantom => None,
+            LocalName::Ident(name) => Some(SmolStr::new(name)),
         }
     }
 

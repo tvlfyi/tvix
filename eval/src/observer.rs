@@ -137,12 +137,22 @@ impl<W: Write> TracingObserver<W> {
 
 impl<W: Write> RuntimeObserver for TracingObserver<W> {
     fn observe_enter_frame(&mut self, arg_count: usize, lambda: &Rc<Lambda>, call_depth: usize) {
+        let _ = write!(&mut self.writer, "=== entering ");
+
+        let _ = if arg_count == 0 {
+            write!(&mut self.writer, "thunk ")
+        } else {
+            write!(&mut self.writer, "closure ")
+        };
+
+        if let Some(name) = &lambda.name {
+            let _ = write!(&mut self.writer, "'{}' ", name);
+        }
+
         let _ = writeln!(
             &mut self.writer,
-            "=== entering {} frame[{}] @ {:p} ===",
-            if arg_count == 0 { "thunk" } else { "closure" },
-            call_depth,
-            lambda,
+            "in frame[{}] @ {:p} ===",
+            call_depth, lambda
         );
     }
 

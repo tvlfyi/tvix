@@ -2,6 +2,7 @@
 use std::{collections::HashMap, hash::Hash, rc::Rc};
 
 use codemap::Span;
+use smol_str::SmolStr;
 
 use crate::{chunk::Chunk, upvalues::Upvalues};
 
@@ -38,9 +39,14 @@ impl Formals {
 /// OpThunkSuspended referencing it.  At runtime `Lambda` is usually wrapped
 /// in `Rc` to avoid copying the `Chunk` it holds (which can be
 /// quite large).
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
 pub struct Lambda {
     pub(crate) chunk: Chunk,
+
+    /// Name of the function (equivalent to the name of the
+    /// identifier (e.g. a value in a let-expression or an attribute
+    /// set entry) it is located in).
+    pub(crate) name: Option<SmolStr>,
 
     /// Number of upvalues which the code in this Lambda closes
     /// over, and which need to be initialised at
@@ -51,14 +57,6 @@ pub struct Lambda {
 }
 
 impl Lambda {
-    pub fn new_anonymous() -> Self {
-        Lambda {
-            chunk: Default::default(),
-            upvalue_count: 0,
-            formals: None,
-        }
-    }
-
     pub fn chunk(&mut self) -> &mut Chunk {
         &mut self.chunk
     }

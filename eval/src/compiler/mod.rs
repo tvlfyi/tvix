@@ -54,7 +54,7 @@ struct LambdaCtx {
 impl LambdaCtx {
     fn new() -> Self {
         LambdaCtx {
-            lambda: Lambda::new_anonymous(),
+            lambda: Lambda::default(),
             scope: Default::default(),
             captures_with_stack: false,
         }
@@ -62,7 +62,7 @@ impl LambdaCtx {
 
     fn inherit(&self) -> Self {
         LambdaCtx {
-            lambda: Lambda::new_anonymous(),
+            lambda: Lambda::default(),
             scope: self.scope.inherit(),
             captures_with_stack: false,
         }
@@ -897,7 +897,13 @@ impl Compiler<'_> {
         N: ToSpan,
         F: FnOnce(&mut Compiler, LocalIdx),
     {
+        let name = self.scope()[outer_slot].name();
         self.new_context();
+
+        // Set the (optional) name of the current slot on the lambda that is
+        // being compiled.
+        self.context_mut().lambda.name = name;
+
         let span = self.span_for(node);
         let slot = self.scope_mut().declare_phantom(span, false);
         self.scope_mut().begin_scope();
