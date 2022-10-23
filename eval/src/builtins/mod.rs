@@ -628,9 +628,46 @@ fn pure_builtins() -> Vec<Builtin> {
             },
         ),
         Builtin::new("seq", &[true, true], |mut args: Vec<Value>, _: &mut VM| {
-            // The builtin calling infra has already forced both args for us, so we just return the
-            // second and ignore the first
+            // The builtin calling infra has already forced both args for us, so
+            // we just return the second and ignore the first
             Ok(args.pop().unwrap())
+        }),
+        Builtin::new("sort", &[true, true], |args: Vec<Value>, vm: &mut VM| {
+            let mut list = args[1].to_list()?;
+            let comparator = &args[0];
+
+            // Used to let errors "escape" from the sorting closure. If anything
+            // ends up setting an error, it is returned from this function.
+            let mut error: Option<ErrorKind> = None;
+
+            list.sort_by(|lhs, rhs| {
+                let result = vm
+                    .call_with(comparator, [lhs.clone(), rhs.clone()])
+                    .map_err(|err| ErrorKind::ThunkForce(Box::new(err)))
+                    .and_then(|v| v.force(vm)?.as_bool());
+
+                match (&error, result) {
+                    // The contained closure only returns a "less
+                    // than?"-boolean, no way to yield "equal".
+                    (None, Ok(true)) => Ordering::Less,
+                    (None, Ok(false)) => Ordering::Greater,
+
+                    // Closest thing to short-circuiting out if an error was
+                    // thrown.
+                    (Some(_), _) => Ordering::Equal,
+
+                    // Propagate the error if one was encountered.
+                    (_, Err(e)) => {
+                        error = Some(e);
+                        Ordering::Equal
+                    }
+                }
+            });
+
+            match error {
+                None => Ok(Value::List(list)),
+                Some(e) => Err(e),
+            }
         }),
         Builtin::new("splitVersion", &[true], |args: Vec<Value>, _: &mut VM| {
             let s = args[0].to_str()?;
