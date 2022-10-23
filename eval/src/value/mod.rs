@@ -351,12 +351,25 @@ impl Value {
     }
 
     /// Compare `self` against other using (fallible) Nix ordering semantics.
-    pub fn nix_cmp(&self, other: &Self) -> Result<Option<Ordering>, ErrorKind> {
+    pub fn nix_cmp(&self, other: &Self, vm: &mut VM) -> Result<Option<Ordering>, ErrorKind> {
         match (self, other) {
             // same types
             (Value::Integer(i1), Value::Integer(i2)) => Ok(i1.partial_cmp(i2)),
             (Value::Float(f1), Value::Float(f2)) => Ok(f1.partial_cmp(f2)),
             (Value::String(s1), Value::String(s2)) => Ok(s1.partial_cmp(s2)),
+            (Value::List(l1), Value::List(l2)) => {
+                for i in 0.. {
+                    if i == l2.len() {
+                        return Ok(Some(Ordering::Greater));
+                    } else if i == l1.len() {
+                        return Ok(Some(Ordering::Less));
+                    } else if !l1[i].nix_eq(&l2[i], vm)? {
+                        return l1[i].force(vm)?.nix_cmp(&*l2[i].force(vm)?, vm);
+                    }
+                }
+
+                unreachable!()
+            }
 
             // different types
             (Value::Integer(i1), Value::Float(f2)) => Ok((*i1 as f64).partial_cmp(f2)),

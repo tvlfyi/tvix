@@ -418,7 +418,7 @@ fn pure_builtins() -> Vec<Builtin> {
             &[false, false],
             |args: Vec<Value>, vm: &mut VM| {
                 Ok(Value::Bool(matches!(
-                    args[0].force(vm)?.nix_cmp(&*args[1].force(vm)?)?,
+                    args[0].force(vm)?.nix_cmp(&*args[1].force(vm)?, vm)?,
                     Some(Ordering::Less)
                 )))
             },

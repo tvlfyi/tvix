@@ -123,7 +123,7 @@ macro_rules! cmp_op {
     ( $self:ident, $op:tt ) => {{
         let b = $self.pop();
         let a = $self.pop();
-        let ordering = fallible!($self, a.nix_cmp(&b));
+        let ordering = fallible!($self, a.nix_cmp(&b, $self));
         let result = Value::Bool(cmp_op!(@order $op ordering));
         $self.push(result);
     }};

@@ -1,4 +1,6 @@
 //! This module implements Nix lists.
+use std::ops::Deref;
+
 use crate::errors::ErrorKind;
 use crate::vm::VM;
 
@@ -123,5 +125,13 @@ impl<'a> IntoIterator for &'a NixList {
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
+    }
+}
+
+impl Deref for NixList {
+    type Target = Vec<Value>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
