@@ -277,7 +277,7 @@ fn pure_builtins() -> Vec<Builtin> {
                 let mut res = args.pop().unwrap();
                 let op = args.pop().unwrap();
                 for val in list {
-                    res = vm.call_with(&op, [val, res])?;
+                    res = vm.call_with(&op, [res, val])?;
                     res.force(vm)?;
                 }
 

@@ -265,9 +265,10 @@ impl<'o> VM<'o> {
     pub fn call_with<I>(&mut self, callable: &Value, args: I) -> EvalResult<Value>
     where
         I: IntoIterator<Item = Value>,
+        I::IntoIter: DoubleEndedIterator,
     {
         let mut num_args = 0_usize;
-        for arg in args {
+        for arg in args.into_iter().rev() {
             num_args += 1;
             self.push(arg);
         }
