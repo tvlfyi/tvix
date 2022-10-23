@@ -436,6 +436,19 @@ fn pure_builtins() -> Vec<Builtin> {
                 .map_err(Into::into)
         }),
         Builtin::new(
+            "mapAttrs",
+            &[true, true],
+            |args: Vec<Value>, vm: &mut VM| {
+                let attrs = args[1].to_attrs()?;
+                let mut res = BTreeMap::new();
+                for (key, value) in attrs.as_ref() {
+                    let value = vm.call_with(&args[0], [key.clone().into(), value.clone()])?;
+                    res.insert(key.clone(), value);
+                }
+                Ok(Value::attrs(NixAttrs::from_map(res)))
+            },
+        ),
+        Builtin::new(
             "match",
             &[true, true],
             |mut args: Vec<Value>, _: &mut VM| {

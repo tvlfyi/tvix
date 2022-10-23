@@ -517,3 +517,13 @@ impl<'a> Iterator for Keys<'a> {
         }
     }
 }
+
+impl<'a> IntoIterator for &'a NixAttrs {
+    type Item = (&'a NixString, &'a Value);
+
+    type IntoIter = Iter<KeyValue<'a>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
