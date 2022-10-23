@@ -1,5 +1,6 @@
 //! This module implements the backing representation of runtime
 //! values in the Nix language.
+use std::cmp::Ordering;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -345,6 +346,26 @@ impl Value {
             // types) or false.
             // TODO(tazjin): mirror Lambda equality behaviour
             _ => Ok(false),
+        }
+    }
+
+    /// Compare `self` against other using (fallible) Nix ordering semantics.
+    pub fn nix_cmp(&self, other: &Self) -> Result<Option<Ordering>, ErrorKind> {
+        match (self, other) {
+            // same types
+            (Value::Integer(i1), Value::Integer(i2)) => Ok(i1.partial_cmp(i2)),
+            (Value::Float(f1), Value::Float(f2)) => Ok(f1.partial_cmp(f2)),
+            (Value::String(s1), Value::String(s2)) => Ok(s1.partial_cmp(s2)),
+
+            // different types
+            (Value::Integer(i1), Value::Float(f2)) => Ok((*i1 as f64).partial_cmp(f2)),
+            (Value::Float(f1), Value::Integer(i2)) => Ok(f1.partial_cmp(&(*i2 as f64))),
+
+            // unsupported types
+            (lhs, rhs) => Err(ErrorKind::Incomparable {
+                lhs: lhs.type_of(),
+                rhs: rhs.type_of(),
+            }),
         }
     }
 

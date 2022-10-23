@@ -3,7 +3,7 @@
 //! See //tvix/eval/docs/builtins.md for a some context on the
 //! available builtins in Nix.
 
-use std::cmp;
+use std::cmp::{self, Ordering};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 
@@ -16,7 +16,7 @@ use crate::{
     vm::VM,
 };
 
-use crate::{arithmetic_op, cmp_op};
+use crate::arithmetic_op;
 
 use self::versions::{VersionPart, VersionPartsIter};
 
@@ -407,7 +407,12 @@ fn pure_builtins() -> Vec<Builtin> {
         Builtin::new(
             "lessThan",
             &[false, false],
-            |args: Vec<Value>, vm: &mut VM| cmp_op!(&*args[0].force(vm)?, &*args[1].force(vm)?, <),
+            |args: Vec<Value>, vm: &mut VM| {
+                Ok(Value::Bool(matches!(
+                    args[0].force(vm)?.nix_cmp(&*args[1].force(vm)?)?,
+                    Some(Ordering::Less)
+                )))
+            },
         ),
         Builtin::new("listToAttrs", &[true], |args: Vec<Value>, vm: &mut VM| {
             let list = args[0].to_list()?;

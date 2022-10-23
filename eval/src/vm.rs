@@ -2,7 +2,7 @@
 //! Tvix bytecode.
 
 use serde_json::json;
-use std::{ops::DerefMut, path::PathBuf, rc::Rc};
+use std::{cmp::Ordering, ops::DerefMut, path::PathBuf, rc::Rc};
 
 use crate::{
     chunk::Chunk,
@@ -123,31 +123,26 @@ macro_rules! cmp_op {
     ( $self:ident, $op:tt ) => {{
         let b = $self.pop();
         let a = $self.pop();
-        let result = fallible!($self, cmp_op!(&a, &b, $op));
+        let ordering = fallible!($self, a.nix_cmp(&b));
+        let result = Value::Bool(cmp_op!(@order $op ordering));
         $self.push(result);
     }};
 
-    ( $a:expr, $b:expr, $op:tt ) => {
-        // Comparable (in terms of ordering) values are numbers and
-        // strings. Numbers need to be coerced similarly to arithmetic
-        // ops if mixed types are encountered.
-        match ($a, $b) {
-            // same types
-            (Value::Integer(i1), Value::Integer(i2)) => Ok(Value::Bool(i1 $op i2)),
-            (Value::Float(f1), Value::Float(f2)) => Ok(Value::Bool(f1 $op f2)),
-            (Value::String(s1), Value::String(s2)) => Ok(Value::Bool(s1 $op s2)),
+    (@order < $ordering:expr) => {
+        $ordering == Some(Ordering::Less)
+    };
 
-            // different types
-            (Value::Integer(i1), Value::Float(f2)) => Ok(Value::Bool((*i1 as f64) $op *f2)),
-            (Value::Float(f1), Value::Integer(i2)) => Ok(Value::Bool(*f1 $op (*i2 as f64))),
+    (@order > $ordering:expr) => {
+        $ordering == Some(Ordering::Greater)
+    };
 
-            // unsupported types
-            (lhs, rhs) => Err(ErrorKind::Incomparable {
-                lhs: lhs.type_of(),
-                rhs: rhs.type_of(),
-            }),
-        }
-    }
+    (@order <= $ordering:expr) => {
+        !matches!($ordering, None | Some(Ordering::Greater))
+    };
+
+    (@order >= $ordering:expr) => {
+        !matches!($ordering, None | Some(Ordering::Less))
+    };
 }
 
 impl<'o> VM<'o> {
