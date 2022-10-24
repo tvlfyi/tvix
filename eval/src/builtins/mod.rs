@@ -675,6 +675,8 @@ fn builtins_set() -> NixAttrs {
         Value::String("2.3-compat-tvix-0.1".into()),
     );
 
+    map.insert("langVersion".into(), Value::Integer(6));
+
     map.insert(
         "currentSystem".into(),
         crate::systems::llvm_triple_to_nix_double(CURRENT_PLATFORM).into(),
