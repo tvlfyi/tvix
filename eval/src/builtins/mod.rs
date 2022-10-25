@@ -554,6 +554,77 @@ fn pure_builtins() -> Vec<Builtin> {
                 Ok(Value::attrs(NixAttrs::from_map(res)))
             },
         ),
+        Builtin::new(
+            "replaceStrings",
+            &[true, true, true],
+            |args: Vec<Value>, vm: &mut VM| {
+                let from = args[0].to_list()?.into_iter();
+                let to = args[1].to_list()?.into_iter();
+                let string = args[2].to_str()?;
+
+                let mut res = String::new();
+
+                let mut i: usize = 0;
+                let mut empty_string_replace = false;
+
+                // This can't be implemented using Rust's string.replace() as
+                // well as a map because we need to handle errors with results
+                // as well as "reset" the iterator to zero for the replacement
+                // everytime there's a successful match.
+                // Also, Rust's string.replace allocates a new string
+                // on every call which is not preferable.
+                'outer: while i < string.len() {
+                    // Try a match in all the from strings
+                    for elem in std::iter::zip(from.clone(), to.clone()) {
+                        let from = elem.0.force(vm)?.to_str()?;
+                        let to = elem.1.force(vm)?.to_str()?;
+
+                        if i + from.len() >= string.len() {
+                            continue;
+                        }
+
+                        // We already applied a from->to with an empty from
+                        // transformation.
+                        // Let's skip it so that we don't loop infinitely
+                        if empty_string_replace && from.as_str().len() == 0 {
+                            continue;
+                        }
+
+                        // if we match the `from` string, let's replace
+                        if &string[i..i + from.len()] == from.as_str() {
+                            res += &to;
+                            i += from.len();
+
+                            // remember if we applied the empty from->to
+                            empty_string_replace = from.as_str().len() == 0;
+
+                            continue 'outer;
+                        }
+                    }
+
+                    // If we don't match any `from`, we simply add a character
+                    res += &string[i..i + 1];
+                    i += 1;
+
+                    // Since we didn't apply anything transformation,
+                    // we reset the empty string replacement
+                    empty_string_replace = false;
+                }
+
+                // Special case when the string is empty or at the string's end
+                // and one of the from is also empty
+                for elem in std::iter::zip(from.clone(), to.clone()) {
+                    let from = elem.0.force(vm)?.to_str()?;
+                    let to = elem.1.force(vm)?.to_str()?;
+
+                    if from.as_str().len() == 0 {
+                        res += &to;
+                        break;
+                    }
+                }
+                Ok(Value::String(res.into()))
+            },
+        ),
         Builtin::new("seq", &[true, true], |mut args: Vec<Value>, _: &mut VM| {
             // The builtin calling infra has already forced both args for us, so we just return the
             // second and ignore the first
