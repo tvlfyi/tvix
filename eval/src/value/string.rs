@@ -118,7 +118,13 @@ impl NixString {
         match escaped {
             // A borrowed string is unchanged and can be returned as
             // is.
-            Cow::Borrowed(_) => escaped,
+            Cow::Borrowed(_) => {
+                if is_valid_nix_identifier(&escaped) {
+                    escaped
+                } else {
+                    Cow::Owned(format!("\"{}\"", escaped))
+                }
+            }
 
             // An owned string has escapes, and needs the outer quotes
             // for display.
@@ -150,6 +156,23 @@ fn nix_escape_char(ch: char, next: Option<&char>) -> Option<&'static str> {
         ('$', Some('{')) => Some("\\$"),
         _ => None,
     }
+}
+
+/// Return true if this string can be used as an identifier in Nix.
+fn is_valid_nix_identifier(s: &str) -> bool {
+    // adapted from rnix-parser's tokenizer.rs
+    let mut chars = s.chars();
+    match chars.next() {
+        Some('a'..='z' | 'A'..='Z' | '_') => (),
+        _ => return false,
+    }
+    for c in chars {
+        match c {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-' => (),
+            _ => return false,
+        }
+    }
+    return true;
 }
 
 /// Escape a Nix string for display, as most user-visible representation
