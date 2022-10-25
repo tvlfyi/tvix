@@ -813,8 +813,8 @@ impl<'o> VM<'o> {
     ) -> EvalResult<()> {
         for _ in 0..count {
             match self.inc_ip() {
-                OpCode::DataLocalIdx(StackIdx(local_idx)) => {
-                    let idx = self.frame().stack_offset + local_idx;
+                OpCode::DataLocalIdx(StackIdx(stack_idx)) => {
+                    let idx = self.frame().stack_offset + stack_idx;
 
                     let val = match self.stack.get(idx) {
                         Some(val) => val.clone(),
@@ -823,8 +823,8 @@ impl<'o> VM<'o> {
                                 msg: "upvalue to be captured was missing on stack",
                                 metadata: Some(Rc::new(json!({
                                     "ip": format!("{:#x}", self.frame().ip.0 - 1),
-                                    "local_idx": local_idx,
-                                    "stack_idx": idx,
+                                    "stack_idx": stack_idx,
+                                    "absolute stack position": idx,
                                 }))),
                             }))
                         }
