@@ -23,7 +23,14 @@ mod tests;
 enum AttrsRep {
     Empty,
     Map(BTreeMap<NixString, Value>),
-    KV { name: Value, value: Value },
+
+    /// Warning: this represents a **two**-attribute attrset, with
+    /// attribute names "name" and "value", like `{name="foo";
+    /// value="bar";}`, *not* `{foo="bar";}`!
+    KV {
+        name: Value,
+        value: Value,
+    },
 }
 
 impl AttrsRep {
