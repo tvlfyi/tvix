@@ -27,21 +27,21 @@ fn eval_test(code_path: &str, expect_success: bool) {
                     assert_eq!(
                         result_str,
                         exp.trim(),
-                        "result value representation (left) must match expectation (right)"
+                        "{code_path}: result value representation (left) must match expectation (right)"
                     );
                 } else {
                     assert_ne!(
                         result_str,
                         exp.trim(),
-                        "test passed unexpectedly!  consider moving it out of notyetpassing"
+                        "{code_path}: test passed unexpectedly!  consider moving it out of notyetpassing"
                     );
                 }
             } else {
                 if expect_success {
-                    panic!("should be able to read test expectation");
+                    panic!("{code_path}: should be able to read test expectation");
                 } else {
                     panic!(
-                        "test should have failed, but succeeded with output {}",
+                        "{code_path}: test should have failed, but succeeded with output {}",
                         result
                     );
                 }
@@ -50,7 +50,7 @@ fn eval_test(code_path: &str, expect_success: bool) {
         Err(e) => {
             if expect_success {
                 panic!(
-                    "evaluation of eval-okay test should succeed, but failed with {:?}",
+                    "{code_path}: evaluation of eval-okay test should succeed, but failed with {:?}",
                     e
                 );
             }
