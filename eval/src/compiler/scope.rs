@@ -58,11 +58,6 @@ pub struct Local {
 }
 
 impl Local {
-    /// Does this local live above the other given depth?
-    pub fn above(&self, theirs: usize) -> bool {
-        self.depth > theirs
-    }
-
     /// Does the name of this local match the given string?
     pub fn has_name(&self, other: &str) -> bool {
         match &self.name {
@@ -284,7 +279,7 @@ impl Scope {
     pub fn stack_index(&self, idx: LocalIdx) -> StackIdx {
         let uninitialised_count = self.locals[..(idx.0)]
             .iter()
-            .filter(|l| !l.initialised && self[idx].above(l.depth))
+            .filter(|l| !l.initialised && self[idx].depth > l.depth)
             .count();
 
         StackIdx(idx.0 - uninitialised_count)
