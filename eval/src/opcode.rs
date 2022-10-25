@@ -156,8 +156,8 @@ pub enum OpCode {
     OpThunkSuspended(ConstantIdx),
     OpForce,
 
-    /// Finalise initialisation of the upvalues of the value in the
-    /// given stack index after the scope is fully bound.
+    /// Finalise initialisation of the upvalues of the value in the given stack
+    /// index (which must be a Value::Thunk) after the scope is fully bound.
     OpFinalise(StackIdx),
 
     // [`OpClosure`], [`OpThunkSuspended`], and [`OpThunkClosure`] have a
@@ -171,8 +171,14 @@ pub enum OpCode {
     // instruction pointer.
     //
     // It is illegal for a `Data*` opcode to appear anywhere else.
+    /// Populate a static upvalue by copying from the stack immediately.
     DataLocalIdx(StackIdx),
+    /// Populate a static upvalue of a thunk by copying it the stack, but do
+    /// when the thunk is finalised (by OpFinalise) rather than immediately.
     DataDeferredLocal(StackIdx),
+    /// Populate a static upvalue by copying it from the upvalues of an
+    /// enclosing scope.
     DataUpvalueIdx(UpvalueIdx),
+    /// Populate dynamic upvalues by saving a copy of the with-stack.
     DataCaptureWith,
 }
