@@ -1031,7 +1031,7 @@ impl Compiler<'_> {
                         if slot == idx {
                             self.scope_mut().mark_must_thunk(slot);
                         }
-                        self.push_op(OpCode::DataLocalIdx(stack_idx), &upvalue.span);
+                        self.push_op(OpCode::DataStackIdx(stack_idx), &upvalue.span);
                     }
                 }
 

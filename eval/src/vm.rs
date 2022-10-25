@@ -734,7 +734,7 @@ impl<'o> VM<'o> {
 
             // Data-carrying operands should never be executed,
             // that is a critical error in the VM.
-            OpCode::DataLocalIdx(_)
+            OpCode::DataStackIdx(_)
             | OpCode::DataDeferredLocal(_)
             | OpCode::DataUpvalueIdx(_)
             | OpCode::DataCaptureWith => {
@@ -813,7 +813,7 @@ impl<'o> VM<'o> {
     ) -> EvalResult<()> {
         for _ in 0..count {
             match self.inc_ip() {
-                OpCode::DataLocalIdx(StackIdx(stack_idx)) => {
+                OpCode::DataStackIdx(StackIdx(stack_idx)) => {
                     let idx = self.frame().stack_offset + stack_idx;
 
                     let val = match self.stack.get(idx) {
@@ -823,8 +823,8 @@ impl<'o> VM<'o> {
                                 msg: "upvalue to be captured was missing on stack",
                                 metadata: Some(Rc::new(json!({
                                     "ip": format!("{:#x}", self.frame().ip.0 - 1),
-                                    "stack_idx": stack_idx,
-                                    "absolute stack position": idx,
+                                    "stack_idx(relative)": stack_idx,
+                                    "stack_idx(absolute)": idx,
                                 }))),
                             }))
                         }
