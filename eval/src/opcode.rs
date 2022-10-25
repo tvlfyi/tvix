@@ -148,11 +148,11 @@ pub enum OpCode {
     OpCall,
     OpTailCall,
     OpGetUpvalue(UpvalueIdx),
-    // A Closure which has upvalues but no self-references
+    /// A Closure which has upvalues but no self-references
     OpClosure(ConstantIdx),
-    // A Closure which has self-references (direct or via upvalues)
+    /// A Closure which has self-references (direct or via upvalues)
     OpThunkClosure(ConstantIdx),
-    // A suspended thunk, used to ensure laziness
+    /// A suspended thunk, used to ensure laziness
     OpThunkSuspended(ConstantIdx),
     OpForce,
 
