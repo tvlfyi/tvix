@@ -37,10 +37,10 @@ fn is_lit_bool(expr: ast::Expr) -> LitBool {
 fn optimise_bin_op(c: &mut Compiler, slot: LocalIdx, expr: ast::Expr) -> ast::Expr {
     use ast::BinOpKind;
 
-    // bail out of this check if the user has poisoned either `true`
+    // bail out of this check if the user has overridden either `true`
     // or `false` identifiers. Note that they will have received a
     // separate warning about this for shadowing the global(s).
-    if c.scope().is_poisoned("true") || c.scope().is_poisoned("false") {
+    if c.is_user_defined("true") || c.is_user_defined("false") {
         return expr;
     }
 

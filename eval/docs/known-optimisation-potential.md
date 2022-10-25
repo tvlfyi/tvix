@@ -55,7 +55,7 @@ optimisations, but note the most important ones here.
   When accessing identifiers like `builtins.foo`, the compiler should
   not go through the trouble of setting up the attribute set on the
   stack and accessing `foo` from it if it knows that the scope for
-  `builtins` is unpoisoned. The same optimisation can also be done
+  `builtins` is unshadowed. The same optimisation can also be done
   for the other set operations like `builtins ? foo` and
   `builtins.foo or alternative-implementation`.
 
@@ -71,7 +71,7 @@ optimisations, but note the most important ones here.
   a builtin application.
 
   In case the compiler encounters a fully applied builtin (i.e.
-  no currying is occurring) and the `builtins` global is unpoisoned,
+  no currying is occurring) and the `builtins` global is unshadowed,
   it could compile the equivalent operator bytecode instead: For
   example, `builtins.add 20 22` would be compiled as `20 + 22`.
   This would ensure that equivalent `builtins` can also benefit

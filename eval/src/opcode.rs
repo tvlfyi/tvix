@@ -63,11 +63,6 @@ pub enum OpCode {
     /// Discard a value from the stack.
     OpPop,
 
-    // Push a literal value.
-    OpNull,
-    OpTrue,
-    OpFalse,
-
     // Unary operators
     OpInvert,
     OpNegate,

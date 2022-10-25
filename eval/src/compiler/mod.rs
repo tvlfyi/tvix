@@ -28,7 +28,7 @@ use std::sync::Arc;
 
 use crate::chunk::Chunk;
 use crate::errors::{Error, ErrorKind, EvalResult};
-use crate::observer::{CompilerObserver, NoOpObserver};
+use crate::observer::CompilerObserver;
 use crate::opcode::{CodeIdx, Count, JumpOffset, OpCode, UpvalueIdx};
 use crate::spans::LightSpan;
 use crate::spans::ToSpan;
@@ -78,14 +78,9 @@ impl LambdaCtx {
     }
 }
 
-/// The type of a global as used inside of the compiler. Differs from
-/// Nix's own notion of "builtins" in that it can emit arbitrary code.
-/// Nix's builtins are wrapped inside of this type.
-pub type Global = Rc<dyn Fn(&mut Compiler, Span)>;
-
-/// The map of globally available functions that should implicitly
-/// be resolvable in the global scope.
-pub(crate) type GlobalsMap = HashMap<&'static str, Rc<dyn Fn(&mut Compiler, Span)>>;
+/// The map of globally available functions and other values that
+/// should implicitly be resolvable in the global scope.
+pub(crate) type GlobalsMap = HashMap<&'static str, Value>;
 
 /// Set of builtins that (if they exist) should be made available in
 /// the global scope, meaning that they can be accessed not just
@@ -1152,9 +1147,6 @@ impl Compiler<'_> {
     /// Open a new lambda context within which to compile a function,
     /// closure or thunk.
     fn new_context(&mut self) {
-        // This must inherit the scope-poisoning status of the parent
-        // in order for upvalue resolution to work correctly with
-        // poisoned identifiers.
         self.contexts.push(self.context().inherit());
     }
 
@@ -1165,16 +1157,10 @@ impl Compiler<'_> {
         let name = name.into();
         let depth = self.scope().scope_depth();
 
-        // Do this little dance to get ahold of the *static* key and
-        // use it for poisoning if required.
-        let key: Option<&'static str> = match self.globals.get_key_value(name.as_str()) {
-            Some((key, _)) => Some(*key),
-            None => None,
-        };
-
-        if let Some(global_ident) = key {
+        // Do this little dance to turn name:&'a str into the same
+        // string with &'static lifetime, as required by WarningKind
+        if let Some((global_ident, _)) = self.globals.get_key_value(name.as_str()) {
             self.emit_warning(node, WarningKind::ShadowedGlobal(global_ident));
-            self.scope_mut().poison(global_ident, depth);
         }
 
         let span = self.span_for(node);
@@ -1255,8 +1241,7 @@ pub fn prepare_globals(
     Rc::new_cyclic(Box::new(move |weak: &Weak<GlobalsMap>| {
         // First step is to construct the builtins themselves as
         // `NixAttrs`.
-        let mut builtins_under_construction: HashMap<&'static str, Value> =
-            HashMap::from_iter(builtins.into_iter());
+        let mut builtins: GlobalsMap = HashMap::from_iter(builtins.into_iter());
 
         // At this point, optionally insert `import` if enabled. To
         // "tie the knot" of `import` needing the full set of globals
@@ -1264,7 +1249,7 @@ pub fn prepare_globals(
         // here.
         if enable_import {
             let import = Value::Builtin(import::builtins_import(weak, source.clone()));
-            builtins_under_construction.insert("import", import);
+            builtins.insert("import", import);
         }
 
         // Next, the actual map of globals is constructed and
@@ -1273,10 +1258,8 @@ pub fn prepare_globals(
         let mut globals: GlobalsMap = HashMap::new();
 
         for global in GLOBAL_BUILTINS {
-            if let Some(builtin) = builtins_under_construction.get(global).cloned() {
-                let global_builtin: Global =
-                    Rc::new(move |c, s| c.emit_constant(builtin.clone(), &s));
-                globals.insert(global, global_builtin);
+            if let Some(builtin) = builtins.get(global).cloned() {
+                globals.insert(global, builtin);
             }
         }
 
@@ -1288,58 +1271,29 @@ pub fn prepare_globals(
         // `builtins.builtins`, it would only happen once as the thunk
         // is then resolved.
         let weak_globals = weak.clone();
-        builtins_under_construction.insert(
+        builtins.insert(
             "builtins",
             Value::Thunk(Thunk::new_suspended_native(Rc::new(move |_| {
-                let file = source.add_file("builtins-dot-builtins.nix".into(), "builtins".into());
-                let span = file.span;
-                let mut observer = NoOpObserver::default();
-
-                let mut compiler = Compiler::new(
-                    None,
-                    file,
-                    weak_globals
-                        .upgrade()
-                        .expect("globals dropped while still in use"),
-                    &mut observer,
-                )?;
-
-                weak_globals.upgrade().unwrap().get("builtins").unwrap()(&mut compiler, span);
-
-                Ok(compiler.chunk().constants[0].clone())
+                Ok(weak_globals
+                    .upgrade()
+                    .unwrap()
+                    .get("builtins")
+                    .cloned()
+                    .unwrap())
             }))),
         );
 
         // This is followed by the actual `builtins` attribute set
         // being constructed and inserted in the global scope.
-        let builtins_set =
-            Value::attrs(NixAttrs::from_iter(builtins_under_construction.into_iter()));
         globals.insert(
             "builtins",
-            Rc::new(move |c, s| c.emit_constant(builtins_set.clone(), &s)),
+            Value::attrs(NixAttrs::from_iter(builtins.into_iter())),
         );
 
         // Finally insert the compiler-internal "magic" builtins for top-level values.
-        globals.insert(
-            "true",
-            Rc::new(|compiler, span| {
-                compiler.push_op(OpCode::OpTrue, &span);
-            }),
-        );
-
-        globals.insert(
-            "false",
-            Rc::new(|compiler, span| {
-                compiler.push_op(OpCode::OpFalse, &span);
-            }),
-        );
-
-        globals.insert(
-            "null",
-            Rc::new(|compiler, span| {
-                compiler.push_op(OpCode::OpNull, &span);
-            }),
-        );
+        globals.insert("true", Value::Bool(true));
+        globals.insert("false", Value::Bool(false));
+        globals.insert("null", Value::Null);
 
         globals
     }))

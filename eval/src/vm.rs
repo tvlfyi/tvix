@@ -750,10 +750,6 @@ impl<'o> VM<'o> {
             OpCode::OpMore => cmp_op!(self, >),
             OpCode::OpMoreOrEq => cmp_op!(self, >=),
 
-            OpCode::OpNull => self.push(Value::Null),
-            OpCode::OpTrue => self.push(Value::Bool(true)),
-            OpCode::OpFalse => self.push(Value::Bool(false)),
-
             OpCode::OpAttrs(Count(count)) => self.run_attrset(count)?,
 
             OpCode::OpAttrsUpdate => {

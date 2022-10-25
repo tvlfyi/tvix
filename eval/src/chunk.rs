@@ -156,11 +156,10 @@ mod tests {
     use crate::test_utils::dummy_span;
 
     use super::*;
-
     #[test]
     fn push_op() {
         let mut chunk = Chunk::default();
-        chunk.push_op(OpCode::OpNull, dummy_span());
-        assert_eq!(chunk.code.last().unwrap(), &OpCode::OpNull);
+        chunk.push_op(OpCode::OpAdd, dummy_span());
+        assert_eq!(chunk.code.last().unwrap(), &OpCode::OpAdd);
     }
 }
