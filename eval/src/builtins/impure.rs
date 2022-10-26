@@ -1,17 +1,17 @@
 use std::{
-    cell::RefCell,
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     env,
     fs::File,
     io::{self, Read},
-    rc::Rc,
+    rc::{Rc, Weak},
     time::{SystemTime, UNIX_EPOCH},
 };
 
 use crate::{
+    compiler::GlobalsMap,
     errors::ErrorKind,
     observer::NoOpObserver,
-    value::{Builtin, NixAttrs, NixString, Thunk},
+    value::{Builtin, NixAttrs, Thunk},
     vm::VM,
     SourceCode, Value,
 };
@@ -69,10 +69,10 @@ fn impure_builtins() -> Vec<Builtin> {
 
 /// Return all impure builtins, that is all builtins which may perform I/O
 /// outside of the VM and so cannot be used in all contexts (e.g. WASM).
-pub(super) fn builtins() -> BTreeMap<NixString, Value> {
-    let mut map: BTreeMap<NixString, Value> = impure_builtins()
+pub(super) fn builtins() -> BTreeMap<&'static str, Value> {
+    let mut map: BTreeMap<&'static str, Value> = impure_builtins()
         .into_iter()
-        .map(|b| (b.name().into(), Value::Builtin(b)))
+        .map(|b| (b.name(), Value::Builtin(b)))
         .collect();
 
     // currentTime pins the time at which evaluation was started
@@ -84,7 +84,7 @@ pub(super) fn builtins() -> BTreeMap<NixString, Value> {
             Err(err) => -(err.duration().as_secs() as i64),
         };
 
-        map.insert(NixString::from("currentTime"), Value::Integer(seconds));
+        map.insert("currentTime", Value::Integer(seconds));
     }
 
     map
@@ -94,10 +94,13 @@ pub(super) fn builtins() -> BTreeMap<NixString, Value> {
 /// it needs to capture the [crate::SourceCode] structure to correctly track
 /// source code locations while invoking a compiler.
 // TODO: need to be able to pass through a CompilationObserver, too.
-pub fn builtins_import(
-    globals: Rc<RefCell<HashMap<&'static str, Value>>>,
-    source: SourceCode,
-) -> Builtin {
+pub fn builtins_import(globals: &Weak<GlobalsMap>, source: SourceCode) -> Builtin {
+    // This (very cheap, once-per-compiler-startup) clone exists
+    // solely in order to keep the borrow checker happy.  It
+    // resolves the tension between the requirements of
+    // Rc::new_cyclic() and Builtin::new()
+    let globals = globals.clone();
+
     Builtin::new(
         "import",
         &[true],
@@ -126,11 +129,18 @@ pub fn builtins_import(
                 });
             }
 
-            let result = crate::compile(
+            let result = crate::compiler::compile(
                 &parsed.tree().expr().unwrap(),
                 Some(path.clone()),
                 file,
-                globals.clone(),
+                // The VM must ensure that a strong reference to the
+                // globals outlives any self-references (which are
+                // weak) embedded within the globals.  If the
+                // expect() below panics, it means that did not
+                // happen.
+                globals
+                    .upgrade()
+                    .expect("globals dropped while still in use"),
                 &mut NoOpObserver::default(),
             )
             .map_err(|err| ErrorKind::ImportCompilerError {

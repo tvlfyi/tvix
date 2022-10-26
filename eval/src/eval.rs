@@ -1,4 +1,4 @@
-use std::{cell::RefCell, path::PathBuf, rc::Rc};
+use std::path::PathBuf;
 
 use crate::{
     builtins::global_builtins,
@@ -80,23 +80,7 @@ pub fn interpret(code: &str, location: Option<PathBuf>, options: Options) -> Eva
         println!("{}", pretty_print_expr(&root_expr));
     }
 
-    // TODO: encapsulate this import weirdness in builtins
-
-    let builtins = Rc::new(RefCell::new(global_builtins()));
-
-    #[cfg(feature = "impure")]
-    {
-        // We need to insert import into the builtins, but the
-        // builtins passed to import must have import *in it*.
-        let import = Value::Builtin(crate::builtins::impure::builtins_import(
-            builtins.clone(),
-            source.clone(),
-        ));
-
-        builtins.borrow_mut().insert("import", import);
-        // TODO: also add it into the inner builtins set
-    };
-
+    let builtins = crate::compiler::prepare_globals(Box::new(global_builtins(source.clone())));
     let result = if options.dump_bytecode {
         crate::compiler::compile(
             &root_expr,

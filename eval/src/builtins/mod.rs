@@ -3,9 +3,12 @@
 //! See //tvix/eval/docs/builtins.md for a some context on the
 //! available builtins in Nix.
 
+use crate::compiler::{GlobalsMap, GlobalsMapFunc};
+use crate::source::SourceCode;
 use std::cmp::{self, Ordering};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use regex::Regex;
 
@@ -690,70 +693,84 @@ fn placeholders() -> Vec<Builtin> {
 // we set TVIX_CURRENT_SYSTEM in build.rs
 pub const CURRENT_PLATFORM: &str = env!("TVIX_CURRENT_SYSTEM");
 
-fn builtins_set() -> NixAttrs {
-    let mut map: BTreeMap<NixString, Value> = BTreeMap::new();
-
-    // Pure-value builtins
-    map.insert(
-        "nixVersion".into(),
-        Value::String("2.3-compat-tvix-0.1".into()),
-    );
-
-    map.insert("langVersion".into(), Value::Integer(6));
-
-    map.insert(
-        "currentSystem".into(),
-        crate::systems::llvm_triple_to_nix_double(CURRENT_PLATFORM).into(),
-    );
-
-    let mut add_builtins = |builtins: Vec<Builtin>| {
-        for builtin in builtins {
-            map.insert(builtin.name().into(), Value::Builtin(builtin));
-        }
-    };
-
-    add_builtins(pure_builtins());
-    add_builtins(placeholders());
-
-    #[cfg(feature = "impure")]
-    {
-        map.extend(impure::builtins());
-    }
-
-    NixAttrs::from_map(map)
-}
-
 /// Set of Nix builtins that are globally available.
-pub fn global_builtins() -> HashMap<&'static str, Value> {
-    let builtins = builtins_set();
-    let mut globals: HashMap<&'static str, Value> = HashMap::new();
+pub fn global_builtins(source: SourceCode) -> GlobalsMapFunc {
+    Box::new(move |globals: &std::rc::Weak<GlobalsMap>| {
+        let mut map: BTreeMap<&'static str, Value> = BTreeMap::new();
 
-    // known global builtins from the builtins set.
-    for global in &[
-        "abort",
-        "baseNameOf",
-        "derivation",
-        "derivationStrict",
-        "dirOf",
-        "fetchGit",
-        "fetchMercurial",
-        "fetchTarball",
-        "fromTOML",
-        "import",
-        "isNull",
-        "map",
-        "placeholder",
-        "removeAttrs",
-        "scopedImport",
-        "throw",
-        "toString",
-    ] {
-        if let Some(builtin) = builtins.select(global) {
-            globals.insert(global, builtin.clone());
+        // Pure-value builtins
+        map.insert("nixVersion", Value::String("2.3-compat-tvix-0.1".into()));
+
+        map.insert("langVersion", Value::Integer(6));
+
+        map.insert(
+            "currentSystem",
+            crate::systems::llvm_triple_to_nix_double(CURRENT_PLATFORM).into(),
+        );
+
+        let mut add_builtins = |builtins: Vec<Builtin>| {
+            for builtin in builtins {
+                map.insert(builtin.name(), Value::Builtin(builtin));
+            }
+        };
+
+        add_builtins(pure_builtins());
+        add_builtins(placeholders());
+
+        #[cfg(feature = "impure")]
+        {
+            map.extend(impure::builtins());
+
+            // We need to insert import into the builtins, but the
+            // builtins passed to import must have import *in it*.
+            let import = Value::Builtin(crate::builtins::impure::builtins_import(
+                globals,
+                source.clone(),
+            ));
+
+            map.insert("import", import);
+        };
+
+        let mut globals: GlobalsMap = HashMap::new();
+
+        let builtins = Rc::new(NixAttrs::from_map(
+            map.into_iter().map(|(k, v)| (k.into(), v)).collect(),
+        ));
+
+        // known global builtins from the builtins set.
+        for global in &[
+            "abort",
+            "baseNameOf",
+            "derivation",
+            "derivationStrict",
+            "dirOf",
+            "fetchGit",
+            "fetchMercurial",
+            "fetchTarball",
+            "fromTOML",
+            "import",
+            "isNull",
+            "map",
+            "placeholder",
+            "removeAttrs",
+            "scopedImport",
+            "throw",
+            "toString",
+        ] {
+            if let Some(builtin) = builtins.select(global) {
+                let builtin = builtin.clone();
+                globals.insert(
+                    global,
+                    Rc::new(move |c, s| c.emit_constant(builtin.clone(), &s)),
+                );
+            }
         }
-    }
 
-    globals.insert("builtins", Value::attrs(builtins));
+        globals.insert(
+            "builtins",
+            Rc::new(move |c, s| c.emit_constant(Value::attrs(builtins.as_ref().clone()), &s)),
+        );
 
-    globals
+        globals
+    })
 }
