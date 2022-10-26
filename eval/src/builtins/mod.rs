@@ -558,8 +558,10 @@ fn pure_builtins() -> Vec<Builtin> {
             "replaceStrings",
             &[true, true, true],
             |args: Vec<Value>, vm: &mut VM| {
-                let from = args[0].to_list()?.into_iter();
-                let to = args[1].to_list()?.into_iter();
+                let from = args[0].to_list()?;
+                from.force_elements(vm)?;
+                let to = args[1].to_list()?;
+                to.force_elements(vm)?;
                 let string = args[2].to_str()?;
 
                 let mut res = String::new();
@@ -575,9 +577,9 @@ fn pure_builtins() -> Vec<Builtin> {
                 // on every call which is not preferable.
                 'outer: while i < string.len() {
                     // Try a match in all the from strings
-                    for elem in std::iter::zip(from.clone(), to.clone()) {
-                        let from = elem.0.force(vm)?.to_str()?;
-                        let to = elem.1.force(vm)?.to_str()?;
+                    for elem in std::iter::zip(from.iter(), to.iter()) {
+                        let from = elem.0.to_str()?;
+                        let to = elem.1.to_str()?;
 
                         if i + from.len() >= string.len() {
                             continue;
@@ -613,9 +615,9 @@ fn pure_builtins() -> Vec<Builtin> {
 
                 // Special case when the string is empty or at the string's end
                 // and one of the from is also empty
-                for elem in std::iter::zip(from.clone(), to.clone()) {
-                    let from = elem.0.force(vm)?.to_str()?;
-                    let to = elem.1.force(vm)?.to_str()?;
+                for elem in std::iter::zip(from.iter(), to.iter()) {
+                    let from = elem.0.to_str()?;
+                    let to = elem.1.to_str()?;
 
                     if from.as_str().len() == 0 {
                         res += &to;
