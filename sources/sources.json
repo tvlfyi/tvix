@@ -23,6 +23,18 @@
         "url": "https://github.com/nix-community/emacs-overlay/archive/91c29a0653afdbda4e75c37babdc1c598a2d13f5.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
+    "home-manager": {
+        "branch": "master",
+        "description": "Manage a user environment using Nix  [maintainer=@rycee] ",
+        "homepage": "https://nix-community.github.io/home-manager/",
+        "owner": "nix-community",
+        "repo": "home-manager",
+        "rev": "7dc4e4ebd71280842b4d30975439980baaac9db8",
+        "sha256": "1qlpcwdb1ar5a4f8cfa0apn185g6qzpm8bafaajmca5l20png0wh",
+        "type": "tarball",
+        "url": "https://github.com/nix-community/home-manager/archive/7dc4e4ebd71280842b4d30975439980baaac9db8.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
     "impermanence": {
         "branch": "master",
         "description": "Modules to help you handle persistent state on systems with ephemeral root storage [maintainer=@talyz]",
