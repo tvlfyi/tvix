@@ -100,6 +100,11 @@ impl NixList {
 
         Ok(true)
     }
+
+    /// force each element of the list (shallowly), making it safe to call .get().value()
+    pub fn force_elements(&self, vm: &mut VM) -> Result<(), ErrorKind> {
+        self.iter().try_for_each(|v| v.force(vm).map(|_| ()))
+    }
 }
 
 impl IntoIterator for NixList {
