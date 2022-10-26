@@ -104,3 +104,9 @@ optimisations, but note the most important ones here.
 
   This can be avoided, as we statically analyse the scope and should
   be able to tell whether any such logic was required.
+
+* Intern literals [easy]
+
+  Currently, the compiler emits a separate entry in the constant
+  table for each literal.  So the program `1 + 1 + 1` will have
+  three entries in its `Chunk::constants` instead of only one.
