@@ -25,6 +25,17 @@ pub fn llvm_triple_to_nix_double(llvm_triple: &str) -> String {
         [_vendor, kernel, _environment] if is_second_coordinate(kernel) => kernel,
         [_vendor, kernel] if is_second_coordinate(kernel) => kernel,
         [kernel, _environment] if is_second_coordinate(kernel) => kernel,
+
+        // Rustc uses wasm32-unknown-unknown, which is rejected by
+        // config.sub, for wasm-in-the-browser environments.  Rustc
+        // should be using wasm32-unknown-none, which config.sub
+        // accepts.  Hopefully the rustc people will change their
+        // triple before stabilising this triple.  In the meantime,
+        // we fix it here in order to unbreak tvixbolt.
+        //
+        // https://doc.rust-lang.org/beta/nightly-rustc/rustc_target/spec/wasm32_unknown_unknown/index.html
+        ["unknown", "unknown"] if cpu == "wasm32" => "none",
+
         _ => panic!("unrecognized triple {llvm_triple}"),
     };
     format!("{cpu}-{os}")
