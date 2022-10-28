@@ -3,7 +3,7 @@
 
 syntax = "proto3";
 
-package fossil.store;
+package tvix.proto.v1;
 
 // A Directory can contain Directory, File or Symlink nodes.
 // Each of these nodes have a name attribute, which is the basename in that directory

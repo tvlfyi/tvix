@@ -2,7 +2,7 @@
 // Copyright © 2021 The Tvix Authors
 syntax = "proto3";
 
-package tvix.proto.evaluator.v1;
+package tvix.proto.v1;
 
 service EvaluatorService {
   rpc Evaluate(stream EvaluateRequest) returns (stream EvaluateResponse) {}
