@@ -1,0 +1,40 @@
+// SPDX-FileCopyrightText: edef <edef@unfathomable.blue>
+// SPDX-License-Identifier: OSL-3.0 OR MIT OR Apache-2.0
+
+syntax = "proto3";
+
+package fossil.store;
+
+message Directory {
+    repeated DirectoryNode directories = 1;
+    repeated FileNode files = 2;
+    repeated LinkNode links = 3;
+}
+
+message DirectoryNode {
+    string name = 1;
+    bytes ref = 2;
+    uint32 size = 3;
+}
+
+message FileNode {
+    string name = 1;
+    bytes ref = 2;
+    uint32 size = 3;
+    bool executable = 4;
+}
+
+message LinkNode {
+    string name = 1;
+    string target = 2;
+}
+
+message Blob {
+    bytes bao_inline = 3;
+    repeated Chunk chunks = 4;
+}
+
+message Chunk {
+    uint64 offset = 1;
+    uint32 length = 2;
+}
