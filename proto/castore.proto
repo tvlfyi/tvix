@@ -28,13 +28,3 @@ message LinkNode {
     string name = 1;
     string target = 2;
 }
-
-message Blob {
-    bytes bao_inline = 3;
-    repeated Chunk chunks = 4;
-}
-
-message Chunk {
-    uint64 offset = 1;
-    uint32 length = 2;
-}
