@@ -5,7 +5,7 @@ syntax = "proto3";
 
 package fossil.store;
 
-// A Directory can contain Directory, File or Link nodes.
+// A Directory can contain Directory, File or Symlink nodes.
 // Each of these nodes have a name attribute, which is the basename in that directory
 // and node type specific attributes.
 // The name attribute:
@@ -16,7 +16,7 @@ package fossil.store;
 message Directory {
     repeated DirectoryNode directories = 1;
     repeated FileNode files = 2;
-    repeated LinkNode links = 3;
+    repeated SymlinkNode symlinks = 3;
 }
 
 // A DirectoryNode represents a directory in a Directory.
@@ -26,7 +26,7 @@ message DirectoryNode {
     // The blake3 hash of a Directory message, serialized in protobuf canonical form.
     bytes ref = 2;
     // Number of child elements in the Directory referred to by ref.
-    // Calculated by summing up the numbers of `directories`, `files` and `links`,
+    // Calculated by summing up the numbers of `directories`, `files` and `symlinks`,
     // and for each directory, its size field. Used for inode number calculation
     // TODO(flokli): These numbers can't really be verified until you know the whole graph.
     //               Is this a problem? Should we instead only have this field
@@ -46,8 +46,8 @@ message FileNode {
     bool executable = 4;
 }
 
-// A LinkNode represents a symbolic link in a Directory.
-message LinkNode {
+// A SymlinkNode represents a symbolic link in a Directory.
+message SymlinkNode {
     // The (base)name of the symlink
     string name = 1;
     // The target of the symlink.
