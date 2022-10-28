@@ -1,0 +1,74 @@
+// SPDX-License-Identifier: MIT
+// Copyright © 2022 The Tvix Authors
+syntax = "proto3";
+
+package tvix.store.v1;
+
+import "tvix/store/protos/castore.proto";
+
+// PathInfo shows information about a Nix Store Path.
+// That's a single element inside /nix/store.
+message PathInfo {
+    // The path can be a directory, file or symlink.
+    oneof node {
+        DirectoryNode directory = 1;
+        FileNode file = 2;
+        SymlinkNode symlink = 3;
+    }
+
+    // List of references (output path hashes)
+    // This really is the raw *bytes*, after decoding nixbase32, and not a
+    // base32-encoded string.
+    repeated bytes references = 4;
+
+    // see below.
+    NARInfo narinfo = 5;
+}
+
+// Nix C++ uses NAR (Nix Archive) as a format to transfer store paths,
+// and stores metadata and signatures in NARInfo files.
+// Store all these attributes in a separate message.
+//
+// This is useful to render .narinfo files to clients, or to preserve/validate
+// these signatures.
+// As verifying these signatures requires the whole NAR file to be synthesized,
+// moving to another signature scheme is desired.
+// Even then, it still makes sense to hold this data, for old clients.
+message NARInfo {
+    // The hash of the NAR file.
+    message NarHash {
+        HashAlgo algo = 1;
+        bytes digest = 2;
+    }
+
+    enum HashAlgo {
+        UNKNOWN = 0;
+        MD5 = 1;
+        SHA1 = 2;
+        SHA256 = 3;
+        SHA512 = 4;
+    }
+
+    // This represents a (parsed) signature line in a .narinfo file.
+    message Signature {
+        string name = 1;
+        bytes data = 2;
+    };
+
+    // This size of the NAR file, in bytes.
+    uint32 nar_size = 1;
+
+    // The hash(es) of a NAR file.
+    repeated NarHash nar_hashes = 2;
+
+    // The signatures in a .narinfo file.
+    repeated Signature signatures = 3;
+
+    // A list of references. To validate .narinfo signatures, a fingerprint
+    // needs to be constructed.
+    // This fingerprint doesn't just contain the hashes of the output paths of
+    // all references (like PathInfo.references), but their whole (base)names,
+    // so we need to keep them somewhere.
+    repeated string reference_names = 4;
+
+}
