@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: MIT
+// Copyright © 2022 The Tvix Authors
+syntax = "proto3";
+
+package tvix.store.v1;
+
+import "tvix/store/protos/pathinfo.proto";
+
+service PathInfoService {
+    // Get retrieves a PathInfo object, by using the lookup parameters in
+    // GetPathInfoRequest.
+    // If the PathInfo object contains a DirectoryNode, it needs to be looked
+    // up separately via the DirectoryService, which is purely
+    // content-addressed.
+    rpc Get(GetPathInfoRequest) returns (PathInfo);
+
+    // Put uploads a PathInfo object to the remote end. It MUST not return
+    // until the PathInfo object has been written on the the remote end.
+    // The remote end MAY check if a potential DirectoryNode has already been
+    // uploaded.
+    // Uploading clients SHOULD obviously not steer other machines to try to
+    // substitute before from the remote end before having finished uploading
+    // PathInfo, Directories and Blobs.
+    // The returned PathInfo object MAY contain additional narinfo signatures,
+    // but is otherwise left untouched.
+    rpc Put(PathInfo) returns (PathInfo);
+}
+
+// GetPathInfoRequest describes the lookup parameters that can be used to
+// lookup a PathInfo objects.
+// Currently, only a lookup by output hash is supported.
+message GetPathInfoRequest {
+    oneof by_what {
+      // The output hash of a nix path (20 bytes).
+      // This is the nixbase32-decoded portion of a Nix output path, so to substitute
+      // /nix/store/xm35nga2g20mz5sm5l6n8v3bdm86yj83-cowsay-3.04
+      // this field would contain nixbase32dec("xm35nga2g20mz5sm5l6n8v3bdm86yj83").
+      bytes by_output_hash = 1;
+
+      // placeholder: by_drv and output name?
+    }
+}
