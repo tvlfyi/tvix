@@ -4,6 +4,7 @@ let
   protoRoot = depot.nix.sparseTree depot.path.origSrc [
     ./protos/castore.proto
     ./protos/pathinfo.proto
+    ./protos/rpc_blobstore.proto
   ];
 
   protobufDep = prev: (prev.nativeBuildInputs or [ ]) ++ [ pkgs.protobuf ];
