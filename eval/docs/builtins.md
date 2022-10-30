@@ -31,7 +31,7 @@ See also https://nixos.org/manual/nix/stable/expressions/builtins.html
 | concatMap                     | false  |       |       |
 | concatStringsSep              | false  |       |       |
 | currentSystem                 | false  |       |       |
-| currentTime                   | false  |       |       |
+| currentTime                   | false  |       | false |
 | deepSeq                       | false  |       |       |
 | derivation                    | true   |       |       |
 | derivationStrict              | true   |       |       |
@@ -46,7 +46,7 @@ See also https://nixos.org/manual/nix/stable/expressions/builtins.html
 | fetchurl                      | false  |       |       |
 | filter                        | false  |       |       |
 | filterSource                  | false  |       |       |
-| findFile                      | false  |       |       |
+| findFile                      | false  |       | false |
 | foldl'                        | false  |       |       |
 | fromJSON                      | false  |       |       |
 | fromTOML                      | true   |       |       |
@@ -58,7 +58,7 @@ See also https://nixos.org/manual/nix/stable/expressions/builtins.html
 | getEnv                        | false  |       | false |
 | hasAttr                       | false  |       |       |
 | hasContext                    | false  |       |       |
-| hashFile                      | false  |       |       |
+| hashFile                      | false  |       | false |
 | hashString                    | false  |       |       |
 | head                          | false  |       |       |
 | import                        | true   |       |       |
@@ -85,11 +85,11 @@ See also https://nixos.org/manual/nix/stable/expressions/builtins.html
 | null                          | true   |       |       |
 | parseDrvName                  | false  |       |       |
 | partition                     | false  |       |       |
-| path                          | false  |       |       |
-| pathExists                    | false  |       |       |
+| path                          | false  |       | sometimes |
+| pathExists                    | false  |       | false |
 | placeholder                   | true   |       |       |
-| readDir                       | false  |       |       |
-| readFile                      | false  |       |       |
+| readDir                       | false  |       | false |
+| readFile                      | false  |       | false |
 | removeAttrs                   | true   |       |       |
 | replaceStrings                | false  |       |       |
 | scopedImport                  | true   |       |       |
