@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: MIT
+// Copyright © 2022 The Tvix Authors
+syntax = "proto3";
+
+package tvix.store.v1;
+
+import "tvix/store/protos/castore.proto";
+
+service DirectoryService {
+  // Get retrieves a stream of Directory messages, by using the lookup
+  // parameters in GetDirectoryRequest.
+  // Keep in mind multiple DirectoryNodes in different parts of the graph might
+  // have the same digest if they have the same underlying contents,
+  // so sending subsequent ones can be omitted.
+  rpc Get(GetDirectoryRequest) returns (stream Directory);
+
+  // Put uploads a graph of Directory messages.
+  // Individual Directory messages need to be send in an order walking up
+  // from the leaves to the root - a Directory message can only refer to
+  // Directory messages previously sent in the same stream.
+  // Keep in mind multiple DirectoryNodes in different parts of the graph might
+  // have the same digest if they have the same underlying contents,
+  // so sending subsequent ones can be omitted.
+  // We might add a separate method, allowing to send partial graphs at a later
+  // time, if requiring to send the full graph turns out to be a problem.
+  rpc Put(stream Directory) returns (PutDirectoryResponse);
+}
+
+message GetDirectoryRequest {
+  oneof by_what {
+      // The blake3 hash of the (root) Directory message, serialized in
+      // protobuf canonical form.
+      // Keep in mind this can be a subtree of another root.
+      bytes digest = 1;
+  }
+
+  // If set to true, recursively resolve all child Directory messages.
+  // Directory messages SHOULD be streamed in a recursive breadth-first walk,
+  // but other orders are also fine, as long as Directory messages are only
+  // sent after they are referred to from previously sent Directory messages.
+  bool recursive = 2;
+}
+
+message PutDirectoryResponse {
+  bytes root_digest = 1;
+}

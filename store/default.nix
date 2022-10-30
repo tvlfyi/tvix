@@ -5,6 +5,7 @@ let
     ./protos/castore.proto
     ./protos/pathinfo.proto
     ./protos/rpc_blobstore.proto
+    ./protos/rpc_directory.proto
     ./protos/rpc_pathinfo.proto
   ];
 
