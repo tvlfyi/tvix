@@ -332,15 +332,15 @@ impl Value {
                 lhs.force(vm)?;
                 rhs.force(vm)?;
 
-                Ok(*lhs.value() == *rhs.value())
+                lhs.value().nix_eq(&*rhs.value(), vm)
             }
             (Value::Thunk(lhs), rhs) => {
                 lhs.force(vm)?;
-                Ok(&*lhs.value() == rhs)
+                lhs.value().nix_eq(rhs, vm)
             }
             (lhs, Value::Thunk(rhs)) => {
                 rhs.force(vm)?;
-                Ok(lhs == &*rhs.value())
+                lhs.nix_eq(&*rhs.value(), vm)
             }
 
             // Everything else is either incomparable (e.g. internal
