@@ -102,7 +102,7 @@ The `impl` column indicates implementation status in tvix:
 | scopedImport                  | true   |       |       |         |
 | seq                           | false  |       |       |         |
 | sort                          | false  |       |       |         |
-| split                         | false  |       |       | todo    |
+| split                         | false  |       |       |         |
 | splitVersion                  | false  |       |       |         |
 | storeDir                      | false  |       |       | store   |
 | storePath                     | false  |       |       | store   |

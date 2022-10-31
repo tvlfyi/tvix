@@ -632,6 +632,44 @@ fn pure_builtins() -> Vec<Builtin> {
             // we just return the second and ignore the first
             Ok(args.pop().unwrap())
         }),
+        Builtin::new(
+            "split",
+            &[true, true],
+            |mut args: Vec<Value>, _: &mut VM| {
+                let s = args.pop().unwrap().to_str()?;
+                let text = s.as_str();
+                let re = args.pop().unwrap().to_str()?;
+                let re: Regex = Regex::new(re.as_str()).unwrap();
+                let mut capture_locations = re.capture_locations();
+                let num_captures = capture_locations.len();
+                let mut ret = NixList::new();
+                let mut pos = 0;
+
+                while let Some(thematch) = re.captures_read_at(&mut capture_locations, text, pos) {
+                    // push the unmatched characters preceding the match
+                    ret.push(Value::from(&text[pos..thematch.start()]));
+
+                    // Push a list with one element for each capture
+                    // group in the regex, containing the characters
+                    // matched by that capture group, or null if no match.
+                    // We skip capture 0; it represents the whole match.
+                    let v: Vec<Value> = (1..num_captures)
+                        .map(|i| capture_locations.get(i))
+                        .map(|o| {
+                            o.map(|(start, end)| Value::from(&text[start..end]))
+                                .unwrap_or(Value::Null)
+                        })
+                        .collect();
+                    ret.push(Value::List(NixList::from(v)));
+                    pos = thematch.end();
+                }
+
+                // push the unmatched characters following the last match
+                ret.push(Value::from(&text[pos..]));
+
+                Ok(Value::List(ret))
+            },
+        ),
         Builtin::new("sort", &[true, true], |args: Vec<Value>, vm: &mut VM| {
             let mut list = args[1].to_list()?;
             let comparator = &args[0];
