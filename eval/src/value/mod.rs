@@ -31,7 +31,7 @@ pub use thunk::Thunk;
 use self::thunk::ThunkSet;
 
 #[warn(variant_size_differences)]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum Value {
     Null,
     Bool(bool),

@@ -41,7 +41,7 @@ use super::{Lambda, TotalDisplay};
 /// Upvalues must be finalised before leaving the initial state
 /// (Suspended or RecursiveClosure).  The [`value()`] function may
 /// not be called until the thunk is in the final state (Evaluated).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 enum ThunkRepr {
     /// Thunk is closed over some values, suspended and awaiting
     /// execution.
@@ -63,7 +63,7 @@ enum ThunkRepr {
 /// evaluation due to self-reference or lazy semantics (or both).
 /// Every reference cycle involving `Value`s will contain at least
 /// one `Thunk`.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Thunk(Rc<RefCell<ThunkRepr>>);
 
 impl Thunk {

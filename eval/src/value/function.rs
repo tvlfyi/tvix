@@ -39,7 +39,7 @@ impl Formals {
 /// OpThunkSuspended referencing it.  At runtime `Lambda` is usually wrapped
 /// in `Rc` to avoid copying the `Chunk` it holds (which can be
 /// quite large).
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default)]
 pub struct Lambda {
     pub(crate) chunk: Chunk,
 
@@ -62,7 +62,7 @@ impl Lambda {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Closure {
     pub lambda: Rc<Lambda>,
     pub upvalues: Upvalues,

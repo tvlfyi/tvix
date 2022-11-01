@@ -9,7 +9,7 @@ use super::TotalDisplay;
 use super::Value;
 
 #[repr(transparent)]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct NixList(Vec<Value>);
 
 impl TotalDisplay for NixList {

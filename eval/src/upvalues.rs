@@ -24,7 +24,7 @@ use crate::{opcode::UpvalueIdx, Value};
 ///   `let`, `name:` or `{name}:`
 /// - Dynamic identifiers, which are not bound in any enclosing
 ///   scope
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Upvalues {
     /// The upvalues of static identifiers.  Each static identifier
     /// is assigned an integer identifier at compile time, which is

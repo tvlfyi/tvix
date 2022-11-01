@@ -28,7 +28,7 @@ struct SourceSpan {
 /// A chunk is a representation of a sequence of bytecode
 /// instructions, associated constants and additional metadata as
 /// emitted by the compiler.
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default)]
 pub struct Chunk {
     pub code: Vec<OpCode>,
     pub constants: Vec<Value>,

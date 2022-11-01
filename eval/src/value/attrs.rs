@@ -19,7 +19,7 @@ use super::Value;
 #[cfg(test)]
 mod tests;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 enum AttrsRep {
     Empty,
     Map(BTreeMap<NixString, Value>),
@@ -79,7 +79,7 @@ impl AttrsRep {
 }
 
 #[repr(transparent)]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct NixAttrs(AttrsRep);
 
 impl TotalDisplay for NixAttrs {
