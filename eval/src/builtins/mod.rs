@@ -19,7 +19,7 @@ use crate::{
     vm::VM,
 };
 
-use crate::arithmetic_op;
+use crate::{arithmetic_op, unwrap_or_clone_rc};
 
 use self::versions::{VersionPart, VersionPartsIter};
 
@@ -829,14 +829,48 @@ fn pure_builtins() -> Vec<Builtin> {
 ///
 /// These are used as a crutch to make progress on nixpkgs evaluation.
 fn placeholders() -> Vec<Builtin> {
-    vec![Builtin::new(
-        "addErrorContext",
-        &[false, false],
-        |mut args: Vec<Value>, vm: &mut VM| {
-            vm.emit_warning(WarningKind::NotImplemented("builtins.addErrorContext"));
-            Ok(args.pop().unwrap())
-        },
-    )]
+    vec![
+        Builtin::new(
+            "addErrorContext",
+            &[false, false],
+            |mut args: Vec<Value>, vm: &mut VM| {
+                vm.emit_warning(WarningKind::NotImplemented("builtins.addErrorContext"));
+                Ok(args.pop().unwrap())
+            },
+        ),
+        Builtin::new(
+            "unsafeDiscardStringContext",
+            &[true],
+            |mut args: Vec<Value>, vm: &mut VM| {
+                vm.emit_warning(WarningKind::NotImplemented(
+                    "builtins.unsafeDiscardStringContext",
+                ));
+                Ok(args.pop().unwrap())
+            },
+        ),
+        Builtin::new("derivation", &[true], |args: Vec<Value>, vm: &mut VM| {
+            vm.emit_warning(WarningKind::NotImplemented("builtins.derivation"));
+
+            // We do not implement derivations yet, so this function sets mock
+            // values on the fields that a real derivation would contain.
+            //
+            // Crucially this means we do not yet *validate* the values either.
+            let attrs = unwrap_or_clone_rc(args[0].to_attrs()?);
+            let attrs = attrs.update(NixAttrs::from_map(BTreeMap::from([
+                (
+                    "outPath".into(),
+                    "/nix/store/00000000000000000000000000000000-mock".into(),
+                ),
+                (
+                    "drvPath".into(),
+                    "/nix/store/00000000000000000000000000000000-mock.drv".into(),
+                ),
+                ("type".into(), "derivation".into()),
+            ])));
+
+            Ok(Value::Attrs(Rc::new(attrs)))
+        }),
+    ]
 }
 // we set TVIX_CURRENT_SYSTEM in build.rs
 pub const CURRENT_PLATFORM: &str = env!("TVIX_CURRENT_SYSTEM");
