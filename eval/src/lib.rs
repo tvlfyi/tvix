@@ -22,6 +22,8 @@ mod test_utils;
 #[cfg(test)]
 mod tests;
 
+use std::rc::Rc;
+
 // Re-export the public interface used by other crates.
 pub use crate::builtins::global_builtins;
 pub use crate::compiler::{compile, prepare_globals};
@@ -31,3 +33,9 @@ pub use crate::pretty_ast::pretty_print_expr;
 pub use crate::source::SourceCode;
 pub use crate::value::Value;
 pub use crate::vm::run_lambda;
+
+// TODO: use Rc::unwrap_or_clone once it is stabilised.
+// https://doc.rust-lang.org/std/rc/struct.Rc.html#method.unwrap_or_clone
+pub fn unwrap_or_clone_rc<T: Clone>(rc: Rc<T>) -> T {
+    Rc::try_unwrap(rc).unwrap_or_else(|rc| (*rc).clone())
+}

@@ -10,6 +10,7 @@ use crate::{
     nix_search_path::NixSearchPath,
     observer::RuntimeObserver,
     opcode::{CodeIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
+    unwrap_or_clone_rc,
     upvalues::Upvalues,
     value::{Builtin, Closure, CoercionKind, Lambda, NixAttrs, NixList, Thunk, Value},
     warnings::{EvalWarning, WarningKind},
@@ -882,12 +883,6 @@ impl<'o> VM<'o> {
 
         Ok(())
     }
-}
-
-// TODO: use Rc::unwrap_or_clone once it is stabilised.
-// https://doc.rust-lang.org/std/rc/struct.Rc.html#method.unwrap_or_clone
-fn unwrap_or_clone_rc<T: Clone>(rc: Rc<T>) -> T {
-    Rc::try_unwrap(rc).unwrap_or_else(|rc| (*rc).clone())
 }
 
 pub fn run_lambda(
