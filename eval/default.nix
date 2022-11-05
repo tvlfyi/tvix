@@ -13,6 +13,10 @@ lib.fix (self: depot.third_party.naersk.buildPackage (lib.fix (naerskArgs: {
 
   meta.ci.targets = builtins.attrNames self.passthru;
 
+  copySources = [
+    "builtin-macros"
+  ];
+
   passthru.benchmarks = depot.third_party.naersk.buildPackage (naerskArgs // {
     name = "tvix-eval-benchmarks";
 
