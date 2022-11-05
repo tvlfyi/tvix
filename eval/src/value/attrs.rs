@@ -217,6 +217,13 @@ impl NixAttrs {
         self.0.select(key)
     }
 
+    /// Select a required value from an attribute set by key, return
+    /// an `AttributeNotFound` error if it is missing.
+    pub fn select_required(&self, key: &str) -> Result<&Value, ErrorKind> {
+        self.select(key)
+            .ok_or_else(|| ErrorKind::AttributeNotFound { name: key.into() })
+    }
+
     pub fn contains(&self, key: &str) -> bool {
         self.0.contains(key)
     }
