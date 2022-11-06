@@ -50,6 +50,8 @@ pub struct Builtin {
     name: &'static str,
     /// Array of arguments to the builtin.
     arguments: &'static [BuiltinArgument],
+    /// Optional documentation for the builtin.
+    documentation: Option<&'static str>,
     func: Rc<dyn BuiltinFn>,
 
     /// Partially applied function arguments.
@@ -60,11 +62,13 @@ impl Builtin {
     pub fn new<F: BuiltinFn + 'static>(
         name: &'static str,
         arguments: &'static [BuiltinArgument],
+        documentation: Option<&'static str>,
         func: F,
     ) -> Self {
         Builtin {
             name,
             arguments,
+            documentation,
             func: Rc::new(func),
             partials: vec![],
         }
@@ -72,6 +76,10 @@ impl Builtin {
 
     pub fn name(&self) -> &'static str {
         self.name
+    }
+
+    pub fn documentation(&self) -> Option<&'static str> {
+        self.documentation
     }
 
     /// Apply an additional argument to the builtin, which will either

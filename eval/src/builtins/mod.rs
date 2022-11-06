@@ -918,6 +918,7 @@ fn placeholders() -> Vec<Builtin> {
                     name: "value",
                 },
             ],
+            None,
             |mut args: Vec<Value>, vm: &mut VM| {
                 vm.emit_warning(WarningKind::NotImplemented("builtins.addErrorContext"));
                 Ok(args.pop().unwrap())
@@ -929,6 +930,7 @@ fn placeholders() -> Vec<Builtin> {
                 strict: true,
                 name: "s",
             }],
+            None,
             |mut args: Vec<Value>, vm: &mut VM| {
                 vm.emit_warning(WarningKind::NotImplemented(
                     "builtins.unsafeDiscardStringContext",
@@ -942,6 +944,7 @@ fn placeholders() -> Vec<Builtin> {
                 strict: true,
                 name: "attrs",
             }],
+            None,
             |args: Vec<Value>, vm: &mut VM| {
                 vm.emit_warning(WarningKind::NotImplemented("builtins.derivation"));
 

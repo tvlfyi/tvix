@@ -115,6 +115,7 @@ pub fn builtins_import(globals: &Weak<GlobalsMap>, source: SourceCode) -> Builti
             strict: true,
             name: "path",
         }],
+        None,
         move |mut args: Vec<Value>, vm: &mut VM| {
             let mut path = super::coerce_value_to_path(&args.pop().unwrap(), vm)?;
             if path.is_dir() {
