@@ -1,12 +1,11 @@
+pub use tvix_eval::internal;
+pub use tvix_eval::Value;
 use tvix_eval_builtin_macros::builtins;
-
-mod value {
-    pub use tvix_eval::Builtin;
-}
 
 #[builtins]
 mod builtins {
-    use tvix_eval::{ErrorKind, Value, VM};
+    use tvix_eval::internal::VM;
+    use tvix_eval::{ErrorKind, Value};
 
     #[builtin("identity")]
     pub fn builtin_identity(_vm: &mut VM, x: Value) -> Result<Value, ErrorKind> {

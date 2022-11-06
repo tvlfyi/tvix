@@ -31,8 +31,15 @@ pub use crate::errors::{ErrorKind, EvalResult};
 pub use crate::eval::{interpret, Options};
 pub use crate::pretty_ast::pretty_print_expr;
 pub use crate::source::SourceCode;
-pub use crate::value::{Builtin, Value};
-pub use crate::vm::{run_lambda, VM};
+pub use crate::value::Value;
+pub use crate::vm::run_lambda;
+
+/// Internal-only parts of `tvix-eval`, exported for use in macros, but not part of the public
+/// interface of the crate.
+pub mod internal {
+    pub use crate::value::Builtin;
+    pub use crate::vm::VM;
+}
 
 // TODO: use Rc::unwrap_or_clone once it is stabilised.
 // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.unwrap_or_clone
