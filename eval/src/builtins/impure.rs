@@ -12,7 +12,7 @@ use crate::{
     compiler::GlobalsMap,
     errors::ErrorKind,
     observer::NoOpObserver,
-    value::{Builtin, NixAttrs, Thunk},
+    value::{Builtin, BuiltinArgument, NixAttrs, Thunk},
     vm::VM,
     SourceCode, Value,
 };
@@ -111,7 +111,10 @@ pub fn builtins_import(globals: &Weak<GlobalsMap>, source: SourceCode) -> Builti
 
     Builtin::new(
         "import",
-        &[true],
+        &[BuiltinArgument {
+            strict: true,
+            name: "path",
+        }],
         move |mut args: Vec<Value>, vm: &mut VM| {
             let mut path = super::coerce_value_to_path(&args.pop().unwrap(), vm)?;
             if path.is_dir() {

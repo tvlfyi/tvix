@@ -37,7 +37,7 @@ pub use crate::vm::run_lambda;
 /// Internal-only parts of `tvix-eval`, exported for use in macros, but not part of the public
 /// interface of the crate.
 pub mod internal {
-    pub use crate::value::Builtin;
+    pub use crate::value::{Builtin, BuiltinArgument};
     pub use crate::vm::VM;
 }
 

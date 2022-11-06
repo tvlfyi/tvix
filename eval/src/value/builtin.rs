@@ -25,6 +25,14 @@ use std::{
 pub trait BuiltinFn: Fn(Vec<Value>, &mut VM) -> Result<Value, ErrorKind> {}
 impl<F: Fn(Vec<Value>, &mut VM) -> Result<Value, ErrorKind>> BuiltinFn for F {}
 
+/// Description of a single argument passed to a builtin
+pub struct BuiltinArgument {
+    /// Whether the argument should be forced before the underlying builtin function is called
+    pub strict: bool,
+    /// The name of the argument, to be used in docstrings and error messages
+    pub name: &'static str,
+}
+
 /// Represents a single built-in function which directly executes Rust
 /// code that operates on a Nix value.
 ///
@@ -40,10 +48,8 @@ impl<F: Fn(Vec<Value>, &mut VM) -> Result<Value, ErrorKind>> BuiltinFn for F {}
 #[derive(Clone)]
 pub struct Builtin {
     name: &'static str,
-    /// Array reference that describes how many arguments there are (usually 1
-    /// or 2) and whether they need to be forced. `true` causes the
-    /// corresponding argument to be forced before `func` is called.
-    strict_args: &'static [bool],
+    /// Array of arguments to the builtin.
+    arguments: &'static [BuiltinArgument],
     func: Rc<dyn BuiltinFn>,
 
     /// Partially applied function arguments.
@@ -53,12 +59,12 @@ pub struct Builtin {
 impl Builtin {
     pub fn new<F: BuiltinFn + 'static>(
         name: &'static str,
-        strict_args: &'static [bool],
+        arguments: &'static [BuiltinArgument],
         func: F,
     ) -> Self {
         Builtin {
             name,
-            strict_args,
+            arguments,
             func: Rc::new(func),
             partials: vec![],
         }
@@ -74,9 +80,9 @@ impl Builtin {
     pub fn apply(mut self, vm: &mut VM, arg: Value) -> Result<Value, ErrorKind> {
         self.partials.push(arg);
 
-        if self.partials.len() == self.strict_args.len() {
-            for (idx, force) in self.strict_args.iter().enumerate() {
-                if *force {
+        if self.partials.len() == self.arguments.len() {
+            for (idx, BuiltinArgument { strict, .. }) in self.arguments.iter().enumerate() {
+                if *strict {
                     self.partials[idx].force(vm)?;
                 }
             }

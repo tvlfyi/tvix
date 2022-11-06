@@ -5,7 +5,9 @@ use proc_macro2::Span;
 use quote::{quote_spanned, ToTokens};
 use syn::parse::Parse;
 use syn::spanned::Spanned;
-use syn::{parse_macro_input, parse_quote, FnArg, Ident, Item, ItemMod, LitStr, PatType};
+use syn::{
+    parse_macro_input, parse_quote, FnArg, Ident, Item, ItemMod, LitStr, Pat, PatIdent, PatType,
+};
 
 struct BuiltinArgs {
     name: LitStr,
@@ -89,31 +91,54 @@ pub fn builtins(_args: TokenStream, item: TokenStream) -> TokenStream {
                     .into();
                 }
 
-                let strictness = f
+                let builtin_arguments = f
                     .sig
                     .inputs
                     .iter_mut()
                     .skip(1)
-                    .map(|input| {
-                        let mut lazy = false;
-                        if let FnArg::Typed(PatType { attrs, .. }) = input {
-                            attrs.retain(|attr| {
-                                attr.path.get_ident().into_iter().any(|id| {
-                                    if id == "lazy" {
-                                        lazy = true;
-                                        false
-                                    } else {
-                                        true
-                                    }
-                                })
-                            });
-                        }
-                        !lazy
+                    .map(|arg| {
+                        let mut strict = true;
+                        let name = match arg {
+                            FnArg::Receiver(_) => {
+                                return Err(quote_spanned!(arg.span() => {
+                                    compile_error!("Unexpected receiver argument in builtin")
+                                }))
+                            }
+                            FnArg::Typed(PatType { attrs, pat, .. }) => {
+                                attrs.retain(|attr| {
+                                    attr.path.get_ident().into_iter().any(|id| {
+                                        if id == "lazy" {
+                                            strict = false;
+                                            false
+                                        } else {
+                                            true
+                                        }
+                                    })
+                                });
+                                match pat.as_ref() {
+                                    Pat::Ident(PatIdent { ident, .. }) => ident.to_string(),
+                                    _ => "unknown".to_string(),
+                                }
+                            }
+                        };
+
+                        Ok(quote_spanned!(arg.span() => {
+                            crate::internal::BuiltinArgument {
+                                strict: #strict,
+                                name: #name,
+                            }
+                        }))
                     })
-                    .collect::<Vec<_>>();
+                    .collect::<Result<Vec<_>, _>>();
+
+                let builtin_arguments = match builtin_arguments {
+                    Ok(args) => args,
+                    Err(err) => return err.into(),
+                };
 
                 let fn_name = f.sig.ident.clone();
-                let args = (0..(f.sig.inputs.len() - 1))
+                let num_args = f.sig.inputs.len() - 1;
+                let args = (0..num_args)
                     .map(|n| Ident::new(&format!("arg_{n}"), Span::call_site()))
                     .collect::<Vec<_>>();
                 let mut reversed_args = args.clone();
@@ -122,7 +147,7 @@ pub fn builtins(_args: TokenStream, item: TokenStream) -> TokenStream {
                 builtins.push(quote_spanned! { builtin_attr.span() => {
                     crate::internal::Builtin::new(
                         #name,
-                        &[#(#strictness),*],
+                        &[#(#builtin_arguments),*],
                         |mut args: Vec<crate::Value>, vm: &mut crate::internal::VM| {
                             #(let #reversed_args = args.pop().unwrap();)*
                             #fn_name(vm, #(#args),*)

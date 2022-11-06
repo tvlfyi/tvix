@@ -5,6 +5,7 @@
 
 use crate::compiler::{GlobalsMap, GlobalsMapFunc};
 use crate::source::SourceCode;
+use crate::value::BuiltinArgument;
 use std::cmp::{self, Ordering};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
@@ -907,7 +908,16 @@ fn placeholders() -> Vec<Builtin> {
     vec![
         Builtin::new(
             "addErrorContext",
-            &[false, false],
+            &[
+                BuiltinArgument {
+                    strict: false,
+                    name: "context",
+                },
+                BuiltinArgument {
+                    strict: false,
+                    name: "value",
+                },
+            ],
             |mut args: Vec<Value>, vm: &mut VM| {
                 vm.emit_warning(WarningKind::NotImplemented("builtins.addErrorContext"));
                 Ok(args.pop().unwrap())
@@ -915,7 +925,10 @@ fn placeholders() -> Vec<Builtin> {
         ),
         Builtin::new(
             "unsafeDiscardStringContext",
-            &[true],
+            &[BuiltinArgument {
+                strict: true,
+                name: "s",
+            }],
             |mut args: Vec<Value>, vm: &mut VM| {
                 vm.emit_warning(WarningKind::NotImplemented(
                     "builtins.unsafeDiscardStringContext",
@@ -923,28 +936,35 @@ fn placeholders() -> Vec<Builtin> {
                 Ok(args.pop().unwrap())
             },
         ),
-        Builtin::new("derivation", &[true], |args: Vec<Value>, vm: &mut VM| {
-            vm.emit_warning(WarningKind::NotImplemented("builtins.derivation"));
+        Builtin::new(
+            "derivation",
+            &[BuiltinArgument {
+                strict: true,
+                name: "attrs",
+            }],
+            |args: Vec<Value>, vm: &mut VM| {
+                vm.emit_warning(WarningKind::NotImplemented("builtins.derivation"));
 
-            // We do not implement derivations yet, so this function sets mock
-            // values on the fields that a real derivation would contain.
-            //
-            // Crucially this means we do not yet *validate* the values either.
-            let attrs = unwrap_or_clone_rc(args[0].to_attrs()?);
-            let attrs = attrs.update(NixAttrs::from_map(BTreeMap::from([
-                (
-                    "outPath".into(),
-                    "/nix/store/00000000000000000000000000000000-mock".into(),
-                ),
-                (
-                    "drvPath".into(),
-                    "/nix/store/00000000000000000000000000000000-mock.drv".into(),
-                ),
-                ("type".into(), "derivation".into()),
-            ])));
+                // We do not implement derivations yet, so this function sets mock
+                // values on the fields that a real derivation would contain.
+                //
+                // Crucially this means we do not yet *validate* the values either.
+                let attrs = unwrap_or_clone_rc(args[0].to_attrs()?);
+                let attrs = attrs.update(NixAttrs::from_map(BTreeMap::from([
+                    (
+                        "outPath".into(),
+                        "/nix/store/00000000000000000000000000000000-mock".into(),
+                    ),
+                    (
+                        "drvPath".into(),
+                        "/nix/store/00000000000000000000000000000000-mock.drv".into(),
+                    ),
+                    ("type".into(), "derivation".into()),
+                ])));
 
-            Ok(Value::Attrs(Rc::new(attrs)))
-        }),
+                Ok(Value::Attrs(Rc::new(attrs)))
+            },
+        ),
     ]
 }
 // we set TVIX_CURRENT_SYSTEM in build.rs
