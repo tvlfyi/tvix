@@ -1,3 +1,4 @@
+use builtin_macros::builtins;
 use std::{
     collections::BTreeMap,
     env,
@@ -16,61 +17,68 @@ use crate::{
     SourceCode, Value,
 };
 
-fn impure_builtins() -> Vec<Builtin> {
-    vec![
-        Builtin::new("getEnv", &[true], |args: Vec<Value>, _: &mut VM| {
-            Ok(env::var(args[0].to_str()?)
-                .unwrap_or_else(|_| "".into())
-                .into())
-        }),
-        Builtin::new("pathExists", &[true], |args: Vec<Value>, vm: &mut VM| {
-            Ok(super::coerce_value_to_path(&args[0], vm)?.exists().into())
-        }),
-        Builtin::new("readDir", &[true], |args: Vec<Value>, vm: &mut VM| {
-            let path = super::coerce_value_to_path(&args[0], vm)?;
-            let mk_err = |err: io::Error| ErrorKind::IO {
-                path: Some(path.clone()),
-                error: Rc::new(err),
-            };
+#[builtins]
+mod impure_builtins {
+    use super::*;
+    use crate::builtins::coerce_value_to_path;
 
-            let mut res = BTreeMap::new();
-            for entry in path.read_dir().map_err(mk_err)? {
-                let entry = entry.map_err(mk_err)?;
-                let file_type = entry
-                    .metadata()
-                    .map_err(|err| ErrorKind::IO {
-                        path: Some(entry.path()),
-                        error: Rc::new(err),
-                    })?
-                    .file_type();
-                let val = if file_type.is_dir() {
-                    "directory"
-                } else if file_type.is_file() {
-                    "regular"
-                } else if file_type.is_symlink() {
-                    "symlink"
-                } else {
-                    "unknown"
-                };
-                res.insert(
-                    entry.file_name().to_string_lossy().as_ref().into(),
-                    val.into(),
-                );
-            }
-            Ok(Value::attrs(NixAttrs::from_map(res)))
-        }),
-        Builtin::new("readFile", &[true], |args: Vec<Value>, vm: &mut VM| {
-            let mut buf = String::new();
-            File::open(&super::coerce_value_to_path(&args[0], vm)?)?.read_to_string(&mut buf)?;
-            Ok(buf.into())
-        }),
-    ]
+    #[builtin("getEnv")]
+    fn builtin_get_env(_: &mut VM, var: Value) -> Result<Value, ErrorKind> {
+        Ok(env::var(var.to_str()?).unwrap_or_else(|_| "".into()).into())
+    }
+
+    #[builtin("pathExists")]
+    fn builtin_path_exists(vm: &mut VM, s: Value) -> Result<Value, ErrorKind> {
+        Ok(coerce_value_to_path(&s, vm)?.exists().into())
+    }
+
+    #[builtin("readDir")]
+    fn builtin_read_dir(vm: &mut VM, path: Value) -> Result<Value, ErrorKind> {
+        let path = coerce_value_to_path(&path, vm)?;
+        let mk_err = |err: io::Error| ErrorKind::IO {
+            path: Some(path.clone()),
+            error: Rc::new(err),
+        };
+
+        let mut res = BTreeMap::new();
+        for entry in path.read_dir().map_err(mk_err)? {
+            let entry = entry.map_err(mk_err)?;
+            let file_type = entry
+                .metadata()
+                .map_err(|err| ErrorKind::IO {
+                    path: Some(entry.path()),
+                    error: Rc::new(err),
+                })?
+                .file_type();
+            let val = if file_type.is_dir() {
+                "directory"
+            } else if file_type.is_file() {
+                "regular"
+            } else if file_type.is_symlink() {
+                "symlink"
+            } else {
+                "unknown"
+            };
+            res.insert(
+                entry.file_name().to_string_lossy().as_ref().into(),
+                val.into(),
+            );
+        }
+        Ok(Value::attrs(NixAttrs::from_map(res)))
+    }
+
+    #[builtin("readFile")]
+    fn builtin_read_file(vm: &mut VM, path: Value) -> Result<Value, ErrorKind> {
+        let mut buf = String::new();
+        File::open(&coerce_value_to_path(&path, vm)?)?.read_to_string(&mut buf)?;
+        Ok(buf.into())
+    }
 }
 
 /// Return all impure builtins, that is all builtins which may perform I/O
 /// outside of the VM and so cannot be used in all contexts (e.g. WASM).
 pub(super) fn builtins() -> BTreeMap<&'static str, Value> {
-    let mut map: BTreeMap<&'static str, Value> = impure_builtins()
+    let mut map: BTreeMap<&'static str, Value> = impure_builtins::builtins()
         .into_iter()
         .map(|b| (b.name(), Value::Builtin(b)))
         .collect();
