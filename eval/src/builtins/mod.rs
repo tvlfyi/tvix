@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
 
+use builtin_macros::builtins;
 use regex::Regex;
 
 use crate::warnings::WarningKind;
@@ -50,14 +51,21 @@ pub fn coerce_value_to_path(v: &Value, vm: &mut VM) -> Result<PathBuf, ErrorKind
     }
 }
 
+#[builtins]
+mod pure_builtins {
+    use super::*;
+
+    #[builtin("abort")]
+    fn builtin_abort(_vm: &mut VM, message: Value) -> Result<Value, ErrorKind> {
+        Err(ErrorKind::Abort(message.to_str()?.to_string()))
+    }
+}
+
 /// Return all pure builtins, that is all builtins that do not rely on
 /// I/O outside of the VM and which can be used in any contexts (e.g.
 /// WASM).
 fn pure_builtins() -> Vec<Builtin> {
-    vec![
-        Builtin::new("abort", &[true], |args: Vec<Value>, _: &mut VM| {
-            Err(ErrorKind::Abort(args[0].to_str()?.to_string()))
-        }),
+    let mut bs = vec![
         Builtin::new(
             "add",
             &[false, false],
@@ -820,7 +828,10 @@ fn pure_builtins() -> Vec<Builtin> {
             let value = args[0].force(vm)?;
             Ok(Value::String(value.type_of().into()))
         }),
-    ]
+    ];
+
+    bs.extend(pure_builtins::builtins());
+    bs
 }
 
 /// Placeholder builtins that technically have a function which we do
