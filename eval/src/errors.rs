@@ -20,6 +20,8 @@ pub enum ErrorKind {
     Abort(String),
     AssertionFailed,
 
+    DivisionByZero,
+
     DuplicateAttrsKey {
         key: String,
     },
@@ -214,6 +216,8 @@ impl Display for Error {
             ErrorKind::Throw(msg) => write!(f, "error thrown: {}", msg),
             ErrorKind::Abort(msg) => write!(f, "evaluation aborted: {}", msg),
             ErrorKind::AssertionFailed => write!(f, "assertion failed"),
+
+            ErrorKind::DivisionByZero => write!(f, "division by zero"),
 
             ErrorKind::DuplicateAttrsKey { key } => {
                 write!(f, "attribute key '{}' already defined", key)
@@ -656,6 +660,7 @@ impl Error {
             | ErrorKind::TailEmptyList
             | ErrorKind::TypeError { .. }
             | ErrorKind::Incomparable { .. }
+            | ErrorKind::DivisionByZero
             | ErrorKind::DynamicKeyInScope(_)
             | ErrorKind::UnknownStaticVariable
             | ErrorKind::UnknownDynamicVariable(_)
@@ -717,6 +722,7 @@ impl Error {
             ErrorKind::FromJsonError { .. } => "E030",
             ErrorKind::UnexpectedArgument { .. } => "E031",
             ErrorKind::RelativePathResolution(_) => "E032",
+            ErrorKind::DivisionByZero => "E033",
 
             // Special error code that is not part of the normal
             // ordering.

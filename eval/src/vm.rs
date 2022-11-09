@@ -412,7 +412,20 @@ impl<'o> VM<'o> {
 
             OpCode::OpSub => arithmetic_op!(self, -),
             OpCode::OpMul => arithmetic_op!(self, *),
-            OpCode::OpDiv => arithmetic_op!(self, /),
+            OpCode::OpDiv => {
+                let b = self.peek(0);
+
+                match b {
+                    Value::Integer(0) => return Err(self.error(ErrorKind::DivisionByZero)),
+                    Value::Float(b) => {
+                        if *b == (0.0 as f64) {
+                            return Err(self.error(ErrorKind::DivisionByZero));
+                        }
+                        arithmetic_op!(self, /)
+                    }
+                    _ => arithmetic_op!(self, /),
+                };
+            }
 
             OpCode::OpInvert => {
                 let v = fallible!(self, self.pop().as_bool());
