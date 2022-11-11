@@ -5,6 +5,5 @@
 
 pkgs.runCommand "tvix-cc-proto" { } ''
   mkdir $out
-  ${pkgs.protobuf}/bin/protoc -I ${./.} castore.proto --cpp_out=$out
   ${pkgs.protobuf}/bin/protoc -I ${./.} evaluator.proto --cpp_out=$out
 ''
