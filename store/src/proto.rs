@@ -1,6 +1,6 @@
 use prost::Message;
 
-include!(concat!(env!("OUT_DIR"), "/tvix.store.v1.rs"));
+tonic::include_proto!("tvix.store.v1");
 
 impl Directory {
     // The size of a directory is the number of all regular and symlink elements,
