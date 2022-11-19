@@ -6,6 +6,8 @@ package tvix.store.v1;
 
 import "tvix/store/protos/castore.proto";
 
+option go_package = "code.tvl.fyi/tvix/store/protos;storev1";
+
 // PathInfo shows information about a Nix Store Path.
 // That's a single element inside /nix/store.
 message PathInfo {

@@ -6,6 +6,8 @@ package tvix.store.v1;
 
 import "tvix/store/protos/castore.proto";
 
+option go_package = "code.tvl.fyi/tvix/store/protos;storev1";
+
 service DirectoryService {
   // Get retrieves a stream of Directory messages, by using the lookup
   // parameters in GetDirectoryRequest.

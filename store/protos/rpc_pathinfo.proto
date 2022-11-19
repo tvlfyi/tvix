@@ -6,6 +6,8 @@ package tvix.store.v1;
 
 import "tvix/store/protos/pathinfo.proto";
 
+option go_package = "code.tvl.fyi/tvix/store/protos;storev1";
+
 service PathInfoService {
     // Get retrieves a PathInfo object, by using the lookup parameters in
     // GetPathInfoRequest.

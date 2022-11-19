@@ -4,6 +4,8 @@ syntax = "proto3";
 
 package tvix.store.v1;
 
+option go_package = "code.tvl.fyi/tvix/store/protos;storev1";
+
 service BlobService {
     rpc Get(GetBlobRequest) returns (GetBlobResponse);
     rpc Put(PutBlobRequest) returns (PutBlobResponse);
