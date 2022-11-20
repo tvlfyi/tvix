@@ -230,7 +230,10 @@ impl<'o> VM<'o> {
 
             Value::Builtin(b) => self.call_builtin(b.clone()),
 
-            Value::Thunk(t) => self.call_value(&t.value()),
+            Value::Thunk(t) => {
+                debug_assert!(t.is_evaluated(), "call_value called with unevaluated thunk");
+                self.call_value(&t.value())
+            }
 
             // Attribute sets with a __functor attribute are callable.
             Value::Attrs(ref attrs) => match attrs.select("__functor") {
@@ -277,6 +280,7 @@ impl<'o> VM<'o> {
         let mut res = self.pop();
 
         for _ in 0..(num_args - 1) {
+            res.force(self).map_err(|e| self.error(e))?;
             self.call_value(&res)?;
             res = self.pop();
         }

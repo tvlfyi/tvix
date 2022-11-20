@@ -133,6 +133,10 @@ impl Thunk {
         }
     }
 
+    pub fn is_evaluated(&self) -> bool {
+        matches!(*self.0.borrow(), ThunkRepr::Evaluated(_))
+    }
+
     /// Returns a reference to the inner evaluated value of a thunk.
     /// It is an error to call this on a thunk that has not been
     /// forced, or is not otherwise known to be fully evaluated.
