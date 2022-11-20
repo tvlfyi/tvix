@@ -326,13 +326,19 @@ impl Value {
             // Optimised attribute set comparison
             (Value::Attrs(a1), Value::Attrs(a2)) => Ok(Rc::ptr_eq(a1, a2) || a1.nix_eq(a2, vm)?),
 
-            // If either value is a thunk, the thunk should be forced, and then the resulting value
-            // must be compared instead.
+            // If either value is a thunk, the thunk should be forced, and then
+            // the resulting value must be compared instead.
             (Value::Thunk(lhs), Value::Thunk(rhs)) => {
                 lhs.force(vm)?;
                 rhs.force(vm)?;
 
-                lhs.value().nix_eq(&*rhs.value(), vm)
+                // TODO: this cloning is done because there is a potential issue
+                // with keeping borrows into both thunks around while recursing,
+                // as they might recurse themselves, leading to a borrow error
+                // when they are later being forced.
+                let lhs = lhs.value().clone();
+                let rhs = rhs.value().clone();
+                lhs.nix_eq(&rhs, vm)
             }
             (Value::Thunk(lhs), rhs) => {
                 lhs.force(vm)?;
