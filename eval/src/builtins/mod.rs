@@ -54,6 +54,8 @@ pub fn coerce_value_to_path(v: &Value, vm: &mut VM) -> Result<PathBuf, ErrorKind
 
 #[builtins]
 mod pure_builtins {
+    use std::collections::VecDeque;
+
     use super::*;
 
     #[builtin("abort")]
@@ -341,6 +343,51 @@ mod pure_builtins {
         let json_str = json.to_str()?;
         let json: serde_json::Value = serde_json::from_str(&json_str)?;
         json.try_into()
+    }
+
+    #[builtin("genericClosure")]
+    fn builtin_generic_closure(vm: &mut VM, input: Value) -> Result<Value, ErrorKind> {
+        let attrs = input.to_attrs()?;
+
+        // The work set is maintained as a VecDeque because new items
+        // are popped from the front.
+        let mut work_set: VecDeque<Value> = attrs
+            .select_required("startSet")?
+            .force(vm)?
+            .to_list()?
+            .into_iter()
+            .collect();
+
+        let operator = attrs.select_required("operator")?;
+
+        let mut res = NixList::new();
+        let mut done_keys: Vec<Value> = vec![];
+
+        let mut insert_key = |k: Value, vm: &mut VM| -> Result<bool, ErrorKind> {
+            for existing in &done_keys {
+                if existing.nix_eq(&k, vm)? {
+                    return Ok(false);
+                }
+            }
+            done_keys.push(k);
+            Ok(true)
+        };
+
+        while let Some(val) = work_set.pop_front() {
+            let attrs = val.force(vm)?.to_attrs()?;
+            let key = attrs.select_required("key")?;
+
+            if !insert_key(key.clone(), vm)? {
+                continue;
+            }
+
+            res.push(val.clone());
+
+            let op_result = vm.call_with(operator, Some(val))?.force(vm)?.to_list()?;
+            work_set.extend(op_result.into_iter());
+        }
+
+        Ok(Value::List(res))
     }
 
     #[builtin("genList")]
