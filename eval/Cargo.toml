@@ -50,7 +50,7 @@ default = [ "repl", "impure", "arbitrary", "nix_tests" ]
 nix_tests = []
 
 # Enables building the binary (tvix-eval REPL)
-repl = [ "dep:rustyline", "dep:clap" ]
+repl = [ "rustyline", "clap" ]
 
 # Enables operations in the VM which depend on the ability to perform I/O
 impure = []
