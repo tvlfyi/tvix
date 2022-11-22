@@ -144,8 +144,8 @@ impl Thunk {
     // difficult to represent in the type system without impacting the
     // API too much.
     pub fn value(&self) -> Ref<Value> {
-        Ref::map(self.0.borrow(), |thunk| {
-            if let ThunkRepr::Evaluated(value) = thunk {
+        Ref::map(self.0.borrow(), |thunk| match thunk {
+            ThunkRepr::Evaluated(value) => {
                 #[cfg(debug_assertions)]
                 if matches!(
                     value,
@@ -158,8 +158,8 @@ impl Thunk {
                 }
                 return value;
             }
-
-            panic!("Thunk::value called on non-evaluated thunk");
+            ThunkRepr::Blackhole => panic!("Thunk::value called on a black-holed thunk"),
+            ThunkRepr::Suspended { .. } => panic!("Thunk::value called on a suspended thunk"),
         })
     }
 
