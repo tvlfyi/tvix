@@ -246,6 +246,26 @@ impl NixAttrs {
         })
     }
 
+    pub fn into_iter(self) -> IntoIter {
+        match self.0 {
+            AttrsRep::Empty => IntoIter(IntoIterRepr::Empty),
+            AttrsRep::KV { name, value } => IntoIter(IntoIterRepr::Finite(
+                vec![
+                    (NixString::NAME_REF.clone(), name),
+                    (NixString::VALUE_REF.clone(), value),
+                ]
+                .into_iter(),
+            )),
+            AttrsRep::Map(map) => IntoIter(IntoIterRepr::Map(map.into_iter())),
+        }
+    }
+
+    /// Same as into_iter(), but marks call sites which rely on the
+    /// iteration being lexicographic.
+    pub fn into_iter_sorted(self) -> IntoIter {
+        self.into_iter()
+    }
+
     /// Construct an iterator over all the keys of the attribute set
     pub fn keys(&self) -> Keys {
         Keys(match &self.0 {
@@ -539,5 +559,37 @@ impl<'a> IntoIterator for &'a NixAttrs {
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
+    }
+}
+
+/// Internal representation of an owning attrset iterator
+pub enum IntoIterRepr {
+    Empty,
+    Finite(std::vec::IntoIter<(NixString, Value)>),
+    Map(std::collections::btree_map::IntoIter<NixString, Value>),
+}
+
+#[repr(transparent)]
+pub struct IntoIter(IntoIterRepr);
+
+impl Iterator for IntoIter {
+    type Item = (NixString, Value);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match &mut self.0 {
+            IntoIterRepr::Empty => None,
+            IntoIterRepr::Map(inner) => inner.next(),
+            IntoIterRepr::Finite(inner) => inner.next(),
+        }
+    }
+}
+
+impl ExactSizeIterator for IntoIter {
+    fn len(&self) -> usize {
+        match &self.0 {
+            IntoIterRepr::Empty => 0,
+            IntoIterRepr::Map(inner) => inner.len(),
+            IntoIterRepr::Finite(inner) => inner.len(),
+        }
     }
 }
