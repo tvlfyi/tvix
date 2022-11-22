@@ -190,6 +190,12 @@ impl Thunk {
             thunk => panic!("upvalues() on non-suspended thunk: {thunk:?}"),
         })
     }
+
+    /// Do not use this without first reading and understanding
+    /// `tvix/docs/value-pointer-equality.md`.
+    pub(crate) fn ptr_eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
 }
 
 impl TotalDisplay for Thunk {

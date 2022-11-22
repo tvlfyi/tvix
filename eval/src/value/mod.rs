@@ -313,7 +313,6 @@ impl Value {
             // Trivial comparisons
             (Value::Null, Value::Null) => Ok(true),
             (Value::Bool(b1), Value::Bool(b2)) => Ok(b1 == b2),
-            (Value::List(l1), Value::List(l2)) => l1.nix_eq(l2, vm),
             (Value::String(s1), Value::String(s2)) => Ok(s1 == s2),
             (Value::Path(p1), Value::Path(p2)) => Ok(p1 == p2),
 
@@ -323,31 +322,10 @@ impl Value {
             (Value::Float(f1), Value::Float(f2)) => Ok(f1 == f2),
             (Value::Float(f), Value::Integer(i)) => Ok(*i as f64 == *f),
 
-            // Optimised attribute set comparison
-            (Value::Attrs(a1), Value::Attrs(a2)) => Ok(Rc::ptr_eq(a1, a2) || a1.nix_eq(a2, vm)?),
-
-            // If either value is a thunk, the thunk should be forced, and then
-            // the resulting value must be compared instead.
-            (Value::Thunk(lhs), Value::Thunk(rhs)) => {
-                lhs.force(vm)?;
-                rhs.force(vm)?;
-
-                // TODO: this cloning is done because there is a potential issue
-                // with keeping borrows into both thunks around while recursing,
-                // as they might recurse themselves, leading to a borrow error
-                // when they are later being forced.
-                let lhs = lhs.value().clone();
-                let rhs = rhs.value().clone();
-                lhs.nix_eq(&rhs, vm)
-            }
-            (Value::Thunk(lhs), rhs) => {
-                lhs.force(vm)?;
-                lhs.value().nix_eq(rhs, vm)
-            }
-            (lhs, Value::Thunk(rhs)) => {
-                rhs.force(vm)?;
-                lhs.nix_eq(&*rhs.value(), vm)
-            }
+            (Value::Attrs(_), Value::Attrs(_))
+            | (Value::List(_), Value::List(_))
+            | (Value::Thunk(_), _)
+            | (_, Value::Thunk(_)) => Ok(vm.nix_eq(self.clone(), other.clone(), false)?),
 
             // Everything else is either incomparable (e.g. internal
             // types) or false.

@@ -250,7 +250,7 @@ mod pure_builtins {
     #[builtin("elem")]
     fn builtin_elem(vm: &mut VM, x: Value, xs: Value) -> Result<Value, ErrorKind> {
         for val in xs.to_list()? {
-            if val.nix_eq(&x, vm)? {
+            if vm.nix_eq(val, x.clone(), true)? {
                 return Ok(true.into());
             }
         }
