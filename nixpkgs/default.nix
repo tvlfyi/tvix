@@ -28,6 +28,11 @@ let
         # Forbids our meta.ci attribute
         # https://github.com/NixOS/nixpkgs/pull/191171#issuecomment-1260650771
         checkMeta = false;
+        # TODO(grfn): Currently needed for subsurface, set globally to avoid
+        # reimporting nixpkgs in home-manager
+        permittedInsecurePackages = [
+          "qtwebkit-5.212.0-alpha4"
+        ];
       };
 
     inherit localSystem;
