@@ -148,6 +148,15 @@ macro_rules! cmp_op {
 
 impl<'o> VM<'o> {
     pub fn new(nix_search_path: NixSearchPath, observer: &'o mut dyn RuntimeObserver) -> Self {
+        // Backtrace-on-stack-overflow is some seriously weird voodoo and
+        // very unsafe.  This double-guard prevents it from accidentally
+        // being enabled on release builds.
+        #[cfg(debug_assertions)]
+        #[cfg(feature = "backtrace_overflow")]
+        unsafe {
+            backtrace_on_stack_overflow::enable();
+        };
+
         Self {
             nix_search_path,
             observer,

@@ -28,6 +28,7 @@ serde = "1.0"
 serde_json = "1.0"
 regex = "1.6.0"
 builtin-macros = { path = "./builtin-macros", package = "tvix-eval-builtin-macros" }
+backtrace-on-stack-overflow = { version = "0.2.0", optional = true }
 
 # rnix has not been released in a while (as of 2022-09-23), we will
 # use it from git.
@@ -43,7 +44,7 @@ itertools = "0.10.3"
 tempdir = "0.3.7"
 
 [features]
-default = [ "repl", "impure", "arbitrary", "nix_tests" ]
+default = [ "repl", "impure", "arbitrary", "nix_tests", "backtrace_overflow" ]
 
 # Enables running the Nix language test suite from the original C++
 # Nix implementation (at version 2.3) against Tvix.
@@ -57,6 +58,9 @@ impure = []
 
 # Enables Arbitrary impls for internal types (required to run tests)
 arbitrary = [ "proptest", "test-strategy" ]
+
+# For debugging use only; not appropriate for production use.
+backtrace_overflow = [ "backtrace-on-stack-overflow" ]
 
 [[bench]]
 name = "eval"
