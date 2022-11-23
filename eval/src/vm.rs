@@ -304,6 +304,7 @@ impl<'o> VM<'o> {
         Ok(res)
     }
 
+    #[inline(always)]
     fn tail_call_value(&mut self, callable: Value) -> EvalResult<()> {
         match callable {
             Value::Builtin(builtin) => self.call_builtin(builtin),
