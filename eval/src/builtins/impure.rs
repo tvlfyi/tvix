@@ -122,6 +122,12 @@ pub fn builtins_import(globals: &Weak<GlobalsMap>, source: SourceCode) -> Builti
                 path.push("default.nix");
             }
 
+            let current_span = vm.current_span();
+            let entry = match vm.import_cache.entry(path.clone()) {
+                std::collections::btree_map::Entry::Occupied(oe) => return Ok(oe.get().clone()),
+                std::collections::btree_map::Entry::Vacant(ve) => ve,
+            };
+
             let contents =
                 std::fs::read_to_string(&path).map_err(|err| ErrorKind::ReadFileError {
                     path: path.clone(),
@@ -167,16 +173,20 @@ pub fn builtins_import(globals: &Weak<GlobalsMap>, source: SourceCode) -> Builti
                 });
             }
 
+            // Compilation succeeded, we can construct a thunk from whatever it spat
+            // out and return that.
+            let res = entry
+                .insert(Value::Thunk(Thunk::new_suspended(
+                    result.lambda,
+                    current_span,
+                )))
+                .clone();
+
             for warning in result.warnings {
                 vm.push_warning(warning);
             }
 
-            // Compilation succeeded, we can construct a thunk from whatever it spat
-            // out and return that.
-            Ok(Value::Thunk(Thunk::new_suspended(
-                result.lambda,
-                vm.current_span(),
-            )))
+            Ok(res)
         },
     )
 }

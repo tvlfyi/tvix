@@ -2,7 +2,7 @@
 //! Tvix bytecode.
 
 use serde_json::json;
-use std::{cmp::Ordering, ops::DerefMut, path::PathBuf, rc::Rc};
+use std::{cmp::Ordering, collections::BTreeMap, ops::DerefMut, path::PathBuf, rc::Rc};
 
 use crate::{
     chunk::Chunk,
@@ -59,6 +59,8 @@ pub struct VM<'o> {
 
     /// Runtime warnings collected during evaluation.
     warnings: Vec<EvalWarning>,
+
+    pub import_cache: Box<BTreeMap<PathBuf, Value>>,
 
     nix_search_path: NixSearchPath,
 
@@ -164,6 +166,7 @@ impl<'o> VM<'o> {
             stack: vec![],
             with_stack: vec![],
             warnings: vec![],
+            import_cache: Default::default(),
         }
     }
 
