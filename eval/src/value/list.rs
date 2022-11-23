@@ -1,5 +1,6 @@
 //! This module implements Nix lists.
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
+use std::rc::Rc;
 
 use crate::errors::ErrorKind;
 use crate::vm::VM;
@@ -10,13 +11,13 @@ use super::Value;
 
 #[repr(transparent)]
 #[derive(Clone, Debug)]
-pub struct NixList(Vec<Value>);
+pub struct NixList(Rc<Vec<Value>>);
 
 impl TotalDisplay for NixList {
     fn total_fmt(&self, f: &mut std::fmt::Formatter<'_>, set: &mut ThunkSet) -> std::fmt::Result {
         f.write_str("[ ")?;
 
-        for v in &self.0 {
+        for v in self.0.as_ref() {
             v.total_fmt(f, set)?;
             f.write_str(" ")?;
         }
@@ -27,7 +28,7 @@ impl TotalDisplay for NixList {
 
 impl From<Vec<Value>> for NixList {
     fn from(vs: Vec<Value>) -> Self {
-        Self(vs)
+        Self(Rc::new(vs))
     }
 }
 
@@ -45,24 +46,14 @@ mod arbitrary {
         type Strategy = BoxedStrategy<Self>;
 
         fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-            any_with::<Vec<Value>>(args).prop_map(Self).boxed()
+            any_with::<Rc<Vec<Value>>>(args).prop_map(Self).boxed()
         }
     }
 }
 
 impl NixList {
     pub fn new() -> Self {
-        Self(vec![])
-    }
-
-    pub fn push(&mut self, val: Value) {
-        self.0.push(val)
-    }
-
-    pub fn concat(&self, other: &Self) -> Self {
-        let mut ret = self.clone();
-        ret.0.extend_from_slice(&other.0);
-        ret
+        Self(Rc::new(vec![]))
     }
 
     pub fn len(&self) -> usize {
@@ -81,15 +72,22 @@ impl NixList {
             stack_slice.len(),
         );
 
-        NixList(stack_slice)
+        NixList(Rc::new(stack_slice))
     }
 
     pub fn iter(&self) -> std::slice::Iter<Value> {
         self.0.iter()
     }
 
+    pub fn ptr_eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
+
     /// Compare `self` against `other` for equality using Nix equality semantics
     pub fn nix_eq(&self, other: &Self, vm: &mut VM) -> Result<bool, ErrorKind> {
+        if self.ptr_eq(other) {
+            return Ok(true);
+        }
         if self.len() != other.len() {
             return Ok(false);
         }
@@ -107,6 +105,10 @@ impl NixList {
     pub fn force_elements(&self, vm: &mut VM) -> Result<(), ErrorKind> {
         self.iter().try_for_each(|v| v.force(vm).map(|_| ()))
     }
+
+    pub fn into_vec(self) -> Vec<Value> {
+        crate::unwrap_or_clone_rc(self.0)
+    }
 }
 
 impl IntoIterator for NixList {
@@ -114,7 +116,7 @@ impl IntoIterator for NixList {
     type IntoIter = std::vec::IntoIter<Value>;
 
     fn into_iter(self) -> std::vec::IntoIter<Value> {
-        self.0.into_iter()
+        self.into_vec().into_iter()
     }
 }
 
@@ -133,11 +135,5 @@ impl Deref for NixList {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl DerefMut for NixList {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }

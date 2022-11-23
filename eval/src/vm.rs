@@ -538,8 +538,9 @@ impl<'o> VM<'o> {
 
             OpCode::OpConcat => {
                 let rhs = fallible!(self, self.pop().to_list());
-                let lhs = fallible!(self, self.pop().to_list());
-                self.push(Value::List(lhs.concat(&rhs)))
+                let mut lhs = fallible!(self, self.pop().to_list()).into_vec();
+                lhs.extend_from_slice(&rhs);
+                self.push(Value::List(NixList::from(lhs)))
             }
 
             OpCode::OpInterpolate(Count(count)) => self.run_interpolate(count)?,

@@ -360,7 +360,7 @@ mod pure_builtins {
 
         let operator = attrs.select_required("operator")?;
 
-        let mut res = NixList::new();
+        let mut res: Vec<Value> = vec![];
         let mut done_keys: Vec<Value> = vec![];
 
         let mut insert_key = |k: Value, vm: &mut VM| -> Result<bool, ErrorKind> {
@@ -387,7 +387,7 @@ mod pure_builtins {
             work_set.extend(op_result.into_iter());
         }
 
-        Ok(Value::List(res))
+        Ok(Value::List(NixList::from(res)))
     }
 
     #[builtin("genList")]
@@ -415,15 +415,16 @@ mod pure_builtins {
 
     #[builtin("groupBy")]
     fn builtin_group_by(vm: &mut VM, f: Value, list: Value) -> Result<Value, ErrorKind> {
-        let mut res: BTreeMap<NixString, Value> = BTreeMap::new();
+        let mut res: BTreeMap<NixString, Vec<Value>> = BTreeMap::new();
         for val in list.to_list()? {
             let key = vm.call_with(&f, [val.clone()])?.force(vm)?.to_str()?;
-            res.entry(key)
-                .or_insert_with(|| Value::List(NixList::new()))
-                .as_list_mut()?
-                .push(val);
+            res.entry(key).or_insert_with(|| vec![]).push(val);
         }
-        Ok(Value::attrs(NixAttrs::from_map(res)))
+        Ok(Value::attrs(NixAttrs::from_map(
+            res.into_iter()
+                .map(|(k, v)| (k, Value::List(NixList::from(v))))
+                .collect(),
+        )))
     }
 
     #[builtin("hasAttr")]
@@ -745,7 +746,7 @@ mod pure_builtins {
         let re: Regex = Regex::new(re.as_str()).unwrap();
         let mut capture_locations = re.capture_locations();
         let num_captures = capture_locations.len();
-        let mut ret = NixList::new();
+        let mut ret: Vec<Value> = vec![];
         let mut pos = 0;
 
         while let Some(thematch) = re.captures_read_at(&mut capture_locations, text, pos) {
@@ -770,12 +771,12 @@ mod pure_builtins {
         // push the unmatched characters following the last match
         ret.push(Value::from(&text[pos..]));
 
-        Ok(Value::List(ret))
+        Ok(Value::List(NixList::from(ret)))
     }
 
     #[builtin("sort")]
     fn builtin_sort(vm: &mut VM, comparator: Value, list: Value) -> Result<Value, ErrorKind> {
-        let mut list = list.to_list()?;
+        let mut list = list.to_list()?.into_vec();
 
         // Used to let errors "escape" from the sorting closure. If anything
         // ends up setting an error, it is returned from this function.
@@ -806,7 +807,7 @@ mod pure_builtins {
         });
 
         match error {
-            None => Ok(Value::List(list)),
+            None => Ok(Value::List(NixList::from(list))),
             Some(e) => Err(e),
         }
     }
