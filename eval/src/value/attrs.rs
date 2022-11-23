@@ -524,6 +524,16 @@ impl<'a> Iterator for Iter<KeyValue<'a>> {
     }
 }
 
+impl<'a> ExactSizeIterator for Iter<KeyValue<'a>> {
+    fn len(&self) -> usize {
+        match &self.0 {
+            KeyValue::Empty => 0,
+            KeyValue::KV { .. } => 2,
+            KeyValue::Map(inner) => inner.len(),
+        }
+    }
+}
+
 enum KeysInner<'a> {
     Empty,
     KV(IterKV),
@@ -559,6 +569,16 @@ impl<'a> IntoIterator for &'a NixAttrs {
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
+    }
+}
+
+impl<'a> ExactSizeIterator for Keys<'a> {
+    fn len(&self) -> usize {
+        match &self.0 {
+            KeysInner::Empty => 0,
+            KeysInner::KV(_) => 2,
+            KeysInner::Map(m) => m.len(),
+        }
     }
 }
 
