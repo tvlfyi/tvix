@@ -399,7 +399,6 @@ impl<'o> VM<'o> {
                 let a = self.pop();
 
                 let result = match (&a, &b) {
-                    (Value::String(s1), Value::String(s2)) => Value::String(s1.concat(s2)),
                     (Value::Path(p), v) => {
                         let mut path = p.to_string_lossy().into_owned();
                         path.push_str(
@@ -408,6 +407,18 @@ impl<'o> VM<'o> {
                         );
                         crate::value::canon_path(PathBuf::from(path)).into()
                     }
+                    (Value::String(s1), Value::String(s2)) => Value::String(s1.concat(s2)),
+                    (Value::String(s1), v) => Value::String(
+                        s1.concat(
+                            &v.coerce_to_string(CoercionKind::Weak, self)
+                                .map_err(|ek| self.error(ek))?,
+                        ),
+                    ),
+                    (v, Value::String(s2)) => Value::String(
+                        v.coerce_to_string(CoercionKind::Weak, self)
+                            .map_err(|ek| self.error(ek))?
+                            .concat(s2),
+                    ),
                     _ => fallible!(self, arithmetic_op!(&a, &b, +)),
                 };
 
