@@ -346,7 +346,7 @@ impl Value {
                         return Ok(Some(Ordering::Greater));
                     } else if i == l1.len() {
                         return Ok(Some(Ordering::Less));
-                    } else if !l1[i].nix_eq(&l2[i], vm)? {
+                    } else if !vm.nix_eq(l1[i].clone(), l2[i].clone(), true)? {
                         return l1[i].force(vm)?.nix_cmp(&*l2[i].force(vm)?, vm);
                     }
                 }
