@@ -351,7 +351,6 @@ impl Value {
 
             // Everything else is either incomparable (e.g. internal
             // types) or false.
-            // TODO(tazjin): mirror Lambda equality behaviour
             _ => Ok(false),
         }
     }
