@@ -694,7 +694,8 @@ impl<'o> VM<'o> {
                 let mut upvalues = Upvalues::with_capacity(blueprint.upvalue_count);
                 self.populate_upvalues(upvalue_count, &mut upvalues)?;
                 self.push(Value::Closure(Closure::new_with_upvalues(
-                    upvalues, blueprint,
+                    Rc::new(upvalues),
+                    blueprint,
                 )));
             }
 

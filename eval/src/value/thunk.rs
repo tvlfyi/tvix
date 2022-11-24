@@ -70,7 +70,7 @@ impl Thunk {
     pub fn new_closure(lambda: Rc<Lambda>) -> Self {
         Thunk(Rc::new(RefCell::new(ThunkRepr::Evaluated(Value::Closure(
             Closure {
-                upvalues: Upvalues::with_capacity(lambda.upvalue_count),
+                upvalues: Rc::new(Upvalues::with_capacity(lambda.upvalue_count)),
                 lambda: lambda.clone(),
                 #[cfg(debug_assertions)]
                 is_finalised: false,
@@ -184,7 +184,8 @@ impl Thunk {
                 if *is_finalised {
                     panic!("Thunk::upvalues_mut() called on a finalised closure");
                 }
-                upvalues
+                Rc::get_mut(upvalues)
+                    .expect("upvalues_mut() was called on a thunk which already had multiple references to it")
             }
             thunk => panic!("upvalues() on non-suspended thunk: {thunk:?}"),
         })

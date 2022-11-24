@@ -65,7 +65,7 @@ impl Lambda {
 #[derive(Clone, Debug)]
 pub struct Closure {
     pub lambda: Rc<Lambda>,
-    pub upvalues: Upvalues,
+    pub upvalues: Rc<Upvalues>,
     /// true if all upvalues have been realised
     #[cfg(debug_assertions)]
     pub is_finalised: bool,
@@ -73,10 +73,13 @@ pub struct Closure {
 
 impl Closure {
     pub fn new(lambda: Rc<Lambda>) -> Self {
-        Self::new_with_upvalues(Upvalues::with_capacity(lambda.upvalue_count), lambda)
+        Self::new_with_upvalues(
+            Rc::new(Upvalues::with_capacity(lambda.upvalue_count)),
+            lambda,
+        )
     }
 
-    pub fn new_with_upvalues(upvalues: Upvalues, lambda: Rc<Lambda>) -> Self {
+    pub fn new_with_upvalues(upvalues: Rc<Upvalues>, lambda: Rc<Lambda>) -> Self {
         Closure {
             upvalues,
             lambda,
