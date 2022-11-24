@@ -79,6 +79,12 @@ impl Closure {
         )
     }
 
+    /// Do not call this function unless you have read
+    /// `tvix/docs/value-pointer-equality.md` carefully.
+    pub fn ptr_eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.lambda, &other.lambda) && Rc::ptr_eq(&self.upvalues, &other.upvalues)
+    }
+
     pub fn new_with_upvalues(upvalues: Rc<Upvalues>, lambda: Rc<Lambda>) -> Self {
         Closure {
             upvalues,
