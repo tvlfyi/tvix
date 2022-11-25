@@ -477,6 +477,38 @@ impl<'o> VM<'o> {
                         }
                     }
                     allow_pointer_equality_on_functions_and_thunks = true;
+                    match (a1.select("type"), a2.select("type")) {
+                        (Some(v1), Some(v2))
+                            if "derivation"
+                                == fallible!(
+                                    self,
+                                    v1.coerce_to_string(CoercionKind::ThunksOnly, self)
+                                )
+                                .as_str()
+                                && "derivation"
+                                    == fallible!(
+                                        self,
+                                        v2.coerce_to_string(CoercionKind::ThunksOnly, self)
+                                    )
+                                    .as_str() =>
+                        {
+                            if fallible!(
+                                self,
+                                a1.select("outPath")
+                                    .expect("encountered a derivation with no `outPath` attribute!")
+                                    .coerce_to_string(CoercionKind::ThunksOnly, self)
+                            ) == fallible!(
+                                self,
+                                a2.select("outPath")
+                                    .expect("encountered a derivation with no `outPath` attribute!")
+                                    .coerce_to_string(CoercionKind::ThunksOnly, self)
+                            ) {
+                                continue;
+                            }
+                            break false;
+                        }
+                        _ => {}
+                    }
                     let iter1 = unwrap_or_clone_rc(a1).into_iter_sorted();
                     let iter2 = unwrap_or_clone_rc(a2).into_iter_sorted();
                     if iter1.len() != iter2.len() {
