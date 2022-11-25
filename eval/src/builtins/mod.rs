@@ -982,6 +982,30 @@ fn placeholders() -> Vec<Builtin> {
             },
         ),
         Builtin::new(
+            "unsafeGetAttrPos",
+            &[
+                BuiltinArgument {
+                    strict: true,
+                    name: "name",
+                },
+                BuiltinArgument {
+                    strict: true,
+                    name: "attrset",
+                },
+            ],
+            None,
+            |mut args: Vec<Value>, vm: &mut VM| {
+                vm.emit_warning(WarningKind::NotImplemented("builtins.unsafeGetAttrsPos"));
+                let _attrset = args.pop().unwrap().to_attrs();
+                let _name = args.pop().unwrap().to_str();
+                let mut res: BTreeMap<NixString, Value> = BTreeMap::new();
+                res.insert("line".into(), 42.into());
+                res.insert("col".into(), 42.into());
+                res.insert("file".into(), Value::Path("/deep/thought".into()));
+                Ok(Value::attrs(NixAttrs::from_map(res)))
+            },
+        ),
+        Builtin::new(
             "derivation",
             &[BuiltinArgument {
                 strict: true,
