@@ -36,6 +36,9 @@ pub struct Options {
     /// A colon-separated list of directories to use to resolve `<...>`-style paths
     #[cfg_attr(feature = "repl", clap(long, short = 'I', env = "NIX_PATH"))]
     nix_search_path: Option<NixSearchPath>,
+
+    #[cfg_attr(feature = "repl", clap(long))]
+    pub raw: bool,
 }
 
 impl Options {

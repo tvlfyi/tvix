@@ -2,6 +2,7 @@ use std::{fs, path::PathBuf};
 
 use clap::Parser;
 use rustyline::{error::ReadlineError, Editor};
+use tvix_eval::Value;
 
 #[derive(Parser)]
 struct Args {
@@ -21,8 +22,9 @@ fn main() {
     if let Some(file) = args.script {
         run_file(file, args.eval_options)
     } else if let Some(expr) = args.expr {
+        let raw = args.eval_options.raw;
         if let Ok(result) = tvix_eval::interpret(&expr, None, args.eval_options) {
-            println!("=> {} :: {}", result, result.type_of())
+            println_result(&result, raw);
         }
     } else {
         run_prompt(args.eval_options)
@@ -34,9 +36,18 @@ fn run_file(mut path: PathBuf, eval_options: tvix_eval::Options) {
         path.push("default.nix");
     }
     let contents = fs::read_to_string(&path).expect("failed to read the input file");
+    let raw = eval_options.raw;
     match tvix_eval::interpret(&contents, Some(path), eval_options) {
-        Ok(result) => println!("=> {} :: {}", result, result.type_of()),
+        Ok(result) => println_result(&result, raw),
         Err(err) => eprintln!("{}", err),
+    }
+}
+
+fn println_result(result: &Value, raw: bool) {
+    if raw {
+        println!("{}", result.to_str().unwrap().as_str())
+    } else {
+        println!("=> {} :: {}", result, result.type_of())
     }
 }
 
