@@ -15,9 +15,21 @@ tokio = { version = "1.23.0", features = ["rt-multi-thread"] }
 tokio-stream = "0.1.11"
 tonic = "0.8.2"
 
+[dependencies.tonic-reflection]
+optional = true
+version = "0.5.0"
+
 [build-dependencies]
 prost-build = "0.11.2"
 tonic-build = "0.8.2"
 
 [dev-dependencies]
 test-case = "2.2.2"
+
+[features]
+default = [
+  "reflection"
+]
+reflection = [
+  "tonic-reflection"
+]

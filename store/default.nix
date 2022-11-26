@@ -20,6 +20,10 @@ depot.tvix.crates.workspaceMembers.tvix-store.build.override {
       nativeBuildInputs = protobufDep prev;
     };
 
+    tonic-reflection = prev: {
+      nativeBuildInputs = protobufDep prev;
+    };
+
     tvix-store = prev: {
       PROTO_ROOT = protoRoot;
       nativeBuildInputs = protobufDep prev;
