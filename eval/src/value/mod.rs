@@ -107,8 +107,10 @@ macro_rules! gen_is {
 }
 
 /// Describes what input types are allowed when coercing a `Value` to a string
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum CoercionKind {
+    /// Force thunks, but perform no other coercions.
+    ThunksOnly,
     /// Only coerce already "stringly" types like strings and paths, but also
     /// coerce sets that have a `__toString` attribute. Equivalent to
     /// `!coerceMore` in C++ Nix.
@@ -176,18 +178,21 @@ impl Value {
 
             // coercions that are always done
             (Value::String(s), _) => Ok(s.clone()),
+
             // TODO(sterni): Think about proper encoding handling here. This needs
             // general consideration anyways, since one current discrepancy between
             // C++ Nix and Tvix is that the former's strings are arbitrary byte
             // sequences without NUL bytes, whereas Tvix only allows valid
             // Unicode. See also b/189.
-            (Value::Path(p), _) => Ok(p.to_string_lossy().into_owned().into()),
+            (Value::Path(p), kind) if kind != CoercionKind::ThunksOnly => {
+                Ok(p.to_string_lossy().into_owned().into())
+            }
 
             // Attribute sets can be converted to strings if they either have an
             // `__toString` attribute which holds a function that receives the
             // set itself or an `outPath` attribute which should be a string.
             // `__toString` is preferred.
-            (Value::Attrs(attrs), _) => {
+            (Value::Attrs(attrs), kind) if kind != CoercionKind::ThunksOnly => {
                 match (attrs.select("__toString"), attrs.select("outPath")) {
                     (None, None) => Err(ErrorKind::NotCoercibleToString { from: "set", kind }),
 
@@ -250,7 +255,9 @@ impl Value {
                     .unwrap_or_else(|| Ok("".into()))
             }
 
-            (Value::Closure(_), _)
+            (Value::Path(_), _)
+            | (Value::Attrs(_), _)
+            | (Value::Closure(_), _)
             | (Value::Builtin(_), _)
             | (Value::Null, _)
             | (Value::Bool(_), _)
