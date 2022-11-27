@@ -77,9 +77,9 @@ func (s *Server) ListenAndServe(addr string) error {
 	srv := &http.Server{
 		Addr:         addr,
 		Handler:      s.handler,
-		ReadTimeout:  50 * time.Second,
-		WriteTimeout: 100 * time.Second,
-		IdleTimeout:  150 * time.Second,
+		ReadTimeout:  500 * time.Second,
+		WriteTimeout: 500 * time.Second,
+		IdleTimeout:  500 * time.Second,
 	}
 
 	return srv.ListenAndServe()
