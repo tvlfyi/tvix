@@ -323,7 +323,7 @@ mod pure_builtins {
 
     #[builtin("functionArgs")]
     fn builtin_function_args(_: &mut VM, f: Value) -> Result<Value, ErrorKind> {
-        let lambda = f.to_closure()?.lambda();
+        let lambda = &f.as_closure()?.lambda();
         let formals = if let Some(formals) = &lambda.formals {
             formals
         } else {

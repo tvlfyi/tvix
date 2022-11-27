@@ -66,9 +66,6 @@ impl Lambda {
 pub struct Closure {
     pub lambda: Rc<Lambda>,
     pub upvalues: Rc<Upvalues>,
-    /// true if all upvalues have been realised
-    #[cfg(debug_assertions)]
-    pub is_finalised: bool,
 }
 
 impl Closure {
@@ -79,19 +76,8 @@ impl Closure {
         )
     }
 
-    /// Do not call this function unless you have read
-    /// `tvix/docs/value-pointer-equality.md` carefully.
-    pub fn ptr_eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.lambda, &other.lambda) && Rc::ptr_eq(&self.upvalues, &other.upvalues)
-    }
-
     pub fn new_with_upvalues(upvalues: Rc<Upvalues>, lambda: Rc<Lambda>) -> Self {
-        Closure {
-            upvalues,
-            lambda,
-            #[cfg(debug_assertions)]
-            is_finalised: true,
-        }
+        Closure { upvalues, lambda }
     }
 
     pub fn chunk(&self) -> &Chunk {

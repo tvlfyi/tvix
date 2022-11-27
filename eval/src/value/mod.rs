@@ -41,7 +41,7 @@ pub enum Value {
     Path(PathBuf),
     Attrs(Rc<NixAttrs>),
     List(NixList),
-    Closure(Closure),
+    Closure(Rc<Closure>), // must use Rc<Closure> here in order to get proper pointer equality
     Builtin(Builtin),
 
     // Internal values that, while they technically exist at runtime,
@@ -304,7 +304,13 @@ impl Value {
     gen_cast!(to_str, NixString, "string", Value::String(s), s.clone());
     gen_cast!(to_attrs, Rc<NixAttrs>, "set", Value::Attrs(a), a.clone());
     gen_cast!(to_list, NixList, "list", Value::List(l), l.clone());
-    gen_cast!(to_closure, Closure, "lambda", Value::Closure(c), c.clone());
+    gen_cast!(
+        as_closure,
+        Rc<Closure>,
+        "lambda",
+        Value::Closure(c),
+        c.clone()
+    );
 
     gen_cast_mut!(as_list_mut, NixList, "list", List);
 

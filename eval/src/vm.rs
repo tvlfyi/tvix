@@ -533,7 +533,7 @@ impl<'o> VM<'o> {
                 (v1, v2) => {
                     if allow_pointer_equality_on_functions_and_thunks {
                         if let (Value::Closure(c1), Value::Closure(c2)) = (&v1, &v2) {
-                            if c1.ptr_eq(c2) {
+                            if Rc::ptr_eq(c1, c2) {
                                 continue;
                             }
                         }
@@ -864,10 +864,10 @@ impl<'o> VM<'o> {
                 );
                 let mut upvalues = Upvalues::with_capacity(blueprint.upvalue_count);
                 self.populate_upvalues(upvalue_count, &mut upvalues)?;
-                self.push(Value::Closure(Closure::new_with_upvalues(
+                self.push(Value::Closure(Rc::new(Closure::new_with_upvalues(
                     Rc::new(upvalues),
                     blueprint,
-                )));
+                ))));
             }
 
             OpCode::OpThunkSuspended(idx) | OpCode::OpThunkClosure(idx) => {

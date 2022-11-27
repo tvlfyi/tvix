@@ -69,12 +69,10 @@ pub struct Thunk(Rc<RefCell<ThunkRepr>>);
 impl Thunk {
     pub fn new_closure(lambda: Rc<Lambda>) -> Self {
         Thunk(Rc::new(RefCell::new(ThunkRepr::Evaluated(Value::Closure(
-            Closure {
+            Rc::new(Closure {
                 upvalues: Rc::new(Upvalues::with_capacity(lambda.upvalue_count)),
                 lambda: lambda.clone(),
-                #[cfg(debug_assertions)]
-                is_finalised: false,
-            },
+            }),
         )))))
     }
 
@@ -124,13 +122,6 @@ impl Thunk {
 
     pub fn finalise(&self, stack: &[Value]) {
         self.upvalues_mut().resolve_deferred_upvalues(stack);
-        #[cfg(debug_assertions)]
-        {
-            let inner: &mut ThunkRepr = &mut self.0.as_ref().borrow_mut();
-            if let ThunkRepr::Evaluated(Value::Closure(c)) = inner {
-                c.is_finalised = true;
-            }
-        }
     }
 
     pub fn is_evaluated(&self) -> bool {
@@ -145,19 +136,7 @@ impl Thunk {
     // API too much.
     pub fn value(&self) -> Ref<Value> {
         Ref::map(self.0.borrow(), |thunk| match thunk {
-            ThunkRepr::Evaluated(value) => {
-                #[cfg(debug_assertions)]
-                if matches!(
-                    value,
-                    Value::Closure(Closure {
-                        is_finalised: false,
-                        ..
-                    })
-                ) {
-                    panic!("Thunk::value called on an unfinalised closure");
-                }
-                return value;
-            }
+            ThunkRepr::Evaluated(value) => value,
             ThunkRepr::Blackhole => panic!("Thunk::value called on a black-holed thunk"),
             ThunkRepr::Suspended { .. } => panic!("Thunk::value called on a suspended thunk"),
         })
@@ -166,7 +145,7 @@ impl Thunk {
     pub fn upvalues(&self) -> Ref<'_, Upvalues> {
         Ref::map(self.0.borrow(), |thunk| match thunk {
             ThunkRepr::Suspended { upvalues, .. } => upvalues,
-            ThunkRepr::Evaluated(Value::Closure(Closure { upvalues, .. })) => upvalues,
+            ThunkRepr::Evaluated(Value::Closure(c)) => &c.upvalues,
             _ => panic!("upvalues() on non-suspended thunk"),
         })
     }
@@ -174,19 +153,12 @@ impl Thunk {
     pub fn upvalues_mut(&self) -> RefMut<'_, Upvalues> {
         RefMut::map(self.0.borrow_mut(), |thunk| match thunk {
             ThunkRepr::Suspended { upvalues, .. } => upvalues,
-            ThunkRepr::Evaluated(Value::Closure(Closure {
-                upvalues,
-                #[cfg(debug_assertions)]
-                is_finalised,
-                ..
-            })) => {
-                #[cfg(debug_assertions)]
-                if *is_finalised {
-                    panic!("Thunk::upvalues_mut() called on a finalised closure");
-                }
-                Rc::get_mut(upvalues)
-                    .expect("upvalues_mut() was called on a thunk which already had multiple references to it")
-            }
+            ThunkRepr::Evaluated(Value::Closure(c)) => Rc::get_mut(
+                &mut Rc::get_mut(c).unwrap().upvalues,
+            )
+            .expect(
+                "upvalues_mut() was called on a thunk which already had multiple references to it",
+            ),
             thunk => panic!("upvalues() on non-suspended thunk: {thunk:?}"),
         })
     }
@@ -194,7 +166,16 @@ impl Thunk {
     /// Do not use this without first reading and understanding
     /// `tvix/docs/value-pointer-equality.md`.
     pub(crate) fn ptr_eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.0, &other.0)
+        if Rc::ptr_eq(&self.0, &other.0) {
+            return true;
+        }
+        match &*self.0.borrow() {
+            ThunkRepr::Evaluated(Value::Closure(c1)) => match &*other.0.borrow() {
+                ThunkRepr::Evaluated(Value::Closure(c2)) => Rc::ptr_eq(c1, c2),
+                _ => false,
+            },
+            _ => false,
+        }
     }
 }
 

@@ -948,7 +948,7 @@ impl Compiler<'_> {
                 if is_suspended_thunk {
                     Value::Thunk(Thunk::new_suspended(lambda, span))
                 } else {
-                    Value::Closure(Closure::new(lambda))
+                    Value::Closure(Rc::new(Closure::new(lambda)))
                 },
                 node,
             );
