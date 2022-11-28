@@ -39,7 +39,14 @@ impl Formals {
 /// OpThunkSuspended referencing it.  At runtime `Lambda` is usually wrapped
 /// in `Rc` to avoid copying the `Chunk` it holds (which can be
 /// quite large).
-#[derive(Debug, Default)]
+///
+/// In order to correctly reproduce cppnix's "pointer equality"
+/// semantics it is important that we never clone a Lambda --
+/// use Rc<Lambda>::clone() instead.  This struct deliberately
+/// does not `derive(Clone)` in order to prevent this from being
+/// done accidentally.
+///
+#[derive(/* do not add Clone here */ Debug, Default)]
 pub struct Lambda {
     pub(crate) chunk: Chunk,
 
@@ -62,7 +69,14 @@ impl Lambda {
     }
 }
 
-#[derive(Clone, Debug)]
+///
+/// In order to correctly reproduce cppnix's "pointer equality"
+/// semantics it is important that we never clone a Lambda --
+/// use Rc<Lambda>::clone() instead.  This struct deliberately
+/// does not `derive(Clone)` in order to prevent this from being
+/// done accidentally.
+///
+#[derive(/* do not add Clone here */ Debug)]
 pub struct Closure {
     pub lambda: Rc<Lambda>,
     pub upvalues: Rc<Upvalues>,
@@ -88,7 +102,7 @@ impl Closure {
         self.lambda.clone()
     }
 
-    pub fn upvalues(&self) -> &Upvalues {
-        &self.upvalues
+    pub fn upvalues(&self) -> Rc<Upvalues> {
+        self.upvalues.clone()
     }
 }

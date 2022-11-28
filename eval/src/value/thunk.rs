@@ -47,7 +47,7 @@ enum ThunkRepr {
     /// execution.
     Suspended {
         lambda: Rc<Lambda>,
-        upvalues: Upvalues,
+        upvalues: Rc<Upvalues>,
         span: Span,
     },
 
@@ -78,7 +78,7 @@ impl Thunk {
 
     pub fn new_suspended(lambda: Rc<Lambda>, span: Span) -> Self {
         Thunk(Rc::new(RefCell::new(ThunkRepr::Suspended {
-            upvalues: Upvalues::with_capacity(lambda.upvalue_count),
+            upvalues: Rc::new(Upvalues::with_capacity(lambda.upvalue_count)),
             lambda: lambda.clone(),
             span,
         })))
@@ -144,7 +144,7 @@ impl Thunk {
 
     pub fn upvalues(&self) -> Ref<'_, Upvalues> {
         Ref::map(self.0.borrow(), |thunk| match thunk {
-            ThunkRepr::Suspended { upvalues, .. } => upvalues,
+            ThunkRepr::Suspended { upvalues, .. } => upvalues.as_ref(),
             ThunkRepr::Evaluated(Value::Closure(c)) => &c.upvalues,
             _ => panic!("upvalues() on non-suspended thunk"),
         })
@@ -152,7 +152,7 @@ impl Thunk {
 
     pub fn upvalues_mut(&self) -> RefMut<'_, Upvalues> {
         RefMut::map(self.0.borrow_mut(), |thunk| match thunk {
-            ThunkRepr::Suspended { upvalues, .. } => upvalues,
+            ThunkRepr::Suspended { upvalues, .. } => Rc::get_mut(upvalues).unwrap(),
             ThunkRepr::Evaluated(Value::Closure(c)) => Rc::get_mut(
                 &mut Rc::get_mut(c).unwrap().upvalues,
             )

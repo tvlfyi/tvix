@@ -22,7 +22,7 @@ struct CallFrame {
 
     /// Optional captured upvalues of this frame (if a thunk or
     /// closure if being evaluated).
-    upvalues: Upvalues,
+    upvalues: Rc<Upvalues>,
 
     /// Instruction pointer to the instruction currently being
     /// executed.
@@ -242,7 +242,7 @@ impl<'o> VM<'o> {
     /// been forced.
     pub fn call_value(&mut self, callable: &Value) -> EvalResult<()> {
         match callable {
-            Value::Closure(c) => self.enter_frame(c.lambda(), c.upvalues().clone(), 1),
+            Value::Closure(c) => self.enter_frame(c.lambda(), c.upvalues(), 1),
 
             Value::Builtin(b) => self.call_builtin(b.clone()),
 
@@ -347,7 +347,7 @@ impl<'o> VM<'o> {
     pub fn enter_frame(
         &mut self,
         lambda: Rc<Lambda>,
-        upvalues: Upvalues,
+        upvalues: Rc<Upvalues>,
         arg_count: usize,
     ) -> EvalResult<()> {
         self.observer
@@ -1090,7 +1090,7 @@ pub fn run_lambda(
     // with the span of the entire file for top-level expressions.
     let root_span = lambda.chunk.get_span(CodeIdx(lambda.chunk.code.len() - 1));
 
-    vm.enter_frame(lambda, Upvalues::with_capacity(0), 0)?;
+    vm.enter_frame(lambda, Rc::new(Upvalues::with_capacity(0)), 0)?;
     let value = vm.pop();
 
     value
