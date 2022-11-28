@@ -33,6 +33,12 @@ enum AttrsRep {
     },
 }
 
+impl Default for AttrsRep {
+    fn default() -> Self {
+        AttrsRep::Empty
+    }
+}
+
 impl AttrsRep {
     /// Retrieve reference to a mutable map inside of an attrs,
     /// optionally changing the representation if required.
@@ -79,7 +85,7 @@ impl AttrsRep {
 }
 
 #[repr(transparent)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct NixAttrs(AttrsRep);
 
 impl TotalDisplay for NixAttrs {
