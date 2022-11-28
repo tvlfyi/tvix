@@ -7,6 +7,7 @@
 //! some peculiarities that are encapsulated within this module.
 use std::collections::btree_map;
 use std::collections::BTreeMap;
+use std::iter::FromIterator;
 
 use crate::errors::ErrorKind;
 use crate::vm::VM;
@@ -87,6 +88,23 @@ impl AttrsRep {
 #[repr(transparent)]
 #[derive(Clone, Debug, Default)]
 pub struct NixAttrs(AttrsRep);
+
+impl<K, V> FromIterator<(K, V)> for NixAttrs
+where
+    NixString: From<K>,
+    Value: From<V>,
+{
+    fn from_iter<T>(iter: T) -> NixAttrs
+    where
+        T: IntoIterator<Item = (K, V)>,
+    {
+        NixAttrs(AttrsRep::Map(
+            iter.into_iter()
+                .map(|(k, v)| (k.into(), v.into()))
+                .collect(),
+        ))
+    }
+}
 
 impl TotalDisplay for NixAttrs {
     fn total_fmt(&self, f: &mut std::fmt::Formatter<'_>, set: &mut ThunkSet) -> std::fmt::Result {

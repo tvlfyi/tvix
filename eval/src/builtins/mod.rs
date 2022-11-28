@@ -420,10 +420,9 @@ mod pure_builtins {
             let key = vm.call_with(&f, [val.clone()])?.force(vm)?.to_str()?;
             res.entry(key).or_insert_with(|| vec![]).push(val);
         }
-        Ok(Value::attrs(NixAttrs::from_map(
+        Ok(Value::attrs(NixAttrs::from_iter(
             res.into_iter()
-                .map(|(k, v)| (k, Value::List(NixList::from(v))))
-                .collect(),
+                .map(|(k, v)| (k, Value::List(NixList::from(v)))),
         )))
     }
 
@@ -445,15 +444,16 @@ mod pure_builtins {
 
     #[builtin("intersectAttrs")]
     fn builtin_intersect_attrs(_: &mut VM, x: Value, y: Value) -> Result<Value, ErrorKind> {
-        let mut res = BTreeMap::new();
         let attrs1 = x.to_attrs()?;
         let attrs2 = y.to_attrs()?;
-        for (k, v) in attrs2.iter() {
+        let res = attrs2.iter().filter_map(|(k, v)| {
             if attrs1.contains(k) {
-                res.insert(k.clone(), v.clone());
+                Some((k.clone(), v.clone()))
+            } else {
+                None
             }
-        }
-        Ok(Value::attrs(NixAttrs::from_map(res)))
+        });
+        Ok(Value::attrs(NixAttrs::from_iter(res)))
     }
 
     // For `is*` predicates we force manually, as Value::force also unwraps any Thunks
@@ -608,12 +608,10 @@ mod pure_builtins {
         let version = dash_and_version
             .split_first()
             .map(|x| core::str::from_utf8(x.1))
-            .unwrap_or(Ok(""))?
-            .into();
-        Ok(Value::attrs(NixAttrs::from_map(BTreeMap::from([
-            (NixString::NAME, core::str::from_utf8(name)?.into()),
-            ("version".into(), version),
-        ]))))
+            .unwrap_or(Ok(""))?;
+        Ok(Value::attrs(NixAttrs::from_iter(
+            [("name", core::str::from_utf8(name)?), ("version", version)].into_iter(),
+        )))
     }
     #[builtin("partition")]
     fn builtin_partition(vm: &mut VM, pred: Value, list: Value) -> Result<Value, ErrorKind> {
@@ -621,7 +619,7 @@ mod pure_builtins {
         let mut wrong: Vec<Value> = vec![];
 
         let list: NixList = list.to_list()?;
-        for elem in list.into_iter() {
+        for elem in list {
             let result = vm.call_with(&pred, [elem.clone()])?;
 
             if result.force(vm)?.as_bool()? {
@@ -631,11 +629,9 @@ mod pure_builtins {
             };
         }
 
-        let mut res: BTreeMap<NixString, Value> = BTreeMap::new();
-        res.insert("right".into(), Value::List(right.into()));
-        res.insert("wrong".into(), Value::List(wrong.into()));
+        let res = [("right", right), ("wrong", wrong)];
 
-        Ok(Value::attrs(NixAttrs::from_map(res)))
+        Ok(Value::attrs(NixAttrs::from_iter(res.into_iter())))
     }
 
     #[builtin("removeAttrs")]
@@ -646,13 +642,14 @@ mod pure_builtins {
             .into_iter()
             .map(|v| v.to_str())
             .collect::<Result<HashSet<_>, _>>()?;
-        let mut res = BTreeMap::new();
-        for (k, v) in attrs.iter() {
+        let res = attrs.iter().filter_map(|(k, v)| {
             if !keys.contains(k) {
-                res.insert(k.clone(), v.clone());
+                Some((k.clone(), v.clone()))
+            } else {
+                None
             }
-        }
-        Ok(Value::attrs(NixAttrs::from_map(res)))
+        });
+        Ok(Value::attrs(NixAttrs::from_iter(res)))
     }
 
     #[builtin("replaceStrings")]
@@ -922,19 +919,12 @@ mod pure_builtins {
 
     #[builtin("tryEval")]
     fn builtin_try_eval(vm: &mut VM, #[lazy] e: Value) -> Result<Value, ErrorKind> {
-        let mut res = BTreeMap::new();
-        match e.force(vm) {
-            Ok(value) => {
-                res.insert("value".into(), (*value).clone());
-                res.insert("success".into(), true.into());
-            }
-            Err(e) if e.is_catchable() => {
-                res.insert("value".into(), false.into());
-                res.insert("success".into(), false.into());
-            }
+        let res = match e.force(vm) {
+            Ok(value) => [("value", (*value).clone()), ("success", true.into())],
+            Err(e) if e.is_catchable() => [("value", false.into()), ("success", false.into())],
             Err(e) => return Err(e),
-        }
-        Ok(Value::attrs(NixAttrs::from_map(res)))
+        };
+        Ok(Value::attrs(NixAttrs::from_iter(res.into_iter())))
     }
 
     #[builtin("typeOf")]
@@ -1005,11 +995,12 @@ fn placeholders() -> Vec<Builtin> {
                 vm.emit_warning(WarningKind::NotImplemented("builtins.unsafeGetAttrsPos"));
                 let _attrset = args.pop().unwrap().to_attrs();
                 let _name = args.pop().unwrap().to_str();
-                let mut res: BTreeMap<NixString, Value> = BTreeMap::new();
-                res.insert("line".into(), 42.into());
-                res.insert("col".into(), 42.into());
-                res.insert("file".into(), Value::Path("/deep/thought".into()));
-                Ok(Value::attrs(NixAttrs::from_map(res)))
+                let res = [
+                    ("line", 42.into()),
+                    ("col", 42.into()),
+                    ("file", Value::Path("/deep/thought".into())),
+                ];
+                Ok(Value::attrs(NixAttrs::from_iter(res.into_iter())))
             },
         ),
         Builtin::new(
@@ -1027,17 +1018,20 @@ fn placeholders() -> Vec<Builtin> {
                 //
                 // Crucially this means we do not yet *validate* the values either.
                 let attrs = unwrap_or_clone_rc(args[0].to_attrs()?);
-                let attrs = attrs.update(NixAttrs::from_map(BTreeMap::from([
-                    (
-                        "outPath".into(),
-                        "/nix/store/00000000000000000000000000000000-mock".into(),
-                    ),
-                    (
-                        "drvPath".into(),
-                        "/nix/store/00000000000000000000000000000000-mock.drv".into(),
-                    ),
-                    ("type".into(), "derivation".into()),
-                ])));
+                let attrs = attrs.update(NixAttrs::from_iter(
+                    [
+                        (
+                            "outPath",
+                            "/nix/store/00000000000000000000000000000000-mock",
+                        ),
+                        (
+                            "drvPath",
+                            "/nix/store/00000000000000000000000000000000-mock.drv",
+                        ),
+                        ("type", "derivation"),
+                    ]
+                    .into_iter(),
+                ));
 
                 Ok(Value::Attrs(Rc::new(attrs)))
             },
