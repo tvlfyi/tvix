@@ -899,6 +899,13 @@ mod pure_builtins {
             .map(Value::String)
     }
 
+    #[builtin("placeholder")]
+    fn builtin_placeholder(vm: &mut VM, #[lazy] _: Value) -> Result<Value, ErrorKind> {
+        // TODO(amjoseph)
+        vm.emit_warning(WarningKind::NotImplemented("builtins.placeholder"));
+        Ok("<builtins.placeholder-is-not-implemented-in-tvix-yet>".into())
+    }
+
     #[builtin("trace")]
     fn builtin_trace(_: &mut VM, message: Value, value: Value) -> Result<Value, ErrorKind> {
         // TODO(grfn): `trace` should be pluggable and capturable, probably via a method on
