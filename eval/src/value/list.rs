@@ -26,6 +26,12 @@ impl TotalDisplay for NixList {
     }
 }
 
+impl From<Rc<Vec<Value>>> for NixList {
+    fn from(v: Rc<Vec<Value>>) -> Self {
+        Self(v)
+    }
+}
+
 impl From<Vec<Value>> for NixList {
     fn from(vs: Vec<Value>) -> Self {
         Self(Rc::new(vs))
