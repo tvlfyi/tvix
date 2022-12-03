@@ -16,7 +16,7 @@ use regex::Regex;
 
 use crate::warnings::WarningKind;
 use crate::{
-    errors::ErrorKind,
+    errors::{ErrorKind, EvalResult},
     value::{Builtin, CoercionKind, NixAttrs, NixList, NixString, Value},
     vm::VM,
 };
@@ -329,12 +329,8 @@ mod pure_builtins {
         } else {
             return Ok(Value::attrs(NixAttrs::empty()));
         };
-        Ok(Value::attrs(NixAttrs::from_map(
-            formals
-                .arguments
-                .iter()
-                .map(|(k, v)| (k.clone(), (*v).into()))
-                .collect(),
+        Ok(Value::attrs(NixAttrs::from_iter(
+            formals.arguments.iter().map(|(k, v)| (k.clone(), (*v))),
         )))
     }
 
@@ -543,7 +539,7 @@ mod pure_builtins {
             // Map entries earlier in the list take precedence over entries later in the list
             map.entry(name).or_insert(value);
         }
-        Ok(Value::attrs(NixAttrs::from_map(map)))
+        Ok(Value::attrs(NixAttrs::from_iter(map.into_iter())))
     }
 
     #[builtin("map")]
@@ -560,12 +556,15 @@ mod pure_builtins {
     #[builtin("mapAttrs")]
     fn builtin_map_attrs(vm: &mut VM, f: Value, attrs: Value) -> Result<Value, ErrorKind> {
         let attrs = attrs.to_attrs()?;
-        let mut res = BTreeMap::new();
-        for (key, value) in attrs.as_ref() {
-            let value = vm.call_with(&f, [key.clone().into(), value.clone()])?;
-            res.insert(key.clone(), value);
-        }
-        Ok(Value::attrs(NixAttrs::from_map(res)))
+        let res =
+            attrs
+                .as_ref()
+                .into_iter()
+                .flat_map(|(key, value)| -> EvalResult<(NixString, Value)> {
+                    let value = vm.call_with(&f, [key.clone().into(), value.clone()])?;
+                    Ok((key.to_owned(), value))
+                });
+        Ok(Value::attrs(NixAttrs::from_iter(res)))
     }
 
     #[builtin("match")]
@@ -1081,9 +1080,7 @@ pub fn global_builtins(source: SourceCode) -> GlobalsMapFunc {
 
         let mut globals: GlobalsMap = HashMap::new();
 
-        let builtins = Rc::new(NixAttrs::from_map(
-            map.into_iter().map(|(k, v)| (k.into(), v)).collect(),
-        ));
+        let builtins = Rc::new(NixAttrs::from_iter(map.into_iter()));
 
         // known global builtins from the builtins set.
         for global in &[

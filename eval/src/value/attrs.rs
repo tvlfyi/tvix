@@ -345,14 +345,6 @@ impl NixAttrs {
         Ok(attrs)
     }
 
-    /// Construct an attribute set directly from a BTreeMap
-    /// representation. This is only visible inside of the crate, as
-    /// it is intended exclusively for use with the construction of
-    /// global sets for the compiler.
-    pub(crate) fn from_map(map: BTreeMap<NixString, Value>) -> Self {
-        NixAttrs(AttrsRep::Map(map))
-    }
-
     /// Construct an optimized "KV"-style attribute set given the value for the
     /// `"name"` key, and the value for the `"value"` key
     pub(crate) fn from_kv(name: Value, value: Value) -> Self {

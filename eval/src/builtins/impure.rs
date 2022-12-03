@@ -40,31 +40,29 @@ mod impure_builtins {
             error: Rc::new(err),
         };
 
-        let mut res = BTreeMap::new();
-        for entry in path.read_dir().map_err(mk_err)? {
-            let entry = entry.map_err(mk_err)?;
-            let file_type = entry
-                .metadata()
-                .map_err(|err| ErrorKind::IO {
-                    path: Some(entry.path()),
-                    error: Rc::new(err),
-                })?
-                .file_type();
-            let val = if file_type.is_dir() {
-                "directory"
-            } else if file_type.is_file() {
-                "regular"
-            } else if file_type.is_symlink() {
-                "symlink"
-            } else {
-                "unknown"
-            };
-            res.insert(
-                entry.file_name().to_string_lossy().as_ref().into(),
-                val.into(),
-            );
-        }
-        Ok(Value::attrs(NixAttrs::from_map(res)))
+        let res = path.read_dir().map_err(mk_err)?.into_iter().flat_map(
+            |entry| -> Result<(String, &str), ErrorKind> {
+                let entry = entry.map_err(mk_err)?;
+                let file_type = entry
+                    .metadata()
+                    .map_err(|err| ErrorKind::IO {
+                        path: Some(entry.path()),
+                        error: Rc::new(err),
+                    })?
+                    .file_type();
+                let val = if file_type.is_dir() {
+                    "directory"
+                } else if file_type.is_file() {
+                    "regular"
+                } else if file_type.is_symlink() {
+                    "symlink"
+                } else {
+                    "unknown"
+                };
+                Ok((entry.file_name().to_string_lossy().to_string(), val))
+            },
+        );
+        Ok(Value::attrs(NixAttrs::from_iter(res)))
     }
 
     #[builtin("readFile")]

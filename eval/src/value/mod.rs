@@ -526,10 +526,11 @@ impl TryFrom<serde_json::Value> for Value {
                         name.clone().try_into()?,
                         value.clone().try_into()?,
                     ))),
-                    _ => Ok(Self::attrs(NixAttrs::from_map(
+                    _ => Ok(Self::attrs(NixAttrs::from_iter(
                         obj.into_iter()
                             .map(|(k, v)| Ok((k.into(), v.try_into()?)))
-                            .collect::<Result<_, ErrorKind>>()?,
+                            .collect::<Result<Vec<(NixString, Value)>, ErrorKind>>()?
+                            .into_iter(),
                     ))),
                 }
             }
