@@ -60,7 +60,3 @@ backtrace_overflow = [ "backtrace-on-stack-overflow" ]
 [[bench]]
 name = "eval"
 harness = false
-
-[profile.release-with-debug]
-inherits = "release"
-debug = true

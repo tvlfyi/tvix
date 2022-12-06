@@ -1,0 +1,32 @@
+# This Cargo file is a workspace configuration as per
+# https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html
+#
+# We add this file to get a coherent set of dependencies across Tvix
+# crates by sharing a Cargo.lock. This is necessary because of the
+# currently limited support for Rust builds in Nix.
+#
+# Note that this explicitly does *not* mean that //tvix should be
+# considered "one project": This is simply a workaround for a
+# technical limitation and it should be our aim to remove this
+# workspace file and make the subprojects independent.
+#
+# Note also that CI targets for actual projects should *not* be tied
+# to //tvix, but to its subprojects. A potential file at
+# //tvix/default.nix should likely *not* expose anything other than
+# extra steps or other auxiliary targets.
+
+[workspace]
+
+members = [
+  "eval",
+  "eval/builtin-macros",
+  "nix_cli",
+  "store",
+]
+
+# Add a profile to all targets that enables release optimisations, but
+# retains debug symbols. This is great for use with
+# benchmarking/profiling tools.
+[profile.release-with-debug]
+inherits = "release"
+debug = true
