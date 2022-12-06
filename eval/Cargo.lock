@@ -984,8 +984,9 @@ dependencies = [
 
 [[package]]
 name = "rnix"
-version = "0.11.0-dev"
-source = "git+https://github.com/nix-community/rnix-parser.git?rev=85a045afd33e073a3eab4c0ea2f515b6bed557ab#85a045afd33e073a3eab4c0ea2f515b6bed557ab"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb35cedbeb70e0ccabef2a31bcff0aebd114f19566086300b8f42c725fc2cb5f"
 dependencies = [
  "rowan",
 ]
