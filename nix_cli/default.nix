@@ -1,8 +1,5 @@
-{ depot, pkgs, ... }:
+{ depot, ... }:
 
-depot.third_party.naersk.buildPackage {
-  src = ./.;
-  root = depot.tvix.naerskRootFor ./Cargo.toml;
-  doDoc = false;
-  doCheck = true;
+depot.tvix.crates.workspaceMembers.nix-cli.build.override {
+  runTests = true;
 }

@@ -1,19 +1,27 @@
-{ depot, pkgs, lib, ... }:
+{ depot, pkgs, ... }:
 
 let
   protoRoot = depot.nix.sparseTree depot.path.origSrc [
     ./protos/castore.proto
     ./protos/pathinfo.proto
   ];
+
+  protobufDep = prev: (prev.nativeBuildInputs or [ ]) ++ [ pkgs.protobuf ];
 in
-depot.third_party.naersk.buildPackage {
-  src = depot.third_party.gitignoreSource ./.;
-  # see https://github.com/nix-community/naersk/issues/169
-  root = depot.tvix.naerskRootFor ./Cargo.toml;
+depot.tvix.crates.workspaceMembers.tvix-store.build.override {
+  # Ensure protobuf dependencies are available.
+  # TODO: figure out a way to embed this directly in the //tvix
+  # crate2nix config.
+  crateOverrides = {
+    prost-build = prev: {
+      nativeBuildInputs = protobufDep prev;
+    };
 
-  nativeBuildInputs = [ pkgs.protobuf ];
+    tvix-store = prev: {
+      PROTO_ROOT = protoRoot;
+      nativeBuildInputs = protobufDep prev;
+    };
+  };
 
-  PROTO_ROOT = protoRoot;
-
-  doCheck = true;
+  runTests = true;
 }
