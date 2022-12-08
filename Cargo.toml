@@ -18,6 +18,7 @@
 [workspace]
 
 members = [
+  "cli",
   "eval",
   "eval/builtin-macros",
   "nix_cli",

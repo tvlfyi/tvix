@@ -47,6 +47,16 @@ rec {
       # File a bug if you depend on any for non-debug work!
       debug = internal.debugCrate { inherit packageId; };
     };
+    "tvix-cli" = rec {
+      packageId = "tvix-cli";
+      build = internal.buildRustCrateWithFeatures {
+        packageId = "tvix-cli";
+      };
+
+      # Debug support which might change between releases.
+      # File a bug if you depend on any for non-debug work!
+      debug = internal.debugCrate { inherit packageId; };
+    };
     "tvix-eval" = rec {
       packageId = "tvix-eval";
       build = internal.buildRustCrateWithFeatures {
@@ -4176,13 +4186,39 @@ rec {
         ];
 
       };
+      "tvix-cli" = rec {
+        crateName = "tvix-cli";
+        version = "0.1.0";
+        edition = "2021";
+        crateBin = [
+          { name = "tvix-cli"; path = "src/main.rs"; }
+        ];
+        src = lib.cleanSourceWith { filter = sourceFilter; src = ./cli; };
+        dependencies = [
+          {
+            name = "clap";
+            packageId = "clap 3.2.23";
+            features = [ "derive" "env" ];
+          }
+          {
+            name = "dirs";
+            packageId = "dirs";
+          }
+          {
+            name = "rustyline";
+            packageId = "rustyline";
+          }
+          {
+            name = "tvix-eval";
+            packageId = "tvix-eval";
+          }
+        ];
+
+      };
       "tvix-eval" = rec {
         crateName = "tvix-eval";
         version = "0.1.0";
         edition = "2021";
-        crateBin = [
-          { name = "tvix-eval"; path = "src/main.rs"; }
-        ];
         src = lib.cleanSourceWith { filter = sourceFilter; src = ./eval; };
         libName = "tvix_eval";
         dependencies = [
@@ -4190,12 +4226,6 @@ rec {
             name = "backtrace-on-stack-overflow";
             packageId = "backtrace-on-stack-overflow";
             optional = true;
-          }
-          {
-            name = "clap";
-            packageId = "clap 3.2.23";
-            optional = true;
-            features = [ "derive" "env" ];
           }
           {
             name = "codemap";
@@ -4231,11 +4261,6 @@ rec {
           {
             name = "rowan";
             packageId = "rowan";
-          }
-          {
-            name = "rustyline";
-            packageId = "rustyline";
-            optional = true;
           }
           {
             name = "serde";
@@ -4290,14 +4315,11 @@ rec {
           "arbitrary" = [ "proptest" "test-strategy" ];
           "backtrace-on-stack-overflow" = [ "dep:backtrace-on-stack-overflow" ];
           "backtrace_overflow" = [ "backtrace-on-stack-overflow" ];
-          "clap" = [ "dep:clap" ];
-          "default" = [ "repl" "impure" "arbitrary" "nix_tests" "backtrace_overflow" ];
+          "default" = [ "impure" "arbitrary" "nix_tests" "backtrace_overflow" ];
           "proptest" = [ "dep:proptest" ];
-          "repl" = [ "rustyline" "clap" ];
-          "rustyline" = [ "dep:rustyline" ];
           "test-strategy" = [ "dep:test-strategy" ];
         };
-        resolvedDefaultFeatures = [ "arbitrary" "backtrace-on-stack-overflow" "backtrace_overflow" "clap" "default" "impure" "nix_tests" "proptest" "repl" "rustyline" "test-strategy" ];
+        resolvedDefaultFeatures = [ "arbitrary" "backtrace-on-stack-overflow" "backtrace_overflow" "default" "impure" "nix_tests" "proptest" "test-strategy" ];
       };
       "tvix-eval-builtin-macros" = rec {
         crateName = "tvix-eval-builtin-macros";

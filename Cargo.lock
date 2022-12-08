@@ -1488,11 +1488,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "tvix-cli"
+version = "0.1.0"
+dependencies = [
+ "clap 3.2.23",
+ "dirs",
+ "rustyline",
+ "tvix-eval",
+]
+
+[[package]]
 name = "tvix-eval"
 version = "0.1.0"
 dependencies = [
  "backtrace-on-stack-overflow",
- "clap 3.2.23",
  "codemap",
  "codemap-diagnostic",
  "criterion",
@@ -1504,7 +1513,6 @@ dependencies = [
  "regex",
  "rnix",
  "rowan",
- "rustyline",
  "serde",
  "serde_json",
  "smol_str",

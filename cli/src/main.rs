@@ -2,7 +2,7 @@ use std::{fs, path::PathBuf};
 
 use clap::Parser;
 use rustyline::{error::ReadlineError, Editor};
-use tvix_eval::Value;
+use tvix_eval::Value; //{Error, EvalWarning, Evaluation, Value};
 
 #[derive(Parser)]
 struct Args {
@@ -11,35 +11,57 @@ struct Args {
 
     #[clap(long, short = 'E')]
     expr: Option<String>,
+    // TODO: port these options here directly
+    // #[clap(flatten)]
+    // eval_options: tvix_eval::Options,
+}
 
-    #[clap(flatten)]
-    eval_options: tvix_eval::Options,
+/// Interprets the given code snippet, printing out warnings, errors
+/// and the result itself. The return value indicates whether
+/// evaluation succeeded.
+fn interpret(code: &str, path: Option<PathBuf>) -> bool {
+    let mut eval = tvix_eval::Evaluation::new(code, path);
+    let result = eval.evaluate();
+
+    let source_map = eval.source_map();
+    for error in &result.errors {
+        error.fancy_format_stderr(&source_map);
+    }
+
+    for warning in &result.warnings {
+        warning.fancy_format_stderr(&source_map);
+    }
+
+    if let Some(value) = result.value.as_ref() {
+        println_result(value, /* TODO raw = */ false);
+    }
+
+    // inform the caller about any errors
+    result.errors.is_empty()
 }
 
 fn main() {
     let args = Args::parse();
 
     if let Some(file) = args.script {
-        run_file(file, args.eval_options)
+        run_file(file /* TODO, args.eval_options*/)
     } else if let Some(expr) = args.expr {
-        let raw = args.eval_options.raw;
-        if let Ok(result) = tvix_eval::interpret(&expr, None, args.eval_options) {
-            println_result(&result, raw);
+        if !interpret(&expr, None) {
+            std::process::exit(1);
         }
     } else {
-        run_prompt(args.eval_options)
+        run_prompt(/* TODO args.eval_options */)
     }
 }
 
-fn run_file(mut path: PathBuf, eval_options: tvix_eval::Options) {
+fn run_file(mut path: PathBuf /* TODO: , eval_options: tvix_eval::Options */) {
     if path.is_dir() {
         path.push("default.nix");
     }
     let contents = fs::read_to_string(&path).expect("failed to read the input file");
-    let raw = eval_options.raw;
-    match tvix_eval::interpret(&contents, Some(path), eval_options) {
-        Ok(result) => println_result(&result, raw),
-        Err(err) => eprintln!("{}", err),
+
+    if !interpret(&contents, Some(path)) {
+        std::process::exit(1);
     }
 }
 
@@ -59,7 +81,7 @@ fn state_dir() -> Option<PathBuf> {
     path
 }
 
-fn run_prompt(eval_options: tvix_eval::Options) {
+fn run_prompt(/* TODO eval_options: tvix_eval::Options */) {
     let mut rl = Editor::<()>::new().expect("should be able to launch rustyline");
 
     let history_path = match state_dir() {
@@ -84,12 +106,7 @@ fn run_prompt(eval_options: tvix_eval::Options) {
                 }
 
                 rl.add_history_entry(&line);
-                match tvix_eval::interpret(&line, None, eval_options.clone()) {
-                    Ok(result) => {
-                        println!("=> {} :: {}", result, result.type_of());
-                    }
-                    Err(_) => { /* interpret takes care of error formatting */ }
-                }
+                interpret(&line, None);
             }
             Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => break,
 
