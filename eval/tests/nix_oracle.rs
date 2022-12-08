@@ -40,8 +40,10 @@ fn nix_eval(expr: &str) -> String {
 #[track_caller]
 fn compare_eval(expr: &str) {
     let nix_result = nix_eval(expr);
-    let tvix_result = tvix_eval::interpret(expr, None, Default::default())
-        .unwrap()
+    let tvix_result = tvix_eval::Evaluation::new(expr, None)
+        .evaluate()
+        .value
+        .expect("tvix evaluation should succeed")
         .to_string();
 
     assert_eq!(nix_result.trim(), tvix_result);

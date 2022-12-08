@@ -1,5 +1,3 @@
-use crate::eval::interpret;
-use crate::eval::Options;
 use pretty_assertions::assert_eq;
 
 use test_generator::test_resources;
@@ -19,41 +17,43 @@ fn eval_test(code_path: &str, expect_success: bool) {
         return;
     }
 
-    match interpret(&code, Some(code_path.into()), Options::test_options()) {
-        Ok(result) => {
-            let result_str = format!("{}", result);
-            if let Ok(exp) = std::fs::read_to_string(exp_path) {
-                if expect_success {
-                    assert_eq!(
-                        result_str,
-                        exp.trim(),
-                        "{code_path}: result value representation (left) must match expectation (right)"
-                    );
-                } else {
-                    assert_ne!(
-                        result_str,
-                        exp.trim(),
-                        "{code_path}: test passed unexpectedly!  consider moving it out of notyetpassing"
-                    );
-                }
-            } else {
-                if expect_success {
-                    panic!("{code_path}: should be able to read test expectation");
-                } else {
-                    panic!(
-                        "{code_path}: test should have failed, but succeeded with output {}",
-                        result
-                    );
-                }
-            }
+    let result = crate::Evaluation::new(&code, Some(code_path.into())).evaluate();
+
+    if expect_success && !result.errors.is_empty() {
+        panic!(
+            "{code_path}: evaluation of eval-okay test should succeed, but failed with {:?}",
+            result.errors,
+        );
+    }
+
+    if !expect_success && !result.errors.is_empty() {
+        return;
+    }
+
+    let result_str = result.value.unwrap().to_string();
+
+    if let Ok(exp) = std::fs::read_to_string(exp_path) {
+        if expect_success {
+            assert_eq!(
+                result_str,
+                exp.trim(),
+                "{code_path}: result value representation (left) must match expectation (right)"
+            );
+        } else {
+            assert_ne!(
+                result_str,
+                exp.trim(),
+                "{code_path}: test passed unexpectedly!  consider moving it out of notyetpassing"
+            );
         }
-        Err(e) => {
-            if expect_success {
-                panic!(
-                    "{code_path}: evaluation of eval-okay test should succeed, but failed with {:?}",
-                    e
-                );
-            }
+    } else {
+        if expect_success {
+            panic!("{code_path}: should be able to read test expectation");
+        } else {
+            panic!(
+                "{code_path}: test should have failed, but succeeded with output {}",
+                result_str
+            );
         }
     }
 }
@@ -64,9 +64,14 @@ fn eval_test(code_path: &str, expect_success: bool) {
 fn identity(code_path: &str) {
     let code = std::fs::read_to_string(code_path).expect("should be able to read test code");
 
-    let result = interpret(&code, None, Options::test_options())
-        .expect("evaluation of identity test should succeed");
-    let result_str = format!("{}", result);
+    let result = crate::Evaluation::new(&code, None).evaluate();
+    assert!(
+        result.errors.is_empty(),
+        "evaluation of identity test failed: {:?}",
+        result.errors
+    );
+
+    let result_str = result.value.unwrap().to_string();
 
     assert_eq!(
         result_str,
