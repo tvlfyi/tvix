@@ -11,15 +11,16 @@ struct Args {
 
     #[clap(long, short = 'E')]
     expr: Option<String>,
-    // TODO: port these options here directly
-    // #[clap(flatten)]
-    // eval_options: tvix_eval::Options,
+
+    /// Print "raw" (unquoted) output.
+    #[clap(long)]
+    raw: bool,
 }
 
 /// Interprets the given code snippet, printing out warnings, errors
 /// and the result itself. The return value indicates whether
 /// evaluation succeeded.
-fn interpret(code: &str, path: Option<PathBuf>) -> bool {
+fn interpret(code: &str, path: Option<PathBuf>, args: &Args) -> bool {
     let eval = tvix_eval::Evaluation::new(code, path);
     let source_map = eval.source_map();
     let result = eval.evaluate();
@@ -33,7 +34,7 @@ fn interpret(code: &str, path: Option<PathBuf>) -> bool {
     }
 
     if let Some(value) = result.value.as_ref() {
-        println_result(value, /* TODO raw = */ false);
+        println_result(value, args.raw);
     }
 
     // inform the caller about any errors
@@ -43,24 +44,24 @@ fn interpret(code: &str, path: Option<PathBuf>) -> bool {
 fn main() {
     let args = Args::parse();
 
-    if let Some(file) = args.script {
-        run_file(file /* TODO, args.eval_options*/)
-    } else if let Some(expr) = args.expr {
-        if !interpret(&expr, None) {
+    if let Some(file) = &args.script {
+        run_file(file.clone(), &args)
+    } else if let Some(expr) = &args.expr {
+        if !interpret(expr, None, &args) {
             std::process::exit(1);
         }
     } else {
-        run_prompt(/* TODO args.eval_options */)
+        run_prompt(&args)
     }
 }
 
-fn run_file(mut path: PathBuf /* TODO: , eval_options: tvix_eval::Options */) {
+fn run_file(mut path: PathBuf, args: &Args) {
     if path.is_dir() {
         path.push("default.nix");
     }
     let contents = fs::read_to_string(&path).expect("failed to read the input file");
 
-    if !interpret(&contents, Some(path)) {
+    if !interpret(&contents, Some(path), args) {
         std::process::exit(1);
     }
 }
@@ -81,7 +82,7 @@ fn state_dir() -> Option<PathBuf> {
     path
 }
 
-fn run_prompt(/* TODO eval_options: tvix_eval::Options */) {
+fn run_prompt(args: &Args) {
     let mut rl = Editor::<()>::new().expect("should be able to launch rustyline");
 
     let history_path = match state_dir() {
@@ -106,7 +107,7 @@ fn run_prompt(/* TODO eval_options: tvix_eval::Options */) {
                 }
 
                 rl.add_history_entry(&line);
-                interpret(&line, None);
+                interpret(&line, None, args);
             }
             Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => break,
 
