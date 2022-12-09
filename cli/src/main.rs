@@ -12,6 +12,10 @@ struct Args {
     #[clap(long, short = 'E')]
     expr: Option<String>,
 
+    /// A colon-separated list of directories to use to resolve `<...>`-style paths
+    #[clap(long, short = 'I', env = "NIX_PATH")]
+    nix_search_path: Option<String>,
+
     /// Print "raw" (unquoted) output.
     #[clap(long)]
     raw: bool,
@@ -21,7 +25,9 @@ struct Args {
 /// and the result itself. The return value indicates whether
 /// evaluation succeeded.
 fn interpret(code: &str, path: Option<PathBuf>, args: &Args) -> bool {
-    let eval = tvix_eval::Evaluation::new(code, path);
+    let mut eval = tvix_eval::Evaluation::new(code, path);
+    eval.nix_path = args.nix_search_path.clone();
+
     let source_map = eval.source_map();
     let result = eval.evaluate();
 
