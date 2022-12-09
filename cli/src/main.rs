@@ -2,7 +2,8 @@ use std::{fs, path::PathBuf};
 
 use clap::Parser;
 use rustyline::{error::ReadlineError, Editor};
-use tvix_eval::Value; //{Error, EvalWarning, Evaluation, Value};
+use tvix_eval::observer::{DisassemblingObserver, TracingObserver};
+use tvix_eval::Value;
 
 #[derive(Parser)]
 struct Args {
@@ -11,6 +12,18 @@ struct Args {
 
     #[clap(long, short = 'E')]
     expr: Option<String>,
+
+    /// Dump the raw AST to stdout before interpreting
+    #[clap(long, env = "TVIX_DISPLAY_AST")]
+    display_ast: bool,
+
+    /// Dump the bytecode to stdout before evaluating
+    #[clap(long, env = "TVIX_DUMP_BYTECODE")]
+    dump_bytecode: bool,
+
+    /// Trace the runtime of the VM
+    #[clap(long, env = "TVIX_TRACE_RUNTIME")]
+    trace_runtime: bool,
 
     /// A colon-separated list of directories to use to resolve `<...>`-style paths
     #[clap(long, short = 'I', env = "NIX_PATH")]
@@ -29,7 +42,26 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args) -> bool {
     eval.nix_path = args.nix_search_path.clone();
 
     let source_map = eval.source_map();
-    let result = eval.evaluate();
+    let result = {
+        let mut compiler_observer =
+            DisassemblingObserver::new(source_map.clone(), std::io::stderr());
+        if args.dump_bytecode {
+            eval.compiler_observer = Some(&mut compiler_observer);
+        }
+
+        let mut runtime_observer = TracingObserver::new(std::io::stderr());
+        if args.trace_runtime {
+            eval.runtime_observer = Some(&mut runtime_observer);
+        }
+
+        eval.evaluate()
+    };
+
+    if args.display_ast {
+        if let Some(ref expr) = result.expr {
+            eprintln!("AST: {}", tvix_eval::pretty_print_expr(expr));
+        }
+    }
 
     for error in &result.errors {
         error.fancy_format_stderr(&source_map);
