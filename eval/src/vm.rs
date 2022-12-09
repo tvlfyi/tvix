@@ -18,6 +18,52 @@ use crate::{
     warnings::{EvalWarning, WarningKind},
 };
 
+/// Representation of a VM continuation;
+/// see: https://en.wikipedia.org/wiki/Continuation-passing_style#CPS_in_Haskell
+type Continuation = Box<dyn FnOnce(&mut VM) -> EvalResult<Trampoline>>;
+
+/// A description of how to continue evaluation of a thunk when returned to by the VM
+///
+/// This struct is used when forcing thunks to avoid stack-based recursion, which for deeply nested
+/// evaluation can easily overflow the stack.
+#[must_use = "this `Trampoline` may be a continuation request, which should be handled"]
+#[derive(Default)]
+pub struct Trampoline {
+    /// The action to perform upon return to the trampoline
+    pub action: Option<TrampolineAction>,
+
+    /// The continuation to execute after the action has completed
+    pub continuation: Option<Continuation>,
+}
+
+impl Trampoline {
+    /// Add the execution of a new [`Continuation`] to the existing continuation
+    /// of this `Trampoline`, returning the resulting `Trampoline`.
+    pub fn append_to_continuation(self, f: Continuation) -> Self {
+        Trampoline {
+            action: self.action,
+            continuation: match self.continuation {
+                None => Some(f),
+                Some(f0) => Some(Box::new(move |vm| {
+                    let trampoline = f0(vm)?;
+                    Ok(trampoline.append_to_continuation(f))
+                })),
+            },
+        }
+    }
+}
+
+/// Description of an action to perform upon return to a [`Trampoline`] by the VM
+pub enum TrampolineAction {
+    /// Enter a new stack frame
+    EnterFrame {
+        lambda: Rc<Lambda>,
+        upvalues: Rc<Upvalues>,
+        light_span: LightSpan,
+        arg_count: usize,
+    },
+}
+
 struct CallFrame {
     /// The lambda currently being executed.
     lambda: Rc<Lambda>,
@@ -32,6 +78,8 @@ struct CallFrame {
 
     /// Stack offset, i.e. the frames "view" into the VM's full stack.
     stack_offset: usize,
+
+    continuation: Option<Continuation>,
 }
 
 impl CallFrame {
@@ -324,7 +372,6 @@ impl<'o> VM<'o> {
         Ok(res)
     }
 
-    #[inline(always)]
     fn tail_call_value(&mut self, callable: Value) -> EvalResult<()> {
         match callable {
             Value::Builtin(builtin) => self.call_builtin(builtin),
@@ -362,8 +409,8 @@ impl<'o> VM<'o> {
         }
     }
 
-    /// Execute the given lambda in this VM's context, returning its
-    /// value after its stack frame completes.
+    /// Execute the given lambda in this VM's context, leaving the
+    /// computed value on its stack after the frame completes.
     pub fn enter_frame(
         &mut self,
         lambda: Rc<Lambda>,
@@ -378,32 +425,13 @@ impl<'o> VM<'o> {
             upvalues,
             ip: CodeIdx(0),
             stack_offset: self.stack.len() - arg_count,
+            continuation: None,
         };
 
+        let starting_frames_depth = self.frames.len();
         self.frames.push(frame);
-        let result = self.run();
 
-        self.observer
-            .observe_exit_frame(self.frames.len() + 1, &self.stack);
-
-        result
-    }
-
-    /// Run the VM's current call frame to completion.
-    ///
-    /// On successful return, the top of the stack is the value that
-    /// the frame evaluated to. The frame itself is popped off. It is
-    /// up to the caller to consume the value.
-    fn run(&mut self) -> EvalResult<()> {
-        loop {
-            // Break the loop if this call frame has already run to
-            // completion, pop it off, and return the value to the
-            // caller.
-            if self.frame().ip.0 == self.chunk().code.len() {
-                self.frames.pop();
-                return Ok(());
-            }
-
+        let result = loop {
             let op = self.inc_ip();
 
             self.observer
@@ -411,13 +439,73 @@ impl<'o> VM<'o> {
 
             let res = self.run_op(op);
 
+            let mut retrampoline: Option<Continuation> = None;
+
+            // we need to pop the frame before checking `res` for an
+            // error in order to implement `tryEval` correctly.
             if self.frame().ip.0 == self.chunk().code.len() {
-                self.frames.pop();
-                return res;
-            } else {
-                res?;
+                let frame = self.frames.pop();
+                retrampoline = frame.and_then(|frame| frame.continuation);
+            }
+            self.trampoline_loop(res?, retrampoline)?;
+            if self.frames.len() == starting_frames_depth {
+                break Ok(());
+            }
+        };
+
+        self.observer
+            .observe_exit_frame(self.frames.len() + 1, &self.stack);
+
+        result
+    }
+
+    fn trampoline_loop(
+        &mut self,
+        mut trampoline: Trampoline,
+        mut retrampoline: Option<Continuation>,
+    ) -> EvalResult<()> {
+        loop {
+            if let Some(TrampolineAction::EnterFrame {
+                lambda,
+                upvalues,
+                arg_count,
+                light_span: _,
+            }) = trampoline.action
+            {
+                let frame = CallFrame {
+                    lambda,
+                    upvalues,
+                    ip: CodeIdx(0),
+                    stack_offset: self.stack.len() - arg_count,
+                    continuation: match retrampoline {
+                        None => trampoline.continuation,
+                        Some(retrampoline) => match trampoline.continuation {
+                            None => None,
+                            Some(cont) => Some(Box::new(|vm| {
+                                Ok(cont(vm)?.append_to_continuation(retrampoline))
+                            })),
+                        },
+                    },
+                };
+                self.frames.push(frame);
+                break;
+            }
+
+            match trampoline.continuation {
+                None => {
+                    if let Some(cont) = retrampoline.take() {
+                        trampoline = cont(self)?;
+                    } else {
+                        break;
+                    }
+                }
+                Some(cont) => {
+                    trampoline = cont(self)?;
+                    continue;
+                }
             }
         }
+        Ok(())
     }
 
     pub(crate) fn nix_eq(
@@ -428,7 +516,8 @@ impl<'o> VM<'o> {
     ) -> EvalResult<bool> {
         self.push(v1);
         self.push(v2);
-        self.nix_op_eq(allow_top_level_pointer_equality_on_functions_and_thunks)?;
+        let res = self.nix_op_eq(allow_top_level_pointer_equality_on_functions_and_thunks);
+        self.trampoline_loop(res?, None)?;
         match self.pop() {
             Value::Bool(b) => Ok(b),
             v => panic!("run_op(OpEqual) left a non-boolean on the stack: {v:#?}"),
@@ -438,7 +527,7 @@ impl<'o> VM<'o> {
     pub(crate) fn nix_op_eq(
         &mut self,
         allow_top_level_pointer_equality_on_functions_and_thunks: bool,
-    ) -> EvalResult<()> {
+    ) -> EvalResult<Trampoline> {
         // This bit gets set to `true` (if it isn't already) as soon
         // as we start comparing the contents of two
         // {lists,attrsets} -- but *not* the contents of two thunks.
@@ -566,10 +655,10 @@ impl<'o> VM<'o> {
         };
         self.pop_then_drop(numpairs * 2);
         self.push(Value::Bool(res));
-        Ok(())
+        Ok(Trampoline::default())
     }
 
-    fn run_op(&mut self, op: OpCode) -> EvalResult<()> {
+    pub(crate) fn run_op(&mut self, op: OpCode) -> EvalResult<Trampoline> {
         match op {
             OpCode::OpConstant(idx) => {
                 let c = self.chunk()[idx].clone();
@@ -918,14 +1007,15 @@ impl<'o> VM<'o> {
             }
 
             OpCode::OpForce => {
-                let mut value = self.pop();
+                let value = self.pop();
 
                 if let Value::Thunk(thunk) = value {
-                    fallible!(self, thunk.force(self));
-                    value = thunk.value().clone();
+                    self.push(Value::Thunk(thunk));
+                    let trampoline = fallible!(self, Thunk::force_trampoline(self));
+                    return Ok(trampoline);
+                } else {
+                    self.push(value);
                 }
-
-                self.push(value);
             }
 
             OpCode::OpFinalise(StackIdx(idx)) => {
@@ -953,7 +1043,7 @@ impl<'o> VM<'o> {
             }
         }
 
-        Ok(())
+        Ok(Trampoline::default())
     }
 
     fn run_attrset(&mut self, count: usize) -> EvalResult<()> {
