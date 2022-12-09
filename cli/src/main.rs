@@ -20,10 +20,10 @@ struct Args {
 /// and the result itself. The return value indicates whether
 /// evaluation succeeded.
 fn interpret(code: &str, path: Option<PathBuf>) -> bool {
-    let mut eval = tvix_eval::Evaluation::new(code, path);
+    let eval = tvix_eval::Evaluation::new(code, path);
+    let source_map = eval.source_map();
     let result = eval.evaluate();
 
-    let source_map = eval.source_map();
     for error in &result.errors {
         error.fancy_format_stderr(&source_map);
     }

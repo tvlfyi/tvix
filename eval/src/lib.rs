@@ -85,9 +85,6 @@ pub struct Evaluation<'code, 'co, 'ro> {
     /// Top-level file reference for this code inside the source map.
     file: Arc<codemap::File>,
 
-    /// Root expression of the Nix code after parsing.
-    expr: Option<rnix::ast::Expr>,
-
     /// (optional) Nix search path, e.g. the value of `NIX_PATH` used
     /// for resolving items on the search path (such as `<nixpkgs>`).
     pub nix_path: Option<String>,
@@ -115,6 +112,9 @@ pub struct EvaluationResult {
     /// Warnings that occured during evaluation. Warnings are not critical, but
     /// should be addressed either to modernise code or improve performance.
     pub warnings: Vec<EvalWarning>,
+
+    /// AST node that was parsed from the code (on success only).
+    pub expr: Option<rnix::ast::Expr>,
 }
 
 impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
@@ -136,7 +136,6 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
             location,
             source_map,
             file,
-            expr: None,
             nix_path: None,
             compiler_observer: None,
             runtime_observer: None,
@@ -150,7 +149,7 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
     }
 
     /// Evaluate the provided source code.
-    pub fn evaluate(&mut self) -> EvaluationResult {
+    pub fn evaluate(mut self) -> EvaluationResult {
         let mut result = EvaluationResult::default();
         let parsed = rnix::ast::Root::parse(self.code);
         let parse_errors = parsed.errors();
@@ -168,7 +167,7 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
         //
         // The root expression is persisted in self in case the caller wants
         // access to the parsed expression.
-        self.expr = parsed.tree().expr();
+        result.expr = parsed.tree().expr();
 
         let builtins =
             crate::compiler::prepare_globals(Box::new(global_builtins(self.source_map())));
@@ -177,7 +176,7 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
         let compiler_observer = self.compiler_observer.take().unwrap_or(&mut noop_observer);
 
         let compiler_result = match compiler::compile(
-            self.expr.as_ref().unwrap(),
+            result.expr.as_ref().unwrap(),
             self.location.take(),
             self.file.clone(),
             builtins,
