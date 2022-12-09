@@ -37,6 +37,7 @@ mod tests;
 
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::str::FromStr;
 use std::sync::Arc;
 
 // Re-export the public interface used by other crates.
@@ -47,7 +48,7 @@ pub use crate::pretty_ast::pretty_print_expr;
 pub use crate::source::SourceCode;
 pub use crate::value::Value;
 pub use crate::vm::run_lambda;
-pub use crate::warnings::EvalWarning;
+pub use crate::warnings::{EvalWarning, WarningKind};
 
 /// Internal-only parts of `tvix-eval`, exported for use in macros, but not part of the public
 /// interface of the crate.
@@ -65,6 +66,9 @@ pub(crate) fn unwrap_or_clone_rc<T: Clone>(rc: Rc<T>) -> T {
 /// An `Evaluation` represents how a piece of Nix code is evaluated. It can be
 /// instantiated and configured directly, or it can be accessed through the
 /// various simplified helper methods available below.
+///
+/// Public fields are intended to be set by the caller. Setting all
+/// fields is optional.
 #[derive(Clone)]
 pub struct Evaluation<'a> {
     /// The Nix source code to be evaluated.
@@ -83,6 +87,10 @@ pub struct Evaluation<'a> {
 
     /// Root expression of the Nix code after parsing.
     expr: Option<rnix::ast::Expr>,
+
+    /// (optional) Nix search path, e.g. the value of `NIX_PATH` used
+    /// for resolving items on the search path (such as `<nixpkgs>`).
+    pub nix_path: Option<String>,
 }
 
 /// Result of evaluating a piece of Nix code. If evaluation succeeded, a value
@@ -121,6 +129,7 @@ impl<'a> Evaluation<'a> {
             source_map,
             file,
             expr: None,
+            nix_path: None,
         }
     }
 
@@ -177,8 +186,24 @@ impl<'a> Evaluation<'a> {
 
         // If there were no errors during compilation, the resulting bytecode is
         // safe to execute.
+
+        let nix_path = self
+            .nix_path
+            .as_ref()
+            .and_then(|s| match nix_search_path::NixSearchPath::from_str(s) {
+                Ok(path) => Some(path),
+                Err(err) => {
+                    result.warnings.push(EvalWarning {
+                        kind: WarningKind::InvalidNixPath(err.to_string()),
+                        span: self.file.span,
+                    });
+                    None
+                }
+            })
+            .unwrap_or_else(|| Default::default());
+
         let vm_result = run_lambda(
-            Default::default(), // TODO: add nix search path to `Evaluation`
+            nix_path,
             &mut observer::NoOpObserver::default(), // TODO: runtime observer
             compiler_result.lambda,
         );

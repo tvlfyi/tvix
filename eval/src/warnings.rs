@@ -12,6 +12,7 @@ pub enum WarningKind {
     UnusedBinding,
     ShadowedGlobal(&'static str),
     DeprecatedLegacyLet,
+    InvalidNixPath(String),
 
     /// Tvix internal warning for features triggered by users that are
     /// not actually implemented yet, but do not cause runtime failures.
@@ -80,6 +81,10 @@ impl EvalWarning {
                 "legacy `let` syntax used, please rewrite this as `let .. in ...`".to_string()
             }
 
+            WarningKind::InvalidNixPath(ref err) => {
+                format!("invalid NIX_PATH resulted in a parse error: {}", err)
+            }
+
             WarningKind::NotImplemented(what) => {
                 format!("feature not yet implemented in tvix: {}", what)
             }
@@ -95,6 +100,7 @@ impl EvalWarning {
             WarningKind::UnusedBinding => "W003",
             WarningKind::ShadowedGlobal(_) => "W004",
             WarningKind::DeprecatedLegacyLet => "W005",
+            WarningKind::InvalidNixPath(_) => "W006",
             WarningKind::NotImplemented(_) => "W999",
         }
     }
