@@ -12,6 +12,7 @@ use crate::{
     compiler::GlobalsMap,
     errors::ErrorKind,
     observer::NoOpObserver,
+    spans::LightSpan,
     value::{Builtin, BuiltinArgument, NixAttrs, Thunk},
     vm::VM,
     SourceCode, Value,
@@ -176,7 +177,7 @@ pub fn builtins_import(globals: &Weak<GlobalsMap>, source: SourceCode) -> Builti
             let res = entry
                 .insert(Value::Thunk(Thunk::new_suspended(
                     result.lambda,
-                    current_span,
+                    LightSpan::new_actual(current_span),
                 )))
                 .clone();
 

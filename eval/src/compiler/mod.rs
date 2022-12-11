@@ -28,6 +28,7 @@ use crate::chunk::Chunk;
 use crate::errors::{Error, ErrorKind, EvalResult};
 use crate::observer::CompilerObserver;
 use crate::opcode::{CodeIdx, Count, JumpOffset, OpCode, UpvalueIdx};
+use crate::spans::LightSpan;
 use crate::spans::ToSpan;
 use crate::value::{Closure, Formals, Lambda, Thunk, Value};
 use crate::warnings::{EvalWarning, WarningKind};
@@ -946,7 +947,7 @@ impl Compiler<'_> {
         if lambda.upvalue_count == 0 {
             self.emit_constant(
                 if is_suspended_thunk {
-                    Value::Thunk(Thunk::new_suspended(lambda, span))
+                    Value::Thunk(Thunk::new_suspended(lambda, LightSpan::new_actual(span)))
                 } else {
                     Value::Closure(Rc::new(Closure::new(lambda)))
                 },

@@ -24,11 +24,10 @@ use std::{
     rc::Rc,
 };
 
-use codemap::Span;
-
 use crate::{
     chunk::Chunk,
     errors::{Error, ErrorKind},
+    spans::LightSpan,
     upvalues::Upvalues,
     value::{Builtin, Closure},
     vm::VM,
@@ -49,7 +48,7 @@ enum ThunkRepr {
     Suspended {
         lambda: Rc<Lambda>,
         upvalues: Rc<Upvalues>,
-        span: Span,
+        light_span: LightSpan,
     },
 
     /// Thunk currently under-evaluation; encountering a blackhole
@@ -77,11 +76,11 @@ impl Thunk {
         )))))
     }
 
-    pub fn new_suspended(lambda: Rc<Lambda>, span: Span) -> Self {
+    pub fn new_suspended(lambda: Rc<Lambda>, light_span: LightSpan) -> Self {
         Thunk(Rc::new(RefCell::new(ThunkRepr::Suspended {
             upvalues: Rc::new(Upvalues::with_capacity(lambda.upvalue_count)),
             lambda: lambda.clone(),
-            span,
+            light_span,
         })))
     }
 
@@ -124,7 +123,7 @@ impl Thunk {
         Thunk(Rc::new(RefCell::new(ThunkRepr::Suspended {
             lambda: Rc::new(lambda),
             upvalues: Rc::new(Upvalues::with_capacity(0)),
-            span: span,
+            light_span: LightSpan::new_actual(span),
         })))
     }
 
@@ -151,12 +150,16 @@ impl Thunk {
                     if let ThunkRepr::Suspended {
                         lambda,
                         upvalues,
-                        span,
+                        light_span,
                     } = std::mem::replace(&mut *thunk_mut, ThunkRepr::Blackhole)
                     {
                         drop(thunk_mut);
-                        vm.enter_frame(lambda, upvalues, 0)
-                            .map_err(|e| ErrorKind::ThunkForce(Box::new(Error { span, ..e })))?;
+                        vm.enter_frame(lambda, upvalues, 0).map_err(|e| {
+                            ErrorKind::ThunkForce(Box::new(Error {
+                                span: light_span.span(),
+                                ..e
+                            }))
+                        })?;
                         (*self.0.borrow_mut()) = ThunkRepr::Evaluated(vm.pop())
                     }
                 }

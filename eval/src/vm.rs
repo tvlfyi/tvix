@@ -10,6 +10,7 @@ use crate::{
     nix_search_path::NixSearchPath,
     observer::RuntimeObserver,
     opcode::{CodeIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
+    spans::LightSpan,
     unwrap_or_clone_rc,
     upvalues::Upvalues,
     value::{Builtin, Closure, CoercionKind, Lambda, NixAttrs, NixList, Thunk, Value},
@@ -209,6 +210,12 @@ impl<'o> VM<'o> {
     /// executed.
     pub(crate) fn current_span(&self) -> codemap::Span {
         self.chunk().get_span(self.frame().ip - 1)
+    }
+
+    /// Returns the information needed to calculate the current span,
+    /// but without performing that calculation.
+    fn current_light_span(&self) -> LightSpan {
+        LightSpan::new_delayed(self.frame().lambda.clone(), self.frame().ip - 1)
     }
 
     /// Construct an error from the given ErrorKind and the source
@@ -884,7 +891,7 @@ impl<'o> VM<'o> {
                     );
                     Thunk::new_closure(blueprint)
                 } else {
-                    Thunk::new_suspended(blueprint, self.current_span())
+                    Thunk::new_suspended(blueprint, self.current_light_span())
                 };
                 let upvalues = thunk.upvalues_mut();
                 self.push(Value::Thunk(thunk.clone()));
