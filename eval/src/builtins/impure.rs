@@ -13,7 +13,6 @@ use crate::{
     errors::ErrorKind,
     io::FileType,
     observer::NoOpObserver,
-    spans::LightSpan,
     value::{Builtin, BuiltinArgument, NixAttrs, Thunk},
     vm::VM,
     SourceCode, Value,
@@ -123,7 +122,7 @@ pub fn builtins_import(globals: &Weak<GlobalsMap>, source: SourceCode) -> Builti
                 path.push("default.nix");
             }
 
-            let current_span = vm.current_span();
+            let current_span = vm.current_light_span();
 
             if let Some(cached) = vm.import_cache.get(&path) {
                 return Ok(cached.clone());
@@ -172,10 +171,7 @@ pub fn builtins_import(globals: &Weak<GlobalsMap>, source: SourceCode) -> Builti
 
             // Compilation succeeded, we can construct a thunk from whatever it spat
             // out and return that.
-            let res = Value::Thunk(Thunk::new_suspended(
-                result.lambda,
-                LightSpan::new_actual(current_span),
-            ));
+            let res = Value::Thunk(Thunk::new_suspended(result.lambda, current_span));
 
             vm.import_cache.insert(path, res.clone());
 
