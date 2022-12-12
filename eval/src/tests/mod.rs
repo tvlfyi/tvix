@@ -17,7 +17,10 @@ fn eval_test(code_path: &str, expect_success: bool) {
         return;
     }
 
-    let result = crate::Evaluation::new(&code, Some(code_path.into())).evaluate();
+    let mut eval = crate::Evaluation::new(&code, Some(code_path.into()));
+    eval.io_handle = Box::new(crate::StdIO);
+
+    let result = eval.evaluate();
 
     if expect_success && !result.errors.is_empty() {
         panic!(
@@ -64,7 +67,10 @@ fn eval_test(code_path: &str, expect_success: bool) {
 fn identity(code_path: &str) {
     let code = std::fs::read_to_string(code_path).expect("should be able to read test code");
 
-    let result = crate::Evaluation::new(&code, None).evaluate();
+    let mut eval = crate::Evaluation::new(&code, None);
+    eval.io_handle = Box::new(crate::StdIO);
+
+    let result = eval.evaluate();
     assert!(
         result.errors.is_empty(),
         "evaluation of identity test failed: {:?}",

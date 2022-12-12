@@ -45,6 +45,7 @@ use std::sync::Arc;
 pub use crate::builtins::global_builtins;
 pub use crate::compiler::{compile, prepare_globals};
 pub use crate::errors::{Error, ErrorKind, EvalResult};
+pub use crate::io::{DummyIO, EvalIO, StdIO};
 use crate::observer::{CompilerObserver, RuntimeObserver};
 pub use crate::pretty_ast::pretty_print_expr;
 pub use crate::source::SourceCode;
@@ -85,6 +86,12 @@ pub struct Evaluation<'code, 'co, 'ro> {
 
     /// Top-level file reference for this code inside the source map.
     file: Arc<codemap::File>,
+
+    /// Implementation of file-IO to use during evaluation, e.g. for
+    /// impure builtins.
+    ///
+    /// Defaults to [`DummyIO`] if not set explicitly.
+    pub io_handle: Box<dyn EvalIO>,
 
     /// (optional) Nix search path, e.g. the value of `NIX_PATH` used
     /// for resolving items on the search path (such as `<nixpkgs>`).
@@ -137,6 +144,7 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
             location,
             source_map,
             file,
+            io_handle: Box::new(DummyIO {}),
             nix_path: None,
             compiler_observer: None,
             runtime_observer: None,
@@ -216,7 +224,12 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
             .unwrap_or_else(|| Default::default());
 
         let runtime_observer = self.runtime_observer.take().unwrap_or(&mut noop_observer);
-        let vm_result = run_lambda(nix_path, runtime_observer, compiler_result.lambda);
+        let vm_result = run_lambda(
+            nix_path,
+            self.io_handle,
+            runtime_observer,
+            compiler_result.lambda,
+        );
 
         match vm_result {
             Ok(mut runtime_result) => {

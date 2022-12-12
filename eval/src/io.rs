@@ -27,7 +27,7 @@ pub trait EvalIO {
 
 /// Implementation of [`EvalIO`] that simply uses the equivalent
 /// standard library functions, i.e. does local file-IO.
-struct StdIO;
+pub struct StdIO;
 
 impl EvalIO for StdIO {
     fn read_to_string(&self, path: PathBuf) -> Result<String, ErrorKind> {
@@ -41,7 +41,7 @@ impl EvalIO for StdIO {
 
 /// Dummy implementation of [`EvalIO`], can be used in contexts where
 /// IO is not available but code should "pretend" that it is.
-struct DummyIO;
+pub struct DummyIO;
 
 impl EvalIO for DummyIO {
     fn read_to_string(&self, _: PathBuf) -> Result<String, ErrorKind> {

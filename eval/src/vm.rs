@@ -7,6 +7,7 @@ use std::{cmp::Ordering, collections::BTreeMap, ops::DerefMut, path::PathBuf, rc
 use crate::{
     chunk::Chunk,
     errors::{Error, ErrorKind, EvalResult},
+    io::EvalIO,
     nix_search_path::NixSearchPath,
     observer::RuntimeObserver,
     opcode::{CodeIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
@@ -64,6 +65,8 @@ pub struct VM<'o> {
     pub import_cache: Box<BTreeMap<PathBuf, Value>>,
 
     nix_search_path: NixSearchPath,
+
+    io_handle: Box<dyn EvalIO>,
 
     observer: &'o mut dyn RuntimeObserver,
 }
@@ -150,7 +153,11 @@ macro_rules! cmp_op {
 }
 
 impl<'o> VM<'o> {
-    pub fn new(nix_search_path: NixSearchPath, observer: &'o mut dyn RuntimeObserver) -> Self {
+    pub fn new(
+        nix_search_path: NixSearchPath,
+        io_handle: Box<dyn EvalIO>,
+        observer: &'o mut dyn RuntimeObserver,
+    ) -> Self {
         // Backtrace-on-stack-overflow is some seriously weird voodoo and
         // very unsafe.  This double-guard prevents it from accidentally
         // being enabled on release builds.
@@ -162,6 +169,7 @@ impl<'o> VM<'o> {
 
         Self {
             nix_search_path,
+            io_handle,
             observer,
             frames: vec![],
             stack: vec![],
@@ -1084,10 +1092,11 @@ impl<'o> VM<'o> {
 
 pub fn run_lambda(
     nix_search_path: NixSearchPath,
+    io_handle: Box<dyn EvalIO>,
     observer: &mut dyn RuntimeObserver,
     lambda: Rc<Lambda>,
 ) -> EvalResult<RuntimeResult> {
-    let mut vm = VM::new(nix_search_path, observer);
+    let mut vm = VM::new(nix_search_path, io_handle, observer);
 
     // Retain the top-level span of the expression in this lambda, as
     // synthetic "calls" in deep_force will otherwise not have a span
