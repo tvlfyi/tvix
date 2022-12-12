@@ -4,7 +4,7 @@ use smol_str::SmolStr;
 use std::{
     collections::BTreeMap,
     env,
-    rc::Weak,
+    rc::{Rc, Weak},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -73,6 +73,16 @@ pub(super) fn builtins() -> BTreeMap<&'static str, Value> {
         .into_iter()
         .map(|b| (b.name(), Value::Builtin(b)))
         .collect();
+
+    map.insert(
+        "storeDir",
+        Value::Thunk(Thunk::new_suspended_native(Rc::new(Box::new(
+            |vm: &mut VM| match vm.io().store_dir() {
+                None => Ok(Value::Null),
+                Some(dir) => Ok(Value::String(dir.into())),
+            },
+        )))),
+    );
 
     // currentTime pins the time at which evaluation was started
     {

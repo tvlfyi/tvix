@@ -41,6 +41,12 @@ pub trait EvalIO {
     /// Read the directory at the specified path and return the names
     /// of its entries associated with their [`FileType`].
     fn read_dir(&self, path: PathBuf) -> Result<Vec<(SmolStr, FileType)>, ErrorKind>;
+
+    /// Returns the root of the store directory, if such a thing
+    /// exists in the evaluation context.
+    fn store_dir(&self) -> Option<String> {
+        None
+    }
 }
 
 /// Implementation of [`EvalIO`] that simply uses the equivalent
