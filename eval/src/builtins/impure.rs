@@ -1,14 +1,17 @@
 use builtin_macros::builtins;
+use smol_str::SmolStr;
+
 use std::{
     collections::BTreeMap,
-    env, io,
-    rc::{Rc, Weak},
+    env,
+    rc::Weak,
     time::{SystemTime, UNIX_EPOCH},
 };
 
 use crate::{
     compiler::GlobalsMap,
     errors::ErrorKind,
+    io::FileType,
     observer::NoOpObserver,
     spans::LightSpan,
     value::{Builtin, BuiltinArgument, NixAttrs, Thunk},
@@ -35,33 +38,22 @@ mod impure_builtins {
     #[builtin("readDir")]
     fn builtin_read_dir(vm: &mut VM, path: Value) -> Result<Value, ErrorKind> {
         let path = coerce_value_to_path(&path, vm)?;
-        let mk_err = |err: io::Error| ErrorKind::IO {
-            path: Some(path.clone()),
-            error: Rc::new(err),
-        };
 
-        let res = path.read_dir().map_err(mk_err)?.into_iter().flat_map(
-            |entry| -> Result<(String, &str), ErrorKind> {
-                let entry = entry.map_err(mk_err)?;
-                let file_type = entry
-                    .metadata()
-                    .map_err(|err| ErrorKind::IO {
-                        path: Some(entry.path()),
-                        error: Rc::new(err),
-                    })?
-                    .file_type();
-                let val = if file_type.is_dir() {
-                    "directory"
-                } else if file_type.is_file() {
-                    "regular"
-                } else if file_type.is_symlink() {
-                    "symlink"
-                } else {
-                    "unknown"
-                };
-                Ok((entry.file_name().to_string_lossy().to_string(), val))
-            },
-        );
+        let res = vm.io().read_dir(path)?.into_iter().map(|(name, ftype)| {
+            (
+                name,
+                Value::String(
+                    SmolStr::new(match ftype {
+                        FileType::Directory => "directory",
+                        FileType::Regular => "regular",
+                        FileType::Symlink => "symlink",
+                        FileType::Unknown => "unknown",
+                    })
+                    .into(),
+                ),
+            )
+        });
+
         Ok(Value::attrs(NixAttrs::from_iter(res)))
     }
 

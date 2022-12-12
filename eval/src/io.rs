@@ -15,9 +15,20 @@
 //! In the context of Nix builds, callers also use this interface to determine
 //! how store paths are opened and so on.
 
+use smol_str::SmolStr;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use crate::errors::ErrorKind;
+
+/// Types of files as represented by `builtins.readDir` in Nix.
+#[derive(Debug)]
+pub enum FileType {
+    Directory,
+    Regular,
+    Symlink,
+    Unknown,
+}
 
 /// Defines how filesystem interaction occurs inside of tvix-eval.
 pub trait EvalIO {
@@ -26,6 +37,10 @@ pub trait EvalIO {
 
     /// Read the file at the specified path to a string.
     fn read_to_string(&self, path: PathBuf) -> Result<String, ErrorKind>;
+
+    /// Read the directory at the specified path and return the names
+    /// of its entries associated with their [`FileType`].
+    fn read_dir(&self, path: PathBuf) -> Result<Vec<(SmolStr, FileType)>, ErrorKind>;
 }
 
 /// Implementation of [`EvalIO`] that simply uses the equivalent
@@ -38,15 +53,49 @@ impl EvalIO for StdIO {
     fn path_exists(&self, path: PathBuf) -> Result<bool, ErrorKind> {
         path.try_exists().map_err(|e| ErrorKind::IO {
             path: Some(path),
-            error: std::rc::Rc::new(e),
+            error: Rc::new(e),
         })
     }
 
     fn read_to_string(&self, path: PathBuf) -> Result<String, ErrorKind> {
         std::fs::read_to_string(&path).map_err(|e| ErrorKind::IO {
             path: Some(path),
-            error: std::rc::Rc::new(e),
+            error: Rc::new(e),
         })
+    }
+
+    fn read_dir(&self, path: PathBuf) -> Result<Vec<(SmolStr, FileType)>, ErrorKind> {
+        let mut result = vec![];
+
+        let mk_err = |err| ErrorKind::IO {
+            path: Some(path.clone()),
+            error: Rc::new(err),
+        };
+
+        for entry in path.read_dir().map_err(mk_err)? {
+            let entry = entry.map_err(mk_err)?;
+            let file_type = entry
+                .metadata()
+                .map_err(|err| ErrorKind::IO {
+                    path: Some(entry.path()),
+                    error: Rc::new(err),
+                })?
+                .file_type();
+
+            let val = if file_type.is_dir() {
+                FileType::Directory
+            } else if file_type.is_file() {
+                FileType::Regular
+            } else if file_type.is_symlink() {
+                FileType::Symlink
+            } else {
+                FileType::Unknown
+            };
+
+            result.push((SmolStr::new(entry.file_name().to_string_lossy()), val));
+        }
+
+        Ok(result)
     }
 }
 
@@ -62,6 +111,12 @@ impl EvalIO for DummyIO {
     }
 
     fn read_to_string(&self, _: PathBuf) -> Result<String, ErrorKind> {
+        Err(ErrorKind::NotImplemented(
+            "I/O methods are not implemented in DummyIO",
+        ))
+    }
+
+    fn read_dir(&self, _: PathBuf) -> Result<Vec<(SmolStr, FileType)>, ErrorKind> {
         Err(ErrorKind::NotImplemented(
             "I/O methods are not implemented in DummyIO",
         ))
