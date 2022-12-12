@@ -3,6 +3,10 @@ name = "tvix-cli"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "tvix"
+path = "src/main.rs"
+
 [dependencies]
 tvix-eval = { path = "../eval" }
 rustyline = "10.0.0"
