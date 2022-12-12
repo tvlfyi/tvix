@@ -27,8 +27,10 @@ pub trait EvalIO {
 
 /// Implementation of [`EvalIO`] that simply uses the equivalent
 /// standard library functions, i.e. does local file-IO.
+#[cfg(feature = "impure")]
 pub struct StdIO;
 
+#[cfg(feature = "impure")]
 impl EvalIO for StdIO {
     fn read_to_string(&self, path: PathBuf) -> Result<String, ErrorKind> {
         let path: PathBuf = path.into();
