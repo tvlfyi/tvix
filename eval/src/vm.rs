@@ -220,6 +220,11 @@ impl<'o> VM<'o> {
         self.chunk().get_span(self.frame().ip - 1)
     }
 
+    /// Access the I/O handle used for filesystem access in this VM.
+    pub(crate) fn io(&self) -> &Box<dyn EvalIO> {
+        &self.io_handle
+    }
+
     /// Returns the information needed to calculate the current span,
     /// but without performing that calculation.
     fn current_light_span(&self) -> LightSpan {

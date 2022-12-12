@@ -1,9 +1,7 @@
 use builtin_macros::builtins;
 use std::{
     collections::BTreeMap,
-    env,
-    fs::File,
-    io::{self, Read},
+    env, io,
     rc::{Rc, Weak},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -68,9 +66,10 @@ mod impure_builtins {
 
     #[builtin("readFile")]
     fn builtin_read_file(vm: &mut VM, path: Value) -> Result<Value, ErrorKind> {
-        let mut buf = String::new();
-        File::open(&coerce_value_to_path(&path, vm)?)?.read_to_string(&mut buf)?;
-        Ok(buf.into())
+        let path = coerce_value_to_path(&path, vm)?;
+        vm.io()
+            .read_to_string(path)
+            .map(|s| Value::String(s.into()))
     }
 }
 
@@ -122,16 +121,12 @@ pub fn builtins_import(globals: &Weak<GlobalsMap>, source: SourceCode) -> Builti
             }
 
             let current_span = vm.current_span();
-            let entry = match vm.import_cache.entry(path.clone()) {
-                std::collections::btree_map::Entry::Occupied(oe) => return Ok(oe.get().clone()),
-                std::collections::btree_map::Entry::Vacant(ve) => ve,
-            };
 
-            let contents =
-                std::fs::read_to_string(&path).map_err(|err| ErrorKind::ReadFileError {
-                    path: path.clone(),
-                    error: Rc::new(err),
-                })?;
+            if let Some(cached) = vm.import_cache.get(&path) {
+                return Ok(cached.clone());
+            }
+
+            let contents = vm.io().read_to_string(path.clone())?;
 
             let parsed = rnix::ast::Root::parse(&contents);
             let errors = parsed.errors();
@@ -174,12 +169,12 @@ pub fn builtins_import(globals: &Weak<GlobalsMap>, source: SourceCode) -> Builti
 
             // Compilation succeeded, we can construct a thunk from whatever it spat
             // out and return that.
-            let res = entry
-                .insert(Value::Thunk(Thunk::new_suspended(
-                    result.lambda,
-                    LightSpan::new_actual(current_span),
-                )))
-                .clone();
+            let res = Value::Thunk(Thunk::new_suspended(
+                result.lambda,
+                LightSpan::new_actual(current_span),
+            ));
+
+            vm.import_cache.insert(path, res.clone());
 
             for warning in result.warnings {
                 vm.push_warning(warning);

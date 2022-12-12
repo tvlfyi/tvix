@@ -109,12 +109,6 @@ pub enum ErrorKind {
     /// literal attribute sets.
     UnmergeableValue,
 
-    /// Tvix failed to read a file from disk for some reason.
-    ReadFileError {
-        path: PathBuf,
-        error: Rc<std::io::Error>,
-    },
-
     /// Parse errors occured while importing a file.
     ImportParseError {
         path: PathBuf,
@@ -339,15 +333,6 @@ to a missing value in the attribute set(s) included via `with`."#,
                 write!(
                     f,
                     "nested attribute sets or keys can only be merged with literal attribute sets"
-                )
-            }
-
-            ErrorKind::ReadFileError { path, error } => {
-                write!(
-                    f,
-                    "failed to read file '{}': {}",
-                    path.to_string_lossy(),
-                    error
                 )
             }
 
@@ -676,7 +661,6 @@ impl Error {
             | ErrorKind::NegativeLength { .. }
             | ErrorKind::UnmergeableInherit { .. }
             | ErrorKind::UnmergeableValue
-            | ErrorKind::ReadFileError { .. }
             | ErrorKind::ImportParseError { .. }
             | ErrorKind::ImportCompilerError { .. }
             | ErrorKind::IO { .. }
@@ -716,7 +700,6 @@ impl Error {
             ErrorKind::TailEmptyList { .. } => "E023",
             ErrorKind::UnmergeableInherit { .. } => "E024",
             ErrorKind::UnmergeableValue => "E025",
-            ErrorKind::ReadFileError { .. } => "E026",
             ErrorKind::ImportParseError { .. } => "E027",
             ErrorKind::ImportCompilerError { .. } => "E028",
             ErrorKind::IO { .. } => "E029",
