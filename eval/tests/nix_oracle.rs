@@ -40,7 +40,10 @@ fn nix_eval(expr: &str) -> String {
 #[track_caller]
 fn compare_eval(expr: &str) {
     let nix_result = nix_eval(expr);
-    let tvix_result = tvix_eval::Evaluation::new(expr, None)
+    let mut eval = tvix_eval::Evaluation::new(expr, None);
+    eval.io_handle = Box::new(tvix_eval::StdIO);
+
+    let tvix_result = eval
         .evaluate()
         .value
         .expect("tvix evaluation should succeed")

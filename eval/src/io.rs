@@ -16,7 +16,7 @@
 //! how store paths are opened and so on.
 
 use smol_str::SmolStr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use crate::errors::ErrorKind;
@@ -41,6 +41,15 @@ pub trait EvalIO {
     /// Read the directory at the specified path and return the names
     /// of its entries associated with their [`FileType`].
     fn read_dir(&self, path: PathBuf) -> Result<Vec<(SmolStr, FileType)>, ErrorKind>;
+
+    /// Import the given path. What this means depends on the
+    /// implementation, for example for a `std::io`-based
+    /// implementation this might be a no-op, while for a Tvix store
+    /// this might be a copy of the given files to the store.
+    ///
+    /// This is primarily used in the context of things like coercing
+    /// a local path to a string, or builtins like `path`.
+    fn import_path(&self, path: &Path) -> Result<PathBuf, ErrorKind>;
 
     /// Returns the root of the store directory, if such a thing
     /// exists in the evaluation context.
@@ -103,6 +112,12 @@ impl EvalIO for StdIO {
 
         Ok(result)
     }
+
+    // this is a no-op for `std::io`, as the user can already refer to
+    // the path directly
+    fn import_path(&self, path: &Path) -> Result<PathBuf, ErrorKind> {
+        Ok(path.to_path_buf())
+    }
 }
 
 /// Dummy implementation of [`EvalIO`], can be used in contexts where
@@ -123,6 +138,12 @@ impl EvalIO for DummyIO {
     }
 
     fn read_dir(&self, _: PathBuf) -> Result<Vec<(SmolStr, FileType)>, ErrorKind> {
+        Err(ErrorKind::NotImplemented(
+            "I/O methods are not implemented in DummyIO",
+        ))
+    }
+
+    fn import_path(&self, _: &Path) -> Result<PathBuf, ErrorKind> {
         Err(ErrorKind::NotImplemented(
             "I/O methods are not implemented in DummyIO",
         ))

@@ -185,7 +185,8 @@ impl Value {
             // sequences without NUL bytes, whereas Tvix only allows valid
             // Unicode. See also b/189.
             (Value::Path(p), kind) if kind != CoercionKind::ThunksOnly => {
-                Ok(p.to_string_lossy().into_owned().into())
+                let imported = vm.io().import_path(p)?;
+                Ok(imported.to_string_lossy().into_owned().into())
             }
 
             // Attribute sets can be converted to strings if they either have an
