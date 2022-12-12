@@ -39,6 +39,7 @@ struct Args {
 /// evaluation succeeded.
 fn interpret(code: &str, path: Option<PathBuf>, args: &Args) -> bool {
     let mut eval = tvix_eval::Evaluation::new(code, path);
+    eval.io_handle = Box::new(tvix_eval::StdIO);
     eval.nix_path = args.nix_search_path.clone();
 
     let source_map = eval.source_map();
