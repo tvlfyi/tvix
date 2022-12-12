@@ -28,7 +28,8 @@ mod impure_builtins {
 
     #[builtin("pathExists")]
     fn builtin_path_exists(vm: &mut VM, s: Value) -> Result<Value, ErrorKind> {
-        Ok(coerce_value_to_path(&s, vm)?.exists().into())
+        let path = coerce_value_to_path(&s, vm)?;
+        vm.io().path_exists(path).map(Value::Bool)
     }
 
     #[builtin("readDir")]

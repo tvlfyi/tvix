@@ -21,6 +21,9 @@ use crate::errors::ErrorKind;
 
 /// Defines how filesystem interaction occurs inside of tvix-eval.
 pub trait EvalIO {
+    /// Verify whether the file at the specified path exists.
+    fn path_exists(&self, path: PathBuf) -> Result<bool, ErrorKind>;
+
     /// Read the file at the specified path to a string.
     fn read_to_string(&self, path: PathBuf) -> Result<String, ErrorKind>;
 }
@@ -32,8 +35,14 @@ pub struct StdIO;
 
 #[cfg(feature = "impure")]
 impl EvalIO for StdIO {
+    fn path_exists(&self, path: PathBuf) -> Result<bool, ErrorKind> {
+        path.try_exists().map_err(|e| ErrorKind::IO {
+            path: Some(path),
+            error: std::rc::Rc::new(e),
+        })
+    }
+
     fn read_to_string(&self, path: PathBuf) -> Result<String, ErrorKind> {
-        let path: PathBuf = path.into();
         std::fs::read_to_string(&path).map_err(|e| ErrorKind::IO {
             path: Some(path),
             error: std::rc::Rc::new(e),
@@ -46,6 +55,12 @@ impl EvalIO for StdIO {
 pub struct DummyIO;
 
 impl EvalIO for DummyIO {
+    fn path_exists(&self, _: PathBuf) -> Result<bool, ErrorKind> {
+        Err(ErrorKind::NotImplemented(
+            "I/O methods are not implemented in DummyIO",
+        ))
+    }
+
     fn read_to_string(&self, _: PathBuf) -> Result<String, ErrorKind> {
         Err(ErrorKind::NotImplemented(
             "I/O methods are not implemented in DummyIO",
