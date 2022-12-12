@@ -1120,16 +1120,17 @@ impl Compiler<'_> {
             self.scope_mut().poison(global_ident, depth);
         }
 
-        for other in self.scope().locals.iter().rev() {
-            if other.has_name(&name) && other.depth == depth {
-                self.emit_error(node, ErrorKind::VariableAlreadyDefined(other.span));
+        let span = self.span_for(node);
+        let (idx, shadowed) = self.scope_mut().declare_local(name, span);
 
-                break;
+        if let Some(shadow_idx) = shadowed {
+            let other = &self.scope()[shadow_idx];
+            if other.depth == depth {
+                self.emit_error(node, ErrorKind::VariableAlreadyDefined(other.span));
             }
         }
 
-        let span = self.span_for(node);
-        self.scope_mut().declare_local(name, span)
+        idx
     }
 
     /// Determine whether the current lambda context has any ancestors

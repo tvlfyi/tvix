@@ -58,16 +58,6 @@ pub struct Local {
 }
 
 impl Local {
-    /// Does the name of this local match the given string?
-    pub fn has_name(&self, other: &str) -> bool {
-        match &self.name {
-            LocalName::Ident(name) => name == other,
-
-            // Phantoms are *never* accessible by a name.
-            LocalName::Phantom => false,
-        }
-    }
-
     /// Retrieve the name of the given local (if available).
     pub fn name(&self) -> Option<SmolStr> {
         match &self.name {
@@ -121,12 +111,60 @@ pub struct Upvalue {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd)]
 pub struct LocalIdx(usize);
 
+/// Helper struct for indexing over `Scope::locals` by name.
+#[derive(Debug)]
+enum ByName {
+    Single(LocalIdx),
+    Shadowed(Vec<LocalIdx>),
+}
+
+impl ByName {
+    /// Add an additional index for this name.
+    fn add_idx(&mut self, new: LocalIdx) {
+        match self {
+            ByName::Shadowed(indices) => indices.push(new),
+            ByName::Single(idx) => {
+                *self = ByName::Shadowed(vec![*idx, new]);
+            }
+        }
+    }
+
+    /// Remove the most recent index for this name, unless it is a
+    /// single. Returns `true` if an entry was removed.
+    fn remove_idx(&mut self) -> bool {
+        match self {
+            ByName::Single(_) => false,
+            ByName::Shadowed(indices) => match indices[..] {
+                [fst, _snd] => {
+                    *self = ByName::Single(fst);
+                    true
+                }
+                _ => {
+                    indices.pop();
+                    true
+                }
+            },
+        }
+    }
+
+    /// Return the most recent index.
+    pub fn index(&self) -> LocalIdx {
+        match self {
+            ByName::Single(idx) => *idx,
+            ByName::Shadowed(vec) => *vec.last().unwrap(),
+        }
+    }
+}
+
 /// Represents a scope known during compilation, which can be resolved
 /// directly to stack indices.
 #[derive(Debug, Default)]
 pub struct Scope {
-    pub locals: Vec<Local>,
+    locals: Vec<Local>,
     pub upvalues: Vec<Upvalue>,
+
+    /// Secondary by-name index over locals.
+    by_name: HashMap<String, ByName>,
 
     /// How many scopes "deep" are these locals?
     scope_depth: usize,
@@ -207,19 +245,23 @@ impl Scope {
 
     /// Resolve the stack index of a statically known local.
     pub fn resolve_local(&mut self, name: &str) -> LocalPosition {
-        for (idx, local) in self.locals.iter_mut().enumerate().rev() {
-            if local.has_name(name) {
-                local.used = true;
+        if let Some(by_name) = self.by_name.get(name) {
+            let idx = by_name.index();
+            let local = self
+                .locals
+                .get_mut(idx.0)
+                .expect("invalid compiler state: indexed local missing");
 
-                // This local is still being initialised, meaning that
-                // we know its final runtime stack position, but it is
-                // not yet on the stack.
-                if !local.initialised {
-                    return LocalPosition::Recursive(LocalIdx(idx));
-                }
+            local.used = true;
 
-                return LocalPosition::Known(LocalIdx(idx));
+            // This local is still being initialised, meaning that
+            // we know its final runtime stack position, but it is
+            // not yet on the stack.
+            if !local.initialised {
+                return LocalPosition::Recursive(idx);
             }
+
+            return LocalPosition::Known(idx);
         }
 
         LocalPosition::Unknown
@@ -243,11 +285,18 @@ impl Scope {
         LocalIdx(idx)
     }
 
-    /// Declare an uninitialised local variable.
-    pub fn declare_local(&mut self, name: String, span: codemap::Span) -> LocalIdx {
-        let idx = self.locals.len();
+    /// Declare an uninitialised, named local variable.
+    ///
+    /// Returns the `LocalIdx` of the new local, and optionally the
+    /// index of a previous local shadowed by this one.
+    pub fn declare_local(
+        &mut self,
+        name: String,
+        span: codemap::Span,
+    ) -> (LocalIdx, Option<LocalIdx>) {
+        let idx = LocalIdx(self.locals.len());
         self.locals.push(Local {
-            name: LocalName::Ident(name),
+            name: LocalName::Ident(name.clone()),
             span,
             depth: self.scope_depth,
             initialised: false,
@@ -256,7 +305,19 @@ impl Scope {
             used: false,
         });
 
-        LocalIdx(idx)
+        let mut shadowed = None;
+        match self.by_name.entry(name) {
+            hash_map::Entry::Occupied(mut entry) => {
+                let existing = entry.get_mut();
+                shadowed = Some(existing.index());
+                existing.add_idx(idx);
+            }
+            hash_map::Entry::Vacant(entry) => {
+                entry.insert(ByName::Single(idx));
+            }
+        }
+
+        (idx, shadowed)
     }
 
     /// Mark local as initialised after compiling its expression.
@@ -327,6 +388,18 @@ impl Scope {
                 // identifier with `_`)
                 if !local.used && !local.is_ignored() {
                     unused_spans.push(local.span);
+                }
+
+                // remove the by-name index if this was a named local
+                if let LocalName::Ident(name) = local.name {
+                    if let hash_map::Entry::Occupied(mut entry) = self.by_name.entry(name) {
+                        // If no removal occured through `remove_idx`
+                        // (i.e. there was no shadowing going on),
+                        // nuke the whole entry.
+                        if !entry.get_mut().remove_idx() {
+                            entry.remove();
+                        }
+                    }
                 }
             }
         }
