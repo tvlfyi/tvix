@@ -12,3 +12,4 @@ tvix-eval = { path = "../eval" }
 rustyline = "10.0.0"
 clap = { version = "4.0", features = ["derive", "env"] }
 dirs = "4.0.0"
+smol_str = "0.1"

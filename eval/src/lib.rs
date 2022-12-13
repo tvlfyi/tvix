@@ -45,7 +45,7 @@ use std::sync::Arc;
 pub use crate::builtins::global_builtins;
 pub use crate::compiler::{compile, prepare_globals};
 pub use crate::errors::{Error, ErrorKind, EvalResult};
-pub use crate::io::{DummyIO, EvalIO};
+pub use crate::io::{DummyIO, EvalIO, FileType};
 use crate::observer::{CompilerObserver, RuntimeObserver};
 pub use crate::pretty_ast::pretty_print_expr;
 pub use crate::source::SourceCode;
