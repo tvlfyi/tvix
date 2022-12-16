@@ -26,7 +26,7 @@ backtrace-on-stack-overflow = { version = "0.2.0", optional = true }
 rnix = "0.11.0"
 
 [dev-dependencies]
-criterion = "0.3.6"
+criterion = "0.4"
 test-generator = "0.3.0"
 pretty_assertions = "1.2.1"
 itertools = "0.10.3"

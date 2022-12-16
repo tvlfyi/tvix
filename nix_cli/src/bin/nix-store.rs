@@ -2,12 +2,12 @@ fn main() {
     main_args(std::env::args().collect()).unwrap_or_else(|e| e.exit());
 }
 
-pub fn main_args(args: Vec<String>) -> clap::Result<NixResult> {
-    let matches = clap::App::new("nix-store")
-        .subcommand(clap::App::new("--add").arg(clap::Arg::new("FILE").required(true).index(1)))
+pub fn main_args(args: Vec<String>) -> clap::error::Result<NixResult> {
+    let matches = clap::Command::new("nix-store")
+        .subcommand(clap::Command::new("--add").arg(clap::Arg::new("FILE").required(true).index(1)))
         .try_get_matches_from(args.iter())?;
     if let Some(add) = matches.subcommand_matches("--add") {
-        let file = add.value_of("FILE").expect("--add needs a file");
+        let file = add.get_one::<String>("FILE").expect("--add needs a file");
         let file_contents =
             std::fs::read_to_string(file).expect(&format!("file {} does not exist", file));
         Ok(NixResult::FileAddedToStore {

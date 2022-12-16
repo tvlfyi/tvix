@@ -6,11 +6,7 @@
 , pkgs ? import nixpkgs { config = { }; }
 , lib ? pkgs.lib
 , stdenv ? pkgs.stdenv
-, buildRustCrateForPkgs ? if buildRustCrate != null
-  then lib.warn "crate2nix: Passing `buildRustCrate` as argument to Cargo.nix is deprecated. If you don't customize `buildRustCrate`, replace `callPackage ./Cargo.nix {}` by `import ./Cargo.nix { inherit pkgs; }`, and if you need to customize `buildRustCrate`, use `buildRustCrateForPkgs` instead." (_: buildRustCrate)
-  else pkgs: pkgs.buildRustCrate
-  # Deprecated
-, buildRustCrate ? null
+, buildRustCrateForPkgs ? pkgs: pkgs.buildRustCrate
   # This is used as the `crateOverrides` argument for `buildRustCrate`.
 , defaultCrateOverrides ? pkgs.defaultCrateOverrides
   # The features to enable for the root_crate or the workspace_members.
@@ -178,6 +174,20 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "std" ];
       };
+      "anes" = rec {
+        crateName = "anes";
+        version = "0.1.6";
+        edition = "2018";
+        sha256 = "16bj1ww1xkwzbckk32j2pnbn5vk6wgsl3q4p3j9551xbcarwnijb";
+        authors = [
+          "Robert Vojta <rvojta@me.com>"
+        ];
+        features = {
+          "bitflags" = [ "dep:bitflags" ];
+          "parser" = [ "bitflags" ];
+        };
+        resolvedDefaultFeatures = [ "default" ];
+      };
       "anyhow" = rec {
         crateName = "anyhow";
         version = "1.0.66";
@@ -226,8 +236,8 @@ rec {
         dependencies = [
           {
             name = "hermit-abi";
-            packageId = "hermit-abi";
-            target = { target, features }: (target."os" == "hermit");
+            packageId = "hermit-abi 0.1.19";
+            target = { target, features }: ("hermit" == target."os");
           }
           {
             name = "libc";
@@ -420,50 +430,6 @@ rec {
         ];
 
       };
-      "bstr" = rec {
-        crateName = "bstr";
-        version = "0.2.17";
-        edition = "2018";
-        sha256 = "08rjbhysy6gg27db2h3pnhvr2mlr5vkj797i9625kwg8hgrnjdds";
-        authors = [
-          "Andrew Gallant <jamslam@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "lazy_static";
-            packageId = "lazy_static";
-            optional = true;
-          }
-          {
-            name = "memchr";
-            packageId = "memchr";
-            usesDefaultFeatures = false;
-          }
-          {
-            name = "regex-automata";
-            packageId = "regex-automata";
-            optional = true;
-            usesDefaultFeatures = false;
-          }
-          {
-            name = "serde";
-            packageId = "serde";
-            optional = true;
-            usesDefaultFeatures = false;
-          }
-        ];
-        features = {
-          "default" = [ "std" "unicode" ];
-          "lazy_static" = [ "dep:lazy_static" ];
-          "regex-automata" = [ "dep:regex-automata" ];
-          "serde" = [ "dep:serde" ];
-          "serde1" = [ "std" "serde1-nostd" "serde/std" ];
-          "serde1-nostd" = [ "serde" ];
-          "std" = [ "memchr/std" ];
-          "unicode" = [ "lazy_static" "regex-automata" ];
-        };
-        resolvedDefaultFeatures = [ "default" "lazy_static" "regex-automata" "serde" "serde1" "serde1-nostd" "std" "unicode" ];
-      };
       "bumpalo" = rec {
         crateName = "bumpalo";
         version = "3.11.1";
@@ -540,42 +506,70 @@ rec {
           "rustc-dep-of-std" = [ "core" "compiler_builtins" ];
         };
       };
-      "clap 2.34.0" = rec {
-        crateName = "clap";
-        version = "2.34.0";
-        edition = "2018";
-        sha256 = "071q5d8jfwbazi6zhik9xwpacx5i6kb2vkzy060vhf0c3120aqd0";
+      "ciborium" = rec {
+        crateName = "ciborium";
+        version = "0.2.0";
+        edition = "2021";
+        sha256 = "13vqkm88kaq8nvxhaj6qsl0gsc16rqsin014fx5902y6iib3ghdh";
         authors = [
-          "Kevin K. <kbknapp@gmail.com>"
+          "Nathaniel McCallum <npmccallum@profian.com>"
         ];
         dependencies = [
           {
-            name = "bitflags";
-            packageId = "bitflags";
+            name = "ciborium-io";
+            packageId = "ciborium-io";
+            features = [ "alloc" ];
           }
           {
-            name = "textwrap";
-            packageId = "textwrap 0.11.0";
+            name = "ciborium-ll";
+            packageId = "ciborium-ll";
           }
           {
-            name = "unicode-width";
-            packageId = "unicode-width";
+            name = "serde";
+            packageId = "serde";
+            usesDefaultFeatures = false;
+            features = [ "alloc" "derive" ];
           }
         ];
         features = {
-          "ansi_term" = [ "dep:ansi_term" ];
-          "atty" = [ "dep:atty" ];
-          "clippy" = [ "dep:clippy" ];
-          "color" = [ "ansi_term" "atty" ];
-          "default" = [ "suggestions" "color" "vec_map" ];
-          "doc" = [ "yaml" ];
-          "strsim" = [ "dep:strsim" ];
-          "suggestions" = [ "strsim" ];
-          "term_size" = [ "dep:term_size" ];
-          "vec_map" = [ "dep:vec_map" ];
-          "wrap_help" = [ "term_size" "textwrap/term_size" ];
-          "yaml" = [ "yaml-rust" ];
-          "yaml-rust" = [ "dep:yaml-rust" ];
+          "default" = [ "std" ];
+          "std" = [ "ciborium-io/std" "serde/std" ];
+        };
+        resolvedDefaultFeatures = [ "default" "std" ];
+      };
+      "ciborium-io" = rec {
+        crateName = "ciborium-io";
+        version = "0.2.0";
+        edition = "2021";
+        sha256 = "0sdkk7l7pqi2nsbm9c6g8im1gb1qdd83l25ja9xwhg07mx9yfv9l";
+        authors = [
+          "Nathaniel McCallum <npmccallum@profian.com>"
+        ];
+        features = {
+          "std" = [ "alloc" ];
+        };
+        resolvedDefaultFeatures = [ "alloc" "std" ];
+      };
+      "ciborium-ll" = rec {
+        crateName = "ciborium-ll";
+        version = "0.2.0";
+        edition = "2021";
+        sha256 = "06ygqh33k3hp9r9mma43gf189b6cyq62clk65f4w1q54nni30c11";
+        authors = [
+          "Nathaniel McCallum <npmccallum@profian.com>"
+        ];
+        dependencies = [
+          {
+            name = "ciborium-io";
+            packageId = "ciborium-io";
+          }
+          {
+            name = "half";
+            packageId = "half";
+          }
+        ];
+        features = {
+          "std" = [ "alloc" ];
         };
       };
       "clap 3.2.23" = rec {
@@ -586,45 +580,20 @@ rec {
         sha256 = "19bkwkj49ha7mlip0gxsqb9xmd3jpr7ghvcx1hkx6icqrd2mqrbi";
         dependencies = [
           {
-            name = "atty";
-            packageId = "atty";
-            optional = true;
-          }
-          {
             name = "bitflags";
             packageId = "bitflags";
           }
           {
-            name = "clap_derive";
-            packageId = "clap_derive";
-            optional = true;
-          }
-          {
             name = "clap_lex";
-            packageId = "clap_lex";
+            packageId = "clap_lex 0.2.4";
           }
           {
             name = "indexmap";
             packageId = "indexmap";
           }
           {
-            name = "once_cell";
-            packageId = "once_cell";
-            optional = true;
-          }
-          {
-            name = "strsim";
-            packageId = "strsim";
-            optional = true;
-          }
-          {
-            name = "termcolor";
-            packageId = "termcolor";
-            optional = true;
-          }
-          {
             name = "textwrap";
-            packageId = "textwrap 0.16.0";
+            packageId = "textwrap";
             usesDefaultFeatures = false;
           }
         ];
@@ -653,13 +622,69 @@ rec {
           "yaml" = [ "yaml-rust" ];
           "yaml-rust" = [ "dep:yaml-rust" ];
         };
-        resolvedDefaultFeatures = [ "atty" "clap_derive" "color" "default" "derive" "env" "once_cell" "std" "strsim" "suggestions" "termcolor" ];
+        resolvedDefaultFeatures = [ "std" ];
+      };
+      "clap 4.0.27" = rec {
+        crateName = "clap";
+        version = "4.0.27";
+        edition = "2021";
+        crateBin = [ ];
+        sha256 = "0rjr4wacx5sz1sc4dikz4p8z4k53dfpm1s3sil8dfq0aib9dijqa";
+        dependencies = [
+          {
+            name = "bitflags";
+            packageId = "bitflags";
+          }
+          {
+            name = "clap_derive";
+            packageId = "clap_derive";
+            optional = true;
+          }
+          {
+            name = "clap_lex";
+            packageId = "clap_lex 0.3.0";
+          }
+          {
+            name = "is-terminal";
+            packageId = "is-terminal";
+            optional = true;
+          }
+          {
+            name = "once_cell";
+            packageId = "once_cell";
+            optional = true;
+          }
+          {
+            name = "strsim";
+            packageId = "strsim";
+            optional = true;
+          }
+          {
+            name = "termcolor";
+            packageId = "termcolor";
+            optional = true;
+          }
+        ];
+        features = {
+          "cargo" = [ "dep:once_cell" ];
+          "color" = [ "dep:is-terminal" "dep:termcolor" ];
+          "debug" = [ "clap_derive?/debug" "dep:backtrace" ];
+          "default" = [ "std" "color" "help" "usage" "error-context" "suggestions" ];
+          "deprecated" = [ "clap_derive?/deprecated" ];
+          "derive" = [ "dep:clap_derive" "dep:once_cell" ];
+          "suggestions" = [ "dep:strsim" "error-context" ];
+          "unicode" = [ "dep:unicode-width" "dep:unicase" ];
+          "unstable-doc" = [ "derive" "cargo" "wrap_help" "env" "unicode" "string" "unstable-replace" "unstable-grouped" ];
+          "unstable-v5" = [ "clap_derive?/unstable-v5" "deprecated" ];
+          "wrap_help" = [ "help" "dep:terminal_size" ];
+        };
+        resolvedDefaultFeatures = [ "color" "default" "derive" "env" "error-context" "help" "std" "suggestions" "usage" ];
       };
       "clap_derive" = rec {
         crateName = "clap_derive";
-        version = "3.2.18";
+        version = "4.0.21";
         edition = "2021";
-        sha256 = "0r9az0cl33xx0i9g18l56l3vd5ayjvcflvza2gdf8jwcab78n37a";
+        sha256 = "054h5c62jy5c5li58696ymly0avyjvcbn1krcaawkbq2kwzk2xq1";
         procMacro = true;
         dependencies = [
           {
@@ -686,15 +711,30 @@ rec {
         ];
         features = {
           "raw-deprecated" = [ "deprecated" ];
-          "unstable-v4" = [ "deprecated" ];
+          "unstable-v5" = [ "deprecated" ];
         };
         resolvedDefaultFeatures = [ "default" ];
       };
-      "clap_lex" = rec {
+      "clap_lex 0.2.4" = rec {
         crateName = "clap_lex";
         version = "0.2.4";
         edition = "2021";
         sha256 = "1ib1a9v55ybnaws11l63az0jgz5xiy24jkdgsmyl7grcm3sz4l18";
+        dependencies = [
+          {
+            name = "os_str_bytes";
+            packageId = "os_str_bytes";
+            usesDefaultFeatures = false;
+            features = [ "raw_os_str" ];
+          }
+        ];
+
+      };
+      "clap_lex 0.3.0" = rec {
+        crateName = "clap_lex";
+        version = "0.3.0";
+        edition = "2021";
+        sha256 = "1a4dzbnlxiamfsn0pnkhn7n9bdfjh66j9fxm6mmr7d227vvrhh8d";
         dependencies = [
           {
             name = "os_str_bytes";
@@ -799,14 +839,18 @@ rec {
       };
       "criterion" = rec {
         crateName = "criterion";
-        version = "0.3.6";
+        version = "0.4.0";
         edition = "2018";
-        sha256 = "13yd64ah93gkbdv7qq4cr6rhgl9979jjcjk3gkhnav1b7glns7dh";
+        sha256 = "1jsl4r0yc3fpkyjbi8aa1jrm69apqq9rxwnjnd9brqmaq44nxiz7";
         authors = [
           "Jorge Aparicio <japaricious@gmail.com>"
           "Brook Heisler <brookheisler@gmail.com>"
         ];
         dependencies = [
+          {
+            name = "anes";
+            packageId = "anes";
+          }
           {
             name = "atty";
             packageId = "atty";
@@ -816,17 +860,18 @@ rec {
             packageId = "cast";
           }
           {
+            name = "ciborium";
+            packageId = "ciborium";
+          }
+          {
             name = "clap";
-            packageId = "clap 2.34.0";
+            packageId = "clap 3.2.23";
             usesDefaultFeatures = false;
+            features = [ "std" ];
           }
           {
             name = "criterion-plot";
             packageId = "criterion-plot";
-          }
-          {
-            name = "csv";
-            packageId = "csv";
           }
           {
             name = "itertools";
@@ -840,6 +885,7 @@ rec {
             name = "num-traits";
             packageId = "num-traits";
             usesDefaultFeatures = false;
+            features = [ "std" ];
           }
           {
             name = "oorandom";
@@ -848,12 +894,14 @@ rec {
           {
             name = "plotters";
             packageId = "plotters";
+            optional = true;
             usesDefaultFeatures = false;
             features = [ "svg_backend" "area_series" "line_series" ];
           }
           {
             name = "rayon";
             packageId = "rayon";
+            optional = true;
           }
           {
             name = "regex";
@@ -864,10 +912,6 @@ rec {
           {
             name = "serde";
             packageId = "serde";
-          }
-          {
-            name = "serde_cbor";
-            packageId = "serde_cbor";
           }
           {
             name = "serde_derive";
@@ -893,19 +937,23 @@ rec {
           "async_smol" = [ "smol" "async" ];
           "async_std" = [ "async-std" "async" ];
           "async_tokio" = [ "tokio" "async" ];
-          "default" = [ "cargo_bench_support" ];
+          "csv" = [ "dep:csv" ];
+          "csv_output" = [ "csv" ];
+          "default" = [ "rayon" "plotters" "cargo_bench_support" ];
           "futures" = [ "dep:futures" ];
+          "plotters" = [ "dep:plotters" ];
+          "rayon" = [ "dep:rayon" ];
           "smol" = [ "dep:smol" ];
-          "stable" = [ "async_futures" "async_smol" "async_tokio" "async_std" ];
+          "stable" = [ "csv_output" "html_reports" "async_futures" "async_smol" "async_tokio" "async_std" ];
           "tokio" = [ "dep:tokio" ];
         };
-        resolvedDefaultFeatures = [ "cargo_bench_support" "default" ];
+        resolvedDefaultFeatures = [ "cargo_bench_support" "default" "plotters" "rayon" ];
       };
       "criterion-plot" = rec {
         crateName = "criterion-plot";
-        version = "0.4.5";
+        version = "0.5.0";
         edition = "2018";
-        sha256 = "0xhq0jz1603585h7xvm3s4x9irmifjliklszbzs4cda00y1cqwr6";
+        sha256 = "1c866xkjqqhzg4cjvg01f8w6xc1j3j7s58rdksl52skq89iq4l3b";
         authors = [
           "Jorge Aparicio <japaricious@gmail.com>"
           "Brook Heisler <brookheisler@gmail.com>"
@@ -1059,66 +1107,6 @@ rec {
         };
         resolvedDefaultFeatures = [ "std" ];
       };
-      "csv" = rec {
-        crateName = "csv";
-        version = "1.1.6";
-        edition = "2018";
-        sha256 = "1q9nqn0qlamwl18v57p82c8yhxy43lkzf2z1mndmycsvqinkm092";
-        authors = [
-          "Andrew Gallant <jamslam@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "bstr";
-            packageId = "bstr";
-            features = [ "serde1" ];
-          }
-          {
-            name = "csv-core";
-            packageId = "csv-core";
-          }
-          {
-            name = "itoa";
-            packageId = "itoa 0.4.8";
-          }
-          {
-            name = "ryu";
-            packageId = "ryu";
-          }
-          {
-            name = "serde";
-            packageId = "serde";
-          }
-        ];
-        devDependencies = [
-          {
-            name = "serde";
-            packageId = "serde";
-            features = [ "derive" ];
-          }
-        ];
-
-      };
-      "csv-core" = rec {
-        crateName = "csv-core";
-        version = "0.1.10";
-        edition = "2018";
-        sha256 = "145wcc3560v1kmysqqspvddppiysr2rifqzy4nnlh3r6kxanc91b";
-        authors = [
-          "Andrew Gallant <jamslam@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "memchr";
-            packageId = "memchr";
-            usesDefaultFeatures = false;
-          }
-        ];
-        features = {
-          "libc" = [ "memchr/libc" ];
-        };
-        resolvedDefaultFeatures = [ "default" ];
-      };
       "ctor" = rec {
         crateName = "ctor";
         version = "0.1.26";
@@ -1246,7 +1234,7 @@ rec {
             name = "redox_users";
             packageId = "redox_users";
             usesDefaultFeatures = false;
-            target = { target, features }: (target."os" == "redox");
+            target = { target, features }: ("redox" == target."os");
           }
           {
             name = "winapi";
@@ -1275,7 +1263,7 @@ rec {
             name = "redox_users";
             packageId = "redox_users";
             usesDefaultFeatures = false;
-            target = { target, features }: (target."os" == "redox");
+            target = { target, features }: ("redox" == target."os");
           }
           {
             name = "winapi";
@@ -1322,17 +1310,17 @@ rec {
           {
             name = "errno-dragonfly";
             packageId = "errno-dragonfly";
-            target = { target, features }: (target."os" == "dragonfly");
+            target = { target, features }: ("dragonfly" == target."os");
           }
           {
             name = "libc";
             packageId = "libc";
-            target = { target, features }: (target."os" == "hermit");
+            target = { target, features }: ("hermit" == target."os");
           }
           {
             name = "libc";
             packageId = "libc";
-            target = { target, features }: (target."os" == "wasi");
+            target = { target, features }: ("wasi" == target."os");
           }
           {
             name = "libc";
@@ -1406,14 +1394,14 @@ rec {
           {
             name = "instant";
             packageId = "instant";
-            target = { target, features }: (target."arch" == "wasm32");
+            target = { target, features }: ("wasm32" == target."arch");
           }
         ];
         devDependencies = [
           {
             name = "instant";
             packageId = "instant";
-            target = { target, features }: (target."arch" == "wasm32");
+            target = { target, features }: ("wasm32" == target."arch");
             features = [ "wasm-bindgen" ];
           }
         ];
@@ -1520,7 +1508,7 @@ rec {
           {
             name = "wasi";
             packageId = "wasi";
-            target = { target, features }: (target."os" == "wasi");
+            target = { target, features }: ("wasi" == target."os");
           }
         ];
         features = {
@@ -1617,7 +1605,7 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" ];
       };
-      "hermit-abi" = rec {
+      "hermit-abi 0.1.19" = rec {
         crateName = "hermit-abi";
         version = "0.1.19";
         edition = "2018";
@@ -1636,6 +1624,29 @@ rec {
           "compiler_builtins" = [ "dep:compiler_builtins" ];
           "core" = [ "dep:core" ];
           "rustc-dep-of-std" = [ "core" "compiler_builtins/rustc-dep-of-std" "libc/rustc-dep-of-std" ];
+        };
+        resolvedDefaultFeatures = [ "default" ];
+      };
+      "hermit-abi 0.2.6" = rec {
+        crateName = "hermit-abi";
+        version = "0.2.6";
+        edition = "2021";
+        sha256 = "1iz439yz9qzk3rh9pqx2rz5c4107v3qbd7bppfsbzb1mzr02clgf";
+        authors = [
+          "Stefan Lankes"
+        ];
+        dependencies = [
+          {
+            name = "libc";
+            packageId = "libc";
+            usesDefaultFeatures = false;
+          }
+        ];
+        features = {
+          "alloc" = [ "dep:alloc" ];
+          "compiler_builtins" = [ "dep:compiler_builtins" ];
+          "core" = [ "dep:core" ];
+          "rustc-dep-of-std" = [ "core" "alloc" "compiler_builtins/rustc-dep-of-std" "libc/rustc-dep-of-std" ];
         };
         resolvedDefaultFeatures = [ "default" ];
       };
@@ -1725,7 +1736,41 @@ rec {
           "tokio" = [ "dep:tokio" ];
           "windows-sys" = [ "dep:windows-sys" ];
         };
-        resolvedDefaultFeatures = [ "close" "libc" "windows-sys" ];
+        resolvedDefaultFeatures = [ "close" "default" "libc" "windows-sys" ];
+      };
+      "is-terminal" = rec {
+        crateName = "is-terminal";
+        version = "0.4.0";
+        edition = "2018";
+        sha256 = "0b9mcxb46mzz1q1i4cdmp5j7g042ccqg3q5357prs75l5rpbrrda";
+        authors = [
+          "softprops <d.tangren@gmail.com>"
+          "Dan Gohman <dev@sunfishcode.online>"
+        ];
+        dependencies = [
+          {
+            name = "hermit-abi";
+            packageId = "hermit-abi 0.2.6";
+            target = { target, features }: ("hermit" == target."os");
+          }
+          {
+            name = "io-lifetimes";
+            packageId = "io-lifetimes";
+          }
+          {
+            name = "rustix";
+            packageId = "rustix";
+            target = { target, features }: (!((target."windows" or false) || ("hermit" == target."os")));
+            features = [ "termios" ];
+          }
+          {
+            name = "windows-sys";
+            packageId = "windows-sys";
+            target = { target, features }: (target."windows" or false);
+            features = [ "Win32_Foundation" "Win32_System_Console" ];
+          }
+        ];
+
       };
       "itertools" = rec {
         crateName = "itertools";
@@ -1748,20 +1793,7 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "use_alloc" "use_std" ];
       };
-      "itoa 0.4.8" = rec {
-        crateName = "itoa";
-        version = "0.4.8";
-        edition = "2015";
-        sha256 = "1m1dairwyx8kfxi7ab3b5jc71z1vigh9w4shnhiajji9avzr26dp";
-        authors = [
-          "David Tolnay <dtolnay@gmail.com>"
-        ];
-        features = {
-          "default" = [ "std" ];
-        };
-        resolvedDefaultFeatures = [ "default" "std" ];
-      };
-      "itoa 1.0.4" = rec {
+      "itoa" = rec {
         crateName = "itoa";
         version = "1.0.4";
         edition = "2018";
@@ -1991,14 +2023,14 @@ rec {
           {
             name = "memoffset";
             packageId = "memoffset 0.6.5";
-            target = { target, features }: (!(target."os" == "redox"));
+            target = { target, features }: (!("redox" == target."os"));
           }
         ];
         buildDependencies = [
           {
             name = "cc";
             packageId = "cc";
-            target = { target, features }: (target."os" == "dragonfly");
+            target = { target, features }: ("dragonfly" == target."os");
           }
         ];
 
@@ -2048,14 +2080,27 @@ rec {
         version = "0.1.0";
         edition = "2021";
         crateBin = [
-          { name = "nix-store"; path = "src/bin/nix-store.rs"; }
-          { name = "nix-cli"; path = "src/main.rs"; }
+          {
+            name = "nix-cli";
+            path = "src/main.rs";
+            requiredFeatures = [ ];
+          }
+          {
+            name = "nix-store";
+            path = "src/bin/nix-store.rs";
+            requiredFeatures = [ ];
+          }
         ];
-        src = lib.cleanSourceWith { filter = sourceFilter; src = ./nix_cli; };
+        # We can't filter paths with references in Nix 2.4
+        # See https://github.com/NixOS/nix/issues/5410
+        src =
+          if (lib.versionOlder builtins.nixVersion "2.4pre20211007")
+          then lib.cleanSourceWith { filter = sourceFilter; src = ./nix_cli; }
+          else ./nix_cli;
         dependencies = [
           {
             name = "clap";
-            packageId = "clap 3.2.23";
+            packageId = "clap 4.0.27";
           }
           {
             name = "tempfile";
@@ -2096,8 +2141,8 @@ rec {
         dependencies = [
           {
             name = "hermit-abi";
-            packageId = "hermit-abi";
-            target = { target, features }: (((target."arch" == "x86_64") || (target."arch" == "aarch64")) && (target."os" == "hermit"));
+            packageId = "hermit-abi 0.1.19";
+            target = { target, features }: ((("x86_64" == target."arch") || ("aarch64" == target."arch")) && ("hermit" == target."os"));
           }
           {
             name = "libc";
@@ -2272,12 +2317,12 @@ rec {
           {
             name = "wasm-bindgen";
             packageId = "wasm-bindgen";
-            target = { target, features }: ((target."arch" == "wasm32") && (!(target."os" == "wasi")));
+            target = { target, features }: (("wasm32" == target."arch") && (!("wasi" == target."os")));
           }
           {
             name = "web-sys";
             packageId = "web-sys";
-            target = { target, features }: ((target."arch" == "wasm32") && (!(target."os" == "wasi")));
+            target = { target, features }: (("wasm32" == target."arch") && (!("wasi" == target."os")));
             features = [ "Document" "DomRect" "Element" "HtmlElement" "Node" "Window" "HtmlCanvasElement" "CanvasRenderingContext2d" ];
           }
         ];
@@ -2866,7 +2911,7 @@ rec {
           {
             name = "fuchsia-cprng";
             packageId = "fuchsia-cprng";
-            target = { target, features }: (target."os" == "fuchsia");
+            target = { target, features }: ("fuchsia" == target."os");
           }
           {
             name = "libc";
@@ -2878,12 +2923,12 @@ rec {
             name = "rand_core";
             packageId = "rand_core 0.3.1";
             usesDefaultFeatures = false;
-            target = { target, features }: (target."env" == "sgx");
+            target = { target, features }: ("sgx" == target."env");
           }
           {
             name = "rdrand";
             packageId = "rdrand";
-            target = { target, features }: (target."env" == "sgx");
+            target = { target, features }: ("sgx" == target."env");
           }
           {
             name = "winapi";
@@ -3223,22 +3268,6 @@ rec {
         };
         resolvedDefaultFeatures = [ "aho-corasick" "default" "memchr" "perf" "perf-cache" "perf-dfa" "perf-inline" "perf-literal" "std" "unicode" "unicode-age" "unicode-bool" "unicode-case" "unicode-gencat" "unicode-perl" "unicode-script" "unicode-segment" ];
       };
-      "regex-automata" = rec {
-        crateName = "regex-automata";
-        version = "0.1.10";
-        edition = "2015";
-        sha256 = "0ci1hvbzhrfby5fdpf4ganhf7kla58acad9i1ff1p34dzdrhs8vc";
-        authors = [
-          "Andrew Gallant <jamslam@gmail.com>"
-        ];
-        features = {
-          "default" = [ "std" ];
-          "fst" = [ "dep:fst" ];
-          "regex-syntax" = [ "dep:regex-syntax" ];
-          "std" = [ "regex-syntax" ];
-          "transducer" = [ "std" "fst" ];
-        };
-      };
       "regex-syntax" = rec {
         crateName = "regex-syntax";
         version = "0.6.28";
@@ -3371,14 +3400,14 @@ rec {
             rename = "libc_errno";
             optional = true;
             usesDefaultFeatures = false;
-            target = { target, features }: ((!(target."rustix_use_libc" or false)) && (!(target."miri" or false)) && (target."os" == "linux") && ((target."arch" == "x86") || ((target."arch" == "x86_64") && (target."pointer_width" == "64")) || ((target."endian" == "little") && ((target."arch" == "arm") || ((target."arch" == "aarch64") && (target."pointer_width" == "64")) || (target."arch" == "powerpc64") || (target."arch" == "riscv64") || (target."arch" == "mips") || (target."arch" == "mips64")))));
+            target = { target, features }: ((!(target."rustix_use_libc" or false)) && (!(target."miri" or false)) && ("linux" == target."os") && (("x86" == target."arch") || (("x86_64" == target."arch") && ("64" == target."pointer_width")) || (("little" == target."endian") && (("arm" == target."arch") || (("aarch64" == target."arch") && ("64" == target."pointer_width")) || ("powerpc64" == target."arch") || ("riscv64" == target."arch") || ("mips" == target."arch") || ("mips64" == target."arch")))));
           }
           {
             name = "errno";
             packageId = "errno";
             rename = "libc_errno";
             usesDefaultFeatures = false;
-            target = { target, features }: ((target."rustix_use_libc" or false) || (target."miri" or false) || (!((target."os" == "linux") && ((target."arch" == "x86") || ((target."arch" == "x86_64") && (target."pointer_width" == "64")) || ((target."endian" == "little") && ((target."arch" == "arm") || ((target."arch" == "aarch64") && (target."pointer_width" == "64")) || (target."arch" == "powerpc64") || (target."arch" == "riscv64") || (target."arch" == "mips") || (target."arch" == "mips64")))))));
+            target = { target, features }: ((target."rustix_use_libc" or false) || (target."miri" or false) || (!(("linux" == target."os") && (("x86" == target."arch") || (("x86_64" == target."arch") && ("64" == target."pointer_width")) || (("little" == target."endian") && (("arm" == target."arch") || (("aarch64" == target."arch") && ("64" == target."pointer_width")) || ("powerpc64" == target."arch") || ("riscv64" == target."arch") || ("mips" == target."arch") || ("mips64" == target."arch")))))));
           }
           {
             name = "io-lifetimes";
@@ -3391,27 +3420,27 @@ rec {
             name = "libc";
             packageId = "libc";
             optional = true;
-            target = { target, features }: ((!(target."rustix_use_libc" or false)) && (!(target."miri" or false)) && (target."os" == "linux") && ((target."arch" == "x86") || ((target."arch" == "x86_64") && (target."pointer_width" == "64")) || ((target."endian" == "little") && ((target."arch" == "arm") || ((target."arch" == "aarch64") && (target."pointer_width" == "64")) || (target."arch" == "powerpc64") || (target."arch" == "riscv64") || (target."arch" == "mips") || (target."arch" == "mips64")))));
+            target = { target, features }: ((!(target."rustix_use_libc" or false)) && (!(target."miri" or false)) && ("linux" == target."os") && (("x86" == target."arch") || (("x86_64" == target."arch") && ("64" == target."pointer_width")) || (("little" == target."endian") && (("arm" == target."arch") || (("aarch64" == target."arch") && ("64" == target."pointer_width")) || ("powerpc64" == target."arch") || ("riscv64" == target."arch") || ("mips" == target."arch") || ("mips64" == target."arch")))));
             features = [ "extra_traits" ];
           }
           {
             name = "libc";
             packageId = "libc";
-            target = { target, features }: ((target."rustix_use_libc" or false) || (target."miri" or false) || (!((target."os" == "linux") && ((target."arch" == "x86") || ((target."arch" == "x86_64") && (target."pointer_width" == "64")) || ((target."endian" == "little") && ((target."arch" == "arm") || ((target."arch" == "aarch64") && (target."pointer_width" == "64")) || (target."arch" == "powerpc64") || (target."arch" == "riscv64") || (target."arch" == "mips") || (target."arch" == "mips64")))))));
+            target = { target, features }: ((target."rustix_use_libc" or false) || (target."miri" or false) || (!(("linux" == target."os") && (("x86" == target."arch") || (("x86_64" == target."arch") && ("64" == target."pointer_width")) || (("little" == target."endian") && (("arm" == target."arch") || (("aarch64" == target."arch") && ("64" == target."pointer_width")) || ("powerpc64" == target."arch") || ("riscv64" == target."arch") || ("mips" == target."arch") || ("mips64" == target."arch")))))));
             features = [ "extra_traits" ];
           }
           {
             name = "linux-raw-sys";
             packageId = "linux-raw-sys";
             usesDefaultFeatures = false;
-            target = { target, features }: (((target."os" == "android") || (target."os" == "linux")) && ((target."rustix_use_libc" or false) || (target."miri" or false) || (!((target."os" == "linux") && ((target."arch" == "x86") || ((target."arch" == "x86_64") && (target."pointer_width" == "64")) || ((target."endian" == "little") && ((target."arch" == "arm") || ((target."arch" == "aarch64") && (target."pointer_width" == "64")) || (target."arch" == "powerpc64") || (target."arch" == "riscv64") || (target."arch" == "mips") || (target."arch" == "mips64"))))))));
+            target = { target, features }: ((("android" == target."os") || ("linux" == target."os")) && ((target."rustix_use_libc" or false) || (target."miri" or false) || (!(("linux" == target."os") && (("x86" == target."arch") || (("x86_64" == target."arch") && ("64" == target."pointer_width")) || (("little" == target."endian") && (("arm" == target."arch") || (("aarch64" == target."arch") && ("64" == target."pointer_width")) || ("powerpc64" == target."arch") || ("riscv64" == target."arch") || ("mips" == target."arch") || ("mips64" == target."arch"))))))));
             features = [ "general" "no_std" ];
           }
           {
             name = "linux-raw-sys";
             packageId = "linux-raw-sys";
             usesDefaultFeatures = false;
-            target = { target, features }: ((!(target."rustix_use_libc" or false)) && (!(target."miri" or false)) && (target."os" == "linux") && ((target."arch" == "x86") || ((target."arch" == "x86_64") && (target."pointer_width" == "64")) || ((target."endian" == "little") && ((target."arch" == "arm") || ((target."arch" == "aarch64") && (target."pointer_width" == "64")) || (target."arch" == "powerpc64") || (target."arch" == "riscv64") || (target."arch" == "mips") || (target."arch" == "mips64")))));
+            target = { target, features }: ((!(target."rustix_use_libc" or false)) && (!(target."miri" or false)) && ("linux" == target."os") && (("x86" == target."arch") || (("x86_64" == target."arch") && ("64" == target."pointer_width")) || (("little" == target."endian") && (("arm" == target."arch") || (("aarch64" == target."arch") && ("64" == target."pointer_width")) || ("powerpc64" == target."arch") || ("riscv64" == target."arch") || ("mips" == target."arch") || ("mips64" == target."arch")))));
             features = [ "general" "errno" "ioctl" "no_std" ];
           }
           {
@@ -3425,6 +3454,7 @@ rec {
           {
             name = "errno";
             packageId = "errno";
+            rename = "libc_errno";
             usesDefaultFeatures = false;
           }
           {
@@ -3460,7 +3490,7 @@ rec {
           "use-libc" = [ "libc_errno" "libc" ];
           "use-libc-auxv" = [ "libc" ];
         };
-        resolvedDefaultFeatures = [ "default" "fs" "io-lifetimes" "libc" "std" "use-libc-auxv" ];
+        resolvedDefaultFeatures = [ "default" "fs" "io-lifetimes" "libc" "std" "termios" "use-libc-auxv" ];
       };
       "rustyline" = rec {
         crateName = "rustyline";
@@ -3607,39 +3637,25 @@ rec {
           "Erick Tryzelaar <erick.tryzelaar@gmail.com>"
           "David Tolnay <dtolnay@gmail.com>"
         ];
+        dependencies = [
+          {
+            name = "serde_derive";
+            packageId = "serde_derive";
+            optional = true;
+          }
+        ];
+        devDependencies = [
+          {
+            name = "serde_derive";
+            packageId = "serde_derive";
+          }
+        ];
         features = {
           "default" = [ "std" ];
           "derive" = [ "serde_derive" ];
           "serde_derive" = [ "dep:serde_derive" ];
         };
-        resolvedDefaultFeatures = [ "default" "std" ];
-      };
-      "serde_cbor" = rec {
-        crateName = "serde_cbor";
-        version = "0.11.2";
-        edition = "2018";
-        sha256 = "1xf1bq7ixha30914pd5jl3yw9v1x6car7xgrpimvfvs5vszjxvrb";
-        authors = [
-          "Pyfisch <pyfisch@posteo.org>"
-          "Steven Fackler <sfackler@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "half";
-            packageId = "half";
-          }
-          {
-            name = "serde";
-            packageId = "serde";
-            usesDefaultFeatures = false;
-          }
-        ];
-        features = {
-          "alloc" = [ "serde/alloc" ];
-          "default" = [ "std" ];
-          "std" = [ "serde/std" ];
-        };
-        resolvedDefaultFeatures = [ "default" "std" ];
+        resolvedDefaultFeatures = [ "alloc" "default" "derive" "serde_derive" "std" ];
       };
       "serde_derive" = rec {
         crateName = "serde_derive";
@@ -3680,7 +3696,7 @@ rec {
         dependencies = [
           {
             name = "itoa";
-            packageId = "itoa 1.0.4";
+            packageId = "itoa";
           }
           {
             name = "ryu";
@@ -3979,12 +3995,12 @@ rec {
           {
             name = "libc";
             packageId = "libc";
-            target = { target, features }: ((target."unix" or false) || (target."os" == "wasi"));
+            target = { target, features }: ((target."unix" or false) || ("wasi" == target."os"));
           }
           {
             name = "redox_syscall";
             packageId = "redox_syscall";
-            target = { target, features }: (target."os" == "redox");
+            target = { target, features }: ("redox" == target."os");
           }
           {
             name = "remove_dir_all";
@@ -4089,26 +4105,7 @@ rec {
           "serde" = [ "dep:serde" ];
         };
       };
-      "textwrap 0.11.0" = rec {
-        crateName = "textwrap";
-        version = "0.11.0";
-        edition = "2015";
-        sha256 = "0q5hky03ik3y50s9sz25r438bc4nwhqc6dqwynv4wylc807n29nk";
-        authors = [
-          "Martin Geisler <martin@geisler.net>"
-        ];
-        dependencies = [
-          {
-            name = "unicode-width";
-            packageId = "unicode-width";
-          }
-        ];
-        features = {
-          "hyphenation" = [ "dep:hyphenation" ];
-          "term_size" = [ "dep:term_size" ];
-        };
-      };
-      "textwrap 0.16.0" = rec {
+      "textwrap" = rec {
         crateName = "textwrap";
         version = "0.16.0";
         edition = "2021";
@@ -4191,13 +4188,22 @@ rec {
         version = "0.1.0";
         edition = "2021";
         crateBin = [
-          { name = "tvix-cli"; path = "src/main.rs"; }
+          {
+            name = "tvix-cli";
+            path = "src/main.rs";
+            requiredFeatures = [ ];
+          }
         ];
-        src = lib.cleanSourceWith { filter = sourceFilter; src = ./cli; };
+        # We can't filter paths with references in Nix 2.4
+        # See https://github.com/NixOS/nix/issues/5410
+        src =
+          if (lib.versionOlder builtins.nixVersion "2.4pre20211007")
+          then lib.cleanSourceWith { filter = sourceFilter; src = ./cli; }
+          else ./cli;
         dependencies = [
           {
             name = "clap";
-            packageId = "clap 3.2.23";
+            packageId = "clap 4.0.27";
             features = [ "derive" "env" ];
           }
           {
@@ -4219,7 +4225,12 @@ rec {
         crateName = "tvix-eval";
         version = "0.1.0";
         edition = "2021";
-        src = lib.cleanSourceWith { filter = sourceFilter; src = ./eval; };
+        # We can't filter paths with references in Nix 2.4
+        # See https://github.com/NixOS/nix/issues/5410
+        src =
+          if (lib.versionOlder builtins.nixVersion "2.4pre20211007")
+          then lib.cleanSourceWith { filter = sourceFilter; src = ./eval; }
+          else ./eval;
         libName = "tvix_eval";
         dependencies = [
           {
@@ -4325,7 +4336,12 @@ rec {
         crateName = "tvix-eval-builtin-macros";
         version = "0.0.1";
         edition = "2021";
-        src = lib.cleanSourceWith { filter = sourceFilter; src = ./eval/builtin-macros; };
+        # We can't filter paths with references in Nix 2.4
+        # See https://github.com/NixOS/nix/issues/5410
+        src =
+          if (lib.versionOlder builtins.nixVersion "2.4pre20211007")
+          then lib.cleanSourceWith { filter = sourceFilter; src = ./eval/builtin-macros; }
+          else ./eval/builtin-macros;
         procMacro = true;
         authors = [
           "Griffin Smith <root@gws.fyi>"
@@ -4358,9 +4374,18 @@ rec {
         version = "0.1.0";
         edition = "2021";
         crateBin = [
-          { name = "tvix-store"; path = "src/main.rs"; }
+          {
+            name = "tvix-store";
+            path = "src/main.rs";
+            requiredFeatures = [ ];
+          }
         ];
-        src = lib.cleanSourceWith { filter = sourceFilter; src = ./store; };
+        # We can't filter paths with references in Nix 2.4
+        # See https://github.com/NixOS/nix/issues/5410
+        src =
+          if (lib.versionOlder builtins.nixVersion "2.4pre20211007")
+          then lib.cleanSourceWith { filter = sourceFilter; src = ./store; }
+          else ./store;
         dependencies = [
           {
             name = "blake3";
@@ -5149,12 +5174,12 @@ rec {
           {
             name = "winapi-i686-pc-windows-gnu";
             packageId = "winapi-i686-pc-windows-gnu";
-            target = { target, features }: (stdenv.hostPlatform.config == "i686-pc-windows-gnu");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "i686-pc-windows-gnu");
           }
           {
             name = "winapi-x86_64-pc-windows-gnu";
             packageId = "winapi-x86_64-pc-windows-gnu";
-            target = { target, features }: (stdenv.hostPlatform.config == "x86_64-pc-windows-gnu");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "x86_64-pc-windows-gnu");
           }
         ];
         features = {
@@ -5212,62 +5237,62 @@ rec {
           {
             name = "windows_aarch64_gnullvm";
             packageId = "windows_aarch64_gnullvm";
-            target = { target, features }: (stdenv.hostPlatform.config == "aarch64-pc-windows-gnullvm");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "aarch64-pc-windows-gnullvm");
           }
           {
             name = "windows_aarch64_msvc";
             packageId = "windows_aarch64_msvc";
-            target = { target, features }: (stdenv.hostPlatform.config == "aarch64-pc-windows-msvc");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "aarch64-pc-windows-msvc");
           }
           {
             name = "windows_aarch64_msvc";
             packageId = "windows_aarch64_msvc";
-            target = { target, features }: (stdenv.hostPlatform.config == "aarch64-uwp-windows-msvc");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "aarch64-uwp-windows-msvc");
           }
           {
             name = "windows_i686_gnu";
             packageId = "windows_i686_gnu";
-            target = { target, features }: (stdenv.hostPlatform.config == "i686-pc-windows-gnu");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "i686-pc-windows-gnu");
           }
           {
             name = "windows_i686_gnu";
             packageId = "windows_i686_gnu";
-            target = { target, features }: (stdenv.hostPlatform.config == "i686-uwp-windows-gnu");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "i686-uwp-windows-gnu");
           }
           {
             name = "windows_i686_msvc";
             packageId = "windows_i686_msvc";
-            target = { target, features }: (stdenv.hostPlatform.config == "i686-pc-windows-msvc");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "i686-pc-windows-msvc");
           }
           {
             name = "windows_i686_msvc";
             packageId = "windows_i686_msvc";
-            target = { target, features }: (stdenv.hostPlatform.config == "i686-uwp-windows-msvc");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "i686-uwp-windows-msvc");
           }
           {
             name = "windows_x86_64_gnu";
             packageId = "windows_x86_64_gnu";
-            target = { target, features }: (stdenv.hostPlatform.config == "x86_64-pc-windows-gnu");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "x86_64-pc-windows-gnu");
           }
           {
             name = "windows_x86_64_gnu";
             packageId = "windows_x86_64_gnu";
-            target = { target, features }: (stdenv.hostPlatform.config == "x86_64-uwp-windows-gnu");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "x86_64-uwp-windows-gnu");
           }
           {
             name = "windows_x86_64_gnullvm";
             packageId = "windows_x86_64_gnullvm";
-            target = { target, features }: (stdenv.hostPlatform.config == "x86_64-pc-windows-gnullvm");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "x86_64-pc-windows-gnullvm");
           }
           {
             name = "windows_x86_64_msvc";
             packageId = "windows_x86_64_msvc";
-            target = { target, features }: (stdenv.hostPlatform.config == "x86_64-pc-windows-msvc");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "x86_64-pc-windows-msvc");
           }
           {
             name = "windows_x86_64_msvc";
             packageId = "windows_x86_64_msvc";
-            target = { target, features }: (stdenv.hostPlatform.config == "x86_64-uwp-windows-msvc");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "x86_64-uwp-windows-msvc");
           }
         ];
         features = {
@@ -5591,7 +5616,7 @@ rec {
           "Win32_UI_Xaml" = [ "Win32_UI" ];
           "Win32_UI_Xaml_Diagnostics" = [ "Win32_UI_Xaml" ];
         };
-        resolvedDefaultFeatures = [ "Win32" "Win32_Foundation" "Win32_NetworkManagement" "Win32_NetworkManagement_IpHelper" "Win32_Networking" "Win32_Networking_WinSock" "Win32_Security" "Win32_Storage" "Win32_Storage_FileSystem" "Win32_System" "Win32_System_IO" "Win32_System_Threading" "default" ];
+        resolvedDefaultFeatures = [ "Win32" "Win32_Foundation" "Win32_NetworkManagement" "Win32_NetworkManagement_IpHelper" "Win32_Networking" "Win32_Networking_WinSock" "Win32_Security" "Win32_Storage" "Win32_Storage_FileSystem" "Win32_System" "Win32_System_Console" "Win32_System_IO" "Win32_System_Threading" "default" ];
       };
       "windows_aarch64_gnullvm" = rec {
         crateName = "windows_aarch64_gnullvm";
@@ -5682,26 +5707,25 @@ rec {
     /* Target (platform) data for conditional dependencies.
       This corresponds roughly to what buildRustCrate is setting.
     */
-    defaultTarget = {
-      unix = true;
-      windows = false;
+    makeDefaultTarget = platform: {
+      unix = platform.isUnix;
+      windows = platform.isWindows;
       fuchsia = true;
       test = false;
 
-      # This doesn't appear to be officially documented anywhere yet.
-      # See https://github.com/rust-lang-nursery/rust-forge/issues/101.
-      os =
-        if stdenv.hostPlatform.isDarwin
-        then "macos"
-        else stdenv.hostPlatform.parsed.kernel.name;
-      arch = stdenv.hostPlatform.parsed.cpu.name;
-      family = "unix";
+      /* We are choosing an arbitrary rust version to grab `lib` from,
+      which is unfortunate, but `lib` has been version-agnostic the
+      whole time so this is good enough for now.
+      */
+      os = pkgs.rust.lib.toTargetOs platform;
+      arch = pkgs.rust.lib.toTargetArch platform;
+      family = pkgs.rust.lib.toTargetFamily platform;
       env = "gnu";
       endian =
-        if stdenv.hostPlatform.parsed.cpu.significantByte.name == "littleEndian"
+        if platform.parsed.cpu.significantByte.name == "littleEndian"
         then "little" else "big";
-      pointer_width = toString stdenv.hostPlatform.parsed.cpu.bits;
-      vendor = stdenv.hostPlatform.parsed.vendor.name;
+      pointer_width = toString platform.parsed.cpu.bits;
+      vendor = platform.parsed.vendor.name;
       debug_assertions = false;
     };
 
@@ -5904,12 +5928,12 @@ rec {
       , crateConfigs ? crates
       , buildRustCrateForPkgsFunc
       , runTests
-      , target ? defaultTarget
+      , makeTarget ? makeDefaultTarget
       } @ args:
         assert (builtins.isAttrs crateConfigs);
         assert (builtins.isString packageId);
         assert (builtins.isList features);
-        assert (builtins.isAttrs target);
+        assert (builtins.isAttrs (makeTarget stdenv.hostPlatform));
         assert (builtins.isBool runTests);
         let
           rootPackageId = packageId;
@@ -5917,7 +5941,7 @@ rec {
             (
               args // {
                 inherit rootPackageId;
-                target = target // { test = runTests; };
+                target = makeTarget stdenv.hostPlatform // { test = runTests; };
               }
             );
           # Memoize built packages so that reappearing packages are only built once.
@@ -5926,6 +5950,7 @@ rec {
             let
               self = {
                 crates = lib.mapAttrs (packageId: value: buildByPackageIdForPkgsImpl self pkgs packageId) crateConfigs;
+                target = makeTarget pkgs.stdenv.hostPlatform;
                 build = mkBuiltByPackageIdByPkgs pkgs.buildPackages;
               };
             in
@@ -5942,7 +5967,8 @@ rec {
                   (crateConfig'.devDependencies or [ ]);
               dependencies =
                 dependencyDerivations {
-                  inherit features target;
+                  inherit features;
+                  inherit (self) target;
                   buildByPackageId = depPackageId:
                     # proc_macro crates must be compiled for the build architecture
                     if crateConfigs.${depPackageId}.procMacro or false
@@ -5954,24 +5980,26 @@ rec {
                 };
               buildDependencies =
                 dependencyDerivations {
-                  inherit features target;
+                  inherit features;
+                  inherit (self.build) target;
                   buildByPackageId = depPackageId:
                     self.build.crates.${depPackageId};
                   dependencies = crateConfig.buildDependencies or [ ];
                 };
-              filterEnabledDependenciesForThis = dependencies: filterEnabledDependencies {
-                inherit dependencies features target;
-              };
               dependenciesWithRenames =
-                lib.filter (d: d ? "rename")
-                  (
-                    filterEnabledDependenciesForThis
-                      (
-                        (crateConfig.buildDependencies or [ ])
-                        ++ (crateConfig.dependencies or [ ])
-                        ++ devDependencies
-                      )
-                  );
+                let
+                  buildDeps = filterEnabledDependencies {
+                    inherit features;
+                    inherit (self) target;
+                    dependencies = crateConfig.dependencies or [ ] ++ devDependencies;
+                  };
+                  hostDeps = filterEnabledDependencies {
+                    inherit features;
+                    inherit (self.build) target;
+                    dependencies = crateConfig.buildDependencies or [ ];
+                  };
+                in
+                lib.filter (d: d ? "rename") (hostDeps ++ buildDeps);
               # Crate renames have the form:
               #
               # {
@@ -6046,7 +6074,7 @@ rec {
       else val;
 
     /* Returns various tools to debug a crate. */
-    debugCrate = { packageId, target ? defaultTarget }:
+    debugCrate = { packageId, target ? makeDefaultTarget stdenv.hostPlatform }:
       assert (builtins.isString packageId);
       let
         debug = rec {
@@ -6222,15 +6250,14 @@ rec {
         dependencies;
 
     /* Returns whether the given feature should enable the given dependency. */
-    doesFeatureEnableDependency = { name, rename ? null, ... }: feature:
+    doesFeatureEnableDependency = dependency: feature:
       let
+        name = dependency.rename or dependency.name;
         prefix = "${name}/";
         len = builtins.stringLength prefix;
         startsWithPrefix = builtins.substring 0 len feature == prefix;
       in
-      (rename == null && feature == name)
-      || (rename != null && rename == feature)
-      || startsWithPrefix;
+      feature == name || feature == "dep:" + name || startsWithPrefix;
 
     /* Returns the expanded features for the given inputFeatures by applying the
       rules in featureMap.
@@ -6265,7 +6292,9 @@ rec {
               let
                 enabled = builtins.any (doesFeatureEnableDependency dependency) features;
               in
-              if (dependency.optional or false) && enabled then [ dependency.name ] else [ ]
+              if (dependency.optional or false) && enabled
+              then [ (dependency.rename or dependency.name) ]
+              else [ ]
           )
           dependencies;
       in

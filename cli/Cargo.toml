@@ -6,5 +6,5 @@ edition = "2021"
 [dependencies]
 tvix-eval = { path = "../eval" }
 rustyline = "10.0.0"
-clap = { version = "3.2.22", features = ["derive", "env"] }
+clap = { version = "4.0", features = ["derive", "env"] }
 dirs = "4.0.0"

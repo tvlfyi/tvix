@@ -1,6 +1,9 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use itertools::Itertools;
-use tvix_eval::interpret;
+
+fn interpret(code: &str) {
+    tvix_eval::Evaluation::new(code).evaluate()
+}
 
 fn eval_literals(c: &mut Criterion) {
     c.bench_function("int", |b| {
