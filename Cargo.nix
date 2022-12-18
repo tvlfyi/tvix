@@ -4036,7 +4036,12 @@ rec {
         crateName = "test-generator";
         version = "0.3.0";
         edition = "2018";
-        sha256 = "1h03y4503jhhrks4m7xqfjya9lsx3ip5dlbldr7mgcws6j8bx5za";
+        workspace_member = null;
+        src = pkgs.fetchgit {
+          url = "https://github.com/JamesGuthrie/test-generator.git";
+          rev = "82e799979980962aec1aa324ec6e0e4cad781f41";
+          sha256 = "08brp3qqa55hijc7xby3lam2cc84hvx1zzfqv6lj7smlczh8k32y";
+        };
         procMacro = true;
         authors = [
           "Frank Rehberger <frehberg@gmail.com>"

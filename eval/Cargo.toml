@@ -27,10 +27,15 @@ rnix = "0.11.0"
 
 [dev-dependencies]
 criterion = "0.4"
-test-generator = "0.3.0"
 pretty_assertions = "1.2.1"
 itertools = "0.10.3"
 tempdir = "0.3.7"
+
+[dev-dependencies.test-generator]
+# This fork of test-generator adds support for cargo workspaces, see
+# also https://github.com/frehberg/test-generator/pull/14
+git = "https://github.com/JamesGuthrie/test-generator.git"
+rev = "82e799979980962aec1aa324ec6e0e4cad781f41"
 
 [features]
 default = [ "impure", "arbitrary", "nix_tests", "backtrace_overflow" ]
