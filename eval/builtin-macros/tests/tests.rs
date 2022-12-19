@@ -7,7 +7,9 @@ mod builtins {
     use tvix_eval::internal::VM;
     use tvix_eval::{ErrorKind, Value};
 
-    /// Test docstring
+    /// Test docstring.
+    ///
+    /// It has multiple lines!
     #[builtin("identity")]
     pub fn builtin_identity(_vm: &mut VM, x: Value) -> Result<Value, ErrorKind> {
         Ok(x)
@@ -25,5 +27,12 @@ fn builtins() {
     assert_eq!(builtins.len(), 2);
 
     let identity = builtins.iter().find(|b| b.name() == "identity").unwrap();
-    assert_eq!(identity.documentation(), Some(" Test docstring"));
+    assert_eq!(
+        identity.documentation(),
+        Some(
+            r#" Test docstring.
+
+ It has multiple lines!"#
+        )
+    );
 }

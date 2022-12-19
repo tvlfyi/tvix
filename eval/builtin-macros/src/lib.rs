@@ -22,11 +22,14 @@ impl Parse for BuiltinArgs {
     }
 }
 
-fn extract_docstring(attrs: &[Attribute]) -> Option<LitStr> {
+fn extract_docstring(attrs: &[Attribute]) -> Option<String> {
     // Rust docstrings are transparently written pre-macro expansion into an attribute that looks
     // like:
     //
     // #[doc = "docstring here"]
+    //
+    // Multi-line docstrings yield multiple attributes in order, which we assemble into a single
+    // string below.
 
     #[allow(dead_code)]
     #[derive(Debug)]
@@ -47,8 +50,19 @@ fn extract_docstring(attrs: &[Attribute]) -> Option<LitStr> {
     attrs
         .iter()
         .filter(|attr| attr.path.get_ident().into_iter().any(|id| id == "doc"))
-        .find_map(|attr| parse2::<Docstring>(attr.tokens.clone()).ok())
-        .map(|docstring| docstring.doc)
+        .filter_map(|attr| parse2::<Docstring>(attr.tokens.clone()).ok())
+        .map(|docstring| docstring.doc.value())
+        .reduce(|mut fst, snd| {
+            if snd.is_empty() {
+                // An empty string represents a spacing newline that was added in the
+                // original doc comment.
+                fst.push_str("\n\n");
+            } else {
+                fst.push_str(&snd);
+            }
+
+            fst
+        })
 }
 
 /// Mark the annotated module as a module for defining Nix builtins.
