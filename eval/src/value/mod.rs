@@ -433,6 +433,39 @@ impl Value {
             }
         }
     }
+
+    /// Explain a value in a human-readable way, e.g. by presenting
+    /// the docstrings of functions if present.
+    pub fn explain(&self) -> String {
+        match self {
+            Value::Null => "the 'null' value".into(),
+            Value::Bool(b) => format!("the boolean value '{}'", b),
+            Value::Integer(i) => format!("the integer '{}'", i),
+            Value::Float(f) => format!("the float '{}'", f),
+            Value::String(s) => format!("the string '{}'", s),
+            Value::Path(p) => format!("the path '{}'", p.to_string_lossy()),
+            Value::Attrs(attrs) => format!("a {}-item attribute set", attrs.len()),
+            Value::List(list) => format!("a {}-item list", list.len()),
+            Value::Closure(_f) => format!("a user-defined Nix function"), // TODO: name, loc, etc.
+
+            Value::Builtin(b) => {
+                let mut out = format!("the builtin function '{}'", b.name());
+                if let Some(docs) = b.documentation() {
+                    out.push_str("\n\n");
+                    out.push_str(docs);
+                }
+                out
+            }
+
+            // TODO: handle suspended thunks with a different explanation instead of panicking
+            Value::Thunk(t) => t.value().explain(),
+
+            Value::AttrNotFound
+            | Value::Blueprint(_)
+            | Value::DeferredUpvalue(_)
+            | Value::UnresolvedPath(_) => "an internal Tvix evaluator value".into(),
+        }
+    }
 }
 
 trait TotalDisplay {
