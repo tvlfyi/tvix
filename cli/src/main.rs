@@ -39,7 +39,7 @@ struct Args {
 /// Interprets the given code snippet, printing out warnings, errors
 /// and the result itself. The return value indicates whether
 /// evaluation succeeded.
-fn interpret(code: &str, path: Option<PathBuf>, args: &Args) -> bool {
+fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> bool {
     let mut eval = tvix_eval::Evaluation::new(code, path);
     eval.io_handle = Box::new(nix_compat::NixCompatIO::new());
     eval.nix_path = args.nix_search_path.clone();
@@ -75,7 +75,11 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args) -> bool {
     }
 
     if let Some(value) = result.value.as_ref() {
-        println_result(value, args.raw);
+        if explain {
+            println!("=> {}", value.explain());
+        } else {
+            println_result(value, args.raw);
+        }
     }
 
     // inform the caller about any errors
@@ -88,7 +92,7 @@ fn main() {
     if let Some(file) = &args.script {
         run_file(file.clone(), &args)
     } else if let Some(expr) = &args.expr {
-        if !interpret(expr, None, &args) {
+        if !interpret(expr, None, &args, false) {
             std::process::exit(1);
         }
     } else {
@@ -102,7 +106,7 @@ fn run_file(mut path: PathBuf, args: &Args) {
     }
     let contents = fs::read_to_string(&path).expect("failed to read the input file");
 
-    if !interpret(&contents, Some(path), args) {
+    if !interpret(&contents, Some(path), args, false) {
         std::process::exit(1);
     }
 }
@@ -148,7 +152,12 @@ fn run_prompt(args: &Args) {
                 }
 
                 rl.add_history_entry(&line);
-                interpret(&line, None, args);
+
+                if let Some(without_prefix) = line.strip_prefix(":d ") {
+                    interpret(without_prefix, None, args, true);
+                } else {
+                    interpret(&line, None, args, false);
+                }
             }
             Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => break,
 
