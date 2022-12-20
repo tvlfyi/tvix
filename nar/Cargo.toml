@@ -1,4 +1,4 @@
 [package]
-name = "tvix_nar"
+name = "tvix-nar"
 version = "0.0.0"
 edition = "2021"
