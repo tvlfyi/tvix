@@ -74,7 +74,7 @@ impl<'a> Serialize for SerializeAST<&'a ast::Select> {
     }
 }
 
-impl<'a> Serialize for SerializeAST<ast::InterpolPart<String>> {
+impl Serialize for SerializeAST<ast::InterpolPart<String>> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match &self.0 {
             ast::InterpolPart::Literal(s) => Serialize::serialize(s, serializer),
@@ -96,7 +96,7 @@ impl<'a> Serialize for SerializeAST<&'a ast::Str> {
                 .0
                 .normalized_parts()
                 .into_iter()
-                .map(|part| SerializeAST(part))
+                .map(SerializeAST)
                 .collect::<Vec<_>>(),
         )?;
 
@@ -104,7 +104,7 @@ impl<'a> Serialize for SerializeAST<&'a ast::Str> {
     }
 }
 
-impl<'a> Serialize for SerializeAST<ast::InterpolPart<ast::PathContent>> {
+impl Serialize for SerializeAST<ast::InterpolPart<ast::PathContent>> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match &self.0 {
             ast::InterpolPart::Literal(p) => Serialize::serialize(p.syntax().text(), serializer),
@@ -122,11 +122,7 @@ impl<'a> Serialize for SerializeAST<&'a ast::Path> {
 
         map.serialize_entry(
             "parts",
-            &self
-                .0
-                .parts()
-                .map(|part| SerializeAST(part))
-                .collect::<Vec<_>>(),
+            &self.0.parts().map(SerializeAST).collect::<Vec<_>>(),
         )?;
 
         map.end()
@@ -148,7 +144,7 @@ impl<'a> Serialize for SerializeAST<&'a ast::Literal> {
     }
 }
 
-impl<'a> Serialize for SerializeAST<ast::PatEntry> {
+impl Serialize for SerializeAST<ast::PatEntry> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut map = serializer.serialize_map(None)?;
         map.serialize_entry("ident", &SerializeAST(&self.0.ident().unwrap()))?;
@@ -161,7 +157,7 @@ impl<'a> Serialize for SerializeAST<ast::PatEntry> {
     }
 }
 
-impl<'a> Serialize for SerializeAST<ast::Param> {
+impl Serialize for SerializeAST<ast::Param> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match &self.0 {
             ast::Param::Pattern(pat) => {
@@ -170,9 +166,7 @@ impl<'a> Serialize for SerializeAST<ast::Param> {
 
                 map.serialize_entry(
                     "entries",
-                    &pat.pat_entries()
-                        .map(|entry| SerializeAST(entry))
-                        .collect::<Vec<_>>(),
+                    &pat.pat_entries().map(SerializeAST).collect::<Vec<_>>(),
                 )?;
 
                 if let Some(bind) = pat.pat_bind() {
@@ -211,17 +205,13 @@ impl<'a> Serialize for SerializeAST<&'a ast::LegacyLet> {
             &self
                 .0
                 .attrpath_values()
-                .map(|val| SerializeAST(val))
+                .map(SerializeAST)
                 .collect::<Vec<_>>(),
         )?;
 
         map.serialize_entry(
             "inherits",
-            &self
-                .0
-                .inherits()
-                .map(|val| SerializeAST(val))
-                .collect::<Vec<_>>(),
+            &self.0.inherits().map(SerializeAST).collect::<Vec<_>>(),
         )?;
 
         map.end()
@@ -238,17 +228,13 @@ impl<'a> Serialize for SerializeAST<&'a ast::LetIn> {
             &self
                 .0
                 .attrpath_values()
-                .map(|val| SerializeAST(val))
+                .map(SerializeAST)
                 .collect::<Vec<_>>(),
         )?;
 
         map.serialize_entry(
             "inherits",
-            &self
-                .0
-                .inherits()
-                .map(|val| SerializeAST(val))
-                .collect::<Vec<_>>(),
+            &self.0.inherits().map(SerializeAST).collect::<Vec<_>>(),
         )?;
 
         map.serialize_entry("body", &SerializeAST(&self.0.body().unwrap()))?;
@@ -258,11 +244,7 @@ impl<'a> Serialize for SerializeAST<&'a ast::LetIn> {
 
 impl<'a> Serialize for SerializeAST<&'a ast::List> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let list = self
-            .0
-            .items()
-            .map(|elem| SerializeAST(elem))
-            .collect::<Vec<_>>();
+        let list = self.0.items().map(SerializeAST).collect::<Vec<_>>();
 
         let mut map = serializer.serialize_map(Some(2))?;
         map.serialize_entry("kind", "list")?;
@@ -322,7 +304,7 @@ impl<'a> Serialize for SerializeAST<&'a ast::Root> {
     }
 }
 
-impl<'a> Serialize for SerializeAST<ast::AttrpathValue> {
+impl Serialize for SerializeAST<ast::AttrpathValue> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut map = serializer.serialize_map(Some(2))?;
         map.serialize_entry("name", &SerializeAST(self.0.attrpath().unwrap()))?;
@@ -331,7 +313,7 @@ impl<'a> Serialize for SerializeAST<ast::AttrpathValue> {
     }
 }
 
-impl<'a> Serialize for SerializeAST<ast::Inherit> {
+impl Serialize for SerializeAST<ast::Inherit> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut map = serializer.serialize_map(None)?;
 
@@ -341,7 +323,7 @@ impl<'a> Serialize for SerializeAST<ast::Inherit> {
 
         map.serialize_entry(
             "names",
-            &self.0.attrs().map(|a| SerializeAST(a)).collect::<Vec<_>>(),
+            &self.0.attrs().map(SerializeAST).collect::<Vec<_>>(),
         )?;
 
         map.end()
@@ -359,17 +341,13 @@ impl<'a> Serialize for SerializeAST<&'a ast::AttrSet> {
             &self
                 .0
                 .attrpath_values()
-                .map(|val| SerializeAST(val))
+                .map(SerializeAST)
                 .collect::<Vec<_>>(),
         )?;
 
         map.serialize_entry(
             "inherits",
-            &self
-                .0
-                .inherits()
-                .map(|val| SerializeAST(val))
-                .collect::<Vec<_>>(),
+            &self.0.inherits().map(SerializeAST).collect::<Vec<_>>(),
         )?;
 
         map.end()
@@ -439,11 +417,7 @@ impl Serialize for SerializeAST<ast::Attrpath> {
 
         map.serialize_entry(
             "path",
-            &self
-                .0
-                .attrs()
-                .map(|attr| SerializeAST(attr))
-                .collect::<Vec<_>>(),
+            &self.0.attrs().map(SerializeAST).collect::<Vec<_>>(),
         )?;
 
         map.end()

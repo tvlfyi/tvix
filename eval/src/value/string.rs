@@ -172,7 +172,7 @@ fn is_valid_nix_identifier(s: &str) -> bool {
             _ => return false,
         }
     }
-    return true;
+    true
 }
 
 /// Escape a Nix string for display, as most user-visible representation

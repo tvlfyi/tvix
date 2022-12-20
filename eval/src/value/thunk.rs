@@ -143,7 +143,7 @@ impl Thunk {
                 }) => vm.enter_frame(lambda, upvalues, arg_count)?,
             }
             match trampoline.continuation {
-                None => break (),
+                None => break,
                 Some(cont) => {
                     trampoline = cont(vm)?;
                     continue;
@@ -203,7 +203,7 @@ impl Thunk {
                         return Ok(Trampoline {
                             action: Some(TrampolineAction::EnterFrame {
                                 lambda,
-                                upvalues: upvalues.clone(),
+                                upvalues,
                                 arg_count: 0,
                                 light_span: light_span.clone(),
                             }),
@@ -212,10 +212,10 @@ impl Thunk {
                                     self_clone.0.replace(ThunkRepr::Evaluated(vm.pop()));
                                 assert!(matches!(should_be_blackhole, ThunkRepr::Blackhole));
                                 vm.push(Value::Thunk(self_clone));
-                                return Self::force_trampoline(vm).map_err(|kind| Error {
+                                Self::force_trampoline(vm).map_err(|kind| Error {
                                     kind,
                                     span: light_span.span(),
-                                });
+                                })
                             })),
                         });
                     }
@@ -268,7 +268,7 @@ impl Thunk {
                     panic!("Thunk::value called on an unfinalised closure");
                 }
                 */
-                return value;
+                value
             }
             ThunkRepr::Blackhole => panic!("Thunk::value called on a black-holed thunk"),
             ThunkRepr::Suspended { .. } => panic!("Thunk::value called on a suspended thunk"),

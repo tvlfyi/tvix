@@ -92,7 +92,6 @@ pub struct NixSearchPath {
 impl NixSearchPath {
     /// Attempt to resolve the given `path` within this [`NixSearchPath`] using the
     /// path resolution rules for `<...>`-style paths
-    #[allow(dead_code)] // TODO(grfn)
     pub fn resolve<P>(&self, path: P) -> Result<PathBuf, ErrorKind>
     where
         P: AsRef<Path>,

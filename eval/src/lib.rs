@@ -223,7 +223,7 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
                     None
                 }
             })
-            .unwrap_or_else(|| Default::default());
+            .unwrap_or_default();
 
         let runtime_observer = self.runtime_observer.take().unwrap_or(&mut noop_observer);
         let vm_result = run_lambda(

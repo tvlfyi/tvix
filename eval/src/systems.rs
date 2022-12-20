@@ -1,10 +1,7 @@
 /// true iff the argument is recognized by cppnix as the second
 /// coordinate of a "nix double"
 fn is_second_coordinate(x: &str) -> bool {
-    match x {
-        "linux" | "darwin" | "netbsd" | "openbsd" | "freebsd" => true,
-        _ => false,
-    }
+    matches!(x, "linux" | "darwin" | "netbsd" | "openbsd" | "freebsd")
 }
 
 /// This function takes an llvm triple (which may have three or four
@@ -16,7 +13,7 @@ pub fn llvm_triple_to_nix_double(llvm_triple: &str) -> String {
     let cpu = match parts[0] {
         "armv6" => "armv6l", // cppnix appends an "l" to armv6
         "armv7" => "armv7l", // cppnix appends an "l" to armv7
-        x => match x.as_bytes().as_ref() {
+        x => match x.as_bytes() {
             [b'i', _, b'8', b'6'] => "i686", // cppnix glob-matches against i*86
             _ => x,
         },

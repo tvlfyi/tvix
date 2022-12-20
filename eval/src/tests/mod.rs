@@ -49,15 +49,13 @@ fn eval_test(code_path: &str, expect_success: bool) {
                 "{code_path}: test passed unexpectedly!  consider moving it out of notyetpassing"
             );
         }
+    } else if expect_success {
+        panic!("{code_path}: should be able to read test expectation");
     } else {
-        if expect_success {
-            panic!("{code_path}: should be able to read test expectation");
-        } else {
-            panic!(
-                "{code_path}: test should have failed, but succeeded with output {}",
-                result_str
-            );
-        }
+        panic!(
+            "{code_path}: test should have failed, but succeeded with output {}",
+            result_str
+        );
     }
 }
 

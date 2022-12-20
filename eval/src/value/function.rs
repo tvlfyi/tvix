@@ -30,7 +30,7 @@ impl Formals {
         Q: ?Sized + Hash + Eq,
         NixString: std::borrow::Borrow<Q>,
     {
-        self.ellipsis || self.arguments.contains_key(&arg)
+        self.ellipsis || self.arguments.contains_key(arg)
     }
 }
 

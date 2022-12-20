@@ -558,7 +558,7 @@ impl Compiler<'_> {
                 self.emit_force(s);
             }
 
-            ast::Attr::Ident(ident) => self.emit_literal_ident(&ident),
+            ast::Attr::Ident(ident) => self.emit_literal_ident(ident),
         }
     }
 
@@ -1232,7 +1232,7 @@ pub fn compile(
 
     let root_span = c.span_for(expr);
     let root_slot = c.scope_mut().declare_phantom(root_span, false);
-    c.compile(root_slot, &expr);
+    c.compile(root_slot, expr);
 
     // The final operation of any top-level Nix program must always be
     // `OpForce`. A thunk should not be returned to the user in an
@@ -1247,6 +1247,6 @@ pub fn compile(
         lambda,
         warnings: c.warnings,
         errors: c.errors,
-        globals: globals,
+        globals,
     })
 }

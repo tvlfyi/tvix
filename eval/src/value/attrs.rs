@@ -321,7 +321,6 @@ impl NixAttrs {
             }
         }
 
-        // TODO(tazjin): extend_reserve(count) (rust#72631)
         let mut attrs = NixAttrs(AttrsRep::Map(BTreeMap::new()));
 
         for _ in 0..count {

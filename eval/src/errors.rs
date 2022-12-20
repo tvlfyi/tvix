@@ -539,8 +539,8 @@ fn spans_for_parse_errors(file: &File, errors: &[rnix::parser::ParseError]) -> V
                         span,
                         format!(
                             "found '{}', but expected {}",
-                            name_for_syntax(&found),
-                            expected_syntax(&wanted),
+                            name_for_syntax(found),
+                            expected_syntax(wanted),
                         ),
                     )
                 }
@@ -565,7 +565,7 @@ fn spans_for_parse_errors(file: &File, errors: &[rnix::parser::ParseError]) -> V
                         file.span,
                         format!(
                             "code ended unexpectedly, but wanted {}",
-                            expected_syntax(&wanted)
+                            expected_syntax(wanted)
                         ),
                     )
                 }
@@ -580,9 +580,8 @@ fn spans_for_parse_errors(file: &File, errors: &[rnix::parser::ParseError]) -> V
 
                 rnix::parser::ParseError::RecursionLimitExceeded => (
                     file.span,
-                    format!(
-                        "this code exceeds the parser's recursion limit, please report a Tvix bug"
-                    ),
+                    "this code exceeds the parser's recursion limit, please report a Tvix bug"
+                        .to_string(),
                 ),
 
                 // TODO: can rnix even still throw this? it's semantic!
@@ -727,7 +726,7 @@ impl Error {
     fn spans(&self, source: &SourceCode) -> Vec<SpanLabel> {
         match &self.kind {
             ErrorKind::ImportParseError { errors, file, .. } => {
-                spans_for_parse_errors(&file, errors)
+                spans_for_parse_errors(file, errors)
             }
 
             ErrorKind::ParseErrors(errors) => {

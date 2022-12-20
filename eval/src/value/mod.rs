@@ -217,7 +217,7 @@ impl Value {
                         if let Value::Thunk(t) = f {
                             t.force(vm)?;
                             let guard = t.value();
-                            call_to_string(&*guard, vm)
+                            call_to_string(&guard, vm)
                         } else {
                             call_to_string(f, vm)
                         }
@@ -451,7 +451,7 @@ impl Value {
                 if let Some(name) = &f.lambda.name {
                     format!("the user-defined Nix function '{}'", name)
                 } else {
-                    format!("a user-defined Nix function")
+                    "a user-defined Nix function".to_string()
                 }
             }
 

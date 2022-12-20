@@ -804,7 +804,7 @@ impl Compiler<'_> {
         }
 
         if let Some(ast::InterpolPart::Literal(lit)) = parts.pop() {
-            return Some(SmolStr::new(&lit));
+            return Some(SmolStr::new(lit));
         }
 
         None
@@ -812,7 +812,6 @@ impl Compiler<'_> {
 
     /// Convert the provided `ast::Attr` into a statically known string if
     /// possible.
-    // TODO(tazjin): these should probably be SmolStr
     fn expr_static_attr_str(&self, node: &ast::Attr) -> Option<SmolStr> {
         match node {
             ast::Attr::Ident(ident) => Some(ident.ident_token().unwrap().text().into()),

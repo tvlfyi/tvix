@@ -414,7 +414,7 @@ mod pure_builtins {
         let mut res: BTreeMap<NixString, Vec<Value>> = BTreeMap::new();
         for val in list.to_list()? {
             let key = vm.call_with(&f, [val.clone()])?.force(vm)?.to_str()?;
-            res.entry(key).or_insert_with(|| vec![]).push(val);
+            res.entry(key).or_insert_with(std::vec::Vec::new).push(val);
         }
         Ok(Value::attrs(NixAttrs::from_iter(
             res.into_iter()
@@ -688,7 +688,7 @@ mod pure_builtins {
                 // We already applied a from->to with an empty from
                 // transformation.
                 // Let's skip it so that we don't loop infinitely
-                if empty_string_replace && from.as_str().len() == 0 {
+                if empty_string_replace && from.as_str().is_empty() {
                     continue;
                 }
 
@@ -698,7 +698,7 @@ mod pure_builtins {
                     i += from.len();
 
                     // remember if we applied the empty from->to
-                    empty_string_replace = from.as_str().len() == 0;
+                    empty_string_replace = from.as_str().is_empty();
 
                     continue 'outer;
                 }
@@ -719,7 +719,7 @@ mod pure_builtins {
             let from = elem.0.to_str()?;
             let to = elem.1.to_str()?;
 
-            if from.as_str().len() == 0 {
+            if from.as_str().is_empty() {
                 res += &to;
                 break;
             }
@@ -866,9 +866,7 @@ mod pure_builtins {
         let len = len as usize;
         let end = cmp::min(beg + len, x.as_str().len());
 
-        Ok(Value::String(
-            x.as_str()[(beg as usize)..(end as usize)].into(),
-        ))
+        Ok(Value::String(x.as_str()[beg..end].into()))
     }
 
     #[builtin("tail")]
@@ -1070,10 +1068,7 @@ pub fn global_builtins(source: SourceCode) -> GlobalsMapFunc {
 
             // We need to insert import into the builtins, but the
             // builtins passed to import must have import *in it*.
-            let import = Value::Builtin(crate::builtins::impure::builtins_import(
-                globals,
-                source.clone(),
-            ));
+            let import = Value::Builtin(crate::builtins::impure::builtins_import(globals, source));
 
             map.insert("import", import);
         };
