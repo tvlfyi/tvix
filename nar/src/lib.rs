@@ -1,15 +1,51 @@
+//! Implements an interface for writing the Nix archive format (NAR).
+//!
+//! NAR files (and their hashed representations) are used in C++ Nix for
+//! addressing fixed-output derivations and a variety of other things.
+//!
+//! NAR files can be output to any type that implements [`Write`], and content
+//! can be read from any type that implementes [`BufRead`].
+//!
+//! Writing a single file might look like this:
+//!
+//! ```rust
+//! # use std::io::BufReader;
+//! # let some_file: Vec<u8> = vec![0, 1, 2, 3, 4];
+//!
+//! // Output location to write the NAR to.
+//! let mut sink: Vec<u8> = Vec::new();
+//!
+//! // Instantiate writer for this output location.
+//! let mut nar = tvix_nar::open(&mut sink)?;
+//!
+//! // Acquire metadata for the single file to output, and pass it in a
+//! // `BufRead`-implementing type.
+//!
+//! let executable = false;
+//! let size = some_file.len() as u64;
+//! let mut reader = BufReader::new(some_file.as_slice());
+//! nar.file(executable, size, &mut reader)?;
+//! # Ok::<(), std::io::Error>(())
+//! ```
+
 use std::io::{self, BufRead, ErrorKind::UnexpectedEof, Write};
 
 mod wire;
 
+/// Convenience type alias for types implementing [`Write`].
 pub type Writer<'a> = dyn Write + 'a;
 
+/// Create a new NAR, writing the output to the specified writer.
 pub fn open<'a, 'w: 'a>(writer: &'a mut Writer<'w>) -> io::Result<Node<'a, 'w>> {
     let mut node = Node { writer };
     node.write(&wire::TOK_NAR)?;
     Ok(node)
 }
 
+/// Single node in a NAR file.
+///
+/// A NAR can be thought of as a tree of nodes represented by this type. Each
+/// node can be a file, a symlink or a directory containing other nodes.
 pub struct Node<'a, 'w: 'a> {
     writer: &'a mut Writer<'w>,
 }
@@ -26,6 +62,7 @@ impl<'a, 'w> Node<'a, 'w> {
         }
     }
 
+    /// Make this node a symlink.
     pub fn symlink(mut self, target: &str) -> io::Result<()> {
         debug_assert!(
             target.len() <= wire::MAX_TARGET_LEN,
@@ -46,6 +83,7 @@ impl<'a, 'w> Node<'a, 'w> {
         Ok(())
     }
 
+    /// Make this node a single file.
     pub fn file(mut self, executable: bool, size: u64, reader: &mut dyn BufRead) -> io::Result<()> {
         self.write(if executable {
             &wire::TOK_EXE
@@ -76,6 +114,8 @@ impl<'a, 'w> Node<'a, 'w> {
         Ok(())
     }
 
+    /// Make this node a directory, the content of which is set using the
+    /// resulting [`Directory`] value.
     pub fn directory(mut self) -> io::Result<Directory<'a, 'w>> {
         self.write(&wire::TOK_DIR)?;
         Ok(Directory::new(self))
@@ -92,6 +132,7 @@ fn into_name(_name: &str) -> Name {
     _name.to_owned()
 }
 
+/// Content of a NAR node that represents a directory.
 pub struct Directory<'a, 'w> {
     node: Node<'a, 'w>,
     prev_name: Option<Name>,
@@ -105,6 +146,10 @@ impl<'a, 'w> Directory<'a, 'w> {
         }
     }
 
+    /// Add an entry to the directory.
+    ///
+    /// The entry is simply another [`Node`], which can then be filled like the
+    /// root of a NAR (including, of course, by nesting directories).
     pub fn entry(&mut self, name: &str) -> io::Result<Node<'_, 'w>> {
         debug_assert!(
             name.len() <= wire::MAX_NAME_LEN,
@@ -146,6 +191,10 @@ impl<'a, 'w> Directory<'a, 'w> {
         })
     }
 
+    /// Close a directory and write terminators for the directory to the NAR.
+    ///
+    /// **Important:** This *must* be called when all entries have been written
+    /// in a directory, otherwise the resulting NAR file will be invalid.
     pub fn close(mut self) -> io::Result<()> {
         if self.prev_name.is_some() {
             self.node.write(&wire::TOK_PAR)?;
