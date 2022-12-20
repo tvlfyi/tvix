@@ -446,7 +446,14 @@ impl Value {
             Value::Path(p) => format!("the path '{}'", p.to_string_lossy()),
             Value::Attrs(attrs) => format!("a {}-item attribute set", attrs.len()),
             Value::List(list) => format!("a {}-item list", list.len()),
-            Value::Closure(_f) => format!("a user-defined Nix function"), // TODO: name, loc, etc.
+
+            Value::Closure(f) => {
+                if let Some(name) = &f.lambda.name {
+                    format!("the user-defined Nix function '{}'", name)
+                } else {
+                    format!("a user-defined Nix function")
+                }
+            }
 
             Value::Builtin(b) => {
                 let mut out = format!("the builtin function '{}'", b.name());
