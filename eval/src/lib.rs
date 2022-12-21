@@ -131,7 +131,6 @@ pub struct EvaluationResult {
 impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
     /// Initialise an `Evaluation` for the given Nix source code snippet, and
     /// an optional code location.
-    /// reporting the location of errors in the code.
     pub fn new(code: &'code str, location: Option<PathBuf>) -> Self {
         let source_map = SourceCode::new();
 
