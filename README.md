@@ -14,14 +14,9 @@ single Rust workspace in `//tvix` to maintain the Nix build
 configuration.
 
 When making changes to Cargo dependency configuration in any of the
-Rust projects under `//tvix`, be sure to run `crate2nix generate` in
-`//tvix` itself and commit the changes to the generated `Cargo.nix`
-file.
-
-`crate2nix` is available via `direnv` inside of depot, or can be built
-from the `third_party.nixpkgs.crate2nix` attribute of depot. Make sure
-to build it from depot to avoid generating files with a different
-version that might have different output.
+Rust projects under `//tvix`, be sure to run
+`mg run //tvix:crate2nixGenerate --` in `//tvix` itself and commit the changes
+to the generated `Cargo.nix` file.
 
 ## License structure
 

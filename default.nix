@@ -1,5 +1,5 @@
 # Nix helpers for projects under //tvix
-{ pkgs, ... }:
+{ pkgs, depot, ... }:
 
 {
   # Load the crate2nix crate tree.
@@ -7,6 +7,13 @@
     inherit pkgs;
     nixpkgs = pkgs.path;
   };
+
+  # Run crate2nix generate in the current working directory, then
+  # format the generated file with depotfmt.
+  crate2nixGenerate = pkgs.writeShellScriptBin "crate2nix-generate" ''
+    ${pkgs.crate2nix}/bin/crate2nix generate
+    ${depot.tools.depotfmt}/bin/depotfmt Cargo.nix
+  '';
 
   # Provide a shell for the combined dependencies of all Tvix Rust
   # projects. Note that as this is manually maintained it may be
