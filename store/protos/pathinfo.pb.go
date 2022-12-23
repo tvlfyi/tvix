@@ -23,61 +23,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type NARInfo_HashAlgo int32
-
-const (
-	NARInfo_UNKNOWN NARInfo_HashAlgo = 0
-	NARInfo_MD5     NARInfo_HashAlgo = 1
-	NARInfo_SHA1    NARInfo_HashAlgo = 2
-	NARInfo_SHA256  NARInfo_HashAlgo = 3
-	NARInfo_SHA512  NARInfo_HashAlgo = 4
-)
-
-// Enum value maps for NARInfo_HashAlgo.
-var (
-	NARInfo_HashAlgo_name = map[int32]string{
-		0: "UNKNOWN",
-		1: "MD5",
-		2: "SHA1",
-		3: "SHA256",
-		4: "SHA512",
-	}
-	NARInfo_HashAlgo_value = map[string]int32{
-		"UNKNOWN": 0,
-		"MD5":     1,
-		"SHA1":    2,
-		"SHA256":  3,
-		"SHA512":  4,
-	}
-)
-
-func (x NARInfo_HashAlgo) Enum() *NARInfo_HashAlgo {
-	p := new(NARInfo_HashAlgo)
-	*p = x
-	return p
-}
-
-func (x NARInfo_HashAlgo) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (NARInfo_HashAlgo) Descriptor() protoreflect.EnumDescriptor {
-	return file_tvix_store_protos_pathinfo_proto_enumTypes[0].Descriptor()
-}
-
-func (NARInfo_HashAlgo) Type() protoreflect.EnumType {
-	return &file_tvix_store_protos_pathinfo_proto_enumTypes[0]
-}
-
-func (x NARInfo_HashAlgo) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use NARInfo_HashAlgo.Descriptor instead.
-func (NARInfo_HashAlgo) EnumDescriptor() ([]byte, []int) {
-	return file_tvix_store_protos_pathinfo_proto_rawDescGZIP(), []int{2, 0}
-}
-
 // PathInfo shows information about a Nix Store Path.
 // That's a single element inside /nix/store.
 type PathInfo struct {
@@ -259,8 +204,8 @@ type NARInfo struct {
 
 	// This size of the NAR file, in bytes.
 	NarSize uint32 `protobuf:"varint,1,opt,name=nar_size,json=narSize,proto3" json:"nar_size,omitempty"`
-	// The hash(es) of a NAR file.
-	NarHashes []*NARInfo_NarHash `protobuf:"bytes,2,rep,name=nar_hashes,json=narHashes,proto3" json:"nar_hashes,omitempty"`
+	// The sha256 of the NAR file representation.
+	NarSha256 []byte `protobuf:"bytes,2,opt,name=nar_sha256,json=narSha256,proto3" json:"nar_sha256,omitempty"`
 	// The signatures in a .narinfo file.
 	Signatures []*NARInfo_Signature `protobuf:"bytes,3,rep,name=signatures,proto3" json:"signatures,omitempty"`
 	// A list of references. To validate .narinfo signatures, a fingerprint
@@ -310,9 +255,9 @@ func (x *NARInfo) GetNarSize() uint32 {
 	return 0
 }
 
-func (x *NARInfo) GetNarHashes() []*NARInfo_NarHash {
+func (x *NARInfo) GetNarSha256() []byte {
 	if x != nil {
-		return x.NarHashes
+		return x.NarSha256
 	}
 	return nil
 }
@@ -331,62 +276,6 @@ func (x *NARInfo) GetReferenceNames() []string {
 	return nil
 }
 
-// The hash of the NAR file.
-type NARInfo_NarHash struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Algo   NARInfo_HashAlgo `protobuf:"varint,1,opt,name=algo,proto3,enum=tvix.store.v1.NARInfo_HashAlgo" json:"algo,omitempty"`
-	Digest []byte           `protobuf:"bytes,2,opt,name=digest,proto3" json:"digest,omitempty"`
-}
-
-func (x *NARInfo_NarHash) Reset() {
-	*x = NARInfo_NarHash{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_tvix_store_protos_pathinfo_proto_msgTypes[3]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *NARInfo_NarHash) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*NARInfo_NarHash) ProtoMessage() {}
-
-func (x *NARInfo_NarHash) ProtoReflect() protoreflect.Message {
-	mi := &file_tvix_store_protos_pathinfo_proto_msgTypes[3]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use NARInfo_NarHash.ProtoReflect.Descriptor instead.
-func (*NARInfo_NarHash) Descriptor() ([]byte, []int) {
-	return file_tvix_store_protos_pathinfo_proto_rawDescGZIP(), []int{2, 0}
-}
-
-func (x *NARInfo_NarHash) GetAlgo() NARInfo_HashAlgo {
-	if x != nil {
-		return x.Algo
-	}
-	return NARInfo_UNKNOWN
-}
-
-func (x *NARInfo_NarHash) GetDigest() []byte {
-	if x != nil {
-		return x.Digest
-	}
-	return nil
-}
-
 // This represents a (parsed) signature line in a .narinfo file.
 type NARInfo_Signature struct {
 	state         protoimpl.MessageState
@@ -400,7 +289,7 @@ type NARInfo_Signature struct {
 func (x *NARInfo_Signature) Reset() {
 	*x = NARInfo_Signature{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_tvix_store_protos_pathinfo_proto_msgTypes[4]
+		mi := &file_tvix_store_protos_pathinfo_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -413,7 +302,7 @@ func (x *NARInfo_Signature) String() string {
 func (*NARInfo_Signature) ProtoMessage() {}
 
 func (x *NARInfo_Signature) ProtoReflect() protoreflect.Message {
-	mi := &file_tvix_store_protos_pathinfo_proto_msgTypes[4]
+	mi := &file_tvix_store_protos_pathinfo_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -426,7 +315,7 @@ func (x *NARInfo_Signature) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NARInfo_Signature.ProtoReflect.Descriptor instead.
 func (*NARInfo_Signature) Descriptor() ([]byte, []int) {
-	return file_tvix_store_protos_pathinfo_proto_rawDescGZIP(), []int{2, 1}
+	return file_tvix_store_protos_pathinfo_proto_rawDescGZIP(), []int{2, 0}
 }
 
 func (x *NARInfo_Signature) GetName() string {
@@ -471,36 +360,24 @@ var file_tvix_store_protos_pathinfo_proto_rawDesc = []byte{
 	0x0b, 0x32, 0x1a, 0x2e, 0x74, 0x76, 0x69, 0x78, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x2e, 0x76,
 	0x31, 0x2e, 0x53, 0x79, 0x6d, 0x6c, 0x69, 0x6e, 0x6b, 0x4e, 0x6f, 0x64, 0x65, 0x48, 0x00, 0x52,
 	0x07, 0x73, 0x79, 0x6d, 0x6c, 0x69, 0x6e, 0x6b, 0x42, 0x06, 0x0a, 0x04, 0x6e, 0x6f, 0x64, 0x65,
-	0x22, 0x9f, 0x03, 0x0a, 0x07, 0x4e, 0x41, 0x52, 0x49, 0x6e, 0x66, 0x6f, 0x12, 0x19, 0x0a, 0x08,
+	0x22, 0xe3, 0x01, 0x0a, 0x07, 0x4e, 0x41, 0x52, 0x49, 0x6e, 0x66, 0x6f, 0x12, 0x19, 0x0a, 0x08,
 	0x6e, 0x61, 0x72, 0x5f, 0x73, 0x69, 0x7a, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x07,
-	0x6e, 0x61, 0x72, 0x53, 0x69, 0x7a, 0x65, 0x12, 0x3d, 0x0a, 0x0a, 0x6e, 0x61, 0x72, 0x5f, 0x68,
-	0x61, 0x73, 0x68, 0x65, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x1e, 0x2e, 0x74, 0x76,
-	0x69, 0x78, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4e, 0x41, 0x52, 0x49,
-	0x6e, 0x66, 0x6f, 0x2e, 0x4e, 0x61, 0x72, 0x48, 0x61, 0x73, 0x68, 0x52, 0x09, 0x6e, 0x61, 0x72,
-	0x48, 0x61, 0x73, 0x68, 0x65, 0x73, 0x12, 0x40, 0x0a, 0x0a, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74,
+	0x6e, 0x61, 0x72, 0x53, 0x69, 0x7a, 0x65, 0x12, 0x1d, 0x0a, 0x0a, 0x6e, 0x61, 0x72, 0x5f, 0x73,
+	0x68, 0x61, 0x32, 0x35, 0x36, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x09, 0x6e, 0x61, 0x72,
+	0x53, 0x68, 0x61, 0x32, 0x35, 0x36, 0x12, 0x40, 0x0a, 0x0a, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74,
 	0x75, 0x72, 0x65, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x20, 0x2e, 0x74, 0x76, 0x69,
 	0x78, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4e, 0x41, 0x52, 0x49, 0x6e,
 	0x66, 0x6f, 0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x52, 0x0a, 0x73, 0x69,
 	0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x73, 0x12, 0x27, 0x0a, 0x0f, 0x72, 0x65, 0x66, 0x65,
 	0x72, 0x65, 0x6e, 0x63, 0x65, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x18, 0x04, 0x20, 0x03, 0x28,
 	0x09, 0x52, 0x0e, 0x72, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e, 0x63, 0x65, 0x4e, 0x61, 0x6d, 0x65,
-	0x73, 0x1a, 0x56, 0x0a, 0x07, 0x4e, 0x61, 0x72, 0x48, 0x61, 0x73, 0x68, 0x12, 0x33, 0x0a, 0x04,
-	0x61, 0x6c, 0x67, 0x6f, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x1f, 0x2e, 0x74, 0x76, 0x69,
-	0x78, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x4e, 0x41, 0x52, 0x49, 0x6e,
-	0x66, 0x6f, 0x2e, 0x48, 0x61, 0x73, 0x68, 0x41, 0x6c, 0x67, 0x6f, 0x52, 0x04, 0x61, 0x6c, 0x67,
-	0x6f, 0x12, 0x16, 0x0a, 0x06, 0x64, 0x69, 0x67, 0x65, 0x73, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28,
-	0x0c, 0x52, 0x06, 0x64, 0x69, 0x67, 0x65, 0x73, 0x74, 0x1a, 0x33, 0x0a, 0x09, 0x53, 0x69, 0x67,
-	0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01,
-	0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x64, 0x61,
-	0x74, 0x61, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x22, 0x42,
-	0x0a, 0x08, 0x48, 0x61, 0x73, 0x68, 0x41, 0x6c, 0x67, 0x6f, 0x12, 0x0b, 0x0a, 0x07, 0x55, 0x4e,
-	0x4b, 0x4e, 0x4f, 0x57, 0x4e, 0x10, 0x00, 0x12, 0x07, 0x0a, 0x03, 0x4d, 0x44, 0x35, 0x10, 0x01,
-	0x12, 0x08, 0x0a, 0x04, 0x53, 0x48, 0x41, 0x31, 0x10, 0x02, 0x12, 0x0a, 0x0a, 0x06, 0x53, 0x48,
-	0x41, 0x32, 0x35, 0x36, 0x10, 0x03, 0x12, 0x0a, 0x0a, 0x06, 0x53, 0x48, 0x41, 0x35, 0x31, 0x32,
-	0x10, 0x04, 0x42, 0x28, 0x5a, 0x26, 0x63, 0x6f, 0x64, 0x65, 0x2e, 0x74, 0x76, 0x6c, 0x2e, 0x66,
-	0x79, 0x69, 0x2f, 0x74, 0x76, 0x69, 0x78, 0x2f, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x2f, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x73, 0x3b, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x33,
+	0x73, 0x1a, 0x33, 0x0a, 0x09, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x12, 0x12,
+	0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61,
+	0x6d, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c,
+	0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x42, 0x28, 0x5a, 0x26, 0x63, 0x6f, 0x64, 0x65, 0x2e, 0x74,
+	0x76, 0x6c, 0x2e, 0x66, 0x79, 0x69, 0x2f, 0x74, 0x76, 0x69, 0x78, 0x2f, 0x73, 0x74, 0x6f, 0x72,
+	0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x73, 0x3b, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x76, 0x31,
+	0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -515,33 +392,28 @@ func file_tvix_store_protos_pathinfo_proto_rawDescGZIP() []byte {
 	return file_tvix_store_protos_pathinfo_proto_rawDescData
 }
 
-var file_tvix_store_protos_pathinfo_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_tvix_store_protos_pathinfo_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_tvix_store_protos_pathinfo_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_tvix_store_protos_pathinfo_proto_goTypes = []interface{}{
-	(NARInfo_HashAlgo)(0),     // 0: tvix.store.v1.NARInfo.HashAlgo
-	(*PathInfo)(nil),          // 1: tvix.store.v1.PathInfo
-	(*Node)(nil),              // 2: tvix.store.v1.Node
-	(*NARInfo)(nil),           // 3: tvix.store.v1.NARInfo
-	(*NARInfo_NarHash)(nil),   // 4: tvix.store.v1.NARInfo.NarHash
-	(*NARInfo_Signature)(nil), // 5: tvix.store.v1.NARInfo.Signature
-	(*DirectoryNode)(nil),     // 6: tvix.store.v1.DirectoryNode
-	(*FileNode)(nil),          // 7: tvix.store.v1.FileNode
-	(*SymlinkNode)(nil),       // 8: tvix.store.v1.SymlinkNode
+	(*PathInfo)(nil),          // 0: tvix.store.v1.PathInfo
+	(*Node)(nil),              // 1: tvix.store.v1.Node
+	(*NARInfo)(nil),           // 2: tvix.store.v1.NARInfo
+	(*NARInfo_Signature)(nil), // 3: tvix.store.v1.NARInfo.Signature
+	(*DirectoryNode)(nil),     // 4: tvix.store.v1.DirectoryNode
+	(*FileNode)(nil),          // 5: tvix.store.v1.FileNode
+	(*SymlinkNode)(nil),       // 6: tvix.store.v1.SymlinkNode
 }
 var file_tvix_store_protos_pathinfo_proto_depIdxs = []int32{
-	2, // 0: tvix.store.v1.PathInfo.node:type_name -> tvix.store.v1.Node
-	3, // 1: tvix.store.v1.PathInfo.narinfo:type_name -> tvix.store.v1.NARInfo
-	6, // 2: tvix.store.v1.Node.directory:type_name -> tvix.store.v1.DirectoryNode
-	7, // 3: tvix.store.v1.Node.file:type_name -> tvix.store.v1.FileNode
-	8, // 4: tvix.store.v1.Node.symlink:type_name -> tvix.store.v1.SymlinkNode
-	4, // 5: tvix.store.v1.NARInfo.nar_hashes:type_name -> tvix.store.v1.NARInfo.NarHash
-	5, // 6: tvix.store.v1.NARInfo.signatures:type_name -> tvix.store.v1.NARInfo.Signature
-	0, // 7: tvix.store.v1.NARInfo.NarHash.algo:type_name -> tvix.store.v1.NARInfo.HashAlgo
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	1, // 0: tvix.store.v1.PathInfo.node:type_name -> tvix.store.v1.Node
+	2, // 1: tvix.store.v1.PathInfo.narinfo:type_name -> tvix.store.v1.NARInfo
+	4, // 2: tvix.store.v1.Node.directory:type_name -> tvix.store.v1.DirectoryNode
+	5, // 3: tvix.store.v1.Node.file:type_name -> tvix.store.v1.FileNode
+	6, // 4: tvix.store.v1.Node.symlink:type_name -> tvix.store.v1.SymlinkNode
+	3, // 5: tvix.store.v1.NARInfo.signatures:type_name -> tvix.store.v1.NARInfo.Signature
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_tvix_store_protos_pathinfo_proto_init() }
@@ -588,18 +460,6 @@ func file_tvix_store_protos_pathinfo_proto_init() {
 			}
 		}
 		file_tvix_store_protos_pathinfo_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*NARInfo_NarHash); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_tvix_store_protos_pathinfo_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*NARInfo_Signature); i {
 			case 0:
 				return &v.state
@@ -622,14 +482,13 @@ func file_tvix_store_protos_pathinfo_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_tvix_store_protos_pathinfo_proto_rawDesc,
-			NumEnums:      1,
-			NumMessages:   5,
+			NumEnums:      0,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_tvix_store_protos_pathinfo_proto_goTypes,
 		DependencyIndexes: file_tvix_store_protos_pathinfo_proto_depIdxs,
-		EnumInfos:         file_tvix_store_protos_pathinfo_proto_enumTypes,
 		MessageInfos:      file_tvix_store_protos_pathinfo_proto_msgTypes,
 	}.Build()
 	File_tvix_store_protos_pathinfo_proto = out.File
