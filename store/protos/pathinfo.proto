@@ -12,19 +12,23 @@ option go_package = "code.tvl.fyi/tvix/store/protos;storev1";
 // That's a single element inside /nix/store.
 message PathInfo {
     // The path can be a directory, file or symlink.
+    Node node = 1;
+
+    // List of references (output path hashes)
+    // This really is the raw *bytes*, after decoding nixbase32, and not a
+    // base32-encoded string.
+    repeated bytes references = 2;
+
+    // see below.
+    NARInfo narinfo = 3;
+}
+
+message Node {
     oneof node {
         DirectoryNode directory = 1;
         FileNode file = 2;
         SymlinkNode symlink = 3;
     }
-
-    // List of references (output path hashes)
-    // This really is the raw *bytes*, after decoding nixbase32, and not a
-    // base32-encoded string.
-    repeated bytes references = 4;
-
-    // see below.
-    NARInfo narinfo = 5;
 }
 
 // Nix C++ uses NAR (Nix Archive) as a format to transfer store paths,
