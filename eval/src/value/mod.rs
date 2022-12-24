@@ -6,6 +6,8 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::{cell::Ref, fmt::Display};
 
+use serde::Deserialize;
+
 #[cfg(feature = "arbitrary")]
 mod arbitrary;
 mod attrs;
@@ -31,30 +33,41 @@ pub use thunk::Thunk;
 use self::thunk::ThunkSet;
 
 #[warn(variant_size_differences)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
 pub enum Value {
     Null,
     Bool(bool),
     Integer(i64),
     Float(f64),
     String(NixString),
+
+    #[serde(skip)]
     Path(PathBuf),
     Attrs(Box<NixAttrs>),
     List(NixList),
+
+    #[serde(skip)]
     Closure(Rc<Closure>), // must use Rc<Closure> here in order to get proper pointer equality
+    #[serde(skip)]
     Builtin(Builtin),
 
     // Internal values that, while they technically exist at runtime,
     // are never returned to or created directly by users.
+    #[serde(skip)]
     Thunk(Thunk),
 
     // See [`compiler::compile_select_or()`] for explanation
+    #[serde(skip)]
     AttrNotFound,
 
     // this can only occur in Chunk::Constants and nowhere else
+    #[serde(skip)]
     Blueprint(Rc<Lambda>),
 
+    #[serde(skip)]
     DeferredUpvalue(StackIdx),
+    #[serde(skip)]
     UnresolvedPath(PathBuf),
 }
 
@@ -542,47 +555,9 @@ impl From<PathBuf> for Value {
     }
 }
 
-impl TryFrom<serde_json::Value> for Value {
-    type Error = ErrorKind;
-
-    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        // TODO(grfn): Replace with a real serde::Deserialize impl (for perf)
-        match value {
-            serde_json::Value::Null => Ok(Self::Null),
-            serde_json::Value::Bool(b) => Ok(Self::Bool(b)),
-            serde_json::Value::Number(n) => {
-                if let Some(i) = n.as_i64() {
-                    Ok(Self::Integer(i))
-                } else if let Some(f) = n.as_f64() {
-                    Ok(Self::Float(f))
-                } else {
-                    Err(ErrorKind::FromJsonError(format!(
-                        "JSON number not representable as Nix value: {n}"
-                    )))
-                }
-            }
-            serde_json::Value::String(s) => Ok(s.into()),
-            serde_json::Value::Array(a) => Ok(Value::List(
-                a.into_iter()
-                    .map(Value::try_from)
-                    .collect::<Result<imbl::Vector<_>, _>>()?
-                    .into(),
-            )),
-            serde_json::Value::Object(obj) => {
-                match (obj.len(), obj.get("name"), obj.get("value")) {
-                    (2, Some(name), Some(value)) => Ok(Self::attrs(NixAttrs::from_kv(
-                        name.clone().try_into()?,
-                        value.clone().try_into()?,
-                    ))),
-                    _ => Ok(Self::attrs(NixAttrs::from_iter(
-                        obj.into_iter()
-                            .map(|(k, v)| Ok((k.into(), v.try_into()?)))
-                            .collect::<Result<Vec<(NixString, Value)>, ErrorKind>>()?
-                            .into_iter(),
-                    ))),
-                }
-            }
-        }
+impl From<Vec<Value>> for Value {
+    fn from(val: Vec<Value>) -> Self {
+        Self::List(NixList::from_vec(val))
     }
 }
 

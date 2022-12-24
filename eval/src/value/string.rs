@@ -8,6 +8,9 @@ use std::ops::Deref;
 use std::path::Path;
 use std::{borrow::Cow, fmt::Display, str::Chars};
 
+use serde::de::{Deserializer, Visitor};
+use serde::Deserialize;
+
 #[derive(Clone, Debug)]
 enum StringRepr {
     Smol(SmolStr),
@@ -65,6 +68,39 @@ impl From<ast::Ident> for NixString {
 impl Hash for NixString {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.as_str().hash(state)
+    }
+}
+
+impl<'de> Deserialize<'de> for NixString {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct StringVisitor;
+
+        impl<'de> Visitor<'de> for StringVisitor {
+            type Value = NixString;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a valid Nix string")
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(v.into())
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(v.into())
+            }
+        }
+
+        deserializer.deserialize_string(StringVisitor)
     }
 }
 

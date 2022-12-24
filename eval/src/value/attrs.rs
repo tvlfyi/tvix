@@ -8,6 +8,8 @@
 use std::iter::FromIterator;
 
 use imbl::{ordmap, OrdMap};
+use serde::de::{Deserializer, Error, Visitor};
+use serde::Deserialize;
 
 use crate::errors::ErrorKind;
 use crate::vm::VM;
@@ -20,7 +22,7 @@ use super::Value;
 #[cfg(test)]
 mod tests;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 enum AttrsRep {
     Empty,
 
@@ -135,6 +137,39 @@ impl TotalDisplay for NixAttrs {
         }
 
         f.write_str("}")
+    }
+}
+
+impl<'de> Deserialize<'de> for NixAttrs {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct MapVisitor;
+
+        impl<'de> Visitor<'de> for MapVisitor {
+            type Value = NixAttrs;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a valid Nix attribute set")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let mut stack_array = Vec::with_capacity(map.size_hint().unwrap_or(0) * 2);
+
+                while let Some((key, value)) = map.next_entry()? {
+                    stack_array.push(key);
+                    stack_array.push(value);
+                }
+
+                NixAttrs::construct(stack_array.len() / 2, stack_array).map_err(A::Error::custom)
+            }
+        }
+
+        deserializer.deserialize_map(MapVisitor)
     }
 }
 

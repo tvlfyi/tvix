@@ -840,6 +840,7 @@ dependencies = [
  "imbl-sized-chunks",
  "rand_core 0.6.4",
  "rand_xoshiro",
+ "serde",
  "version_check",
 ]
 

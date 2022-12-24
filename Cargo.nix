@@ -2453,11 +2453,22 @@ rec {
             name = "rand_xoshiro";
             packageId = "rand_xoshiro";
           }
+          {
+            name = "serde";
+            packageId = "serde";
+            optional = true;
+          }
         ];
         buildDependencies = [
           {
             name = "version_check";
             packageId = "version_check";
+          }
+        ];
+        devDependencies = [
+          {
+            name = "serde";
+            packageId = "serde";
           }
         ];
         features = {
@@ -2468,6 +2479,7 @@ rec {
           "refpool" = [ "dep:refpool" ];
           "serde" = [ "dep:serde" ];
         };
+        resolvedDefaultFeatures = [ "serde" ];
       };
       "imbl-sized-chunks" = rec {
         crateName = "imbl-sized-chunks";
@@ -4700,7 +4712,7 @@ rec {
           "derive" = [ "serde_derive" ];
           "serde_derive" = [ "dep:serde_derive" ];
         };
-        resolvedDefaultFeatures = [ "alloc" "default" "derive" "serde_derive" "std" ];
+        resolvedDefaultFeatures = [ "alloc" "default" "derive" "rc" "serde_derive" "std" ];
       };
       "serde_derive" = rec {
         crateName = "serde_derive";
@@ -6570,6 +6582,7 @@ rec {
           {
             name = "imbl";
             packageId = "imbl";
+            features = [ "serde" ];
           }
           {
             name = "path-clean";
@@ -6597,6 +6610,7 @@ rec {
           {
             name = "serde";
             packageId = "serde";
+            features = [ "rc" "derive" ];
           }
           {
             name = "serde_json";

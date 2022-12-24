@@ -20,4 +20,5 @@
     }
   '')
   (builtins.fromJSON ''{"name": "a", "value": "b"}'')
+  (builtins.fromJSON "[ 1, 2, 3, 4 ]")
 ]

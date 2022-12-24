@@ -339,8 +339,8 @@ mod pure_builtins {
     #[builtin("fromJSON")]
     fn builtin_from_json(_: &mut VM, json: Value) -> Result<Value, ErrorKind> {
         let json_str = json.to_str()?;
-        let json: serde_json::Value = serde_json::from_str(&json_str)?;
-        json.try_into()
+
+        serde_json::from_str(&json_str).map_err(|err| err.into())
     }
 
     #[builtin("genericClosure")]
