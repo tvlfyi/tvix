@@ -530,6 +530,12 @@ impl From<i64> for Value {
     }
 }
 
+impl From<f64> for Value {
+    fn from(i: f64) -> Self {
+        Self::Float(i)
+    }
+}
+
 impl From<PathBuf> for Value {
     fn from(path: PathBuf) -> Self {
         Self::Path(path)
