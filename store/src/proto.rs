@@ -43,7 +43,7 @@ mod tests {
             let d = Directory {
                 directories: vec![DirectoryNode {
                     name: String::from("foo"),
-                    digest: vec![],
+                    digest: DUMMY_DIGEST.to_vec(),
                     size: 0,
                 }],
                 ..Default::default()
