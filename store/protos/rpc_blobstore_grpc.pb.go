@@ -22,8 +22,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type BlobServiceClient interface {
-	Get(ctx context.Context, in *GetBlobRequest, opts ...grpc.CallOption) (*GetBlobResponse, error)
-	Put(ctx context.Context, in *PutBlobRequest, opts ...grpc.CallOption) (*PutBlobResponse, error)
+	Get(ctx context.Context, in *GetBlobRequest, opts ...grpc.CallOption) (BlobService_GetClient, error)
+	Put(ctx context.Context, opts ...grpc.CallOption) (BlobService_PutClient, error)
 }
 
 type blobServiceClient struct {
@@ -34,30 +34,78 @@ func NewBlobServiceClient(cc grpc.ClientConnInterface) BlobServiceClient {
 	return &blobServiceClient{cc}
 }
 
-func (c *blobServiceClient) Get(ctx context.Context, in *GetBlobRequest, opts ...grpc.CallOption) (*GetBlobResponse, error) {
-	out := new(GetBlobResponse)
-	err := c.cc.Invoke(ctx, "/tvix.store.v1.BlobService/Get", in, out, opts...)
+func (c *blobServiceClient) Get(ctx context.Context, in *GetBlobRequest, opts ...grpc.CallOption) (BlobService_GetClient, error) {
+	stream, err := c.cc.NewStream(ctx, &BlobService_ServiceDesc.Streams[0], "/tvix.store.v1.BlobService/Get", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &blobServiceGetClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
 }
 
-func (c *blobServiceClient) Put(ctx context.Context, in *PutBlobRequest, opts ...grpc.CallOption) (*PutBlobResponse, error) {
-	out := new(PutBlobResponse)
-	err := c.cc.Invoke(ctx, "/tvix.store.v1.BlobService/Put", in, out, opts...)
+type BlobService_GetClient interface {
+	Recv() (*BlobChunk, error)
+	grpc.ClientStream
+}
+
+type blobServiceGetClient struct {
+	grpc.ClientStream
+}
+
+func (x *blobServiceGetClient) Recv() (*BlobChunk, error) {
+	m := new(BlobChunk)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *blobServiceClient) Put(ctx context.Context, opts ...grpc.CallOption) (BlobService_PutClient, error) {
+	stream, err := c.cc.NewStream(ctx, &BlobService_ServiceDesc.Streams[1], "/tvix.store.v1.BlobService/Put", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &blobServicePutClient{stream}
+	return x, nil
+}
+
+type BlobService_PutClient interface {
+	Send(*BlobChunk) error
+	CloseAndRecv() (*PutBlobResponse, error)
+	grpc.ClientStream
+}
+
+type blobServicePutClient struct {
+	grpc.ClientStream
+}
+
+func (x *blobServicePutClient) Send(m *BlobChunk) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *blobServicePutClient) CloseAndRecv() (*PutBlobResponse, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(PutBlobResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // BlobServiceServer is the server API for BlobService service.
 // All implementations must embed UnimplementedBlobServiceServer
 // for forward compatibility
 type BlobServiceServer interface {
-	Get(context.Context, *GetBlobRequest) (*GetBlobResponse, error)
-	Put(context.Context, *PutBlobRequest) (*PutBlobResponse, error)
+	Get(*GetBlobRequest, BlobService_GetServer) error
+	Put(BlobService_PutServer) error
 	mustEmbedUnimplementedBlobServiceServer()
 }
 
@@ -65,11 +113,11 @@ type BlobServiceServer interface {
 type UnimplementedBlobServiceServer struct {
 }
 
-func (UnimplementedBlobServiceServer) Get(context.Context, *GetBlobRequest) (*GetBlobResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+func (UnimplementedBlobServiceServer) Get(*GetBlobRequest, BlobService_GetServer) error {
+	return status.Errorf(codes.Unimplemented, "method Get not implemented")
 }
-func (UnimplementedBlobServiceServer) Put(context.Context, *PutBlobRequest) (*PutBlobResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Put not implemented")
+func (UnimplementedBlobServiceServer) Put(BlobService_PutServer) error {
+	return status.Errorf(codes.Unimplemented, "method Put not implemented")
 }
 func (UnimplementedBlobServiceServer) mustEmbedUnimplementedBlobServiceServer() {}
 
@@ -84,40 +132,51 @@ func RegisterBlobServiceServer(s grpc.ServiceRegistrar, srv BlobServiceServer) {
 	s.RegisterService(&BlobService_ServiceDesc, srv)
 }
 
-func _BlobService_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetBlobRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func _BlobService_Get_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetBlobRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(BlobServiceServer).Get(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/tvix.store.v1.BlobService/Get",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BlobServiceServer).Get(ctx, req.(*GetBlobRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(BlobServiceServer).Get(m, &blobServiceGetServer{stream})
 }
 
-func _BlobService_Put_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PutBlobRequest)
-	if err := dec(in); err != nil {
+type BlobService_GetServer interface {
+	Send(*BlobChunk) error
+	grpc.ServerStream
+}
+
+type blobServiceGetServer struct {
+	grpc.ServerStream
+}
+
+func (x *blobServiceGetServer) Send(m *BlobChunk) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _BlobService_Put_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(BlobServiceServer).Put(&blobServicePutServer{stream})
+}
+
+type BlobService_PutServer interface {
+	SendAndClose(*PutBlobResponse) error
+	Recv() (*BlobChunk, error)
+	grpc.ServerStream
+}
+
+type blobServicePutServer struct {
+	grpc.ServerStream
+}
+
+func (x *blobServicePutServer) SendAndClose(m *PutBlobResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *blobServicePutServer) Recv() (*BlobChunk, error) {
+	m := new(BlobChunk)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
-	if interceptor == nil {
-		return srv.(BlobServiceServer).Put(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/tvix.store.v1.BlobService/Put",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BlobServiceServer).Put(ctx, req.(*PutBlobRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return m, nil
 }
 
 // BlobService_ServiceDesc is the grpc.ServiceDesc for BlobService service.
@@ -126,16 +185,18 @@ func _BlobService_Put_Handler(srv interface{}, ctx context.Context, dec func(int
 var BlobService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "tvix.store.v1.BlobService",
 	HandlerType: (*BlobServiceServer)(nil),
-	Methods: []grpc.MethodDesc{
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
 		{
-			MethodName: "Get",
-			Handler:    _BlobService_Get_Handler,
+			StreamName:    "Get",
+			Handler:       _BlobService_Get_Handler,
+			ServerStreams: true,
 		},
 		{
-			MethodName: "Put",
-			Handler:    _BlobService_Put_Handler,
+			StreamName:    "Put",
+			Handler:       _BlobService_Put_Handler,
+			ClientStreams: true,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "tvix/store/protos/rpc_blobstore.proto",
 }

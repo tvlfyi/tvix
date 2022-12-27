@@ -7,8 +7,9 @@ package tvix.store.v1;
 option go_package = "code.tvl.fyi/tvix/store/protos;storev1";
 
 service BlobService {
-    rpc Get(GetBlobRequest) returns (GetBlobResponse);
-    rpc Put(PutBlobRequest) returns (PutBlobResponse);
+    rpc Get(GetBlobRequest) returns (stream BlobChunk);
+
+    rpc Put(stream BlobChunk) returns (PutBlobResponse);
 
     // TODO(flokli): We can get fancy here, and add methods to retrieve
     // [Bao](https://github.com/oconnor663/bao/blob/master/docs/spec.md), and
@@ -20,15 +21,13 @@ message GetBlobRequest {
     bytes digest = 1;
 }
 
-message GetBlobResponse {
-    bytes data = 1;
-}
-
-message PutBlobRequest {
-    bytes data = 1;
-}
-
 message PutBlobResponse {
     // The blake3 digest of the data that was sent.
     bytes digest = 1;
+}
+
+// This represents a part of a chunk.
+// Blobs are sent in smaller chunks to keep message sizes manageable.
+message BlobChunk {
+    bytes data = 1;
 }
