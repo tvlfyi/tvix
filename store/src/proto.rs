@@ -24,7 +24,15 @@ impl Directory {
 #[cfg(test)]
 mod tests {
     use super::{Directory, DirectoryNode, FileNode, SymlinkNode};
+    use lazy_static::lazy_static;
 
+    lazy_static! {
+        static ref DUMMY_DIGEST: Vec<u8> = vec![
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+        ];
+    }
     #[test]
     fn test_directory_size() {
         {
@@ -51,7 +59,7 @@ mod tests {
             let d = Directory {
                 directories: vec![DirectoryNode {
                     name: String::from("foo"),
-                    digest: vec![],
+                    digest: DUMMY_DIGEST.to_vec(),
                     size: 4,
                 }],
                 files: vec![],
@@ -64,7 +72,7 @@ mod tests {
                 directories: vec![],
                 files: vec![FileNode {
                     name: String::from("foo"),
-                    digest: vec![],
+                    digest: DUMMY_DIGEST.to_vec(),
                     size: 42,
                     executable: false,
                 }],

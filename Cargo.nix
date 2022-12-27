@@ -6168,6 +6168,10 @@ rec {
             features = [ "rayon" "std" ];
           }
           {
+            name = "lazy_static";
+            packageId = "lazy_static";
+          }
+          {
             name = "prost";
             packageId = "prost";
           }
