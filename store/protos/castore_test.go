@@ -98,3 +98,174 @@ func TestDirectoryDigest(t *testing.T) {
 		0xe4, 0x1f, 0x32, 0x62,
 	}, dgst)
 }
+
+func TestDirectoryValidate(t *testing.T) {
+	t.Run("empty", func(t *testing.T) {
+		d := storev1pb.Directory{
+			Directories: []*storev1pb.DirectoryNode{},
+			Files:       []*storev1pb.FileNode{},
+			Symlinks:    []*storev1pb.SymlinkNode{},
+		}
+
+		assert.NoError(t, d.Validate())
+	})
+
+	t.Run("invalid names", func(t *testing.T) {
+		{
+			d := storev1pb.Directory{
+				Directories: []*storev1pb.DirectoryNode{{
+					Name:   "",
+					Digest: dummyDigest,
+					Size:   42,
+				}},
+				Files:    []*storev1pb.FileNode{},
+				Symlinks: []*storev1pb.SymlinkNode{},
+			}
+
+			assert.ErrorContains(t, d.Validate(), "invalid name")
+		}
+		{
+			d := storev1pb.Directory{
+				Directories: []*storev1pb.DirectoryNode{{
+					Name:   ".",
+					Digest: dummyDigest,
+					Size:   42,
+				}},
+				Files:    []*storev1pb.FileNode{},
+				Symlinks: []*storev1pb.SymlinkNode{},
+			}
+
+			assert.ErrorContains(t, d.Validate(), "invalid name")
+		}
+		{
+			d := storev1pb.Directory{
+				Directories: []*storev1pb.DirectoryNode{},
+				Files: []*storev1pb.FileNode{{
+					Name:       "..",
+					Digest:     dummyDigest,
+					Size:       42,
+					Executable: false,
+				}},
+				Symlinks: []*storev1pb.SymlinkNode{},
+			}
+
+			assert.ErrorContains(t, d.Validate(), "invalid name")
+		}
+		{
+			d := storev1pb.Directory{
+				Directories: []*storev1pb.DirectoryNode{},
+				Files:       []*storev1pb.FileNode{},
+				Symlinks: []*storev1pb.SymlinkNode{{
+					Name:   "\x00",
+					Target: "foo",
+				}},
+			}
+
+			assert.ErrorContains(t, d.Validate(), "invalid name")
+		}
+		{
+			d := storev1pb.Directory{
+				Directories: []*storev1pb.DirectoryNode{},
+				Files:       []*storev1pb.FileNode{},
+				Symlinks: []*storev1pb.SymlinkNode{{
+					Name:   "foo/bar",
+					Target: "foo",
+				}},
+			}
+
+			assert.ErrorContains(t, d.Validate(), "invalid name")
+		}
+	})
+
+	t.Run("invalid digest", func(t *testing.T) {
+		d := storev1pb.Directory{
+			Directories: []*storev1pb.DirectoryNode{{
+				Name:   "foo",
+				Digest: nil,
+				Size:   42,
+			}},
+			Files:    []*storev1pb.FileNode{},
+			Symlinks: []*storev1pb.SymlinkNode{},
+		}
+
+		assert.ErrorContains(t, d.Validate(), "invalid digest length")
+	})
+
+	t.Run("sorting", func(t *testing.T) {
+		// "b" comes before "a", bad.
+		{
+			d := storev1pb.Directory{
+				Directories: []*storev1pb.DirectoryNode{{
+					Name:   "b",
+					Digest: dummyDigest,
+					Size:   42,
+				}, {
+					Name:   "a",
+					Digest: dummyDigest,
+					Size:   42,
+				}},
+				Files:    []*storev1pb.FileNode{},
+				Symlinks: []*storev1pb.SymlinkNode{},
+			}
+			assert.ErrorContains(t, d.Validate(), "is not in sorted order")
+		}
+
+		// "a" exists twice, bad.
+		{
+			d := storev1pb.Directory{
+				Directories: []*storev1pb.DirectoryNode{{
+					Name:   "a",
+					Digest: dummyDigest,
+					Size:   42,
+				}},
+				Files: []*storev1pb.FileNode{{
+					Name:       "a",
+					Digest:     dummyDigest,
+					Size:       42,
+					Executable: false,
+				}},
+				Symlinks: []*storev1pb.SymlinkNode{},
+			}
+			assert.ErrorContains(t, d.Validate(), "duplicate name")
+		}
+
+		// "a" comes before "b", all good.
+		{
+			d := storev1pb.Directory{
+				Directories: []*storev1pb.DirectoryNode{{
+					Name:   "a",
+					Digest: dummyDigest,
+					Size:   42,
+				}, {
+					Name:   "b",
+					Digest: dummyDigest,
+					Size:   42,
+				}},
+				Files:    []*storev1pb.FileNode{},
+				Symlinks: []*storev1pb.SymlinkNode{},
+			}
+			assert.NoError(t, d.Validate(), "shouldn't error")
+		}
+
+		// [b, c] and [a] are both properly sorted.
+		{
+			d := storev1pb.Directory{
+				Directories: []*storev1pb.DirectoryNode{{
+					Name:   "b",
+					Digest: dummyDigest,
+					Size:   42,
+				}, {
+					Name:   "c",
+					Digest: dummyDigest,
+					Size:   42,
+				}},
+				Files: []*storev1pb.FileNode{},
+				Symlinks: []*storev1pb.SymlinkNode{{
+					Name:   "a",
+					Target: "foo",
+				}},
+			}
+			assert.NoError(t, d.Validate(), "shouldn't error")
+		}
+	})
+}

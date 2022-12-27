@@ -2,6 +2,7 @@ package storev1
 
 import (
 	"fmt"
+	"strings"
 
 	"google.golang.org/protobuf/proto"
 	"lukechampine.com/blake3"
@@ -36,4 +37,129 @@ func (d *Directory) Digest() ([]byte, error) {
 	}
 
 	return h.Sum(nil), nil
+}
+
+// isValidName checks a name for validity.
+// We disallow slashes, null bytes, '.', '..' and the empty string.
+// Depending on the context, a *Node message with an empty string as name is
+// allowed, but they don't occur inside a Directory message.
+func isValidName(n string) bool {
+	if n == "" || n == ".." || n == "." || strings.Contains(n, "\x00") || strings.Contains(n, "/") {
+		return false
+	}
+	return true
+}
+
+// Validate thecks the Directory message for invalid data, such as:
+// - violations of name restrictions
+// - invalid digest lengths
+// - not properly sorted lists
+// - duplicate names in the three lists
+func (d *Directory) Validate() error {
+	// seenNames contains all seen names so far.
+	// We populate this to ensure node names are unique across all three lists.
+	seenNames := make(map[string]interface{})
+
+	// We also track the last seen name in each of the three lists,
+	// to ensure nodes are sorted by their names.
+	lastDirectoryName := ""
+	lastFileName := ""
+	lastSymlinkName := ""
+
+	// helper function to only insert in sorted order.
+	// used with the three lists above.
+	// Note this consumes a *pointer to* a string,  as it mutates it.
+	insertIfGt := func(lastName *string, name string) error {
+		// update if it's greater than the previous name
+		if name > *lastName {
+			*lastName = name
+			return nil
+		} else {
+			return fmt.Errorf("%v is not in sorted order", name)
+		}
+	}
+
+	// insertOnce inserts into seenNames if the key doesn't exist yet.
+	insertOnce := func(name string) error {
+		if _, found := seenNames[name]; found {
+			return fmt.Errorf("duplicate name: %v", name)
+		}
+		seenNames[name] = nil
+		return nil
+	}
+
+	// Loop over all Directories, Files and Symlinks individually.
+	// Check the name for validity, check a potential digest for length,
+	// then check for sorting in the current list, and uniqueness across all three lists.
+	for _, directoryNode := range d.Directories {
+		directoryName := directoryNode.GetName()
+
+		// check name for validity
+		if !isValidName(directoryName) {
+			return fmt.Errorf("invalid name for DirectoryNode: %v", directoryName)
+		}
+
+		// check digest to be 32 bytes
+		digestLen := len(directoryNode.GetDigest())
+		if digestLen != 32 {
+			return fmt.Errorf("invalid digest length for DirectoryNode: %d", digestLen)
+		}
+
+		// ensure names are sorted
+		if err := insertIfGt(&lastDirectoryName, directoryName); err != nil {
+			return err
+		}
+
+		// add to seenNames
+		if err := insertOnce(directoryName); err != nil {
+			return err
+		}
+
+	}
+
+	for _, fileNode := range d.Files {
+		fileName := fileNode.GetName()
+
+		// check name for validity
+		if !isValidName(fileName) {
+			return fmt.Errorf("invalid name for FileNode: %v", fileName)
+		}
+
+		// check digest to be 32 bytes
+		digestLen := len(fileNode.GetDigest())
+		if digestLen != 32 {
+			return fmt.Errorf("invalid digest length for FileNode: %d", digestLen)
+		}
+
+		// ensure names are sorted
+		if err := insertIfGt(&lastFileName, fileName); err != nil {
+			return err
+		}
+
+		// add to seenNames
+		if err := insertOnce(fileName); err != nil {
+			return err
+		}
+	}
+
+	for _, symlinkNode := range d.Symlinks {
+		symlinkName := symlinkNode.GetName()
+
+		// check name for validity
+		if !isValidName(symlinkName) {
+			return fmt.Errorf("invalid name for SymlinkNode: %v", symlinkName)
+		}
+
+		// ensure names are sorted
+		if err := insertIfGt(&lastSymlinkName, symlinkName); err != nil {
+			return err
+		}
+
+		// add to seenNames
+		if err := insertOnce(symlinkName); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
