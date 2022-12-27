@@ -36,11 +36,7 @@ mod tests {
     #[test]
     fn test_directory_size() {
         {
-            let d = Directory {
-                directories: vec![],
-                files: vec![],
-                symlinks: vec![],
-            };
+            let d = Directory::default();
             assert_eq!(d.size(), 0);
         }
         {
@@ -50,8 +46,7 @@ mod tests {
                     digest: vec![],
                     size: 0,
                 }],
-                files: vec![],
-                symlinks: vec![],
+                ..Default::default()
             };
             assert_eq!(d.size(), 1);
         }
@@ -62,32 +57,29 @@ mod tests {
                     digest: DUMMY_DIGEST.to_vec(),
                     size: 4,
                 }],
-                files: vec![],
-                symlinks: vec![],
+                ..Default::default()
             };
             assert_eq!(d.size(), 5);
         }
         {
             let d = Directory {
-                directories: vec![],
                 files: vec![FileNode {
                     name: String::from("foo"),
                     digest: DUMMY_DIGEST.to_vec(),
                     size: 42,
                     executable: false,
                 }],
-                symlinks: vec![],
+                ..Default::default()
             };
             assert_eq!(d.size(), 1);
         }
         {
             let d = Directory {
-                directories: vec![],
-                files: vec![],
                 symlinks: vec![SymlinkNode {
                     name: String::from("foo"),
                     target: String::from("bar"),
                 }],
+                ..Default::default()
             };
             assert_eq!(d.size(), 1);
         }
@@ -95,11 +87,7 @@ mod tests {
 
     #[test]
     fn test_digest() {
-        let d = Directory {
-            directories: vec![],
-            files: vec![],
-            symlinks: vec![],
-        };
+        let d = Directory::default();
 
         assert_eq!(
             d.digest(),
