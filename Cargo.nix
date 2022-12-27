@@ -200,9 +200,9 @@ rec {
       };
       "anyhow" = rec {
         crateName = "anyhow";
-        version = "1.0.66";
+        version = "1.0.68";
         edition = "2018";
-        sha256 = "1xj3ahmwjlbiqsajhkaa0q6hqwb4l3l5rkfxa7jk1498r3fn2qi1";
+        sha256 = "0qdb5x89jpngjrl40fpp8047xlydm38n8bz8iaml3lcds64zkcic";
         authors = [
           "David Tolnay <dtolnay@gmail.com>"
         ];
@@ -5028,9 +5028,9 @@ rec {
       };
       "thiserror" = rec {
         crateName = "thiserror";
-        version = "1.0.37";
+        version = "1.0.38";
         edition = "2018";
-        sha256 = "0gky83x4i87gd87w3fknnp920wvk9yycp7dgkf5h3jg364vb7phh";
+        sha256 = "1l7yh18iqcr2jnl6qjx3ywvhny98cvda3biwc334ap3xm65d373a";
         authors = [
           "David Tolnay <dtolnay@gmail.com>"
         ];
@@ -5044,9 +5044,9 @@ rec {
       };
       "thiserror-impl" = rec {
         crateName = "thiserror-impl";
-        version = "1.0.37";
+        version = "1.0.38";
         edition = "2018";
-        sha256 = "1fydmpksd14x1mkc24zas01qjssz8q43sbn2ywl6n527dda1fbcq";
+        sha256 = "0vzkcjqkzzgrwwby92xvnbp11a8d70b1gkybm0zx1r458spjgcqz";
         procMacro = true;
         authors = [
           "David Tolnay <dtolnay@gmail.com>"
@@ -6163,6 +6163,10 @@ rec {
           else ./store;
         dependencies = [
           {
+            name = "anyhow";
+            packageId = "anyhow";
+          }
+          {
             name = "blake3";
             packageId = "blake3";
             features = [ "rayon" "std" ];
@@ -6174,6 +6178,10 @@ rec {
           {
             name = "prost";
             packageId = "prost";
+          }
+          {
+            name = "thiserror";
+            packageId = "thiserror";
           }
           {
             name = "tonic";
