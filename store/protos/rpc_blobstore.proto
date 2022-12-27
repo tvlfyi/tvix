@@ -7,27 +7,67 @@ package tvix.store.v1;
 option go_package = "code.tvl.fyi/tvix/store/protos;storev1";
 
 service BlobService {
-    rpc Get(GetBlobRequest) returns (stream BlobChunk);
+    // Stat exposes metadata about a given blob,
+    // such as more granular chunking, baos.
+    // It implicitly allows checking for existence too, as asking this for a
+    // non-existing Blob will return a Status::not_found grpc error.
+    // If there's no more granular chunking available, the response will simply
+    // contain a single chunk.
+    rpc Stat(StatBlobRequest) returns (BlobMeta);
 
+    // Read returns a stream of BlobChunk, which is just a stream of bytes - not necessarily
+    // using the chunking that's returned in the reply of a Stat() call.
+    rpc Read(ReadBlobRequest) returns (stream BlobChunk);
+
+    // Put uploads a Blob, by reading a stream of bytes.
     rpc Put(stream BlobChunk) returns (PutBlobResponse);
-
-    // TODO(flokli): We can get fancy here, and add methods to retrieve
-    // [Bao](https://github.com/oconnor663/bao/blob/master/docs/spec.md), and
-    // then support range requests, but that's left for later.
 }
 
-message GetBlobRequest {
+message StatBlobRequest {
     // The blake3 digest of the blob requested
     bytes digest = 1;
+
+    // Whether to include the chunks field
+    bool include_chunks = 2;
+    // Whether to include the inline_bao field, containing an (outboard) bao.
+    // The [bao](https://github.com/oconnor663/bao/blob/master/docs/spec.md)
+    // can be used to validate chunks end up hashing to the same root digest.
+    // These only really matter when only downloading parts of a blob. Some
+    // caution needs to be applied when validating chunks - the bao works with
+    // 1K leaf nodes, which might not align with the chunk sizes - this might
+    // imply a neighboring chunk might need to be (partially) fetched to
+    // validate the hash.
+    bool include_bao = 3;
+}
+
+// BlobMeta provides more granular chunking information for the requested blob,
+// and baos.
+message BlobMeta {
+    // This provides a list of chunks.
+    // Concatenating their contents would produce a blob with the digest that
+    // was specified in the request.
+    repeated ChunkMeta chunks = 1;
+
+    message ChunkMeta {
+        bytes digest = 1;
+        uint32 size = 2;
+    }
+
+    bytes inline_bao = 2;
+}
+
+message ReadBlobRequest {
+    // The blake3 digest of the blob requested
+    bytes digest = 1;
+}
+
+// This represents some bytes of a blob.
+// Blobs are sent in smaller chunks to keep message sizes manageable.
+message BlobChunk {
+    bytes data = 1;
 }
 
 message PutBlobResponse {
     // The blake3 digest of the data that was sent.
     bytes digest = 1;
-}
-
-// This represents a part of a chunk.
-// Blobs are sent in smaller chunks to keep message sizes manageable.
-message BlobChunk {
-    bytes data = 1;
 }

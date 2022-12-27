@@ -22,7 +22,17 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type BlobServiceClient interface {
-	Get(ctx context.Context, in *GetBlobRequest, opts ...grpc.CallOption) (BlobService_GetClient, error)
+	// Stat exposes metadata about a given blob,
+	// such as more granular chunking, baos.
+	// It implicitly allows checking for existence too, as asking this for a
+	// non-existing Blob will return a Status::not_found grpc error.
+	// If there's no more granular chunking available, the response will simply
+	// contain a single chunk.
+	Stat(ctx context.Context, in *StatBlobRequest, opts ...grpc.CallOption) (*BlobMeta, error)
+	// Read returns a stream of BlobChunk, which is just a stream of bytes - not necessarily
+	// using the chunking that's returned in the reply of a Stat() call.
+	Read(ctx context.Context, in *ReadBlobRequest, opts ...grpc.CallOption) (BlobService_ReadClient, error)
+	// Put uploads a Blob, by reading a stream of bytes.
 	Put(ctx context.Context, opts ...grpc.CallOption) (BlobService_PutClient, error)
 }
 
@@ -34,12 +44,21 @@ func NewBlobServiceClient(cc grpc.ClientConnInterface) BlobServiceClient {
 	return &blobServiceClient{cc}
 }
 
-func (c *blobServiceClient) Get(ctx context.Context, in *GetBlobRequest, opts ...grpc.CallOption) (BlobService_GetClient, error) {
-	stream, err := c.cc.NewStream(ctx, &BlobService_ServiceDesc.Streams[0], "/tvix.store.v1.BlobService/Get", opts...)
+func (c *blobServiceClient) Stat(ctx context.Context, in *StatBlobRequest, opts ...grpc.CallOption) (*BlobMeta, error) {
+	out := new(BlobMeta)
+	err := c.cc.Invoke(ctx, "/tvix.store.v1.BlobService/Stat", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &blobServiceGetClient{stream}
+	return out, nil
+}
+
+func (c *blobServiceClient) Read(ctx context.Context, in *ReadBlobRequest, opts ...grpc.CallOption) (BlobService_ReadClient, error) {
+	stream, err := c.cc.NewStream(ctx, &BlobService_ServiceDesc.Streams[0], "/tvix.store.v1.BlobService/Read", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &blobServiceReadClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -49,16 +68,16 @@ func (c *blobServiceClient) Get(ctx context.Context, in *GetBlobRequest, opts ..
 	return x, nil
 }
 
-type BlobService_GetClient interface {
+type BlobService_ReadClient interface {
 	Recv() (*BlobChunk, error)
 	grpc.ClientStream
 }
 
-type blobServiceGetClient struct {
+type blobServiceReadClient struct {
 	grpc.ClientStream
 }
 
-func (x *blobServiceGetClient) Recv() (*BlobChunk, error) {
+func (x *blobServiceReadClient) Recv() (*BlobChunk, error) {
 	m := new(BlobChunk)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -104,7 +123,17 @@ func (x *blobServicePutClient) CloseAndRecv() (*PutBlobResponse, error) {
 // All implementations must embed UnimplementedBlobServiceServer
 // for forward compatibility
 type BlobServiceServer interface {
-	Get(*GetBlobRequest, BlobService_GetServer) error
+	// Stat exposes metadata about a given blob,
+	// such as more granular chunking, baos.
+	// It implicitly allows checking for existence too, as asking this for a
+	// non-existing Blob will return a Status::not_found grpc error.
+	// If there's no more granular chunking available, the response will simply
+	// contain a single chunk.
+	Stat(context.Context, *StatBlobRequest) (*BlobMeta, error)
+	// Read returns a stream of BlobChunk, which is just a stream of bytes - not necessarily
+	// using the chunking that's returned in the reply of a Stat() call.
+	Read(*ReadBlobRequest, BlobService_ReadServer) error
+	// Put uploads a Blob, by reading a stream of bytes.
 	Put(BlobService_PutServer) error
 	mustEmbedUnimplementedBlobServiceServer()
 }
@@ -113,8 +142,11 @@ type BlobServiceServer interface {
 type UnimplementedBlobServiceServer struct {
 }
 
-func (UnimplementedBlobServiceServer) Get(*GetBlobRequest, BlobService_GetServer) error {
-	return status.Errorf(codes.Unimplemented, "method Get not implemented")
+func (UnimplementedBlobServiceServer) Stat(context.Context, *StatBlobRequest) (*BlobMeta, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Stat not implemented")
+}
+func (UnimplementedBlobServiceServer) Read(*ReadBlobRequest, BlobService_ReadServer) error {
+	return status.Errorf(codes.Unimplemented, "method Read not implemented")
 }
 func (UnimplementedBlobServiceServer) Put(BlobService_PutServer) error {
 	return status.Errorf(codes.Unimplemented, "method Put not implemented")
@@ -132,24 +164,42 @@ func RegisterBlobServiceServer(s grpc.ServiceRegistrar, srv BlobServiceServer) {
 	s.RegisterService(&BlobService_ServiceDesc, srv)
 }
 
-func _BlobService_Get_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(GetBlobRequest)
+func _BlobService_Stat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StatBlobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BlobServiceServer).Stat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/tvix.store.v1.BlobService/Stat",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BlobServiceServer).Stat(ctx, req.(*StatBlobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BlobService_Read_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ReadBlobRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(BlobServiceServer).Get(m, &blobServiceGetServer{stream})
+	return srv.(BlobServiceServer).Read(m, &blobServiceReadServer{stream})
 }
 
-type BlobService_GetServer interface {
+type BlobService_ReadServer interface {
 	Send(*BlobChunk) error
 	grpc.ServerStream
 }
 
-type blobServiceGetServer struct {
+type blobServiceReadServer struct {
 	grpc.ServerStream
 }
 
-func (x *blobServiceGetServer) Send(m *BlobChunk) error {
+func (x *blobServiceReadServer) Send(m *BlobChunk) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -185,11 +235,16 @@ func (x *blobServicePutServer) Recv() (*BlobChunk, error) {
 var BlobService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "tvix.store.v1.BlobService",
 	HandlerType: (*BlobServiceServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Stat",
+			Handler:    _BlobService_Stat_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "Get",
-			Handler:       _BlobService_Get_Handler,
+			StreamName:    "Read",
+			Handler:       _BlobService_Read_Handler,
 			ServerStreams: true,
 		},
 		{
