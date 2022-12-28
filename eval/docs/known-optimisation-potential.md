@@ -110,3 +110,27 @@ optimisations, but note the most important ones here.
   Currently, the compiler emits a separate entry in the constant
   table for each literal.  So the program `1 + 1 + 1` will have
   three entries in its `Chunk::constants` instead of only one.
+
+* Do some list and attribute set operations in place [hard]
+
+  Algorithms that can not do a lot of work inside `builtins` like `map`,
+  `filter` or `foldl'` usually perform terribly if they use data structures like
+  lists and attribute sets.
+
+  `builtins` can do work in place on a copy of a `Value`, but naïvely expressed
+  recursive algorithms will usually use `//` and `++` to do a single change to a
+  `Value` at a time, requiring a full copy of the data structure each time.
+  It would be a big improvement if we could do some of these operations in place
+  without requiring a new copy.
+
+  There are probably two approaches: We could determine statically if a value is
+  reachable from elsewhere and emit a special in place instruction if not. An
+  easier alternative is probably to rely on reference counting at runtime: If no
+  other reference to a value exists, we can extend the list or update the
+  attribute set in place.
+
+  An **alternative** to this is using [persistent data
+  structures](https://en.wikipedia.org/wiki/Persistent_data_structure) or at the
+  very least [immutable data structures](https://docs.rs/im/latest/im/) that can
+  be copied more efficiently than the stock structures we are using at the
+  moment.
