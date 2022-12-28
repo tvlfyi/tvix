@@ -22,22 +22,39 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PathInfoServiceClient interface {
-	// Get retrieves a PathInfo object, by using the lookup parameters in
-	// GetPathInfoRequest.
-	// If the PathInfo object contains a DirectoryNode, it needs to be looked
-	// up separately via the DirectoryService, which is purely
-	// content-addressed.
+	// Return a PathInfo message, identified by the decoded nixbase32 part
+	// of a Nix output path.
+	//
+	// To substitute /nix/store/xm35nga2g20mz5sm5l6n8v3bdm86yj83-
+	// cowsay-3.04 the bytes in the request would be
+	// nixbase32dec("xm35nga2g20mz5sm5l6n8v3bdm86yj83").
 	Get(ctx context.Context, in *GetPathInfoRequest, opts ...grpc.CallOption) (*PathInfo, error)
 	// Put uploads a PathInfo object to the remote end. It MUST not return
 	// until the PathInfo object has been written on the the remote end.
+	//
 	// The remote end MAY check if a potential DirectoryNode has already been
 	// uploaded.
+	//
 	// Uploading clients SHOULD obviously not steer other machines to try to
 	// substitute before from the remote end before having finished uploading
 	// PathInfo, Directories and Blobs.
 	// The returned PathInfo object MAY contain additional narinfo signatures,
 	// but is otherwise left untouched.
 	Put(ctx context.Context, in *PathInfo, opts ...grpc.CallOption) (*PathInfo, error)
+	// Calculate the NAR representation of the contents specified by the
+	// root_node. The calculation SHOULD be cached server-side for subsequent
+	// requests.
+	//
+	// All references (to blobs or Directory messages) MUST already exist in
+	// the store.
+	//
+	// The method can be used to produce a Nix fixed-output path, which
+	// contains the (compressed) sha256 of the NAR content representation in
+	// the root_node name (suffixed with the name).
+	//
+	// It can also be used to calculate arbitrary NAR hashes of output paths,
+	// in case a legacy Nix Binary Cache frontend is provided.
+	CalculateNAR(ctx context.Context, in *Node, opts ...grpc.CallOption) (*CalculateNARResponse, error)
 }
 
 type pathInfoServiceClient struct {
@@ -66,26 +83,52 @@ func (c *pathInfoServiceClient) Put(ctx context.Context, in *PathInfo, opts ...g
 	return out, nil
 }
 
+func (c *pathInfoServiceClient) CalculateNAR(ctx context.Context, in *Node, opts ...grpc.CallOption) (*CalculateNARResponse, error) {
+	out := new(CalculateNARResponse)
+	err := c.cc.Invoke(ctx, "/tvix.store.v1.PathInfoService/CalculateNAR", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PathInfoServiceServer is the server API for PathInfoService service.
 // All implementations must embed UnimplementedPathInfoServiceServer
 // for forward compatibility
 type PathInfoServiceServer interface {
-	// Get retrieves a PathInfo object, by using the lookup parameters in
-	// GetPathInfoRequest.
-	// If the PathInfo object contains a DirectoryNode, it needs to be looked
-	// up separately via the DirectoryService, which is purely
-	// content-addressed.
+	// Return a PathInfo message, identified by the decoded nixbase32 part
+	// of a Nix output path.
+	//
+	// To substitute /nix/store/xm35nga2g20mz5sm5l6n8v3bdm86yj83-
+	// cowsay-3.04 the bytes in the request would be
+	// nixbase32dec("xm35nga2g20mz5sm5l6n8v3bdm86yj83").
 	Get(context.Context, *GetPathInfoRequest) (*PathInfo, error)
 	// Put uploads a PathInfo object to the remote end. It MUST not return
 	// until the PathInfo object has been written on the the remote end.
+	//
 	// The remote end MAY check if a potential DirectoryNode has already been
 	// uploaded.
+	//
 	// Uploading clients SHOULD obviously not steer other machines to try to
 	// substitute before from the remote end before having finished uploading
 	// PathInfo, Directories and Blobs.
 	// The returned PathInfo object MAY contain additional narinfo signatures,
 	// but is otherwise left untouched.
 	Put(context.Context, *PathInfo) (*PathInfo, error)
+	// Calculate the NAR representation of the contents specified by the
+	// root_node. The calculation SHOULD be cached server-side for subsequent
+	// requests.
+	//
+	// All references (to blobs or Directory messages) MUST already exist in
+	// the store.
+	//
+	// The method can be used to produce a Nix fixed-output path, which
+	// contains the (compressed) sha256 of the NAR content representation in
+	// the root_node name (suffixed with the name).
+	//
+	// It can also be used to calculate arbitrary NAR hashes of output paths,
+	// in case a legacy Nix Binary Cache frontend is provided.
+	CalculateNAR(context.Context, *Node) (*CalculateNARResponse, error)
 	mustEmbedUnimplementedPathInfoServiceServer()
 }
 
@@ -98,6 +141,9 @@ func (UnimplementedPathInfoServiceServer) Get(context.Context, *GetPathInfoReque
 }
 func (UnimplementedPathInfoServiceServer) Put(context.Context, *PathInfo) (*PathInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Put not implemented")
+}
+func (UnimplementedPathInfoServiceServer) CalculateNAR(context.Context, *Node) (*CalculateNARResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CalculateNAR not implemented")
 }
 func (UnimplementedPathInfoServiceServer) mustEmbedUnimplementedPathInfoServiceServer() {}
 
@@ -148,6 +194,24 @@ func _PathInfoService_Put_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PathInfoService_CalculateNAR_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Node)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PathInfoServiceServer).CalculateNAR(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/tvix.store.v1.PathInfoService/CalculateNAR",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PathInfoServiceServer).CalculateNAR(ctx, req.(*Node))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PathInfoService_ServiceDesc is the grpc.ServiceDesc for PathInfoService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -162,6 +226,10 @@ var PathInfoService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Put",
 			Handler:    _PathInfoService_Put_Handler,
+		},
+		{
+			MethodName: "CalculateNAR",
+			Handler:    _PathInfoService_CalculateNAR_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
