@@ -7,6 +7,7 @@ use crate::proto::FILE_DESCRIPTOR_SET;
 
 use clap::Parser;
 use tonic::{transport::Server, Result};
+use tracing::{info, Level};
 
 mod dummy_blob_service;
 mod dummy_directory_service;
@@ -23,6 +24,9 @@ mod tests;
 struct Cli {
     #[clap(long, short = 'l')]
     listen_address: Option<String>,
+
+    #[clap(long)]
+    log_level: Option<Level>,
 }
 
 #[tokio::main]
@@ -33,6 +37,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or("[::]:8000".to_string())
         .parse()
         .unwrap();
+
+    let level = cli.log_level.unwrap_or(Level::INFO);
+    let subscriber = tracing_subscriber::fmt().with_max_level(level).finish();
+    tracing::subscriber::set_global_default(subscriber).ok();
 
     let mut server = Server::builder();
 
@@ -53,7 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         router = router.add_service(reflection_svc);
     }
 
-    println!("tvix-store listening on {}", listen_address);
+    info!("tvix-store listening on {}", listen_address);
 
     router.serve(listen_address).await?;
 

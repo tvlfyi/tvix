@@ -7,6 +7,9 @@ use crate::proto::PutBlobResponse;
 use crate::proto::ReadBlobRequest;
 use crate::proto::StatBlobRequest;
 use tonic::{Request, Response, Result, Status, Streaming};
+use tracing::{instrument, warn};
+
+const NOT_IMPLEMENTED_MSG: &str = "not implemented";
 
 pub struct DummyBlobService {}
 
@@ -14,21 +17,27 @@ pub struct DummyBlobService {}
 impl BlobService for DummyBlobService {
     type ReadStream = ReceiverStream<Result<BlobChunk>>;
 
+    #[instrument(skip(self))]
     async fn stat(&self, _request: Request<StatBlobRequest>) -> Result<Response<BlobMeta>> {
-        Err(Status::unimplemented("not implemented"))
+        warn!(NOT_IMPLEMENTED_MSG);
+        Err(Status::unimplemented(NOT_IMPLEMENTED_MSG))
     }
 
+    #[instrument(skip(self))]
     async fn read(
         &self,
         _request: Request<ReadBlobRequest>,
     ) -> Result<Response<Self::ReadStream>, Status> {
-        Err(Status::unimplemented("not implemented"))
+        warn!(NOT_IMPLEMENTED_MSG);
+        Err(Status::unimplemented(NOT_IMPLEMENTED_MSG))
     }
 
+    #[instrument(skip(self, _request))]
     async fn put(
         &self,
         _request: Request<Streaming<BlobChunk>>,
     ) -> Result<Response<PutBlobResponse>> {
-        Err(Status::unimplemented("not implemented"))
+        warn!(NOT_IMPLEMENTED_MSG);
+        Err(Status::unimplemented(NOT_IMPLEMENTED_MSG))
     }
 }
