@@ -1,0 +1,19 @@
+{
+  "outputs": {
+    "out": {
+      "path": "/nix/store/vgvdj6nf7s8kvfbl2skbpwz9kc7xjazc-unicode"
+    }
+  },
+  "input_sources": [],
+  "input_derivations": {},
+  "platform": ":",
+  "builder": ":",
+  "arguments": [],
+  "environment": {
+    "builder": ":",
+    "letters": "räksmörgås\nrødgrød med fløde\nLübeck\n肥猪\nこんにちは / 今日は\n🌮\n",
+    "name": "unicode",
+    "out": "/nix/store/vgvdj6nf7s8kvfbl2skbpwz9kc7xjazc-unicode",
+    "system": ":"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "outputs": {
+    "out": {
+      "path": "/nix/store/5vyvcwah9l9kf07d52rcgdk70g2f4y13-foo"
+    }
+  },
+  "input_sources": [],
+  "input_derivations": {
+    "/nix/store/0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv": [
+      "out"
+    ]
+  },
+  "platform": ":",
+  "builder": ":",
+  "arguments": [],
+  "environment": {
+    "bar": "/nix/store/4q0pg5zpfmznxscq3avycvf9xdvx50n3-bar",
+    "builder": ":",
+    "name": "foo",
+    "out": "/nix/store/5vyvcwah9l9kf07d52rcgdk70g2f4y13-foo",
+    "system": ":"
+  }
+}

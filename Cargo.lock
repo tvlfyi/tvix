@@ -477,6 +477,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "derivation"
+version = "0.1.0"
+dependencies = [
+ "glob",
+ "serde",
+ "serde_json",
+ "test-generator",
+]
+
+[[package]]
 name = "diff"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"

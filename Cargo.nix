@@ -33,6 +33,16 @@ rec {
   # You can override the features with
   # workspaceMembers."${crateName}".build.override { features = [ "default" "feature1" ... ]; }.
   workspaceMembers = {
+    "derivation" = rec {
+      packageId = "derivation";
+      build = internal.buildRustCrateWithFeatures {
+        packageId = "derivation";
+      };
+
+      # Debug support which might change between releases.
+      # File a bug if you depend on any for non-debug work!
+      debug = internal.debugCrate { inherit packageId; };
+    };
     "nix-cli" = rec {
       packageId = "nix-cli";
       build = internal.buildRustCrateWithFeatures {
@@ -1434,6 +1444,47 @@ rec {
         ];
 
       };
+      "derivation" = rec {
+        crateName = "derivation";
+        version = "0.1.0";
+        edition = "2021";
+        # We can't filter paths with references in Nix 2.4
+        # See https://github.com/NixOS/nix/issues/5410
+        src =
+          if (lib.versionOlder builtins.nixVersion "2.4pre20211007")
+          then lib.cleanSourceWith { filter = sourceFilter; src = ./derivation; }
+          else ./derivation;
+        dependencies = [
+          {
+            name = "blake3";
+            packageId = "blake3";
+            features = [ "rayon" "std" ];
+          }
+          {
+            name = "maplit";
+            packageId = "maplit";
+          }
+          {
+            name = "prost";
+            packageId = "prost";
+          }
+          {
+            name = "tonic";
+            packageId = "tonic";
+          }
+        ];
+        buildDependencies = [
+          {
+            name = "prost-build";
+            packageId = "prost-build";
+          }
+          {
+            name = "tonic-build";
+            packageId = "tonic-build";
+          }
+        ];
+
+      };
       "diff" = rec {
         crateName = "diff";
         version = "0.1.13";
@@ -2656,6 +2707,16 @@ rec {
           "sval" = [ "dep:sval" ];
           "value-bag" = [ "dep:value-bag" ];
         };
+      };
+      "maplit" = rec {
+        crateName = "maplit";
+        version = "1.0.2";
+        edition = "2015";
+        sha256 = "07b5kjnhrrmfhgqm9wprjw8adx6i225lqp49gasgqg74lahnabiy";
+        authors = [
+          "bluss"
+        ];
+
       };
       "matchit" = rec {
         crateName = "matchit";

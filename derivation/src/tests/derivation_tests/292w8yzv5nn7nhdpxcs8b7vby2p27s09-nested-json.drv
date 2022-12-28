@@ -1,0 +1,1 @@
+Derive([("out","/nix/store/pzr7lsd3q9pqsnb42r9b23jc5sh8irvn-nested-json","","")],[],[],":",":",[],[("builder",":"),("json","{\"hello\":\"moto\\n\"}"),("name","nested-json"),("out","/nix/store/pzr7lsd3q9pqsnb42r9b23jc5sh8irvn-nested-json"),("system",":")])

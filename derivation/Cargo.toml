@@ -1,0 +1,19 @@
+[package]
+name = "derivation"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+glob = "0.3.0"
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies.test-generator]
+# This fork of test-generator adds support for cargo workspaces, see
+# also https://github.com/frehberg/test-generator/pull/14
+git = "https://github.com/JamesGuthrie/test-generator.git"
+rev = "82e799979980962aec1aa324ec6e0e4cad781f41"
+
+[dev-dependencies]
+serde_json = "1.0"
