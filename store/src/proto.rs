@@ -1,3 +1,5 @@
+#![allow(clippy::derive_partial_eq_without_eq)]
+// https://github.com/hyperium/tonic/issues/1056
 use std::collections::HashSet;
 use thiserror::Error;
 
@@ -6,7 +8,7 @@ use prost::Message;
 tonic::include_proto!("tvix.store.v1");
 
 /// Errors that can occur during the validation of Directory messages.
-#[derive(Debug, Error, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Error)]
 pub enum ValidateDirectoryError {
     /// Elements are not in sorted order
     #[error("{0} is not sorted")]
@@ -28,10 +30,9 @@ pub enum ValidateDirectoryError {
 /// message with an empty string as name is allowed, but they don't occur
 /// inside a Directory message.
 fn validate_node_name(name: &str) -> Result<(), ValidateDirectoryError> {
-    if name == "" || name == ".." || name == "." || name.contains("\x00") || name.contains("/") {
-        return Err(ValidateDirectoryError::InvalidName(
-            name.to_string().clone(),
-        ));
+    if name.is_empty() || name == ".." || name == "." || name.contains('\x00') || name.contains('/')
+    {
+        return Err(ValidateDirectoryError::InvalidName(name.to_string()));
     }
     Ok(())
 }
@@ -53,9 +54,7 @@ fn update_if_lt_prev<'set, 'n>(
     name: &'n str,
 ) -> Result<(), ValidateDirectoryError> {
     if *name < **prev_name {
-        return Err(ValidateDirectoryError::WrongSorting(
-            name.to_string().clone(),
-        ));
+        return Err(ValidateDirectoryError::WrongSorting(name.to_string()));
     }
     *prev_name = name;
     Ok(())
@@ -68,9 +67,7 @@ fn insert_once<'n>(
     name: &'n str,
 ) -> Result<(), ValidateDirectoryError> {
     if seen_names.get(name).is_some() {
-        return Err(ValidateDirectoryError::DuplicateName(
-            name.to_string().clone(),
-        ));
+        return Err(ValidateDirectoryError::DuplicateName(name.to_string()));
     }
     seen_names.insert(name);
     Ok(())
@@ -111,8 +108,8 @@ impl Directory {
             validate_node_name(&directory_node.name)?;
             validate_digest(&directory_node.digest)?;
 
-            update_if_lt_prev(&mut last_directory_name, &mut directory_node.name.as_str())?;
-            insert_once(&mut seen_names, &directory_node.name.as_str())?;
+            update_if_lt_prev(&mut last_directory_name, directory_node.name.as_str())?;
+            insert_once(&mut seen_names, directory_node.name.as_str())?;
         }
 
         // check files
@@ -120,16 +117,16 @@ impl Directory {
             validate_node_name(&file_node.name)?;
             validate_digest(&file_node.digest)?;
 
-            update_if_lt_prev(&mut last_file_name, &mut file_node.name.as_str())?;
-            insert_once(&mut seen_names, &file_node.name.as_str())?;
+            update_if_lt_prev(&mut last_file_name, file_node.name.as_str())?;
+            insert_once(&mut seen_names, file_node.name.as_str())?;
         }
 
         // check symlinks
         for symlink_node in &self.symlinks {
             validate_node_name(&symlink_node.name)?;
 
-            update_if_lt_prev(&mut last_symlink_name, &mut symlink_node.name.as_str())?;
-            insert_once(&mut seen_names, &symlink_node.name.as_str())?;
+            update_if_lt_prev(&mut last_symlink_name, symlink_node.name.as_str())?;
+            insert_once(&mut seen_names, symlink_node.name.as_str())?;
         }
 
         Ok(())

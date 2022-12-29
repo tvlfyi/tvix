@@ -15,7 +15,7 @@ fn main() -> Result<()> {
             // If we are in running `cargo build` manually, using `../..` works fine,
             // but in case we run inside a nix build, we need to instead point PROTO_ROOT
             // to a sparseTree containing that structure.
-            &[match std::env::var_os(&"PROTO_ROOT") {
+            &[match std::env::var_os("PROTO_ROOT") {
                 Some(proto_root) => proto_root.to_str().unwrap().to_owned(),
                 None => "../..".to_string(),
             }],
