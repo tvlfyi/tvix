@@ -173,6 +173,17 @@ impl NixAttrs {
         Self(AttrsRep::Empty)
     }
 
+    /// Compare two attribute sets by pointer equality. Only makes
+    /// sense for some attribute set reprsentations, i.e. returning
+    /// `false` does not mean that the two attribute sets do not have
+    /// equal *content*.
+    pub fn ptr_eq(&self, other: &Self) -> bool {
+        match (&self.0, &other.0) {
+            (AttrsRep::Im(lhs), AttrsRep::Im(rhs)) => lhs.ptr_eq(rhs),
+            _ => false,
+        }
+    }
+
     /// Return an attribute set containing the merge of the two
     /// provided sets. Keys from the `other` set have precedence.
     pub fn update(self, other: Self) -> Self {

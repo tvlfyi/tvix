@@ -21,7 +21,7 @@ use crate::{
     vm::VM,
 };
 
-use crate::{arithmetic_op, unwrap_or_clone_rc};
+use crate::arithmetic_op;
 
 use self::versions::{VersionPart, VersionPartsIter};
 
@@ -1022,8 +1022,8 @@ fn placeholders() -> Vec<Builtin> {
                 // values on the fields that a real derivation would contain.
                 //
                 // Crucially this means we do not yet *validate* the values either.
-                let attrs = unwrap_or_clone_rc(args[0].to_attrs()?);
-                let attrs = attrs.update(NixAttrs::from_iter(
+                let input = args[0].to_attrs()?;
+                let attrs = input.update(NixAttrs::from_iter(
                     [
                         (
                             "outPath",
@@ -1038,7 +1038,7 @@ fn placeholders() -> Vec<Builtin> {
                     .into_iter(),
                 ));
 
-                Ok(Value::Attrs(Rc::new(attrs)))
+                Ok(Value::Attrs(Box::new(attrs)))
             },
         ),
     ]

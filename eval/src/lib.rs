@@ -37,7 +37,6 @@ mod test_utils;
 mod tests;
 
 use std::path::PathBuf;
-use std::rc::Rc;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -61,12 +60,6 @@ pub use crate::io::StdIO;
 pub mod internal {
     pub use crate::value::{Builtin, BuiltinArgument};
     pub use crate::vm::VM;
-}
-
-// TODO: use Rc::unwrap_or_clone once it is stabilised.
-// https://doc.rust-lang.org/std/rc/struct.Rc.html#method.unwrap_or_clone
-pub(crate) fn unwrap_or_clone_rc<T: Clone>(rc: Rc<T>) -> T {
-    Rc::try_unwrap(rc).unwrap_or_else(|rc| (*rc).clone())
 }
 
 /// An `Evaluation` represents how a piece of Nix code is evaluated. It can be

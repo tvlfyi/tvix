@@ -12,7 +12,6 @@ use crate::{
     observer::RuntimeObserver,
     opcode::{CodeIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
     spans::LightSpan,
-    unwrap_or_clone_rc,
     upvalues::Upvalues,
     value::{Builtin, Closure, CoercionKind, Lambda, NixAttrs, NixList, Thunk, Value},
     warnings::{EvalWarning, WarningKind},
@@ -584,7 +583,7 @@ impl<'o> VM<'o> {
                 (Value::List(_), _) => break false,
 
                 (Value::Attrs(a1), Value::Attrs(a2)) => {
-                    if allow_pointer_equality_on_functions_and_thunks && Rc::ptr_eq(&a1, &a2) {
+                    if allow_pointer_equality_on_functions_and_thunks && a1.ptr_eq(&a2) {
                         continue;
                     }
                     allow_pointer_equality_on_functions_and_thunks = true;
@@ -620,8 +619,8 @@ impl<'o> VM<'o> {
                         }
                         _ => {}
                     }
-                    let iter1 = unwrap_or_clone_rc(a1).into_iter_sorted();
-                    let iter2 = unwrap_or_clone_rc(a2).into_iter_sorted();
+                    let iter1 = a1.into_iter_sorted();
+                    let iter2 = a2.into_iter_sorted();
                     if iter1.len() != iter2.len() {
                         break false;
                     }
@@ -745,10 +744,10 @@ impl<'o> VM<'o> {
             OpCode::OpAttrs(Count(count)) => self.run_attrset(count)?,
 
             OpCode::OpAttrsUpdate => {
-                let rhs = unwrap_or_clone_rc(fallible!(self, self.pop().to_attrs()));
-                let lhs = unwrap_or_clone_rc(fallible!(self, self.pop().to_attrs()));
+                let rhs = fallible!(self, self.pop().to_attrs());
+                let lhs = fallible!(self, self.pop().to_attrs());
 
-                self.push(Value::attrs(lhs.update(rhs)))
+                self.push(Value::attrs(lhs.update(*rhs)))
             }
 
             OpCode::OpAttrsSelect => {

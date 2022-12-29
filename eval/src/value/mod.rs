@@ -39,7 +39,7 @@ pub enum Value {
     Float(f64),
     String(NixString),
     Path(PathBuf),
-    Attrs(Rc<NixAttrs>),
+    Attrs(Box<NixAttrs>),
     List(NixList),
     Closure(Rc<Closure>), // must use Rc<Closure> here in order to get proper pointer equality
     Builtin(Builtin),
@@ -154,7 +154,7 @@ where
 impl Value {
     /// Construct a [`Value::Attrs`] from a [`NixAttrs`].
     pub fn attrs(attrs: NixAttrs) -> Self {
-        Self::Attrs(Rc::new(attrs))
+        Self::Attrs(Box::new(attrs))
     }
 }
 
@@ -303,7 +303,7 @@ impl Value {
     gen_cast!(as_int, i64, "int", Value::Integer(x), *x);
     gen_cast!(as_float, f64, "float", Value::Float(x), *x);
     gen_cast!(to_str, NixString, "string", Value::String(s), s.clone());
-    gen_cast!(to_attrs, Rc<NixAttrs>, "set", Value::Attrs(a), a.clone());
+    gen_cast!(to_attrs, Box<NixAttrs>, "set", Value::Attrs(a), a.clone());
     gen_cast!(to_list, NixList, "list", Value::List(l), l.clone());
     gen_cast!(
         as_closure,
