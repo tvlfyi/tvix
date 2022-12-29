@@ -6172,10 +6172,6 @@ rec {
             features = [ "rayon" "std" ];
           }
           {
-            name = "lazy_static";
-            packageId = "lazy_static";
-          }
-          {
             name = "prost";
             packageId = "prost";
           }
@@ -6196,6 +6192,12 @@ rec {
           {
             name = "tonic-build";
             packageId = "tonic-build";
+          }
+        ];
+        devDependencies = [
+          {
+            name = "lazy_static";
+            packageId = "lazy_static";
           }
         ];
 
