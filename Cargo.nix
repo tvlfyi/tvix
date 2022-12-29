@@ -1438,6 +1438,20 @@ rec {
         ];
 
       };
+      "data-encoding" = rec {
+        crateName = "data-encoding";
+        version = "2.3.3";
+        edition = "2018";
+        sha256 = "1yq8jnivxsjzl3mjbjdjg5kfvd17wawbmg1jvsfw6cqmn1n6dn13";
+        authors = [
+          "Julien Cretin <git@ia0.eu>"
+        ];
+        features = {
+          "default" = [ "std" ];
+          "std" = [ "alloc" ];
+        };
+        resolvedDefaultFeatures = [ "alloc" "default" "std" ];
+      };
       "derivation" = rec {
         crateName = "derivation";
         version = "0.1.0";
@@ -1450,31 +1464,23 @@ rec {
           else ./derivation;
         dependencies = [
           {
-            name = "blake3";
-            packageId = "blake3";
-            features = [ "rayon" "std" ];
+            name = "glob";
+            packageId = "glob";
           }
           {
-            name = "maplit";
-            packageId = "maplit";
-          }
-          {
-            name = "prost";
-            packageId = "prost";
-          }
-          {
-            name = "tonic";
-            packageId = "tonic";
+            name = "serde";
+            packageId = "serde";
+            features = [ "derive" ];
           }
         ];
-        buildDependencies = [
+        devDependencies = [
           {
-            name = "prost-build";
-            packageId = "prost-build";
+            name = "serde_json";
+            packageId = "serde_json";
           }
           {
-            name = "tonic-build";
-            packageId = "tonic-build";
+            name = "test-generator";
+            packageId = "test-generator";
           }
         ];
 
@@ -2723,16 +2729,6 @@ rec {
           "sval" = [ "dep:sval" ];
           "value-bag" = [ "dep:value-bag" ];
         };
-      };
-      "maplit" = rec {
-        crateName = "maplit";
-        version = "1.0.2";
-        edition = "2015";
-        sha256 = "07b5kjnhrrmfhgqm9wprjw8adx6i225lqp49gasgqg74lahnabiy";
-        authors = [
-          "bluss"
-        ];
-
       };
       "matchit" = rec {
         crateName = "matchit";
@@ -5091,6 +5087,64 @@ rec {
         ];
 
       };
+      "test-case" = rec {
+        crateName = "test-case";
+        version = "2.2.2";
+        edition = "2018";
+        sha256 = "1h4qymhy332lzgg79w696qfxg6wdab5birn8xvfgkczzgmdczmi1";
+        authors = [
+          "Marcin Sas-Szymanski <marcin.sas-szymanski@anixe.pl>"
+          "Wojciech Polak <frondeus@gmail.com>"
+          "Łukasz Biel <lukasz.p.biel@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "test-case-macros";
+            packageId = "test-case-macros";
+            usesDefaultFeatures = false;
+          }
+        ];
+        features = {
+          "regex" = [ "dep:regex" ];
+          "with-regex" = [ "regex" "test-case-macros/with-regex" ];
+        };
+      };
+      "test-case-macros" = rec {
+        crateName = "test-case-macros";
+        version = "2.2.2";
+        edition = "2018";
+        sha256 = "09jvbfvz48v6ya3i25gp3lbr6ym1fz7qyp3l6bcdslwkw7v7nnz4";
+        procMacro = true;
+        authors = [
+          "Marcin Sas-Szymanski <marcin.sas-szymanski@anixe.pl>"
+          "Wojciech Polak <frondeus@gmail.com>"
+          "Łukasz Biel <lukasz.p.biel@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "cfg-if";
+            packageId = "cfg-if";
+          }
+          {
+            name = "proc-macro-error";
+            packageId = "proc-macro-error";
+          }
+          {
+            name = "proc-macro2";
+            packageId = "proc-macro2 1.0.47";
+          }
+          {
+            name = "quote";
+            packageId = "quote 1.0.21";
+          }
+          {
+            name = "syn";
+            packageId = "syn 1.0.103";
+            features = [ "full" "extra-traits" ];
+          }
+        ];
+        features = { };
+      };
       "test-generator" = rec {
         crateName = "test-generator";
         version = "0.3.0";
@@ -6336,6 +6390,14 @@ rec {
             features = [ "rayon" "std" ];
           }
           {
+            name = "data-encoding";
+            packageId = "data-encoding";
+          }
+          {
+            name = "lazy_static";
+            packageId = "lazy_static";
+          }
+          {
             name = "prost";
             packageId = "prost";
           }
@@ -6360,8 +6422,8 @@ rec {
         ];
         devDependencies = [
           {
-            name = "lazy_static";
-            packageId = "lazy_static";
+            name = "test-case";
+            packageId = "test-case";
           }
         ];
 
