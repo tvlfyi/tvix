@@ -656,17 +656,11 @@ rec {
       };
       "bitmaps" = rec {
         crateName = "bitmaps";
-        version = "2.1.0";
-        edition = "2018";
-        sha256 = "18k4mcwxl96yvii5kcljkpb8pg5j4jj1zbsdn26nsx4r83846403";
+        version = "3.2.0";
+        edition = "2021";
+        sha256 = "00ql08pm4l9hizkldyy54v0pk96g7zg8x6i72c2vkcq0iawl4dkh";
         authors = [
           "Bodil Stokke <bodil@bodil.org>"
-        ];
-        dependencies = [
-          {
-            name = "typenum";
-            packageId = "typenum";
-          }
         ];
         features = {
           "default" = [ "std" ];
@@ -2423,18 +2417,23 @@ rec {
         ];
 
       };
-      "im" = rec {
-        crateName = "im";
-        version = "15.1.0";
+      "imbl" = rec {
+        crateName = "imbl";
+        version = "2.0.0";
         edition = "2018";
-        sha256 = "1sg0jy9y0l3lqjpjyclj6kspi027mx177dgrmacgjni8y0zx7b6h";
+        sha256 = "03fvbk1g1pqs6j77g76vq5klqi6bx9jl9di782268ilzrmlnp062";
         authors = [
           "Bodil Stokke <bodil@bodil.org>"
+          "Joe Neeman <joeneeman@gmail.com>"
         ];
         dependencies = [
           {
             name = "bitmaps";
             packageId = "bitmaps";
+          }
+          {
+            name = "imbl-sized-chunks";
+            packageId = "imbl-sized-chunks";
           }
           {
             name = "rand_core";
@@ -2443,14 +2442,6 @@ rec {
           {
             name = "rand_xoshiro";
             packageId = "rand_xoshiro";
-          }
-          {
-            name = "sized-chunks";
-            packageId = "sized-chunks";
-          }
-          {
-            name = "typenum";
-            packageId = "typenum";
           }
         ];
         buildDependencies = [
@@ -2467,6 +2458,31 @@ rec {
           "refpool" = [ "dep:refpool" ];
           "serde" = [ "dep:serde" ];
         };
+      };
+      "imbl-sized-chunks" = rec {
+        crateName = "imbl-sized-chunks";
+        version = "0.1.1";
+        edition = "2021";
+        sha256 = "0xhhmb7aldl92hxkmsx10n59zxsa0hw4bvykc6jmq72lnah7x5g6";
+        authors = [
+          "Bodil Stokke <bodil@bodil.org>"
+          "Joe Neeman <joeneeman@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "bitmaps";
+            packageId = "bitmaps";
+            usesDefaultFeatures = false;
+          }
+        ];
+        features = {
+          "arbitrary" = [ "dep:arbitrary" ];
+          "array-ops" = [ "dep:array-ops" ];
+          "default" = [ "std" ];
+          "refpool" = [ "dep:refpool" ];
+          "ringbuffer" = [ "array-ops" ];
+        };
+        resolvedDefaultFeatures = [ "default" "std" ];
       };
       "indexmap" = rec {
         crateName = "indexmap";
@@ -4712,33 +4728,6 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "std" ];
       };
-      "sized-chunks" = rec {
-        crateName = "sized-chunks";
-        version = "0.6.5";
-        edition = "2018";
-        sha256 = "07ix5fsdnpf2xsb0k5rbiwlmsicm2237fcx7blirp9p7pljr5mhn";
-        authors = [
-          "Bodil Stokke <bodil@bodil.org>"
-        ];
-        dependencies = [
-          {
-            name = "bitmaps";
-            packageId = "bitmaps";
-          }
-          {
-            name = "typenum";
-            packageId = "typenum";
-          }
-        ];
-        features = {
-          "arbitrary" = [ "dep:arbitrary" ];
-          "array-ops" = [ "dep:array-ops" ];
-          "default" = [ "std" ];
-          "refpool" = [ "dep:refpool" ];
-          "ringbuffer" = [ "array-ops" ];
-        };
-        resolvedDefaultFeatures = [ "default" "std" ];
-      };
       "slab" = rec {
         crateName = "slab";
         version = "0.4.7";
@@ -6185,8 +6174,8 @@ rec {
             packageId = "dirs";
           }
           {
-            name = "im";
-            packageId = "im";
+            name = "imbl";
+            packageId = "imbl";
           }
           {
             name = "path-clean";

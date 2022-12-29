@@ -187,14 +187,14 @@ mod pure_builtins {
             .collect::<Result<Vec<NixList>, ErrorKind>>()?;
 
         Ok(Value::List(NixList::from(
-            lists.into_iter().flatten().collect::<im::Vector<Value>>(),
+            lists.into_iter().flatten().collect::<imbl::Vector<Value>>(),
         )))
     }
 
     #[builtin("concatMap")]
     fn builtin_concat_map(vm: &mut VM, f: Value, list: Value) -> Result<Value, ErrorKind> {
         let list = list.to_list()?;
-        let mut res = im::Vector::new();
+        let mut res = imbl::Vector::new();
         for val in list {
             res.extend(vm.call_with(&f, [val])?.force(vm)?.to_list()?);
         }
@@ -295,7 +295,7 @@ mod pure_builtins {
 
                 result
             })
-            .collect::<Result<im::Vector<Value>, _>>()
+            .collect::<Result<imbl::Vector<Value>, _>>()
             .map(|list| Value::List(NixList::from(list)))
             .map_err(Into::into)
     }
@@ -356,7 +356,7 @@ mod pure_builtins {
 
         let operator = attrs.select_required("operator")?;
 
-        let mut res = im::Vector::new();
+        let mut res = imbl::Vector::new();
         let mut done_keys: Vec<Value> = vec![];
 
         let mut insert_key = |k: Value, vm: &mut VM| -> Result<bool, ErrorKind> {
@@ -391,7 +391,7 @@ mod pure_builtins {
         let len = length.as_int()?;
         (0..len)
             .map(|i| vm.call_with(&generator, [i.into()]))
-            .collect::<Result<im::Vector<Value>, _>>()
+            .collect::<Result<imbl::Vector<Value>, _>>()
             .map(|list| Value::List(NixList::from(list)))
             .map_err(Into::into)
     }
@@ -411,11 +411,11 @@ mod pure_builtins {
 
     #[builtin("groupBy")]
     fn builtin_group_by(vm: &mut VM, f: Value, list: Value) -> Result<Value, ErrorKind> {
-        let mut res: BTreeMap<NixString, im::Vector<Value>> = BTreeMap::new();
+        let mut res: BTreeMap<NixString, imbl::Vector<Value>> = BTreeMap::new();
         for val in list.to_list()? {
             let key = vm.call_with(&f, [val.clone()])?.force(vm)?.to_str()?;
             res.entry(key)
-                .or_insert_with(im::Vector::new)
+                .or_insert_with(imbl::Vector::new)
                 .push_back(val);
         }
         Ok(Value::attrs(NixAttrs::from_iter(
@@ -550,7 +550,7 @@ mod pure_builtins {
 
         list.into_iter()
             .map(|val| vm.call_with(&f, [val]))
-            .collect::<Result<im::Vector<Value>, _>>()
+            .collect::<Result<imbl::Vector<Value>, _>>()
             .map(|list| Value::List(NixList::from(list)))
             .map_err(Into::into)
     }
@@ -744,7 +744,7 @@ mod pure_builtins {
         let re: Regex = Regex::new(re.as_str()).unwrap();
         let mut capture_locations = re.capture_locations();
         let num_captures = capture_locations.len();
-        let mut ret = im::Vector::new();
+        let mut ret = imbl::Vector::new();
         let mut pos = 0;
 
         while let Some(thematch) = re.captures_read_at(&mut capture_locations, text, pos) {
@@ -755,7 +755,7 @@ mod pure_builtins {
             // group in the regex, containing the characters
             // matched by that capture group, or null if no match.
             // We skip capture 0; it represents the whole match.
-            let v: im::Vector<Value> = (1..num_captures)
+            let v: imbl::Vector<Value> = (1..num_captures)
                 .map(|i| capture_locations.get(i))
                 .map(|o| {
                     o.map(|(start, end)| Value::from(&text[start..end]))
@@ -775,7 +775,7 @@ mod pure_builtins {
     #[builtin("sort")]
     fn builtin_sort(vm: &mut VM, comparator: Value, list: Value) -> Result<Value, ErrorKind> {
         // TODO: the bound on the sort function in
-        // `im::Vector::sort_by` is `Fn(...)`, which means that we can
+        // `imbl::Vector::sort_by` is `Fn(...)`, which means that we can
         // not use the mutable VM inside of its closure, hence the
         // dance via `Vec`. I think this is just an unnecessarily
         // restrictive bound in `im`, not a functional requirement.
@@ -810,7 +810,7 @@ mod pure_builtins {
         });
 
         match error {
-            #[allow(deprecated)] // im::Vector usage prevented by its API
+            #[allow(deprecated)] // imbl::Vector usage prevented by its API
             None => Ok(Value::List(NixList::from_vec(list))),
             Some(e) => Err(e),
         }

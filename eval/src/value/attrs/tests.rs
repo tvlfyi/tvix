@@ -56,7 +56,7 @@ fn test_simple_attrs() {
     .expect("simple attr construction should succeed");
 
     assert!(
-        matches!(attrs, NixAttrs(AttrsRep::Map(_))),
+        matches!(attrs, NixAttrs(AttrsRep::Im(_))),
         "simple attribute set should use map representation",
     )
 }

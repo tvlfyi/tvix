@@ -601,7 +601,7 @@ fn type_error(expected: &'static str, actual: &Value) -> ErrorKind {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use im::vector;
+    use imbl::vector;
 
     mod nix_eq {
         use crate::observer::NoOpObserver;

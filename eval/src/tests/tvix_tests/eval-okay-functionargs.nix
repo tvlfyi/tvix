@@ -6,7 +6,7 @@ let
   atermFun = { stdenv, fetchurl }: { name = "aterm-${stdenv.name}"; };
   aterm2Fun = { stdenv, fetchurl }: { name = "aterm2-${stdenv.name}"; };
   nixFun = { stdenv, fetchurl, aterm }: { name = "nix-${stdenv.name}-${aterm.name}"; };
-  
+
   mplayerFun =
     { stdenv, fetchurl, enableX11 ? false, xorg ? null, enableFoo ? true, foo ? null  }:
     assert stdenv.name == "stdenv2";
@@ -18,7 +18,7 @@ let
     { override = newArgs:
         makeOverridable f (origArgs // (if builtins.isFunction newArgs then newArgs origArgs else newArgs));
     };
-    
+
   callPackage_ = pkgs: f: args:
     makeOverridable f ((builtins.intersectAttrs (builtins.functionArgs f) pkgs) // args);
 
@@ -42,7 +42,7 @@ let
   libX11Fun = { stdenv, fetchurl }: { name = "libX11"; };
   libX11_2Fun = { stdenv, fetchurl }: { name = "libX11_2"; };
   libXvFun = { stdenv, fetchurl, libX11 }: { name = "libXv"; };
-  
+
   xorgFun =
     { pkgs }:
     let callPackage = callPackage_ (pkgs // pkgs.xorg); in
@@ -56,7 +56,7 @@ in
 let
 
   pkgs = allPackages { };
-  
+
   pkgs2 = allPackages {
     overrides = pkgs: pkgsPrev: {
       stdenv = pkgs.stdenv2;
@@ -64,7 +64,7 @@ let
       xorg = pkgsPrev.xorg // { libX11 = libX11_2Fun { inherit (pkgs) stdenv fetchurl; }; };
     };
   };
-  
+
 in
 
   [ pkgs.stdenv.name

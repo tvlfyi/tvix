@@ -1,7 +1,7 @@
 //! This module implements Nix lists.
 use std::ops::Index;
 
-use im::{vector, Vector};
+use imbl::{vector, Vector};
 
 use crate::errors::ErrorKind;
 use crate::vm::VM;
@@ -119,7 +119,7 @@ impl NixList {
 
 impl IntoIterator for NixList {
     type Item = Value;
-    type IntoIter = im::vector::ConsumingIter<Value>;
+    type IntoIter = imbl::vector::ConsumingIter<Value>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
@@ -128,7 +128,7 @@ impl IntoIterator for NixList {
 
 impl<'a> IntoIterator for &'a NixList {
     type Item = &'a Value;
-    type IntoIter = im::vector::Iter<'a, Value>;
+    type IntoIter = imbl::vector::Iter<'a, Value>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()

@@ -5,9 +5,9 @@
 //!
 //! Due to this, construction and management of attribute sets has
 //! some peculiarities that are encapsulated within this module.
-use std::collections::btree_map;
-use std::collections::BTreeMap;
 use std::iter::FromIterator;
+
+use imbl::{ordmap, OrdMap};
 
 use crate::errors::ErrorKind;
 use crate::vm::VM;
@@ -23,7 +23,8 @@ mod tests;
 #[derive(Clone, Debug)]
 enum AttrsRep {
     Empty,
-    Map(BTreeMap<NixString, Value>),
+
+    Im(OrdMap<NixString, Value>),
 
     /// Warning: this represents a **two**-attribute attrset, with
     /// attribute names "name" and "value", like `{name="foo";
@@ -43,20 +44,21 @@ impl Default for AttrsRep {
 impl AttrsRep {
     /// Retrieve reference to a mutable map inside of an attrs,
     /// optionally changing the representation if required.
-    fn map_mut(&mut self) -> &mut BTreeMap<NixString, Value> {
+    fn map_mut(&mut self) -> &mut OrdMap<NixString, Value> {
         match self {
-            AttrsRep::Map(m) => m,
+            AttrsRep::Im(m) => m,
 
             AttrsRep::Empty => {
-                *self = AttrsRep::Map(BTreeMap::new());
+                *self = AttrsRep::Im(OrdMap::new());
                 self.map_mut()
             }
 
             AttrsRep::KV { name, value } => {
-                *self = AttrsRep::Map(BTreeMap::from([
-                    (NixString::NAME, name.clone()),
-                    (NixString::VALUE, value.clone()),
-                ]));
+                *self = AttrsRep::Im(ordmap! {
+                    NixString::NAME => name.clone(),
+                    NixString::VALUE => value.clone()
+                });
+
                 self.map_mut()
             }
         }
@@ -72,7 +74,7 @@ impl AttrsRep {
                 _ => None,
             },
 
-            AttrsRep::Map(map) => map.get(&key.into()),
+            AttrsRep::Im(map) => map.get(&key.into()),
         }
     }
 
@@ -80,7 +82,7 @@ impl AttrsRep {
         match self {
             AttrsRep::Empty => false,
             AttrsRep::KV { .. } => key == "name" || key == "value",
-            AttrsRep::Map(map) => map.contains_key(&key.into()),
+            AttrsRep::Im(map) => map.contains_key(&key.into()),
         }
     }
 }
@@ -98,7 +100,7 @@ where
     where
         T: IntoIterator<Item = (K, V)>,
     {
-        NixAttrs(AttrsRep::Map(
+        NixAttrs(AttrsRep::Im(
             iter.into_iter()
                 .map(|(k, v)| (k.into(), v.into()))
                 .collect(),
@@ -121,7 +123,7 @@ impl TotalDisplay for NixAttrs {
                 f.write_str("; ")?;
             }
 
-            AttrsRep::Map(map) => {
+            AttrsRep::Im(map) => {
                 for (name, value) in map {
                     write!(f, "{} = ", name.ident_str())?;
                     value.total_fmt(f, set)?;
@@ -139,6 +141,7 @@ impl TotalDisplay for NixAttrs {
 #[cfg(feature = "arbitrary")]
 mod arbitrary {
     use super::*;
+    use std::collections::BTreeMap;
 
     use proptest::prelude::*;
     use proptest::prop_oneof;
@@ -158,7 +161,7 @@ mod arbitrary {
                 )
                     .prop_map(|(name, value)| Self(AttrsRep::KV { name, value })),
                 any_with::<BTreeMap<NixString, Value>>(args)
-                    .prop_map(|map| Self(AttrsRep::Map(map)))
+                    .prop_map(|map| Self::from_iter(map.into_iter()))
             ]
             .boxed()
         }
@@ -183,44 +186,41 @@ impl NixAttrs {
             // Explicitly handle all branches instead of falling
             // through, to ensure that we get at least some compiler
             // errors if variants are modified.
-            (AttrsRep::Map(_), AttrsRep::Map(_))
-            | (AttrsRep::Map(_), AttrsRep::KV { .. })
-            | (AttrsRep::KV { .. }, AttrsRep::Map(_)) => {}
+            (AttrsRep::Im(_), AttrsRep::Im(_))
+            | (AttrsRep::Im(_), AttrsRep::KV { .. })
+            | (AttrsRep::KV { .. }, AttrsRep::Im(_)) => {}
         };
 
         // Slightly more advanced, but still optimised updates
         match (self.0, other.0) {
-            (AttrsRep::Map(mut m), AttrsRep::KV { name, value }) => {
+            (AttrsRep::Im(mut m), AttrsRep::KV { name, value }) => {
                 m.insert(NixString::NAME, name);
                 m.insert(NixString::VALUE, value);
-                NixAttrs(AttrsRep::Map(m))
+                NixAttrs(AttrsRep::Im(m))
             }
 
-            (AttrsRep::KV { name, value }, AttrsRep::Map(mut m)) => {
+            (AttrsRep::KV { name, value }, AttrsRep::Im(mut m)) => {
                 match m.entry(NixString::NAME) {
-                    btree_map::Entry::Vacant(e) => {
+                    imbl::ordmap::Entry::Vacant(e) => {
                         e.insert(name);
                     }
 
-                    btree_map::Entry::Occupied(_) => { /* name from `m` has precedence */ }
+                    imbl::ordmap::Entry::Occupied(_) => { /* name from `m` has precedence */ }
                 };
 
                 match m.entry(NixString::VALUE) {
-                    btree_map::Entry::Vacant(e) => {
+                    imbl::ordmap::Entry::Vacant(e) => {
                         e.insert(value);
                     }
 
-                    btree_map::Entry::Occupied(_) => { /* value from `m` has precedence */ }
+                    imbl::ordmap::Entry::Occupied(_) => { /* value from `m` has precedence */ }
                 };
 
-                NixAttrs(AttrsRep::Map(m))
+                NixAttrs(AttrsRep::Im(m))
             }
 
             // Plain merge of maps.
-            (AttrsRep::Map(mut m1), AttrsRep::Map(mut m2)) => {
-                m1.append(&mut m2);
-                NixAttrs(AttrsRep::Map(m1))
-            }
+            (AttrsRep::Im(m1), AttrsRep::Im(m2)) => NixAttrs(AttrsRep::Im(m2.union(m1))),
 
             // Cases handled above by the borrowing match:
             _ => unreachable!(),
@@ -230,7 +230,7 @@ impl NixAttrs {
     /// Return the number of key-value entries in an attrset.
     pub fn len(&self) -> usize {
         match &self.0 {
-            AttrsRep::Map(map) => map.len(),
+            AttrsRep::Im(map) => map.len(),
             AttrsRep::Empty => 0,
             AttrsRep::KV { .. } => 2,
         }
@@ -256,7 +256,7 @@ impl NixAttrs {
     #[allow(clippy::needless_lifetimes)]
     pub fn iter<'a>(&'a self) -> Iter<KeyValue<'a>> {
         Iter(match &self.0 {
-            AttrsRep::Map(map) => KeyValue::Map(map.iter()),
+            AttrsRep::Im(map) => KeyValue::Im(map.iter()),
             AttrsRep::Empty => KeyValue::Empty,
 
             AttrsRep::KV {
@@ -280,7 +280,7 @@ impl NixAttrs {
                 ]
                 .into_iter(),
             )),
-            AttrsRep::Map(map) => IntoIter(IntoIterRepr::Map(map.into_iter())),
+            AttrsRep::Im(map) => IntoIter(IntoIterRepr::Im(map.into_iter())),
         }
     }
 
@@ -294,7 +294,7 @@ impl NixAttrs {
     pub fn keys(&self) -> Keys {
         Keys(match &self.0 {
             AttrsRep::Empty => KeysInner::Empty,
-            AttrsRep::Map(m) => KeysInner::Map(m.keys()),
+            AttrsRep::Im(m) => KeysInner::Im(m.keys()),
             AttrsRep::KV { .. } => KeysInner::KV(IterKV::default()),
         })
     }
@@ -321,7 +321,7 @@ impl NixAttrs {
             }
         }
 
-        let mut attrs = NixAttrs(AttrsRep::Map(BTreeMap::new()));
+        let mut attrs = NixAttrs(AttrsRep::Im(OrdMap::new()));
 
         for _ in 0..count {
             let value = stack_slice.pop().unwrap();
@@ -363,7 +363,7 @@ impl NixAttrs {
             // elements after key construction). In practice this
             // probably does not happen, so it's better to just bite
             // the bullet and implement this branch.
-            (AttrsRep::Empty, AttrsRep::Map(map)) | (AttrsRep::Map(map), AttrsRep::Empty) => {
+            (AttrsRep::Empty, AttrsRep::Im(map)) | (AttrsRep::Im(map), AttrsRep::Empty) => {
                 Ok(map.is_empty())
             }
 
@@ -382,8 +382,8 @@ impl NixAttrs {
                 },
             ) => Ok(n1.nix_eq(n2, vm)? && v1.nix_eq(v2, vm)?),
 
-            (AttrsRep::Map(map), AttrsRep::KV { name, value })
-            | (AttrsRep::KV { name, value }, AttrsRep::Map(map)) => {
+            (AttrsRep::Im(map), AttrsRep::KV { name, value })
+            | (AttrsRep::KV { name, value }, AttrsRep::Im(map)) => {
                 if map.len() != 2 {
                     return Ok(false);
                 }
@@ -397,7 +397,7 @@ impl NixAttrs {
                 Ok(false)
             }
 
-            (AttrsRep::Map(m1), AttrsRep::Map(m2)) => {
+            (AttrsRep::Im(m1), AttrsRep::Im(m2)) => {
                 if m1.len() != m2.len() {
                     return Ok(false);
                 }
@@ -462,11 +462,11 @@ fn attempt_optimise_kv(slice: &mut [Value]) -> Option<NixAttrs> {
 /// checking against duplicate keys.
 fn set_attr(attrs: &mut NixAttrs, key: NixString, value: Value) -> Result<(), ErrorKind> {
     match attrs.0.map_mut().entry(key) {
-        btree_map::Entry::Occupied(entry) => Err(ErrorKind::DuplicateAttrsKey {
+        imbl::ordmap::Entry::Occupied(entry) => Err(ErrorKind::DuplicateAttrsKey {
             key: entry.key().as_str().to_string(),
         }),
 
-        btree_map::Entry::Vacant(entry) => {
+        imbl::ordmap::Entry::Vacant(entry) => {
             entry.insert(value);
             Ok(())
         }
@@ -495,7 +495,6 @@ impl IterKV {
 
 /// Iterator representation over the keys *and* values of an attribute
 /// set.
-#[derive(Debug)]
 pub enum KeyValue<'a> {
     Empty,
 
@@ -505,7 +504,7 @@ pub enum KeyValue<'a> {
         at: IterKV,
     },
 
-    Map(btree_map::Iter<'a, NixString, Value>),
+    Im(imbl::ordmap::Iter<'a, NixString, Value>),
 }
 
 /// Iterator over a Nix attribute set.
@@ -519,7 +518,7 @@ impl<'a> Iterator for Iter<KeyValue<'a>> {
 
     fn next(&mut self) -> Option<Self::Item> {
         match &mut self.0 {
-            KeyValue::Map(inner) => inner.next(),
+            KeyValue::Im(inner) => inner.next(),
             KeyValue::Empty => None,
 
             KeyValue::KV { name, value, at } => match at {
@@ -544,7 +543,7 @@ impl<'a> ExactSizeIterator for Iter<KeyValue<'a>> {
         match &self.0 {
             KeyValue::Empty => 0,
             KeyValue::KV { .. } => 2,
-            KeyValue::Map(inner) => inner.len(),
+            KeyValue::Im(inner) => inner.len(),
         }
     }
 }
@@ -552,7 +551,7 @@ impl<'a> ExactSizeIterator for Iter<KeyValue<'a>> {
 enum KeysInner<'a> {
     Empty,
     KV(IterKV),
-    Map(btree_map::Keys<'a, NixString, Value>),
+    Im(imbl::ordmap::Keys<'a, NixString, Value>),
 }
 
 pub struct Keys<'a>(KeysInner<'a>);
@@ -572,7 +571,7 @@ impl<'a> Iterator for Keys<'a> {
                 Some(NixString::VALUE_REF)
             }
             KeysInner::KV(IterKV::Done) => None,
-            KeysInner::Map(m) => m.next(),
+            KeysInner::Im(m) => m.next(),
         }
     }
 }
@@ -592,7 +591,7 @@ impl<'a> ExactSizeIterator for Keys<'a> {
         match &self.0 {
             KeysInner::Empty => 0,
             KeysInner::KV(_) => 2,
-            KeysInner::Map(m) => m.len(),
+            KeysInner::Im(m) => m.len(),
         }
     }
 }
@@ -601,7 +600,7 @@ impl<'a> ExactSizeIterator for Keys<'a> {
 pub enum IntoIterRepr {
     Empty,
     Finite(std::vec::IntoIter<(NixString, Value)>),
-    Map(std::collections::btree_map::IntoIter<NixString, Value>),
+    Im(imbl::ordmap::ConsumingIter<(NixString, Value)>),
 }
 
 #[repr(transparent)]
@@ -613,8 +612,8 @@ impl Iterator for IntoIter {
     fn next(&mut self) -> Option<Self::Item> {
         match &mut self.0 {
             IntoIterRepr::Empty => None,
-            IntoIterRepr::Map(inner) => inner.next(),
             IntoIterRepr::Finite(inner) => inner.next(),
+            IntoIterRepr::Im(inner) => inner.next(),
         }
     }
 }
@@ -623,8 +622,8 @@ impl ExactSizeIterator for IntoIter {
     fn len(&self) -> usize {
         match &self.0 {
             IntoIterRepr::Empty => 0,
-            IntoIterRepr::Map(inner) => inner.len(),
             IntoIterRepr::Finite(inner) => inner.len(),
+            IntoIterRepr::Im(inner) => inner.len(),
         }
     }
 }
