@@ -20,7 +20,7 @@ pub enum ValidateDirectoryError {
     #[error("Invalid name in {0}")]
     InvalidName(String),
     /// Invalid digest length encountered
-    #[error("Ivalid Digest length: {0}")]
+    #[error("Invalid Digest length: {0}")]
     InvalidDigestLen(usize),
 }
 
