@@ -5,6 +5,8 @@ use thiserror::Error;
 
 use prost::Message;
 
+use crate::nixpath::{NixPath, ParseNixPathError};
+
 tonic::include_proto!("tvix.store.v1");
 
 #[cfg(feature = "reflection")]
@@ -30,6 +32,27 @@ pub enum ValidateDirectoryError {
     InvalidDigestLen(usize),
 }
 
+/// Errors that can occur during the validation of PathInfo messages.
+#[derive(Debug, Error, PartialEq)]
+pub enum ValidatePathInfoError {
+    /// No node present
+    #[error("No node present")]
+    NoNodePresent(),
+
+    /// Invalid node name encountered.
+    #[error("{0} is an invalid node name: {1}")]
+    InvalidNodeName(String, ParseNixPathError),
+
+    /// The digest the (root) node refers to has invalid length.
+    #[error("Invalid Digest length: {0}")]
+    InvalidDigestLen(usize),
+
+    /// The number of references in the narinfo.reference_names field does not match
+    /// the number of references in the .references field.
+    #[error("Inconsistent Number of References: {0} (references) vs {0} (narinfo)")]
+    InconsistentNumberOfReferences(usize, usize),
+}
+
 /// Checks a Node name for validity as an intermediate node, and returns an
 /// error that's generated from the supplied constructor.
 ///
@@ -49,6 +72,82 @@ fn validate_digest<E>(digest: &Vec<u8>, err: fn(usize) -> E) -> Result<(), E> {
         return Err(err(digest.len()));
     }
     Ok(())
+}
+
+/// Parses a root node name.
+///
+/// On success, this returns the parsed [NixPath].
+/// On error, it returns an error generated from the supplied constructor.
+fn parse_node_name_root<E>(
+    name: &str,
+    err: fn(String, ParseNixPathError) -> E,
+) -> Result<NixPath, E> {
+    match NixPath::from_string(name) {
+        Ok(np) => Ok(np),
+        Err(e) => Err(err(name.to_string(), e)),
+    }
+}
+
+impl PathInfo {
+    /// validate performs some checks on the PathInfo struct,
+    /// Returning either a [NixPath] of the root node, or a
+    /// [ValidatePathInfoError].
+    pub fn validate(&self) -> Result<NixPath, ValidatePathInfoError> {
+        // If there is a narinfo field populated, ensure the number of references there
+        // matches PathInfo.references count.
+        if let Some(narinfo) = &self.narinfo {
+            if narinfo.reference_names.len() != self.references.len() {
+                return Err(ValidatePathInfoError::InconsistentNumberOfReferences(
+                    narinfo.reference_names.len(),
+                    self.references.len(),
+                ));
+            }
+        }
+        // FUTUREWORK: parse references in reference_names. ensure they start
+        // with storeDir, and use the same digest as in self.references.
+
+        // Ensure there is a (root) node present, and it properly parses to a NixPath.
+        let root_nix_path = match &self.node {
+            None => {
+                return Err(ValidatePathInfoError::NoNodePresent());
+            }
+            Some(Node { node }) => match node {
+                None => {
+                    return Err(ValidatePathInfoError::NoNodePresent());
+                }
+                Some(node::Node::Directory(directory_node)) => {
+                    // ensure the digest has the appropriate size.
+                    validate_digest(
+                        &directory_node.digest,
+                        ValidatePathInfoError::InvalidDigestLen,
+                    )?;
+
+                    // parse the name
+                    parse_node_name_root(
+                        &directory_node.name,
+                        ValidatePathInfoError::InvalidNodeName,
+                    )?
+                }
+                Some(node::Node::File(file_node)) => {
+                    // ensure the digest has the appropriate size.
+                    validate_digest(&file_node.digest, ValidatePathInfoError::InvalidDigestLen)?;
+
+                    // parse the name
+                    parse_node_name_root(&file_node.name, ValidatePathInfoError::InvalidNodeName)?
+                }
+                Some(node::Node::Symlink(symlink_node)) => {
+                    // parse the name
+                    parse_node_name_root(
+                        &symlink_node.name,
+                        ValidatePathInfoError::InvalidNodeName,
+                    )?
+                }
+            },
+        };
+
+        // return the root nix path
+        Ok(root_nix_path)
+    }
 }
 
 /// Accepts a name, and a mutable reference to the previous name.

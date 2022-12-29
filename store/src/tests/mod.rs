@@ -1,6 +1,8 @@
 use crate::proto::{Directory, DirectoryNode, FileNode, SymlinkNode, ValidateDirectoryError};
 use lazy_static::lazy_static;
 
+mod pathinfo;
+
 lazy_static! {
     static ref DUMMY_DIGEST: Vec<u8> = vec![
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
