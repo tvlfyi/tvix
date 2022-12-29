@@ -1,6 +1,7 @@
 use crate::proto::{Directory, DirectoryNode, FileNode, SymlinkNode, ValidateDirectoryError};
 use lazy_static::lazy_static;
 
+mod path_info_service;
 mod pathinfo;
 
 lazy_static! {

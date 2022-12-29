@@ -13,6 +13,7 @@ data-encoding = "2.3.3"
 lazy_static = "1.4.0"
 clap = { version = "4.0", features = ["derive", "env"] }
 prost = "0.11.2"
+sled = { version = "0.34.7", features = ["compression"] }
 thiserror = "1.0.38"
 tokio = { version = "1.23.0", features = ["rt-multi-thread"] }
 tokio-stream = "0.1.11"
@@ -30,6 +31,7 @@ tonic-build = "0.8.2"
 
 [dev-dependencies]
 test-case = "2.2.2"
+tempfile = "3.3.0"
 
 [features]
 default = [

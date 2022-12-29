@@ -36,7 +36,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let blob_service = tvix_store::dummy_blob_service::DummyBlobService {};
     let directory_service = tvix_store::dummy_directory_service::DummyDirectoryService {};
-    let path_info_service = tvix_store::dummy_path_info_service::DummyPathInfoService {};
+    let path_info_service =
+        tvix_store::sled_path_info_service::SledPathInfoService::new("pathinfo.sled".into())?;
 
     let mut router = server
         .add_service(BlobServiceServer::new(blob_service))
