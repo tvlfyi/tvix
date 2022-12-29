@@ -1,6 +1,7 @@
 //! This module implements Nix lists.
-use std::ops::Deref;
-use std::rc::Rc;
+use std::ops::Index;
+
+use im::{vector, Vector};
 
 use crate::errors::ErrorKind;
 use crate::vm::VM;
@@ -11,13 +12,13 @@ use super::Value;
 
 #[repr(transparent)]
 #[derive(Clone, Debug)]
-pub struct NixList(Rc<Vec<Value>>);
+pub struct NixList(Vector<Value>);
 
 impl TotalDisplay for NixList {
     fn total_fmt(&self, f: &mut std::fmt::Formatter<'_>, set: &mut ThunkSet) -> std::fmt::Result {
         f.write_str("[ ")?;
 
-        for v in self.0.as_ref() {
+        for v in self {
             v.total_fmt(f, set)?;
             f.write_str(" ")?;
         }
@@ -26,15 +27,17 @@ impl TotalDisplay for NixList {
     }
 }
 
-impl From<Rc<Vec<Value>>> for NixList {
-    fn from(v: Rc<Vec<Value>>) -> Self {
-        Self(v)
+// TODO(tazjin): uses of this instance are likely inefficient and can be optimised.
+// Eventually this instance should be removed.
+impl From<Vec<Value>> for NixList {
+    fn from(vs: Vec<Value>) -> Self {
+        Self(Vector::from_iter(vs.into_iter()))
     }
 }
 
-impl From<Vec<Value>> for NixList {
-    fn from(vs: Vec<Value>) -> Self {
-        Self(Rc::new(vs))
+impl From<Vector<Value>> for NixList {
+    fn from(vs: Vector<Value>) -> Self {
+        Self(vs)
     }
 }
 
@@ -48,20 +51,18 @@ mod arbitrary {
     use super::*;
 
     impl Arbitrary for NixList {
+        // TODO(tazjin): im seems to implement arbitrary instances,
+        // but I couldn't figure out how to enable them.
         type Parameters = <Vec<Value> as Arbitrary>::Parameters;
         type Strategy = BoxedStrategy<Self>;
 
         fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-            any_with::<Rc<Vec<Value>>>(args).prop_map(Self).boxed()
+            any_with::<Vec<Value>>(args).prop_map(|v| v.into()).boxed()
         }
     }
 }
 
 impl NixList {
-    pub fn new() -> Self {
-        Self(Rc::new(vec![]))
-    }
-
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -78,15 +79,15 @@ impl NixList {
             stack_slice.len(),
         );
 
-        NixList(Rc::new(stack_slice))
+        stack_slice.into()
     }
 
-    pub fn iter(&self) -> std::slice::Iter<Value> {
+    pub fn iter(&self) -> vector::Iter<Value> {
         self.0.iter()
     }
 
     pub fn ptr_eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.0, &other.0)
+        self.0.ptr_eq(&other.0)
     }
 
     /// Compare `self` against `other` for equality using Nix equality semantics
@@ -112,34 +113,33 @@ impl NixList {
         self.iter().try_for_each(|v| v.force(vm).map(|_| ()))
     }
 
-    pub fn into_vec(self) -> Vec<Value> {
-        crate::unwrap_or_clone_rc(self.0)
+    pub fn into_inner(self) -> Vector<Value> {
+        self.0
     }
 }
 
 impl IntoIterator for NixList {
     type Item = Value;
-    type IntoIter = std::vec::IntoIter<Value>;
+    type IntoIter = im::vector::ConsumingIter<Value>;
 
-    fn into_iter(self) -> std::vec::IntoIter<Value> {
-        self.into_vec().into_iter()
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
 impl<'a> IntoIterator for &'a NixList {
     type Item = &'a Value;
-
-    type IntoIter = std::slice::Iter<'a, Value>;
+    type IntoIter = im::vector::Iter<'a, Value>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
     }
 }
 
-impl Deref for NixList {
-    type Target = Vec<Value>;
+impl Index<usize> for NixList {
+    type Output = Value;
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
     }
 }

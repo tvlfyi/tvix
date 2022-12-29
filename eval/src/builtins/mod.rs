@@ -772,7 +772,12 @@ mod pure_builtins {
 
     #[builtin("sort")]
     fn builtin_sort(vm: &mut VM, comparator: Value, list: Value) -> Result<Value, ErrorKind> {
-        let mut list = list.to_list()?.into_vec();
+        // TODO: the bound on the sort function in
+        // `im::Vector::sort_by` is `Fn(...)`, which means that we can
+        // not use the mutable VM inside of its closure, hence the
+        // dance via `Vec`. I think this is just an unnecessarily
+        // restrictive bound in `im`, not a functional requirement.
+        let mut list = list.to_list()?.into_iter().collect::<Vec<_>>();
 
         // Used to let errors "escape" from the sorting closure. If anything
         // ends up setting an error, it is returned from this function.

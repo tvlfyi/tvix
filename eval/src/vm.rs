@@ -815,10 +815,9 @@ impl<'o> VM<'o> {
             }
 
             OpCode::OpConcat => {
-                let rhs = fallible!(self, self.pop().to_list());
-                let mut lhs = fallible!(self, self.pop().to_list()).into_vec();
-                lhs.extend_from_slice(&rhs);
-                self.push(Value::List(NixList::from(lhs)))
+                let rhs = fallible!(self, self.pop().to_list()).into_inner();
+                let lhs = fallible!(self, self.pop().to_list()).into_inner();
+                self.push(Value::List(NixList::from(lhs + rhs)))
             }
 
             OpCode::OpInterpolate(Count(count)) => self.run_interpolate(count)?,
