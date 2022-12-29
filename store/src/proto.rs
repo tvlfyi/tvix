@@ -24,15 +24,14 @@ pub enum ValidateDirectoryError {
     InvalidDigestLen(usize),
 }
 
-/// Checks a name for validity.
+/// Checks a Node name for validity as an intermediate node, and returns an
+/// error that's generated from the supplied constructor.
+///
 /// We disallow slashes, null bytes, '.', '..' and the empty string.
-/// Depending on the context, a [DirectoryNode], [FileNode] or [SymlinkNode]
-/// message with an empty string as name is allowed, but they don't occur
-/// inside a Directory message.
-fn validate_node_name(name: &str) -> Result<(), ValidateDirectoryError> {
+fn validate_node_name<E>(name: &str, err: fn(String) -> E) -> Result<(), E> {
     if name.is_empty() || name == ".." || name == "." || name.contains('\x00') || name.contains('/')
     {
-        return Err(ValidateDirectoryError::InvalidName(name.to_string()));
+        return Err(err(name.to_string()));
     }
     Ok(())
 }
@@ -105,7 +104,7 @@ impl Directory {
 
         // check directories
         for directory_node in &self.directories {
-            validate_node_name(&directory_node.name)?;
+            validate_node_name(&directory_node.name, ValidateDirectoryError::InvalidName)?;
             validate_digest(&directory_node.digest)?;
 
             update_if_lt_prev(&mut last_directory_name, directory_node.name.as_str())?;
@@ -114,7 +113,7 @@ impl Directory {
 
         // check files
         for file_node in &self.files {
-            validate_node_name(&file_node.name)?;
+            validate_node_name(&file_node.name, ValidateDirectoryError::InvalidName)?;
             validate_digest(&file_node.digest)?;
 
             update_if_lt_prev(&mut last_file_name, file_node.name.as_str())?;
@@ -123,7 +122,7 @@ impl Directory {
 
         // check symlinks
         for symlink_node in &self.symlinks {
-            validate_node_name(&symlink_node.name)?;
+            validate_node_name(&symlink_node.name, ValidateDirectoryError::InvalidName)?;
 
             update_if_lt_prev(&mut last_symlink_name, symlink_node.name.as_str())?;
             insert_once(&mut seen_names, symlink_node.name.as_str())?;
