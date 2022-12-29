@@ -27,14 +27,6 @@ impl TotalDisplay for NixList {
     }
 }
 
-// TODO(tazjin): uses of this instance are likely inefficient and can be optimised.
-// Eventually this instance should be removed.
-impl From<Vec<Value>> for NixList {
-    fn from(vs: Vec<Value>) -> Self {
-        Self(Vector::from_iter(vs.into_iter()))
-    }
-}
-
 impl From<Vector<Value>> for NixList {
     fn from(vs: Vector<Value>) -> Self {
         Self(vs)
@@ -57,7 +49,9 @@ mod arbitrary {
         type Strategy = BoxedStrategy<Self>;
 
         fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-            any_with::<Vec<Value>>(args).prop_map(|v| v.into()).boxed()
+            any_with::<Vec<Value>>(args)
+                .prop_map(NixList::from_vec)
+                .boxed()
         }
     }
 }
@@ -79,7 +73,7 @@ impl NixList {
             stack_slice.len(),
         );
 
-        stack_slice.into()
+        NixList(Vector::from_iter(stack_slice.into_iter()))
     }
 
     pub fn iter(&self) -> vector::Iter<Value> {
@@ -115,6 +109,11 @@ impl NixList {
 
     pub fn into_inner(self) -> Vector<Value> {
         self.0
+    }
+
+    #[deprecated(note = "callers should avoid constructing from Vec")]
+    pub fn from_vec(vs: Vec<Value>) -> Self {
+        Self(Vector::from_iter(vs.into_iter()))
     }
 }
 

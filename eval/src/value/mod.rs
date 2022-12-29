@@ -544,7 +544,7 @@ impl From<PathBuf> for Value {
 
 impl From<Vec<Value>> for Value {
     fn from(val: Vec<Value>) -> Self {
-        Self::List(NixList::from(val))
+        Self::List(NixList::from_vec(val))
     }
 }
 
@@ -601,6 +601,7 @@ fn type_error(expected: &'static str, actual: &Value) -> ErrorKind {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use im::vector;
 
     mod nix_eq {
         use crate::observer::NoOpObserver;
@@ -643,8 +644,8 @@ mod tests {
             let mut observer = NoOpObserver {};
             let mut vm = VM::new(Default::default(), Box::new(crate::DummyIO), &mut observer);
 
-            let v1 = Value::List(NixList::from(vec![Value::Integer(1)]));
-            let v2 = Value::List(NixList::from(vec![Value::Float(1.0)]));
+            let v1 = Value::List(NixList::from(vector![Value::Integer(1)]));
+            let v2 = Value::List(NixList::from(vector![Value::Float(1.0)]));
 
             assert!(v1.nix_eq(&v2, &mut vm).unwrap())
         }

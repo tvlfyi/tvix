@@ -187,14 +187,14 @@ mod pure_builtins {
             .collect::<Result<Vec<NixList>, ErrorKind>>()?;
 
         Ok(Value::List(NixList::from(
-            lists.into_iter().flatten().collect::<Vec<Value>>(),
+            lists.into_iter().flatten().collect::<im::Vector<Value>>(),
         )))
     }
 
     #[builtin("concatMap")]
     fn builtin_concat_map(vm: &mut VM, f: Value, list: Value) -> Result<Value, ErrorKind> {
         let list = list.to_list()?;
-        let mut res = Vec::new();
+        let mut res = im::Vector::new();
         for val in list {
             res.extend(vm.call_with(&f, [val])?.force(vm)?.to_list()?);
         }
@@ -295,7 +295,7 @@ mod pure_builtins {
 
                 result
             })
-            .collect::<Result<Vec<Value>, _>>()
+            .collect::<Result<im::Vector<Value>, _>>()
             .map(|list| Value::List(NixList::from(list)))
             .map_err(Into::into)
     }
@@ -356,7 +356,7 @@ mod pure_builtins {
 
         let operator = attrs.select_required("operator")?;
 
-        let mut res: Vec<Value> = vec![];
+        let mut res = im::Vector::new();
         let mut done_keys: Vec<Value> = vec![];
 
         let mut insert_key = |k: Value, vm: &mut VM| -> Result<bool, ErrorKind> {
@@ -377,7 +377,7 @@ mod pure_builtins {
                 continue;
             }
 
-            res.push(val.clone());
+            res.push_back(val.clone());
 
             let op_result = vm.call_with(operator, Some(val))?.force(vm)?.to_list()?;
             work_set.extend(op_result.into_iter());
@@ -391,7 +391,7 @@ mod pure_builtins {
         let len = length.as_int()?;
         (0..len)
             .map(|i| vm.call_with(&generator, [i.into()]))
-            .collect::<Result<Vec<Value>, _>>()
+            .collect::<Result<im::Vector<Value>, _>>()
             .map(|list| Value::List(NixList::from(list)))
             .map_err(Into::into)
     }
@@ -411,10 +411,12 @@ mod pure_builtins {
 
     #[builtin("groupBy")]
     fn builtin_group_by(vm: &mut VM, f: Value, list: Value) -> Result<Value, ErrorKind> {
-        let mut res: BTreeMap<NixString, Vec<Value>> = BTreeMap::new();
+        let mut res: BTreeMap<NixString, im::Vector<Value>> = BTreeMap::new();
         for val in list.to_list()? {
             let key = vm.call_with(&f, [val.clone()])?.force(vm)?.to_str()?;
-            res.entry(key).or_insert_with(std::vec::Vec::new).push(val);
+            res.entry(key)
+                .or_insert_with(im::Vector::new)
+                .push_back(val);
         }
         Ok(Value::attrs(NixAttrs::from_iter(
             res.into_iter()
@@ -548,7 +550,7 @@ mod pure_builtins {
 
         list.into_iter()
             .map(|val| vm.call_with(&f, [val]))
-            .collect::<Result<Vec<Value>, _>>()
+            .collect::<Result<im::Vector<Value>, _>>()
             .map(|list| Value::List(NixList::from(list)))
             .map_err(Into::into)
     }
@@ -742,30 +744,30 @@ mod pure_builtins {
         let re: Regex = Regex::new(re.as_str()).unwrap();
         let mut capture_locations = re.capture_locations();
         let num_captures = capture_locations.len();
-        let mut ret: Vec<Value> = vec![];
+        let mut ret = im::Vector::new();
         let mut pos = 0;
 
         while let Some(thematch) = re.captures_read_at(&mut capture_locations, text, pos) {
             // push the unmatched characters preceding the match
-            ret.push(Value::from(&text[pos..thematch.start()]));
+            ret.push_back(Value::from(&text[pos..thematch.start()]));
 
             // Push a list with one element for each capture
             // group in the regex, containing the characters
             // matched by that capture group, or null if no match.
             // We skip capture 0; it represents the whole match.
-            let v: Vec<Value> = (1..num_captures)
+            let v: im::Vector<Value> = (1..num_captures)
                 .map(|i| capture_locations.get(i))
                 .map(|o| {
                     o.map(|(start, end)| Value::from(&text[start..end]))
                         .unwrap_or(Value::Null)
                 })
                 .collect();
-            ret.push(Value::List(NixList::from(v)));
+            ret.push_back(Value::List(NixList::from(v)));
             pos = thematch.end();
         }
 
         // push the unmatched characters following the last match
-        ret.push(Value::from(&text[pos..]));
+        ret.push_back(Value::from(&text[pos..]));
 
         Ok(Value::List(NixList::from(ret)))
     }
@@ -808,7 +810,8 @@ mod pure_builtins {
         });
 
         match error {
-            None => Ok(Value::List(NixList::from(list))),
+            #[allow(deprecated)] // im::Vector usage prevented by its API
+            None => Ok(Value::List(NixList::from_vec(list))),
             Some(e) => Err(e),
         }
     }
