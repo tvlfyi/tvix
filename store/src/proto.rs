@@ -38,9 +38,9 @@ fn validate_node_name<E>(name: &str, err: fn(String) -> E) -> Result<(), E> {
 
 /// Checks a digest for validity.
 /// Digests are 32 bytes long, as we store blake3 digests.
-fn validate_digest(digest: &Vec<u8>) -> Result<(), ValidateDirectoryError> {
+fn validate_digest<E>(digest: &Vec<u8>, err: fn(usize) -> E) -> Result<(), E> {
     if digest.len() != 32 {
-        return Err(ValidateDirectoryError::InvalidDigestLen(digest.len()));
+        return Err(err(digest.len()));
     }
     Ok(())
 }
@@ -105,7 +105,10 @@ impl Directory {
         // check directories
         for directory_node in &self.directories {
             validate_node_name(&directory_node.name, ValidateDirectoryError::InvalidName)?;
-            validate_digest(&directory_node.digest)?;
+            validate_digest(
+                &directory_node.digest,
+                ValidateDirectoryError::InvalidDigestLen,
+            )?;
 
             update_if_lt_prev(&mut last_directory_name, directory_node.name.as_str())?;
             insert_once(&mut seen_names, directory_node.name.as_str())?;
@@ -114,7 +117,7 @@ impl Directory {
         // check files
         for file_node in &self.files {
             validate_node_name(&file_node.name, ValidateDirectoryError::InvalidName)?;
-            validate_digest(&file_node.digest)?;
+            validate_digest(&file_node.digest, ValidateDirectoryError::InvalidDigestLen)?;
 
             update_if_lt_prev(&mut last_file_name, file_node.name.as_str())?;
             insert_once(&mut seen_names, file_node.name.as_str())?;
