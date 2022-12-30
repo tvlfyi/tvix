@@ -2145,8 +2145,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "blake3",
- "data-encoding",
  "clap 4.0.32",
+ "data-encoding",
  "lazy_static",
  "prost",
  "prost-build",

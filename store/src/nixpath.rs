@@ -49,13 +49,9 @@ impl NixPath {
 
         NixPath::validate_characters(&s[name_offset..])?;
 
-        // copy the digest:Vec<u8> to a [u8; PATH_HASH_SIZE]
-        let mut buffer: [u8; PATH_HASH_SIZE] = [0; PATH_HASH_SIZE];
-        buffer[..PATH_HASH_SIZE].copy_from_slice(&digest[..PATH_HASH_SIZE]);
-
         Ok(NixPath {
             name: s[name_offset..].to_string(),
-            digest: buffer,
+            digest: digest.try_into().expect("size is known"),
         })
     }
 
