@@ -36,8 +36,7 @@ impl Nixbase32Encoding {
     /// Returns encoded input
     pub fn encode(&self, input: &[u8]) -> String {
         // Reverse the input, reading in the bytes in reverse order.
-        let mut reversed = Vec::with_capacity(input.len());
-        reversed.extend(input.iter().rev());
+        let reversed: Vec<u8> = input.iter().cloned().rev().collect();
         self.encoding.encode(&reversed)
     }
 
@@ -45,11 +44,9 @@ impl Nixbase32Encoding {
     /// Check [data_encoding::Encoding::encode] for the error cases.
     pub fn decode(&self, input: &[u8]) -> Result<Vec<u8>, DecodeError> {
         // Decode first, then reverse the bytes of the output.
-        let output = self.encoding.decode(input)?;
-
-        let mut reversed = Vec::with_capacity(output.len());
-        reversed.extend(output.iter().rev());
-        Ok(reversed)
+        let mut output = self.encoding.decode(&input)?;
+        output.reverse();
+        Ok(output)
     }
 
     /// Returns the decoded length of an input of length len.
