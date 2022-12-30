@@ -62,9 +62,7 @@ func (d *Directory) Validate() error {
 
 	// We also track the last seen name in each of the three lists,
 	// to ensure nodes are sorted by their names.
-	lastDirectoryName := ""
-	lastFileName := ""
-	lastSymlinkName := ""
+	var lastDirectoryName, lastFileName, lastSymlinkName string
 
 	// helper function to only insert in sorted order.
 	// used with the three lists above.
