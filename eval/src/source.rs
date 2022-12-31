@@ -15,7 +15,7 @@ use codemap::{CodeMap, Span};
 
 /// Tracks all source code in a Tvix evaluation for accurate error
 /// reporting.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SourceCode(Rc<RefCell<CodeMap>>);
 
 impl SourceCode {

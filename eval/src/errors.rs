@@ -1,5 +1,6 @@
 use crate::spans::ToSpan;
 use crate::value::{CoercionKind, NixString};
+use std::error;
 use std::io;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -148,6 +149,24 @@ pub enum ErrorKind {
     /// not actually implemented yet, and without which eval can not
     /// proceed.
     NotImplemented(&'static str),
+}
+
+impl error::Error for Error {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match &self.kind {
+            ErrorKind::ThunkForce(err) => err.source(),
+            ErrorKind::ParseErrors(err) => err.first().map(|e| e as &dyn error::Error),
+            ErrorKind::ParseIntError(err) => Some(err),
+            ErrorKind::ImportParseError { errors, .. } => {
+                errors.first().map(|e| e as &dyn error::Error)
+            }
+            ErrorKind::ImportCompilerError { errors, .. } => {
+                errors.first().map(|e| e as &dyn error::Error)
+            }
+            ErrorKind::IO { error, .. } => Some(error.as_ref()),
+            _ => None,
+        }
+    }
 }
 
 impl From<ParseIntError> for ErrorKind {
