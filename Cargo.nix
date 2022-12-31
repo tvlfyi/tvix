@@ -93,6 +93,16 @@ rec {
       # File a bug if you depend on any for non-debug work!
       debug = internal.debugCrate { inherit packageId; };
     };
+    "tvix-serde" = rec {
+      packageId = "tvix-serde";
+      build = internal.buildRustCrateWithFeatures {
+        packageId = "tvix-serde";
+      };
+
+      # Debug support which might change between releases.
+      # File a bug if you depend on any for non-debug work!
+      debug = internal.debugCrate { inherit packageId; };
+    };
     "tvix-store" = rec {
       packageId = "tvix-store";
       build = internal.buildRustCrateWithFeatures {
@@ -6607,6 +6617,28 @@ rec {
           if (lib.versionOlder builtins.nixVersion "2.4pre20211007")
           then lib.cleanSourceWith { filter = sourceFilter; src = ./nar; }
           else ./nar;
+
+      };
+      "tvix-serde" = rec {
+        crateName = "tvix-serde";
+        version = "0.1.0";
+        edition = "2021";
+        # We can't filter paths with references in Nix 2.4
+        # See https://github.com/NixOS/nix/issues/5410
+        src =
+          if (lib.versionOlder builtins.nixVersion "2.4pre20211007")
+          then lib.cleanSourceWith { filter = sourceFilter; src = ./serde; }
+          else ./serde;
+        dependencies = [
+          {
+            name = "serde";
+            packageId = "serde";
+          }
+          {
+            name = "tvix-eval";
+            packageId = "tvix-eval";
+          }
+        ];
 
       };
       "tvix-store" = rec {
