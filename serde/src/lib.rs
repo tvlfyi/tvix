@@ -6,3 +6,6 @@ mod de;
 mod error;
 
 pub use de::from_str;
+
+#[cfg(test)]
+mod de_tests;

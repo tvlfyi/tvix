@@ -6633,6 +6633,7 @@ rec {
           {
             name = "serde";
             packageId = "serde";
+            features = [ "derive" ];
           }
           {
             name = "tvix-eval";
