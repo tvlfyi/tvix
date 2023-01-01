@@ -80,3 +80,18 @@ fn deserialize_struct() {
         }
     );
 }
+
+#[test]
+fn deserialize_newtype() {
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Number(usize);
+
+    let result: Number = from_str("42").expect("should deserialize");
+    assert_eq!(result, Number(42));
+}
+
+#[test]
+fn deserialize_tuple() {
+    let result: (String, usize) = from_str(r#" [ "foo" 42 ] "#).expect("should deserialize");
+    assert_eq!(result, ("foo".into(), 42));
+}
