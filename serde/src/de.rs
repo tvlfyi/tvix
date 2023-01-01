@@ -1,12 +1,31 @@
 //! Deserialisation from Nix to Rust values.
 
 use serde::de;
+use serde::de::value::{MapDeserializer, SeqDeserializer};
 use tvix_eval::Value;
 
 use crate::error::Error;
 
-struct Deserializer {
+struct NixDeserializer {
     value: tvix_eval::Value,
+}
+
+impl NixDeserializer {
+    fn new(value: Value) -> Self {
+        if let Value::Thunk(thunk) = value {
+            Self::new(thunk.value().clone())
+        } else {
+            Self { value }
+        }
+    }
+}
+
+impl de::IntoDeserializer<'_, Error> for NixDeserializer {
+    type Deserializer = Self;
+
+    fn into_deserializer(self) -> Self::Deserializer {
+        self
+    }
 }
 
 pub fn from_str<'code, T>(src: &'code str) -> Result<T, Error>
@@ -25,9 +44,7 @@ where
         });
     }
 
-    let de = Deserializer {
-        value: result.value.expect("value should be present on success"),
-    };
+    let de = NixDeserializer::new(result.value.expect("value should be present on success"));
 
     T::deserialize(de)
 }
@@ -50,7 +67,7 @@ fn visit_integer<I: TryFrom<i64>>(v: &Value) -> Result<I, Error> {
     }
 }
 
-impl<'de> de::Deserializer<'de> for Deserializer {
+impl<'de> de::Deserializer<'de> for NixDeserializer {
     type Error = Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -218,11 +235,17 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         todo!("how to represent this?");
     }
 
+    // Note that this can not distinguish between a serialisation of
+    // `Some(())` and `None`.
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
-        todo!("how to represent this?");
+        if let Value::Null = self.value {
+            visitor.visit_none()
+        } else {
+            visitor.visit_some(self)
+        }
     }
 
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -262,7 +285,15 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     where
         V: de::Visitor<'de>,
     {
-        todo!()
+        if let Value::List(list) = self.value {
+            let mut seq =
+                SeqDeserializer::new(list.into_iter().map(|value| NixDeserializer::new(value)));
+            let result = visitor.visit_seq(&mut seq)?;
+            seq.end()?;
+            return Ok(result);
+        }
+
+        Err(unexpected("list", &self.value))
     }
 
     fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
@@ -288,19 +319,31 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     where
         V: de::Visitor<'de>,
     {
-        todo!()
+        if let Value::Attrs(attrs) = self.value {
+            let mut map = MapDeserializer::new(attrs.into_iter().map(|(k, v)| {
+                (
+                    NixDeserializer::new(Value::String(k)),
+                    NixDeserializer::new(v),
+                )
+            }));
+            let result = visitor.visit_map(&mut map)?;
+            map.end()?;
+            return Ok(result);
+        }
+
+        Err(unexpected("map", &self.value))
     }
 
     fn deserialize_struct<V>(
         self,
-        name: &'static str,
-        fields: &'static [&'static str],
+        _name: &'static str,
+        _fields: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
-        todo!()
+        self.deserialize_map(visitor)
     }
 
     fn deserialize_enum<V>(
@@ -319,7 +362,7 @@ impl<'de> de::Deserializer<'de> for Deserializer {
     where
         V: de::Visitor<'de>,
     {
-        todo!()
+        self.deserialize_str(visitor)
     }
 
     fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
