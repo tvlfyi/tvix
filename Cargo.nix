@@ -103,10 +103,10 @@ rec {
       # File a bug if you depend on any for non-debug work!
       debug = internal.debugCrate { inherit packageId; };
     };
-    "tvix-store" = rec {
-      packageId = "tvix-store";
+    "tvix-store-bin" = rec {
+      packageId = "tvix-store-bin";
       build = internal.buildRustCrateWithFeatures {
-        packageId = "tvix-store";
+        packageId = "tvix-store-bin";
       };
 
       # Debug support which might change between releases.
@@ -6641,13 +6641,13 @@ rec {
         ];
 
       };
-      "tvix-store" = rec {
-        crateName = "tvix-store";
+      "tvix-store-bin" = rec {
+        crateName = "tvix-store-bin";
         version = "0.1.0";
         edition = "2021";
         crateBin = [
           {
-            name = "tvix-store";
+            name = "tvix-store-bin";
             path = "src/main.rs";
             requiredFeatures = [ ];
           }
@@ -6658,6 +6658,7 @@ rec {
           if (lib.versionOlder builtins.nixVersion "2.4pre20211007")
           then lib.cleanSourceWith { filter = sourceFilter; src = ./store; }
           else ./store;
+        libName = "tvix_store";
         dependencies = [
           {
             name = "anyhow";

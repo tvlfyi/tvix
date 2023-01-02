@@ -1,23 +1,13 @@
-use crate::proto::blob_service_server::BlobServiceServer;
-use crate::proto::directory_service_server::DirectoryServiceServer;
-use crate::proto::path_info_service_server::PathInfoServiceServer;
+use tvix_store::proto::blob_service_server::BlobServiceServer;
+use tvix_store::proto::directory_service_server::DirectoryServiceServer;
+use tvix_store::proto::path_info_service_server::PathInfoServiceServer;
 
 #[cfg(feature = "reflection")]
-use crate::proto::FILE_DESCRIPTOR_SET;
+use tvix_store::proto::FILE_DESCRIPTOR_SET;
 
 use clap::Parser;
 use tonic::{transport::Server, Result};
 use tracing::{info, Level};
-
-mod dummy_blob_service;
-mod dummy_directory_service;
-mod dummy_path_info_service;
-mod nixbase32;
-mod nixpath;
-mod proto;
-
-#[cfg(test)]
-mod tests;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -44,9 +34,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut server = Server::builder();
 
-    let blob_service = dummy_blob_service::DummyBlobService {};
-    let directory_service = dummy_directory_service::DummyDirectoryService {};
-    let path_info_service = dummy_path_info_service::DummyPathInfoService {};
+    let blob_service = tvix_store::dummy_blob_service::DummyBlobService {};
+    let directory_service = tvix_store::dummy_directory_service::DummyDirectoryService {};
+    let path_info_service = tvix_store::dummy_path_info_service::DummyPathInfoService {};
 
     let mut router = server
         .add_service(BlobServiceServer::new(blob_service))

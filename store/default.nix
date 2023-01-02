@@ -11,7 +11,7 @@ let
 
   protobufDep = prev: (prev.nativeBuildInputs or [ ]) ++ [ pkgs.protobuf ];
 in
-depot.tvix.crates.workspaceMembers.tvix-store.build.override {
+depot.tvix.crates.workspaceMembers.tvix-store-bin.build.override {
   # Ensure protobuf dependencies are available.
   # TODO: figure out a way to embed this directly in the //tvix
   # crate2nix config.
@@ -25,6 +25,11 @@ depot.tvix.crates.workspaceMembers.tvix-store.build.override {
     };
 
     tvix-store = prev: {
+      PROTO_ROOT = protoRoot;
+      nativeBuildInputs = protobufDep prev;
+    };
+
+    tvix-store-bin = prev: {
       PROTO_ROOT = protoRoot;
       nativeBuildInputs = protobufDep prev;
     };

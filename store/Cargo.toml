@@ -1,7 +1,10 @@
 [package]
-name = "tvix-store"
+name = "tvix-store-bin"
 version = "0.1.0"
 edition = "2021"
+
+[lib]
+name = "tvix_store"
 
 [dependencies]
 anyhow = "1.0.68"
