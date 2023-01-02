@@ -95,3 +95,106 @@ fn deserialize_tuple() {
     let result: (String, usize) = from_str(r#" [ "foo" 42 ] "#).expect("should deserialize");
     assert_eq!(result, ("foo".into(), 42));
 }
+
+#[test]
+fn deserialize_unit_enum() {
+    #[derive(Debug, Deserialize, PartialEq)]
+    enum Foo {
+        Bar,
+        Baz,
+    }
+
+    let result: Foo = from_str("\"Baz\"").expect("should deserialize");
+    assert_eq!(result, Foo::Baz);
+}
+
+#[test]
+fn deserialize_tuple_enum() {
+    #[derive(Debug, Deserialize, PartialEq)]
+    enum Foo {
+        Bar,
+        Baz(String, usize),
+    }
+
+    let result: Foo = from_str(
+        r#"
+    {
+      Baz = [ "Slartibartfast" 42 ];
+    }
+    "#,
+    )
+    .expect("should deserialize");
+
+    assert_eq!(result, Foo::Baz("Slartibartfast".into(), 42));
+}
+
+#[test]
+fn deserialize_struct_enum() {
+    #[derive(Debug, Deserialize, PartialEq)]
+    enum Foo {
+        Bar,
+        Baz { name: String, age: usize },
+    }
+
+    let result: Foo = from_str(
+        r#"
+    {
+      Baz.name = "Slartibartfast";
+      Baz.age = 42;
+    }
+    "#,
+    )
+    .expect("should deserialize");
+
+    assert_eq!(
+        result,
+        Foo::Baz {
+            name: "Slartibartfast".into(),
+            age: 42
+        }
+    );
+}
+
+#[test]
+fn deserialize_enum_all() {
+    #[derive(Debug, Deserialize, PartialEq)]
+    #[serde(rename_all = "snake_case")]
+    enum TestEnum {
+        UnitVariant,
+        TupleVariant(String, String),
+        StructVariant { name: String, age: usize },
+    }
+
+    let result: Vec<TestEnum> = from_str(
+        r#"
+      let
+        mkTuple = country: drink: { tuple_variant = [ country drink ]; };
+      in
+      [
+        (mkTuple "UK" "cask ale")
+
+        "unit_variant"
+
+        {
+          struct_variant.name = "Slartibartfast";
+          struct_variant.age = 42;
+        }
+
+        (mkTuple "Russia" "квас")
+      ]
+    "#,
+    )
+    .expect("should deserialize");
+
+    let expected = vec![
+        TestEnum::TupleVariant("UK".into(), "cask ale".into()),
+        TestEnum::UnitVariant,
+        TestEnum::StructVariant {
+            name: "Slartibartfast".into(),
+            age: 42,
+        },
+        TestEnum::TupleVariant("Russia".into(), "квас".into()),
+    ];
+
+    assert_eq!(result, expected);
+}

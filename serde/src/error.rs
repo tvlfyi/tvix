@@ -31,6 +31,12 @@ pub enum Error {
         errors: Vec<tvix_eval::Error>,
         source: tvix_eval::SourceCode,
     },
+
+    /// Could not determine an externally tagged enum representation.
+    AmbiguousEnum,
+
+    /// Attempted to provide content to a unit enum.
+    UnitEnumContent,
 }
 
 impl Display for Error {
@@ -69,6 +75,10 @@ impl Display for Error {
             Error::IntegerConversion { got, need } => {
                 write!(f, "i64({}) does not fit in a {}", got, need)
             }
+
+            Error::AmbiguousEnum => write!(f, "could not determine enum variant: ambiguous keys"),
+
+            Error::UnitEnumContent => write!(f, "provided content for unit enum variant"),
         }
     }
 }

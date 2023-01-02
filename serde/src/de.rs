@@ -1,7 +1,7 @@
 //! Deserialisation from Nix to Rust values.
 
-use serde::de;
 use serde::de::value::{MapDeserializer, SeqDeserializer};
+use serde::de::{self, EnumAccess, VariantAccess};
 use tvix_eval::Value;
 
 use crate::error::Error;
@@ -221,14 +221,14 @@ impl<'de> de::Deserializer<'de> for NixDeserializer {
         Err(unexpected("string", &self.value))
     }
 
-    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
         unimplemented!()
     }
 
-    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
@@ -307,7 +307,7 @@ impl<'de> de::Deserializer<'de> for NixDeserializer {
     fn deserialize_tuple_struct<V>(
         self,
         _name: &'static str,
-        len: usize,
+        _len: usize,
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
@@ -348,16 +348,27 @@ impl<'de> de::Deserializer<'de> for NixDeserializer {
         self.deserialize_map(visitor)
     }
 
+    // This method is responsible for deserializing the externally
+    // tagged enum variant serialisation.
     fn deserialize_enum<V>(
         self,
         name: &'static str,
-        variants: &'static [&'static str],
+        _variants: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
-        todo!()
+        match self.value {
+            // a string represents a unit variant
+            Value::String(s) => visitor.visit_enum(de::value::StrDeserializer::new(s.as_str())),
+
+            // an attribute set however represents an externally
+            // tagged enum with content
+            Value::Attrs(attrs) => visitor.visit_enum(Enum(*attrs)),
+
+            _ => Err(unexpected(name, &self.value)),
+        }
     }
 
     fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -372,5 +383,63 @@ impl<'de> de::Deserializer<'de> for NixDeserializer {
         V: de::Visitor<'de>,
     {
         visitor.visit_unit()
+    }
+}
+
+struct Enum(tvix_eval::NixAttrs);
+
+impl<'de> EnumAccess<'de> for Enum {
+    type Error = Error;
+    type Variant = NixDeserializer;
+
+    // TODO: pass the known variants down here and check against them
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
+    where
+        V: de::DeserializeSeed<'de>,
+    {
+        if self.0.len() != 1 {
+            return Err(Error::AmbiguousEnum);
+        }
+
+        let (key, value) = self.0.into_iter().next().expect("length asserted above");
+        let val = seed.deserialize(de::value::StrDeserializer::<Error>::new(key.as_str()))?;
+
+        Ok((val, NixDeserializer::new(value)))
+    }
+}
+
+impl<'de> VariantAccess<'de> for NixDeserializer {
+    type Error = Error;
+
+    fn unit_variant(self) -> Result<(), Self::Error> {
+        // If this case is hit, a user specified the name of a unit
+        // enum variant but gave it content. Unit enum deserialisation
+        // is handled in `deserialize_enum` above.
+        Err(Error::UnitEnumContent)
+    }
+
+    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, Self::Error>
+    where
+        T: de::DeserializeSeed<'de>,
+    {
+        seed.deserialize(self)
+    }
+
+    fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        de::Deserializer::deserialize_seq(self, visitor)
+    }
+
+    fn struct_variant<V>(
+        self,
+        _fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        de::Deserializer::deserialize_map(self, visitor)
     }
 }
