@@ -44,7 +44,7 @@ impl Nixbase32Encoding {
     /// Check [data_encoding::Encoding::encode] for the error cases.
     pub fn decode(&self, input: &[u8]) -> Result<Vec<u8>, DecodeError> {
         // Decode first, then reverse the bytes of the output.
-        let mut output = self.encoding.decode(&input)?;
+        let mut output = self.encoding.decode(input)?;
         output.reverse();
         Ok(output)
     }
