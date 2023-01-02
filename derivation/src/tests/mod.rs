@@ -1,4 +1,4 @@
-use super::{serialize_derivation, Derivation};
+use crate::derivation::Derivation;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -19,7 +19,7 @@ fn assert_derivation_ok(path_to_drv_file: &str) {
     let derivation: Derivation = serde_json::from_str(&data).expect("JSON was not well-formatted");
 
     let mut serialized_derivation = String::new();
-    serialize_derivation(derivation, &mut serialized_derivation).unwrap();
+    derivation.serialize(&mut serialized_derivation).unwrap();
 
     let expected = read_file(path_to_drv_file);
 
