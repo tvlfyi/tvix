@@ -3,7 +3,10 @@ use data_encoding::DecodeError;
 use std::fmt;
 use thiserror::Error;
 
-const PATH_HASH_SIZE: usize = 20;
+pub const DIGEST_SIZE: usize = 20;
+// lazy_static doesn't allow us to call NIXBASE32.encode_len(), so we ran it
+// manually and have an assert in the tests.
+pub const ENCODED_DIGEST_SIZE: usize = 32;
 
 /// Errors that can occur during the validation of name characters.
 #[derive(Debug, PartialEq, Eq, Error)]
@@ -18,39 +21,36 @@ pub enum ParseNixPathError {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct NixPath {
-    pub digest: [u8; PATH_HASH_SIZE],
+    pub digest: [u8; DIGEST_SIZE],
     pub name: String,
 }
 
 impl NixPath {
     pub fn from_string(s: &str) -> Result<NixPath, ParseNixPathError> {
-        let encoded_path_hash_size = NIXBASE32.encode_len(PATH_HASH_SIZE);
-        let name_offset = encoded_path_hash_size + 1;
-
         // the whole string needs to be at least:
         //
         // - 32 characters (encoded hash)
         // - 1 dash
         // - 1 character for the name
-        if s.len() < name_offset + 1 {
+        if s.len() < ENCODED_DIGEST_SIZE + 2 {
             return Err(ParseNixPathError::InvalidName("".to_string()));
         }
 
-        let digest = match NIXBASE32.decode(s[..encoded_path_hash_size].as_bytes()) {
+        let digest = match NIXBASE32.decode(s[..ENCODED_DIGEST_SIZE].as_bytes()) {
             Ok(decoded) => decoded,
             Err(decoder_error) => {
                 return Err(ParseNixPathError::InvalidHashEncoding(decoder_error))
             }
         };
 
-        if s.as_bytes()[encoded_path_hash_size] != b'-' {
+        if s.as_bytes()[ENCODED_DIGEST_SIZE] != b'-' {
             return Err(ParseNixPathError::MissingDash());
         }
 
-        NixPath::validate_characters(&s[name_offset..])?;
+        NixPath::validate_characters(&s[ENCODED_DIGEST_SIZE + 2..])?;
 
         Ok(NixPath {
-            name: s[name_offset..].to_string(),
+            name: s[ENCODED_DIGEST_SIZE + 1..].to_string(),
             digest: digest.try_into().expect("size is known"),
         })
     }
@@ -88,9 +88,15 @@ impl fmt::Display for NixPath {
 
 #[cfg(test)]
 mod tests {
-    use crate::nixpath::PATH_HASH_SIZE;
+    use crate::nixbase32::NIXBASE32;
+    use crate::nixpath::{DIGEST_SIZE, ENCODED_DIGEST_SIZE};
 
     use super::NixPath;
+
+    #[test]
+    fn encoded_digest_size() {
+        assert_eq!(ENCODED_DIGEST_SIZE, NIXBASE32.encode_len(DIGEST_SIZE));
+    }
 
     #[test]
     fn happy_path() {
@@ -99,7 +105,7 @@ mod tests {
         let nixpath =
             NixPath::from_string(&example_nix_path_str).expect("Error parsing example string");
 
-        let expected_digest: [u8; PATH_HASH_SIZE] = [
+        let expected_digest: [u8; DIGEST_SIZE] = [
             0x8a, 0x12, 0x32, 0x15, 0x22, 0xfd, 0x91, 0xef, 0xbd, 0x60, 0xeb, 0xb2, 0x48, 0x1a,
             0xf8, 0x85, 0x80, 0xf6, 0x16, 0x00,
         ];
