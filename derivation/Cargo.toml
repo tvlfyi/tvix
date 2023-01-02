@@ -8,6 +8,8 @@ edition = "2021"
 [dependencies]
 glob = "0.3.0"
 serde = { version = "1.0", features = ["derive"] }
+sha2 = "0.10.6"
+tvix-store-bin = { path = "../store" }
 
 [dev-dependencies.test-generator]
 # This fork of test-generator adds support for cargo workspaces, see
@@ -17,3 +19,4 @@ rev = "82e799979980962aec1aa324ec6e0e4cad781f41"
 
 [dev-dependencies]
 serde_json = "1.0"
+test-case = "2.2.2"
