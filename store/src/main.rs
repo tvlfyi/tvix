@@ -34,7 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     let listen_address = cli
         .listen_address
-        .unwrap_or("[::]:8000".to_string())
+        .unwrap_or_else(|| "[::]:8000".to_string())
         .parse()
         .unwrap();
 
