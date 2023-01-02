@@ -18,8 +18,8 @@ pub enum ParseNixPathError {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct NixPath {
-    digest: [u8; PATH_HASH_SIZE],
-    name: String,
+    pub digest: [u8; PATH_HASH_SIZE],
+    pub name: String,
 }
 
 impl NixPath {
