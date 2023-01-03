@@ -3,17 +3,15 @@
 //! See //tvix/eval/docs/builtins.md for a some context on the
 //! available builtins in Nix.
 
-use crate::compiler::{GlobalsMap, GlobalsMapFunc};
-use crate::source::SourceCode;
-use crate::value::BuiltinArgument;
 use std::cmp::{self, Ordering};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::path::PathBuf;
-use std::rc::Rc;
 
 use builtin_macros::builtins;
 use regex::Regex;
 
+use crate::arithmetic_op;
+use crate::value::BuiltinArgument;
 use crate::warnings::WarningKind;
 use crate::{
     errors::{ErrorKind, EvalResult},
@@ -21,13 +19,18 @@ use crate::{
     vm::VM,
 };
 
-use crate::arithmetic_op;
-
 use self::versions::{VersionPart, VersionPartsIter};
 
+mod versions;
+
 #[cfg(feature = "impure")]
-pub mod impure;
-pub mod versions;
+mod impure;
+
+#[cfg(feature = "impure")]
+pub use impure::impure_builtins;
+
+// we set TVIX_CURRENT_SYSTEM in build.rs
+pub const CURRENT_PLATFORM: &str = env!("TVIX_CURRENT_SYSTEM");
 
 /// Coerce a Nix Value to a plain path, e.g. in order to access the
 /// file it points to via either `builtins.toPath` or an impure
@@ -942,15 +945,37 @@ mod pure_builtins {
     }
 }
 
-pub use pure_builtins::builtins as pure_builtins;
+fn builtin_tuple(builtin: Builtin) -> (&'static str, Value) {
+    (builtin.name(), Value::Builtin(builtin))
+}
+
+/// The set of standard pure builtins in Nix, mostly concerned with
+/// data structure manipulation (string, attrs, list, etc. functions).
+pub fn pure_builtins() -> Vec<(&'static str, Value)> {
+    let mut result = pure_builtins::builtins()
+        .into_iter()
+        .map(builtin_tuple)
+        .collect::<Vec<_>>();
+
+    // Pure-value builtins
+    result.push(("nixVersion", Value::String("2.3-compat-tvix-0.1".into())));
+    result.push(("langVersion", Value::Integer(6)));
+
+    result.push((
+        "currentSystem",
+        crate::systems::llvm_triple_to_nix_double(CURRENT_PLATFORM).into(),
+    ));
+
+    result
+}
 
 /// Placeholder builtins that technically have a function which we do
 /// not yet implement, but which is also not easily observable from
 /// within a pure evaluation context.
 ///
 /// These are used as a crutch to make progress on nixpkgs evaluation.
-fn placeholders() -> Vec<Builtin> {
-    vec![
+pub fn placeholders() -> Vec<(&'static str, Value)> {
+    let ph = vec![
         Builtin::new(
             "addErrorContext",
             &[
@@ -1041,84 +1066,7 @@ fn placeholders() -> Vec<Builtin> {
                 Ok(Value::Attrs(Box::new(attrs)))
             },
         ),
-    ]
-}
-// we set TVIX_CURRENT_SYSTEM in build.rs
-pub const CURRENT_PLATFORM: &str = env!("TVIX_CURRENT_SYSTEM");
+    ];
 
-/// Set of Nix builtins that are globally available.
-pub fn global_builtins(source: SourceCode) -> GlobalsMapFunc {
-    Box::new(move |globals: &std::rc::Weak<GlobalsMap>| {
-        let mut map: BTreeMap<&'static str, Value> = BTreeMap::new();
-
-        // Pure-value builtins
-        map.insert("nixVersion", Value::String("2.3-compat-tvix-0.1".into()));
-
-        map.insert("langVersion", Value::Integer(6));
-
-        map.insert(
-            "currentSystem",
-            crate::systems::llvm_triple_to_nix_double(CURRENT_PLATFORM).into(),
-        );
-
-        let mut add_builtins = |builtins: Vec<Builtin>| {
-            for builtin in builtins {
-                map.insert(builtin.name(), Value::Builtin(builtin));
-            }
-        };
-
-        add_builtins(pure_builtins());
-        add_builtins(placeholders());
-
-        #[cfg(feature = "impure")]
-        {
-            map.extend(impure::builtins());
-
-            // We need to insert import into the builtins, but the
-            // builtins passed to import must have import *in it*.
-            let import = Value::Builtin(crate::builtins::impure::builtins_import(globals, source));
-
-            map.insert("import", import);
-        };
-
-        let mut globals: GlobalsMap = HashMap::new();
-
-        let builtins = Rc::new(NixAttrs::from_iter(map.into_iter()));
-
-        // known global builtins from the builtins set.
-        for global in &[
-            "abort",
-            "baseNameOf",
-            "derivation",
-            "derivationStrict",
-            "dirOf",
-            "fetchGit",
-            "fetchMercurial",
-            "fetchTarball",
-            "fromTOML",
-            "import",
-            "isNull",
-            "map",
-            "placeholder",
-            "removeAttrs",
-            "scopedImport",
-            "throw",
-            "toString",
-        ] {
-            if let Some(builtin) = builtins.select(global) {
-                let builtin = builtin.clone();
-                globals.insert(
-                    global,
-                    Rc::new(move |c, s| c.emit_constant(builtin.clone(), &s)),
-                );
-            }
-        }
-
-        globals.insert(
-            "builtins",
-            Rc::new(move |c, s| c.emit_constant(Value::attrs(builtins.as_ref().clone()), &s)),
-        );
-
-        globals
-    })
+    ph.into_iter().map(builtin_tuple).collect()
 }

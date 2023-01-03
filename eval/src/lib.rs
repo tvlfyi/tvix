@@ -12,7 +12,7 @@
 //! These features are optional and the API of this crate exposes functionality
 //! for controlling how they work.
 
-mod builtins;
+pub mod builtins;
 mod chunk;
 mod compiler;
 mod errors;
@@ -41,7 +41,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 // Re-export the public interface used by other crates.
-pub use crate::builtins::global_builtins;
 pub use crate::compiler::{compile, prepare_globals};
 pub use crate::errors::{Error, ErrorKind, EvalResult};
 pub use crate::io::{DummyIO, EvalIO, FileType};
@@ -83,11 +82,23 @@ pub struct Evaluation<'code, 'co, 'ro> {
     /// Top-level file reference for this code inside the source map.
     file: Arc<codemap::File>,
 
+    /// Set of all builtins that should be available during the
+    /// evaluation.
+    ///
+    /// This defaults to all pure builtins. Users might want to add
+    /// the set of impure builtins, or other custom builtins.
+    pub builtins: Vec<(&'static str, Value)>,
+
     /// Implementation of file-IO to use during evaluation, e.g. for
     /// impure builtins.
     ///
     /// Defaults to [`DummyIO`] if not set explicitly.
     pub io_handle: Box<dyn EvalIO>,
+
+    /// Determines whether the `import` builtin should be made
+    /// available. Note that this depends on the `io_handle` being
+    /// able to read the files specified as arguments to `import`.
+    pub enable_import: bool,
 
     /// (optional) Nix search path, e.g. the value of `NIX_PATH` used
     /// for resolving items on the search path (such as `<nixpkgs>`).
@@ -134,16 +145,32 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
 
         let file = source_map.add_file(location_str, code.into());
 
+        let mut builtins = builtins::pure_builtins();
+        builtins.extend(builtins::placeholders()); // these are temporary
+
         Evaluation {
             code,
             location,
             source_map,
             file,
+            builtins,
             io_handle: Box::new(DummyIO {}),
+            enable_import: false,
             nix_path: None,
             compiler_observer: None,
             runtime_observer: None,
         }
+    }
+
+    #[cfg(feature = "impure")]
+    /// Initialise an `Evaluation` for the given snippet, with all
+    /// impure features turned on by default.
+    pub fn new_impure(code: &'code str, location: Option<PathBuf>) -> Self {
+        let mut eval = Self::new(code, location);
+        eval.enable_import = true;
+        eval.builtins.extend(builtins::impure_builtins());
+        eval.io_handle = Box::new(StdIO);
+        eval
     }
 
     /// Clone the reference to the contained source code map. This is used after
@@ -173,8 +200,8 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
         // access to the parsed expression.
         result.expr = parsed.tree().expr();
 
-        let builtins =
-            crate::compiler::prepare_globals(Box::new(global_builtins(self.source_map())));
+        let source = self.source_map();
+        let builtins = crate::compiler::prepare_globals(self.builtins, source, self.enable_import);
 
         let mut noop_observer = observer::NoOpObserver::default();
         let compiler_observer = self.compiler_observer.take().unwrap_or(&mut noop_observer);

@@ -17,8 +17,7 @@ fn eval_test(code_path: &str, expect_success: bool) {
         return;
     }
 
-    let mut eval = crate::Evaluation::new(&code, Some(code_path.into()));
-    eval.io_handle = Box::new(crate::StdIO);
+    let eval = crate::Evaluation::new_impure(&code, Some(code_path.into()));
 
     let result = eval.evaluate();
 

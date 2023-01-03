@@ -40,7 +40,7 @@ struct Args {
 /// and the result itself. The return value indicates whether
 /// evaluation succeeded.
 fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> bool {
-    let mut eval = tvix_eval::Evaluation::new(code, path);
+    let mut eval = tvix_eval::Evaluation::new_impure(code, path);
     eval.io_handle = Box::new(nix_compat::NixCompatIO::new());
     eval.nix_path = args.nix_search_path.clone();
 

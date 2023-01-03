@@ -14,6 +14,7 @@
 //! mistakes early during development.
 
 mod bindings;
+mod import;
 mod scope;
 
 use codemap::Span;
@@ -30,8 +31,9 @@ use crate::observer::CompilerObserver;
 use crate::opcode::{CodeIdx, Count, JumpOffset, OpCode, UpvalueIdx};
 use crate::spans::LightSpan;
 use crate::spans::ToSpan;
-use crate::value::{Closure, Formals, Lambda, Thunk, Value};
+use crate::value::{Closure, Formals, Lambda, NixAttrs, Thunk, Value};
 use crate::warnings::{EvalWarning, WarningKind};
+use crate::SourceCode;
 
 use self::scope::{LocalIdx, LocalPosition, Scope, Upvalue, UpvalueKind};
 
@@ -73,17 +75,38 @@ impl LambdaCtx {
     }
 }
 
+/// The type of a global as used inside of the compiler. Differs from
+/// Nix's own notion of "builtins" in that it can emit arbitrary code.
+/// Nix's builtins are wrapped inside of this type.
+pub type Global = Rc<dyn Fn(&mut Compiler, Span)>;
+
 /// The map of globally available functions that should implicitly
 /// be resolvable in the global scope.
-pub type GlobalsMap = HashMap<&'static str, Rc<dyn Fn(&mut Compiler, Span)>>;
+type GlobalsMap = HashMap<&'static str, Rc<dyn Fn(&mut Compiler, Span)>>;
 
-/// Functions with this type are used to construct a
-/// self-referential `builtins` object; it takes a weak reference to
-/// its own result, similar to how nixpkgs' overlays work.
-/// Rc::new_cyclic() is what "ties the knot".  The heap allocation
-/// (Box) and vtable (dyn) do not impair runtime or compile-time
-/// performance; they exist only during compiler startup.
-pub type GlobalsMapFunc = Box<dyn FnOnce(&Weak<GlobalsMap>) -> GlobalsMap>;
+/// Set of builtins that (if they exist) should be made available in
+/// the global scope, meaning that they can be accessed not just
+/// through `builtins.<name>`, but directly as `<name>`. This is not
+/// configurable, it is based on what Nix 2.3 exposed.
+const GLOBAL_BUILTINS: &'static [&'static str] = &[
+    "abort",
+    "baseNameOf",
+    "derivation",
+    "derivationStrict",
+    "dirOf",
+    "fetchGit",
+    "fetchMercurial",
+    "fetchTarball",
+    "fromTOML",
+    "import",
+    "isNull",
+    "map",
+    "placeholder",
+    "removeAttrs",
+    "scopedImport",
+    "throw",
+    "toString",
+];
 
 pub struct Compiler<'observer> {
     contexts: Vec<LambdaCtx>,
@@ -1183,19 +1206,57 @@ fn optimise_tail_call(chunk: &mut Chunk) {
     }
 }
 
-/// Prepare the full set of globals from additional globals supplied
-/// by the caller of the compiler, as well as the built-in globals
-/// that are always part of the language.  This also "ties the knot"
-/// required in order for import to have a reference cycle back to
-/// the globals.
+/// Prepare the full set of globals available in evaluated code. These
+/// are constructed from the set of builtins supplied by the caller,
+/// which are made available globally under the `builtins` identifier.
 ///
-/// Note that all builtin functions are *not* considered part of the
-/// language in this sense and MUST be supplied as additional global
-/// values, including the `builtins` set itself.
-pub fn prepare_globals(additional: GlobalsMapFunc) -> Rc<GlobalsMap> {
-    Rc::new_cyclic(Box::new(|weak: &Weak<GlobalsMap>| {
-        let mut globals = additional(weak);
+/// A subset of builtins (specified by [`GLOBAL_BUILTINS`]) is
+/// available globally *iff* they are set.
+///
+/// Optionally adds the `import` feature if desired by the caller.
+pub fn prepare_globals(
+    builtins: Vec<(&'static str, Value)>,
+    source: SourceCode,
+    enable_import: bool,
+) -> Rc<GlobalsMap> {
+    Rc::new_cyclic(Box::new(move |weak: &Weak<GlobalsMap>| {
+        // First step is to construct the builtins themselves as
+        // `NixAttrs`.
+        let mut builtins_under_construction: HashMap<&'static str, Value> =
+            HashMap::from_iter(builtins.into_iter());
 
+        // At this point, optionally insert `import` if enabled. To
+        // "tie the knot" of `import` needing the full set of globals
+        // to instantiate its compiler, the `Weak` reference is passed
+        // here.
+        if enable_import {
+            let import = Value::Builtin(import::builtins_import(weak, source));
+            builtins_under_construction.insert("import", import);
+        }
+
+        // Next, the actual map of globals is constructed and
+        // populated with (copies) of the values that should be
+        // available in the global scope (see [`GLOBAL_BUILTINS`]).
+        let mut globals: GlobalsMap = HashMap::new();
+
+        for global in GLOBAL_BUILTINS {
+            if let Some(builtin) = builtins_under_construction.get(global).cloned() {
+                let global_builtin: Global =
+                    Rc::new(move |c, s| c.emit_constant(builtin.clone(), &s));
+                globals.insert(global, global_builtin);
+            }
+        }
+
+        // This is followed by the actual `builtins` attribute set
+        // being constructed and inserted in the global scope.
+        let builtins_set =
+            Value::attrs(NixAttrs::from_iter(builtins_under_construction.into_iter()));
+        globals.insert(
+            "builtins",
+            Rc::new(move |c, s| c.emit_constant(builtins_set.clone(), &s)),
+        );
+
+        // Finally insert the compiler-internal "magic" builtins for top-level values.
         globals.insert(
             "true",
             Rc::new(|compiler, span| {
