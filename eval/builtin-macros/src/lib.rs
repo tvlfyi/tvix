@@ -167,7 +167,7 @@ pub fn builtins(_args: TokenStream, item: TokenStream) -> TokenStream {
                         };
 
                         Ok(quote_spanned!(arg.span() => {
-                            crate::internal::BuiltinArgument {
+                            crate::BuiltinArgument {
                                 strict: #strict,
                                 name: #name,
                             }
@@ -194,11 +194,11 @@ pub fn builtins(_args: TokenStream, item: TokenStream) -> TokenStream {
                 };
 
                 builtins.push(quote_spanned! { builtin_attr.span() => {
-                    crate::internal::Builtin::new(
+                    crate::Builtin::new(
                         #name,
                         &[#(#builtin_arguments),*],
                         #docstring,
-                        |mut args: Vec<crate::Value>, vm: &mut crate::internal::VM| {
+                        |mut args: Vec<crate::Value>, vm: &mut crate::VM| {
                             #(let #reversed_args = args.pop().unwrap();)*
                             #fn_name(vm, #(#args),*)
                         }
@@ -209,7 +209,7 @@ pub fn builtins(_args: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     items.push(parse_quote! {
-        pub fn builtins() -> Vec<crate::internal::Builtin> {
+        pub fn builtins() -> Vec<crate::Builtin> {
             vec![#(#builtins),*]
         }
     });

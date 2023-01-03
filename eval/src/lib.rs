@@ -47,19 +47,12 @@ pub use crate::io::{DummyIO, EvalIO, FileType};
 use crate::observer::{CompilerObserver, RuntimeObserver};
 pub use crate::pretty_ast::pretty_print_expr;
 pub use crate::source::SourceCode;
-pub use crate::value::{NixAttrs, NixList, NixString, Value};
-pub use crate::vm::run_lambda;
+pub use crate::value::{Builtin, BuiltinArgument, NixAttrs, NixList, NixString, Value};
+pub use crate::vm::{run_lambda, VM};
 pub use crate::warnings::{EvalWarning, WarningKind};
 
 #[cfg(feature = "impure")]
 pub use crate::io::StdIO;
-
-/// Internal-only parts of `tvix-eval`, exported for use in macros, but not part of the public
-/// interface of the crate.
-pub mod internal {
-    pub use crate::value::{Builtin, BuiltinArgument};
-    pub use crate::vm::VM;
-}
 
 /// An `Evaluation` represents how a piece of Nix code is evaluated. It can be
 /// instantiated and configured directly, or it can be accessed through the
