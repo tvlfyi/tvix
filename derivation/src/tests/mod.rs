@@ -4,6 +4,7 @@ use std::io::Read;
 use std::path::Path;
 use test_case::test_case;
 use test_generator::test_resources;
+use tvix_store::nixpath::NixPath;
 
 const RESOURCES_PATHS: &str = "src/tests/derivation_tests";
 
@@ -61,5 +62,8 @@ fn derivation_path(name: &str, expected_path: &str) {
     let data = read_file(&format!("{}/{}.json", RESOURCES_PATHS, expected_path));
     let derivation: Derivation = serde_json::from_str(&data).expect("JSON was not well-formatted");
 
-    assert_eq!(derivation.calculate_derivation_path(name), expected_path);
+    assert_eq!(
+        derivation.calculate_derivation_path(name).unwrap(),
+        NixPath::from_string(expected_path).unwrap()
+    );
 }

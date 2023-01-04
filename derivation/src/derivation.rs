@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, fmt, fmt::Write, iter::FromIterator};
 use tvix_store::nixbase32::NIXBASE32;
-use tvix_store::nixpath::STORE_DIR;
+use tvix_store::nixpath::{NixPath, ParseNixPathError, STORE_DIR};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Derivation {
@@ -28,6 +28,29 @@ pub struct Derivation {
     pub system: String,
 }
 
+/// This returns a store path, either of a derivation or a regular output.
+/// The path_hash is compressed to 20 bytes, and nixbase32-encoded (32 characters)
+fn build_store_path(
+    is_derivation: bool,
+    path_hash: &[u8],
+    name: &str,
+) -> Result<NixPath, ParseNixPathError> {
+    let compressed = nix_hash::compress_hash(path_hash, 20);
+    if is_derivation {
+        NixPath::from_string(
+            format!(
+                "{}-{}{}",
+                NIXBASE32.encode(&compressed),
+                name,
+                write::DOT_FILE_EXT,
+            )
+            .as_str(),
+        )
+    } else {
+        NixPath::from_string(format!("{}-{}", NIXBASE32.encode(&compressed), name,).as_str())
+    }
+}
+
 impl Derivation {
     pub fn serialize(&self, writer: &mut impl Write) -> Result<(), fmt::Error> {
         writer.write_str(write::DERIVATION_PREFIX)?;
@@ -46,9 +69,9 @@ impl Derivation {
         Ok(())
     }
 
-    /// Returns the path of a Derivation struct.
+    /// Returns the drv path of a Derivation struct.
     ///
-    /// The path is calculated like this:
+    /// The drv path is calculated like this:
     ///   - Write the fingerprint of the Derivation to the sha256 hash function.
     ///     This is: `text:`,
     ///     all d.InputDerivations and d.InputSources (sorted, separated by a `:`),
@@ -61,8 +84,8 @@ impl Derivation {
     ///   - Write the .drv A-Term contents to a hash function
     ///   - Take the digest, run hash.CompressHash(digest, 20) on it.
     ///   - Encode it with nixbase32
-    ///   - Construct the full path $storeDir/$nixbase32EncodedCompressedHash-$name.drv
-    pub fn calculate_derivation_path(&self, name: &str) -> String {
+    ///   - Use it (and the name) to construct a NixPath.
+    pub fn calculate_derivation_path(&self, name: &str) -> Result<NixPath, ParseNixPathError> {
         let mut hasher = Sha256::new();
 
         // collect the list of paths from input_sources and input_derivations
@@ -101,17 +124,7 @@ impl Derivation {
         hasher.update(name);
         hasher.update(write::DOT_FILE_EXT);
 
-        let compressed = {
-            let aterm_digest = Vec::from_iter(hasher.finalize());
-            nix_hash::compress_hash(&aterm_digest, 20)
-        };
-
-        format!(
-            "{}-{}{}",
-            NIXBASE32.encode(&compressed),
-            name,
-            write::DOT_FILE_EXT
-        )
+        build_store_path(true, &hasher.finalize(), name)
     }
 }
 
