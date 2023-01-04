@@ -123,6 +123,11 @@ fn nix_eval_okay_currently_failing(code_path: &str) {
     eval_test(code_path, false)
 }
 
+#[test_resources("src/tests/tvix_tests/notyetpassing/eval-okay-*.nix")]
+fn eval_okay_currently_failing(code_path: &str) {
+    eval_test(code_path, false)
+}
+
 // eval-fail-* tests contain a snippet of Nix code, which is
 // expected to fail evaluation.  The exact type of failure
 // (assertion, parse error, etc) is not currently checked.

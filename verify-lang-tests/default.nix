@@ -34,7 +34,7 @@ let
             (builtins.map (parseTest dir))
             (builtins.filter (t: t != null))
           ]
-      ) [ "nix_tests" "nix_tests/notyetpassing" "tvix_tests" ];
+      ) [ "nix_tests" "nix_tests/notyetpassing" "tvix_tests" "tvix_tests/notyetpassing" ];
 
   skippedLangTests = {
     # TODO(sterni): set up NIX_PATH in sandbox
