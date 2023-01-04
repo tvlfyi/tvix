@@ -14,7 +14,8 @@ fn read_file(path: &str) -> String {
     return data;
 }
 
-fn assert_derivation_ok(path_to_drv_file: &str) {
+#[test_resources("src/tests/derivation_tests/*.drv")]
+fn check_serizaliation(path_to_drv_file: &str) {
     let data = read_file(&format!("{}.json", path_to_drv_file));
     let derivation: Derivation = serde_json::from_str(&data).expect("JSON was not well-formatted");
 
@@ -27,6 +28,11 @@ fn assert_derivation_ok(path_to_drv_file: &str) {
 }
 
 #[test_resources("src/tests/derivation_tests/*.drv")]
-fn derivation_files_ok(path: &str) {
-    assert_derivation_ok(path);
+fn check_to_string(path_to_drv_file: &str) {
+    let data = read_file(&format!("{}.json", path_to_drv_file));
+    let derivation: Derivation = serde_json::from_str(&data).expect("JSON was not well-formatted");
+
+    let expected = read_file(path_to_drv_file);
+
+    assert_eq!(expected, derivation.to_string());
 }

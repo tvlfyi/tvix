@@ -15,20 +15,26 @@ pub struct Derivation {
 }
 
 impl Derivation {
-    pub fn serialize(self: Self, writer: &mut impl Write) -> Result<(), fmt::Error> {
+    pub fn serialize(&self, writer: &mut impl Write) -> Result<(), fmt::Error> {
         writer.write_str(write::DERIVATION_PREFIX)?;
         writer.write_char(write::PAREN_OPEN)?;
 
-        write::write_outputs(writer, self.outputs)?;
-        write::write_input_derivations(writer, self.input_derivations)?;
-        write::write_input_sources(writer, self.input_sources)?;
+        write::write_outputs(writer, &self.outputs)?;
+        write::write_input_derivations(writer, &self.input_derivations)?;
+        write::write_input_sources(writer, &self.input_sources)?;
         write::write_platfrom(writer, &self.platform)?;
         write::write_builder(writer, &self.builder)?;
-        write::write_arguments(writer, self.arguments)?;
-        write::write_enviroment(writer, self.environment)?;
+        write::write_arguments(writer, &self.arguments)?;
+        write::write_enviroment(writer, &self.environment)?;
 
         writer.write_char(write::PAREN_CLOSE)?;
 
         Ok(())
+    }
+}
+
+impl fmt::Display for Derivation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.serialize(f)
     }
 }

@@ -15,7 +15,7 @@ fn write_array_elements(
     quote: bool,
     open: &str,
     closing: &str,
-    elements: Vec<&String>,
+    elements: &[&str],
 ) -> Result<(), fmt::Error> {
     writer.write_str(open)?;
 
@@ -42,7 +42,7 @@ fn write_array_elements(
 
 pub fn write_outputs(
     writer: &mut impl Write,
-    outputs: BTreeMap<String, Output>,
+    outputs: &BTreeMap<String, Output>,
 ) -> Result<(), fmt::Error> {
     writer.write_char(BRACKET_OPEN)?;
     for (ii, (output_name, output)) in outputs.iter().enumerate() {
@@ -51,8 +51,8 @@ pub fn write_outputs(
         }
 
         // TODO(jrhahn) option to strip output
-        let elements = vec![
-            output_name,
+        let elements: [&str; 4] = [
+            &output_name,
             &output.path,
             &output.hash_algorithm,
             &output.hash,
@@ -63,7 +63,7 @@ pub fn write_outputs(
             true,
             &PAREN_OPEN.to_string(),
             &PAREN_CLOSE.to_string(),
-            elements,
+            &elements,
         )?
     }
     writer.write_char(BRACKET_CLOSE)?;
@@ -73,7 +73,7 @@ pub fn write_outputs(
 
 pub fn write_input_derivations(
     writer: &mut impl Write,
-    input_derivations: BTreeMap<String, Vec<String>>,
+    input_derivations: &BTreeMap<String, Vec<String>>,
 ) -> Result<(), fmt::Error> {
     writer.write_char(COMMA)?;
     writer.write_char(BRACKET_OPEN)?;
@@ -89,12 +89,15 @@ pub fn write_input_derivations(
         writer.write_char(QUOTE)?;
         writer.write_char(COMMA)?;
 
+        // convert Vec<String> to [&str]
+        let v: Vec<&str> = input_derivation.iter().map(|x| &**x).collect();
+
         write_array_elements(
             writer,
             true,
             &BRACKET_OPEN.to_string(),
             &BRACKET_CLOSE.to_string(),
-            input_derivation.iter().collect(),
+            &v,
         )?;
 
         writer.write_char(PAREN_CLOSE)?;
@@ -107,15 +110,18 @@ pub fn write_input_derivations(
 
 pub fn write_input_sources(
     writer: &mut impl Write,
-    input_sources: Vec<String>,
+    input_sources: &Vec<String>,
 ) -> Result<(), fmt::Error> {
     writer.write_char(COMMA)?;
+
+    // convert Vec<String> to [&str]
+    let v: Vec<&str> = input_sources.iter().map(|x| &**x).collect();
     write_array_elements(
         writer,
         true,
         &BRACKET_OPEN.to_string(),
         &BRACKET_CLOSE.to_string(),
-        input_sources.iter().collect(),
+        &v,
     )?;
 
     Ok(())
@@ -133,14 +139,16 @@ pub fn write_builder(writer: &mut impl Write, builder: &str) -> Result<(), fmt::
     Ok(())
 }
 
-pub fn write_arguments(writer: &mut impl Write, arguments: Vec<String>) -> Result<(), fmt::Error> {
+pub fn write_arguments(writer: &mut impl Write, arguments: &Vec<String>) -> Result<(), fmt::Error> {
     writer.write_char(COMMA)?;
+    // convert Vec<String> to [&str]
+    let v: Vec<&str> = arguments.iter().map(|x| &**x).collect();
     write_array_elements(
         writer,
         true,
         &BRACKET_OPEN.to_string(),
         &BRACKET_CLOSE.to_string(),
-        arguments.iter().collect(),
+        &v,
     )?;
 
     Ok(())
@@ -148,7 +156,7 @@ pub fn write_arguments(writer: &mut impl Write, arguments: Vec<String>) -> Resul
 
 pub fn write_enviroment(
     writer: &mut impl Write,
-    environment: BTreeMap<String, String>,
+    environment: &BTreeMap<String, String>,
 ) -> Result<(), fmt::Error> {
     writer.write_char(COMMA)?;
     writer.write_char(BRACKET_OPEN)?;
@@ -164,7 +172,7 @@ pub fn write_enviroment(
             false,
             &PAREN_OPEN.to_string(),
             &PAREN_CLOSE.to_string(),
-            vec![&escape_string(key), &escape_string(environment)],
+            &[&escape_string(key), &escape_string(environment)],
         )?;
     }
 
