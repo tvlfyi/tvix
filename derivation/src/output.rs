@@ -1,16 +1,23 @@
 use serde::{Deserialize, Serialize};
 
-// This function is required by serde to deserialize files
-// with missing keys.
-fn default_resource() -> String {
-    "".to_string()
-}
-
 #[derive(Serialize, Deserialize)]
 pub struct Output {
     pub path: String,
-    #[serde(default = "default_resource")]
-    pub hash_algorithm: String,
-    #[serde(default = "default_resource")]
-    pub hash: String,
+
+    #[serde(flatten)]
+    pub hash: Option<Hash>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Hash {
+    #[serde(rename = "hash")]
+    pub digest: String,
+    #[serde(rename = "hash_algorithm")]
+    pub algo: String,
+}
+
+impl Output {
+    pub fn is_fixed(&self) -> bool {
+        self.hash.is_some()
+    }
 }

@@ -20,7 +20,7 @@ fn write_array_elements(
     quote: bool,
     open: &str,
     closing: &str,
-    elements: &[&str],
+    elements: Vec<&str>,
 ) -> Result<(), fmt::Error> {
     writer.write_str(open)?;
 
@@ -56,19 +56,25 @@ pub fn write_outputs(
         }
 
         // TODO(jrhahn) option to strip output
-        let elements: [&str; 4] = [
-            &output_name,
-            &output.path,
-            &output.hash_algorithm,
-            &output.hash,
-        ];
+        let mut elements: Vec<&str> = vec![output_name, &output.path];
+
+        match &output.hash {
+            Some(hash) => {
+                elements.push(&hash.algo);
+                elements.push(&hash.digest);
+            }
+            None => {
+                elements.push("");
+                elements.push("");
+            }
+        }
 
         write_array_elements(
             writer,
             true,
             &PAREN_OPEN.to_string(),
             &PAREN_CLOSE.to_string(),
-            &elements,
+            elements,
         )?
     }
     writer.write_char(BRACKET_CLOSE)?;
@@ -94,15 +100,12 @@ pub fn write_input_derivations(
         writer.write_char(QUOTE)?;
         writer.write_char(COMMA)?;
 
-        // convert Vec<String> to [&str]
-        let v: Vec<&str> = input_derivation.iter().map(|x| &**x).collect();
-
         write_array_elements(
             writer,
             true,
             &BRACKET_OPEN.to_string(),
             &BRACKET_CLOSE.to_string(),
-            &v,
+            input_derivation.iter().map(|s| &**s).collect(),
         )?;
 
         writer.write_char(PAREN_CLOSE)?;
@@ -119,14 +122,12 @@ pub fn write_input_sources(
 ) -> Result<(), fmt::Error> {
     writer.write_char(COMMA)?;
 
-    // convert Vec<String> to [&str]
-    let v: Vec<&str> = input_sources.iter().map(|x| &**x).collect();
     write_array_elements(
         writer,
         true,
         &BRACKET_OPEN.to_string(),
         &BRACKET_CLOSE.to_string(),
-        &v,
+        input_sources.iter().map(|s| &**s).collect(),
     )?;
 
     Ok(())
@@ -145,14 +146,12 @@ pub fn write_builder(writer: &mut impl Write, builder: &str) -> Result<(), fmt::
 }
 pub fn write_arguments(writer: &mut impl Write, arguments: &[String]) -> Result<(), fmt::Error> {
     writer.write_char(COMMA)?;
-    // convert Vec<String> to [&str]
-    let v: Vec<&str> = arguments.iter().map(|x| &**x).collect();
     write_array_elements(
         writer,
         true,
         &BRACKET_OPEN.to_string(),
         &BRACKET_CLOSE.to_string(),
-        &v,
+        arguments.iter().map(|s| &**s).collect(),
     )?;
 
     Ok(())
@@ -176,7 +175,7 @@ pub fn write_enviroment(
             false,
             &PAREN_OPEN.to_string(),
             &PAREN_CLOSE.to_string(),
-            &[&escape_string(key), &escape_string(environment)],
+            vec![&escape_string(key), &escape_string(environment)],
         )?;
     }
 
