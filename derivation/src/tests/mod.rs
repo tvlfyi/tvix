@@ -31,6 +31,16 @@ fn check_serizaliation(path_to_drv_file: &str) {
 }
 
 #[test_resources("src/tests/derivation_tests/*.drv")]
+fn validate(path_to_drv_file: &str) {
+    let data = read_file(&format!("{}.json", path_to_drv_file));
+    let derivation: Derivation = serde_json::from_str(&data).expect("JSON was not well-formatted");
+
+    derivation
+        .validate()
+        .expect("derivation failed to validate")
+}
+
+#[test_resources("src/tests/derivation_tests/*.drv")]
 fn check_to_string(path_to_drv_file: &str) {
     let data = read_file(&format!("{}.json", path_to_drv_file));
     let derivation: Derivation = serde_json::from_str(&data).expect("JSON was not well-formatted");

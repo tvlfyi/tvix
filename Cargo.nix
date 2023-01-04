@@ -1155,6 +1155,33 @@ rec {
           "rustc-hash" = [ "dep:rustc-hash" ];
         };
       };
+      "cpufeatures" = rec {
+        crateName = "cpufeatures";
+        version = "0.2.5";
+        edition = "2018";
+        sha256 = "08535izlz4kx8z1kkcp0gy80gqk7k19dqiiysj6r5994bsyrgn98";
+        authors = [
+          "RustCrypto Developers"
+        ];
+        dependencies = [
+          {
+            name = "libc";
+            packageId = "libc";
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "aarch64-apple-darwin");
+          }
+          {
+            name = "libc";
+            packageId = "libc";
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "aarch64-linux-android");
+          }
+          {
+            name = "libc";
+            packageId = "libc";
+            target = { target, features }: (("aarch64" == target."arch") && ("linux" == target."os"));
+          }
+        ];
+
+      };
       "criterion" = rec {
         crateName = "criterion";
         version = "0.4.0";
@@ -1474,6 +1501,10 @@ rec {
           else ./derivation;
         dependencies = [
           {
+            name = "anyhow";
+            packageId = "anyhow";
+          }
+          {
             name = "glob";
             packageId = "glob";
           }
@@ -1482,11 +1513,23 @@ rec {
             packageId = "serde";
             features = [ "derive" ];
           }
+          {
+            name = "sha2";
+            packageId = "sha2";
+          }
+          {
+            name = "tvix-store";
+            packageId = "tvix-store";
+          }
         ];
         devDependencies = [
           {
             name = "serde_json";
             packageId = "serde_json";
+          }
+          {
+            name = "test-case";
+            packageId = "test-case";
           }
           {
             name = "test-generator";
@@ -4772,6 +4815,46 @@ rec {
           "indexmap" = [ "dep:indexmap" ];
           "preserve_order" = [ "indexmap" "std" ];
           "std" = [ "serde/std" ];
+        };
+        resolvedDefaultFeatures = [ "default" "std" ];
+      };
+      "sha2" = rec {
+        crateName = "sha2";
+        version = "0.10.6";
+        edition = "2018";
+        sha256 = "1h5xrrv2y06kr1gsz4pwrm3lsp206nm2gjxgbf21wfrfzsavgrl2";
+        authors = [
+          "RustCrypto Developers"
+        ];
+        dependencies = [
+          {
+            name = "cfg-if";
+            packageId = "cfg-if";
+          }
+          {
+            name = "cpufeatures";
+            packageId = "cpufeatures";
+            target = { target, features }: (("aarch64" == target."arch") || ("x86_64" == target."arch") || ("x86" == target."arch"));
+          }
+          {
+            name = "digest";
+            packageId = "digest";
+          }
+        ];
+        devDependencies = [
+          {
+            name = "digest";
+            packageId = "digest";
+            features = [ "dev" ];
+          }
+        ];
+        features = {
+          "asm" = [ "sha2-asm" ];
+          "asm-aarch64" = [ "asm" ];
+          "default" = [ "std" ];
+          "oid" = [ "digest/oid" ];
+          "sha2-asm" = [ "dep:sha2-asm" ];
+          "std" = [ "digest/std" ];
         };
         resolvedDefaultFeatures = [ "default" "std" ];
       };

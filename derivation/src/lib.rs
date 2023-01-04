@@ -1,9 +1,9 @@
+mod derivation;
 mod nix_hash;
 mod output;
 mod string_escape;
+mod validate;
 mod write;
-
-mod derivation;
 
 #[cfg(test)]
 mod tests;

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use tvix_store::nixpath::NixPath;
 
 #[derive(Serialize, Deserialize)]
 pub struct Output {
@@ -19,5 +20,10 @@ pub struct Hash {
 impl Output {
     pub fn is_fixed(&self) -> bool {
         self.hash.is_some()
+    }
+
+    pub fn validate(&self) -> anyhow::Result<()> {
+        NixPath::from_absolute_path(&self.path)?;
+        Ok(())
     }
 }
