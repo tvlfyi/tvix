@@ -21,22 +21,32 @@
 use std::{
     cell::{Ref, RefCell, RefMut},
     collections::HashSet,
+    fmt::Debug,
     rc::Rc,
 };
 
 use serde::Serialize;
 
 use crate::{
-    chunk::Chunk,
     errors::{Error, ErrorKind},
     spans::LightSpan,
     upvalues::Upvalues,
-    value::{Builtin, Closure},
+    value::Closure,
     vm::{Trampoline, TrampolineAction, VM},
     Value,
 };
 
 use super::{Lambda, TotalDisplay};
+
+/// Internal representation of a suspended native thunk.
+#[derive(Clone)]
+struct SuspendedNative(Rc<dyn Fn(&mut VM) -> Result<Value, ErrorKind>>);
+
+impl Debug for SuspendedNative {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SuspendedNative({:p})", self.0)
+    }
+}
 
 /// Internal representation of the different states of a thunk.
 ///
@@ -52,6 +62,9 @@ enum ThunkRepr {
         upvalues: Rc<Upvalues>,
         light_span: LightSpan,
     },
+
+    /// Thunk is a suspended native computation.
+    Native(SuspendedNative),
 
     /// Thunk currently under-evaluation; encountering a blackhole
     /// value means that infinite recursion has occured.
@@ -87,40 +100,9 @@ impl Thunk {
     }
 
     pub fn new_suspended_native(native: Rc<dyn Fn(&mut VM) -> Result<Value, ErrorKind>>) -> Self {
-        let span = codemap::CodeMap::new()
-            .add_file("<internal>".to_owned(), "<internal>".to_owned())
-            .span;
-        let builtin = Builtin::new(
-            "Thunk::new_suspended_native()",
-            &[crate::value::builtin::BuiltinArgument {
-                strict: true,
-                name: "fake",
-            }],
-            None,
-            move |v: Vec<Value>, vm: &mut VM| {
-                // sanity check that only the dummy argument was popped
-                assert!(v.len() == 1);
-                assert!(matches!(v[0], Value::Null));
-                native(vm)
-            },
-        );
-        let mut chunk = Chunk::default();
-        let constant_idx = chunk.push_constant(Value::Builtin(builtin));
-        // Tvix doesn't have "0-ary" builtins, so we have to push a fake argument
-        chunk.push_op(crate::opcode::OpCode::OpNull, span);
-        chunk.push_op(crate::opcode::OpCode::OpConstant(constant_idx), span);
-        chunk.push_op(crate::opcode::OpCode::OpCall, span);
-        let lambda = Lambda {
-            name: None,
-            formals: None,
-            upvalue_count: 0,
-            chunk,
-        };
-        Thunk(Rc::new(RefCell::new(ThunkRepr::Suspended {
-            lambda: Rc::new(lambda),
-            upvalues: Rc::new(Upvalues::with_capacity(0)),
-            light_span: LightSpan::new_actual(span),
-        })))
+        Thunk(Rc::new(RefCell::new(ThunkRepr::Native(SuspendedNative(
+            native,
+        )))))
     }
 
     /// Force a thunk from a context that can't handle trampoline
@@ -177,6 +159,9 @@ impl Thunk {
     fn force_trampoline_self(&self, vm: &mut VM) -> Result<Trampoline, ErrorKind> {
         loop {
             if !self.is_suspended() {
+                // thunk is already evaluated (or infinitely
+                // recursive), inspect the situation and replace the
+                // inner representation if this is a nested thunk
                 let thunk = self.0.borrow();
                 match *thunk {
                     ThunkRepr::Evaluated(Value::Thunk(ref inner_thunk)) => {
@@ -190,7 +175,7 @@ impl Thunk {
                         return Ok(Trampoline::default());
                     }
                     ThunkRepr::Blackhole => return Err(ErrorKind::InfiniteRecursion),
-                    _ => panic!("impossible"),
+                    _ => unreachable!(),
                 }
             } else {
                 match self.0.replace(ThunkRepr::Blackhole) {
@@ -219,7 +204,11 @@ impl Thunk {
                             })),
                         });
                     }
-                    _ => panic!("impossible"),
+                    ThunkRepr::Native(native) => {
+                        let value = native.0(vm)?;
+                        self.0.replace(ThunkRepr::Evaluated(value.clone()));
+                    }
+                    _ => unreachable!(),
                 }
             }
         }
@@ -234,7 +223,10 @@ impl Thunk {
     }
 
     pub fn is_suspended(&self) -> bool {
-        matches!(*self.0.borrow(), ThunkRepr::Suspended { .. })
+        matches!(
+            *self.0.borrow(),
+            ThunkRepr::Suspended { .. } | ThunkRepr::Native(_)
+        )
     }
 
     /// Returns true if forcing this thunk will not change it.
@@ -255,23 +247,11 @@ impl Thunk {
     // API too much.
     pub fn value(&self) -> Ref<Value> {
         Ref::map(self.0.borrow(), |thunk| match thunk {
-            ThunkRepr::Evaluated(value) => {
-                /*
-                #[cfg(debug_assertions)]
-                if matches!(
-                    value,
-                    Value::Closure(Closure {
-                        is_finalised: false,
-                        ..
-                    })
-                ) {
-                    panic!("Thunk::value called on an unfinalised closure");
-                }
-                */
-                value
-            }
+            ThunkRepr::Evaluated(value) => value,
             ThunkRepr::Blackhole => panic!("Thunk::value called on a black-holed thunk"),
-            ThunkRepr::Suspended { .. } => panic!("Thunk::value called on a suspended thunk"),
+            ThunkRepr::Suspended { .. } | ThunkRepr::Native(_) => {
+                panic!("Thunk::value called on a suspended thunk")
+            }
         })
     }
 
