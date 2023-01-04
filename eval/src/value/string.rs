@@ -168,7 +168,7 @@ fn is_valid_nix_identifier(s: &str) -> bool {
     }
     for c in chars {
         match c {
-            'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-' => (),
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-' | '\'' => (),
             _ => return false,
         }
     }
