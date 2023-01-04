@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, fmt, fmt::Write, iter::FromIterator};
 use tvix_store::nixbase32::NIXBASE32;
+use tvix_store::nixpath::STORE_DIR;
 
 #[derive(Serialize, Deserialize)]
 pub struct Derivation {
@@ -84,7 +85,9 @@ impl Derivation {
 
         hasher.update(format!("{:x}", digest));
         hasher.update(write::COLON);
-        hasher.update(write::STORE_PATH_COLON);
+        hasher.update(STORE_DIR);
+        hasher.update(write::COLON);
+
         hasher.update(name);
         hasher.update(write::DOT_FILE_EXT);
 

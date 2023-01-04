@@ -13,7 +13,6 @@ pub const QUOTE: char = '"';
 pub const COLON: &str = ":";
 pub const TEXT_COLON: &str = "text:";
 pub const SHA256_COLON: &str = "sha256:";
-pub const STORE_PATH_COLON: &str = "/nix/store:";
 pub const DOT_FILE_EXT: &str = ".drv";
 
 fn write_array_elements(
