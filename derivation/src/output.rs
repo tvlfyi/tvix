@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tvix_store::nixpath::NixPath;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Output {
     pub path: String,
 
@@ -9,7 +9,7 @@ pub struct Output {
     pub hash: Option<Hash>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Hash {
     #[serde(rename = "hash")]
     pub digest: String,
