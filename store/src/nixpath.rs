@@ -8,6 +8,11 @@ pub const DIGEST_SIZE: usize = 20;
 // manually and have an assert in the tests.
 pub const ENCODED_DIGEST_SIZE: usize = 32;
 
+// The store dir prefix, without trailing slash.
+// That's usually where the Nix store is mounted at.
+pub const STORE_DIR: &str = "/nix/store";
+pub const STORE_DIR_WITH_SLASH: &str = "/nix/store/";
+
 /// Errors that can occur during the validation of name characters.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum ParseNixPathError {
@@ -17,6 +22,8 @@ pub enum ParseNixPathError {
     InvalidHashEncoding(DecodeError),
     #[error("Invalid name {0}")]
     InvalidName(String),
+    #[error("Tried to parse an absolute path which was missing the store dir prefix.")]
+    MissingStoreDir(),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -55,6 +62,15 @@ impl NixPath {
         })
     }
 
+    /// Construct a NixPath from an absolute store path string.
+    /// That is a string starting with the store prefix (/nix/store)
+    pub fn from_absolute_path(s: &str) -> Result<NixPath, ParseNixPathError> {
+        match s.strip_prefix(STORE_DIR_WITH_SLASH) {
+            Some(s_stripped) => Self::from_string(s_stripped),
+            None => Err(ParseNixPathError::MissingStoreDir()),
+        }
+    }
+
     fn validate_characters(s: &str) -> Result<(), ParseNixPathError> {
         for c in s.chars() {
             if c.is_ascii_alphanumeric()
@@ -91,7 +107,7 @@ mod tests {
     use crate::nixbase32::NIXBASE32;
     use crate::nixpath::{DIGEST_SIZE, ENCODED_DIGEST_SIZE};
 
-    use super::NixPath;
+    use super::{NixPath, ParseNixPathError};
 
     #[test]
     fn encoded_digest_size() {
@@ -140,5 +156,27 @@ mod tests {
     fn no_dash_between_hash_and_name() {
         NixPath::from_string("00bgd045z0d4icpbc2yyz4gx48ak44lanet-tools-1.60_p20170221182432")
             .expect_err("No error raised.");
+    }
+
+    #[test]
+    fn absolute_path() {
+        let example_nix_path_str =
+            "00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432";
+        let nixpath_expected = NixPath::from_string(&example_nix_path_str).expect("must parse");
+
+        let nixpath_actual = NixPath::from_absolute_path(
+            "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432",
+        )
+        .expect("must parse");
+
+        assert_eq!(nixpath_expected, nixpath_actual);
+    }
+
+    #[test]
+    fn absolute_path_missing_prefix() {
+        assert_eq!(
+            ParseNixPathError::MissingStoreDir(),
+            NixPath::from_absolute_path("foobar-123").expect_err("must fail")
+        );
     }
 }
