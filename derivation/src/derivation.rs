@@ -69,6 +69,27 @@ impl Derivation {
         Ok(())
     }
 
+    /// Returns the fixed output path and its hash
+    // (if the Derivation is fixed output),
+    /// or None if there is no fixed output.
+    /// This takes some shortcuts in case more than one output exists, as this
+    /// can't be a valid fixed-output Derivation.
+    pub fn get_fixed_output(&self) -> Option<(&String, &Hash)> {
+        if self.outputs.len() != 1 {
+            return None;
+        }
+
+        match self.outputs.get("out") {
+            #[allow(clippy::manual_map)]
+            Some(out_output) => match &out_output.hash {
+                Some(out_output_hash) => Some((&out_output.path, out_output_hash)),
+                // There has to be a hash, otherwise it would not be FOD
+                None => None,
+            },
+            None => None,
+        }
+    }
+
     /// Returns the drv path of a Derivation struct.
     ///
     /// The drv path is calculated like this:
