@@ -28,7 +28,7 @@ use std::sync::Arc;
 
 use crate::chunk::Chunk;
 use crate::errors::{Error, ErrorKind, EvalResult};
-use crate::observer::CompilerObserver;
+use crate::observer::{CompilerObserver, NoOpObserver};
 use crate::opcode::{CodeIdx, Count, JumpOffset, OpCode, UpvalueIdx};
 use crate::spans::LightSpan;
 use crate::spans::ToSpan;
@@ -1261,7 +1261,7 @@ pub fn prepare_globals(
         // to instantiate its compiler, the `Weak` reference is passed
         // here.
         if enable_import {
-            let import = Value::Builtin(import::builtins_import(weak, source));
+            let import = Value::Builtin(import::builtins_import(weak, source.clone()));
             builtins_under_construction.insert("import", import);
         }
 
@@ -1277,6 +1277,36 @@ pub fn prepare_globals(
                 globals.insert(global, global_builtin);
             }
         }
+
+        // builtins contain themselves (`builtins.builtins`), which we
+        // can resolve by manually constructing a suspended thunk that
+        // dereferences the same weak pointer as above.
+        //
+        // This is an inefficient hack, but *if* anyone was to use
+        // `builtins.builtins`, it would only happen once as the thunk
+        // is then resolved.
+        let weak_globals = weak.clone();
+        builtins_under_construction.insert(
+            "builtins",
+            Value::Thunk(Thunk::new_suspended_native(Rc::new(Box::new(move |_| {
+                let file = source.add_file("builtins-dot-builtins.nix".into(), "builtins".into());
+                let span = file.span;
+                let mut observer = NoOpObserver::default();
+
+                let mut compiler = Compiler::new(
+                    None,
+                    file,
+                    weak_globals
+                        .upgrade()
+                        .expect("globals dropped while still in use"),
+                    &mut observer,
+                )?;
+
+                weak_globals.upgrade().unwrap().get("builtins").unwrap()(&mut compiler, span);
+
+                Ok(compiler.chunk().constants[0].clone())
+            })))),
+        );
 
         // This is followed by the actual `builtins` attribute set
         // being constructed and inserted in the global scope.
