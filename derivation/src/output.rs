@@ -12,7 +12,7 @@ pub struct Output {
 pub struct Hash {
     #[serde(rename = "hash")]
     pub digest: String,
-    #[serde(rename = "hash_algorithm")]
+    #[serde(rename = "hashAlgo")]
     pub algo: String,
 }
 

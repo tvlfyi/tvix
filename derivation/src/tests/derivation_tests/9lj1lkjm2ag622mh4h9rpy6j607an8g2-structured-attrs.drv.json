@@ -1,16 +1,16 @@
 {
+  "args": [],
+  "builder": ":",
+  "env": {
+    "__json": "{\"builder\":\":\",\"name\":\"structured-attrs\",\"system\":\":\"}",
+    "out": "/nix/store/6a39dl014j57bqka7qx25k0vb20vkqm6-structured-attrs"
+  },
+  "inputDrvs": {},
+  "inputSrcs": [],
   "outputs": {
     "out": {
       "path": "/nix/store/6a39dl014j57bqka7qx25k0vb20vkqm6-structured-attrs"
     }
   },
-  "input_sources": [],
-  "input_derivations": {},
-  "platform": ":",
-  "builder": ":",
-  "arguments": [],
-  "environment": {
-    "__json": "{\"builder\":\":\",\"name\":\"structured-attrs\",\"system\":\":\"}",
-    "out": "/nix/store/6a39dl014j57bqka7qx25k0vb20vkqm6-structured-attrs"
-  }
+  "system": ":"
 }

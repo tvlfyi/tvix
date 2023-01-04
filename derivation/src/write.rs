@@ -133,7 +133,7 @@ pub fn write_input_sources(
     Ok(())
 }
 
-pub fn write_platfrom(writer: &mut impl Write, platform: &str) -> Result<(), fmt::Error> {
+pub fn write_system(writer: &mut impl Write, platform: &str) -> Result<(), fmt::Error> {
     writer.write_char(COMMA)?;
     writer.write_str(escape_string(platform).as_str())?;
     Ok(())

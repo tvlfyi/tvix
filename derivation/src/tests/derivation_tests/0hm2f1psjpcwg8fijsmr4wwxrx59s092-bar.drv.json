@@ -1,17 +1,7 @@
- {
-  "outputs": {
-    "out": {
-      "path": "/nix/store/4q0pg5zpfmznxscq3avycvf9xdvx50n3-bar",
-      "hash_algorithm": "r:sha256",
-      "hash": "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba"
-    }
-  },
-  "input_sources": [],
-  "input_derivations": {},
-  "platform": ":",
+{
+  "args": [],
   "builder": ":",
-  "arguments": [],
-  "environment": {
+  "env": {
     "builder": ":",
     "name": "bar",
     "out": "/nix/store/4q0pg5zpfmznxscq3avycvf9xdvx50n3-bar",
@@ -19,5 +9,15 @@
     "outputHashAlgo": "sha256",
     "outputHashMode": "recursive",
     "system": ":"
-  }
+  },
+  "inputDrvs": {},
+  "inputSrcs": [],
+  "outputs": {
+    "out": {
+      "hash": "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba",
+      "hashAlgo": "r:sha256",
+      "path": "/nix/store/4q0pg5zpfmznxscq3avycvf9xdvx50n3-bar"
+    }
+  },
+  "system": ":"
 }

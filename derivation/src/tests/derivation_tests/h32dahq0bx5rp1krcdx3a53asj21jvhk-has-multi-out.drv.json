@@ -1,4 +1,16 @@
 {
+  "args": [],
+  "builder": ":",
+  "env": {
+    "builder": ":",
+    "lib": "/nix/store/2vixb94v0hy2xc6p7mbnxxcyc095yyia-has-multi-out-lib",
+    "name": "has-multi-out",
+    "out": "/nix/store/55lwldka5nyxa08wnvlizyqw02ihy8ic-has-multi-out",
+    "outputs": "out lib",
+    "system": ":"
+  },
+  "inputDrvs": {},
+  "inputSrcs": [],
   "outputs": {
     "lib": {
       "path": "/nix/store/2vixb94v0hy2xc6p7mbnxxcyc095yyia-has-multi-out-lib"
@@ -7,17 +19,5 @@
       "path": "/nix/store/55lwldka5nyxa08wnvlizyqw02ihy8ic-has-multi-out"
     }
   },
-  "input_sources": [],
-  "input_derivations": {},
-  "platform": ":",
-  "builder": ":",
-  "arguments": [],
-  "environment": {
-    "builder": ":",
-    "lib": "/nix/store/2vixb94v0hy2xc6p7mbnxxcyc095yyia-has-multi-out-lib",
-    "name": "has-multi-out",
-    "out": "/nix/store/55lwldka5nyxa08wnvlizyqw02ihy8ic-has-multi-out",
-    "outputs": "out lib",
-    "system": ":"
-  }
+  "system": ":"
 }

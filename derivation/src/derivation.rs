@@ -9,13 +9,23 @@ use tvix_store::nixpath::STORE_DIR;
 
 #[derive(Serialize, Deserialize)]
 pub struct Derivation {
-    pub outputs: BTreeMap<String, Output>,
-    pub input_sources: Vec<String>,
-    pub input_derivations: BTreeMap<String, Vec<String>>,
-    pub platform: String,
-    pub builder: String,
+    #[serde(rename = "args")]
     pub arguments: Vec<String>,
+
+    pub builder: String,
+
+    #[serde(rename = "env")]
     pub environment: BTreeMap<String, String>,
+
+    #[serde(rename = "inputDrvs")]
+    pub input_derivations: BTreeMap<String, Vec<String>>,
+
+    #[serde(rename = "inputSrcs")]
+    pub input_sources: Vec<String>,
+
+    pub outputs: BTreeMap<String, Output>,
+
+    pub system: String,
 }
 
 impl Derivation {
@@ -26,7 +36,7 @@ impl Derivation {
         write::write_outputs(writer, &self.outputs)?;
         write::write_input_derivations(writer, &self.input_derivations)?;
         write::write_input_sources(writer, &self.input_sources)?;
-        write::write_platfrom(writer, &self.platform)?;
+        write::write_system(writer, &self.system)?;
         write::write_builder(writer, &self.builder)?;
         write::write_arguments(writer, &self.arguments)?;
         write::write_enviroment(writer, &self.environment)?;

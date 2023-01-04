@@ -4,12 +4,12 @@
       "path": "/nix/store/vgvdj6nf7s8kvfbl2skbpwz9kc7xjazc-unicode"
     }
   },
-  "input_sources": [],
-  "input_derivations": {},
-  "platform": ":",
+  "inputSrcs": [],
+  "inputDrvs": {},
+  "system": ":",
   "builder": ":",
-  "arguments": [],
-  "environment": {
+  "args": [],
+  "env": {
     "builder": ":",
     "letters": "räksmörgås\nrødgrød med fløde\nLübeck\n肥猪\nこんにちは / 今日は\n🌮\n",
     "name": "unicode",
