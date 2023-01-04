@@ -1288,7 +1288,7 @@ pub fn prepare_globals(
         let weak_globals = weak.clone();
         builtins_under_construction.insert(
             "builtins",
-            Value::Thunk(Thunk::new_suspended_native(Rc::new(Box::new(move |_| {
+            Value::Thunk(Thunk::new_suspended_native(Rc::new(move |_| {
                 let file = source.add_file("builtins-dot-builtins.nix".into(), "builtins".into());
                 let span = file.span;
                 let mut observer = NoOpObserver::default();
@@ -1305,7 +1305,7 @@ pub fn prepare_globals(
                 weak_globals.upgrade().unwrap().get("builtins").unwrap()(&mut compiler, span);
 
                 Ok(compiler.chunk().constants[0].clone())
-            })))),
+            }))),
         );
 
         // This is followed by the actual `builtins` attribute set

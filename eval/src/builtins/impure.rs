@@ -72,12 +72,12 @@ pub fn impure_builtins() -> Vec<(&'static str, Value)> {
 
     result.push((
         "storeDir",
-        Value::Thunk(Thunk::new_suspended_native(Rc::new(Box::new(
+        Value::Thunk(Thunk::new_suspended_native(Rc::new(
             |vm: &mut VM| match vm.io().store_dir() {
                 None => Ok(Value::Null),
                 Some(dir) => Ok(Value::String(dir.into())),
             },
-        )))),
+        ))),
     ));
 
     // currentTime pins the time at which evaluation was started
