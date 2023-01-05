@@ -585,7 +585,7 @@ impl Compiler<'_> {
                     // Create a thunk wrapping value (which may be one as well)
                     // to avoid forcing the from expr too early.
                     self.thunk(binding.value_slot, &namespace, |c, s| {
-                        c.compile(s, &namespace);
+                        c.compile(s, namespace.clone());
                         c.emit_force(&namespace);
 
                         c.emit_constant(Value::String(name.into()), &span);
@@ -595,7 +595,7 @@ impl Compiler<'_> {
 
                 // Binding is "just" a plain expression that needs to be
                 // compiled.
-                Binding::Plain { expr } => self.compile(binding.value_slot, &expr),
+                Binding::Plain { expr } => self.compile(binding.value_slot, expr),
 
                 // Binding is a merged or nested attribute set, and needs to be
                 // recursively compiled as another binding.
@@ -651,7 +651,7 @@ impl Compiler<'_> {
         self.compile_bindings(slot, BindingsKind::LetIn, node);
 
         // Deal with the body, then clean up the locals afterwards.
-        self.compile(slot, &node.body().unwrap());
+        self.compile(slot, node.body().unwrap());
         self.cleanup_scope(node);
     }
 

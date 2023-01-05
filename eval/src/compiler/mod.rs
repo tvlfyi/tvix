@@ -229,8 +229,8 @@ impl Compiler<'_> {
 
 // Actual code-emitting AST traversal methods.
 impl Compiler<'_> {
-    fn compile(&mut self, slot: LocalIdx, expr: &ast::Expr) {
-        match expr {
+    fn compile(&mut self, slot: LocalIdx, expr: ast::Expr) {
+        match &expr {
             ast::Expr::Literal(literal) => self.compile_literal(literal),
             ast::Expr::Path(path) => self.compile_path(slot, path),
             ast::Expr::Str(s) => self.compile_str(slot, s),
@@ -277,7 +277,7 @@ impl Compiler<'_> {
 
             // Parenthesized expressions are simply unwrapped, leaving
             // their value on the stack.
-            ast::Expr::Paren(paren) => self.compile(slot, &paren.expr().unwrap()),
+            ast::Expr::Paren(paren) => self.compile(slot, paren.expr().unwrap()),
 
             ast::Expr::LegacyLet(legacy_let) => self.compile_legacy_let(slot, legacy_let),
 
@@ -372,7 +372,7 @@ impl Compiler<'_> {
                 // the final string. We need to coerce them here,
                 // so OpInterpolate definitely has a string to consume.
                 ast::InterpolPart::Interpolation(ipol) => {
-                    self.compile(slot, &ipol.expr().unwrap());
+                    self.compile(slot, ipol.expr().unwrap());
                     // implicitly forces as well
                     self.push_op(OpCode::OpCoerceToString, ipol);
                 }
@@ -406,7 +406,7 @@ impl Compiler<'_> {
     }
 
     fn compile_unary_op(&mut self, slot: LocalIdx, op: &ast::UnaryOp) {
-        self.compile(slot, &op.expr().unwrap());
+        self.compile(slot, op.expr().unwrap());
         self.emit_force(op);
 
         let opcode = match op.operator().unwrap() {
@@ -435,10 +435,10 @@ impl Compiler<'_> {
         // For all other operators, the two values need to be left on
         // the stack in the correct order before pushing the
         // instruction for the operation itself.
-        self.compile(slot, &op.lhs().unwrap());
+        self.compile(slot, op.lhs().unwrap());
         self.emit_force(&op.lhs().unwrap());
 
-        self.compile(slot, &op.rhs().unwrap());
+        self.compile(slot, op.rhs().unwrap());
         self.emit_force(&op.rhs().unwrap());
 
         match op.operator().unwrap() {
@@ -474,7 +474,7 @@ impl Compiler<'_> {
         );
 
         // Leave left-hand side value on the stack.
-        self.compile(slot, &node.lhs().unwrap());
+        self.compile(slot, node.lhs().unwrap());
         self.emit_force(&node.lhs().unwrap());
 
         // If this value is false, jump over the right-hand side - the
@@ -485,7 +485,7 @@ impl Compiler<'_> {
         // right-hand side on the stack. Its result is now the value
         // of the whole expression.
         self.push_op(OpCode::OpPop, node);
-        self.compile(slot, &node.rhs().unwrap());
+        self.compile(slot, node.rhs().unwrap());
         self.emit_force(&node.rhs().unwrap());
 
         self.patch_jump(end_idx);
@@ -500,14 +500,14 @@ impl Compiler<'_> {
         );
 
         // Leave left-hand side value on the stack
-        self.compile(slot, &node.lhs().unwrap());
+        self.compile(slot, node.lhs().unwrap());
         self.emit_force(&node.lhs().unwrap());
 
         // Opposite of above: If this value is **true**, we can
         // short-circuit the right-hand side.
         let end_idx = self.push_op(OpCode::OpJumpIfTrue(JumpOffset(0)), node);
         self.push_op(OpCode::OpPop, node);
-        self.compile(slot, &node.rhs().unwrap());
+        self.compile(slot, node.rhs().unwrap());
         self.emit_force(&node.rhs().unwrap());
 
         self.patch_jump(end_idx);
@@ -522,14 +522,14 @@ impl Compiler<'_> {
         );
 
         // Leave left-hand side value on the stack and invert it.
-        self.compile(slot, &node.lhs().unwrap());
+        self.compile(slot, node.lhs().unwrap());
         self.emit_force(&node.lhs().unwrap());
         self.push_op(OpCode::OpInvert, node);
 
         // Exactly as `||` (because `a -> b` = `!a || b`).
         let end_idx = self.push_op(OpCode::OpJumpIfTrue(JumpOffset(0)), node);
         self.push_op(OpCode::OpPop, node);
-        self.compile(slot, &node.rhs().unwrap());
+        self.compile(slot, node.rhs().unwrap());
         self.emit_force(&node.rhs().unwrap());
 
         self.patch_jump(end_idx);
@@ -563,7 +563,7 @@ impl Compiler<'_> {
             };
 
             count += 1;
-            self.compile(item_slot, &item);
+            self.compile(item_slot, item);
             self.scope_mut().mark_initialised(item_slot);
         }
 
@@ -574,7 +574,7 @@ impl Compiler<'_> {
     fn compile_attr(&mut self, slot: LocalIdx, node: &ast::Attr) {
         match node {
             ast::Attr::Dynamic(dynamic) => {
-                self.compile(slot, &dynamic.expr().unwrap());
+                self.compile(slot, dynamic.expr().unwrap());
                 self.emit_force(&dynamic.expr().unwrap());
             }
 
@@ -589,7 +589,7 @@ impl Compiler<'_> {
 
     fn compile_has_attr(&mut self, slot: LocalIdx, node: &ast::HasAttr) {
         // Put the attribute set on the stack.
-        self.compile(slot, &node.expr().unwrap());
+        self.compile(slot, node.expr().unwrap());
         self.emit_force(node);
 
         // Push all path fragments with an operation for fetching the
@@ -618,7 +618,7 @@ impl Compiler<'_> {
         }
 
         // Push the set onto the stack
-        self.compile(slot, &set);
+        self.compile(slot, set);
 
         // Compile each key fragment and emit access instructions.
         //
@@ -669,7 +669,7 @@ impl Compiler<'_> {
         path: ast::Attrpath,
         default: ast::Expr,
     ) {
-        self.compile(slot, &set);
+        self.compile(slot, set);
         let mut jumps = vec![];
 
         for fragment in path.attrs() {
@@ -687,7 +687,7 @@ impl Compiler<'_> {
 
         // Compile the default value expression and patch the final
         // jump to point *beyond* it.
-        self.compile(slot, &default);
+        self.compile(slot, default);
         self.patch_jump(final_jump);
     }
 
@@ -705,12 +705,12 @@ impl Compiler<'_> {
     /// ```
     fn compile_assert(&mut self, slot: LocalIdx, node: &ast::Assert) {
         // Compile the assertion condition to leave its value on the stack.
-        self.compile(slot, &node.condition().unwrap());
+        self.compile(slot, node.condition().unwrap());
         self.emit_force(&node.condition().unwrap());
         let then_idx = self.push_op(OpCode::OpJumpIfFalse(JumpOffset(0)), node);
 
         self.push_op(OpCode::OpPop, node);
-        self.compile(slot, &node.body().unwrap());
+        self.compile(slot, node.body().unwrap());
 
         let else_idx = self.push_op(OpCode::OpJump(JumpOffset(0)), node);
 
@@ -734,7 +734,7 @@ impl Compiler<'_> {
     ///                        └────────────────────┘
     /// ```
     fn compile_if_else(&mut self, slot: LocalIdx, node: &ast::IfElse) {
-        self.compile(slot, &node.condition().unwrap());
+        self.compile(slot, node.condition().unwrap());
         self.emit_force(&node.condition().unwrap());
 
         let then_idx = self.push_op(
@@ -743,13 +743,13 @@ impl Compiler<'_> {
         );
 
         self.push_op(OpCode::OpPop, node); // discard condition value
-        self.compile(slot, &node.body().unwrap());
+        self.compile(slot, node.body().unwrap());
 
         let else_idx = self.push_op(OpCode::OpJump(JumpOffset(0)), node);
 
         self.patch_jump(then_idx); // patch jump *to* else_body
         self.push_op(OpCode::OpPop, node); // discard condition value
-        self.compile(slot, &node.else_body().unwrap());
+        self.compile(slot, node.else_body().unwrap());
 
         self.patch_jump(else_idx); // patch jump *over* else body
     }
@@ -762,7 +762,7 @@ impl Compiler<'_> {
         // TODO: Detect if the namespace is just an identifier, and
         // resolve that directly (thus avoiding duplication on the
         // stack).
-        self.compile(slot, &node.namespace().unwrap());
+        self.compile(slot, node.namespace().unwrap());
 
         let span = self.span_for(&node.namespace().unwrap());
 
@@ -778,7 +778,7 @@ impl Compiler<'_> {
 
         self.push_op(OpCode::OpPushWith(with_idx), &node.namespace().unwrap());
 
-        self.compile(slot, &node.body().unwrap());
+        self.compile(slot, node.body().unwrap());
 
         self.push_op(OpCode::OpPopWith, node);
         self.scope_mut().pop_with();
@@ -865,7 +865,7 @@ impl Compiler<'_> {
                 let jump_over_default = self.push_op(OpCode::OpJump(JumpOffset(0)), &default_expr);
 
                 self.patch_jump(jump_to_default);
-                self.compile(idx, &default_expr);
+                self.compile(idx, default_expr);
                 self.patch_jump(jump_over_default);
             } else {
                 self.push_op(OpCode::OpAttrsSelect, &entry.ident().unwrap());
@@ -909,7 +909,7 @@ impl Compiler<'_> {
             }
         };
 
-        self.compile(slot, &node.body().unwrap());
+        self.compile(slot, node.body().unwrap());
         self.context_mut().lambda.formals = formals;
     }
 
@@ -1026,8 +1026,8 @@ impl Compiler<'_> {
         // followed by the function expression itself, and then emit a
         // call instruction. This way, the stack is perfectly laid out
         // to enter the function call straight away.
-        self.compile(slot, &node.argument().unwrap());
-        self.compile(slot, &node.lambda().unwrap());
+        self.compile(slot, node.argument().unwrap());
+        self.compile(slot, node.lambda().unwrap());
         self.emit_force(&node.lambda().unwrap());
         self.push_op(OpCode::OpCall, node);
     }
@@ -1295,7 +1295,7 @@ pub fn compile(
 
     let root_span = c.span_for(expr);
     let root_slot = c.scope_mut().declare_phantom(root_span, false);
-    c.compile(root_slot, expr);
+    c.compile(root_slot, expr.clone());
 
     // The final operation of any top-level Nix program must always be
     // `OpForce`. A thunk should not be returned to the user in an
