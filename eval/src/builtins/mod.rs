@@ -960,6 +960,9 @@ pub fn pure_builtins() -> Vec<(&'static str, Value)> {
     // Pure-value builtins
     result.push(("nixVersion", Value::String("2.3-compat-tvix-0.1".into())));
     result.push(("langVersion", Value::Integer(6)));
+    result.push(("null", Value::Null));
+    result.push(("true", Value::Bool(true)));
+    result.push(("false", Value::Bool(false)));
 
     result.push((
         "currentSystem",
