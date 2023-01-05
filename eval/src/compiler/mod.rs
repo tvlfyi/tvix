@@ -15,6 +15,7 @@
 
 mod bindings;
 mod import;
+mod optimiser;
 mod scope;
 
 use codemap::Span;
@@ -230,6 +231,8 @@ impl Compiler<'_> {
 // Actual code-emitting AST traversal methods.
 impl Compiler<'_> {
     fn compile(&mut self, slot: LocalIdx, expr: ast::Expr) {
+        let expr = optimiser::optimise_expr(self, expr);
+
         match &expr {
             ast::Expr::Literal(literal) => self.compile_literal(literal),
             ast::Expr::Path(path) => self.compile_path(slot, path),

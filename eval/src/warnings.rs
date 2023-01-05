@@ -13,6 +13,8 @@ pub enum WarningKind {
     ShadowedGlobal(&'static str),
     DeprecatedLegacyLet,
     InvalidNixPath(String),
+    UselessBoolOperation(&'static str),
+    DeadCode,
 
     /// Tvix internal warning for features triggered by users that are
     /// not actually implemented yet, but do not cause runtime failures.
@@ -85,6 +87,14 @@ impl EvalWarning {
                 format!("invalid NIX_PATH resulted in a parse error: {}", err)
             }
 
+            WarningKind::UselessBoolOperation(msg) => {
+                format!("useless operation on boolean: {}", msg)
+            }
+
+            WarningKind::DeadCode => {
+                format!("this code will never be executed")
+            }
+
             WarningKind::NotImplemented(what) => {
                 format!("feature not yet implemented in tvix: {}", what)
             }
@@ -101,6 +111,9 @@ impl EvalWarning {
             WarningKind::ShadowedGlobal(_) => "W004",
             WarningKind::DeprecatedLegacyLet => "W005",
             WarningKind::InvalidNixPath(_) => "W006",
+            WarningKind::UselessBoolOperation(_) => "W007",
+            WarningKind::DeadCode => "W008",
+
             WarningKind::NotImplemented(_) => "W999",
         }
     }
