@@ -6,9 +6,9 @@ use super::*;
 use ast::Expr;
 
 /// Optimise the given expression where possible.
-pub(super) fn optimise_expr(c: &mut Compiler, expr: ast::Expr) -> ast::Expr {
+pub(super) fn optimise_expr(c: &mut Compiler, slot: LocalIdx, expr: ast::Expr) -> ast::Expr {
     match expr {
-        Expr::BinOp(_) => optimise_bin_op(c, expr),
+        Expr::BinOp(_) => optimise_bin_op(c, slot, expr),
         _ => expr.to_owned(),
     }
 }
@@ -33,7 +33,7 @@ fn is_lit_bool(expr: ast::Expr) -> LitBool {
 }
 
 /// Detect useless binary operations (i.e. useless bool comparisons).
-fn optimise_bin_op(c: &mut Compiler, expr: ast::Expr) -> ast::Expr {
+fn optimise_bin_op(c: &mut Compiler, slot: LocalIdx, expr: ast::Expr) -> ast::Expr {
     use ast::BinOpKind;
 
     // bail out of this check if the user has poisoned either `true`
@@ -82,8 +82,7 @@ fn optimise_bin_op(c: &mut Compiler, expr: ast::Expr) -> ast::Expr {
                     WarningKind::UselessBoolOperation("this expression is always true"),
                 );
 
-                // TODO: still compile other to get errors/warnings from there, but don't emit
-                c.emit_warning(&other, WarningKind::DeadCode);
+                c.compile_dead_code(slot, other);
 
                 return t;
             }
@@ -104,8 +103,7 @@ fn optimise_bin_op(c: &mut Compiler, expr: ast::Expr) -> ast::Expr {
                     WarningKind::UselessBoolOperation("this expression is always false"),
                 );
 
-                // TODO: still compile other to get errors/warnings from there, but don't emit
-                c.emit_warning(&other, WarningKind::DeadCode);
+                c.compile_dead_code(slot, other);
 
                 return f;
             }
