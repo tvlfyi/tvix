@@ -647,6 +647,9 @@ impl Compiler<'_> {
                 self.emit_constant(Value::Attrs(Box::new(NixAttrs::empty())), node);
                 return;
             }
+
+            self.emit_warning(node, WarningKind::EmptyLet);
+            return;
         }
 
         // Actually bind values and ensure they are on the stack.

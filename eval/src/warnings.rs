@@ -16,6 +16,7 @@ pub enum WarningKind {
     UselessBoolOperation(&'static str),
     DeadCode,
     EmptyInherit,
+    EmptyLet,
 
     /// Tvix internal warning for features triggered by users that are
     /// not actually implemented yet, but do not cause runtime failures.
@@ -66,7 +67,7 @@ impl EvalWarning {
             }
 
             WarningKind::UselessInherit => {
-                "inherited variable already exists with the same value".to_string()
+                format!("inherit does nothing (this variable already exists with the same value)")
             }
 
             WarningKind::UnusedBinding => {
@@ -100,6 +101,10 @@ impl EvalWarning {
                 format!("this `inherit` statement is empty")
             }
 
+            WarningKind::EmptyLet => {
+                format!("this `let`-expression contains no bindings")
+            }
+
             WarningKind::NotImplemented(what) => {
                 format!("feature not yet implemented in tvix: {}", what)
             }
@@ -119,6 +124,7 @@ impl EvalWarning {
             WarningKind::UselessBoolOperation(_) => "W007",
             WarningKind::DeadCode => "W008",
             WarningKind::EmptyInherit => "W009",
+            WarningKind::EmptyLet => "W010",
 
             WarningKind::NotImplemented(_) => "W999",
         }
