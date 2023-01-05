@@ -27,6 +27,11 @@ struct Args {
     #[clap(long, env = "TVIX_TRACE_RUNTIME")]
     trace_runtime: bool,
 
+    /// Only compile, but do not execute code. This will make Tvix act
+    /// sort of like a linter.
+    #[clap(long)]
+    compile_only: bool,
+
     /// A colon-separated list of directories to use to resolve `<...>`-style paths
     #[clap(long, short = 'I', env = "NIX_PATH")]
     nix_search_path: Option<String>,
@@ -86,6 +91,42 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
     result.errors.is_empty()
 }
 
+/// Interpret the given code snippet, but only run the Tvix compiler
+/// on it and return errors and warnings.
+fn lint(code: &str, path: Option<PathBuf>, args: &Args) -> bool {
+    let mut eval = tvix_eval::Evaluation::new_impure(code, path);
+    let source_map = eval.source_map();
+
+    let mut compiler_observer = DisassemblingObserver::new(source_map.clone(), std::io::stderr());
+
+    if args.dump_bytecode {
+        eval.compiler_observer = Some(&mut compiler_observer);
+    }
+
+    if args.trace_runtime {
+        eprintln!("warning: --trace-runtime has no effect with --compile-only!");
+    }
+
+    let result = eval.compile_only();
+
+    if args.display_ast {
+        if let Some(ref expr) = result.expr {
+            eprintln!("AST: {}", tvix_eval::pretty_print_expr(expr));
+        }
+    }
+
+    for error in &result.errors {
+        error.fancy_format_stderr(&source_map);
+    }
+
+    for warning in &result.warnings {
+        warning.fancy_format_stderr(&source_map);
+    }
+
+    // inform the caller about any errors
+    result.errors.is_empty()
+}
+
 fn main() {
     let args = Args::parse();
 
@@ -106,7 +147,13 @@ fn run_file(mut path: PathBuf, args: &Args) {
     }
     let contents = fs::read_to_string(&path).expect("failed to read the input file");
 
-    if !interpret(&contents, Some(path), args, false) {
+    let success = if args.compile_only {
+        lint(&contents, Some(path), args)
+    } else {
+        interpret(&contents, Some(path), args, false)
+    };
+
+    if !success {
         std::process::exit(1);
     }
 }
@@ -129,6 +176,10 @@ fn state_dir() -> Option<PathBuf> {
 
 fn run_prompt(args: &Args) {
     let mut rl = Editor::<()>::new().expect("should be able to launch rustyline");
+
+    if args.compile_only {
+        eprintln!("warning: `--compile-only` has no effect on REPL usage!");
+    }
 
     let history_path = match state_dir() {
         // Attempt to set up these paths, but do not hard fail if it
