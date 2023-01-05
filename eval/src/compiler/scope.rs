@@ -210,7 +210,7 @@ impl Scope {
         Self {
             poisoned_tokens: self.poisoned_tokens.clone(),
             scope_depth: self.scope_depth + 1,
-            with_stack_size: self.with_stack_size + 1,
+            with_stack_size: self.with_stack_size,
             ..Default::default()
         }
     }
