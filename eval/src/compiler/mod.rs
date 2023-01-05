@@ -47,6 +47,8 @@ pub struct CompilationOutput {
 
     // This field must outlive the rc::Weak reference which breaks
     // the builtins -> import -> builtins reference cycle.
+    //
+    // TODO: ensure through compiler
     pub globals: Rc<GlobalsMap>,
 }
 
@@ -82,7 +84,7 @@ pub type Global = Rc<dyn Fn(&mut Compiler, Span)>;
 
 /// The map of globally available functions that should implicitly
 /// be resolvable in the global scope.
-type GlobalsMap = HashMap<&'static str, Rc<dyn Fn(&mut Compiler, Span)>>;
+pub(crate) type GlobalsMap = HashMap<&'static str, Rc<dyn Fn(&mut Compiler, Span)>>;
 
 /// Set of builtins that (if they exist) should be made available in
 /// the global scope, meaning that they can be accessed not just

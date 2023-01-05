@@ -37,18 +37,23 @@ mod test_utils;
 mod tests;
 
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use crate::compiler::GlobalsMap;
+use crate::observer::{CompilerObserver, RuntimeObserver};
+use crate::value::Lambda;
+use crate::vm::run_lambda;
+
 // Re-export the public interface used by other crates.
-pub use crate::compiler::{compile, prepare_globals};
+pub use crate::compiler::{compile, prepare_globals, CompilationOutput};
 pub use crate::errors::{Error, ErrorKind, EvalResult};
 pub use crate::io::{DummyIO, EvalIO, FileType};
-use crate::observer::{CompilerObserver, RuntimeObserver};
 pub use crate::pretty_ast::pretty_print_expr;
 pub use crate::source::SourceCode;
 pub use crate::value::{Builtin, BuiltinArgument, NixAttrs, NixList, NixString, Value};
-pub use crate::vm::{run_lambda, VM};
+pub use crate::vm::VM;
 pub use crate::warnings::{EvalWarning, WarningKind};
 
 #[cfg(feature = "impure")]
@@ -172,56 +177,54 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
         self.source_map.clone()
     }
 
-    /// Evaluate the provided source code.
-    pub fn evaluate(mut self) -> EvaluationResult {
+    /// Only compile the provided source code. This does not *run* the
+    /// code, it only provides analysis (errors and warnings) of the
+    /// compiler.
+    pub fn compile_only(mut self) -> EvaluationResult {
         let mut result = EvaluationResult::default();
-        let parsed = rnix::ast::Root::parse(self.code);
-        let parse_errors = parsed.errors();
-
-        if !parse_errors.is_empty() {
-            result.errors.push(Error {
-                kind: ErrorKind::ParseErrors(parse_errors.to_vec()),
-                span: self.file.span,
-            });
-            return result;
-        }
-
-        // At this point we know that the code is free of parse errors and we
-        // can continue to compile it.
-        //
-        // The root expression is persisted in self in case the caller wants
-        // access to the parsed expression.
-        result.expr = parsed.tree().expr();
-
         let source = self.source_map();
-        let builtins = crate::compiler::prepare_globals(self.builtins, source, self.enable_import);
 
         let mut noop_observer = observer::NoOpObserver::default();
         let compiler_observer = self.compiler_observer.take().unwrap_or(&mut noop_observer);
 
-        let compiler_result = match compiler::compile(
-            result.expr.as_ref().unwrap(),
-            self.location.take(),
+        parse_compile_internal(
+            &mut result,
+            self.code,
             self.file.clone(),
-            builtins,
+            self.location,
+            source,
+            self.builtins,
+            self.enable_import,
+            compiler_observer,
+        );
+
+        result
+    }
+
+    /// Evaluate the provided source code.
+    pub fn evaluate(mut self) -> EvaluationResult {
+        let mut result = EvaluationResult::default();
+        let source = self.source_map();
+
+        let mut noop_observer = observer::NoOpObserver::default();
+        let compiler_observer = self.compiler_observer.take().unwrap_or(&mut noop_observer);
+
+        let (lambda, _globals) = match parse_compile_internal(
+            &mut result,
+            self.code,
+            self.file.clone(),
+            self.location,
+            source,
+            self.builtins,
+            self.enable_import,
             compiler_observer,
         ) {
-            Ok(result) => result,
-            Err(err) => {
-                result.errors.push(err);
-                return result;
-            }
+            None => return result,
+            Some(cr) => cr,
         };
 
-        result.warnings = compiler_result.warnings;
-
-        if !compiler_result.errors.is_empty() {
-            result.errors = compiler_result.errors;
-            return result;
-        }
-
-        // If there were no errors during compilation, the resulting bytecode is
-        // safe to execute.
+        // If bytecode was returned, there were no errors and the
+        // code is safe to execute.
 
         let nix_path = self
             .nix_path
@@ -239,12 +242,7 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
             .unwrap_or_default();
 
         let runtime_observer = self.runtime_observer.take().unwrap_or(&mut noop_observer);
-        let vm_result = run_lambda(
-            nix_path,
-            self.io_handle,
-            runtime_observer,
-            compiler_result.lambda,
-        );
+        let vm_result = run_lambda(nix_path, self.io_handle, runtime_observer, lambda);
 
         match vm_result {
             Ok(mut runtime_result) => {
@@ -258,4 +256,56 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
 
         result
     }
+}
+
+/// Internal helper function for common parsing & compilation logic
+/// between the public functions.
+fn parse_compile_internal(
+    result: &mut EvaluationResult,
+    code: &str,
+    file: Arc<codemap::File>,
+    location: Option<PathBuf>,
+    source: SourceCode,
+    builtins: Vec<(&'static str, Value)>,
+    enable_import: bool,
+    compiler_observer: &mut dyn CompilerObserver,
+) -> Option<(Rc<Lambda>, Rc<GlobalsMap>)> {
+    let parsed = rnix::ast::Root::parse(code);
+    let parse_errors = parsed.errors();
+
+    if !parse_errors.is_empty() {
+        result.errors.push(Error {
+            kind: ErrorKind::ParseErrors(parse_errors.to_vec()),
+            span: file.span,
+        });
+        return None;
+    }
+
+    // At this point we know that the code is free of parse errors and
+    // we can continue to compile it. The expression is persisted in
+    // the result, in case the caller needs it for something.
+    result.expr = parsed.tree().expr();
+
+    let builtins = crate::compiler::prepare_globals(builtins, source, enable_import);
+
+    let compiler_result = match compiler::compile(
+        result.expr.as_ref().unwrap(),
+        location,
+        file.clone(),
+        builtins,
+        compiler_observer,
+    ) {
+        Ok(result) => result,
+        Err(err) => {
+            result.errors.push(err);
+            return None;
+        }
+    };
+
+    result.warnings = compiler_result.warnings;
+    result.errors.extend(compiler_result.errors);
+
+    // Return the lambda (for execution) and the globals map (to
+    // ensure the invariant that the globals outlive the runtime).
+    Some((compiler_result.lambda, compiler_result.globals))
 }
