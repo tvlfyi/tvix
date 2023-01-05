@@ -640,6 +640,15 @@ impl Compiler<'_> {
         self.declare_namespaced_inherits(kind, inherit_froms, &mut bindings);
         self.declare_bindings(kind, &mut count, &mut bindings, node);
 
+        // Check if we can bail out on empty bindings
+        if count == 0 {
+            // still need an attrset to exist, but it is empty.
+            if kind.is_attrs() {
+                self.emit_constant(Value::Attrs(Box::new(NixAttrs::empty())), node);
+                return;
+            }
+        }
+
         // Actually bind values and ensure they are on the stack.
         self.bind_values(bindings);
 
