@@ -321,6 +321,11 @@ impl Compiler<'_> {
         let mut inherit_froms: Vec<(ast::Expr, SmolStr, Span)> = vec![];
 
         for inherit in node.inherits() {
+            if inherit.attrs().peekable().peek().is_none() {
+                self.emit_warning(&inherit, WarningKind::EmptyInherit);
+                continue;
+            }
+
             match inherit.from() {
                 // Within a `let` binding, inheriting from the outer scope is a
                 // no-op *if* there are no dynamic bindings.

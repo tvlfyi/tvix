@@ -15,6 +15,7 @@ pub enum WarningKind {
     InvalidNixPath(String),
     UselessBoolOperation(&'static str),
     DeadCode,
+    EmptyInherit,
 
     /// Tvix internal warning for features triggered by users that are
     /// not actually implemented yet, but do not cause runtime failures.
@@ -95,6 +96,10 @@ impl EvalWarning {
                 format!("this code will never be executed")
             }
 
+            WarningKind::EmptyInherit => {
+                format!("this `inherit` statement is empty")
+            }
+
             WarningKind::NotImplemented(what) => {
                 format!("feature not yet implemented in tvix: {}", what)
             }
@@ -113,6 +118,7 @@ impl EvalWarning {
             WarningKind::InvalidNixPath(_) => "W006",
             WarningKind::UselessBoolOperation(_) => "W007",
             WarningKind::DeadCode => "W008",
+            WarningKind::EmptyInherit => "W009",
 
             WarningKind::NotImplemented(_) => "W999",
         }
