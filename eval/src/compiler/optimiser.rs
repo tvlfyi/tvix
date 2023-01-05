@@ -9,6 +9,7 @@ use ast::Expr;
 pub(super) fn optimise_expr(c: &mut Compiler, slot: LocalIdx, expr: ast::Expr) -> ast::Expr {
     match expr {
         Expr::BinOp(_) => optimise_bin_op(c, slot, expr),
+        Expr::Paren(_) => optimise_paren(c, expr),
         _ => expr.to_owned(),
     }
 }
@@ -118,6 +119,31 @@ fn optimise_bin_op(c: &mut Compiler, slot: LocalIdx, expr: ast::Expr) -> ast::Ex
             }
 
             _ => { /* nothing to optimise */ }
+        }
+    }
+
+    expr
+}
+
+/// Detect useless parenthesis around primitive expressions.
+fn optimise_paren(c: &mut Compiler, expr: ast::Expr) -> ast::Expr {
+    if let Expr::Paren(inner) = &expr {
+        let inner = inner.expr().unwrap();
+
+        if let Expr::Paren(_) = &inner {
+            c.emit_warning(&expr, WarningKind::UselessParens);
+            return optimise_paren(c, inner);
+        }
+
+        if let Expr::Literal(_)
+        | Expr::Str(_)
+        | Expr::Select(_)
+        | Expr::List(_)
+        | Expr::AttrSet(_)
+        | Expr::Ident(_) = &inner
+        {
+            c.emit_warning(&expr, WarningKind::UselessParens);
+            return inner;
         }
     }
 
