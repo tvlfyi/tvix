@@ -54,10 +54,6 @@ let
   # Use `stableNixpkgs` from above.
   stableOverlay = _unstableSelf: _unstableSuper: {
     inherit (stableNixpkgs)
-      # bat syntaxes changed with syntect 5.0, but cheddar is still on 4.x
-      # TODO(tazjin): upgrade cheddar to syntect 5.0
-      bat
-
       # ntfy does not build on unstable as of 2022-08-02
       ntfy
 
