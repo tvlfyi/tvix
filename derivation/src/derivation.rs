@@ -7,7 +7,7 @@ use std::{collections::BTreeMap, fmt, fmt::Write};
 use tvix_store::nixbase32::NIXBASE32;
 use tvix_store::store_path::{ParseStorePathError, StorePath, STORE_DIR};
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Derivation {
     #[serde(rename = "args")]
     pub arguments: Vec<String>,

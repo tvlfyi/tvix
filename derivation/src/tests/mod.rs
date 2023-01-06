@@ -1,6 +1,5 @@
 use crate::derivation::Derivation;
 use crate::output::{Hash, Output};
-use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -191,8 +190,14 @@ fn output_paths(name: &str, drv_path: &str) {
 #[test]
 fn output_path_construction() {
     // create the bar derivation
+    let mut bar_drv = Derivation {
+        builder: ":".to_string(),
+        system: ":".to_string(),
+        ..Default::default()
+    };
+
     // assemble bar env
-    let mut bar_env: BTreeMap<String, String> = BTreeMap::new();
+    let bar_env = &mut bar_drv.environment;
     bar_env.insert("builder".to_string(), ":".to_string());
     bar_env.insert("name".to_string(), "bar".to_string());
     bar_env.insert("out".to_string(), "".to_string()); // will be calculated
@@ -205,8 +210,7 @@ fn output_path_construction() {
     bar_env.insert("system".to_string(), ":".to_string());
 
     // assemble bar outputs
-    let mut bar_outputs: BTreeMap<String, Output> = BTreeMap::new();
-    bar_outputs.insert(
+    bar_drv.outputs.insert(
         "out".to_string(),
         Output {
             path: "".to_string(), // will be calculated
@@ -217,17 +221,6 @@ fn output_path_construction() {
             }),
         },
     );
-
-    // assemble bar itself
-    let mut bar_drv = Derivation {
-        arguments: vec![],
-        builder: ":".to_string(),
-        environment: bar_env,
-        input_derivations: BTreeMap::new(),
-        input_sources: vec![],
-        outputs: bar_outputs,
-        system: ":".to_string(),
-    };
 
     // calculate bar output paths
     let bar_calc_result = bar_drv.calculate_output_paths(
@@ -254,8 +247,15 @@ fn output_path_construction() {
         .calculate_derivation_path("bar")
         .expect("must succeed");
 
+    // create foo derivation
+    let mut foo_drv = Derivation {
+        builder: ":".to_string(),
+        system: ":".to_string(),
+        ..Default::default()
+    };
+
     // assemble foo env
-    let mut foo_env: BTreeMap<String, String> = BTreeMap::new();
+    let foo_env = &mut foo_drv.environment;
     foo_env.insert("bar".to_string(), bar_output_path.to_string());
     foo_env.insert("builder".to_string(), ":".to_string());
     foo_env.insert("name".to_string(), "foo".to_string());
@@ -263,8 +263,7 @@ fn output_path_construction() {
     foo_env.insert("system".to_string(), ":".to_string());
 
     // asssemble foo outputs
-    let mut foo_outputs: BTreeMap<String, Output> = BTreeMap::new();
-    foo_outputs.insert(
+    foo_drv.outputs.insert(
         "out".to_string(),
         Output {
             path: "".to_string(), // will be calculated
@@ -273,19 +272,9 @@ fn output_path_construction() {
     );
 
     // assemble foo input_derivations
-    let mut foo_input_derivations: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    foo_input_derivations.insert(bar_drv_path.to_absolute_path(), vec!["out".to_string()]);
-
-    // assemble foo itself
-    let mut foo_drv = Derivation {
-        arguments: vec![],
-        builder: ":".to_string(),
-        environment: foo_env,
-        input_derivations: foo_input_derivations,
-        input_sources: vec![],
-        outputs: foo_outputs,
-        system: ":".to_string(),
-    };
+    foo_drv
+        .input_derivations
+        .insert(bar_drv_path.to_absolute_path(), vec!["out".to_string()]);
 
     // calculate foo output paths
     let foo_calc_result = foo_drv.calculate_output_paths(
