@@ -71,6 +71,12 @@ impl NixPath {
         }
     }
 
+    // Converts the NixPath to an absolute store path string.
+    /// That is a string starting with the store prefix (/nix/store)
+    pub fn to_absolute_path(&self) -> String {
+        format!("{}/{}", STORE_DIR, self)
+    }
+
     fn validate_characters(s: &str) -> Result<(), ParseNixPathError> {
         for c in s.chars() {
             if c.is_ascii_alphanumeric()
@@ -170,6 +176,11 @@ mod tests {
         .expect("must parse");
 
         assert_eq!(nixpath_expected, nixpath_actual);
+
+        assert_eq!(
+            "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432",
+            nixpath_actual.to_absolute_path(),
+        );
     }
 
     #[test]
