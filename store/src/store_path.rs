@@ -26,6 +26,16 @@ pub enum ParseStorePathError {
     MissingStoreDir(),
 }
 
+/// Represents a path in the Nix store (a direct child of [STORE_DIR]).
+///
+/// It starts with a digest (20 bytes), [struct@NIXBASE32]-encoded, followed by
+/// a `-`, and ends with a `name`, which is a string, consisting only of ASCCI
+/// alphanumeric characters, or one of the following characters: `-`, `_`, `.`,
+/// `+`, `?`, `=`.
+///
+/// The name is usually used to describe the pname and version of a package.
+/// Derivations paths can also be represented as store paths, they end
+/// with .drv.
 #[derive(Debug, PartialEq, Eq)]
 pub struct StorePath {
     pub digest: [u8; DIGEST_SIZE],
