@@ -1,11 +1,35 @@
 # Nix helpers for projects under //tvix
 { pkgs, depot, ... }:
 
+let
+  # crate override for crates that need protobuf
+  protobufDep = prev: (prev.nativeBuildInputs or [ ]) ++ [ pkgs.protobuf ];
+in
 {
   # Load the crate2nix crate tree.
   crates = import ./Cargo.nix {
     inherit pkgs;
     nixpkgs = pkgs.path;
+
+    defaultCrateOverrides = pkgs.defaultCrateOverrides // {
+      prost-build = prev: {
+        nativeBuildInputs = protobufDep prev;
+      };
+
+      tonic-reflection = prev: {
+        nativeBuildInputs = protobufDep prev;
+      };
+
+      tvix-store = prev: {
+        PROTO_ROOT = depot.tvix.store.protos;
+        nativeBuildInputs = protobufDep prev;
+      };
+
+      tvix-store-bin = prev: {
+        PROTO_ROOT = depot.tvix.store.protos;
+        nativeBuildInputs = protobufDep prev;
+      };
+    };
   };
 
   # Run crate2nix generate in the current working directory, then
