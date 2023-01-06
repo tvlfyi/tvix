@@ -945,7 +945,7 @@ mod pure_builtins {
     }
 }
 
-fn builtin_tuple(builtin: Builtin) -> (&'static str, Value) {
+pub(crate) fn builtin_tuple(builtin: Builtin) -> (&'static str, Value) {
     (builtin.name(), Value::Builtin(builtin))
 }
 
@@ -1034,39 +1034,6 @@ pub fn placeholders() -> Vec<(&'static str, Value)> {
                     ("file", Value::Path("/deep/thought".into())),
                 ];
                 Ok(Value::attrs(NixAttrs::from_iter(res.into_iter())))
-            },
-        ),
-        Builtin::new(
-            "derivation",
-            &[BuiltinArgument {
-                strict: true,
-                name: "attrs",
-            }],
-            None,
-            |args: Vec<Value>, vm: &mut VM| {
-                vm.emit_warning(WarningKind::NotImplemented("builtins.derivation"));
-
-                // We do not implement derivations yet, so this function sets mock
-                // values on the fields that a real derivation would contain.
-                //
-                // Crucially this means we do not yet *validate* the values either.
-                let input = args[0].to_attrs()?;
-                let attrs = input.update(NixAttrs::from_iter(
-                    [
-                        (
-                            "outPath",
-                            "/nix/store/00000000000000000000000000000000-mock",
-                        ),
-                        (
-                            "drvPath",
-                            "/nix/store/00000000000000000000000000000000-mock.drv",
-                        ),
-                        ("type", "derivation"),
-                    ]
-                    .into_iter(),
-                ));
-
-                Ok(Value::Attrs(Box::new(attrs)))
             },
         ),
     ];

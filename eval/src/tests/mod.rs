@@ -1,6 +1,36 @@
+use builtin_macros::builtins;
 use pretty_assertions::assert_eq;
-
 use test_generator::test_resources;
+
+#[builtins]
+mod mock_builtins {
+    //! Builtins which are required by language tests, but should not
+    //! actually exist in //tvix/eval.
+    use crate::*;
+
+    #[builtin("derivation")]
+    fn builtin_type_of(vm: &mut VM, input: Value) -> Result<Value, ErrorKind> {
+        vm.emit_warning(WarningKind::NotImplemented("builtins.derivation"));
+
+        let input = input.to_attrs()?;
+        let attrs = input.update(NixAttrs::from_iter(
+            [
+                (
+                    "outPath",
+                    "/nix/store/00000000000000000000000000000000-mock",
+                ),
+                (
+                    "drvPath",
+                    "/nix/store/00000000000000000000000000000000-mock.drv",
+                ),
+                ("type", "derivation"),
+            ]
+            .into_iter(),
+        ));
+
+        Ok(Value::Attrs(Box::new(attrs)))
+    }
+}
 
 fn eval_test(code_path: &str, expect_success: bool) {
     let base = code_path
@@ -17,7 +47,12 @@ fn eval_test(code_path: &str, expect_success: bool) {
         return;
     }
 
-    let eval = crate::Evaluation::new_impure(&code, Some(code_path.into()));
+    let mut eval = crate::Evaluation::new_impure(&code, Some(code_path.into()));
+    eval.builtins.extend(
+        mock_builtins::builtins()
+            .into_iter()
+            .map(crate::builtins::builtin_tuple),
+    );
 
     let result = eval.evaluate();
 
