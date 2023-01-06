@@ -256,11 +256,8 @@ impl Derivation {
 
                     let digest = hasher.finalize_reset();
 
-                    let abs_store_path = format!(
-                        "{}/{}",
-                        STORE_DIR,
-                        build_store_path(false, &digest, &output_path_name)?
-                    );
+                    let abs_store_path =
+                        build_store_path(false, &digest, &output_path_name)?.to_absolute_path();
 
                     output.path = abs_store_path.clone();
                     self.environment
@@ -295,8 +292,7 @@ impl Derivation {
                     hasher.finalize()
                 };
 
-                let abs_store_path =
-                    format!("{}/{}", STORE_DIR, build_store_path(false, &digest, name)?);
+                let abs_store_path = build_store_path(false, &digest, name)?.to_absolute_path();
 
                 self.outputs.insert(
                     "out".to_string(),
