@@ -7,3 +7,8 @@ mod write;
 
 #[cfg(test)]
 mod tests;
+
+// Public API of the crate.
+
+pub use derivation::Derivation;
+pub use output::{Hash, Output};
