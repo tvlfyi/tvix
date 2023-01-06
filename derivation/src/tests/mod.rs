@@ -1,5 +1,6 @@
 use crate::derivation::Derivation;
-use crate::output::Output;
+use crate::output::{Hash, Output};
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -159,4 +160,158 @@ fn output_paths(name: &str, drv_path: &str) {
 
     // The derivation should now look like it was before
     assert_eq!(expected_derivation, derivation);
+}
+
+/// Exercises the output path calculation functions like a constructing client
+/// (an implementation of builtins.derivation) would do:
+///
+/// ```nix
+/// rec {
+///   bar = builtins.derivation {
+///     name = "bar";
+///     builder = ":";
+///     system = ":";
+///     outputHash = "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba";
+///     outputHashAlgo = "sha256";
+///     outputHashMode = "recursive";
+///   };
+///
+///   foo = builtins.derivation {
+///     name = "foo";
+///     builder = ":";
+///     system = ":";
+///     inherit bar;
+///   };
+/// }
+/// ```
+/// It first assembles the bar derivation, does the output path calculation on
+/// it, then continues with the foo derivation.
+///
+/// The code ensures the resulting Derivations match our fixtures.
+#[test]
+fn output_path_construction() {
+    // create the bar derivation
+    // assemble bar env
+    let mut bar_env: BTreeMap<String, String> = BTreeMap::new();
+    bar_env.insert("builder".to_string(), ":".to_string());
+    bar_env.insert("name".to_string(), "bar".to_string());
+    bar_env.insert("out".to_string(), "".to_string()); // will be calculated
+    bar_env.insert(
+        "outputHash".to_string(),
+        "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba".to_string(),
+    );
+    bar_env.insert("outputHashAlgo".to_string(), "sha256".to_string());
+    bar_env.insert("outputHashMode".to_string(), "recursive".to_string());
+    bar_env.insert("system".to_string(), ":".to_string());
+
+    // assemble bar outputs
+    let mut bar_outputs: BTreeMap<String, Output> = BTreeMap::new();
+    bar_outputs.insert(
+        "out".to_string(),
+        Output {
+            path: "".to_string(), // will be calculated
+            hash: Some(Hash {
+                digest: "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba"
+                    .to_string(),
+                algo: "r:sha256".to_string(),
+            }),
+        },
+    );
+
+    // assemble bar itself
+    let mut bar_drv = Derivation {
+        arguments: vec![],
+        builder: ":".to_string(),
+        environment: bar_env,
+        input_derivations: BTreeMap::new(),
+        input_sources: vec![],
+        outputs: bar_outputs,
+        system: ":".to_string(),
+    };
+
+    // calculate bar output paths
+    let bar_calc_result = bar_drv.calculate_output_paths(
+        "bar",
+        &bar_drv.calculate_drv_replacement_str(|_| panic!("is FOD, should not lookup")),
+    );
+    assert!(bar_calc_result.is_ok());
+
+    // ensure it matches our bar fixture
+    let bar_data = read_file(&format!(
+        "{}/{}.json",
+        RESOURCES_PATHS, "0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv"
+    ));
+    let bar_drv_expected: Derivation = serde_json::from_str(&bar_data).expect("must deserialize");
+    assert_eq!(bar_drv_expected, bar_drv);
+
+    // now construct foo, which requires bar_drv
+    // Note how we refer to the output path, drv name and replacement_str (with calculated output paths) of bar.
+    let bar_output_path = &bar_drv.outputs.get("out").expect("must exist").path;
+    let bar_drv_replacement_str =
+        &bar_drv.calculate_drv_replacement_str(|_| panic!("is FOD, should not lookup"));
+
+    let bar_drv_path = bar_drv
+        .calculate_derivation_path("bar")
+        .expect("must succeed")
+        .to_absolute_path();
+
+    // assemble foo env
+    let mut foo_env: BTreeMap<String, String> = BTreeMap::new();
+    foo_env.insert("bar".to_string(), bar_output_path.to_string());
+    foo_env.insert("builder".to_string(), ":".to_string());
+    foo_env.insert("name".to_string(), "foo".to_string());
+    foo_env.insert("out".to_string(), "".to_string()); // will be calculated
+    foo_env.insert("system".to_string(), ":".to_string());
+
+    // asssemble foo outputs
+    let mut foo_outputs: BTreeMap<String, Output> = BTreeMap::new();
+    foo_outputs.insert(
+        "out".to_string(),
+        Output {
+            path: "".to_string(), // will be calculated
+            hash: None,
+        },
+    );
+
+    // assemble foo input_derivations
+    let mut foo_input_derivations: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    foo_input_derivations.insert(bar_drv_path.to_absolute_string(), vec!["out".to_string()]);
+
+    // assemble foo itself
+    let mut foo_drv = Derivation {
+        arguments: vec![],
+        builder: ":".to_string(),
+        environment: foo_env,
+        input_derivations: foo_input_derivations,
+        input_sources: vec![],
+        outputs: foo_outputs,
+        system: ":".to_string(),
+    };
+
+    // calculate foo output paths
+    let foo_calc_result = foo_drv.calculate_output_paths(
+        "foo",
+        &foo_drv.calculate_drv_replacement_str(|drv_name| {
+            if drv_name != "/nix/store/0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv" {
+                panic!("lookup called with unexpected drv_name: {}", drv_name);
+            }
+            bar_drv_replacement_str.clone()
+        }),
+    );
+    assert!(foo_calc_result.is_ok());
+
+    // ensure it matches our foo fixture
+    let foo_data = read_file(&format!(
+        "{}/{}.json",
+        RESOURCES_PATHS, "4wvvbi4jwn0prsdxb7vs673qa5h9gr7x-foo.drv",
+    ));
+    let foo_drv_expected: Derivation = serde_json::from_str(&foo_data).expect("must deserialize");
+    assert_eq!(foo_drv_expected, foo_drv);
+
+    assert_eq!(
+        NixPath::from_string("4wvvbi4jwn0prsdxb7vs673qa5h9gr7x-foo.drv").expect("must succeed"),
+        foo_drv
+            .calculate_derivation_path("foo")
+            .expect("must succeed")
+    );
 }
