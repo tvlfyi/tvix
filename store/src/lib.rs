@@ -1,6 +1,6 @@
 pub mod nixbase32;
-pub mod nixpath;
 pub mod proto;
+pub mod store_path;
 
 pub mod dummy_blob_service;
 pub mod dummy_directory_service;

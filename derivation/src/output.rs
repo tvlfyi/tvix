@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use tvix_store::nixpath::NixPath;
+use tvix_store::nixpath::StorePath;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Output {
@@ -23,7 +23,7 @@ impl Output {
     }
 
     pub fn validate(&self) -> anyhow::Result<()> {
-        NixPath::from_absolute_path(&self.path)?;
+        StorePath::from_absolute_path(&self.path)?;
         Ok(())
     }
 }

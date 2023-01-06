@@ -6,7 +6,7 @@ use std::io::Read;
 use std::path::Path;
 use test_case::test_case;
 use test_generator::test_resources;
-use tvix_store::nixpath::NixPath;
+use tvix_store::nixpath::StorePath;
 
 const RESOURCES_PATHS: &str = "src/tests/derivation_tests";
 
@@ -66,7 +66,7 @@ fn derivation_path(name: &str, expected_path: &str) {
 
     assert_eq!(
         derivation.calculate_derivation_path(name).unwrap(),
-        NixPath::from_string(expected_path).unwrap()
+        StorePath::from_string(expected_path).unwrap()
     );
 }
 
@@ -309,7 +309,7 @@ fn output_path_construction() {
     assert_eq!(foo_drv_expected, foo_drv);
 
     assert_eq!(
-        NixPath::from_string("4wvvbi4jwn0prsdxb7vs673qa5h9gr7x-foo.drv").expect("must succeed"),
+        StorePath::from_string("4wvvbi4jwn0prsdxb7vs673qa5h9gr7x-foo.drv").expect("must succeed"),
         foo_drv
             .calculate_derivation_path("foo")
             .expect("must succeed")

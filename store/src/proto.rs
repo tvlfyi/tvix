@@ -5,7 +5,7 @@ use thiserror::Error;
 
 use prost::Message;
 
-use crate::nixpath::{NixPath, ParseNixPathError};
+use crate::store_path::{ParseStorePathError, StorePath};
 
 tonic::include_proto!("tvix.store.v1");
 
@@ -41,7 +41,7 @@ pub enum ValidatePathInfoError {
 
     /// Invalid node name encountered.
     #[error("{0} is an invalid node name: {1}")]
-    InvalidNodeName(String, ParseNixPathError),
+    InvalidNodeName(String, ParseStorePathError),
 
     /// The digest the (root) node refers to has invalid length.
     #[error("Invalid Digest length: {0}")]
@@ -76,13 +76,13 @@ fn validate_digest<E>(digest: &Vec<u8>, err: fn(usize) -> E) -> Result<(), E> {
 
 /// Parses a root node name.
 ///
-/// On success, this returns the parsed [NixPath].
+/// On success, this returns the parsed [StorePath].
 /// On error, it returns an error generated from the supplied constructor.
 fn parse_node_name_root<E>(
     name: &str,
-    err: fn(String, ParseNixPathError) -> E,
-) -> Result<NixPath, E> {
-    match NixPath::from_string(name) {
+    err: fn(String, ParseStorePathError) -> E,
+) -> Result<StorePath, E> {
+    match StorePath::from_string(name) {
         Ok(np) => Ok(np),
         Err(e) => Err(err(name.to_string(), e)),
     }
@@ -90,9 +90,9 @@ fn parse_node_name_root<E>(
 
 impl PathInfo {
     /// validate performs some checks on the PathInfo struct,
-    /// Returning either a [NixPath] of the root node, or a
+    /// Returning either a [StorePath] of the root node, or a
     /// [ValidatePathInfoError].
-    pub fn validate(&self) -> Result<NixPath, ValidatePathInfoError> {
+    pub fn validate(&self) -> Result<StorePath, ValidatePathInfoError> {
         // If there is a narinfo field populated, ensure the number of references there
         // matches PathInfo.references count.
         if let Some(narinfo) = &self.narinfo {
@@ -106,7 +106,7 @@ impl PathInfo {
         // FUTUREWORK: parse references in reference_names. ensure they start
         // with storeDir, and use the same digest as in self.references.
 
-        // Ensure there is a (root) node present, and it properly parses to a NixPath.
+        // Ensure there is a (root) node present, and it properly parses to a [StorePath].
         let root_nix_path = match &self.node {
             None => {
                 return Err(ValidatePathInfoError::NoNodePresent());

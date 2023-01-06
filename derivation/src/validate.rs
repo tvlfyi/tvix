@@ -1,6 +1,6 @@
 use crate::{derivation::Derivation, write::DOT_FILE_EXT};
 use anyhow::bail;
-use tvix_store::nixpath::NixPath;
+use tvix_store::nixpath::StorePath;
 
 impl Derivation {
     /// validate ensures a Derivation struct is properly populated,
@@ -35,7 +35,7 @@ impl Derivation {
         // Validate all input_derivations
         for (input_derivation_path, output_names) in &self.input_derivations {
             // Validate input_derivation_path
-            NixPath::from_absolute_path(input_derivation_path)?;
+            StorePath::from_absolute_path(input_derivation_path)?;
             if !input_derivation_path.ends_with(DOT_FILE_EXT) {
                 bail!(
                     "derivation {} does not end with .drv",
@@ -70,7 +70,7 @@ impl Derivation {
 
         // Validate all input_sources
         for (i, input_source) in self.input_sources.iter().enumerate() {
-            NixPath::from_absolute_path(input_source)?;
+            StorePath::from_absolute_path(input_source)?;
 
             if i > 0 && self.input_sources[i - 1] >= *input_source {
                 bail!(

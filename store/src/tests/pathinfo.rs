@@ -1,6 +1,6 @@
 use crate::{
-    nixpath::{NixPath, ParseNixPathError},
     proto::{self, Node, PathInfo, ValidatePathInfoError},
+    store_path::{ParseStorePathError, StorePath},
 };
 use lazy_static::lazy_static;
 use test_case::test_case;
@@ -30,7 +30,10 @@ const DUMMY_NAME: &str = "00000000000000000000000000000000-dummy";
     Err(ValidatePathInfoError::NoNodePresent());
     "No node 2"
 )]
-fn validate_no_node(t_node: Option<proto::Node>, t_result: Result<NixPath, ValidatePathInfoError>) {
+fn validate_no_node(
+    t_node: Option<proto::Node>,
+    t_result: Result<StorePath, ValidatePathInfoError>,
+) {
     // construct the PathInfo object
     let p = PathInfo {
         node: t_node,
@@ -45,7 +48,7 @@ fn validate_no_node(t_node: Option<proto::Node>, t_result: Result<NixPath, Valid
         digest: DUMMY_DIGEST.to_vec(),
         size: 0,
     },
-    Ok(NixPath::from_string(DUMMY_NAME).expect("must succeed"));
+    Ok(StorePath::from_string(DUMMY_NAME).expect("must succeed"));
     "ok"
 )]
 #[test_case(
@@ -65,13 +68,13 @@ fn validate_no_node(t_node: Option<proto::Node>, t_result: Result<NixPath, Valid
     },
     Err(ValidatePathInfoError::InvalidNodeName(
         "invalid".to_string(),
-        ParseNixPathError::InvalidName("".to_string())
+        ParseStorePathError::InvalidName("".to_string())
     ));
     "invalid node name"
 )]
 fn validate_directory(
     t_directory_node: proto::DirectoryNode,
-    t_result: Result<NixPath, ValidatePathInfoError>,
+    t_result: Result<StorePath, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
     let p = PathInfo {
@@ -90,7 +93,7 @@ fn validate_directory(
         size: 0,
         executable: false,
     },
-    Ok(NixPath::from_string(DUMMY_NAME).expect("must succeed"));
+    Ok(StorePath::from_string(DUMMY_NAME).expect("must succeed"));
     "ok"
 )]
 #[test_case(
@@ -110,11 +113,11 @@ fn validate_directory(
     },
     Err(ValidatePathInfoError::InvalidNodeName(
         "invalid".to_string(),
-        ParseNixPathError::InvalidName("".to_string())
+        ParseStorePathError::InvalidName("".to_string())
     ));
     "invalid node name"
 )]
-fn validate_file(t_file_node: proto::FileNode, t_result: Result<NixPath, ValidatePathInfoError>) {
+fn validate_file(t_file_node: proto::FileNode, t_result: Result<StorePath, ValidatePathInfoError>) {
     // construct the PathInfo object
     let p = PathInfo {
         node: Some(Node {
@@ -130,7 +133,7 @@ fn validate_file(t_file_node: proto::FileNode, t_result: Result<NixPath, Validat
         name: DUMMY_NAME.to_string(),
         ..Default::default()
     },
-    Ok(NixPath::from_string(DUMMY_NAME).expect("must succeed"));
+    Ok(StorePath::from_string(DUMMY_NAME).expect("must succeed"));
     "ok"
 )]
 #[test_case(
@@ -140,13 +143,13 @@ fn validate_file(t_file_node: proto::FileNode, t_result: Result<NixPath, Validat
     },
     Err(ValidatePathInfoError::InvalidNodeName(
         "invalid".to_string(),
-        ParseNixPathError::InvalidName("".to_string())
+        ParseStorePathError::InvalidName("".to_string())
     ));
     "invalid node name"
 )]
 fn validate_symlink(
     t_symlink_node: proto::SymlinkNode,
-    t_result: Result<NixPath, ValidatePathInfoError>,
+    t_result: Result<StorePath, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
     let p = PathInfo {

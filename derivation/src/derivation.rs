@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, fmt, fmt::Write};
 use tvix_store::nixbase32::NIXBASE32;
-use tvix_store::nixpath::{NixPath, ParseNixPathError, STORE_DIR};
+use tvix_store::nixpath::{ParseStorePathError, StorePath, STORE_DIR};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Derivation {
@@ -34,10 +34,10 @@ fn build_store_path(
     is_derivation: bool,
     path_hash: &[u8],
     name: &str,
-) -> Result<NixPath, ParseNixPathError> {
+) -> Result<StorePath, ParseStorePathError> {
     let compressed = nix_hash::compress_hash(path_hash, 20);
     if is_derivation {
-        NixPath::from_string(
+        StorePath::from_string(
             format!(
                 "{}-{}{}",
                 NIXBASE32.encode(&compressed),
@@ -47,7 +47,7 @@ fn build_store_path(
             .as_str(),
         )
     } else {
-        NixPath::from_string(format!("{}-{}", NIXBASE32.encode(&compressed), name,).as_str())
+        StorePath::from_string(format!("{}-{}", NIXBASE32.encode(&compressed), name,).as_str())
     }
 }
 
@@ -105,8 +105,8 @@ impl Derivation {
     ///   - Write the .drv A-Term contents to a hash function
     ///   - Take the digest, run hash.CompressHash(digest, 20) on it.
     ///   - Encode it with nixbase32
-    ///   - Use it (and the name) to construct a NixPath.
-    pub fn calculate_derivation_path(&self, name: &str) -> Result<NixPath, ParseNixPathError> {
+    ///   - Use it (and the name) to construct a [StorePath].
+    pub fn calculate_derivation_path(&self, name: &str) -> Result<StorePath, ParseStorePathError> {
         let mut hasher = Sha256::new();
 
         // collect the list of paths from input_sources and input_derivations
@@ -223,7 +223,7 @@ impl Derivation {
         &mut self,
         name: &str,
         drv_replacement_str: &str,
-    ) -> Result<(), ParseNixPathError> {
+    ) -> Result<(), ParseStorePathError> {
         let mut hasher = Sha256::new();
 
         // Check if the Derivation is fixed output, because they cause
