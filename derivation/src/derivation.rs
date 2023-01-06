@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, fmt, fmt::Write};
 use tvix_store::nixbase32::NIXBASE32;
-use tvix_store::nixpath::{ParseStorePathError, StorePath, STORE_DIR};
+use tvix_store::store_path::{ParseStorePathError, StorePath, STORE_DIR};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Derivation {
@@ -242,7 +242,7 @@ impl Derivation {
                     hasher.update(":sha256:");
                     hasher.update(drv_replacement_str);
                     hasher.update(":");
-                    hasher.update(tvix_store::nixpath::STORE_DIR);
+                    hasher.update(STORE_DIR);
                     hasher.update(":");
 
                     // calculate the output_name_path, which is the part of the NixPath after the digest.
@@ -258,7 +258,7 @@ impl Derivation {
 
                     let abs_store_path = format!(
                         "{}/{}",
-                        tvix_store::nixpath::STORE_DIR,
+                        STORE_DIR,
                         build_store_path(false, &digest, &output_path_name)?
                     );
 
@@ -289,17 +289,14 @@ impl Derivation {
                         hasher.update(drv_replacement_str);
                     }
                     hasher.update(":");
-                    hasher.update(tvix_store::nixpath::STORE_DIR);
+                    hasher.update(STORE_DIR);
                     hasher.update(":");
                     hasher.update(name);
                     hasher.finalize()
                 };
 
-                let abs_store_path = format!(
-                    "{}/{}",
-                    tvix_store::nixpath::STORE_DIR,
-                    build_store_path(false, &digest, name)?
-                );
+                let abs_store_path =
+                    format!("{}/{}", STORE_DIR, build_store_path(false, &digest, name)?);
 
                 self.outputs.insert(
                     "out".to_string(),

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
-use tvix_store::nixpath::StorePath;
+use tvix_store::store_path::StorePath;
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Output {
     pub path: String,
 

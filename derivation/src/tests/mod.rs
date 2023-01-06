@@ -6,7 +6,7 @@ use std::io::Read;
 use std::path::Path;
 use test_case::test_case;
 use test_generator::test_resources;
-use tvix_store::nixpath::StorePath;
+use tvix_store::store_path::StorePath;
 
 const RESOURCES_PATHS: &str = "src/tests/derivation_tests";
 
@@ -252,8 +252,7 @@ fn output_path_construction() {
 
     let bar_drv_path = bar_drv
         .calculate_derivation_path("bar")
-        .expect("must succeed")
-        .to_absolute_path();
+        .expect("must succeed");
 
     // assemble foo env
     let mut foo_env: BTreeMap<String, String> = BTreeMap::new();
@@ -275,7 +274,7 @@ fn output_path_construction() {
 
     // assemble foo input_derivations
     let mut foo_input_derivations: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    foo_input_derivations.insert(bar_drv_path.to_absolute_string(), vec!["out".to_string()]);
+    foo_input_derivations.insert(bar_drv_path.to_absolute_path(), vec!["out".to_string()]);
 
     // assemble foo itself
     let mut foo_drv = Derivation {

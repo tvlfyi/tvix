@@ -33,16 +33,6 @@ rec {
   # You can override the features with
   # workspaceMembers."${crateName}".build.override { features = [ "default" "feature1" ... ]; }.
   workspaceMembers = {
-    "derivation" = rec {
-      packageId = "derivation";
-      build = internal.buildRustCrateWithFeatures {
-        packageId = "derivation";
-      };
-
-      # Debug support which might change between releases.
-      # File a bug if you depend on any for non-debug work!
-      debug = internal.debugCrate { inherit packageId; };
-    };
     "nix-cli" = rec {
       packageId = "nix-cli";
       build = internal.buildRustCrateWithFeatures {
@@ -57,6 +47,16 @@ rec {
       packageId = "tvix-cli";
       build = internal.buildRustCrateWithFeatures {
         packageId = "tvix-cli";
+      };
+
+      # Debug support which might change between releases.
+      # File a bug if you depend on any for non-debug work!
+      debug = internal.debugCrate { inherit packageId; };
+    };
+    "tvix-derivation" = rec {
+      packageId = "tvix-derivation";
+      build = internal.buildRustCrateWithFeatures {
+        packageId = "tvix-derivation";
       };
 
       # Debug support which might change between releases.
@@ -1488,55 +1488,6 @@ rec {
           "std" = [ "alloc" ];
         };
         resolvedDefaultFeatures = [ "alloc" "default" "std" ];
-      };
-      "derivation" = rec {
-        crateName = "derivation";
-        version = "0.1.0";
-        edition = "2021";
-        # We can't filter paths with references in Nix 2.4
-        # See https://github.com/NixOS/nix/issues/5410
-        src =
-          if (lib.versionOlder builtins.nixVersion "2.4pre20211007")
-          then lib.cleanSourceWith { filter = sourceFilter; src = ./derivation; }
-          else ./derivation;
-        dependencies = [
-          {
-            name = "anyhow";
-            packageId = "anyhow";
-          }
-          {
-            name = "glob";
-            packageId = "glob";
-          }
-          {
-            name = "serde";
-            packageId = "serde";
-            features = [ "derive" ];
-          }
-          {
-            name = "sha2";
-            packageId = "sha2";
-          }
-          {
-            name = "tvix-store";
-            packageId = "tvix-store";
-          }
-        ];
-        devDependencies = [
-          {
-            name = "serde_json";
-            packageId = "serde_json";
-          }
-          {
-            name = "test-case";
-            packageId = "test-case";
-          }
-          {
-            name = "test-generator";
-            packageId = "test-generator";
-          }
-        ];
-
       };
       "diff" = rec {
         crateName = "diff";
@@ -6534,6 +6485,55 @@ rec {
           {
             name = "tvix-eval";
             packageId = "tvix-eval";
+          }
+        ];
+
+      };
+      "tvix-derivation" = rec {
+        crateName = "tvix-derivation";
+        version = "0.1.0";
+        edition = "2021";
+        # We can't filter paths with references in Nix 2.4
+        # See https://github.com/NixOS/nix/issues/5410
+        src =
+          if (lib.versionOlder builtins.nixVersion "2.4pre20211007")
+          then lib.cleanSourceWith { filter = sourceFilter; src = ./derivation; }
+          else ./derivation;
+        dependencies = [
+          {
+            name = "anyhow";
+            packageId = "anyhow";
+          }
+          {
+            name = "glob";
+            packageId = "glob";
+          }
+          {
+            name = "serde";
+            packageId = "serde";
+            features = [ "derive" ];
+          }
+          {
+            name = "sha2";
+            packageId = "sha2";
+          }
+          {
+            name = "tvix-store-bin";
+            packageId = "tvix-store-bin";
+          }
+        ];
+        devDependencies = [
+          {
+            name = "serde_json";
+            packageId = "serde_json";
+          }
+          {
+            name = "test-case";
+            packageId = "test-case";
+          }
+          {
+            name = "test-generator";
+            packageId = "test-generator";
           }
         ];
 

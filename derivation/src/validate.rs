@@ -1,6 +1,6 @@
 use crate::{derivation::Derivation, write::DOT_FILE_EXT};
 use anyhow::bail;
-use tvix_store::nixpath::StorePath;
+use tvix_store::store_path::StorePath;
 
 impl Derivation {
     /// validate ensures a Derivation struct is properly populated,
