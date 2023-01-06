@@ -11,7 +11,6 @@ use builtin_macros::builtins;
 use regex::Regex;
 
 use crate::arithmetic_op;
-use crate::value::BuiltinArgument;
 use crate::warnings::WarningKind;
 use crate::{
     errors::{ErrorKind, EvalResult},
@@ -972,71 +971,50 @@ pub fn pure_builtins() -> Vec<(&'static str, Value)> {
     result
 }
 
-/// Placeholder builtins that technically have a function which we do
-/// not yet implement, but which is also not easily observable from
-/// within a pure evaluation context.
-///
-/// These are used as a crutch to make progress on nixpkgs evaluation.
-pub fn placeholders() -> Vec<(&'static str, Value)> {
-    let ph = vec![
-        Builtin::new(
-            "addErrorContext",
-            &[
-                BuiltinArgument {
-                    strict: false,
-                    name: "context",
-                },
-                BuiltinArgument {
-                    strict: false,
-                    name: "value",
-                },
-            ],
-            None,
-            |mut args: Vec<Value>, vm: &mut VM| {
-                vm.emit_warning(WarningKind::NotImplemented("builtins.addErrorContext"));
-                Ok(args.pop().unwrap())
-            },
-        ),
-        Builtin::new(
-            "unsafeDiscardStringContext",
-            &[BuiltinArgument {
-                strict: true,
-                name: "s",
-            }],
-            None,
-            |mut args: Vec<Value>, vm: &mut VM| {
-                vm.emit_warning(WarningKind::NotImplemented(
-                    "builtins.unsafeDiscardStringContext",
-                ));
-                Ok(args.pop().unwrap())
-            },
-        ),
-        Builtin::new(
-            "unsafeGetAttrPos",
-            &[
-                BuiltinArgument {
-                    strict: true,
-                    name: "name",
-                },
-                BuiltinArgument {
-                    strict: true,
-                    name: "attrset",
-                },
-            ],
-            None,
-            |mut args: Vec<Value>, vm: &mut VM| {
-                vm.emit_warning(WarningKind::NotImplemented("builtins.unsafeGetAttrsPos"));
-                let _attrset = args.pop().unwrap().to_attrs();
-                let _name = args.pop().unwrap().to_str();
-                let res = [
-                    ("line", 42.into()),
-                    ("col", 42.into()),
-                    ("file", Value::Path("/deep/thought".into())),
-                ];
-                Ok(Value::attrs(NixAttrs::from_iter(res.into_iter())))
-            },
-        ),
-    ];
+#[builtins]
+mod placeholder_builtins {
+    use super::*;
 
-    ph.into_iter().map(builtin_tuple).collect()
+    #[builtin("addErrorContext")]
+    fn builtin_add_error_context(
+        vm: &mut VM,
+        #[lazy] _context: Value,
+        #[lazy] val: Value,
+    ) -> Result<Value, ErrorKind> {
+        vm.emit_warning(WarningKind::NotImplemented("builtins.addErrorContext"));
+        Ok(val)
+    }
+
+    #[builtin("unsafeDiscardStringContext")]
+    fn builtin_unsafe_discard_string_context(
+        vm: &mut VM,
+        #[lazy] s: Value,
+    ) -> Result<Value, ErrorKind> {
+        vm.emit_warning(WarningKind::NotImplemented(
+            "builtins.unsafeDiscardStringContext",
+        ));
+        Ok(s)
+    }
+
+    #[builtin("unsafeGetAttrPos")]
+    fn builtin_unsafe_get_attr_pos(
+        vm: &mut VM,
+        _name: Value,
+        _attrset: Value,
+    ) -> Result<Value, ErrorKind> {
+        vm.emit_warning(WarningKind::NotImplemented("builtins.unsafeGetAttrsPos"));
+        let res = [
+            ("line", 42.into()),
+            ("col", 42.into()),
+            ("file", Value::Path("/deep/thought".into())),
+        ];
+        Ok(Value::attrs(NixAttrs::from_iter(res.into_iter())))
+    }
+}
+
+pub fn placeholders() -> Vec<(&'static str, Value)> {
+    placeholder_builtins::builtins()
+        .into_iter()
+        .map(builtin_tuple)
+        .collect()
 }
