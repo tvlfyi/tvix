@@ -1,9 +1,10 @@
 //! Support for configurable generation of arbitrary nix values
 
+use imbl::proptest::{ord_map, vector};
 use proptest::{prelude::*, strategy::BoxedStrategy};
 use std::ffi::OsString;
 
-use super::{NixAttrs, NixList, NixString, Value};
+use super::{attrs::AttrsRep, NixAttrs, NixList, NixString, Value};
 
 #[derive(Clone)]
 pub enum Parameters {
@@ -22,6 +23,39 @@ impl Default for Parameters {
             generate_functions: false,
             generate_nested: true,
         }
+    }
+}
+
+impl Arbitrary for NixAttrs {
+    type Parameters = Parameters; // <BTreeMap<NixString, Value> as Arbitrary>::Parameters;
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            // Empty attrs representation
+            Just(Self(AttrsRep::Empty)),
+            // KV representation (name/value pairs)
+            (
+                any_with::<Value>(args.clone()),
+                any_with::<Value>(args.clone())
+            )
+                .prop_map(|(name, value)| Self(AttrsRep::KV { name, value })),
+            // Map representation
+            ord_map(NixString::arbitrary(), Value::arbitrary_with(args), 0..100)
+                .prop_map(|map| Self(AttrsRep::Im(map)))
+        ]
+        .boxed()
+    }
+}
+
+impl Arbitrary for NixList {
+    type Parameters = <Value as Arbitrary>::Parameters;
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
+        vector(<Value as Arbitrary>::arbitrary_with(args), 0..100)
+            .prop_map(NixList::from)
+            .boxed()
     }
 }
 
@@ -65,14 +99,8 @@ fn leaf_value() -> impl Strategy<Value = Value> {
 fn non_internal_value() -> impl Strategy<Value = Value> {
     leaf_value().prop_recursive(3, 5, 5, |inner| {
         prop_oneof![
-            any_with::<NixAttrs>((
-                Default::default(),
-                Default::default(),
-                Parameters::Strategy(inner.clone())
-            ))
-            .prop_map(Value::attrs),
-            any_with::<NixList>((Default::default(), Parameters::Strategy(inner)))
-                .prop_map(Value::List)
+            NixAttrs::arbitrary_with(Parameters::Strategy(inner.clone())).prop_map(Value::attrs),
+            any_with::<NixList>(Parameters::Strategy(inner)).prop_map(Value::List)
         ]
     })
 }

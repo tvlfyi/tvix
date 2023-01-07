@@ -50,7 +50,7 @@ nix_tests = []
 impure = []
 
 # Enables Arbitrary impls for internal types (required to run tests)
-arbitrary = [ "proptest", "test-strategy" ]
+arbitrary = [ "proptest", "test-strategy", "imbl/proptest" ]
 
 # For debugging use only; not appropriate for production use.
 backtrace_overflow = [ "backtrace-on-stack-overflow" ]

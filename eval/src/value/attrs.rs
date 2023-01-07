@@ -24,7 +24,7 @@ use super::Value;
 mod tests;
 
 #[derive(Clone, Debug, Deserialize)]
-enum AttrsRep {
+pub(super) enum AttrsRep {
     Empty,
 
     Im(OrdMap<NixString, Value>),
@@ -92,7 +92,7 @@ impl AttrsRep {
 
 #[repr(transparent)]
 #[derive(Clone, Debug, Default)]
-pub struct NixAttrs(AttrsRep);
+pub struct NixAttrs(pub(super) AttrsRep);
 
 impl<K, V> FromIterator<(K, V)> for NixAttrs
 where
@@ -189,36 +189,6 @@ impl<'de> Deserialize<'de> for NixAttrs {
         }
 
         deserializer.deserialize_map(MapVisitor)
-    }
-}
-
-#[cfg(feature = "arbitrary")]
-mod arbitrary {
-    use super::*;
-    use std::collections::BTreeMap;
-
-    use proptest::prelude::*;
-    use proptest::prop_oneof;
-    use proptest::strategy::{BoxedStrategy, Just, Strategy};
-
-    impl Arbitrary for NixAttrs {
-        type Parameters = <BTreeMap<NixString, Value> as Arbitrary>::Parameters;
-
-        type Strategy = BoxedStrategy<Self>;
-
-        fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-            prop_oneof![
-                Just(Self(AttrsRep::Empty)),
-                (
-                    any_with::<Value>(args.2.clone()),
-                    any_with::<Value>(args.2.clone())
-                )
-                    .prop_map(|(name, value)| Self(AttrsRep::KV { name, value })),
-                any_with::<BTreeMap<NixString, Value>>(args)
-                    .prop_map(|map| Self::from_iter(map.into_iter()))
-            ]
-            .boxed()
-        }
     }
 }
 

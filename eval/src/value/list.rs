@@ -35,29 +35,6 @@ impl From<Vector<Value>> for NixList {
     }
 }
 
-#[cfg(feature = "arbitrary")]
-mod arbitrary {
-    use proptest::{
-        prelude::{any_with, Arbitrary},
-        strategy::{BoxedStrategy, Strategy},
-    };
-
-    use super::*;
-
-    impl Arbitrary for NixList {
-        // TODO(tazjin): im seems to implement arbitrary instances,
-        // but I couldn't figure out how to enable them.
-        type Parameters = <Vec<Value> as Arbitrary>::Parameters;
-        type Strategy = BoxedStrategy<Self>;
-
-        fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-            any_with::<Vec<Value>>(args)
-                .prop_map(NixList::from_vec)
-                .boxed()
-        }
-    }
-}
-
 impl NixList {
     pub fn len(&self) -> usize {
         self.0.len()

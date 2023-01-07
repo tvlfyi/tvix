@@ -556,12 +556,6 @@ impl From<PathBuf> for Value {
     }
 }
 
-impl From<Vec<Value>> for Value {
-    fn from(val: Vec<Value>) -> Self {
-        Self::List(NixList::from_vec(val))
-    }
-}
-
 fn type_error(expected: &'static str, actual: &Value) -> ErrorKind {
     ErrorKind::TypeError {
         expected,
