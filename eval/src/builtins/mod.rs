@@ -577,12 +577,13 @@ mod pure_builtins {
         let re = regex.to_str()?;
         let re: Regex = Regex::new(&format!("^{}$", re.as_str())).unwrap();
         match re.captures(&s) {
-            Some(caps) => Ok(caps
-                .iter()
-                .skip(1)
-                .map(|grp| grp.map(|g| Value::from(g.as_str())).unwrap_or(Value::Null))
-                .collect::<Vec<Value>>()
-                .into()),
+            Some(caps) => Ok(Value::List(
+                caps.iter()
+                    .skip(1)
+                    .map(|grp| grp.map(|g| Value::from(g.as_str())).unwrap_or(Value::Null))
+                    .collect::<imbl::Vector<Value>>()
+                    .into(),
+            )),
             None => Ok(Value::Null),
         }
     }
@@ -618,21 +619,24 @@ mod pure_builtins {
     }
     #[builtin("partition")]
     fn builtin_partition(vm: &mut VM, pred: Value, list: Value) -> Result<Value, ErrorKind> {
-        let mut right: Vec<Value> = vec![];
-        let mut wrong: Vec<Value> = vec![];
+        let mut right: imbl::Vector<Value> = Default::default();
+        let mut wrong: imbl::Vector<Value> = Default::default();
 
         let list: NixList = list.to_list()?;
         for elem in list {
             let result = vm.call_with(&pred, [elem.clone()])?;
 
             if result.force(vm)?.as_bool()? {
-                right.push(elem);
+                right.push_back(elem);
             } else {
-                wrong.push(elem);
+                wrong.push_back(elem);
             };
         }
 
-        let res = [("right", right), ("wrong", wrong)];
+        let res = [
+            ("right", Value::List(NixList::from(right))),
+            ("wrong", Value::List(NixList::from(wrong))),
+        ];
 
         Ok(Value::attrs(NixAttrs::from_iter(res.into_iter())))
     }

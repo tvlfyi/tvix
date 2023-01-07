@@ -542,12 +542,6 @@ impl From<PathBuf> for Value {
     }
 }
 
-impl From<Vec<Value>> for Value {
-    fn from(val: Vec<Value>) -> Self {
-        Self::List(NixList::from_vec(val))
-    }
-}
-
 impl TryFrom<serde_json::Value> for Value {
     type Error = ErrorKind;
 
@@ -568,11 +562,12 @@ impl TryFrom<serde_json::Value> for Value {
                 }
             }
             serde_json::Value::String(s) => Ok(s.into()),
-            serde_json::Value::Array(a) => Ok(a
-                .into_iter()
-                .map(Value::try_from)
-                .collect::<Result<Vec<_>, _>>()?
-                .into()),
+            serde_json::Value::Array(a) => Ok(Value::List(
+                a.into_iter()
+                    .map(Value::try_from)
+                    .collect::<Result<imbl::Vector<_>, _>>()?
+                    .into(),
+            )),
             serde_json::Value::Object(obj) => {
                 match (obj.len(), obj.get("name"), obj.get("value")) {
                     (2, Some(name), Some(value)) => Ok(Self::attrs(NixAttrs::from_kv(
