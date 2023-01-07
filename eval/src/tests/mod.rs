@@ -9,7 +9,7 @@ mod mock_builtins {
     use crate::*;
 
     #[builtin("derivation")]
-    fn builtin_type_of(vm: &mut VM, input: Value) -> Result<Value, ErrorKind> {
+    fn builtin_derivation(vm: &mut VM, input: Value) -> Result<Value, ErrorKind> {
         vm.emit_warning(WarningKind::NotImplemented("builtins.derivation"));
 
         let input = input.to_attrs()?;
