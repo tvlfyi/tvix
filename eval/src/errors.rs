@@ -223,9 +223,9 @@ pub struct Error {
     pub span: Span,
 }
 
-impl Display for Error {
+impl Display for ErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.kind {
+        match &self {
             ErrorKind::Throw(msg) => write!(f, "error thrown: {}", msg),
             ErrorKind::Abort(msg) => write!(f, "evaluation aborted: {}", msg),
             ErrorKind::AssertionFailed => write!(f, "assertion failed"),
@@ -406,6 +406,12 @@ to a missing value in the attribute set(s) included via `with`."#,
                 write!(f, "feature not yet implemented in Tvix: {}", feature)
             }
         }
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.kind)
     }
 }
 
