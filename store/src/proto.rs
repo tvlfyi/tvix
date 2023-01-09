@@ -40,7 +40,7 @@ pub enum ValidatePathInfoError {
     NoNodePresent(),
 
     /// Invalid node name encountered.
-    #[error("{0} is an invalid node name: {1}")]
+    #[error("Failed to parse {0} as NixPath: {1}")]
     InvalidNodeName(String, ParseStorePathError),
 
     /// The digest the (root) node refers to has invalid length.
