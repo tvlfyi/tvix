@@ -16,11 +16,11 @@ pub const STORE_DIR_WITH_SLASH: &str = "/nix/store/";
 /// Errors that can occur during the validation of name characters.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum ParseStorePathError {
-    #[error("Dash is missing")]
+    #[error("Dash is missing between hash and name")]
     MissingDash(),
-    #[error("Hash encoding is invalid {0}")]
+    #[error("Hash encoding is invalid: {0}")]
     InvalidHashEncoding(DecodeError),
-    #[error("Invalid name {0}")]
+    #[error("Invalid name: {0}")]
     InvalidName(String),
     #[error("Tried to parse an absolute path which was missing the store dir prefix.")]
     MissingStoreDir(),
