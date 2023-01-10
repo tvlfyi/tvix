@@ -898,7 +898,7 @@ mod pure_builtins {
     fn builtin_tail(_: &mut VM, list: Value) -> Result<Value, ErrorKind> {
         let xs = list.to_list()?;
 
-        if xs.len() == 0 {
+        if xs.is_empty() {
             Err(ErrorKind::TailEmptyList)
         } else {
             let output = xs.into_iter().skip(1).collect::<Vec<_>>();

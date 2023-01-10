@@ -67,6 +67,10 @@ impl NixList {
         self.0.get(i)
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     pub fn construct(count: usize, stack_slice: Vec<Value>) -> Self {
         debug_assert!(
             count == stack_slice.len(),

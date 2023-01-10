@@ -301,6 +301,14 @@ impl NixAttrs {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        match &self.0 {
+            AttrsRep::Im(map) => map.is_empty(),
+            AttrsRep::Empty => true,
+            AttrsRep::KV { .. } => false,
+        }
+    }
+
     /// Select a value from an attribute set by key.
     pub fn select(&self, key: &str) -> Option<&Value> {
         self.0.select(key)
