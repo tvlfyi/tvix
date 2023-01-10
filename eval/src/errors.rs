@@ -213,7 +213,7 @@ impl ErrorKind {
 impl From<serde_json::Error> for ErrorKind {
     fn from(err: serde_json::Error) -> Self {
         // Can't just put the `serde_json::Error` in the ErrorKind since it doesn't impl `Clone`
-        Self::FromJsonError(format!("Error parsing JSON: {err}"))
+        Self::FromJsonError(format!("error in JSON serialization: {err}"))
     }
 }
 

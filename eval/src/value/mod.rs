@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::{cell::Ref, fmt::Display};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "arbitrary")]
 mod arbitrary;
@@ -33,7 +33,7 @@ pub use thunk::Thunk;
 use self::thunk::ThunkSet;
 
 #[warn(variant_size_differences)]
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Value {
     Null,
@@ -49,12 +49,13 @@ pub enum Value {
 
     #[serde(skip)]
     Closure(Rc<Closure>), // must use Rc<Closure> here in order to get proper pointer equality
+
     #[serde(skip)]
     Builtin(Builtin),
 
     // Internal values that, while they technically exist at runtime,
     // are never returned to or created directly by users.
-    #[serde(skip)]
+    #[serde(skip_deserializing)]
     Thunk(Thunk),
 
     // See [`compiler::compile_select_or()`] for explanation

@@ -9,16 +9,17 @@ use std::path::Path;
 use std::{borrow::Cow, fmt::Display, str::Chars};
 
 use serde::de::{Deserializer, Visitor};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
+#[serde(untagged)]
 enum StringRepr {
     Smol(SmolStr),
     Heap(String),
 }
 
 #[repr(transparent)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct NixString(StringRepr);
 
 impl PartialEq for NixString {

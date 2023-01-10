@@ -3,7 +3,7 @@ use std::ops::Index;
 
 use imbl::{vector, Vector};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::errors::ErrorKind;
 use crate::vm::VM;
@@ -13,7 +13,7 @@ use super::TotalDisplay;
 use super::Value;
 
 #[repr(transparent)]
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct NixList(Vector<Value>);
 
 impl TotalDisplay for NixList {

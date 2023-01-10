@@ -9,7 +9,8 @@ use std::iter::FromIterator;
 
 use imbl::{ordmap, OrdMap};
 use serde::de::{Deserializer, Error, Visitor};
-use serde::Deserialize;
+use serde::ser::SerializeMap;
+use serde::{Deserialize, Serialize};
 
 use crate::errors::ErrorKind;
 use crate::vm::VM;
@@ -137,6 +138,24 @@ impl TotalDisplay for NixAttrs {
         }
 
         f.write_str("}")
+    }
+}
+
+impl Serialize for NixAttrs {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match &self.0 {
+            AttrsRep::Empty => serializer.serialize_map(Some(0))?.end(),
+            AttrsRep::KV { name, value } => {
+                let mut map = serializer.serialize_map(Some(2))?;
+                map.serialize_entry("name", name)?;
+                map.serialize_entry("value", value)?;
+                map.end()
+            }
+            AttrsRep::Im(map) => map.serialize(serializer),
+        }
     }
 }
 

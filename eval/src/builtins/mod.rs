@@ -343,6 +343,17 @@ mod pure_builtins {
         serde_json::from_str(&json_str).map_err(|err| err.into())
     }
 
+    #[builtin("toJSON")]
+    fn builtin_to_json(vm: &mut VM, val: Value) -> Result<Value, ErrorKind> {
+        // All thunks need to be evaluated before serialising, as the
+        // data structure is fully traversed by the Serializer (which
+        // does not have a `VM` available).
+        val.deep_force(vm, &mut Default::default())?;
+
+        let json_str = serde_json::to_string(&val)?;
+        Ok(json_str.into())
+    }
+
     #[builtin("genericClosure")]
     fn builtin_generic_closure(vm: &mut VM, input: Value) -> Result<Value, ErrorKind> {
         let attrs = input.to_attrs()?;
