@@ -9,6 +9,7 @@
 
 use aho_corasick::AhoCorasick;
 use std::collections::BTreeSet;
+use std::io;
 
 /// Represents a "primed" reference scanner with an automaton that knows the set
 /// of store paths to scan for.
@@ -38,6 +39,22 @@ impl<'c, 's> ReferenceScanner<'c, 's> {
             let needle = self.candidates[m.pattern()];
             self.matches.insert(needle);
         }
+    }
+
+    /// Scan the given reader for all non-overlapping matches, and collect them
+    /// in the scanner. On read failures, this method aborts and returns an
+    /// error to the caller.
+    ///
+    /// Please note that the internal machinery has its own buffering mechanism,
+    /// and where possible the given reader should be unbuffered. See
+    /// [`AhoCorasick::stream_find_iter`] for details on this.
+    pub fn scan_stream<R: io::Read>(&mut self, stream: R) -> io::Result<()> {
+        for m in self.searcher.stream_find_iter(stream) {
+            let needle = self.candidates[m?.pattern()];
+            self.matches.insert(needle);
+        }
+
+        Ok(())
     }
 
     /// Finalise the reference scanner and return the resulting matches.
@@ -87,7 +104,30 @@ mod tests {
         scanner.scan_str(HELLO_DRV);
 
         let result = scanner.finalise();
+        assert_eq!(result.len(), 3);
 
+        for c in candidates[..3].iter() {
+            assert!(result.contains(c));
+        }
+    }
+
+    #[test]
+    fn test_multiple_stream() {
+        let candidates = &[
+            // these exist in the drv:
+            "/nix/store/33l4p0pn0mybmqzaxfkpppyh7vx1c74p-hello-2.12.1",
+            "/nix/store/pf80kikyxr63wrw56k00i1kw6ba76qik-hello-2.12.1.tar.gz.drv",
+            "/nix/store/cp65c8nk29qq5cl1wyy5qyw103cwmax7-stdenv-linux",
+            // this doesn't:
+            "/nix/store/fn7zvafq26f0c8b17brs7s95s10ibfzs-emacs-28.2.drv",
+        ];
+
+        let mut scanner = ReferenceScanner::new(candidates);
+        scanner
+            .scan_stream(HELLO_DRV.as_bytes())
+            .expect("scanning should succeed");
+
+        let result = scanner.finalise();
         assert_eq!(result.len(), 3);
 
         for c in candidates[..3].iter() {
