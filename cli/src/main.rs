@@ -1,4 +1,5 @@
 mod nix_compat;
+mod refscan;
 
 use std::{fs, path::PathBuf};
 

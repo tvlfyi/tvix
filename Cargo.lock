@@ -2177,6 +2177,7 @@ checksum = "59547bce71d9c38b83d9c0e92b6066c4253371f15005def0c30d9657f50c7642"
 name = "tvix-cli"
 version = "0.1.0"
 dependencies = [
+ "aho-corasick",
  "clap 4.0.32",
  "dirs",
  "rustyline",

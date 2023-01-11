@@ -6478,6 +6478,10 @@ rec {
           else ./cli;
         dependencies = [
           {
+            name = "aho-corasick";
+            packageId = "aho-corasick";
+          }
+          {
             name = "clap";
             packageId = "clap 4.0.32";
             features = [ "derive" "env" ];
