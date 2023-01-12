@@ -1,3 +1,4 @@
+mod known_paths;
 mod nix_compat;
 mod refscan;
 

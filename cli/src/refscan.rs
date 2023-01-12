@@ -13,17 +13,34 @@ use std::io;
 
 /// Represents a "primed" reference scanner with an automaton that knows the set
 /// of store paths to scan for.
-pub struct ReferenceScanner<'c, 's> {
-    candidates: &'c [&'s str],
+pub struct ReferenceScanner<'s> {
+    candidates: Vec<&'s str>,
     searcher: AhoCorasick,
     matches: BTreeSet<&'s str>,
 }
 
-impl<'c, 's> ReferenceScanner<'c, 's> {
+pub trait ToOwnedVec<T> {
+    fn to_owned_vec(self) -> Vec<T>;
+}
+
+impl<T: Clone> ToOwnedVec<T> for &[T] {
+    fn to_owned_vec(self) -> Vec<T> {
+        self.to_vec()
+    }
+}
+
+impl<T> ToOwnedVec<T> for Vec<T> {
+    fn to_owned_vec(self) -> Vec<T> {
+        self
+    }
+}
+
+impl<'s> ReferenceScanner<'s> {
     /// Construct a new `ReferenceScanner` that knows how to scan for the given
     /// candidate store paths.
-    pub fn new(candidates: &'c [&'s str]) -> Self {
-        let searcher = AhoCorasick::new_auto_configured(candidates);
+    pub fn new<V: ToOwnedVec<&'s str>>(candidates: V) -> Self {
+        let candidates = candidates.to_owned_vec();
+        let searcher = AhoCorasick::new_auto_configured(&candidates);
 
         ReferenceScanner {
             searcher,
@@ -69,6 +86,12 @@ mod tests {
 
     // The actual derivation of `nixpkgs.hello`.
     const HELLO_DRV: &'static str = r#"Derive([("out","/nix/store/33l4p0pn0mybmqzaxfkpppyh7vx1c74p-hello-2.12.1","","")],[("/nix/store/6z1jfnqqgyqr221zgbpm30v91yfj3r45-bash-5.1-p16.drv",["out"]),("/nix/store/ap9g09fxbicj836zm88d56dn3ff4clxl-stdenv-linux.drv",["out"]),("/nix/store/pf80kikyxr63wrw56k00i1kw6ba76qik-hello-2.12.1.tar.gz.drv",["out"])],["/nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh"],"x86_64-linux","/nix/store/4xw8n979xpivdc46a9ndcvyhwgif00hz-bash-5.1-p16/bin/bash",["-e","/nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh"],[("buildInputs",""),("builder","/nix/store/4xw8n979xpivdc46a9ndcvyhwgif00hz-bash-5.1-p16/bin/bash"),("cmakeFlags",""),("configureFlags",""),("depsBuildBuild",""),("depsBuildBuildPropagated",""),("depsBuildTarget",""),("depsBuildTargetPropagated",""),("depsHostHost",""),("depsHostHostPropagated",""),("depsTargetTarget",""),("depsTargetTargetPropagated",""),("doCheck","1"),("doInstallCheck",""),("mesonFlags",""),("name","hello-2.12.1"),("nativeBuildInputs",""),("out","/nix/store/33l4p0pn0mybmqzaxfkpppyh7vx1c74p-hello-2.12.1"),("outputs","out"),("patches",""),("pname","hello"),("propagatedBuildInputs",""),("propagatedNativeBuildInputs",""),("src","/nix/store/pa10z4ngm0g83kx9mssrqzz30s84vq7k-hello-2.12.1.tar.gz"),("stdenv","/nix/store/cp65c8nk29qq5cl1wyy5qyw103cwmax7-stdenv-linux"),("strictDeps",""),("system","x86_64-linux"),("version","2.12.1")])"#;
+
+    impl<T: Clone, const N: usize> ToOwnedVec<T> for &[T; N] {
+        fn to_owned_vec(self) -> Vec<T> {
+            self.to_vec()
+        }
+    }
 
     #[test]
     fn test_empty() {
