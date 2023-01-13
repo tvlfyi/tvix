@@ -107,8 +107,8 @@ impl KnownPaths {
     }
 
     /// Create a reference scanner from the current set of known paths.
-    pub fn reference_scanner<'a>(&'a self) -> ReferenceScanner<'a> {
-        let candidates: Vec<&'a str> = self.paths.keys().map(|s| s.as_str()).collect();
+    pub fn reference_scanner(&self) -> ReferenceScanner {
+        let candidates = self.paths.keys().map(Clone::clone).collect();
         ReferenceScanner::new(candidates)
     }
 }
