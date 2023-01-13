@@ -36,7 +36,7 @@ pub enum ParseStorePathError {
 /// The name is usually used to describe the pname and version of a package.
 /// Derivations paths can also be represented as store paths, they end
 /// with .drv.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StorePath {
     pub digest: [u8; DIGEST_SIZE],
     pub name: String,
