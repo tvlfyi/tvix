@@ -1,5 +1,6 @@
 use crate::derivation::Derivation;
 use crate::output::{Hash, Output};
+use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -272,9 +273,10 @@ fn output_path_construction() {
     );
 
     // assemble foo input_derivations
-    foo_drv
-        .input_derivations
-        .insert(bar_drv_path.to_absolute_path(), vec!["out".to_string()]);
+    foo_drv.input_derivations.insert(
+        bar_drv_path.to_absolute_path(),
+        BTreeSet::from(["out".to_string()]),
+    );
 
     // calculate foo output paths
     let foo_calc_result = foo_drv.calculate_output_paths(

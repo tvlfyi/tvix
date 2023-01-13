@@ -1,5 +1,6 @@
 use crate::output::Output;
 use crate::string_escape::escape_string;
+use std::collections::BTreeSet;
 use std::{collections::BTreeMap, fmt, fmt::Write};
 
 pub const DERIVATION_PREFIX: &str = "Derive";
@@ -84,7 +85,7 @@ pub fn write_outputs(
 
 pub fn write_input_derivations(
     writer: &mut impl Write,
-    input_derivations: &BTreeMap<String, Vec<String>>,
+    input_derivations: &BTreeMap<String, BTreeSet<String>>,
 ) -> Result<(), fmt::Error> {
     writer.write_char(COMMA)?;
     writer.write_char(BRACKET_OPEN)?;

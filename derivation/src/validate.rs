@@ -50,20 +50,12 @@ impl Derivation {
                 );
             }
 
-            for (i, output_name) in output_names.iter().enumerate() {
+            for output_name in output_names.iter() {
                 if output_name.is_empty() {
                     bail!(
                         "output name entry for {} may not be empty",
                         input_derivation_path
                     )
-                }
-                // if i is at least 1, peek at the previous element to ensure output_names are sorted.
-                if i > 0 && (output_names[i - 1] >= *output_name) {
-                    bail!(
-                        "invalid input derivation output order: {} < {}",
-                        output_name,
-                        output_names[i - 1],
-                    );
                 }
             }
         }

@@ -3,6 +3,7 @@ use crate::output::{Hash, Output};
 use crate::write;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::collections::BTreeSet;
 use std::{collections::BTreeMap, fmt, fmt::Write};
 use tvix_store::nixbase32::NIXBASE32;
 use tvix_store::store_path::{ParseStorePathError, StorePath, STORE_DIR};
@@ -18,7 +19,7 @@ pub struct Derivation {
     pub environment: BTreeMap<String, String>,
 
     #[serde(rename = "inputDrvs")]
-    pub input_derivations: BTreeMap<String, Vec<String>>,
+    pub input_derivations: BTreeMap<String, BTreeSet<String>>,
 
     #[serde(rename = "inputSrcs")]
     pub input_sources: Vec<String>,
@@ -173,13 +174,14 @@ impl Derivation {
                 hasher.finalize()
             }
             None => {
-                let mut replaced_input_derivations: BTreeMap<String, Vec<String>> = BTreeMap::new();
+                let mut replaced_input_derivations: BTreeMap<String, BTreeSet<String>> =
+                    BTreeMap::new();
 
                 // For each input_derivation, look up the replacement.
                 for (drv_path, input_derivation) in &self.input_derivations {
                     replaced_input_derivations.insert(
                         fn_get_drv_replacement(drv_path).to_string(),
-                        input_derivation.to_vec(),
+                        input_derivation.clone(),
                     );
                 }
 
