@@ -52,9 +52,13 @@ pub use crate::errors::{Error, ErrorKind, EvalResult};
 pub use crate::io::{DummyIO, EvalIO, FileType};
 pub use crate::pretty_ast::pretty_print_expr;
 pub use crate::source::SourceCode;
-pub use crate::value::{Builtin, BuiltinArgument, NixAttrs, NixList, NixString, Value};
 pub use crate::vm::VM;
 pub use crate::warnings::{EvalWarning, WarningKind};
+pub use builtin_macros;
+
+pub use crate::value::{
+    Builtin, BuiltinArgument, CoercionKind, NixAttrs, NixList, NixString, Value,
+};
 
 #[cfg(feature = "impure")]
 pub use crate::io::StdIO;

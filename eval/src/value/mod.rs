@@ -139,7 +139,7 @@ pub enum CoercionKind {
 /// originally a thunk or not.
 ///
 /// Implements [`Deref`] to [`Value`], so can generally be used as a [`Value`]
-pub(crate) enum ForceResult<'a> {
+pub enum ForceResult<'a> {
     ForcedThunk(Ref<'a, Value>),
     Immediate(&'a Value),
 }
@@ -395,7 +395,7 @@ impl Value {
     }
 
     /// Ensure `self` is forced if it is a thunk, and return a reference to the resulting value.
-    pub(crate) fn force(&self, vm: &mut VM) -> Result<ForceResult, ErrorKind> {
+    pub fn force(&self, vm: &mut VM) -> Result<ForceResult, ErrorKind> {
         match self {
             Self::Thunk(thunk) => {
                 thunk.force(vm)?;
