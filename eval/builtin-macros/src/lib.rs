@@ -209,8 +209,8 @@ pub fn builtins(_args: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     items.push(parse_quote! {
-        pub fn builtins() -> Vec<crate::Builtin> {
-            vec![#(#builtins),*]
+        pub fn builtins() -> Vec<(&'static str, Value)> {
+            vec![#(#builtins),*].into_iter().map(|b| (b.name(), Value::Builtin(b))).collect()
         }
     });
 

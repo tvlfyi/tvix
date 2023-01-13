@@ -65,10 +65,7 @@ mod impure_builtins {
 /// Return all impure builtins, that is all builtins which may perform I/O
 /// outside of the VM and so cannot be used in all contexts (e.g. WASM).
 pub fn impure_builtins() -> Vec<(&'static str, Value)> {
-    let mut result = impure_builtins::builtins()
-        .into_iter()
-        .map(super::builtin_tuple)
-        .collect::<Vec<_>>();
+    let mut result = impure_builtins::builtins();
 
     result.push((
         "storeDir",

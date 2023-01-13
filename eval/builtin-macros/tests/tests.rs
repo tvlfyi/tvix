@@ -1,11 +1,9 @@
-pub use tvix_eval::internal;
-pub use tvix_eval::Value;
+pub use tvix_eval::{Builtin, BuiltinArgument, Value, VM};
 use tvix_eval_builtin_macros::builtins;
 
 #[builtins]
 mod builtins {
-    use tvix_eval::internal::VM;
-    use tvix_eval::{ErrorKind, Value};
+    use tvix_eval::{ErrorKind, Value, VM};
 
     /// Test docstring.
     ///
@@ -26,13 +24,21 @@ fn builtins() {
     let builtins = builtins::builtins();
     assert_eq!(builtins.len(), 2);
 
-    let identity = builtins.iter().find(|b| b.name() == "identity").unwrap();
-    assert_eq!(
-        identity.documentation(),
-        Some(
-            r#" Test docstring.
+    let (_, identity) = builtins
+        .iter()
+        .find(|(name, _)| *name == "identity")
+        .unwrap();
+
+    match identity {
+        Value::Builtin(identity) => assert_eq!(
+            identity.documentation(),
+            Some(
+                r#" Test docstring.
 
  It has multiple lines!"#
-        )
-    );
+            )
+        ),
+
+        _ => panic!("builtin was not a builtin"),
+    }
 }

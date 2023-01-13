@@ -14,7 +14,7 @@ use crate::arithmetic_op;
 use crate::warnings::WarningKind;
 use crate::{
     errors::{ErrorKind, EvalResult},
-    value::{Builtin, CoercionKind, NixAttrs, NixList, NixString, Value},
+    value::{CoercionKind, NixAttrs, NixList, NixString, Value},
     vm::VM,
 };
 
@@ -968,17 +968,10 @@ mod pure_builtins {
     }
 }
 
-pub(crate) fn builtin_tuple(builtin: Builtin) -> (&'static str, Value) {
-    (builtin.name(), Value::Builtin(builtin))
-}
-
 /// The set of standard pure builtins in Nix, mostly concerned with
 /// data structure manipulation (string, attrs, list, etc. functions).
 pub fn pure_builtins() -> Vec<(&'static str, Value)> {
-    let mut result = pure_builtins::builtins()
-        .into_iter()
-        .map(builtin_tuple)
-        .collect::<Vec<_>>();
+    let mut result = pure_builtins::builtins();
 
     // Pure-value builtins
     result.push(("nixVersion", Value::String("2.3-compat-tvix-0.1".into())));
@@ -1038,7 +1031,4 @@ mod placeholder_builtins {
 
 pub fn placeholders() -> Vec<(&'static str, Value)> {
     placeholder_builtins::builtins()
-        .into_iter()
-        .map(builtin_tuple)
-        .collect()
 }

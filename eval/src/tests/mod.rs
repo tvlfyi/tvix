@@ -48,11 +48,7 @@ fn eval_test(code_path: &str, expect_success: bool) {
     }
 
     let mut eval = crate::Evaluation::new_impure(&code, Some(code_path.into()));
-    eval.builtins.extend(
-        mock_builtins::builtins()
-            .into_iter()
-            .map(crate::builtins::builtin_tuple),
-    );
+    eval.builtins.extend(mock_builtins::builtins());
 
     let result = eval.evaluate();
 
