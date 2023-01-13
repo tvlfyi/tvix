@@ -33,6 +33,12 @@ pub enum PathType {
 pub struct KnownPaths {
     /// All known paths, and their associated [`PathType`].
     paths: HashMap<String, PathType>,
+
+    /// All known replacement strings for derivations.
+    ///
+    /// Keys are derivation paths, values are the opaque replacement
+    /// strings.
+    replacements: HashMap<String, String>,
 }
 
 impl Index<&str> for KnownPaths {
@@ -111,5 +117,28 @@ impl KnownPaths {
     pub fn reference_scanner(&self) -> ReferenceScanner {
         let candidates = self.paths.keys().map(Clone::clone).collect();
         ReferenceScanner::new(candidates)
+    }
+
+    /// Fetch the opaque "replacement string" for a given derivation path.
+    pub fn get_replacement_string(&self, drv: &str) -> String {
+        // TODO: we rely on an invariant that things *should* have
+        // been calculated if we get this far.
+        self.replacements[drv].clone()
+    }
+
+    pub fn add_replacement_string<D: ToString>(&mut self, drv: D, replacement_str: &str) {
+        let old = self
+            .replacements
+            .insert(drv.to_string(), replacement_str.to_owned());
+
+        #[cfg(debug_assertions)]
+        {
+            if let Some(old) = old {
+                debug_assert!(
+                    old == replacement_str,
+                    "replacement string for a given derivation should always match"
+                );
+            }
+        }
     }
 }
