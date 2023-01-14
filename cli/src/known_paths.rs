@@ -29,6 +29,7 @@ pub enum PathType {
     Plain,
 }
 
+#[derive(Debug, Default)]
 pub struct KnownPaths {
     /// All known paths, and their associated [`PathType`].
     paths: HashMap<String, PathType>,

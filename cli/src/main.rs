@@ -2,9 +2,12 @@ mod known_paths;
 mod nix_compat;
 mod refscan;
 
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::{fs, path::PathBuf};
 
 use clap::Parser;
+use known_paths::KnownPaths;
 use rustyline::{error::ReadlineError, Editor};
 use tvix_eval::observer::{DisassemblingObserver, TracingObserver};
 use tvix_eval::Value;
@@ -48,7 +51,9 @@ struct Args {
 /// evaluation succeeded.
 fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> bool {
     let mut eval = tvix_eval::Evaluation::new_impure(code, path);
-    eval.io_handle = Box::new(nix_compat::NixCompatIO::new());
+    let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
+
+    eval.io_handle = Box::new(nix_compat::NixCompatIO::new(known_paths));
     eval.nix_path = args.nix_search_path.clone();
 
     let source_map = eval.source_map();

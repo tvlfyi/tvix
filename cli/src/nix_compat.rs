@@ -5,10 +5,13 @@
 //! by piggybacking off functionality that already exists in Nix and
 //! is still being implemented in Tvix.
 
+use std::cell::RefCell;
 use std::path::Path;
 use std::process::Command;
+use std::rc::Rc;
 use std::{io, path::PathBuf};
 
+use crate::known_paths::KnownPaths;
 use smol_str::SmolStr;
 use tvix_eval::{ErrorKind, EvalIO, FileType, StdIO};
 
@@ -18,12 +21,10 @@ pub struct NixCompatIO {
     /// Most IO requests are tunneled through to [`tvix_eval::StdIO`]
     /// instead.
     underlying: StdIO,
-}
 
-impl NixCompatIO {
-    pub fn new() -> Self {
-        NixCompatIO { underlying: StdIO }
-    }
+    /// Ingested paths must be reported to this known paths tracker
+    /// for accurate build reference scanning.
+    known_paths: Rc<RefCell<KnownPaths>>,
 }
 
 impl EvalIO for NixCompatIO {
@@ -33,7 +34,7 @@ impl EvalIO for NixCompatIO {
 
     // Pass path imports through to `nix-store --add`
     fn import_path(&self, path: &Path) -> Result<PathBuf, ErrorKind> {
-        add_to_store(path).map_err(|error| ErrorKind::IO {
+        self.add_to_store(path).map_err(|error| ErrorKind::IO {
             error: std::rc::Rc::new(error),
             path: Some(path.to_path_buf()),
         })
@@ -53,30 +54,41 @@ impl EvalIO for NixCompatIO {
     }
 }
 
-/// Add a path to the Nix store using the `nix-store --add`
-/// functionality from C++ Nix.
-fn add_to_store(path: &Path) -> Result<PathBuf, io::Error> {
-    if !path.try_exists()? {
-        return Err(io::Error::from(io::ErrorKind::NotFound));
+impl NixCompatIO {
+    pub fn new(known_paths: Rc<RefCell<KnownPaths>>) -> Self {
+        NixCompatIO {
+            underlying: StdIO,
+            known_paths,
+        }
     }
 
-    let mut cmd = Command::new("nix-store");
-    cmd.arg("--add");
-    cmd.arg(path);
+    /// Add a path to the Nix store using the `nix-store --add`
+    /// functionality from C++ Nix.
+    fn add_to_store(&self, path: &Path) -> Result<PathBuf, io::Error> {
+        if !path.try_exists()? {
+            return Err(io::Error::from(io::ErrorKind::NotFound));
+        }
 
-    let out = cmd.output()?;
+        let mut cmd = Command::new("nix-store");
+        cmd.arg("--add");
+        cmd.arg(path);
 
-    if !out.status.success() {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
-            String::from_utf8_lossy(&out.stderr),
-        ));
+        let out = cmd.output()?;
+
+        if !out.status.success() {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                String::from_utf8_lossy(&out.stderr),
+            ));
+        }
+
+        let out_path_str = String::from_utf8(out.stdout)
+            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
+
+        self.known_paths.borrow_mut().plain(&out_path_str);
+
+        let mut out_path = PathBuf::new();
+        out_path.push(out_path_str.trim());
+        Ok(out_path)
     }
-
-    let out_path_str = String::from_utf8(out.stdout)
-        .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
-
-    let mut out_path = PathBuf::new();
-    out_path.push(out_path_str.trim());
-    Ok(out_path)
 }
