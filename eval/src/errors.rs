@@ -5,12 +5,14 @@ use std::io;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::str::Utf8Error;
+use std::string::FromUtf8Error;
 use std::sync::Arc;
 use std::{fmt::Debug, fmt::Display, num::ParseIntError};
 
 use codemap::{File, Span};
 use codemap_diagnostic::{ColorConfig, Diagnostic, Emitter, Level, SpanLabel, SpanStyle};
 use smol_str::SmolStr;
+use xml::writer::Error as XmlError;
 
 use crate::{SourceCode, Value};
 
@@ -138,6 +140,9 @@ pub enum ErrorKind {
         formals_span: Span,
     },
 
+    /// Errors while serialising to XML.
+    Xml(Rc<XmlError>),
+
     /// Variant for code paths that are known bugs in Tvix (usually
     /// issues with the compiler/VM interaction).
     TvixBug {
@@ -164,6 +169,7 @@ impl error::Error for Error {
                 errors.first().map(|e| e as &dyn error::Error)
             }
             ErrorKind::IO { error, .. } => Some(error.as_ref()),
+            ErrorKind::Xml(error) => Some(error.as_ref()),
             _ => None,
         }
     }
@@ -178,6 +184,18 @@ impl From<ParseIntError> for ErrorKind {
 impl From<Utf8Error> for ErrorKind {
     fn from(_: Utf8Error) -> Self {
         Self::NotImplemented("FromUtf8Error not handled: https://b.tvl.fyi/issues/189")
+    }
+}
+
+impl From<FromUtf8Error> for ErrorKind {
+    fn from(_: FromUtf8Error) -> Self {
+        Self::NotImplemented("FromUtf8Error not handled: https://b.tvl.fyi/issues/189")
+    }
+}
+
+impl From<XmlError> for ErrorKind {
+    fn from(err: XmlError) -> Self {
+        Self::Xml(Rc::new(err))
     }
 }
 
@@ -391,6 +409,8 @@ to a missing value in the attribute set(s) included via `with`."#,
                     arg.as_str()
                 )
             }
+
+            ErrorKind::Xml(error) => write!(f, "failed to serialise to XML: {error}"),
 
             ErrorKind::TvixBug { msg, metadata } => {
                 write!(f, "Tvix bug: {}", msg)?;
@@ -689,6 +709,7 @@ impl Error {
             | ErrorKind::ImportCompilerError { .. }
             | ErrorKind::IO { .. }
             | ErrorKind::FromJsonError(_)
+            | ErrorKind::Xml(_)
             | ErrorKind::TvixBug { .. }
             | ErrorKind::NotImplemented(_) => return None,
         };
@@ -731,6 +752,7 @@ impl Error {
             ErrorKind::UnexpectedArgument { .. } => "E031",
             ErrorKind::RelativePathResolution(_) => "E032",
             ErrorKind::DivisionByZero => "E033",
+            ErrorKind::Xml(_) => "E034",
 
             // Special error code that is not part of the normal
             // ordering.

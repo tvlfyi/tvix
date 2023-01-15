@@ -20,6 +20,7 @@ use crate::{
 
 use self::versions::{VersionPart, VersionPartsIter};
 
+mod to_xml;
 mod versions;
 
 #[cfg(feature = "impure")]
@@ -916,6 +917,14 @@ mod pure_builtins {
         // coerce_to_string forces for us
         x.coerce_to_string(CoercionKind::Strong, vm)
             .map(Value::String)
+    }
+
+    #[builtin("toXML")]
+    fn builtin_to_xml(vm: &mut VM, value: Value) -> Result<Value, ErrorKind> {
+        value.deep_force(vm, &mut Default::default())?;
+        let mut buf: Vec<u8> = vec![];
+        to_xml::value_to_xml(&mut buf, &value)?;
+        Ok(String::from_utf8(buf)?.into())
     }
 
     #[builtin("placeholder")]

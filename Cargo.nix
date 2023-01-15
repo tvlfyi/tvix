@@ -6895,6 +6895,10 @@ rec {
             packageId = "tvix-eval-builtin-macros";
             rename = "builtin-macros";
           }
+          {
+            name = "xml-rs";
+            packageId = "xml-rs";
+          }
         ];
         devDependencies = [
           {
@@ -8421,6 +8425,18 @@ rec {
         sha256 = "1xdnvhg8yj4fgjy0vkrahq5cbgfpcd7ak2bdv8s5lwjrazc0j07l";
         authors = [
           "Microsoft"
+        ];
+
+      };
+      "xml-rs" = rec {
+        crateName = "xml-rs";
+        version = "0.8.4";
+        edition = "2015";
+        crateBin = [ ];
+        sha256 = "18q048wk3jafgl59sa2m0qv4vk2sqkfcya4kznc5rxqkhsad7myj";
+        libName = "xml";
+        authors = [
+          "Vladimir Matveev <vmatveev@citrine.cc>"
         ];
 
       };
