@@ -39,7 +39,7 @@ fn validate(path_to_drv_file: &str) {
     let derivation: Derivation = serde_json::from_str(&data).expect("JSON was not well-formatted");
 
     derivation
-        .validate()
+        .validate(true)
         .expect("derivation failed to validate")
 }
 

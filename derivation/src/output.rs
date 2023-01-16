@@ -24,10 +24,12 @@ impl Output {
         self.hash.is_some()
     }
 
-    pub fn validate(&self) -> Result<(), OutputError> {
+    pub fn validate(&self, validate_output_paths: bool) -> Result<(), OutputError> {
         // TODO: add validation for hash, hashAlgo
-        if let Err(e) = StorePath::from_absolute_path(&self.path) {
-            return Err(OutputError::InvalidOutputPath(self.path.to_string(), e));
+        if validate_output_paths {
+            if let Err(e) = StorePath::from_absolute_path(&self.path) {
+                return Err(OutputError::InvalidOutputPath(self.path.to_string(), e));
+            }
         }
         Ok(())
     }
