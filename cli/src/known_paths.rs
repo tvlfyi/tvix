@@ -50,39 +50,46 @@ impl Index<&str> for KnownPaths {
 }
 
 impl KnownPaths {
+    fn insert_path(&mut self, path: String, path_type: PathType) {
+        match self.paths.entry(path) {
+            hash_map::Entry::Vacant(entry) => {
+                entry.insert(path_type);
+            }
+
+            hash_map::Entry::Occupied(mut entry) => {
+                match (path_type, entry.get_mut()) {
+                    // These variant combinations require no "merging action".
+                    (PathType::Plain, PathType::Plain) => (),
+                    (PathType::Output { .. }, PathType::Output { .. }) => (),
+
+                    (
+                        PathType::Derivation { output_names: new },
+                        PathType::Derivation {
+                            output_names: ref mut old,
+                        },
+                    ) => {
+                        old.extend(new);
+                    }
+
+                    _ => panic!("path '{}' inserted twice with different types", entry.key()),
+                };
+            }
+        };
+    }
+
     /// Mark a plain path as known.
     pub fn plain<S: ToString>(&mut self, path: S) {
-        self.paths.insert(path.to_string(), PathType::Plain);
+        self.insert_path(path.to_string(), PathType::Plain);
     }
 
     /// Mark a derivation as known.
     pub fn drv<P: ToString, O: ToString>(&mut self, path: P, outputs: &[O]) {
-        match self.paths.entry(path.to_string()) {
-            hash_map::Entry::Occupied(mut entry) => {
-                for output in outputs {
-                    match entry.get_mut() {
-                        PathType::Derivation {
-                            ref mut output_names,
-                        } => {
-                            output_names.insert(output.to_string());
-                        }
-
-                        // Branches like this explicitly panic right now to find odd
-                        // situations where something unexpected is done with the
-                        // same path being inserted twice as different types.
-                        _ => panic!(
-                            "bug: {} is already a known path, but not a derivation!",
-                            path.to_string()
-                        ),
-                    }
-                }
-            }
-
-            hash_map::Entry::Vacant(entry) => {
-                let output_names = outputs.iter().map(|o| o.to_string()).collect();
-                entry.insert(PathType::Derivation { output_names });
-            }
-        }
+        self.insert_path(
+            path.to_string(),
+            PathType::Derivation {
+                output_names: outputs.into_iter().map(ToString::to_string).collect(),
+            },
+        );
     }
 
     /// Mark a derivation output path as known.
@@ -92,25 +99,13 @@ impl KnownPaths {
         name: N,
         drv_path: D,
     ) {
-        match self.paths.entry(output_path.to_string()) {
-            hash_map::Entry::Occupied(entry) => {
-                /* nothing to do, really! */
-                debug_assert!(
-                    *entry.get()
-                        == PathType::Output {
-                            name: name.to_string(),
-                            derivation: drv_path.to_string(),
-                        }
-                );
-            }
-
-            hash_map::Entry::Vacant(entry) => {
-                entry.insert(PathType::Output {
-                    name: name.to_string(),
-                    derivation: drv_path.to_string(),
-                });
-            }
-        }
+        self.insert_path(
+            output_path.to_string(),
+            PathType::Output {
+                name: name.to_string(),
+                derivation: drv_path.to_string(),
+            },
+        );
     }
 
     /// Create a reference scanner from the current set of known paths.
