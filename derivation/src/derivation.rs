@@ -22,7 +22,7 @@ pub struct Derivation {
     pub input_derivations: BTreeMap<String, BTreeSet<String>>,
 
     #[serde(rename = "inputSrcs")]
-    pub input_sources: Vec<String>,
+    pub input_sources: BTreeSet<String>,
 
     pub outputs: BTreeMap<String, Output>,
 
@@ -111,15 +111,14 @@ impl Derivation {
         let mut hasher = Sha256::new();
 
         // collect the list of paths from input_sources and input_derivations
-        // into a sorted list, and join them by :
+        // into a (sorted, guaranteed by BTreeSet) list, and join them by :
         hasher.update(write::TEXT_COLON);
 
-        let concat_inputs: Vec<String> = {
+        let concat_inputs: BTreeSet<String> = {
             let mut inputs = self.input_sources.clone();
             let input_derivation_keys: Vec<String> =
                 self.input_derivations.keys().cloned().collect();
             inputs.extend(input_derivation_keys);
-            inputs.sort();
             inputs
         };
 

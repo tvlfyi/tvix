@@ -61,16 +61,8 @@ impl Derivation {
         }
 
         // Validate all input_sources
-        for (i, input_source) in self.input_sources.iter().enumerate() {
+        for input_source in self.input_sources.iter() {
             StorePath::from_absolute_path(input_source)?;
-
-            if i > 0 && self.input_sources[i - 1] >= *input_source {
-                bail!(
-                    "invalid input source order: {} < {}",
-                    input_source,
-                    self.input_sources[i - 1],
-                );
-            }
         }
 
         // validate platform

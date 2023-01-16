@@ -118,7 +118,7 @@ pub fn write_input_derivations(
 
 pub fn write_input_sources(
     writer: &mut impl Write,
-    input_sources: &[String],
+    input_sources: &BTreeSet<String>,
 ) -> Result<(), fmt::Error> {
     writer.write_char(COMMA)?;
 
