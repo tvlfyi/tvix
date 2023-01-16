@@ -1,5 +1,3 @@
-use crate::spans::ToSpan;
-use crate::value::{CoercionKind, NixString};
 use std::error;
 use std::io;
 use std::path::PathBuf;
@@ -14,6 +12,8 @@ use codemap_diagnostic::{ColorConfig, Diagnostic, Emitter, Level, SpanLabel, Spa
 use smol_str::SmolStr;
 use xml::writer::Error as XmlError;
 
+use crate::spans::ToSpan;
+use crate::value::{CoercionKind, NixString};
 use crate::{SourceCode, Value};
 
 #[derive(Clone, Debug)]
@@ -143,6 +143,10 @@ pub enum ErrorKind {
     /// Errors while serialising to XML.
     Xml(Rc<XmlError>),
 
+    /// Variant for errors that bubble up to eval from other Tvix
+    /// components.
+    TvixError(Rc<dyn error::Error>),
+
     /// Variant for code paths that are known bugs in Tvix (usually
     /// issues with the compiler/VM interaction).
     TvixBug {
@@ -170,6 +174,7 @@ impl error::Error for Error {
             }
             ErrorKind::IO { error, .. } => Some(error.as_ref()),
             ErrorKind::Xml(error) => Some(error.as_ref()),
+            ErrorKind::TvixError(error) => Some(error.as_ref()),
             _ => None,
         }
     }
@@ -411,6 +416,10 @@ to a missing value in the attribute set(s) included via `with`."#,
             }
 
             ErrorKind::Xml(error) => write!(f, "failed to serialise to XML: {error}"),
+
+            ErrorKind::TvixError(inner_error) => {
+                write!(f, "{inner_error}")
+            }
 
             ErrorKind::TvixBug { msg, metadata } => {
                 write!(f, "Tvix bug: {}", msg)?;
@@ -710,6 +719,7 @@ impl Error {
             | ErrorKind::IO { .. }
             | ErrorKind::FromJsonError(_)
             | ErrorKind::Xml(_)
+            | ErrorKind::TvixError(_)
             | ErrorKind::TvixBug { .. }
             | ErrorKind::NotImplemented(_) => return None,
         };
@@ -753,6 +763,11 @@ impl Error {
             ErrorKind::RelativePathResolution(_) => "E032",
             ErrorKind::DivisionByZero => "E033",
             ErrorKind::Xml(_) => "E034",
+
+            // Special error code for errors from other Tvix
+            // components. We may want to introduce a code namespacing
+            // system to have these errors pass codes through.
+            ErrorKind::TvixError(_) => "E997",
 
             // Special error code that is not part of the normal
             // ordering.
