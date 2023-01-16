@@ -9,6 +9,7 @@ path = "src/main.rs"
 
 [dependencies]
 tvix-eval = { path = "../eval" }
+tvix-derivation = { path = "../derivation" }
 rustyline = "10.0.0"
 clap = { version = "4.0", features = ["derive", "env"] }
 dirs = "4.0.0"

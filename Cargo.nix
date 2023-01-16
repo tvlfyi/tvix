@@ -6858,6 +6858,10 @@ rec {
             packageId = "smol_str";
           }
           {
+            name = "tvix-derivation";
+            packageId = "tvix-derivation";
+          }
+          {
             name = "tvix-eval";
             packageId = "tvix-eval";
           }

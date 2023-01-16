@@ -2310,6 +2310,7 @@ dependencies = [
  "dirs",
  "rustyline",
  "smol_str",
+ "tvix-derivation",
  "tvix-eval",
 ]
 
