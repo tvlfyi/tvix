@@ -197,10 +197,8 @@ impl Thunk {
                                     self_clone.0.replace(ThunkRepr::Evaluated(vm.pop()));
                                 assert!(matches!(should_be_blackhole, ThunkRepr::Blackhole));
                                 vm.push(Value::Thunk(self_clone));
-                                Self::force_trampoline(vm).map_err(|kind| Error {
-                                    kind,
-                                    span: light_span.span(),
-                                })
+                                Self::force_trampoline(vm)
+                                    .map_err(|kind| Error::new(kind, light_span.span()))
                             })),
                         });
                     }

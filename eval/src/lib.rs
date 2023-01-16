@@ -48,7 +48,7 @@ use crate::vm::run_lambda;
 
 // Re-export the public interface used by other crates.
 pub use crate::compiler::{compile, prepare_globals, CompilationOutput};
-pub use crate::errors::{Error, ErrorKind, EvalResult};
+pub use crate::errors::{AddContext, Error, ErrorKind, EvalResult};
 pub use crate::io::{DummyIO, EvalIO, FileType};
 pub use crate::pretty_ast::pretty_print_expr;
 pub use crate::source::SourceCode;
@@ -278,10 +278,10 @@ fn parse_compile_internal(
     let parse_errors = parsed.errors();
 
     if !parse_errors.is_empty() {
-        result.errors.push(Error {
-            kind: ErrorKind::ParseErrors(parse_errors.to_vec()),
-            span: file.span,
-        });
+        result.errors.push(Error::new(
+            ErrorKind::ParseErrors(parse_errors.to_vec()),
+            file.span,
+        ));
         return None;
     }
 

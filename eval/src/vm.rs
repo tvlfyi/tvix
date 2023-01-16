@@ -134,12 +134,7 @@ macro_rules! fallible {
     ( $self:ident, $body:expr) => {
         match $body {
             Ok(result) => result,
-            Err(kind) => {
-                return Err(Error {
-                    kind,
-                    span: $self.current_span(),
-                })
-            }
+            Err(kind) => return Err(Error::new(kind, $self.current_span())),
         }
     };
 }
@@ -281,10 +276,7 @@ impl<'o> VM<'o> {
     /// Construct an error from the given ErrorKind and the source
     /// span of the current instruction.
     pub fn error(&self, kind: ErrorKind) -> Error {
-        Error {
-            kind,
-            span: self.current_span(),
-        }
+        Error::new(kind, self.current_span())
     }
 
     /// Push an already constructed warning.
@@ -1197,10 +1189,7 @@ pub fn run_lambda(
 
     value
         .deep_force(&mut vm, &mut Default::default())
-        .map_err(|kind| Error {
-            kind,
-            span: root_span,
-        })?;
+        .map_err(|kind| Error::new(kind, root_span))?;
 
     Ok(RuntimeResult {
         value,

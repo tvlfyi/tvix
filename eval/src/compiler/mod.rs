@@ -157,12 +157,14 @@ impl<'observer> Compiler<'observer> {
         let mut root_dir = match location {
             Some(dir) if cfg!(target_arch = "wasm32") || dir.is_absolute() => Ok(dir),
             _ => {
-                let current_dir = std::env::current_dir().map_err(|e| Error {
-                    kind: ErrorKind::RelativePathResolution(format!(
-                        "could not determine current directory: {}",
-                        e
-                    )),
-                    span: file.span,
+                let current_dir = std::env::current_dir().map_err(|e| {
+                    Error::new(
+                        ErrorKind::RelativePathResolution(format!(
+                            "could not determine current directory: {}",
+                            e
+                        )),
+                        file.span,
+                    )
                 })?;
                 if let Some(dir) = location {
                     Ok(current_dir.join(dir))
@@ -1220,7 +1222,7 @@ impl Compiler<'_> {
 
     fn emit_error<N: ToSpan>(&mut self, node: &N, kind: ErrorKind) {
         let span = self.span_for(node);
-        self.errors.push(Error { kind, span })
+        self.errors.push(Error::new(kind, span))
     }
 }
 

@@ -158,6 +158,12 @@ pub enum ErrorKind {
     /// not actually implemented yet, and without which eval can not
     /// proceed.
     NotImplemented(&'static str),
+
+    /// Internal variant which should disappear during error construction.
+    WithContext {
+        context: String,
+        underlying: Box<ErrorKind>,
+    },
 }
 
 impl error::Error for Error {
@@ -242,8 +248,29 @@ impl From<serde_json::Error> for ErrorKind {
 
 #[derive(Clone, Debug)]
 pub struct Error {
-    pub kind: ErrorKind,
-    pub span: Span,
+    kind: ErrorKind,
+    span: Span,
+    contexts: Vec<String>,
+}
+
+impl Error {
+    pub fn new(mut kind: ErrorKind, span: Span) -> Self {
+        let mut contexts = vec![];
+        while let ErrorKind::WithContext {
+            context,
+            underlying,
+        } = kind
+        {
+            kind = *underlying;
+            contexts.push(context);
+        }
+
+        Error {
+            kind,
+            span,
+            contexts,
+        }
+    }
 }
 
 impl Display for ErrorKind {
@@ -433,6 +460,10 @@ to a missing value in the attribute set(s) included via `with`."#,
 
             ErrorKind::NotImplemented(feature) => {
                 write!(f, "feature not yet implemented in Tvix: {}", feature)
+            }
+
+            ErrorKind::WithContext { .. } => {
+                panic!("internal ErrorKind::WithContext variant leaked")
             }
         }
     }
@@ -721,7 +752,8 @@ impl Error {
             | ErrorKind::Xml(_)
             | ErrorKind::TvixError(_)
             | ErrorKind::TvixBug { .. }
-            | ErrorKind::NotImplemented(_) => return None,
+            | ErrorKind::NotImplemented(_)
+            | ErrorKind::WithContext { .. } => return None,
         };
 
         Some(label.into())
@@ -782,11 +814,15 @@ impl Error {
             //
             // The error code for thunk forces is E017.
             ErrorKind::ThunkForce(ref err) => err.code(),
+
+            ErrorKind::WithContext { .. } => {
+                panic!("internal ErrorKind::WithContext variant leaked")
+            }
         }
     }
 
     fn spans(&self, source: &SourceCode) -> Vec<SpanLabel> {
-        match &self.kind {
+        let mut spans = match &self.kind {
             ErrorKind::ImportParseError { errors, file, .. } => {
                 spans_for_parse_errors(file, errors)
             }
@@ -840,7 +876,17 @@ impl Error {
                     style: SpanStyle::Primary,
                 }]
             }
+        };
+
+        for ctx in &self.contexts {
+            spans.push(SpanLabel {
+                label: Some(format!("while {}", ctx)),
+                span: self.span,
+                style: SpanStyle::Secondary,
+            });
         }
+
+        spans
     }
 
     /// Create the primary diagnostic for a given error.
@@ -867,5 +913,35 @@ impl Error {
 
             _ => vec![self.diagnostic(source)],
         }
+    }
+}
+
+// Convenience methods to add context on other types.
+pub trait AddContext {
+    /// Add context to the error-carrying type.
+    fn context<S: Into<String>>(self, ctx: S) -> Self;
+}
+
+impl AddContext for ErrorKind {
+    fn context<S: Into<String>>(self, ctx: S) -> Self {
+        ErrorKind::WithContext {
+            context: ctx.into(),
+            underlying: Box::new(self),
+        }
+    }
+}
+
+impl<T> AddContext for Result<T, ErrorKind> {
+    fn context<S: Into<String>>(self, ctx: S) -> Self {
+        self.map_err(|kind| kind.context(ctx))
+    }
+}
+
+impl<T> AddContext for Result<T, Error> {
+    fn context<S: Into<String>>(self, ctx: S) -> Self {
+        self.map_err(|err| Error {
+            kind: err.kind.context(ctx),
+            ..err
+        })
     }
 }
