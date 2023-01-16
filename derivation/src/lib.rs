@@ -1,4 +1,5 @@
 mod derivation;
+mod errors;
 mod nix_hash;
 mod output;
 mod string_escape;
@@ -11,4 +12,5 @@ mod tests;
 // Public API of the crate.
 
 pub use derivation::Derivation;
+pub use errors::ValidateDerivationError;
 pub use output::{Hash, Output};

@@ -2288,6 +2288,7 @@ dependencies = [
  "sha2",
  "test-case",
  "test-generator",
+ "thiserror",
  "tvix-store-bin",
 ]
 

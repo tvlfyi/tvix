@@ -6791,6 +6791,10 @@ rec {
             packageId = "sha2";
           }
           {
+            name = "thiserror";
+            packageId = "thiserror";
+          }
+          {
             name = "tvix-store-bin";
             packageId = "tvix-store-bin";
           }

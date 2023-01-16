@@ -1,85 +1,108 @@
-use crate::{derivation::Derivation, write::DOT_FILE_EXT};
-use anyhow::bail;
+use crate::{derivation::Derivation, write::DOT_FILE_EXT, ValidateDerivationError};
 use tvix_store::store_path::StorePath;
 
 impl Derivation {
     /// validate ensures a Derivation struct is properly populated,
-    /// and returns an error if not.
-    /// TODO(flokli): make this proper errors
-    pub fn validate(&self) -> anyhow::Result<()> {
+    /// and returns a [ValidateDerivationError] if not.
+    pub fn validate(&self) -> Result<(), ValidateDerivationError> {
         // Ensure the number of outputs is > 1
         if self.outputs.is_empty() {
-            bail!("0 outputs");
+            return Err(ValidateDerivationError::NoOutputs());
         }
 
         // Validate all outputs
         for (output_name, output) in &self.outputs {
             if output_name.is_empty() {
-                bail!("output_name from outputs may not be empty")
+                return Err(ValidateDerivationError::InvalidOutputName(
+                    output_name.to_string(),
+                ));
             }
 
             if output.is_fixed() {
                 if self.outputs.len() != 1 {
-                    bail!("encountered fixed-output, but there's more than 1 output in total");
+                    return Err(ValidateDerivationError::MoreThanOneOutputButFixed());
                 }
                 if output_name != "out" {
-                    bail!("the fixed-output output name must be called 'out'");
+                    return Err(ValidateDerivationError::InvalidOutputNameForFixed(
+                        output_name.to_string(),
+                    ));
                 }
 
                 break;
             }
 
-            output.validate()?;
+            if let Err(e) = output.validate() {
+                return Err(ValidateDerivationError::InvalidOutputPath(
+                    output_name.to_string(),
+                    e,
+                ));
+            };
         }
 
         // Validate all input_derivations
         for (input_derivation_path, output_names) in &self.input_derivations {
             // Validate input_derivation_path
-            StorePath::from_absolute_path(input_derivation_path)?;
+            if let Err(e) = StorePath::from_absolute_path(input_derivation_path) {
+                return Err(ValidateDerivationError::InvalidInputDerivationPath(
+                    input_derivation_path.to_string(),
+                    e,
+                ));
+            }
+
             if !input_derivation_path.ends_with(DOT_FILE_EXT) {
-                bail!(
-                    "derivation {} does not end with .drv",
-                    input_derivation_path
-                );
+                return Err(ValidateDerivationError::InvalidInputDerivationPrefix(
+                    input_derivation_path.to_string(),
+                ));
             }
 
             if output_names.is_empty() {
-                bail!(
-                    "output_names list for {} may not be empty",
-                    input_derivation_path
-                );
+                return Err(ValidateDerivationError::EmptyInputDerivationOutputNames(
+                    input_derivation_path.to_string(),
+                ));
             }
 
             for output_name in output_names.iter() {
                 if output_name.is_empty() {
-                    bail!(
-                        "output name entry for {} may not be empty",
-                        input_derivation_path
-                    )
+                    return Err(ValidateDerivationError::InvalidInputDerivationOutputName(
+                        input_derivation_path.to_string(),
+                        output_name.to_string(),
+                    ));
                 }
+                // TODO: do we need to apply more name validation here?
             }
         }
 
         // Validate all input_sources
         for input_source in self.input_sources.iter() {
-            StorePath::from_absolute_path(input_source)?;
+            if let Err(e) = StorePath::from_absolute_path(input_source) {
+                return Err(ValidateDerivationError::InvalidInputSourcesPath(
+                    input_source.to_string(),
+                    e,
+                ));
+            }
         }
 
         // validate platform
         if self.system.is_empty() {
-            bail!("required attribute 'platform' missing");
+            return Err(ValidateDerivationError::InvalidPlatform(
+                self.system.to_string(),
+            ));
         }
 
         // validate builder
         if self.builder.is_empty() {
-            bail!("required attribute 'builder' missing");
+            return Err(ValidateDerivationError::InvalidBuilder(
+                self.builder.to_string(),
+            ));
         }
 
         // validate env, none of the keys may be empty.
         // We skip the `name` validation seen in go-nix.
         for k in self.environment.keys() {
             if k.is_empty() {
-                bail!("found empty environment variable key");
+                return Err(ValidateDerivationError::InvalidEnvironmentKey(
+                    k.to_string(),
+                ));
             }
         }
 
