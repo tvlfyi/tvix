@@ -56,7 +56,6 @@ pub fn write_outputs(
             writer.write_char(COMMA)?;
         }
 
-        // TODO(jrhahn) option to strip output
         let mut elements: Vec<&str> = vec![output_name, &output.path];
 
         match &output.hash {
@@ -170,7 +169,6 @@ pub fn write_enviroment(
             writer.write_char(COMMA)?;
         }
 
-        // TODO(jrhahn) add strip option
         write_array_elements(
             writer,
             false,
