@@ -2318,6 +2318,7 @@ name = "tvix-derivation"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "data-encoding",
  "glob",
  "serde",
  "serde_json",

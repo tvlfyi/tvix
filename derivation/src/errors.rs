@@ -47,4 +47,10 @@ pub enum DerivationError {
 pub enum OutputError {
     #[error("Invalid ouput path {0}: {1}")]
     InvalidOutputPath(String, ParseStorePathError),
+    #[error("Invalid hash encoding: {0}")]
+    InvalidHashEncoding(String, data_encoding::DecodeError),
+    #[error("Invalid hash algo: {0}")]
+    InvalidHashAlgo(String),
+    #[error("Invalid Digest size {0} for algo {1}")]
+    InvalidDigestSizeForAlgo(usize, String),
 }

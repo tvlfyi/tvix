@@ -6880,6 +6880,10 @@ rec {
             packageId = "anyhow";
           }
           {
+            name = "data-encoding";
+            packageId = "data-encoding";
+          }
+          {
             name = "glob";
             packageId = "glob";
           }
