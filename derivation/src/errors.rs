@@ -3,7 +3,7 @@ use tvix_store::store_path::ParseStorePathError;
 
 /// Errors that can occur during the validation of Derivation structs.
 #[derive(Debug, Error)]
-pub enum ValidateDerivationError {
+pub enum DerivationError {
     // outputs
     #[error("No outputs defined.")]
     NoOutputs(),

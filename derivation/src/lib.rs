@@ -12,5 +12,5 @@ mod tests;
 // Public API of the crate.
 
 pub use derivation::Derivation;
-pub use errors::ValidateDerivationError;
+pub use errors::DerivationError;
 pub use output::{Hash, Output};

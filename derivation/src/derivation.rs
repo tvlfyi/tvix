@@ -1,6 +1,6 @@
 use crate::output::{Hash, Output};
 use crate::write;
-use crate::{nix_hash, ValidateDerivationError};
+use crate::{nix_hash, DerivationError};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
@@ -35,7 +35,7 @@ fn build_store_path(
     is_derivation: bool,
     path_hash: &[u8],
     name: &str,
-) -> Result<StorePath, ValidateDerivationError> {
+) -> Result<StorePath, DerivationError> {
     let compressed = nix_hash::compress_hash(path_hash, 20);
     if is_derivation {
         StorePath::from_string(
@@ -50,9 +50,9 @@ fn build_store_path(
     } else {
         StorePath::from_string(format!("{}-{}", NIXBASE32.encode(&compressed), name,).as_str())
     }
-    .map_err(|_e| ValidateDerivationError::InvalidOutputName(name.to_string()))
+    .map_err(|_e| DerivationError::InvalidOutputName(name.to_string()))
     // Constructing the StorePath can only fail if the passed output name was
-    // invalid, so map errors to a [ValidateDerivationError::InvalidOutputName].
+    // invalid, so map errors to a [DerivationError::InvalidOutputName].
 }
 
 impl Derivation {
@@ -110,10 +110,7 @@ impl Derivation {
     ///   - Take the digest, run hash.CompressHash(digest, 20) on it.
     ///   - Encode it with nixbase32
     ///   - Use it (and the name) to construct a [StorePath].
-    pub fn calculate_derivation_path(
-        &self,
-        name: &str,
-    ) -> Result<StorePath, ValidateDerivationError> {
+    pub fn calculate_derivation_path(&self, name: &str) -> Result<StorePath, DerivationError> {
         let mut hasher = Sha256::new();
 
         // collect the list of paths from input_sources and input_derivations
@@ -230,7 +227,7 @@ impl Derivation {
         &mut self,
         name: &str,
         drv_replacement_str: &str,
-    ) -> Result<(), ValidateDerivationError> {
+    ) -> Result<(), DerivationError> {
         let mut hasher = Sha256::new();
 
         // Check if the Derivation is fixed output, because they cause
