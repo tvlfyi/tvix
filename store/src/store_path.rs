@@ -64,7 +64,7 @@ impl StorePath {
             return Err(ParseStorePathError::MissingDash());
         }
 
-        StorePath::validate_characters(&s[ENCODED_DIGEST_SIZE + 2..])?;
+        StorePath::validate_name(&s[ENCODED_DIGEST_SIZE + 2..])?;
 
         Ok(StorePath {
             name: s[ENCODED_DIGEST_SIZE + 1..].to_string(),
@@ -87,7 +87,8 @@ impl StorePath {
         format!("{}/{}", STORE_DIR, self)
     }
 
-    fn validate_characters(s: &str) -> Result<(), ParseStorePathError> {
+    /// Checks a given &str to match the restrictions for store path names.
+    pub fn validate_name(s: &str) -> Result<(), ParseStorePathError> {
         for c in s.chars() {
             if c.is_ascii_alphanumeric()
                 || c == '-'
