@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 use tvix_store::store_path::{ParseStorePathError, StorePath};
 
-use crate::ValidateDerivationError;
-
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Output {
     pub path: String,

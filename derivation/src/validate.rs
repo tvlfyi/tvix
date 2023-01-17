@@ -12,7 +12,16 @@ impl Derivation {
 
         // Validate all outputs
         for (output_name, output) in &self.outputs {
-            if output_name.is_empty() {
+            // empty output names are invalid.
+            //
+            // `drv` is an invalid output name too, as this would cause
+            // a `builtins.derivation` call to return an attrset with a
+            // `drvPath` key (which already exists) and has a different
+            // meaning.
+            //
+            // Other output names that don't match the name restrictions from
+            // [StorePath] will fail output path calculation.
+            if output_name.is_empty() || output_name == "drv" {
                 return Err(ValidateDerivationError::InvalidOutputName(
                     output_name.to_string(),
                 ));
@@ -62,13 +71,22 @@ impl Derivation {
             }
 
             for output_name in output_names.iter() {
-                if output_name.is_empty() {
+                // empty output names are invalid.
+                //
+                // `drv` is an invalid output name too, as this would cause
+                // a `builtins.derivation` call to return an attrset with a
+                // `drvPath` key (which already exists) and has a different
+                // meaning.
+                //
+                // Other output names that don't match the name restrictions
+                // from [StorePath] can't be constructed with this library, but
+                // are not explicitly checked here (yet).
+                if output_name.is_empty() || output_name == "drv" {
                     return Err(ValidateDerivationError::InvalidInputDerivationOutputName(
                         input_derivation_path.to_string(),
                         output_name.to_string(),
                     ));
                 }
-                // TODO: do we need to apply more name validation here?
             }
         }
 
