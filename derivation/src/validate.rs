@@ -20,8 +20,11 @@ impl Derivation {
             // meaning.
             //
             // Other output names that don't match the name restrictions from
-            // [StorePath] will fail output path calculation.
-            if output_name.is_empty() || output_name == "drv" {
+            // [StorePath] will fail the [StorePath::validate_name] check.
+            if output_name.is_empty()
+                || output_name == "drv"
+                || StorePath::validate_name(&output_name).is_err()
+            {
                 return Err(DerivationError::InvalidOutputName(output_name.to_string()));
             }
 
@@ -73,10 +76,12 @@ impl Derivation {
                 // `drvPath` key (which already exists) and has a different
                 // meaning.
                 //
-                // Other output names that don't match the name restrictions
-                // from [StorePath] can't be constructed with this library, but
-                // are not explicitly checked here (yet).
-                if output_name.is_empty() || output_name == "drv" {
+                // Other output names that don't match the name restrictions from
+                // [StorePath] will fail the [StorePath::validate_name] check.
+                if output_name.is_empty()
+                    || output_name == "drv"
+                    || StorePath::validate_name(&output_name).is_err()
+                {
                     return Err(DerivationError::InvalidInputDerivationOutputName(
                         input_derivation_path.to_string(),
                         output_name.to_string(),
