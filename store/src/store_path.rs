@@ -81,7 +81,7 @@ impl StorePath {
         }
     }
 
-    // Converts the [StorePath] to an absolute store path string.
+    /// Converts the [StorePath] to an absolute store path string.
     /// That is a string starting with the store prefix (/nix/store)
     pub fn to_absolute_path(&self) -> String {
         format!("{}/{}", STORE_DIR, self)
