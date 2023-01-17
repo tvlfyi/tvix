@@ -39,11 +39,8 @@ impl Derivation {
             }
 
             if let Err(e) = output.validate() {
-                return Err(DerivationError::InvalidOutputPath(
-                    output_name.to_string(),
-                    e,
-                ));
-            };
+                return Err(DerivationError::InvalidOutput(output_name.to_string(), e));
+            }
         }
 
         // Validate all input_derivations

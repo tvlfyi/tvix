@@ -13,9 +13,8 @@ pub enum DerivationError {
     MoreThanOneOutputButFixed(),
     #[error("Invalid output name for fixed-output derivation: {0}.")]
     InvalidOutputNameForFixed(String),
-    #[error("Unable to parse path of output {0}: {1}.")]
-    InvalidOutputPath(String, ParseStorePathError),
-
+    #[error("Unable to validate output {0}: {1}.")]
+    InvalidOutput(String, OutputError),
     // input derivation
     #[error("Unable to parse input derivation path {0}: {1}.")]
     InvalidInputDerivationPath(String, ParseStorePathError),
@@ -41,4 +40,11 @@ pub enum DerivationError {
     // environment
     #[error("Invalid environment key {0}")]
     InvalidEnvironmentKey(String),
+}
+
+/// Errors that can occur during the validation of a specific [Output] of a [Derviation].
+#[derive(Debug, Error)]
+pub enum OutputError {
+    #[error("Invalid ouput path {0}: {1}")]
+    InvalidOutputPath(String, ParseStorePathError),
 }
