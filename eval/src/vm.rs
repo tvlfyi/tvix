@@ -6,6 +6,7 @@ use std::{cmp::Ordering, collections::BTreeMap, ops::DerefMut, path::PathBuf, rc
 
 use crate::{
     chunk::Chunk,
+    compiler::GlobalsMap,
     errors::{Error, ErrorKind, EvalResult},
     io::EvalIO,
     nix_search_path::NixSearchPath,
@@ -124,6 +125,16 @@ pub struct VM<'o> {
 
     /// Runtime observer which can print traces of runtime operations.
     observer: &'o mut dyn RuntimeObserver,
+
+    /// Strong reference to the globals, guaranteeing that they are
+    /// kept alive for the duration of evaluation.
+    ///
+    /// This is important because recursive builtins (specifically
+    /// `import`) hold a weak reference to the builtins, while the
+    /// original strong reference is held by the compiler which does
+    /// not exist anymore at runtime.
+    #[allow(dead_code)]
+    globals: Rc<GlobalsMap>,
 }
 
 /// The result of a VM's runtime evaluation.
@@ -207,6 +218,7 @@ impl<'o> VM<'o> {
         nix_search_path: NixSearchPath,
         io_handle: Box<dyn EvalIO>,
         observer: &'o mut dyn RuntimeObserver,
+        globals: Rc<GlobalsMap>,
     ) -> Self {
         // Backtrace-on-stack-overflow is some seriously weird voodoo and
         // very unsafe.  This double-guard prevents it from accidentally
@@ -221,6 +233,7 @@ impl<'o> VM<'o> {
             nix_search_path,
             io_handle,
             observer,
+            globals,
             frames: vec![],
             stack: vec![],
             with_stack: vec![],
@@ -1180,9 +1193,10 @@ pub fn run_lambda(
     nix_search_path: NixSearchPath,
     io_handle: Box<dyn EvalIO>,
     observer: &mut dyn RuntimeObserver,
+    globals: Rc<GlobalsMap>,
     lambda: Rc<Lambda>,
 ) -> EvalResult<RuntimeResult> {
-    let mut vm = VM::new(nix_search_path, io_handle, observer);
+    let mut vm = VM::new(nix_search_path, io_handle, observer, globals);
 
     // Retain the top-level span of the expression in this lambda, as
     // synthetic "calls" in deep_force will otherwise not have a span

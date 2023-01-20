@@ -213,7 +213,7 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
         let mut noop_observer = observer::NoOpObserver::default();
         let compiler_observer = self.compiler_observer.take().unwrap_or(&mut noop_observer);
 
-        let (lambda, _globals) = match parse_compile_internal(
+        let (lambda, globals) = match parse_compile_internal(
             &mut result,
             self.code,
             self.file.clone(),
@@ -246,7 +246,7 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
             .unwrap_or_default();
 
         let runtime_observer = self.runtime_observer.take().unwrap_or(&mut noop_observer);
-        let vm_result = run_lambda(nix_path, self.io_handle, runtime_observer, lambda);
+        let vm_result = run_lambda(nix_path, self.io_handle, runtime_observer, globals, lambda);
 
         match vm_result {
             Ok(mut runtime_result) => {
