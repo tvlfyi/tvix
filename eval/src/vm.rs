@@ -109,12 +109,20 @@ pub struct VM<'o> {
     /// Runtime warnings collected during evaluation.
     warnings: Vec<EvalWarning>,
 
+    /// Import cache, mapping absolute file paths to the value that
+    /// they compile to. Note that this reuses thunks, too!
+    // TODO: should probably be based on a file hash
     pub import_cache: Box<BTreeMap<PathBuf, Value>>,
 
+    /// Parsed Nix search path, which is used to resolve `<...>`
+    /// references.
     nix_search_path: NixSearchPath,
 
+    /// Implementation of I/O operations used for impure builtins and
+    /// features like `import`.
     io_handle: Box<dyn EvalIO>,
 
+    /// Runtime observer which can print traces of runtime operations.
     observer: &'o mut dyn RuntimeObserver,
 }
 
