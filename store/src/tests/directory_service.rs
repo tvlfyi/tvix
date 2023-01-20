@@ -5,7 +5,7 @@ use tonic::Status;
 use crate::proto::directory_service_server::DirectoryService;
 use crate::proto::get_directory_request::ByWhat;
 use crate::proto::GetDirectoryRequest;
-use crate::proto::{Directory, DirectoryNode};
+use crate::proto::{Directory, DirectoryNode, SymlinkNode};
 use crate::sled_directory_service::SledDirectoryService;
 use lazy_static::lazy_static;
 
@@ -203,6 +203,66 @@ async fn put_get_dedup() -> anyhow::Result<()> {
 
     // We expect to get C, and then A (once, as the second A has been deduplicated).
     assert_eq!(vec![DIRECTORY_C.clone(), DIRECTORY_A.clone()], items);
+
+    Ok(())
+}
+
+/// Trying to upload a Directory failing validation should fail.
+#[tokio::test]
+async fn put_reject_failed_validation() -> anyhow::Result<()> {
+    let service = SledDirectoryService::new(TempDir::new()?.path().to_path_buf())?;
+
+    // construct a broken Directory message that fails validation
+    let broken_directory = Directory {
+        symlinks: vec![SymlinkNode {
+            name: "".to_string(),
+            target: "doesntmatter".to_string(),
+        }],
+        ..Default::default()
+    };
+    assert!(broken_directory.validate().is_err());
+
+    // send it over, it must fail
+    let put_resp = service
+        .put(tonic_mock::streaming_request(vec![broken_directory]))
+        .await
+        .expect_err("must fail");
+
+    assert_eq!(put_resp.code(), tonic::Code::InvalidArgument);
+
+    Ok(())
+}
+
+/// Trying to upload a Directory with wrong size should fail.
+#[tokio::test]
+async fn put_reject_wrong_size() -> anyhow::Result<()> {
+    let service = SledDirectoryService::new(TempDir::new()?.path().to_path_buf())?;
+
+    // Construct a directory referring to DIRECTORY_A, but with wrong size.
+    let broken_parent_directory = Directory {
+        directories: vec![DirectoryNode {
+            name: "foo".to_string(),
+            digest: DIRECTORY_A.digest(),
+            size: 42,
+        }],
+        ..Default::default()
+    };
+    // Make sure we got the size wrong.
+    assert_ne!(
+        broken_parent_directory.directories[0].size,
+        DIRECTORY_A.size()
+    );
+
+    // now upload both (first A, then the broken parent). This must fail.
+    let put_resp = service
+        .put(tonic_mock::streaming_request(vec![
+            DIRECTORY_A.clone(),
+            broken_parent_directory,
+        ]))
+        .await
+        .expect_err("must fail");
+
+    assert_eq!(put_resp.code(), tonic::Code::InvalidArgument);
 
     Ok(())
 }

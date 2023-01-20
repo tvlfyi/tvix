@@ -1,4 +1,5 @@
 use data_encoding::BASE64;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -131,20 +132,47 @@ fn insert_directories(
     txn: &sled::transaction::TransactionalTree,
     directories: &Vec<Directory>,
 ) -> Result<Vec<u8>, Status> {
-    // This keeps track of the seen directory keys.
+    // This keeps track of the seen directory keys, and their size.
+    // This is used to validate the size field of a reference to a previously sent directory.
     // We don't need to keep the contents around, they're stored in the DB.
-    let mut seen_directory_dgsts: HashSet<Vec<u8>> = HashSet::new();
+    let mut seen_directories_sizes: HashMap<Vec<u8>, u32> = HashMap::new();
     let mut last_directory_dgst: Option<Vec<u8>> = None;
 
     for directory in directories {
+        // validate the directory itself.
+        if let Err(e) = directory.validate() {
+            return Err(Status::invalid_argument(format!(
+                "directory {} failed validation: {}",
+                BASE64.encode(&directory.digest()),
+                e,
+            )));
+        }
+
         // for each child directory this directory refers to, we need
-        // to ensure it has been seen already in this stream.
+        // to ensure it has been seen already in this stream, and that the size
+        // matches what we recorded.
         for child_directory in &directory.directories {
-            if !seen_directory_dgsts.contains(&child_directory.digest) {
-                return Err(Status::invalid_argument(format!(
-                    "referred child directory {} not seen yet",
-                    BASE64.encode(&child_directory.digest)
-                )));
+            match seen_directories_sizes.get(&child_directory.digest) {
+                None => {
+                    return Err(Status::invalid_argument(format!(
+                        "child directory '{}' ({}) in directory '{}' not seen yet",
+                        child_directory.name,
+                        BASE64.encode(&child_directory.digest),
+                        BASE64.encode(&directory.digest()),
+                    )));
+                }
+                Some(seen_child_directory_size) => {
+                    if seen_child_directory_size != &child_directory.size {
+                        return Err(Status::invalid_argument(format!(
+                            "child directory '{}' ({}) in directory '{}' referred with wrong size, expected {}, actual {}",
+                            child_directory.name,
+                            BASE64.encode(&child_directory.digest),
+                            BASE64.encode(&directory.digest()),
+                            seen_child_directory_size,
+                            child_directory.size,
+                        )));
+                    }
+                }
             }
         }
 
@@ -153,7 +181,7 @@ fn insert_directories(
         // disconnected graphs at the same time…
 
         let dgst = directory.digest();
-        seen_directory_dgsts.insert(dgst.clone());
+        seen_directories_sizes.insert(dgst.clone(), directory.size());
         last_directory_dgst = Some(dgst.clone());
 
         // check if the directory already exists in the database. We can skip
