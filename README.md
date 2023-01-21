@@ -6,7 +6,22 @@ are interested in people who would like to help us review designs,
 brainstorm and describe requirements that we may not yet have
 considered.
 
-## Rust projects
+## Building the CLI
+
+If you are in a full checkout of the TVL depot, you can simply run `mg build`
+in the `cli` directory (or `mg build //tvix/cli` from anywhere in the repo).
+The `mg` command is found in `/tools/magrathea`.
+
+**Important note:** We only use and test Nix builds of our software
+against Nix 2.3. There are a variety of bugs and subtle problems in
+newer Nix versions which we do not have the bandwidth to address,
+builds in newer Nix versions may or may not work.
+
+The CLI can also be built with standard Rust tooling (i.e. `cargo build`),
+as long as you are in a shell with the right dependencies (provided by `mg
+shell //tvix:shell`).
+
+## Rust projects, crate2nix
 
 Some parts of Tvix are written in Rust. To simplify the dependency
 management on the Nix side of these builds, we use `crate2nix` in a

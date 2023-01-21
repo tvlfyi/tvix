@@ -15,19 +15,12 @@ somewhat, a lot of components are still changing rapidly.
 Please contact [TVL](https://tvl.fyi) with any questions you might
 have.
 
-## Building the evaluator
+## Building tvix-eval
 
-If you are in a full checkout of the TVL depot, you can simply run `mg
-build` in this directory (or `mg build //tvix/eval` from anywhere in
-the repo).  The `mg` command is found in `/tools/magrathea`.
+Please check the `README.md` one level up for instructions on how to build this.
 
-**Important note:** We only use and test Nix builds of our software
-against Nix 2.3. There are a variety of bugs and subtle problems in
-newer Nix versions which we do not have the bandwidth to address,
-builds in newer Nix versions may or may not work.
-
-The evaluator can also be built with standard Rust tooling (i.e.
-`cargo build`).
+The evaluator itself can also be built with standard Rust tooling (i.e. `cargo
+build`).
 
 If you would like to clone **only** the evaluator and build it
 directly with Rust tooling, you can do:
