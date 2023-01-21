@@ -617,6 +617,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fastcdc"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8093ae083a5098c6ac2e898350c704b2c70d092f9a5c0ad6f43703ec89a872b1"
+
+[[package]]
 name = "fastrand"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2451,6 +2457,7 @@ dependencies = [
  "blake3",
  "clap 4.0.32",
  "data-encoding",
+ "fastcdc",
  "lazy_static",
  "prost",
  "prost-build",

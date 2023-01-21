@@ -1806,6 +1806,16 @@ rec {
         ];
         features = { };
       };
+      "fastcdc" = rec {
+        crateName = "fastcdc";
+        version = "2.0.0";
+        edition = "2018";
+        sha256 = "1cbjm24yq0rpykb0lp4s5w4hvixj0k3m10w95sncd62h784ax4w0";
+        authors = [
+          "Nathan Fiedler <nathanfiedler@fastmail.fm>"
+        ];
+
+      };
       "fastrand" = rec {
         crateName = "fastrand";
         version = "1.8.0";
@@ -7361,6 +7371,10 @@ rec {
           {
             name = "data-encoding";
             packageId = "data-encoding";
+          }
+          {
+            name = "fastcdc";
+            packageId = "fastcdc";
           }
           {
             name = "lazy_static";

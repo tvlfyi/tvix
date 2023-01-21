@@ -20,6 +20,7 @@ tokio-stream = "0.1.11"
 tonic = "0.8.2"
 tracing-subscriber = "0.3.16"
 tracing = "0.1.37"
+fastcdc = "2.0.0"
 
 [dependencies.tonic-reflection]
 optional = true
@@ -35,9 +36,5 @@ tempfile = "3.3.0"
 tonic-mock = { git = "https://github.com/brainrake/tonic-mock", branch = "bump-dependencies" }
 
 [features]
-default = [
-  "reflection"
-]
-reflection = [
-  "tonic-reflection"
-]
+default = ["reflection"]
+reflection = ["tonic-reflection"]
