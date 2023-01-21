@@ -1224,6 +1224,57 @@ fn optimise_tail_call(chunk: &mut Chunk) {
     }
 }
 
+/// Create a delayed source-only builtin compilation, for a builtin
+/// which is written in Nix code.
+///
+/// **Important:** tvix *panics* if a builtin with invalid source code
+/// is supplied. This is because there is no user-friendly way to
+/// thread the errors out of this function right now.
+fn compile_src_builtin(
+    name: &'static str,
+    code: &str,
+    source: &SourceCode,
+    weak: &Weak<GlobalsMap>,
+) -> Value {
+    use std::fmt::Write;
+
+    let parsed = rnix::ast::Root::parse(code);
+
+    if !parsed.errors().is_empty() {
+        let mut out = format!("BUG: code for source-builtin '{}' had parser errors", name);
+        for error in parsed.errors() {
+            writeln!(out, "{}", error).unwrap();
+        }
+
+        panic!("{}", out);
+    }
+
+    let file = source.add_file(format!("<src-builtins/{}.nix>", name), code.to_string());
+    let weak = weak.clone();
+
+    Value::Thunk(Thunk::new_suspended_native(Rc::new(move |_| {
+        let result = compile(
+            &parsed.tree().expr().unwrap(),
+            None,
+            file.clone(),
+            weak.upgrade().unwrap(),
+            &mut crate::observer::NoOpObserver {},
+        )?;
+
+        if !result.errors.is_empty() {
+            return Err(ErrorKind::ImportCompilerError {
+                path: format!("src-builtins/{}.nix", name).into(),
+                errors: result.errors,
+            });
+        }
+
+        Ok(Value::Thunk(Thunk::new_suspended(
+            result.lambda,
+            LightSpan::Actual { span: file.span },
+        )))
+    })))
+}
+
 /// Prepare the full set of globals available in evaluated code. These
 /// are constructed from the set of builtins supplied by the caller,
 /// which are made available globally under the `builtins` identifier.
@@ -1234,6 +1285,7 @@ fn optimise_tail_call(chunk: &mut Chunk) {
 /// Optionally adds the `import` feature if desired by the caller.
 pub fn prepare_globals(
     builtins: Vec<(&'static str, Value)>,
+    src_builtins: Vec<(&'static str, &'static str)>,
     source: SourceCode,
     enable_import: bool,
 ) -> Rc<GlobalsMap> {
@@ -1251,16 +1303,9 @@ pub fn prepare_globals(
             builtins.insert("import", import);
         }
 
-        // Next, the actual map of globals is constructed and
-        // populated with (copies) of the values that should be
-        // available in the global scope (see [`GLOBAL_BUILTINS`]).
+        // Next, the actual map of globals which the compiler will use
+        // to resolve identifiers is constructed.
         let mut globals: GlobalsMap = HashMap::new();
-
-        for global in GLOBAL_BUILTINS {
-            if let Some(builtin) = builtins.get(global).cloned() {
-                globals.insert(global, builtin);
-            }
-        }
 
         // builtins contain themselves (`builtins.builtins`), which we
         // can resolve by manually constructing a suspended thunk that
@@ -1278,17 +1323,32 @@ pub fn prepare_globals(
             }))),
         );
 
-        // This is followed by the actual `builtins` attribute set
-        // being constructed and inserted in the global scope.
-        globals.insert(
-            "builtins",
-            Value::attrs(NixAttrs::from_iter(builtins.into_iter())),
-        );
-
-        // Finally insert the compiler-internal "magic" builtins for top-level values.
+        // Insert top-level static value builtins.
         globals.insert("true", Value::Bool(true));
         globals.insert("false", Value::Bool(false));
         globals.insert("null", Value::Null);
+
+        // If "source builtins" were supplied, compile them and insert
+        // them.
+        builtins.extend(src_builtins.into_iter().map(move |(name, code)| {
+            let compiled = compile_src_builtin(name, code, &source, &weak);
+            (name, compiled)
+        }));
+
+        // Construct the actual `builtins` attribute set and insert it
+        // in the global scope.
+        globals.insert(
+            "builtins",
+            Value::attrs(NixAttrs::from_iter(builtins.clone().into_iter())),
+        );
+
+        // Finally, the builtins that should be globally available are
+        // "elevated" to the outer scope.
+        for global in GLOBAL_BUILTINS {
+            if let Some(builtin) = builtins.get(global).cloned() {
+                globals.insert(global, builtin);
+            }
+        }
 
         globals
     }))

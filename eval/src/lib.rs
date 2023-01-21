@@ -91,6 +91,10 @@ pub struct Evaluation<'code, 'co, 'ro> {
     /// the set of impure builtins, or other custom builtins.
     pub builtins: Vec<(&'static str, Value)>,
 
+    /// Set of builtins that are implemented in Nix itself and should
+    /// be compiled and inserted in the builtins set.
+    pub src_builtins: Vec<(&'static str, &'static str)>,
+
     /// Implementation of file-IO to use during evaluation, e.g. for
     /// impure builtins.
     ///
@@ -156,6 +160,7 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
             source_map,
             file,
             builtins,
+            src_builtins: vec![],
             io_handle: Box::new(DummyIO {}),
             enable_import: false,
             nix_path: None,
@@ -198,6 +203,7 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
             self.location,
             source,
             self.builtins,
+            self.src_builtins,
             self.enable_import,
             compiler_observer,
         );
@@ -220,6 +226,7 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
             self.location,
             source,
             self.builtins,
+            self.src_builtins,
             self.enable_import,
             compiler_observer,
         ) {
@@ -271,6 +278,7 @@ fn parse_compile_internal(
     location: Option<PathBuf>,
     source: SourceCode,
     builtins: Vec<(&'static str, Value)>,
+    src_builtins: Vec<(&'static str, &'static str)>,
     enable_import: bool,
     compiler_observer: &mut dyn CompilerObserver,
 ) -> Option<(Rc<Lambda>, Rc<GlobalsMap>)> {
@@ -290,7 +298,7 @@ fn parse_compile_internal(
     // the result, in case the caller needs it for something.
     result.expr = parsed.tree().expr();
 
-    let builtins = crate::compiler::prepare_globals(builtins, source, enable_import);
+    let builtins = crate::compiler::prepare_globals(builtins, src_builtins, source, enable_import);
 
     let compiler_result = match compiler::compile(
         result.expr.as_ref().unwrap(),

@@ -2,6 +2,10 @@ use builtin_macros::builtins;
 use pretty_assertions::assert_eq;
 use test_generator::test_resources;
 
+/// Module for one-off tests which do not follow the rest of the
+/// test layout.
+mod one_offs;
+
 #[builtins]
 mod mock_builtins {
     //! Builtins which are required by language tests, but should not
