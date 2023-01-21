@@ -1,10 +1,16 @@
 Tvix
 ====
 
-For more information about Tvix, contact one of the project owners. We
-are interested in people who would like to help us review designs,
-brainstorm and describe requirements that we may not yet have
-considered.
+For more information about Tvix, feel free to reach out.
+We are interested in people who would like to help us review designs,
+brainstorm and describe requirements that we may not yet have considered.
+
+Most of the discussion around development happens on our IRC channel, which
+you can join in several ways documented on
+[tvl.fyi](https://tvl.fyi/#getting-in-touch).
+
+There's also some discussion around development on our
+[mailing list](https://inbox.tvl.su).
 
 ## Building the CLI
 
