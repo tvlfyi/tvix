@@ -46,10 +46,9 @@ pub struct CompilationOutput {
     pub warnings: Vec<EvalWarning>,
     pub errors: Vec<Error>,
 
-    // This field must outlive the rc::Weak reference which breaks
-    // the builtins -> import -> builtins reference cycle.
-    //
-    // TODO: ensure through compiler
+    // This field must outlive the rc::Weak reference which breaks the
+    // builtins -> import -> builtins reference cycle. For this
+    // reason, it must be passed to the VM.
     pub globals: Rc<GlobalsMap>,
 }
 
@@ -1266,10 +1265,6 @@ pub fn prepare_globals(
         // builtins contain themselves (`builtins.builtins`), which we
         // can resolve by manually constructing a suspended thunk that
         // dereferences the same weak pointer as above.
-        //
-        // This is an inefficient hack, but *if* anyone was to use
-        // `builtins.builtins`, it would only happen once as the thunk
-        // is then resolved.
         let weak_globals = weak.clone();
         builtins.insert(
             "builtins",
