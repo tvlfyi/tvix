@@ -1,13 +1,17 @@
 //! Implements `builtins.derivation`, the core of what makes Nix build packages.
 
+use std::cell::RefCell;
 use std::collections::{btree_map, BTreeSet};
+use std::rc::Rc;
 use tvix_derivation::{Derivation, Hash};
-use tvix_eval::{AddContext, CoercionKind, ErrorKind, NixList, Value, VM};
+use tvix_eval::builtin_macros::builtins;
+use tvix_eval::{AddContext, CoercionKind, ErrorKind, NixAttrs, NixList, Value, VM};
 
 use crate::errors::Error;
 use crate::known_paths::{KnownPaths, PathType};
 
 // Constants used for strangely named fields in derivation inputs.
+const STRUCTURED_ATTRS: &str = "__structuredAttrs";
 const IGNORE_NULLS: &str = "__ignoreNulls";
 
 /// Helper function for populating the `drv.outputs` field from a
@@ -188,11 +192,155 @@ fn handle_derivation_parameters(
     Ok(true)
 }
 
+#[builtins(state = "Rc<RefCell<KnownPaths>>")]
+mod derivation_builtins {
+    use super::*;
+
+    /// Strictly construct a Nix derivation from the supplied arguments.
+    ///
+    /// This is considered an internal function, users usually want to
+    /// use the higher-level `builtins.derivation` instead.
+    #[builtin("derivationStrict")]
+    fn builtin_derivation_strict(
+        state: Rc<RefCell<KnownPaths>>,
+        vm: &mut VM,
+        input: Value,
+    ) -> Result<Value, ErrorKind> {
+        let input = input.to_attrs()?;
+        let name = input
+            .select_required("name")?
+            .force(vm)?
+            .to_str()
+            .context("determining derivation name")?;
+
+        // Check whether attributes should be passed as a JSON file.
+        // TODO: the JSON serialisation has to happen here.
+        if let Some(sa) = input.select(STRUCTURED_ATTRS) {
+            if sa.force(vm)?.as_bool()? {
+                return Err(ErrorKind::NotImplemented(STRUCTURED_ATTRS));
+            }
+        }
+
+        // Check whether null attributes should be ignored or passed through.
+        let ignore_nulls = match input.select(IGNORE_NULLS) {
+            Some(b) => b.force(vm)?.as_bool()?,
+            None => false,
+        };
+
+        let mut drv = Derivation::default();
+        drv.outputs.insert("out".to_string(), Default::default());
+
+        // Configure fixed-output derivations if required.
+        populate_output_configuration(
+            &mut drv,
+            vm,
+            input.select("outputHash"),
+            input.select("outputHashAlgo"),
+            input.select("outputHashMode"),
+        )?;
+
+        for (name, value) in input.into_iter_sorted() {
+            if ignore_nulls && matches!(*value.force(vm)?, Value::Null) {
+                continue;
+            }
+
+            let val_str = value
+                .force(vm)?
+                .coerce_to_string(CoercionKind::Strong, vm)?
+                .as_str()
+                .to_string();
+
+            // handle_derivation_parameters tells us whether the
+            // argument should be added to the environment; continue
+            // to the next one otherwise
+            if !handle_derivation_parameters(&mut drv, vm, name.as_str(), &value, &val_str)? {
+                continue;
+            }
+
+            // Most of these are also added to the builder's environment in "raw" form.
+            if drv
+                .environment
+                .insert(name.as_str().to_string(), val_str)
+                .is_some()
+            {
+                return Err(Error::DuplicateEnvVar(name.as_str().to_string()).into());
+            }
+        }
+
+        // Scan references in relevant attributes to detect any build-references.
+        let mut refscan = state.borrow().reference_scanner();
+        drv.arguments.iter().for_each(|s| refscan.scan_str(s));
+        drv.environment.values().for_each(|s| refscan.scan_str(s));
+        refscan.scan_str(&drv.builder);
+
+        // Each output name needs to exist in the environment, at this
+        // point initialised as an empty string because that is the
+        // way of Golang ;)
+        for output in drv.outputs.keys() {
+            if drv
+                .environment
+                .insert(output.to_string(), String::new())
+                .is_some()
+            {
+                return Err(Error::ShadowedOutput(output.to_string()).into());
+            }
+        }
+
+        let mut known_paths = state.borrow_mut();
+        populate_inputs(&mut drv, &known_paths, refscan.finalise());
+
+        // At this point, derivation fields are fully populated from
+        // eval data structures.
+        drv.validate(false).map_err(Error::InvalidDerivation)?;
+
+        let tmp_replacement_str =
+            drv.calculate_drv_replacement_str(|drv| known_paths.get_replacement_string(drv));
+
+        drv.calculate_output_paths(&name, &tmp_replacement_str)
+            .map_err(Error::InvalidDerivation)?;
+
+        let actual_replacement_str =
+            drv.calculate_drv_replacement_str(|drv| known_paths.get_replacement_string(drv));
+
+        let derivation_path = drv
+            .calculate_derivation_path(&name)
+            .map_err(Error::InvalidDerivation)?;
+
+        known_paths
+            .add_replacement_string(derivation_path.to_absolute_path(), &actual_replacement_str);
+
+        // mark all the new paths as known
+        let output_names: Vec<String> = drv.outputs.keys().map(Clone::clone).collect();
+        known_paths.drv(derivation_path.to_absolute_path(), &output_names);
+
+        for (output_name, output) in &drv.outputs {
+            known_paths.output(
+                &output.path,
+                output_name,
+                derivation_path.to_absolute_path(),
+            );
+        }
+
+        let mut new_attrs: Vec<(String, String)> = drv
+            .outputs
+            .into_iter()
+            .map(|(name, output)| (name, output.path))
+            .collect();
+
+        new_attrs.push(("drvPath".to_string(), derivation_path.to_absolute_path()));
+
+        Ok(Value::Attrs(Box::new(NixAttrs::from_iter(
+            new_attrs.into_iter(),
+        ))))
+    }
+}
+
+pub use derivation_builtins::builtins as derivation_builtins;
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use tvix_eval::observer::NoOpObserver;
-    use tvix_eval::Value;
 
     static mut OBSERVER: NoOpObserver = NoOpObserver {};
 

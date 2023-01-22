@@ -12,7 +12,7 @@ use clap::Parser;
 use known_paths::KnownPaths;
 use rustyline::{error::ReadlineError, Editor};
 use tvix_eval::observer::{DisassemblingObserver, TracingObserver};
-use tvix_eval::Value;
+use tvix_eval::{Builtin, BuiltinArgument, Value, VM};
 
 #[derive(Parser)]
 struct Args {
@@ -55,8 +55,10 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
     let mut eval = tvix_eval::Evaluation::new_impure(code, path);
     let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
 
-    eval.io_handle = Box::new(nix_compat::NixCompatIO::new(known_paths));
+    eval.io_handle = Box::new(nix_compat::NixCompatIO::new(known_paths.clone()));
     eval.nix_path = args.nix_search_path.clone();
+    eval.builtins
+        .extend(derivation::derivation_builtins(known_paths));
 
     let source_map = eval.source_map();
     let result = {
