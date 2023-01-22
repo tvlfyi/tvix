@@ -9,6 +9,7 @@ pub enum Error {
     DuplicateEnvVar(String),
     ShadowedOutput(String),
     InvalidDerivation(DerivationError),
+    InvalidOutputHashMode(String),
 }
 
 impl Display for Error {
@@ -32,6 +33,11 @@ impl Display for Error {
                 "the environment variable '{name}' shadows the name of an output"
             ),
             Error::InvalidDerivation(error) => write!(f, "invalid derivation parameters: {error}"),
+
+            Error::InvalidOutputHashMode(mode) => write!(
+                f,
+                "invalid output hash mode: '{mode}', only 'recursive' and 'flat` are supported"
+            ),
         }
     }
 }
