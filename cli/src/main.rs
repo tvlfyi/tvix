@@ -1,3 +1,4 @@
+mod derivation;
 mod errors;
 mod known_paths;
 mod nix_compat;
