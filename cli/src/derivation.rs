@@ -7,6 +7,9 @@ use tvix_eval::{AddContext, CoercionKind, ErrorKind, NixList, Value, VM};
 use crate::errors::Error;
 use crate::known_paths::{KnownPaths, PathType};
 
+// Constants used for strangely named fields in derivation inputs.
+const IGNORE_NULLS: &str = "__ignoreNulls";
+
 /// Helper function for populating the `drv.outputs` field from a
 /// manually specified set of outputs, instead of the default
 /// `outputs`.
@@ -129,6 +132,60 @@ fn populate_output_configuration(
     }
 
     Ok(())
+}
+
+/// Handles derivation parameters which are not just forwarded to
+/// the environment. The return value indicates whether the
+/// parameter should be included in the environment.
+fn handle_derivation_parameters(
+    drv: &mut Derivation,
+    vm: &mut VM,
+    name: &str,
+    value: &Value,
+    val_str: &str,
+) -> Result<bool, ErrorKind> {
+    match name {
+        IGNORE_NULLS => return Ok(false),
+
+        // Command line arguments to the builder.
+        "args" => {
+            let args = value.to_list()?;
+            for arg in args {
+                drv.arguments.push(
+                    arg.force(vm)?
+                        .coerce_to_string(CoercionKind::Strong, vm)
+                        .context("handling command-line builder arguments")?
+                        .as_str()
+                        .to_string(),
+                );
+            }
+
+            // The arguments do not appear in the environment.
+            return Ok(false);
+        }
+
+        // Explicitly specified drv outputs (instead of default [ "out" ])
+        "outputs" => {
+            let outputs = value
+                .to_list()
+                .context("looking at the `outputs` parameter of the derivation")?;
+
+            drv.outputs.clear();
+            populate_outputs(vm, drv, outputs)?;
+        }
+
+        "builder" => {
+            drv.builder = val_str.to_string();
+        }
+
+        "system" => {
+            drv.system = val_str.to_string();
+        }
+
+        _ => {}
+    }
+
+    Ok(true)
 }
 
 #[cfg(test)]
@@ -290,5 +347,54 @@ mod tests {
         };
 
         assert_eq!(drv.outputs["out"].hash, Some(expected));
+    }
+
+    #[test]
+    fn handle_outputs_parameter() {
+        let mut vm = fake_vm();
+        let mut drv = Derivation::default();
+        drv.outputs.insert("out".to_string(), Default::default());
+
+        let outputs = Value::List(NixList::construct(
+            2,
+            vec![Value::String("foo".into()), Value::String("bar".into())],
+        ));
+        let outputs_str = outputs
+            .coerce_to_string(CoercionKind::Strong, &mut vm)
+            .unwrap();
+
+        handle_derivation_parameters(&mut drv, &mut vm, "outputs", &outputs, outputs_str.as_str())
+            .expect("handling 'outputs' parameter should succeed");
+
+        assert_eq!(drv.outputs.len(), 2);
+        assert!(drv.outputs.contains_key("bar"));
+        assert!(drv.outputs.contains_key("foo"));
+    }
+
+    #[test]
+    fn handle_args_parameter() {
+        let mut vm = fake_vm();
+        let mut drv = Derivation::default();
+
+        let args = Value::List(NixList::construct(
+            3,
+            vec![
+                Value::String("--foo".into()),
+                Value::String("42".into()),
+                Value::String("--bar".into()),
+            ],
+        ));
+
+        let args_str = args
+            .coerce_to_string(CoercionKind::Strong, &mut vm)
+            .unwrap();
+
+        handle_derivation_parameters(&mut drv, &mut vm, "args", &args, args_str.as_str())
+            .expect("handling 'args' parameter should succeed");
+
+        assert_eq!(
+            drv.arguments,
+            vec!["--foo".to_string(), "42".to_string(), "--bar".to_string()]
+        );
     }
 }
