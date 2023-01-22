@@ -60,6 +60,10 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
     eval.builtins
         .extend(derivation::derivation_builtins(known_paths));
 
+    // Add the actual `builtins.derivation` from compiled Nix code
+    eval.src_builtins
+        .push(("derivation", include_str!("derivation.nix")));
+
     let source_map = eval.source_map();
     let result = {
         let mut compiler_observer =
