@@ -333,6 +333,37 @@ mod derivation_builtins {
             new_attrs.into_iter(),
         ))))
     }
+
+    #[builtin("toFile")]
+    fn builtin_to_file(
+        state: Rc<RefCell<KnownPaths>>,
+        _: &mut VM,
+        name: Value,
+        content: Value,
+    ) -> Result<Value, ErrorKind> {
+        let name = name
+            .to_str()
+            .context("evaluating the `name` parameter of builtins.toFile")?;
+        let content = content
+            .to_str()
+            .context("evaluating the `content` parameter of builtins.toFile")?;
+
+        let mut refscan = state.borrow().reference_scanner();
+        refscan.scan_str(content.as_str());
+        let refs = refscan.finalise();
+
+        // TODO: fail on derivation references (only "plain" is allowed here)
+
+        let path = tvix_derivation::path_with_references(name.as_str(), content.as_str(), refs)
+            .map_err(Error::InvalidDerivation)?
+            .to_absolute_path();
+
+        state.borrow_mut().plain(&path);
+
+        // TODO: actually persist the file in the store at that path ...
+
+        Ok(Value::String(path.into()))
+    }
 }
 
 pub use derivation_builtins::builtins as derivation_builtins;
