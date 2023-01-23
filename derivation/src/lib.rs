@@ -10,6 +10,6 @@ mod tests;
 
 // Public API of the crate.
 
-pub use derivation::Derivation;
+pub use derivation::{path_with_references, Derivation};
 pub use errors::{DerivationError, OutputError};
 pub use output::{Hash, Output};

@@ -75,6 +75,32 @@ fn build_store_path(
     // invalid, so map errors to a [DerivationError::InvalidOutputName].
 }
 
+/// Build a store path for a literal text file in the store that may
+/// contain references.
+pub fn path_with_references<'a, I: IntoIterator<Item = &'a str>, C: AsRef<[u8]>>(
+    name: &str,
+    content: C,
+    references: I,
+) -> Result<StorePath, DerivationError> {
+    let mut hasher = Sha256::new();
+    hasher.update(content);
+    let content_hash = hasher.finalize_reset();
+
+    hasher.update("text");
+    for reference in references {
+        hasher.update(":");
+        hasher.update(reference);
+    }
+
+    hasher.update(&format!(":sha256:{:x}:", content_hash));
+    hasher.update(STORE_DIR);
+    hasher.update(&format!(":{}", name));
+
+    let digest = hasher.finalize();
+
+    build_store_path(false, &digest, name)
+}
+
 impl Derivation {
     pub fn serialize(&self, writer: &mut impl Write) -> Result<(), fmt::Error> {
         writer.write_str(write::DERIVATION_PREFIX)?;
