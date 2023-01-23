@@ -313,7 +313,7 @@ fn path_with_zero_references() {
     // nix-repl> builtins.toFile "foo" "bar"
     // "/nix/store/vxjiwkjkn7x4079qvh1jkl5pn05j2aw0-foo"
 
-    let store_path = crate::path_with_references("foo", "bar", vec![])
+    let store_path = crate::path_with_references("foo", "bar", Vec::<String>::new())
         .expect("path_with_references() should succeed");
 
     assert_eq!(
@@ -329,7 +329,7 @@ fn path_with_non_zero_references() {
     // nix-repl> builtins.toFile "baz" "${builtins.toFile "foo" "bar"}"
     // "/nix/store/5xd714cbfnkz02h2vbsj4fm03x3f15nf-baz"
 
-    let inner = crate::path_with_references("foo", "bar", vec![])
+    let inner = crate::path_with_references("foo", "bar", Vec::<String>::new())
         .expect("path_with_references() should succeed");
     let inner_path = inner.to_absolute_path();
 

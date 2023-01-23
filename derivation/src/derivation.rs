@@ -75,7 +75,7 @@ fn build_store_path(
 
 /// Build a store path for a literal text file in the store that may
 /// contain references.
-pub fn path_with_references<'a, I: IntoIterator<Item = &'a str>, C: AsRef<[u8]>>(
+pub fn path_with_references<S: AsRef<str>, I: IntoIterator<Item = S>, C: AsRef<[u8]>>(
     name: &str,
     content: C,
     references: I,
@@ -84,7 +84,7 @@ pub fn path_with_references<'a, I: IntoIterator<Item = &'a str>, C: AsRef<[u8]>>
 
     for reference in references {
         s.push(':');
-        s.push_str(reference);
+        s.push_str(reference.as_ref());
     }
 
     let content_digest = {
