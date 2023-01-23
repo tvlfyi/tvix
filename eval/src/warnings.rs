@@ -17,7 +17,6 @@ pub enum WarningKind {
     DeadCode,
     EmptyInherit,
     EmptyLet,
-    UselessParens,
 
     /// Tvix internal warning for features triggered by users that are
     /// not actually implemented yet, but do not cause runtime failures.
@@ -101,8 +100,6 @@ impl EvalWarning {
 
             WarningKind::EmptyLet => "this `let`-expression contains no bindings".to_string(),
 
-            WarningKind::UselessParens => "these parenthesis can be removed".to_string(),
-
             WarningKind::NotImplemented(what) => {
                 format!("feature not yet implemented in tvix: {}", what)
             }
@@ -123,7 +120,6 @@ impl EvalWarning {
             WarningKind::DeadCode => "W008",
             WarningKind::EmptyInherit => "W009",
             WarningKind::EmptyLet => "W010",
-            WarningKind::UselessParens => "W011",
 
             WarningKind::NotImplemented(_) => "W999",
         }
