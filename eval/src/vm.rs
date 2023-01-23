@@ -406,6 +406,10 @@ impl<'o> VM<'o> {
             Value::Attrs(ref attrs) => match attrs.select("__functor") {
                 None => Err(self.error(ErrorKind::NotCallable(callable.type_of()))),
                 Some(functor) => {
+                    if let Value::Thunk(thunk) = &functor {
+                        fallible!(self, thunk.force(self));
+                    }
+
                     // The functor receives the set itself as its first argument
                     // and needs to be called with it. However, this call is
                     // synthetic (i.e. there is no corresponding OpCall for the
