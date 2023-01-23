@@ -1,4 +1,4 @@
-use crate::{derivation::Derivation, write::DOT_FILE_EXT, DerivationError};
+use crate::{derivation::Derivation, DerivationError};
 use tvix_store::store_path::StorePath;
 
 impl Derivation {
@@ -60,7 +60,7 @@ impl Derivation {
                 ));
             }
 
-            if !input_derivation_path.ends_with(DOT_FILE_EXT) {
+            if !input_derivation_path.ends_with(".drv") {
                 return Err(DerivationError::InvalidInputDerivationPrefix(
                     input_derivation_path.to_string(),
                 ));

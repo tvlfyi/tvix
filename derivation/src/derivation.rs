@@ -64,15 +64,7 @@ fn build_store_path(
     };
     let compressed = compress_hash(&digest, 20);
     if is_derivation {
-        StorePath::from_string(
-            format!(
-                "{}-{}{}",
-                NIXBASE32.encode(&compressed),
-                name,
-                write::DOT_FILE_EXT,
-            )
-            .as_str(),
-        )
+        StorePath::from_string(format!("{}-{}.drv", NIXBASE32.encode(&compressed), name).as_str())
     } else {
         StorePath::from_string(format!("{}-{}", NIXBASE32.encode(&compressed), name,).as_str())
     }
