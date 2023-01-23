@@ -1,3 +1,8 @@
+//! This module implements the serialisation of derivations into the
+//! [ATerm][] format used by C++ Nix.
+//!
+//! [ATerm]: http://program-transformation.org/Tools/ATermFormat.html
+
 use crate::output::Output;
 use crate::string_escape::escape_string;
 use std::collections::BTreeSet;

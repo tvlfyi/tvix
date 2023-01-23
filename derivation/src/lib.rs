@@ -1,6 +1,5 @@
 mod derivation;
 mod errors;
-mod nix_hash;
 mod output;
 mod string_escape;
 mod validate;

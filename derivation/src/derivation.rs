@@ -1,6 +1,6 @@
 use crate::output::{Hash, Output};
 use crate::write;
-use crate::{nix_hash, DerivationError};
+use crate::DerivationError;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
@@ -29,6 +29,26 @@ pub struct Derivation {
     pub system: String,
 }
 
+/// compress_hash takes an arbitrarily long sequence of bytes (usually
+/// a hash digest), and returns a sequence of bytes of length
+/// output_size.
+///
+/// It's calculated by rotating through the bytes in the output buffer
+/// (zero- initialized), and XOR'ing with each byte of the passed
+/// input. It consumes 1 byte at a time, and XOR's it with the current
+/// value in the output buffer.
+///
+/// This mimics equivalent functionality in C++ Nix.
+fn compress_hash(input: &[u8], output_size: usize) -> Vec<u8> {
+    let mut output: Vec<u8> = vec![0; output_size];
+
+    for (ii, ch) in input.iter().enumerate() {
+        output[ii % output_size] ^= ch;
+    }
+
+    output
+}
+
 /// This returns a store path, either of a derivation or a regular output.
 /// The path_hash is compressed to 20 bytes, and nixbase32-encoded (32 characters)
 fn build_store_path(
@@ -36,7 +56,7 @@ fn build_store_path(
     path_hash: &[u8],
     name: &str,
 ) -> Result<StorePath, DerivationError> {
-    let compressed = nix_hash::compress_hash(path_hash, 20);
+    let compressed = compress_hash(path_hash, 20);
     if is_derivation {
         StorePath::from_string(
             format!(
