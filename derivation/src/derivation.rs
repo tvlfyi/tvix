@@ -50,13 +50,19 @@ fn compress_hash(input: &[u8], output_size: usize) -> Vec<u8> {
 }
 
 /// This returns a store path, either of a derivation or a regular output.
-/// The path_hash is compressed to 20 bytes, and nixbase32-encoded (32 characters)
+/// The string is hashed with sha256, its digest is compressed to 20 bytes, and
+/// nixbase32-encoded (32 characters)
 fn build_store_path(
     is_derivation: bool,
-    path_hash: &[u8],
+    fingerprint: &str,
     name: &str,
 ) -> Result<StorePath, DerivationError> {
-    let compressed = compress_hash(path_hash, 20);
+    let digest = {
+        let mut hasher = Sha256::new();
+        hasher.update(fingerprint);
+        hasher.finalize()
+    };
+    let compressed = compress_hash(&digest, 20);
     if is_derivation {
         StorePath::from_string(
             format!(
@@ -82,23 +88,25 @@ pub fn path_with_references<'a, I: IntoIterator<Item = &'a str>, C: AsRef<[u8]>>
     content: C,
     references: I,
 ) -> Result<StorePath, DerivationError> {
-    let mut hasher = Sha256::new();
-    hasher.update(content);
-    let content_hash = hasher.finalize_reset();
+    let mut s = String::from("text");
 
-    hasher.update("text");
     for reference in references {
-        hasher.update(":");
-        hasher.update(reference);
+        s.push(':');
+        s.push_str(reference);
     }
 
-    hasher.update(&format!(":sha256:{:x}:", content_hash));
-    hasher.update(STORE_DIR);
-    hasher.update(&format!(":{}", name));
+    let content_digest = {
+        let mut hasher = Sha256::new();
+        hasher.update(content);
+        hasher.finalize()
+    };
 
-    let digest = hasher.finalize();
+    s.push_str(&format!(
+        ":sha256:{:x}:{}:{}",
+        content_digest, STORE_DIR, name
+    ));
 
-    build_store_path(false, &digest, name)
+    build_store_path(false, &s, name)
 }
 
 impl Derivation {
@@ -157,12 +165,10 @@ impl Derivation {
     ///   - Encode it with nixbase32
     ///   - Use it (and the name) to construct a [StorePath].
     pub fn calculate_derivation_path(&self, name: &str) -> Result<StorePath, DerivationError> {
-        let mut hasher = Sha256::new();
+        let mut s = String::from("text:");
 
         // collect the list of paths from input_sources and input_derivations
         // into a (sorted, guaranteed by BTreeSet) list, and join them by :
-        hasher.update(write::TEXT_COLON);
-
         let concat_inputs: BTreeSet<String> = {
             let mut inputs = self.input_sources.clone();
             let input_derivation_keys: Vec<String> =
@@ -172,29 +178,24 @@ impl Derivation {
         };
 
         for input in concat_inputs {
-            hasher.update(input);
-            hasher.update(write::COLON);
+            s.push_str(&input);
+            s.push(':');
         }
 
         // calculate the sha256 hash of the ATerm representation, and represent
         // it as a hex-encoded string (prefixed with sha256:).
-        hasher.update(write::SHA256_COLON);
-
-        let digest = {
+        let aterm_digest = {
             let mut derivation_hasher = Sha256::new();
             derivation_hasher.update(self.to_string());
             derivation_hasher.finalize()
         };
 
-        hasher.update(format!("{:x}", digest));
-        hasher.update(write::COLON);
-        hasher.update(STORE_DIR);
-        hasher.update(write::COLON);
+        s.push_str(&format!(
+            "sha256:{:x}:{}:{}.drv",
+            aterm_digest, STORE_DIR, name,
+        ));
 
-        hasher.update(name);
-        hasher.update(write::DOT_FILE_EXT);
-
-        build_store_path(true, &hasher.finalize(), name)
+        build_store_path(true, &s, name)
     }
 
     /// Calculate the drv replacement string for a given derivation.
@@ -213,12 +214,10 @@ impl Derivation {
         let mut hasher = Sha256::new();
         let digest = match self.get_fixed_output() {
             Some((fixed_output_path, fixed_output_hash)) => {
-                hasher.update("fixed:out:");
-                hasher.update(&fixed_output_hash.algo);
-                hasher.update(":");
-                hasher.update(&fixed_output_hash.digest);
-                hasher.update(":");
-                hasher.update(fixed_output_path);
+                hasher.update(format!(
+                    "fixed:out:{}:{}:{}",
+                    &fixed_output_hash.algo, &fixed_output_hash.digest, fixed_output_path,
+                ));
                 hasher.finalize()
             }
             None => {
@@ -274,8 +273,6 @@ impl Derivation {
         name: &str,
         drv_replacement_str: &str,
     ) -> Result<(), DerivationError> {
-        let mut hasher = Sha256::new();
-
         // Check if the Derivation is fixed output, because they cause
         // different fingerprints to be hashed.
         match self.get_fixed_output() {
@@ -287,14 +284,6 @@ impl Derivation {
                     // footgun prevention mechanism.
                     assert!(output.path.is_empty());
 
-                    hasher.update("output:");
-                    hasher.update(output_name);
-                    hasher.update(":sha256:");
-                    hasher.update(drv_replacement_str);
-                    hasher.update(":");
-                    hasher.update(STORE_DIR);
-                    hasher.update(":");
-
                     // calculate the output_name_path, which is the part of the NixPath after the digest.
                     let mut output_path_name = name.to_string();
                     if output_name != "out" {
@@ -302,12 +291,13 @@ impl Derivation {
                         output_path_name.push_str(output_name);
                     }
 
-                    hasher.update(output_path_name.as_str());
-
-                    let digest = hasher.finalize_reset();
+                    let s = &format!(
+                        "output:{}:sha256:{}:{}:{}",
+                        output_name, drv_replacement_str, STORE_DIR, output_path_name,
+                    );
 
                     let abs_store_path =
-                        build_store_path(false, &digest, &output_path_name)?.to_absolute_path();
+                        build_store_path(false, s, &output_path_name)?.to_absolute_path();
 
                     output.path = abs_store_path.clone();
                     self.environment
@@ -320,29 +310,27 @@ impl Derivation {
                 // footgun prevention mechanism.
                 assert!(fixed_output_path.is_empty());
 
-                let digest = {
+                let s = {
+                    let mut s = String::new();
                     // Fixed-output derivation.
                     // There's two different hashing strategies in place, depending on the value of hash.algo.
                     // This code is _weird_ but it is what Nix is doing. See:
                     // https://github.com/NixOS/nix/blob/1385b2007804c8a0370f2a6555045a00e34b07c7/src/libstore/store-api.cc#L178-L196
                     if fixed_output_hash.algo == "r:sha256" {
-                        hasher.update("source:");
-                        hasher.update("sha256");
-                        hasher.update(":");
-                        hasher.update(fixed_output_hash.digest.clone()); // nixbase32
+                        s.push_str(&format!(
+                            "source:sha256:{}",
+                            fixed_output_hash.digest, // nixbase32
+                        ));
                     } else {
-                        hasher.update("output:out:sha256:");
+                        s.push_str("output:out:sha256:");
                         // This is drv_replacement for FOD, with an empty fixed_output_path.
-                        hasher.update(drv_replacement_str);
+                        s.push_str(drv_replacement_str);
                     }
-                    hasher.update(":");
-                    hasher.update(STORE_DIR);
-                    hasher.update(":");
-                    hasher.update(name);
-                    hasher.finalize()
+                    s.push_str(&format!(":{}:{}", STORE_DIR, name));
+                    s
                 };
 
-                let abs_store_path = build_store_path(false, &digest, name)?.to_absolute_path();
+                let abs_store_path = build_store_path(false, &s, name)?.to_absolute_path();
 
                 self.outputs.insert(
                     "out".to_string(),

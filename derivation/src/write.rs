@@ -16,9 +16,6 @@ pub const BRACKET_CLOSE: char = ']';
 pub const COMMA: char = ',';
 pub const QUOTE: char = '"';
 
-pub const COLON: &str = ":";
-pub const TEXT_COLON: &str = "text:";
-pub const SHA256_COLON: &str = "sha256:";
 pub const DOT_FILE_EXT: &str = ".drv";
 
 fn write_array_elements(
