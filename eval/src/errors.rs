@@ -134,6 +134,9 @@ pub enum ErrorKind {
     /// Errors converting JSON to a value
     FromJsonError(String),
 
+    /// Errors converting TOML to a value
+    FromTomlError(String),
+
     /// An unexpected argument was supplied to a function that takes formal parameters
     UnexpectedArgument {
         arg: NixString,
@@ -243,6 +246,12 @@ impl From<serde_json::Error> for ErrorKind {
     fn from(err: serde_json::Error) -> Self {
         // Can't just put the `serde_json::Error` in the ErrorKind since it doesn't impl `Clone`
         Self::FromJsonError(format!("error in JSON serialization: {err}"))
+    }
+}
+
+impl From<toml::de::Error> for ErrorKind {
+    fn from(err: toml::de::Error) -> Self {
+        Self::FromTomlError(format!("error in TOML serialization: {err}"))
     }
 }
 
@@ -432,6 +441,10 @@ to a missing value in the attribute set(s) included via `with`."#,
 
             ErrorKind::FromJsonError(msg) => {
                 write!(f, "Error converting JSON to a Nix value: {msg}")
+            }
+
+            ErrorKind::FromTomlError(msg) => {
+                write!(f, "Error converting TOML to a Nix value: {msg}")
             }
 
             ErrorKind::UnexpectedArgument { arg, .. } => {
@@ -749,6 +762,7 @@ impl Error {
             | ErrorKind::ImportCompilerError { .. }
             | ErrorKind::IO { .. }
             | ErrorKind::FromJsonError(_)
+            | ErrorKind::FromTomlError(_)
             | ErrorKind::Xml(_)
             | ErrorKind::TvixError(_)
             | ErrorKind::TvixBug { .. }
@@ -795,6 +809,7 @@ impl Error {
             ErrorKind::RelativePathResolution(_) => "E032",
             ErrorKind::DivisionByZero => "E033",
             ErrorKind::Xml(_) => "E034",
+            ErrorKind::FromTomlError(_) => "E035",
 
             // Special error code for errors from other Tvix
             // components. We may want to introduce a code namespacing

@@ -355,6 +355,13 @@ mod pure_builtins {
         Ok(json_str.into())
     }
 
+    #[builtin("fromTOML")]
+    fn builtin_from_toml(_: &mut VM, toml: Value) -> Result<Value, ErrorKind> {
+        let toml_str = toml.to_str()?;
+
+        toml::from_str(&toml_str).map_err(|err| err.into())
+    }
+
     #[builtin("genericClosure")]
     fn builtin_generic_closure(vm: &mut VM, input: Value) -> Result<Value, ErrorKind> {
         let attrs = input.to_attrs()?;
