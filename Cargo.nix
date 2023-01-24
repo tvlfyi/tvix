@@ -2997,6 +2997,236 @@ rec {
           "spin_no_std" = [ "spin" ];
         };
       };
+      "lexical-core" = rec {
+        crateName = "lexical-core";
+        version = "0.8.5";
+        edition = "2018";
+        sha256 = "0ihf0x3vrk25fq3bv9q35m0xax0wmvwkh0j0pjm2yk4ddvh5vpic";
+        authors = [
+          "Alex Huszagh <ahuszagh@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "lexical-parse-float";
+            packageId = "lexical-parse-float";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "lexical-parse-integer";
+            packageId = "lexical-parse-integer";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "lexical-util";
+            packageId = "lexical-util";
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "lexical-write-float";
+            packageId = "lexical-write-float";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "lexical-write-integer";
+            packageId = "lexical-write-integer";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
+        ];
+        features = {
+          "compact" = [ "lexical-write-integer/compact" "lexical-write-float/compact" "lexical-parse-integer/compact" "lexical-parse-float/compact" ];
+          "default" = [ "std" "write-integers" "write-floats" "parse-integers" "parse-floats" ];
+          "f128" = [ "lexical-util/f128" "lexical-parse-float/f128" "lexical-write-float/f128" ];
+          "f16" = [ "lexical-util/f16" "lexical-parse-float/f16" "lexical-write-float/f16" ];
+          "format" = [ "lexical-util/format" "lexical-parse-integer/format" "lexical-parse-float/format" "lexical-write-integer/format" "lexical-write-float/format" ];
+          "lexical-parse-float" = [ "dep:lexical-parse-float" ];
+          "lexical-parse-integer" = [ "dep:lexical-parse-integer" ];
+          "lexical-write-float" = [ "dep:lexical-write-float" ];
+          "lexical-write-integer" = [ "dep:lexical-write-integer" ];
+          "lint" = [ "lexical-util/lint" "lexical-write-integer/lint" "lexical-write-float/lint" "lexical-parse-integer/lint" "lexical-parse-float/lint" ];
+          "nightly" = [ "lexical-write-integer/nightly" "lexical-write-float/nightly" "lexical-parse-integer/nightly" "lexical-parse-float/nightly" ];
+          "parse-floats" = [ "lexical-parse-float" "parse" "floats" ];
+          "parse-integers" = [ "lexical-parse-integer" "parse" "integers" ];
+          "power-of-two" = [ "lexical-util/power-of-two" "lexical-write-integer/power-of-two" "lexical-write-float/power-of-two" "lexical-parse-integer/power-of-two" "lexical-parse-float/power-of-two" ];
+          "radix" = [ "lexical-util/radix" "lexical-write-integer/radix" "lexical-write-float/radix" "lexical-parse-integer/radix" "lexical-parse-float/radix" ];
+          "safe" = [ "lexical-write-integer/safe" "lexical-write-float/safe" "lexical-parse-integer/safe" "lexical-parse-float/safe" ];
+          "std" = [ "lexical-util/std" "lexical-write-integer/std" "lexical-write-float/std" "lexical-parse-integer/std" "lexical-parse-float/std" ];
+          "write-floats" = [ "lexical-write-float" "write" "floats" ];
+          "write-integers" = [ "lexical-write-integer" "write" "integers" ];
+        };
+        resolvedDefaultFeatures = [ "default" "floats" "format" "integers" "lexical-parse-float" "lexical-parse-integer" "lexical-write-float" "lexical-write-integer" "parse" "parse-floats" "parse-integers" "std" "write" "write-floats" "write-integers" ];
+      };
+      "lexical-parse-float" = rec {
+        crateName = "lexical-parse-float";
+        version = "0.8.5";
+        edition = "2018";
+        sha256 = "0py0gp8hlzcrlvjqmqlpl2v1as65iiqxq2xsabxvhc01pmg3lfv8";
+        authors = [
+          "Alex Huszagh <ahuszagh@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "lexical-parse-integer";
+            packageId = "lexical-parse-integer";
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "lexical-util";
+            packageId = "lexical-util";
+            usesDefaultFeatures = false;
+            features = [ "parse-floats" ];
+          }
+          {
+            name = "static_assertions";
+            packageId = "static_assertions";
+          }
+        ];
+        features = {
+          "compact" = [ "lexical-util/compact" "lexical-parse-integer/compact" ];
+          "default" = [ "std" ];
+          "f128" = [ "lexical-util/f128" ];
+          "f16" = [ "lexical-util/f16" ];
+          "format" = [ "lexical-util/format" "lexical-parse-integer/format" ];
+          "lint" = [ "lexical-util/lint" "lexical-parse-integer/lint" ];
+          "nightly" = [ "lexical-parse-integer/nightly" ];
+          "power-of-two" = [ "lexical-util/power-of-two" "lexical-parse-integer/power-of-two" ];
+          "radix" = [ "lexical-util/radix" "lexical-parse-integer/radix" "power-of-two" ];
+          "safe" = [ "lexical-parse-integer/safe" ];
+          "std" = [ "lexical-util/std" "lexical-parse-integer/std" ];
+        };
+        resolvedDefaultFeatures = [ "format" "std" ];
+      };
+      "lexical-parse-integer" = rec {
+        crateName = "lexical-parse-integer";
+        version = "0.8.6";
+        edition = "2018";
+        sha256 = "1sayji3mpvb2xsjq56qcq3whfz8px9a6fxk5v7v15hyhbr4982bd";
+        authors = [
+          "Alex Huszagh <ahuszagh@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "lexical-util";
+            packageId = "lexical-util";
+            usesDefaultFeatures = false;
+            features = [ "parse-integers" ];
+          }
+          {
+            name = "static_assertions";
+            packageId = "static_assertions";
+          }
+        ];
+        features = {
+          "compact" = [ "lexical-util/compact" ];
+          "default" = [ "std" ];
+          "format" = [ "lexical-util/format" ];
+          "lint" = [ "lexical-util/lint" ];
+          "power-of-two" = [ "lexical-util/power-of-two" ];
+          "radix" = [ "lexical-util/radix" "power-of-two" ];
+          "std" = [ "lexical-util/std" ];
+        };
+        resolvedDefaultFeatures = [ "format" "std" ];
+      };
+      "lexical-util" = rec {
+        crateName = "lexical-util";
+        version = "0.8.5";
+        edition = "2018";
+        sha256 = "1z73qkv7yxhsbc4aiginn1dqmsj8jarkrdlyxc88g2gz2vzvjmaj";
+        authors = [
+          "Alex Huszagh <ahuszagh@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "static_assertions";
+            packageId = "static_assertions";
+          }
+        ];
+        features = {
+          "default" = [ "std" ];
+          "f128" = [ "floats" ];
+          "f16" = [ "floats" ];
+          "parse-floats" = [ "parse" "floats" ];
+          "parse-integers" = [ "parse" "integers" ];
+          "radix" = [ "power-of-two" ];
+          "write-floats" = [ "write" "floats" ];
+          "write-integers" = [ "write" "integers" ];
+        };
+        resolvedDefaultFeatures = [ "floats" "format" "integers" "parse" "parse-floats" "parse-integers" "std" "write" "write-floats" "write-integers" ];
+      };
+      "lexical-write-float" = rec {
+        crateName = "lexical-write-float";
+        version = "0.8.5";
+        edition = "2018";
+        sha256 = "0qk825l0csvnksh9sywb51996cjc2bylq6rxjaiha7sqqjhvmjmc";
+        authors = [
+          "Alex Huszagh <ahuszagh@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "lexical-util";
+            packageId = "lexical-util";
+            usesDefaultFeatures = false;
+            features = [ "write-floats" ];
+          }
+          {
+            name = "lexical-write-integer";
+            packageId = "lexical-write-integer";
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "static_assertions";
+            packageId = "static_assertions";
+          }
+        ];
+        features = {
+          "compact" = [ "lexical-util/compact" "lexical-write-integer/compact" ];
+          "default" = [ "std" ];
+          "f128" = [ "lexical-util/f128" ];
+          "f16" = [ "lexical-util/f16" ];
+          "format" = [ "lexical-util/format" ];
+          "lint" = [ "lexical-util/lint" "lexical-write-integer/lint" ];
+          "nightly" = [ "lexical-write-integer/nightly" ];
+          "power-of-two" = [ "lexical-util/power-of-two" "lexical-write-integer/power-of-two" ];
+          "radix" = [ "lexical-util/radix" "lexical-write-integer/radix" "power-of-two" ];
+          "safe" = [ "lexical-write-integer/safe" ];
+          "std" = [ "lexical-util/std" "lexical-write-integer/std" ];
+        };
+        resolvedDefaultFeatures = [ "format" "std" ];
+      };
+      "lexical-write-integer" = rec {
+        crateName = "lexical-write-integer";
+        version = "0.8.5";
+        edition = "2018";
+        sha256 = "0ii4hmvqrg6pd4j9y1pkhkp0nw2wpivjzmljh6v6ca22yk8z7dp1";
+        authors = [
+          "Alex Huszagh <ahuszagh@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "lexical-util";
+            packageId = "lexical-util";
+            usesDefaultFeatures = false;
+            features = [ "write-integers" ];
+          }
+          {
+            name = "static_assertions";
+            packageId = "static_assertions";
+          }
+        ];
+        features = {
+          "compact" = [ "lexical-util/compact" ];
+          "default" = [ "std" ];
+          "format" = [ "lexical-util/format" ];
+          "lint" = [ "lexical-util/lint" ];
+          "power-of-two" = [ "lexical-util/power-of-two" ];
+          "radix" = [ "lexical-util/radix" "power-of-two" ];
+          "std" = [ "lexical-util/std" ];
+        };
+        resolvedDefaultFeatures = [ "format" "std" ];
+      };
       "libc" = rec {
         crateName = "libc";
         version = "0.2.137";
@@ -5464,6 +5694,16 @@ rec {
         features = { };
         resolvedDefaultFeatures = [ "all" ];
       };
+      "static_assertions" = rec {
+        crateName = "static_assertions";
+        version = "1.1.0";
+        edition = "2015";
+        sha256 = "0gsl6xmw10gvn3zs1rv99laj5ig7ylffnh71f9l34js4nr4r7sx2";
+        authors = [
+          "Nikolai Vazquez"
+        ];
+        features = { };
+      };
       "str-buf" = rec {
         crateName = "str-buf";
         version = "1.0.6";
@@ -7175,6 +7415,15 @@ rec {
             name = "imbl";
             packageId = "imbl";
             features = [ "serde" ];
+          }
+          {
+            name = "lazy_static";
+            packageId = "lazy_static";
+          }
+          {
+            name = "lexical-core";
+            packageId = "lexical-core";
+            features = [ "format" "parse-floats" ];
           }
           {
             name = "path-clean";

@@ -15,6 +15,8 @@ codemap = "0.1.3"
 codemap-diagnostic = "0.1.1"
 dirs = "4.0.0"
 imbl = { version = "2.0", features = [ "serde" ] }
+lazy_static = "1.4.0"
+lexical-core = { version = "0.8.5", features = ["format", "parse-floats"] }
 path-clean = "0.1"
 proptest = { version = "1.0.0", default_features = false, features = ["std", "alloc", "break-dead-code", "tempfile"], optional = true }
 regex = "1.6.0"
