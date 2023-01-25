@@ -64,8 +64,8 @@ optimisations, but note the most important ones here.
 
 * Inline fully applied builtins with equivalent operators [medium]
 
-  Some `builtins` have equivalent operators, e.g. `builtins.add`
-  corresponds to the `+` operator, `builtins.hasAttr` to the `?`
+  Some `builtins` have equivalent operators, e.g. `builtins.sub`
+  corresponds to the `-` operator, `builtins.hasAttr` to the `?`
   operator etc. These operators additionally compile to a primitive
   VM opcode, so they should be just as cheap (if not cheaper) as
   a builtin application.
@@ -73,7 +73,7 @@ optimisations, but note the most important ones here.
   In case the compiler encounters a fully applied builtin (i.e.
   no currying is occurring) and the `builtins` global is unshadowed,
   it could compile the equivalent operator bytecode instead: For
-  example, `builtins.add 20 22` would be compiled as `20 + 22`.
+  example, `builtins.sub 20 22` would be compiled as `20 - 22`.
   This would ensure that equivalent `builtins` can also benefit
   from special optimisations we may implement for certain operators
   (in the absence of currying). E.g. we could optimise access
