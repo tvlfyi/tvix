@@ -5,7 +5,7 @@
 It is a piece of semi-obscure Nix trivia that while functions are generally not
 comparable, they can be compared in certain situations. This is actually quite an
 important fact, as it is essential for the evaluation of nixpkgs: The attribute sets
-used to represent platforms in nixpkgs, like `stdenv.buildPlatform`,  contain functions,
+used to represent platforms in nixpkgs, like `stdenv.buildPlatform`, contain functions,
 such as `stdenv.buildPlatform.canExecute`. When writing cross logic, one invariably
 ends up writing expressions that compare these sets, e.g. `stdenv.buildPlatform !=
 stdenv.hostPlatform`. Since attribute set equality is the equality of their attribute
@@ -46,7 +46,7 @@ So what is _actually_ going on?
 
 ## Nix (pointer) Equality in C++ Nix
 
-TIP: The summary presented here is up to date as of 2022-11-23 and was tested with Nix 2.3 and 2.11.
+TIP: The summary presented here is up-to-date as of 2022-11-23 and was tested with Nix 2.3 and 2.11.
 
 The function implementing equality in C++ Nix is `EvalState::eqValues` which starts with
 [the following bit of code][eqValues-pointer-eq]:
@@ -79,7 +79,7 @@ In fact, we can also write our `pointerEqual` function as:
 lhs: rhs: [ lhs ] == [ rhs ]
 ```
 
-It's interesting that `EvalState::eqValues` forces the left and right hand value before trying pointer
+It's interesting that `EvalState::eqValues` forces the left and right-hand value before trying pointer
 equality. It explains that `let x = throw ""; in x == x` does not evaluate successfully, but it is puzzling why
 `let f = x: x; in f == f` does not return `true`. In fact, why do we need to wrap the values in a list or
 attribute set at all for our `pointerEqual` function to work?
@@ -183,7 +183,7 @@ indicating that pointer comparison may be removed in the future.
 
 Now, I can't speak for the upstream C++ Nix developers, but sure can speculate.
 As already pointed out, this feature is currently needed for evaluating nixpkgs.
-While it's use could realistically be eliminated (only bothersome spot is probably
+While its use could realistically be eliminated (only bothersome spot is probably
 the `emulator` function, but that should also be doable), removing the feature
 would seriously compromise C++ Nix's ability to evaluate historical nixpkgs
 revision which is arguably a strength of the system.
