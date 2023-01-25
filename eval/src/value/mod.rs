@@ -656,6 +656,34 @@ mod tests {
     use super::*;
     use imbl::vector;
 
+    mod floats {
+        use crate::value::total_fmt_float;
+
+        #[test]
+        fn format_float() {
+            let ff = vec![
+                (0f64, "0"),
+                (1.0f64, "1"),
+                (-0.01, "-0.01"),
+                (5e+22, "5e+22"),
+                (1e6, "1e+06"),
+                (-2E-2, "-0.02"),
+                (6.626e-34, "6.626e-34"),
+                (9_224_617.445_991_228_313, "9.22462e+06"),
+            ];
+            for (n, expected) in ff.iter() {
+                let mut buf = String::new();
+                let res = total_fmt_float(*n, &mut buf);
+                assert!(res.is_ok());
+                assert_eq!(
+                    expected, &buf,
+                    "{} should be formatted as {}, but got {}",
+                    n, expected, &buf
+                );
+            }
+        }
+    }
+
     mod nix_eq {
         use crate::observer::NoOpObserver;
 
