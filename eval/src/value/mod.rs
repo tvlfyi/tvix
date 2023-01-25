@@ -514,6 +514,80 @@ impl Display for Value {
     }
 }
 
+/// Emulates the C++-Nix style formatting of floats, which diverges
+/// significantly from Rust's native float formatting.
+fn total_fmt_float<F: std::fmt::Write>(num: f64, mut f: F) -> std::fmt::Result {
+    let mut buf = [b'0'; lexical_core::BUFFER_SIZE];
+    let mut s = lexical_core::write_with_options::<f64, { CXX_LITERAL }>(
+        num.clone(),
+        &mut buf,
+        &WRITE_FLOAT_OPTIONS,
+    );
+
+    // apply some postprocessing on the buffer. If scientific
+    // notation is used (we see an `e`), and the next character is
+    // a digit, add the missing `+` sign.)
+    let mut new_s = Vec::with_capacity(s.len());
+
+    if s.contains(&b'e') {
+        for (i, c) in s.iter().enumerate() {
+            // encountered `e`
+            if c == &b'e' {
+                // next character is a digit (so no negative exponent)
+                if s.len() > i && s[i + 1].is_ascii_digit() {
+                    // copy everything from the start up to (including) the e
+                    new_s.extend_from_slice(&s[0..=i]);
+                    // add the missing '+'
+                    new_s.push(b'+');
+                    // check for the remaining characters.
+                    // If it's only one, we need to prepend a trailing zero
+                    if s.len() == i + 2 {
+                        new_s.push(b'0');
+                    }
+                    new_s.extend_from_slice(&s[i + 1..]);
+                    break;
+                }
+            }
+        }
+
+        // if we modified the scientific notation, flip the reference
+        if new_s.len() != 0 {
+            s = &mut new_s
+        }
+    }
+    // else, if this is not scientific notation, and there's a
+    // decimal point, make sure we really drop trailing zeroes.
+    // In some cases, lexical_core doesn't.
+    else if s.contains(&b'.') {
+        for (i, c) in s.iter().enumerate() {
+            // at `.``
+            if c == &b'.' {
+                // trim zeroes from the right side.
+                let frac = String::from_utf8_lossy(&s[i + 1..]);
+                let frac_no_trailing_zeroes = frac.trim_end_matches("0");
+
+                if frac.len() != frac_no_trailing_zeroes.len() {
+                    // we managed to strip something, construct new_s
+                    if frac_no_trailing_zeroes.is_empty() {
+                        // if frac_no_trailing_zeroes is empty, the fractional part was all zeroes, so we can drop the decimal point as well
+                        new_s.extend_from_slice(&s[0..=i - 1]);
+                    } else {
+                        // else, assemble the rest of the string
+                        new_s.extend_from_slice(&s[0..=i]);
+                        new_s.extend_from_slice(frac_no_trailing_zeroes.as_bytes());
+                    }
+
+                    // flip the reference
+                    s = &mut new_s;
+                    break;
+                }
+            }
+        }
+    }
+
+    write!(f, "{}", format!("{}", String::from_utf8_lossy(&s)))
+}
+
 impl TotalDisplay for Value {
     fn total_fmt(&self, f: &mut std::fmt::Formatter<'_>, set: &mut ThunkSet) -> std::fmt::Result {
         match self {
@@ -531,77 +605,7 @@ impl TotalDisplay for Value {
             // Nix prints floats with a maximum precision of 5 digits
             // only. Except when it decides to use scientific notation
             // (with a + after the `e`, and zero-padded to 0 digits)
-            Value::Float(num) => {
-                let mut buf = [b'0'; lexical_core::BUFFER_SIZE];
-                let mut s = lexical_core::write_with_options::<f64, { CXX_LITERAL }>(
-                    num.clone(),
-                    &mut buf,
-                    &WRITE_FLOAT_OPTIONS,
-                );
-
-                // apply some postprocessing on the buffer. If scientific
-                // notation is used (we see an `e`), and the next character is
-                // a digit, add the missing `+` sign.)
-                let mut new_s = Vec::with_capacity(s.len());
-
-                if s.contains(&b'e') {
-                    for (i, c) in s.iter().enumerate() {
-                        // encountered `e`
-                        if c == &b'e' {
-                            // next character is a digit (so no negative exponent)
-                            if s.len() > i && s[i + 1].is_ascii_digit() {
-                                // copy everything from the start up to (including) the e
-                                new_s.extend_from_slice(&s[0..=i]);
-                                // add the missing '+'
-                                new_s.push(b'+');
-                                // check for the remaining characters.
-                                // If it's only one, we need to prepend a trailing zero
-                                if s.len() == i + 2 {
-                                    new_s.push(b'0');
-                                }
-                                new_s.extend_from_slice(&s[i + 1..]);
-                                break;
-                            }
-                        }
-                    }
-
-                    // if we modified the scientific notation, flip the reference
-                    if new_s.len() != 0 {
-                        s = &mut new_s
-                    }
-                }
-                // else, if this is not scientific notation, and there's a
-                // decimal point, make sure we really drop trailing zeroes.
-                // In some cases, lexical_core doesn't.
-                else if s.contains(&b'.') {
-                    for (i, c) in s.iter().enumerate() {
-                        // at `.``
-                        if c == &b'.' {
-                            // trim zeroes from the right side.
-                            let frac = String::from_utf8_lossy(&s[i + 1..]);
-                            let frac_no_trailing_zeroes = frac.trim_end_matches("0");
-
-                            if frac.len() != frac_no_trailing_zeroes.len() {
-                                // we managed to strip something, construct new_s
-                                if frac_no_trailing_zeroes.is_empty() {
-                                    // if frac_no_trailing_zeroes is empty, the fractional part was all zeroes, so we can drop the decimal point as well
-                                    new_s.extend_from_slice(&s[0..=i - 1]);
-                                } else {
-                                    // else, assemble the rest of the string
-                                    new_s.extend_from_slice(&s[0..=i]);
-                                    new_s.extend_from_slice(frac_no_trailing_zeroes.as_bytes());
-                                }
-
-                                // flip the reference
-                                s = &mut new_s;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                write!(f, "{}", format!("{}", String::from_utf8_lossy(&s)))
-            }
+            Value::Float(num) => total_fmt_float(*num, f),
 
             // internal types
             Value::AttrNotFound => f.write_str("internal[not found]"),
