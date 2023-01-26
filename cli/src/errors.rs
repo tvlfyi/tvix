@@ -1,7 +1,7 @@
 use std::{error, fmt::Display, rc::Rc};
 use tvix_derivation::DerivationError;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Error {
     // Errors related to derivation construction
     DuplicateOutput(String),
@@ -10,6 +10,11 @@ pub enum Error {
     ShadowedOutput(String),
     InvalidDerivation(DerivationError),
     InvalidOutputHashMode(String),
+    UnsupportedSRIAlgo(String),
+    UnsupportedSRIMultiple(usize),
+    InvalidSRIDigest(data_encoding::DecodeError),
+    InvalidSRIString(String),
+    ConflictingSRIHashAlgo(String, String),
 }
 
 impl Display for Error {
@@ -38,6 +43,31 @@ impl Display for Error {
                 f,
                 "invalid output hash mode: '{mode}', only 'recursive' and 'flat` are supported"
             ),
+            Error::UnsupportedSRIAlgo(algo) => {
+                write!(
+                    f,
+                    "unsupported sri algorithm: {algo}, only sha1, sha256 or sha512 is supported"
+                )
+            }
+            Error::UnsupportedSRIMultiple(n) => {
+                write!(
+                    f,
+                    "invalid number of sri hashes in string ({n}), only one hash is supported"
+                )
+            }
+            Error::InvalidSRIDigest(err) => {
+                write!(f, "invalid sri digest: {}", err)
+            }
+            Error::InvalidSRIString(err) => {
+                write!(f, "failed to parse SRI string: {}", err)
+            }
+            Error::ConflictingSRIHashAlgo(algo, sri_algo) => {
+                write!(
+                    f,
+                    "outputHashAlgo is set to {}, but outputHash contains SRI with algo {}",
+                    algo, sri_algo
+                )
+            }
         }
     }
 }
