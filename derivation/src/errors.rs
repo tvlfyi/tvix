@@ -2,7 +2,7 @@ use thiserror::Error;
 use tvix_store::store_path::ParseStorePathError;
 
 /// Errors that can occur during the validation of Derivation structs.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 pub enum DerivationError {
     // outputs
     #[error("no outputs defined")]
@@ -43,7 +43,7 @@ pub enum DerivationError {
 }
 
 /// Errors that can occur during the validation of a specific [Output] of a [Derviation].
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 pub enum OutputError {
     #[error("Invalid ouput path {0}: {1}")]
     InvalidOutputPath(String, ParseStorePathError),
