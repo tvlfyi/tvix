@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use tvix_store::{nixbase32::NIXBASE32, store_path::StorePath};
+use tvix_store::{nixbase32, store_path::StorePath};
 
 use crate::OutputError;
 
@@ -27,7 +27,7 @@ impl Output {
     pub fn validate(&self, validate_output_paths: bool) -> Result<(), OutputError> {
         if let Some(hash) = &self.hash {
             // try to decode digest
-            let result = NIXBASE32.decode(&hash.digest.as_bytes());
+            let result = nixbase32::decode(&hash.digest.as_bytes());
             match result {
                 Err(e) => return Err(OutputError::InvalidHashEncoding(hash.digest.clone(), e)),
                 Ok(digest) => {

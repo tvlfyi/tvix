@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use std::{collections::BTreeMap, fmt, fmt::Write};
-use tvix_store::nixbase32::NIXBASE32;
+use tvix_store::nixbase32;
 use tvix_store::store_path::{StorePath, STORE_DIR};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
@@ -64,9 +64,9 @@ fn build_store_path(
     };
     let compressed = compress_hash(&digest, 20);
     if is_derivation {
-        StorePath::from_string(format!("{}-{}.drv", NIXBASE32.encode(&compressed), name).as_str())
+        StorePath::from_string(format!("{}-{}.drv", nixbase32::encode(&compressed), name).as_str())
     } else {
-        StorePath::from_string(format!("{}-{}", NIXBASE32.encode(&compressed), name,).as_str())
+        StorePath::from_string(format!("{}-{}", nixbase32::encode(&compressed), name,).as_str())
     }
     .map_err(|_e| DerivationError::InvalidOutputName(name.to_string()))
     // Constructing the StorePath can only fail if the passed output name was

@@ -1,5 +1,4 @@
-use crate::nixbase32::NIXBASE32;
-use data_encoding::DecodeError;
+use crate::nixbase32::{self, Nixbase32DecodeError};
 use std::fmt;
 use thiserror::Error;
 
@@ -19,7 +18,7 @@ pub enum ParseStorePathError {
     #[error("Dash is missing between hash and name")]
     MissingDash(),
     #[error("Hash encoding is invalid: {0}")]
-    InvalidHashEncoding(DecodeError),
+    InvalidHashEncoding(Nixbase32DecodeError),
     #[error("Invalid name: {0}")]
     InvalidName(String),
     #[error("Tried to parse an absolute path which was missing the store dir prefix.")]
@@ -53,7 +52,7 @@ impl StorePath {
             return Err(ParseStorePathError::InvalidName("".to_string()));
         }
 
-        let digest = match NIXBASE32.decode(s[..ENCODED_DIGEST_SIZE].as_bytes()) {
+        let digest = match nixbase32::decode(s[..ENCODED_DIGEST_SIZE].as_bytes()) {
             Ok(decoded) => decoded,
             Err(decoder_error) => {
                 return Err(ParseStorePathError::InvalidHashEncoding(decoder_error))
@@ -110,25 +109,20 @@ impl StorePath {
 
 impl fmt::Display for StorePath {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}-{}",
-            crate::nixbase32::NIXBASE32.encode(&self.digest),
-            self.name
-        )
+        write!(f, "{}-{}", nixbase32::encode(&self.digest), self.name)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::nixbase32::NIXBASE32;
+    use crate::nixbase32;
     use crate::store_path::{DIGEST_SIZE, ENCODED_DIGEST_SIZE};
 
     use super::{ParseStorePathError, StorePath};
 
     #[test]
     fn encoded_digest_size() {
-        assert_eq!(ENCODED_DIGEST_SIZE, NIXBASE32.encode_len(DIGEST_SIZE));
+        assert_eq!(ENCODED_DIGEST_SIZE, nixbase32::encode_len(DIGEST_SIZE));
     }
 
     #[test]

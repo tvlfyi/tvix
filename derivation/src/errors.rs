@@ -1,5 +1,5 @@
 use thiserror::Error;
-use tvix_store::store_path::ParseStorePathError;
+use tvix_store::{nixbase32::Nixbase32DecodeError, store_path::ParseStorePathError};
 
 /// Errors that can occur during the validation of Derivation structs.
 #[derive(Debug, Error, PartialEq)]
@@ -48,7 +48,7 @@ pub enum OutputError {
     #[error("Invalid ouput path {0}: {1}")]
     InvalidOutputPath(String, ParseStorePathError),
     #[error("Invalid hash encoding: {0}")]
-    InvalidHashEncoding(String, data_encoding::DecodeError),
+    InvalidHashEncoding(String, Nixbase32DecodeError),
     #[error("Invalid hash algo: {0}")]
     InvalidHashAlgo(String),
     #[error("Invalid Digest size {0} for algo {1}")]
