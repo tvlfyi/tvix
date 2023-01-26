@@ -27,7 +27,7 @@ impl Default for Parameters {
 }
 
 impl Arbitrary for NixAttrs {
-    type Parameters = Parameters; // <BTreeMap<NixString, Value> as Arbitrary>::Parameters;
+    type Parameters = Parameters;
     type Strategy = BoxedStrategy<Self>;
 
     fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
