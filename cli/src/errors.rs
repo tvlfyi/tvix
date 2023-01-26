@@ -1,81 +1,32 @@
-use std::{error, fmt::Display, rc::Rc};
+use std::rc::Rc;
+use thiserror::Error;
 use tvix_derivation::DerivationError;
 
-#[derive(Debug, PartialEq)]
+/// Errors related to derivation construction
+#[derive(Debug, Error, PartialEq)]
 pub enum Error {
-    // Errors related to derivation construction
+    #[error("an output with the name '{0}' is already defined")]
     DuplicateOutput(String),
+    #[error("fixed-output derivations can only have the default `out`-output")]
     ConflictingOutputTypes,
+    #[error("the environment variable '{0}' has already been set in this derivation")]
     DuplicateEnvVar(String),
+    #[error("the environment variable '{0}' shadows the name of an output")]
     ShadowedOutput(String),
+    #[error("invalid derivation parameters: {0}")]
     InvalidDerivation(DerivationError),
+    #[error("invalid output hash mode: '{0}', only 'recursive' and 'flat` are supported")]
     InvalidOutputHashMode(String),
+    #[error("unsupported sri algorithm: {0}, only sha1, sha256 or sha512 is supported")]
     UnsupportedSRIAlgo(String),
+    #[error("invalid number of sri hashes in string ({0}), only one hash is supported")]
     UnsupportedSRIMultiple(usize),
+    #[error("invalid sri digest: {0}")]
     InvalidSRIDigest(data_encoding::DecodeError),
+    #[error("failed to parse SRI string: {0}")]
     InvalidSRIString(String),
+    #[error("outputHashAlgo is set to {0}, but outputHash contains SRI with algo {1}")]
     ConflictingSRIHashAlgo(String, String),
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::DuplicateOutput(name) => {
-                write!(f, "an output with the name '{name}' is already defined")
-            }
-
-            Error::ConflictingOutputTypes => write!(
-                f,
-                "fixed-output derivations can only have the default `out`-output"
-            ),
-
-            Error::DuplicateEnvVar(name) => write!(
-                f,
-                "the environment variable '{name}' has already been set in this derivation"
-            ),
-            Error::ShadowedOutput(name) => write!(
-                f,
-                "the environment variable '{name}' shadows the name of an output"
-            ),
-            Error::InvalidDerivation(error) => write!(f, "invalid derivation parameters: {error}"),
-
-            Error::InvalidOutputHashMode(mode) => write!(
-                f,
-                "invalid output hash mode: '{mode}', only 'recursive' and 'flat` are supported"
-            ),
-            Error::UnsupportedSRIAlgo(algo) => {
-                write!(
-                    f,
-                    "unsupported sri algorithm: {algo}, only sha1, sha256 or sha512 is supported"
-                )
-            }
-            Error::UnsupportedSRIMultiple(n) => {
-                write!(
-                    f,
-                    "invalid number of sri hashes in string ({n}), only one hash is supported"
-                )
-            }
-            Error::InvalidSRIDigest(err) => {
-                write!(f, "invalid sri digest: {}", err)
-            }
-            Error::InvalidSRIString(err) => {
-                write!(f, "failed to parse SRI string: {}", err)
-            }
-            Error::ConflictingSRIHashAlgo(algo, sri_algo) => {
-                write!(
-                    f,
-                    "outputHashAlgo is set to {}, but outputHash contains SRI with algo {}",
-                    algo, sri_algo
-                )
-            }
-        }
-    }
-}
-
-impl error::Error for Error {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        None
-    }
 }
 
 impl From<Error> for tvix_eval::ErrorKind {

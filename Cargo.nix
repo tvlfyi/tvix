@@ -7734,6 +7734,10 @@ rec {
             packageId = "ssri";
           }
           {
+            name = "thiserror";
+            packageId = "thiserror";
+          }
+          {
             name = "tvix-derivation";
             packageId = "tvix-derivation";
           }

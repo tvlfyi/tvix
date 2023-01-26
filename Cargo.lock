@@ -2615,6 +2615,7 @@ dependencies = [
  "smol_str",
  "ssri",
  "test-case",
+ "thiserror",
  "tvix-derivation",
  "tvix-eval",
  "tvix-store-bin",
