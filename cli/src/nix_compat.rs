@@ -78,17 +78,18 @@ impl NixCompatIO {
         if !out.status.success() {
             return Err(io::Error::new(
                 io::ErrorKind::Other,
-                String::from_utf8_lossy(&out.stderr),
+                String::from_utf8_lossy(&out.stderr).trim().to_owned(),
             ));
         }
 
         let out_path_str = String::from_utf8(out.stdout)
             .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
+        let out_path_trimmed = out_path_str.trim();
 
-        self.known_paths.borrow_mut().plain(&out_path_str);
+        self.known_paths.borrow_mut().plain(out_path_trimmed);
 
         let mut out_path = PathBuf::new();
-        out_path.push(out_path_str.trim());
+        out_path.push(out_path_trimmed);
         Ok(out_path)
     }
 }
