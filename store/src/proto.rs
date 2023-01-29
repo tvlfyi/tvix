@@ -150,6 +150,30 @@ impl PathInfo {
     }
 }
 
+/// NamedNode is implemented for [FileNode], [DirectoryNode] and [SymlinkNode],
+/// so we can ask all three for their name easily.
+trait NamedNode {
+    fn get_name(&self) -> &str;
+}
+
+impl NamedNode for &FileNode {
+    fn get_name(&self) -> &str {
+        self.name.as_str()
+    }
+}
+
+impl NamedNode for &DirectoryNode {
+    fn get_name(&self) -> &str {
+        self.name.as_str()
+    }
+}
+
+impl NamedNode for &SymlinkNode {
+    fn get_name(&self) -> &str {
+        self.name.as_str()
+    }
+}
+
 /// Accepts a name, and a mutable reference to the previous name.
 /// If the passed name is larger than the previous one, the reference is updated.
 /// If it's not, an error is returned.
