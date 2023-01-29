@@ -173,26 +173,22 @@ fn populate_output_configuration(
         (Some(hash), Some(algo), hash_mode) => match drv.outputs.get_mut("out") {
             None => return Err(Error::ConflictingOutputTypes.into()),
             Some(out) => {
-                let algo = algo
-                    .force(vm)?
-                    .coerce_to_string(CoercionKind::Strong, vm)?
-                    .as_str()
-                    .to_string();
+                let algo = strong_coerce_to_string(
+                    vm,
+                    &algo,
+                    "evaluating outputHashAlgo of a derivation",
+                )?;
 
-                let digest_str = hash
-                    .force(vm)?
-                    .coerce_to_string(CoercionKind::Strong, vm)?
-                    .as_str()
-                    .to_string();
+                let digest_str =
+                    strong_coerce_to_string(vm, &hash, "evaluating outputHash of a derivation")?;
 
                 let hash_mode = match hash_mode {
                     None => None,
-                    Some(mode) => Some(
-                        mode.force(vm)?
-                            .coerce_to_string(CoercionKind::Strong, vm)?
-                            .as_str()
-                            .to_string(),
-                    ),
+                    Some(mode) => Some(strong_coerce_to_string(
+                        vm,
+                        &mode,
+                        "evaluating outputHashMode of a derivation",
+                    )?),
                 };
 
                 // construct out.hash
@@ -227,13 +223,11 @@ fn handle_derivation_parameters(
         "args" => {
             let args = value.to_list()?;
             for arg in args {
-                drv.arguments.push(
-                    arg.force(vm)?
-                        .coerce_to_string(CoercionKind::Strong, vm)
-                        .context("handling command-line builder arguments")?
-                        .as_str()
-                        .to_string(),
-                );
+                drv.arguments.push(strong_coerce_to_string(
+                    vm,
+                    &arg,
+                    "handling command-line builder arguments",
+                )?);
             }
 
             // The arguments do not appear in the environment.
@@ -262,6 +256,16 @@ fn handle_derivation_parameters(
     }
 
     Ok(true)
+}
+
+fn strong_coerce_to_string(vm: &mut VM, val: &Value, ctx: &str) -> Result<String, ErrorKind> {
+    Ok(val
+        .force(vm)
+        .context(ctx)?
+        .coerce_to_string(CoercionKind::Strong, vm)
+        .context(ctx)?
+        .as_str()
+        .to_string())
 }
 
 #[builtins(state = "Rc<RefCell<KnownPaths>>")]
@@ -316,11 +320,7 @@ mod derivation_builtins {
                 continue;
             }
 
-            let val_str = value
-                .force(vm)?
-                .coerce_to_string(CoercionKind::Strong, vm)?
-                .as_str()
-                .to_string();
+            let val_str = strong_coerce_to_string(vm, &value, "evaluating derivation attributes")?;
 
             // handle_derivation_parameters tells us whether the
             // argument should be added to the environment; continue
