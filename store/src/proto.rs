@@ -1,6 +1,6 @@
 #![allow(clippy::derive_partial_eq_without_eq)]
 // https://github.com/hyperium/tonic/issues/1056
-use std::collections::HashSet;
+use std::{collections::HashSet, iter::Peekable};
 use thiserror::Error;
 
 use prost::Message;
@@ -273,5 +273,84 @@ impl Directory {
         }
 
         Ok(())
+    }
+
+    /// Allows iterating over all three nodes ([DirectoryNode], [FileNode],
+    /// [SymlinkNode]) in an ordered fashion, as long as the individual lists
+    /// are sorted (which can be checked by the [Directory::validate]).
+    pub fn nodes(&self) -> DirectoryNodesIterator {
+        return DirectoryNodesIterator {
+            i_directories: self.directories.iter().peekable(),
+            i_files: self.files.iter().peekable(),
+            i_symlinks: self.symlinks.iter().peekable(),
+        };
+    }
+}
+
+/// Struct to hold the state of an iterator over all nodes of a Directory.
+///
+/// Internally, this keeps peekable Iterators over all three lists of a
+/// Directory message.
+pub struct DirectoryNodesIterator<'a> {
+    // directory: &Directory,
+    i_directories: Peekable<std::slice::Iter<'a, DirectoryNode>>,
+    i_files: Peekable<std::slice::Iter<'a, FileNode>>,
+    i_symlinks: Peekable<std::slice::Iter<'a, SymlinkNode>>,
+}
+
+/// looks at two elements implementing NamedNode, and returns true if "left
+/// is smaller / comes first".
+///
+/// Some(_) is preferred over None.
+fn left_name_lt_right<A: NamedNode, B: NamedNode>(left: Option<&A>, right: Option<&B>) -> bool {
+    match left {
+        // if left is None, right always wins
+        None => false,
+        Some(left_inner) => {
+            // left is Some.
+            match right {
+                // left is Some, right is None - left wins.
+                None => true,
+                Some(right_inner) => {
+                    // both are Some - compare the name.
+                    return left_inner.get_name() < right_inner.get_name();
+                }
+            }
+        }
+    }
+}
+
+impl Iterator for DirectoryNodesIterator<'_> {
+    type Item = node::Node;
+
+    // next returns the next node in the Directory.
+    // we peek at all three internal iterators, and pick the one with the
+    // smallest name, to ensure lexicographical ordering.
+    // The individual lists are already known to be sorted.
+    fn next(&mut self) -> Option<Self::Item> {
+        if left_name_lt_right(self.i_directories.peek(), self.i_files.peek()) {
+            // i_directories is still in the game, compare with symlinks
+            if left_name_lt_right(self.i_directories.peek(), self.i_symlinks.peek()) {
+                self.i_directories
+                    .next()
+                    .map(|x| x.clone())
+                    .map(node::Node::Directory)
+            } else {
+                self.i_symlinks
+                    .next()
+                    .map(|x| x.clone())
+                    .map(node::Node::Symlink)
+            }
+        } else {
+            // i_files is still in the game, compare with symlinks
+            if left_name_lt_right(self.i_files.peek(), self.i_symlinks.peek()) {
+                self.i_files.next().map(|x| x.clone()).map(node::Node::File)
+            } else {
+                self.i_symlinks
+                    .next()
+                    .map(|x| x.clone())
+                    .map(node::Node::Symlink)
+            }
+        }
     }
 }
