@@ -150,9 +150,9 @@ impl PathInfo {
     }
 }
 
-/// NamedNode is implemented for [FileNode], [DirectoryNode] and [SymlinkNode],
-/// so we can ask all three for their name easily.
-trait NamedNode {
+/// NamedNode is implemented for [FileNode], [DirectoryNode] and [SymlinkNode]
+/// and [node::Node], so we can ask all of them for the name easily.
+pub trait NamedNode {
     fn get_name(&self) -> &str;
 }
 
@@ -171,6 +171,16 @@ impl NamedNode for &DirectoryNode {
 impl NamedNode for &SymlinkNode {
     fn get_name(&self) -> &str {
         self.name.as_str()
+    }
+}
+
+impl NamedNode for node::Node {
+    fn get_name(&self) -> &str {
+        match self {
+            node::Node::File(node_file) => &node_file.name,
+            node::Node::Directory(node_directory) => &node_directory.name,
+            node::Node::Symlink(node_symlink) => &node_symlink.name,
+        }
     }
 }
 
