@@ -164,39 +164,15 @@ fn construct_output_hash(digest: &str, algo: &str, hash_mode: Option<&str>) -> R
 /// parameters, including invalid ones.
 fn populate_output_configuration(
     drv: &mut Derivation,
-    vm: &mut VM,
-    hash: Option<&Value>,      // in nix: outputHash
-    hash_algo: Option<&Value>, // in nix: outputHashAlgo
-    hash_mode: Option<&Value>, // in nix: outputHashmode
+    hash: Option<String>,      // in nix: outputHash
+    hash_algo: Option<String>, // in nix: outputHashAlgo
+    hash_mode: Option<String>, // in nix: outputHashmode
 ) -> Result<(), ErrorKind> {
     match (hash, hash_algo, hash_mode) {
-        (Some(hash), Some(algo), hash_mode) => match drv.outputs.get_mut("out") {
+        (Some(digest), Some(algo), hash_mode) => match drv.outputs.get_mut("out") {
             None => return Err(Error::ConflictingOutputTypes.into()),
             Some(out) => {
-                let algo = strong_coerce_to_string(
-                    vm,
-                    &algo,
-                    "evaluating outputHashAlgo of a derivation",
-                )?;
-
-                let digest_str =
-                    strong_coerce_to_string(vm, &hash, "evaluating outputHash of a derivation")?;
-
-                let hash_mode = match hash_mode {
-                    None => None,
-                    Some(mode) => Some(strong_coerce_to_string(
-                        vm,
-                        &mode,
-                        "evaluating outputHashMode of a derivation",
-                    )?),
-                };
-
-                // construct out.hash
-                out.hash = Some(construct_output_hash(
-                    &digest_str,
-                    &algo,
-                    hash_mode.as_deref(),
-                )?);
+                out.hash = Some(construct_output_hash(&digest, &algo, hash_mode.as_deref())?);
             }
         },
 
@@ -309,10 +285,22 @@ mod derivation_builtins {
         // Configure fixed-output derivations if required.
         populate_output_configuration(
             &mut drv,
-            vm,
-            input.select("outputHash"),
-            input.select("outputHashAlgo"),
-            input.select("outputHashMode"),
+            input
+                .select("outputHash")
+                .map(|v| strong_coerce_to_string(vm, v, "evaluating the `outputHash` parameter"))
+                .transpose()?,
+            input
+                .select("outputHashAlgo")
+                .map(|v| {
+                    strong_coerce_to_string(vm, v, "evaluating the `outputHashAlgo` parameter")
+                })
+                .transpose()?,
+            input
+                .select("outputHashMode")
+                .map(|v| {
+                    strong_coerce_to_string(vm, v, "evaluating the `outputHashMode` parameter")
+                })
+                .transpose()?,
         )?;
 
         for (name, value) in input.into_iter_sorted() {
@@ -545,10 +533,9 @@ mod tests {
 
     #[test]
     fn populate_output_config_std() {
-        let mut vm = fake_vm();
         let mut drv = Derivation::default();
 
-        populate_output_configuration(&mut drv, &mut vm, None, None, None)
+        populate_output_configuration(&mut drv, None, None, None)
             .expect("populate_output_configuration() should succeed");
 
         assert_eq!(drv, Derivation::default(), "derivation should be unchanged");
@@ -556,18 +543,16 @@ mod tests {
 
     #[test]
     fn populate_output_config_fod() {
-        let mut vm = fake_vm();
         let mut drv = Derivation::default();
         drv.outputs.insert("out".to_string(), Default::default());
 
-        let hash = Value::String(
-            "0000000000000000000000000000000000000000000000000000000000000000".into(),
-        );
-
-        let algo = Value::String("sha256".into());
-
-        populate_output_configuration(&mut drv, &mut vm, Some(&hash), Some(&algo), None)
-            .expect("populate_output_configuration() should succeed");
+        populate_output_configuration(
+            &mut drv,
+            Some("0000000000000000000000000000000000000000000000000000000000000000".into()),
+            Some("sha256".into()),
+            None,
+        )
+        .expect("populate_output_configuration() should succeed");
 
         let expected = Hash {
             algo: "sha256".into(),
@@ -579,19 +564,16 @@ mod tests {
 
     #[test]
     fn populate_output_config_fod_recursive() {
-        let mut vm = fake_vm();
         let mut drv = Derivation::default();
         drv.outputs.insert("out".to_string(), Default::default());
 
-        let hash = Value::String(
-            "0000000000000000000000000000000000000000000000000000000000000000".into(),
-        );
-
-        let algo = Value::String("sha256".into());
-        let mode = Value::String("recursive".into());
-
-        populate_output_configuration(&mut drv, &mut vm, Some(&hash), Some(&algo), Some(&mode))
-            .expect("populate_output_configuration() should succeed");
+        populate_output_configuration(
+            &mut drv,
+            Some("0000000000000000000000000000000000000000000000000000000000000000".into()),
+            Some("sha256".into()),
+            Some("recursive".into()),
+        )
+        .expect("populate_output_configuration() should succeed");
 
         let expected = Hash {
             algo: "r:sha256".into(),
