@@ -592,6 +592,10 @@ impl Compiler<'_> {
             self.scope_mut().mark_initialised(item_slot);
         }
 
+        if count == 0 {
+            self.unthunk();
+        }
+
         self.push_op(OpCode::OpList(Count(count)), node);
         self.scope_mut().end_scope();
     }

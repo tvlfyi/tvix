@@ -658,6 +658,10 @@ impl Compiler<'_> {
         if kind.is_attrs() {
             self.push_op(OpCode::OpAttrs(Count(count)), node);
         }
+
+        if count == 0 {
+            self.unthunk();
+        }
     }
 
     /// Compile a standard `let ...; in ...` expression.
