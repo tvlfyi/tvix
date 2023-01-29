@@ -29,7 +29,7 @@ use std::sync::Arc;
 use crate::chunk::Chunk;
 use crate::errors::{Error, ErrorKind, EvalResult};
 use crate::observer::CompilerObserver;
-use crate::opcode::{CodeIdx, Count, JumpOffset, OpCode, UpvalueIdx};
+use crate::opcode::{CodeIdx, ConstantIdx, Count, JumpOffset, OpCode, UpvalueIdx};
 use crate::spans::LightSpan;
 use crate::spans::ToSpan;
 use crate::value::{Closure, Formals, Lambda, NixAttrs, Thunk, Value};
@@ -631,17 +631,63 @@ impl Compiler<'_> {
         self.push_op(OpCode::OpHasAttr, node);
     }
 
+    /// When compiling select or select_or expressions, an optimisation is
+    /// possible of compiling the set emitted a constant attribute set by
+    /// immediately replacing it with the actual value.
+    ///
+    /// We take care not to emit an error here, as that would interfere with
+    /// thunking behaviour (there can be perfectly valid Nix code that accesses
+    /// a statically known attribute set that is lacking a key, because that
+    /// thunk is never evaluated). If anything is missing, just inform the
+    /// caller that the optimisation did not take place and move on. We may want
+    /// to emit warnings here in the future.
+    fn optimise_select(&mut self, path: &ast::Attrpath) -> bool {
+        // If compiling the set emitted a constant attribute set, the
+        // associated constant can immediately be replaced with the
+        // actual value.
+        //
+        // We take care not to emit an error here, as that would
+        // interfere with thunking behaviour (there can be perfectly
+        // valid Nix code that accesses a statically known attribute
+        // set that is lacking a key, because that thunk is never
+        // evaluated). If anything is missing, just move on. We may
+        // want to emit warnings here in the future.
+        if let Some(OpCode::OpConstant(ConstantIdx(idx))) = self.chunk().code.last().cloned() {
+            let constant = &mut self.chunk().constants[idx];
+            if let Value::Attrs(attrs) = constant {
+                let mut path_iter = path.attrs();
+
+                // Only do this optimisation if there is a *single*
+                // element in the attribute path. It is extremely
+                // unlikely that we'd have a static nested set.
+                if let (Some(attr), None) = (path_iter.next(), path_iter.next()) {
+                    // Only do this optimisation for statically known attrs.
+                    if let Some(ident) = expr_static_attr_str(&attr) {
+                        if let Some(selected_value) = attrs.select(ident.as_str()) {
+                            *constant = selected_value.clone();
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        false
+    }
+
     fn compile_select(&mut self, slot: LocalIdx, node: &ast::Select) {
         let set = node.expr().unwrap();
         let path = node.attrpath().unwrap();
 
         if node.or_token().is_some() {
-            self.compile_select_or(slot, set, path, node.default_expr().unwrap());
-            return;
+            return self.compile_select_or(slot, set, path, node.default_expr().unwrap());
         }
 
         // Push the set onto the stack
         self.compile(slot, set);
+        if self.optimise_select(&path) {
+            return;
+        }
 
         // Compile each key fragment and emit access instructions.
         //
@@ -693,6 +739,10 @@ impl Compiler<'_> {
         default: ast::Expr,
     ) {
         self.compile(slot, set);
+        if self.optimise_select(&path) {
+            return;
+        }
+
         let mut jumps = vec![];
 
         for fragment in path.attrs() {
@@ -1208,6 +1258,39 @@ impl Compiler<'_> {
     fn emit_error<N: ToSpan>(&mut self, node: &N, kind: ErrorKind) {
         let span = self.span_for(node);
         self.errors.push(Error::new(kind, span))
+    }
+}
+
+/// Convert a non-dynamic string expression to a string if possible.
+fn expr_static_str(node: &ast::Str) -> Option<SmolStr> {
+    let mut parts = node.normalized_parts();
+
+    if parts.len() != 1 {
+        return None;
+    }
+
+    if let Some(ast::InterpolPart::Literal(lit)) = parts.pop() {
+        return Some(SmolStr::new(lit));
+    }
+
+    None
+}
+
+/// Convert the provided `ast::Attr` into a statically known string if
+/// possible.
+fn expr_static_attr_str(node: &ast::Attr) -> Option<SmolStr> {
+    match node {
+        ast::Attr::Ident(ident) => Some(ident.ident_token().unwrap().text().into()),
+        ast::Attr::Str(s) => expr_static_str(s),
+
+        // The dynamic node type is just a wrapper. C++ Nix does not care
+        // about the dynamic wrapper when determining whether the node
+        // itself is dynamic, it depends solely on the expression inside
+        // (i.e. `let ${"a"} = 1; in a` is valid).
+        ast::Attr::Dynamic(ref dynamic) => match dynamic.expr().unwrap() {
+            ast::Expr::Str(s) => expr_static_str(&s),
+            _ => None,
+        },
     }
 }
 

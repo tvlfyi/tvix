@@ -226,7 +226,7 @@ impl TrackedBindings {
 
         // If the first element of the path is not statically known, the entry
         // can not be merged.
-        let name = match c.expr_static_attr_str(name) {
+        let name = match expr_static_attr_str(name) {
             Some(name) => name,
             None => return false,
         };
@@ -336,7 +336,7 @@ impl Compiler<'_> {
 
                 None => {
                     for attr in inherit.attrs() {
-                        let name = match self.expr_static_attr_str(&attr) {
+                        let name = match expr_static_attr_str(&attr) {
                             Some(name) => name,
                             None => {
                                 self.emit_error(&attr, ErrorKind::DynamicKeyInScope("inherit"));
@@ -387,7 +387,7 @@ impl Compiler<'_> {
 
                 Some(from) => {
                     for attr in inherit.attrs() {
-                        let name = match self.expr_static_attr_str(&attr) {
+                        let name = match expr_static_attr_str(&attr) {
                             Some(name) => name,
                             None => {
                                 self.emit_error(&attr, ErrorKind::DynamicKeyInScope("inherit"));
@@ -476,7 +476,7 @@ impl Compiler<'_> {
             *count += 1;
 
             let key_span = self.span_for(&key);
-            let key_slot = match self.expr_static_attr_str(&key) {
+            let key_slot = match expr_static_attr_str(&key) {
                 Some(name) if kind.is_attrs() => KeySlot::Static {
                     name,
                     slot: self.scope_mut().declare_phantom(key_span, false),
@@ -818,38 +818,5 @@ impl Compiler<'_> {
         let idx = UpvalueIdx(self.contexts[ctx_idx].lambda.upvalue_count);
         self.contexts[ctx_idx].lambda.upvalue_count += 1;
         idx
-    }
-
-    /// Convert a non-dynamic string expression to a string if possible.
-    fn expr_static_str(&self, node: &ast::Str) -> Option<SmolStr> {
-        let mut parts = node.normalized_parts();
-
-        if parts.len() != 1 {
-            return None;
-        }
-
-        if let Some(ast::InterpolPart::Literal(lit)) = parts.pop() {
-            return Some(SmolStr::new(lit));
-        }
-
-        None
-    }
-
-    /// Convert the provided `ast::Attr` into a statically known string if
-    /// possible.
-    fn expr_static_attr_str(&self, node: &ast::Attr) -> Option<SmolStr> {
-        match node {
-            ast::Attr::Ident(ident) => Some(ident.ident_token().unwrap().text().into()),
-            ast::Attr::Str(s) => self.expr_static_str(s),
-
-            // The dynamic node type is just a wrapper. C++ Nix does not care
-            // about the dynamic wrapper when determining whether the node
-            // itself is dynamic, it depends solely on the expression inside
-            // (i.e. `let ${"a"} = 1; in a` is valid).
-            ast::Attr::Dynamic(ref dynamic) => match dynamic.expr().unwrap() {
-                ast::Expr::Str(s) => self.expr_static_str(&s),
-                _ => None,
-            },
-        }
     }
 }

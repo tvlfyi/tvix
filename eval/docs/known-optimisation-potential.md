@@ -50,17 +50,11 @@ optimisations, but note the most important ones here.
   can directly use the `value::function::Lambda` representation where
   possible.
 
-* Optimise inner builtin access [medium]
+* Apply `compiler::optimise_select` to other set operations [medium]
 
-  When accessing identifiers like `builtins.foo`, the compiler should
-  not go through the trouble of setting up the attribute set on the
-  stack and accessing `foo` from it if it knows that the scope for
-  `builtins` is unshadowed. The same optimisation can also be done
-  for the other set operations like `builtins ? foo` and
-  `builtins.foo or alternative-implementation`.
-
-  The same thing goes for resolving `with builtins;`, which should
-  definitely resolve statically.
+  In addition to selects, statically known attribute resolution could
+  also be used for things like `?` or `with`. The latter might be a
+  little more complicated but is worth investigating.
 
 * Inline fully applied builtins with equivalent operators [medium]
 
