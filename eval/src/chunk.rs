@@ -160,17 +160,120 @@ impl Chunk {
 
         Ok(())
     }
+
+    /// Extend this chunk with the content of another, moving out of the other
+    /// in the process.
+    ///
+    /// This is used by the compiler when it detects that it unnecessarily
+    /// thunked a nested expression.
+    pub fn extend(&mut self, other: Self) {
+        // Some operations need to be modified in certain ways before being
+        // valid as part of the new chunk.
+        let const_count = self.constants.len();
+        for (idx, op) in other.code.iter().enumerate() {
+            let span = other.get_span(CodeIdx(idx));
+            match op {
+                // As the constants shift, the index needs to be moved relatively.
+                OpCode::OpConstant(ConstantIdx(idx)) => {
+                    self.push_op(OpCode::OpConstant(ConstantIdx(idx + const_count)), span)
+                }
+
+                // Other operations either operate on relative offsets, or no
+                // offsets, and are safe to keep as-is.
+                _ => self.push_op(*op, span),
+            };
+        }
+
+        self.constants.extend(other.constants);
+        self.spans.extend(other.spans);
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::test_utils::dummy_span;
 
-    use super::*;
+    // Note: These tests are about the functionality of the `Chunk` type, the
+    // opcodes used below do *not* represent valid, executable Tvix code (and
+    // don't need to).
+
     #[test]
     fn push_op() {
         let mut chunk = Chunk::default();
         chunk.push_op(OpCode::OpAdd, dummy_span());
         assert_eq!(chunk.code.last().unwrap(), &OpCode::OpAdd);
+    }
+
+    #[test]
+    fn extend_empty() {
+        let mut chunk = Chunk::default();
+        chunk.push_op(OpCode::OpAdd, dummy_span());
+
+        let other = Chunk::default();
+        chunk.extend(other);
+
+        assert_eq!(
+            chunk.code,
+            vec![OpCode::OpAdd],
+            "code should not have changed"
+        );
+    }
+
+    #[test]
+    fn extend_simple() {
+        let span = dummy_span();
+        let mut chunk = Chunk::default();
+        chunk.push_op(OpCode::OpAdd, span);
+
+        let mut other = Chunk::default();
+        other.push_op(OpCode::OpSub, span);
+        other.push_op(OpCode::OpMul, span);
+
+        let expected_code = vec![OpCode::OpAdd, OpCode::OpSub, OpCode::OpMul];
+
+        chunk.extend(other);
+
+        assert_eq!(chunk.code, expected_code, "code should have been extended");
+    }
+
+    #[test]
+    fn extend_with_constant() {
+        let span = dummy_span();
+        let mut chunk = Chunk::default();
+        chunk.push_op(OpCode::OpAdd, span);
+        let cidx = chunk.push_constant(Value::Integer(0));
+        assert_eq!(
+            cidx.0, 0,
+            "first constant in main chunk should have index 0"
+        );
+        chunk.push_op(OpCode::OpConstant(cidx), span);
+
+        let mut other = Chunk::default();
+        other.push_op(OpCode::OpSub, span);
+        let other_cidx = other.push_constant(Value::Integer(1));
+        assert_eq!(
+            other_cidx.0, 0,
+            "first constant in other chunk should have index 0"
+        );
+        other.push_op(OpCode::OpConstant(other_cidx), span);
+
+        chunk.extend(other);
+
+        let expected_code = vec![
+            OpCode::OpAdd,
+            OpCode::OpConstant(ConstantIdx(0)),
+            OpCode::OpSub,
+            OpCode::OpConstant(ConstantIdx(1)), // <- note: this was rewritten
+        ];
+
+        assert_eq!(
+            chunk.code, expected_code,
+            "code should have been extended and rewritten"
+        );
+
+        assert_eq!(chunk.constants.len(), 2);
+        assert!(matches!(chunk.constants[0], Value::Integer(0)));
+        assert!(matches!(chunk.constants[1], Value::Integer(1)));
     }
 }
