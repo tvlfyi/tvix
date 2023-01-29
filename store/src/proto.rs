@@ -178,8 +178,8 @@ fn insert_once<'n>(
 }
 
 impl Directory {
-    // The size of a directory is the number of all regular and symlink elements,
-    // the number of directory elements, and their size fields.
+    /// The size of a directory is the number of all regular and symlink elements,
+    /// the number of directory elements, and their size fields.
     pub fn size(&self) -> u32 {
         self.files.len() as u32
             + self.symlinks.len() as u32
