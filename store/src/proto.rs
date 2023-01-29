@@ -189,6 +189,8 @@ impl Directory {
                 .fold(0, |acc: u32, e| (acc + 1 + e.size) as u32)
     }
 
+    /// Calculates the digest of a Directory, which is the blake3 hash of a
+    /// Directory protobuf message, serialized in protobuf canonical form.
     pub fn digest(&self) -> Vec<u8> {
         let mut hasher = blake3::Hasher::new();
 
