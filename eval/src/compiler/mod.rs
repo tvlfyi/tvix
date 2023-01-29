@@ -57,6 +57,7 @@ struct LambdaCtx {
     lambda: Lambda,
     scope: Scope,
     captures_with_stack: bool,
+    unthunk: bool,
 }
 
 impl LambdaCtx {
@@ -65,6 +66,7 @@ impl LambdaCtx {
             lambda: Lambda::default(),
             scope: Default::default(),
             captures_with_stack: false,
+            unthunk: false,
         }
     }
 
@@ -73,6 +75,7 @@ impl LambdaCtx {
             lambda: Lambda::default(),
             scope: self.scope.inherit(),
             captures_with_stack: false,
+            unthunk: false,
         }
     }
 }
@@ -664,6 +667,10 @@ impl Compiler<'_> {
                     if let Some(ident) = expr_static_attr_str(&attr) {
                         if let Some(selected_value) = attrs.select(ident.as_str()) {
                             *constant = selected_value.clone();
+
+                            // If this worked, we can unthunk the current thunk.
+                            self.unthunk();
+
                             return true;
                         }
                     }
@@ -1003,7 +1010,13 @@ impl Compiler<'_> {
         self.compile_lambda_or_thunk(true, outer_slot, node, content)
     }
 
-    /// Compile an expression into a runtime cloure or thunk
+    /// Mark the current thunk as redundant, i.e. possible to merge directly
+    /// into its parent lambda context without affecting runtime behaviour.
+    fn unthunk(&mut self) {
+        self.context_mut().unthunk = true;
+    }
+
+    /// Compile an expression into a runtime closure or thunk
     fn compile_lambda_or_thunk<N, F>(
         &mut self,
         is_suspended_thunk: bool,
@@ -1033,6 +1046,14 @@ impl Compiler<'_> {
         // Pop the lambda context back off, and emit the finished
         // lambda as a constant.
         let mut compiled = self.contexts.pop().unwrap();
+
+        // The compiler might have decided to unthunk, i.e. raise the compiled
+        // code to the parent context. In that case we do so and return right
+        // away.
+        if compiled.unthunk && is_suspended_thunk {
+            self.chunk().extend(compiled.lambda.chunk);
+            return;
+        }
 
         // Emit an instruction to inform the VM that the chunk has ended.
         compiled
