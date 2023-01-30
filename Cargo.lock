@@ -2614,7 +2614,6 @@ dependencies = [
  "rustyline",
  "smol_str",
  "ssri",
- "test-case",
  "thiserror",
  "tvix-derivation",
  "tvix-eval",

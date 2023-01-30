@@ -80,6 +80,13 @@ fn populate_inputs<I: IntoIterator<Item = String>>(
     }
 }
 
+/// Populate the output configuration of a derivation based on the
+/// parameters passed to the call, flipping the required
+/// parameters for a fixed-output derivation if necessary.
+///
+/// This function handles all possible combinations of the
+/// parameters, including invalid ones.
+///
 /// Due to the support for SRI hashes, and how these are passed along to
 /// builtins.derivation, outputHash and outputHashAlgo can have values which
 /// need to be further modified before constructing the Derivation struct.
@@ -93,75 +100,6 @@ fn populate_inputs<I: IntoIterator<Item = String>>(
 /// (lowercase) hex encoding of the digest.
 ///
 /// These values are only rewritten for the outputs, not what's passed to env.
-fn construct_output_hash(digest: &str, algo: &str, hash_mode: Option<&str>) -> Result<Hash, Error> {
-    let sri_parsed = digest.parse::<ssri::Integrity>();
-    // SRI strings can embed multiple hashes with different algos, but that's probably not supported
-
-    let (digest, algo): (String, String) = match sri_parsed {
-        Err(e) => {
-            // unable to parse as SRI, but algo not set
-            if algo.is_empty() {
-                // InvalidSRIString doesn't implement PartialEq, but our error does
-                return Err(Error::InvalidSRIString(e.to_string()));
-            }
-
-            // algo is set. Assume the digest is set to some nixbase32.
-            // TODO: more validation here
-
-            (digest.to_string(), algo.to_string())
-        }
-        Ok(sri_parsed) => {
-            // We don't support more than one SRI hash
-            if sri_parsed.hashes.len() != 1 {
-                return Err(Error::UnsupportedSRIMultiple(sri_parsed.hashes.len()).into());
-            }
-
-            // grab the first (and only hash)
-            let sri_parsed_hash = &sri_parsed.hashes[0];
-
-            // ensure the algorithm in the SRI is supported
-            if !(sri_parsed_hash.algorithm == ssri::Algorithm::Sha1
-                || sri_parsed_hash.algorithm == ssri::Algorithm::Sha256
-                || sri_parsed_hash.algorithm == ssri::Algorithm::Sha512)
-            {
-                Error::UnsupportedSRIAlgo(sri_parsed_hash.algorithm.to_string());
-            }
-
-            // if algo is set, it needs to match what the SRI says
-            if !algo.is_empty() && algo != sri_parsed_hash.algorithm.to_string() {
-                return Err(Error::ConflictingSRIHashAlgo(
-                    algo.to_string(),
-                    sri_parsed_hash.algorithm.to_string(),
-                ));
-            }
-
-            // the digest comes base64-encoded. We need to decode, and re-encode as hexlower.
-            match BASE64.decode(sri_parsed_hash.digest.as_bytes()) {
-                Err(e) => return Err(Error::InvalidSRIDigest(e).into()),
-                Ok(sri_digest) => (
-                    data_encoding::HEXLOWER.encode(&sri_digest),
-                    sri_parsed_hash.algorithm.to_string(),
-                ),
-            }
-        }
-    };
-
-    // mutate the algo string a bit more, depending on hashMode
-    let algo = match hash_mode {
-        None | Some("flat") => algo,
-        Some("recursive") => format!("r:{}", algo),
-        Some(other) => return Err(Error::InvalidOutputHashMode(other.to_string()).into()),
-    };
-
-    Ok(Hash { algo, digest })
-}
-
-/// Populate the output configuration of a derivation based on the
-/// parameters passed to the call, flipping the required
-/// parameters for a fixed-output derivation if necessary.
-///
-/// This function handles all possible combinations of the
-/// parameters, including invalid ones.
 fn populate_output_configuration(
     drv: &mut Derivation,
     hash: Option<String>,      // in nix: outputHash
@@ -172,7 +110,71 @@ fn populate_output_configuration(
         (Some(digest), Some(algo), hash_mode) => match drv.outputs.get_mut("out") {
             None => return Err(Error::ConflictingOutputTypes.into()),
             Some(out) => {
-                out.hash = Some(construct_output_hash(&digest, &algo, hash_mode.as_deref())?);
+                let sri_parsed = digest.parse::<ssri::Integrity>();
+                // SRI strings can embed multiple hashes with different algos, but that's probably not supported
+
+                let (digest, algo): (String, String) = match sri_parsed {
+                    Err(e) => {
+                        // unable to parse as SRI, but algo not set
+                        if algo.is_empty() {
+                            // InvalidSRIString doesn't implement PartialEq, but our error does
+                            return Err(Error::InvalidSRIString(e.to_string()).into());
+                        }
+
+                        // algo is set. Assume the digest is set to some nixbase32.
+                        // TODO: more validation here
+
+                        (digest.to_string(), algo.to_string())
+                    }
+                    Ok(sri_parsed) => {
+                        // We don't support more than one SRI hash
+                        if sri_parsed.hashes.len() != 1 {
+                            return Err(
+                                Error::UnsupportedSRIMultiple(sri_parsed.hashes.len()).into()
+                            );
+                        }
+
+                        // grab the first (and only hash)
+                        let sri_parsed_hash = &sri_parsed.hashes[0];
+
+                        // ensure the algorithm in the SRI is supported
+                        if !(sri_parsed_hash.algorithm == ssri::Algorithm::Sha1
+                            || sri_parsed_hash.algorithm == ssri::Algorithm::Sha256
+                            || sri_parsed_hash.algorithm == ssri::Algorithm::Sha512)
+                        {
+                            Error::UnsupportedSRIAlgo(sri_parsed_hash.algorithm.to_string());
+                        }
+
+                        // if algo is set, it needs to match what the SRI says
+                        if !algo.is_empty() && algo != sri_parsed_hash.algorithm.to_string() {
+                            return Err(Error::ConflictingSRIHashAlgo(
+                                algo.to_string(),
+                                sri_parsed_hash.algorithm.to_string(),
+                            )
+                            .into());
+                        }
+
+                        // the digest comes base64-encoded. We need to decode, and re-encode as hexlower.
+                        match BASE64.decode(sri_parsed_hash.digest.as_bytes()) {
+                            Err(e) => return Err(Error::InvalidSRIDigest(e).into()),
+                            Ok(sri_digest) => (
+                                data_encoding::HEXLOWER.encode(&sri_digest),
+                                sri_parsed_hash.algorithm.to_string(),
+                            ),
+                        }
+                    }
+                };
+
+                // mutate the algo string a bit more, depending on hashMode
+                let algo = match hash_mode.as_deref() {
+                    None | Some("flat") => algo,
+                    Some("recursive") => format!("r:{}", algo),
+                    Some(other) => {
+                        return Err(Error::InvalidOutputHashMode(other.to_string()).into())
+                    }
+                };
+
+                out.hash = Some(Hash { algo, digest });
             }
         },
 
@@ -431,7 +433,6 @@ pub use derivation_builtins::builtins as derivation_builtins;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_case::test_case;
     use tvix_eval::observer::NoOpObserver;
 
     static mut OBSERVER: NoOpObserver = NoOpObserver {};
@@ -584,6 +585,50 @@ mod tests {
     }
 
     #[test]
+    /// hash_algo set to sha256, but SRI hash passed
+    fn populate_output_config_flat_sri_sha256() {
+        let mut drv = Derivation::default();
+        drv.outputs.insert("out".to_string(), Default::default());
+
+        populate_output_configuration(
+            &mut drv,
+            Some("sha256-swapHA/ZO8QoDPwumMt6s5gf91oYe+oyk4EfRSyJqMg=".into()),
+            Some("sha256".into()),
+            Some("flat".into()),
+        )
+        .expect("populate_output_configuration() should succeed");
+
+        let expected = Hash {
+            algo: "sha256".into(),
+            digest: "b306a91c0fd93bc4280cfc2e98cb7ab3981ff75a187bea3293811f452c89a8c8".into(), // lower hex
+        };
+
+        assert_eq!(drv.outputs["out"].hash, Some(expected));
+    }
+
+    #[test]
+    /// hash_algo set to empty string, SRI hash passed
+    fn populate_output_config_flat_sri() {
+        let mut drv = Derivation::default();
+        drv.outputs.insert("out".to_string(), Default::default());
+
+        populate_output_configuration(
+            &mut drv,
+            Some("sha256-s6JN6XqP28g1uYMxaVAQMLiXcDG8tUs7OsE3QPhGqzA=".into()),
+            Some("".into()),
+            Some("flat".into()),
+        )
+        .expect("populate_output_configuration() should succeed");
+
+        let expected = Hash {
+            algo: "sha256".into(),
+            digest: "b3a24de97a8fdbc835b9833169501030b8977031bcb54b3b3ac13740f846ab30".into(), // lower hex
+        };
+
+        assert_eq!(drv.outputs["out"].hash, Some(expected));
+    }
+
+    #[test]
     fn handle_outputs_parameter() {
         let mut vm = fake_vm();
         let mut drv = Derivation::default();
@@ -630,24 +675,5 @@ mod tests {
             drv.arguments,
             vec!["--foo".to_string(), "42".to_string(), "--bar".to_string()]
         );
-    }
-
-    #[test_case(
-        "sha256-swapHA/ZO8QoDPwumMt6s5gf91oYe+oyk4EfRSyJqMg=", "sha256", Some("flat"),
-        Ok(Hash { algo: "sha256".to_string(), digest: "b306a91c0fd93bc4280cfc2e98cb7ab3981ff75a187bea3293811f452c89a8c8".to_string() });
-        "sha256 and SRI"
-    )]
-    #[test_case(
-        "sha256-s6JN6XqP28g1uYMxaVAQMLiXcDG8tUs7OsE3QPhGqzA=", "", Some("flat"),
-        Ok(Hash { algo: "sha256".to_string(), digest: "b3a24de97a8fdbc835b9833169501030b8977031bcb54b3b3ac13740f846ab30".to_string() });
-        "SRI only"
-    )]
-    fn test_construct_output_hash(
-        digest: &str,
-        algo: &str,
-        hash_mode: Option<&str>,
-        result: Result<Hash, Error>,
-    ) {
-        assert_eq!(construct_output_hash(digest, algo, hash_mode), result);
     }
 }

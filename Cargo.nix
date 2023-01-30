@@ -7750,12 +7750,6 @@ rec {
             packageId = "tvix-store-bin";
           }
         ];
-        devDependencies = [
-          {
-            name = "test-case";
-            packageId = "test-case";
-          }
-        ];
 
       };
       "tvix-derivation" = rec {
