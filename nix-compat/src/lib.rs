@@ -3,6 +3,7 @@ use sha2::{Digest, Sha256};
 pub mod derivation;
 pub mod nar;
 pub mod nixbase32;
+pub mod nixhash;
 pub mod store_path;
 
 /// Nix placeholders (i.e. values returned by `builtins.placeholder`)
