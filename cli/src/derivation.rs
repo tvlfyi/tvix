@@ -124,7 +124,7 @@ fn populate_output_configuration(
                         // algo is set. Assume the digest is set to some nixbase32.
                         // TODO: more validation here
 
-                        (digest.to_string(), algo.to_string())
+                        (digest, algo)
                     }
                     Ok(sri_parsed) => {
                         // We don't support more than one SRI hash
@@ -148,7 +148,7 @@ fn populate_output_configuration(
                         // if algo is set, it needs to match what the SRI says
                         if !algo.is_empty() && algo != sri_parsed_hash.algorithm.to_string() {
                             return Err(Error::ConflictingSRIHashAlgo(
-                                algo.to_string(),
+                                algo,
                                 sri_parsed_hash.algorithm.to_string(),
                             )
                             .into());
