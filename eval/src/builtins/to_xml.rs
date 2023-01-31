@@ -100,7 +100,19 @@ fn value_variant_to_xml<W: Write>(w: &mut EventWriter<W>, value: &Value) -> Resu
                         w.write(XmlEvent::end_element())?;
                     }
                 }
-                None => todo!("we don't persist the arg name ..."),
+                None => {
+                    // TODO(tazjin): tvix does not currently persist function
+                    // argument names anywhere (whereas we do for formals, as
+                    // that is required for other runtime behaviour). Because of
+                    // this the implementation here is fake, always returning
+                    // the same argument name.
+                    //
+                    // If we don't want to persist the data, we can re-parse the
+                    // AST from the spans of the lambda's bytecode and figure it
+                    // out that way, but it needs some investigating.
+                    w.write(XmlEvent::start_element("varpat").attr("name", /* fake: */ "x"))?;
+                    w.write(XmlEvent::end_element())?;
+                }
             }
 
             w.write(XmlEvent::end_element())
