@@ -106,8 +106,10 @@ fn populate_output_configuration(
     hash_algo: Option<String>, // in nix: outputHashAlgo
     hash_mode: Option<String>, // in nix: outputHashmode
 ) -> Result<(), ErrorKind> {
-    match (hash, hash_algo, hash_mode) {
-        (Some(digest), Some(algo), hash_mode) => match drv.outputs.get_mut("out") {
+    // We only do something when `digest` and `algo` are `Some(_)``, and
+    // there's an `out` output.
+    if let (Some(digest), Some(algo), hash_mode) = (hash, hash_algo, hash_mode) {
+        match drv.outputs.get_mut("out") {
             None => return Err(Error::ConflictingOutputTypes.into()),
             Some(out) => {
                 let sri_parsed = digest.parse::<ssri::Integrity>();
@@ -176,9 +178,7 @@ fn populate_output_configuration(
 
                 out.hash = Some(Hash { algo, digest });
             }
-        },
-
-        _ => {}
+        }
     }
 
     Ok(())
