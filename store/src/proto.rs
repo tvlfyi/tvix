@@ -5,7 +5,7 @@ use thiserror::Error;
 
 use prost::Message;
 
-use crate::store_path::{ParseStorePathError, StorePath};
+use nix_compat::store_path::{ParseStorePathError, StorePath};
 
 tonic::include_proto!("tvix.store.v1");
 

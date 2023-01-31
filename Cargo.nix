@@ -43,6 +43,16 @@ rec {
       # File a bug if you depend on any for non-debug work!
       debug = internal.debugCrate { inherit packageId; };
     };
+    "nix-compat" = rec {
+      packageId = "nix-compat";
+      build = internal.buildRustCrateWithFeatures {
+        packageId = "nix-compat";
+      };
+
+      # Debug support which might change between releases.
+      # File a bug if you depend on any for non-debug work!
+      debug = internal.debugCrate { inherit packageId; };
+    };
     "tvix-cli" = rec {
       packageId = "tvix-cli";
       build = internal.buildRustCrateWithFeatures {
@@ -3724,6 +3734,46 @@ rec {
         ];
         features = { };
         resolvedDefaultFeatures = [ "integration_tests" ];
+      };
+      "nix-compat" = rec {
+        crateName = "nix-compat";
+        version = "0.1.0";
+        edition = "2021";
+        # We can't filter paths with references in Nix 2.4
+        # See https://github.com/NixOS/nix/issues/5410
+        src =
+          if (lib.versionOlder builtins.nixVersion "2.4pre20211007")
+          then lib.cleanSourceWith { filter = sourceFilter; src = ./nix-compat; }
+          else ./nix-compat;
+        dependencies = [
+          {
+            name = "anyhow";
+            packageId = "anyhow";
+          }
+          {
+            name = "data-encoding";
+            packageId = "data-encoding";
+          }
+          {
+            name = "glob";
+            packageId = "glob";
+          }
+          {
+            name = "sha2";
+            packageId = "sha2 0.10.6";
+          }
+          {
+            name = "thiserror";
+            packageId = "thiserror";
+          }
+        ];
+        devDependencies = [
+          {
+            name = "test-case";
+            packageId = "test-case";
+          }
+        ];
+
       };
       "nom8" = rec {
         crateName = "nom8";
@@ -7745,10 +7795,6 @@ rec {
             name = "tvix-eval";
             packageId = "tvix-eval";
           }
-          {
-            name = "tvix-store-bin";
-            packageId = "tvix-store-bin";
-          }
         ];
 
       };
@@ -7776,6 +7822,10 @@ rec {
             packageId = "glob";
           }
           {
+            name = "nix-compat";
+            packageId = "nix-compat";
+          }
+          {
             name = "serde";
             packageId = "serde";
             features = [ "derive" ];
@@ -7787,10 +7837,6 @@ rec {
           {
             name = "thiserror";
             packageId = "thiserror";
-          }
-          {
-            name = "tvix-store-bin";
-            packageId = "tvix-store-bin";
           }
         ];
         devDependencies = [
@@ -8059,6 +8105,10 @@ rec {
           {
             name = "lazy_static";
             packageId = "lazy_static";
+          }
+          {
+            name = "nix-compat";
+            packageId = "nix-compat";
           }
           {
             name = "prost";

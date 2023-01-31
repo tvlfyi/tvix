@@ -1,8 +1,6 @@
-use crate::{
-    proto::{self, Node, PathInfo, ValidatePathInfoError},
-    store_path::{ParseStorePathError, StorePath},
-};
+use crate::proto::{self, Node, PathInfo, ValidatePathInfoError};
 use lazy_static::lazy_static;
+use nix_compat::store_path::{ParseStorePathError, StorePath};
 use test_case::test_case;
 
 lazy_static! {

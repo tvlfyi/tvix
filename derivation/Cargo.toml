@@ -9,10 +9,10 @@ edition = "2021"
 anyhow = "1.0.68"
 data-encoding = "2.3.3"
 glob = "0.3.0"
+nix-compat = { path = "../nix-compat" }
 serde = { version = "1.0", features = ["derive"] }
 sha2 = "0.10.6"
 thiserror = "1.0.38"
-tvix-store-bin = { path = "../store" }
 
 [dev-dependencies.test-generator]
 # This fork of test-generator adds support for cargo workspaces, see

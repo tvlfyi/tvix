@@ -7,7 +7,7 @@ use crate::proto::CalculateNarResponse;
 use crate::proto::GetPathInfoRequest;
 use crate::proto::Node;
 use crate::proto::PathInfo;
-use crate::store_path::DIGEST_SIZE;
+use nix_compat::store_path::DIGEST_SIZE;
 use tonic::{Request, Response, Result, Status};
 use tracing::{instrument, warn};
 

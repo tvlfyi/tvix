@@ -1302,6 +1302,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nix-compat"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "data-encoding",
+ "glob",
+ "sha2 0.10.6",
+ "test-case",
+ "thiserror",
+]
+
+[[package]]
 name = "nom8"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2617,7 +2629,6 @@ dependencies = [
  "thiserror",
  "tvix-derivation",
  "tvix-eval",
- "tvix-store-bin",
 ]
 
 [[package]]
@@ -2627,13 +2638,13 @@ dependencies = [
  "anyhow",
  "data-encoding",
  "glob",
+ "nix-compat",
  "serde",
  "serde_json",
  "sha2 0.10.6",
  "test-case",
  "test-generator",
  "thiserror",
- "tvix-store-bin",
 ]
 
 [[package]]
@@ -2699,6 +2710,7 @@ dependencies = [
  "data-encoding",
  "fastcdc",
  "lazy_static",
+ "nix-compat",
  "prost",
  "prost-build",
  "sled",

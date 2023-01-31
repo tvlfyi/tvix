@@ -1,12 +1,12 @@
 use crate::derivation::Derivation;
 use crate::output::{Hash, Output};
+use nix_compat::store_path::StorePath;
 use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 use test_case::test_case;
 use test_generator::test_resources;
-use tvix_store::store_path::StorePath;
 
 const RESOURCES_PATHS: &str = "src/tests/derivation_tests";
 

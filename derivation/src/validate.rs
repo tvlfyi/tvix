@@ -1,5 +1,5 @@
 use crate::{derivation::Derivation, DerivationError};
-use tvix_store::store_path::StorePath;
+use nix_compat::store_path::StorePath;
 
 impl Derivation {
     /// validate ensures a Derivation struct is properly populated,

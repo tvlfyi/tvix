@@ -1,12 +1,12 @@
 use crate::output::{Hash, Output};
 use crate::write;
 use crate::DerivationError;
+use nix_compat::nixbase32;
+use nix_compat::store_path::{StorePath, STORE_DIR};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use std::{collections::BTreeMap, fmt, fmt::Write};
-use tvix_store::nixbase32;
-use tvix_store::store_path::{StorePath, STORE_DIR};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Derivation {

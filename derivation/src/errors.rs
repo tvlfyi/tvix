@@ -1,5 +1,5 @@
+use nix_compat::{nixbase32::Nixbase32DecodeError, store_path::ParseStorePathError};
 use thiserror::Error;
-use tvix_store::{nixbase32::Nixbase32DecodeError, store_path::ParseStorePathError};
 
 /// Errors that can occur during the validation of Derivation structs.
 #[derive(Debug, Error, PartialEq)]

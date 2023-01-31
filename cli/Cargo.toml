@@ -12,7 +12,6 @@ tvix-eval = { path = "../eval" }
 tvix-derivation = { path = "../derivation" }
 rustyline = "10.0.0"
 clap = { version = "4.0", features = ["derive", "env"] }
-tvix-store-bin = { path = "../store" }
 dirs = "4.0.0"
 smol_str = "0.1"
 aho-corasick = "0.7"

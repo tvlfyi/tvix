@@ -1,5 +1,5 @@
+use nix_compat::{nixbase32, store_path::StorePath};
 use serde::{Deserialize, Serialize};
-use tvix_store::{nixbase32, store_path::StorePath};
 
 use crate::OutputError;
 
