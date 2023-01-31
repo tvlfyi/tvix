@@ -3,9 +3,11 @@ use crate::store_path::StorePath;
 
 impl Derivation {
     /// validate ensures a Derivation struct is properly populated,
-    /// and returns a [ValidateDerivationError] if not.
+    /// and returns a [DerivationError] if not.
+    ///
     /// if `validate_output_paths` is set to false, the output paths are
     /// excluded from validation.
+    ///
     /// This is helpful to validate struct population before invoking
     /// [Derivation::calculate_output_paths].
     pub fn validate(&self, validate_output_paths: bool) -> Result<(), DerivationError> {

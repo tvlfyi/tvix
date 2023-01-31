@@ -42,7 +42,8 @@ pub enum DerivationError {
     InvalidEnvironmentKey(String),
 }
 
-/// Errors that can occur during the validation of a specific [Output] of a [Derviation].
+/// Errors that can occur during the validation of a specific
+// [crate::derivation::Output] of a [crate::derivation::Derviation].
 #[derive(Debug, Error, PartialEq)]
 pub enum OutputError {
     #[error("Invalid ouput path {0}: {1}")]
