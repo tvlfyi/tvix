@@ -16,7 +16,7 @@
 //! let mut sink: Vec<u8> = Vec::new();
 //!
 //! // Instantiate writer for this output location.
-//! let mut nar = tvix_nar::open(&mut sink)?;
+//! let mut nar = nix_compat::nar::writer::open(&mut sink)?;
 //!
 //! // Acquire metadata for the single file to output, and pass it in a
 //! // `BufRead`-implementing type.

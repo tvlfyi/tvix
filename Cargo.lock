@@ -2676,10 +2676,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tvix-nar"
-version = "0.0.0"
-
-[[package]]
 name = "tvix-serde"
 version = "0.1.0"
 dependencies = [
