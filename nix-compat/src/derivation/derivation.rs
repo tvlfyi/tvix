@@ -1,8 +1,8 @@
-use crate::output::{Hash, Output};
-use crate::write;
-use crate::DerivationError;
-use nix_compat::nixbase32;
-use nix_compat::store_path::{StorePath, STORE_DIR};
+use crate::derivation::output::{Hash, Output};
+use crate::derivation::write;
+use crate::derivation::DerivationError;
+use crate::nixbase32;
+use crate::store_path::{StorePath, STORE_DIR};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;

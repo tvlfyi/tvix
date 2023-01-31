@@ -1,7 +1,6 @@
-use nix_compat::{nixbase32, store_path::StorePath};
+use crate::derivation::OutputError;
+use crate::{nixbase32, store_path::StorePath};
 use serde::{Deserialize, Serialize};
-
-use crate::OutputError;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Output {

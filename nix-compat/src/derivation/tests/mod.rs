@@ -1,6 +1,6 @@
+use crate::derivation::output::{Hash, Output};
 use crate::derivation::Derivation;
-use crate::output::{Hash, Output};
-use nix_compat::store_path::StorePath;
+use crate::store_path::StorePath;
 use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::Read;
@@ -8,7 +8,7 @@ use std::path::Path;
 use test_case::test_case;
 use test_generator::test_resources;
 
-const RESOURCES_PATHS: &str = "src/tests/derivation_tests";
+const RESOURCES_PATHS: &str = "src/derivation/tests/derivation_tests";
 
 fn read_file(path: &str) -> String {
     let path = Path::new(path);
@@ -20,7 +20,7 @@ fn read_file(path: &str) -> String {
     return data;
 }
 
-#[test_resources("src/tests/derivation_tests/*.drv")]
+#[test_resources("src/derivation/tests/derivation_tests/*.drv")]
 fn check_serizaliation(path_to_drv_file: &str) {
     let data = read_file(&format!("{}.json", path_to_drv_file));
     let derivation: Derivation = serde_json::from_str(&data).expect("JSON was not well-formatted");
@@ -33,7 +33,7 @@ fn check_serizaliation(path_to_drv_file: &str) {
     assert_eq!(expected, serialized_derivation);
 }
 
-#[test_resources("src/tests/derivation_tests/*.drv")]
+#[test_resources("src/derivation/tests/derivation_tests/*.drv")]
 fn validate(path_to_drv_file: &str) {
     let data = read_file(&format!("{}.json", path_to_drv_file));
     let derivation: Derivation = serde_json::from_str(&data).expect("JSON was not well-formatted");
@@ -43,7 +43,7 @@ fn validate(path_to_drv_file: &str) {
         .expect("derivation failed to validate")
 }
 
-#[test_resources("src/tests/derivation_tests/*.drv")]
+#[test_resources("src/derivation/tests/derivation_tests/*.drv")]
 fn check_to_string(path_to_drv_file: &str) {
     let data = read_file(&format!("{}.json", path_to_drv_file));
     let derivation: Derivation = serde_json::from_str(&data).expect("JSON was not well-formatted");
@@ -313,7 +313,7 @@ fn path_with_zero_references() {
     // nix-repl> builtins.toFile "foo" "bar"
     // "/nix/store/vxjiwkjkn7x4079qvh1jkl5pn05j2aw0-foo"
 
-    let store_path = crate::path_with_references("foo", "bar", Vec::<String>::new())
+    let store_path = crate::derivation::path_with_references("foo", "bar", Vec::<String>::new())
         .expect("path_with_references() should succeed");
 
     assert_eq!(
@@ -329,12 +329,13 @@ fn path_with_non_zero_references() {
     // nix-repl> builtins.toFile "baz" "${builtins.toFile "foo" "bar"}"
     // "/nix/store/5xd714cbfnkz02h2vbsj4fm03x3f15nf-baz"
 
-    let inner = crate::path_with_references("foo", "bar", Vec::<String>::new())
+    let inner = crate::derivation::path_with_references("foo", "bar", Vec::<String>::new())
         .expect("path_with_references() should succeed");
     let inner_path = inner.to_absolute_path();
 
-    let outer = crate::path_with_references("baz", &inner_path, vec![inner_path.as_str()])
-        .expect("path_with_references() should succeed");
+    let outer =
+        crate::derivation::path_with_references("baz", &inner_path, vec![inner_path.as_str()])
+            .expect("path_with_references() should succeed");
 
     assert_eq!(
         outer.to_absolute_path().as_str(),

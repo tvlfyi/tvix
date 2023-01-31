@@ -1,6 +1,6 @@
+use nix_compat::derivation::DerivationError;
 use std::rc::Rc;
 use thiserror::Error;
-use tvix_derivation::DerivationError;
 
 /// Errors related to derivation construction
 #[derive(Debug, Error, PartialEq)]

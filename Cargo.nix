@@ -63,16 +63,6 @@ rec {
       # File a bug if you depend on any for non-debug work!
       debug = internal.debugCrate { inherit packageId; };
     };
-    "tvix-derivation" = rec {
-      packageId = "tvix-derivation";
-      build = internal.buildRustCrateWithFeatures {
-        packageId = "tvix-derivation";
-      };
-
-      # Debug support which might change between releases.
-      # File a bug if you depend on any for non-debug work!
-      debug = internal.debugCrate { inherit packageId; };
-    };
     "tvix-eval" = rec {
       packageId = "tvix-eval";
       build = internal.buildRustCrateWithFeatures {
@@ -3759,6 +3749,11 @@ rec {
             packageId = "glob";
           }
           {
+            name = "serde";
+            packageId = "serde";
+            features = [ "derive" ];
+          }
+          {
             name = "sha2";
             packageId = "sha2 0.10.6";
           }
@@ -3769,8 +3764,16 @@ rec {
         ];
         devDependencies = [
           {
+            name = "serde_json";
+            packageId = "serde_json";
+          }
+          {
             name = "test-case";
             packageId = "test-case";
+          }
+          {
+            name = "test-generator";
+            packageId = "test-generator";
           }
         ];
 
@@ -7772,6 +7775,10 @@ rec {
             packageId = "dirs";
           }
           {
+            name = "nix-compat";
+            packageId = "nix-compat";
+          }
+          {
             name = "rustyline";
             packageId = "rustyline";
           }
@@ -7788,69 +7795,8 @@ rec {
             packageId = "thiserror";
           }
           {
-            name = "tvix-derivation";
-            packageId = "tvix-derivation";
-          }
-          {
             name = "tvix-eval";
             packageId = "tvix-eval";
-          }
-        ];
-
-      };
-      "tvix-derivation" = rec {
-        crateName = "tvix-derivation";
-        version = "0.1.0";
-        edition = "2021";
-        # We can't filter paths with references in Nix 2.4
-        # See https://github.com/NixOS/nix/issues/5410
-        src =
-          if (lib.versionOlder builtins.nixVersion "2.4pre20211007")
-          then lib.cleanSourceWith { filter = sourceFilter; src = ./derivation; }
-          else ./derivation;
-        dependencies = [
-          {
-            name = "anyhow";
-            packageId = "anyhow";
-          }
-          {
-            name = "data-encoding";
-            packageId = "data-encoding";
-          }
-          {
-            name = "glob";
-            packageId = "glob";
-          }
-          {
-            name = "nix-compat";
-            packageId = "nix-compat";
-          }
-          {
-            name = "serde";
-            packageId = "serde";
-            features = [ "derive" ];
-          }
-          {
-            name = "sha2";
-            packageId = "sha2 0.10.6";
-          }
-          {
-            name = "thiserror";
-            packageId = "thiserror";
-          }
-        ];
-        devDependencies = [
-          {
-            name = "serde_json";
-            packageId = "serde_json";
-          }
-          {
-            name = "test-case";
-            packageId = "test-case";
-          }
-          {
-            name = "test-generator";
-            packageId = "test-generator";
           }
         ];
 

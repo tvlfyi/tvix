@@ -9,8 +9,16 @@ edition = "2021"
 anyhow = "1.0.68"
 data-encoding = "2.3.3"
 glob = "0.3.0"
+serde = { version = "1.0", features = ["derive"] }
 sha2 = "0.10.6"
 thiserror = "1.0.38"
 
 [dev-dependencies]
+serde_json = "1.0"
 test-case = "2.2.2"
+
+[dev-dependencies.test-generator]
+# This fork of test-generator adds support for cargo workspaces, see
+# also https://github.com/frehberg/test-generator/pull/14
+git = "https://github.com/JamesGuthrie/test-generator.git"
+rev = "82e799979980962aec1aa324ec6e0e4cad781f41"

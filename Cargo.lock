@@ -1308,8 +1308,11 @@ dependencies = [
  "anyhow",
  "data-encoding",
  "glob",
+ "serde",
+ "serde_json",
  "sha2 0.10.6",
  "test-case",
+ "test-generator",
  "thiserror",
 ]
 
@@ -2623,28 +2626,12 @@ dependencies = [
  "clap 4.0.32",
  "data-encoding",
  "dirs",
+ "nix-compat",
  "rustyline",
  "smol_str",
  "ssri",
  "thiserror",
- "tvix-derivation",
  "tvix-eval",
-]
-
-[[package]]
-name = "tvix-derivation"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "data-encoding",
- "glob",
- "nix-compat",
- "serde",
- "serde_json",
- "sha2 0.10.6",
- "test-case",
- "test-generator",
- "thiserror",
 ]
 
 [[package]]

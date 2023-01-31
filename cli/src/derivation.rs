@@ -1,10 +1,10 @@
 //! Implements `builtins.derivation`, the core of what makes Nix build packages.
 
 use data_encoding::BASE64;
+use nix_compat::derivation::{Derivation, Hash};
 use std::cell::RefCell;
 use std::collections::{btree_map, BTreeSet};
 use std::rc::Rc;
-use tvix_derivation::{Derivation, Hash};
 use tvix_eval::builtin_macros::builtins;
 use tvix_eval::{AddContext, CoercionKind, ErrorKind, NixAttrs, NixList, Value, VM};
 
@@ -416,9 +416,10 @@ mod derivation_builtins {
 
         // TODO: fail on derivation references (only "plain" is allowed here)
 
-        let path = tvix_derivation::path_with_references(name.as_str(), content.as_str(), refs)
-            .map_err(Error::InvalidDerivation)?
-            .to_absolute_path();
+        let path =
+            nix_compat::derivation::path_with_references(name.as_str(), content.as_str(), refs)
+                .map_err(Error::InvalidDerivation)?
+                .to_absolute_path();
 
         state.borrow_mut().plain(&path);
 

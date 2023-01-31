@@ -3,8 +3,8 @@
 //!
 //! [ATerm]: http://program-transformation.org/Tools/ATermFormat.html
 
-use crate::output::Output;
-use crate::string_escape::escape_string;
+use crate::derivation::output::Output;
+use crate::derivation::string_escape::escape_string;
 use std::collections::BTreeSet;
 use std::{collections::BTreeMap, fmt, fmt::Write};
 

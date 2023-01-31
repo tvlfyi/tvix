@@ -19,7 +19,6 @@
 
 members = [
   "cli",
-  "derivation",
   "eval",
   "eval/builtin-macros",
   "nar",

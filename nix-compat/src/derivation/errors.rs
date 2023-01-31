@@ -1,4 +1,4 @@
-use nix_compat::{nixbase32::Nixbase32DecodeError, store_path::ParseStorePathError};
+use crate::{nixbase32::Nixbase32DecodeError, store_path::ParseStorePathError};
 use thiserror::Error;
 
 /// Errors that can occur during the validation of Derivation structs.
