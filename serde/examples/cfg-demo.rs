@@ -15,6 +15,7 @@ enum Flavour {
     Eww,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct Data {
     name: String,
