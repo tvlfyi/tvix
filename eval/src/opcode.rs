@@ -116,10 +116,30 @@ pub enum OpCode {
     OpMoreOrEq,
 
     // Logical operators & generic jumps
+    /// Jump forward in the bytecode specified by the number of
+    /// instructions in its usize operand.
     OpJump(JumpOffset),
+
+    /// Jump forward in the bytecode specified by the number of
+    /// instructions in its usize operand, *if* the value at the top
+    /// of the stack is `true`.
     OpJumpIfTrue(JumpOffset),
+
+    /// Jump forward in the bytecode specified by the number of
+    /// instructions in its usize operand, *if* the value at the top
+    /// of the stack is `false`.
     OpJumpIfFalse(JumpOffset),
+
+    /// Jump forward in the bytecode specified by the number of
+    /// instructions in its usize operand, *if* the value at the top
+    /// of the stack is the internal value representing a missing
+    /// attribute set key.
     OpJumpIfNotFound(JumpOffset),
+
+    /// Jump forward in the bytecode specified by the number of
+    /// instructions in its usize operand, *if* the value at the top
+    /// of the stack is *not* the internal value requesting a
+    /// stack value finalisation.
     OpJumpIfNoFinaliseRequest(JumpOffset),
 
     // Attribute sets
@@ -151,16 +171,30 @@ pub enum OpCode {
     OpValidateClosedFormals,
 
     // `with`-handling
+    /// Push a value onto the runtime `with`-stack to enable dynamic identifier
+    /// resolution. The absolute stack index of the value is supplied as a usize
+    /// operand.
     OpPushWith(StackIdx),
+
+    /// Pop the last runtime `with`-stack element.
     OpPopWith,
+
+    /// Dynamically resolve an identifier with the name at {1} from the runtime
+    /// `with`-stack.
     OpResolveWith,
 
     // Lists
+    /// Construct a list from the given number of values at the top of the
+    /// stack.
     OpList(Count),
+
+    /// Concatenate the lists at {2} and {1}.
     OpConcat,
 
     // Strings
+    /// Interpolate the given number of string fragments into a single string.
     OpInterpolate(Count),
+
     /// Force the Value on the stack and coerce it to a string, always using
     /// `CoercionKind::Weak`.
     OpCoerceToString,
@@ -175,6 +209,8 @@ pub enum OpCode {
     OpResolveHomePath,
 
     // Type assertion operators
+    /// Assert that the value at {1} is a boolean, and fail with a runtime error
+    /// otherwise.
     OpAssertBool,
     OpAssertAttrs,
 
@@ -188,14 +224,23 @@ pub enum OpCode {
     OpAssertFail,
 
     // Lambdas & closures
+    /// Call the value at {1} in a new VM callframe
     OpCall,
+
+    /// Retrieve the upvalue at the given index from the closure or thunk
+    /// currently under evaluation.
     OpGetUpvalue(UpvalueIdx),
-    /// A Closure which has upvalues but no self-references
+
+    /// Construct a closure which has upvalues but no self-references
     OpClosure(ConstantIdx),
-    /// A Closure which has self-references (direct or via upvalues)
+
+    /// Construct a closure which has self-references (direct or via upvalues)
     OpThunkClosure(ConstantIdx),
-    /// A suspended thunk, used to ensure laziness
+
+    /// Construct a suspended thunk, used to delay a computation for laziness.
     OpThunkSuspended(ConstantIdx),
+
+    /// Force the value at {1} until it is a `Thunk::Evaluated`.
     OpForce,
 
     /// Finalise initialisation of the upvalues of the value in the given stack
