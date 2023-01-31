@@ -54,30 +54,65 @@ pub struct Count(pub usize);
 
 /// All variants of this enum carry a bounded amount of data to
 /// ensure that no heap allocations are needed for an Opcode.
+///
+/// In documentation comments, stack positions are referred to by
+/// indices written in `{}` as such, where required:
+///
+/// ```notrust
+///                             --- top of the stack
+///                            /
+///                           v
+///       [ ... | 3 | 2 | 1 | 0 ]
+///                   ^
+///                  /
+/// 2 values deep ---
+/// ```
+///
+/// Unless otherwise specified, operations leave their result at the
+/// top of the stack.
 #[warn(variant_size_differences)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OpCode {
     /// Push a constant onto the stack.
     OpConstant(ConstantIdx),
 
+    // Unary operators
     /// Discard a value from the stack.
     OpPop,
 
-    // Unary operators
+    /// Invert the boolean at the top of the stack.
     OpInvert,
+
+    // Binary operators
+    /// Invert the sign of the number at the top of the stack.
     OpNegate,
 
-    // Arithmetic binary operators
+    /// Sum up the two numbers at the top of the stack.
     OpAdd,
+
+    /// Subtract the number at {1} from the number at {2}.
     OpSub,
+
+    /// Multiply the two numbers at the top of the stack.
     OpMul,
+
+    /// Divide the two numbers at the top of the stack.
     OpDiv,
 
     // Comparison operators
+    /// Check the two values at the top of the stack for Nix-equality.
     OpEqual,
+
+    /// Check whether the value at {2} is less than {1}.
     OpLess,
+
+    /// Check whether the value at {2} is less than or equal to {1}.
     OpLessOrEq,
+
+    /// Check whether the value at {2} is greater than {1}.
     OpMore,
+
+    /// Check whether the value at {2} is greater than or equal to {1}.
     OpMoreOrEq,
 
     // Logical operators & generic jumps
