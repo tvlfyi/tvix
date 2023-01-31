@@ -2,6 +2,7 @@
 
 use data_encoding::BASE64;
 use nix_compat::derivation::{Derivation, Hash};
+use nix_compat::hash_placeholder;
 use std::cell::RefCell;
 use std::collections::{btree_map, BTreeSet};
 use std::rc::Rc;
@@ -249,6 +250,18 @@ fn strong_coerce_to_string(vm: &mut VM, val: &Value, ctx: &str) -> Result<String
 #[builtins(state = "Rc<RefCell<KnownPaths>>")]
 mod derivation_builtins {
     use super::*;
+
+    #[builtin("placeholder")]
+    fn builtin_placeholder(_: &mut VM, input: Value) -> Result<Value, ErrorKind> {
+        let placeholder = hash_placeholder(
+            input
+                .to_str()
+                .context("looking at output name in builtins.placeholder")?
+                .as_str(),
+        );
+
+        Ok(placeholder.into())
+    }
 
     /// Strictly construct a Nix derivation from the supplied arguments.
     ///
@@ -675,6 +688,19 @@ mod tests {
         assert_eq!(
             drv.arguments,
             vec!["--foo".to_string(), "42".to_string(), "--bar".to_string()]
+        );
+    }
+
+    #[test]
+    fn builtins_placeholder_hashes() {
+        assert_eq!(
+            hash_placeholder("out").as_str(),
+            "/1rz4g4znpzjwh1xymhjpm42vipw92pr73vdgl6xs1hycac8kf2n9"
+        );
+
+        assert_eq!(
+            hash_placeholder("").as_str(),
+            "/171rf4jhx57xqz3p7swniwkig249cif71pa08p80mgaf0mqz5bmr"
         );
     }
 }
