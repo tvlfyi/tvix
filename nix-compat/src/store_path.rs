@@ -27,8 +27,8 @@ pub enum ParseStorePathError {
 
 /// Represents a path in the Nix store (a direct child of [STORE_DIR]).
 ///
-/// It starts with a digest (20 bytes), [struct@NIXBASE32]-encoded, followed by
-/// a `-`, and ends with a `name`, which is a string, consisting only of ASCCI
+/// It starts with a digest (20 bytes), [crate::nixbase32]-encoded,
+/// followed by a `-`, and ends with a `name`, which is a string, consisting only of ASCCI
 /// alphanumeric characters, or one of the following characters: `-`, `_`, `.`,
 /// `+`, `?`, `=`.
 ///
