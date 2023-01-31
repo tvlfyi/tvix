@@ -128,9 +128,20 @@ pub enum OpCode {
     /// Note that this takes the count of *pairs*, not the number of *stack values* - the actual
     /// number of values popped off the stack will be twice the argument to this op
     OpAttrs(Count),
+    /// Merge the attribute set at {2} into the attribute set at {1},
+    /// and leave the new set at the top of the stack.
     OpAttrsUpdate,
+
+    /// Select the attribute with the name at {1} from the set at {2}.
     OpAttrsSelect,
+
+    /// Select the attribute with the name at {1} from the set at {2}, but leave
+    /// a `Value::AttrNotFound` in the stack instead of failing if it is
+    /// missing.
     OpAttrsTrySelect,
+
+    /// Check for the presence of the attribute with the name at {1} in the set
+    /// at {2}.
     OpHasAttr,
 
     /// Throw an error if the attribute set at the top of the stack has any attributes
