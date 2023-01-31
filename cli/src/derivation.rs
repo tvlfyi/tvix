@@ -1,8 +1,6 @@
 //! Implements `builtins.derivation`, the core of what makes Nix build packages.
-
-use data_encoding::BASE64;
 use nix_compat::derivation::{Derivation, Hash};
-use nix_compat::hash_placeholder;
+use nix_compat::{hash_placeholder, nixhash};
 use std::cell::RefCell;
 use std::collections::{btree_map, BTreeSet};
 use std::rc::Rc;
@@ -109,75 +107,32 @@ fn populate_output_configuration(
 ) -> Result<(), ErrorKind> {
     // We only do something when `digest` and `algo` are `Some(_)``, and
     // there's an `out` output.
-    if let (Some(digest), Some(algo), hash_mode) = (hash, hash_algo, hash_mode) {
+    if let (Some(hash), Some(algo), hash_mode) = (hash, hash_algo, hash_mode) {
         match drv.outputs.get_mut("out") {
             None => return Err(Error::ConflictingOutputTypes.into()),
             Some(out) => {
-                let sri_parsed = digest.parse::<ssri::Integrity>();
-                // SRI strings can embed multiple hashes with different algos, but that's probably not supported
-
-                let (digest, algo): (String, String) = match sri_parsed {
-                    Err(e) => {
-                        // unable to parse as SRI, but algo not set
-                        if algo.is_empty() {
-                            // InvalidSRIString doesn't implement PartialEq, but our error does
-                            return Err(Error::InvalidSRIString(e.to_string()).into());
-                        }
-
-                        // algo is set. Assume the digest is set to some nixbase32.
-                        // TODO: more validation here
-
-                        (digest, algo)
-                    }
-                    Ok(sri_parsed) => {
-                        // We don't support more than one SRI hash
-                        if sri_parsed.hashes.len() != 1 {
-                            return Err(
-                                Error::UnsupportedSRIMultiple(sri_parsed.hashes.len()).into()
-                            );
-                        }
-
-                        // grab the first (and only hash)
-                        let sri_parsed_hash = &sri_parsed.hashes[0];
-
-                        // ensure the algorithm in the SRI is supported
-                        if !(sri_parsed_hash.algorithm == ssri::Algorithm::Sha1
-                            || sri_parsed_hash.algorithm == ssri::Algorithm::Sha256
-                            || sri_parsed_hash.algorithm == ssri::Algorithm::Sha512)
-                        {
-                            Error::UnsupportedSRIAlgo(sri_parsed_hash.algorithm.to_string());
-                        }
-
-                        // if algo is set, it needs to match what the SRI says
-                        if !algo.is_empty() && algo != sri_parsed_hash.algorithm.to_string() {
-                            return Err(Error::ConflictingSRIHashAlgo(
-                                algo,
-                                sri_parsed_hash.algorithm.to_string(),
-                            )
-                            .into());
-                        }
-
-                        // the digest comes base64-encoded. We need to decode, and re-encode as hexlower.
-                        match BASE64.decode(sri_parsed_hash.digest.as_bytes()) {
-                            Err(e) => return Err(Error::InvalidSRIDigest(e).into()),
-                            Ok(sri_digest) => (
-                                data_encoding::HEXLOWER.encode(&sri_digest),
-                                sri_parsed_hash.algorithm.to_string(),
-                            ),
-                        }
-                    }
+                // treat an empty algo as None
+                let a = if algo.is_empty() {
+                    None
+                } else {
+                    Some(algo.as_ref())
                 };
 
-                // mutate the algo string a bit more, depending on hashMode
+                let output_hash = nixhash::from_str(&hash, a).map_err(Error::InvalidOutputHash)?;
+
+                // construct the algo string. Depending on hashMode, we prepend a `r:`.
                 let algo = match hash_mode.as_deref() {
-                    None | Some("flat") => algo,
-                    Some("recursive") => format!("r:{}", algo),
+                    None | Some("flat") => format!("{}", &output_hash.algo),
+                    Some("recursive") => format!("r:{}", &output_hash.algo),
                     Some(other) => {
                         return Err(Error::InvalidOutputHashMode(other.to_string()).into())
                     }
                 };
 
-                out.hash = Some(Hash { algo, digest });
+                out.hash = Some(Hash {
+                    algo,
+                    digest: data_encoding::HEXLOWER.encode(&output_hash.digest),
+                });
             }
         }
     }
