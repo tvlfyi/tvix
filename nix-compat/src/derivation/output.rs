@@ -26,7 +26,7 @@ impl Output {
     pub fn validate(&self, validate_output_paths: bool) -> Result<(), OutputError> {
         if let Some(hash) = &self.hash {
             // try to decode digest
-            let result = nixbase32::decode(&hash.digest.as_bytes());
+            let result = nixbase32::decode(hash.digest.as_bytes());
             match result {
                 Err(e) => return Err(OutputError::InvalidHashEncoding(hash.digest.clone(), e)),
                 Ok(digest) => {

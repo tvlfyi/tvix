@@ -29,7 +29,7 @@ impl Derivation {
             // [StorePath] will fail the [StorePath::validate_name] check.
             if output_name.is_empty()
                 || output_name == "drv"
-                || StorePath::validate_name(&output_name).is_err()
+                || StorePath::validate_name(output_name).is_err()
             {
                 return Err(DerivationError::InvalidOutputName(output_name.to_string()));
             }
@@ -86,7 +86,7 @@ impl Derivation {
                 // [StorePath] will fail the [StorePath::validate_name] check.
                 if output_name.is_empty()
                     || output_name == "drv"
-                    || StorePath::validate_name(&output_name).is_err()
+                    || StorePath::validate_name(output_name).is_err()
                 {
                     return Err(DerivationError::InvalidInputDerivationOutputName(
                         input_derivation_path.to_string(),
