@@ -11,7 +11,7 @@ use std::fmt::Write;
 
 use thiserror::Error;
 
-const ALPHABET: &'static [u8; 32] = b"0123456789abcdfghijklmnpqrsvwxyz";
+const ALPHABET: &[u8; 32] = b"0123456789abcdfghijklmnpqrsvwxyz";
 
 /// Errors that can occur while decoding nixbase32-encoded data.
 #[derive(Debug, Eq, PartialEq, Error)]
