@@ -319,12 +319,14 @@ impl Value {
             Value::List(_) => "list",
             Value::Closure(_) | Value::Builtin(_) => "lambda",
 
-            // Internal types
-            Value::Thunk(_)
-            | Value::AttrNotFound
-            | Value::Blueprint(_)
-            | Value::DeferredUpvalue(_)
-            | Value::UnresolvedPath(_) => "internal",
+            // Internal types. Note: These are only elaborated here
+            // because it makes debugging easier. If a user ever sees
+            // any of these strings, it's a bug.
+            Value::Thunk(_) => "internal[thunk]",
+            Value::AttrNotFound => "internal[attr_not_found]",
+            Value::Blueprint(_) => "internal[blueprint]",
+            Value::DeferredUpvalue(_) => "internal[deferred_upvalue]",
+            Value::UnresolvedPath(_) => "internal[unresolved_path]",
         }
     }
 
