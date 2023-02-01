@@ -38,7 +38,7 @@ pub fn encode(input: &[u8]) -> String {
                 // we want to right shift, and discard shifted out bits (unchecked)
                 // To do this without panicing, we need to do the shifting in u16
                 // and convert back to u8 afterwards.
-                c |= ((input[i + 1] as u16) << 8 - j as u16) as u8
+                c |= ((input[i + 1] as u16) << (8 - j as u16)) as u8
             }
 
             output
