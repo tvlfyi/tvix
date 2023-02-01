@@ -1,0 +1,9 @@
+# Build pipeline for the filtered //views/tvix workspace of depot. This
+# pipeline is triggered by each build of canon.
+#
+# Pipeline status is visible on https://buildkite.com/tvl/tvix
+
+steps:
+  - label: ":crab: cargo build"
+    command: |
+      nix-shell --run "cargo build && cargo test"
