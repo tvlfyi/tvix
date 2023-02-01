@@ -44,13 +44,13 @@ fn validate(path_to_drv_file: &str) {
 }
 
 #[test_resources("src/derivation/tests/derivation_tests/*.drv")]
-fn check_to_string(path_to_drv_file: &str) {
+fn check_to_aterm_string(path_to_drv_file: &str) {
     let data = read_file(&format!("{}.json", path_to_drv_file));
     let derivation: Derivation = serde_json::from_str(&data).expect("JSON was not well-formatted");
 
     let expected = read_file(path_to_drv_file);
 
-    assert_eq!(expected, derivation.to_string());
+    assert_eq!(expected, derivation.to_aterm_string());
 }
 
 #[test_case("bar","0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv"; "fixed_sha256")]

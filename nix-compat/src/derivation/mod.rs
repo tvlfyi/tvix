@@ -40,6 +40,9 @@ pub struct Derivation {
 }
 
 impl Derivation {
+    /// write the Derivation to the given [std::fmt::Write], in ATerm format.
+    ///
+    /// The only errors returns are these when writing to the passed writer.
     pub fn serialize(&self, writer: &mut impl std::fmt::Write) -> Result<(), std::fmt::Error> {
         writer.write_str(write::DERIVATION_PREFIX)?;
         writer.write_char(write::PAREN_OPEN)?;
@@ -55,6 +58,18 @@ impl Derivation {
         writer.write_char(write::PAREN_CLOSE)?;
 
         Ok(())
+    }
+
+    /// return the ATerm serialization as a string.
+    pub fn to_aterm_string(&self) -> String {
+        let mut buffer = String::new();
+
+        // invoke serialize and write to the buffer.
+        // Note we only propagate errors writing to the writer in serialize,
+        // which won't panic for the string we write to.
+        self.serialize(&mut buffer).unwrap();
+
+        buffer
     }
 
     /// Returns the fixed output path and its hash
@@ -116,7 +131,7 @@ impl Derivation {
         // it as a hex-encoded string (prefixed with sha256:).
         let aterm_digest = {
             let mut derivation_hasher = Sha256::new();
-            derivation_hasher.update(self.to_string());
+            derivation_hasher.update(self.to_aterm_string());
             derivation_hasher.finalize()
         };
 
@@ -171,7 +186,7 @@ impl Derivation {
                 };
 
                 // write the ATerm of that to the hash function
-                hasher.update(replaced_derivation.to_string());
+                hasher.update(replaced_derivation.to_aterm_string());
 
                 hasher.finalize()
             }
@@ -279,12 +294,5 @@ impl Derivation {
         };
 
         Ok(())
-    }
-}
-
-impl std::fmt::Display for Derivation {
-    /// Formats the Derivation in ATerm representation.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.serialize(f)
     }
 }
