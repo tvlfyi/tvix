@@ -14,18 +14,26 @@ There's also some discussion around development on our
 
 ## Building the CLI
 
-If you are in a full checkout of the TVL depot, you can simply run `mg build`
-in the `cli` directory (or `mg build //tvix/cli` from anywhere in the repo).
-The `mg` command is found in `/tools/magrathea`.
+The CLI can also be built with standard Rust tooling (i.e. `cargo build`),
+as long as you are in a shell with the right dependencies.
 
+ - If you cloned the full monorepo, it can be provided by `mg shell //
+   tvix:shell`.
+ - If you cloned the `tvix` workspace only
+   (`git clone https://code.tvl.fyi/depot.git:workspace=views/tvix.git`),
+   `nix-shell` provides it.
+
+If you're in the TVL monorepo, you can also run `mg build //tvix/cli`
+(or `mg build` from inside that folder) for a more incremental build.
+
+Please follow the depot-wide instructions on how to get `mg` and use the depot
+tooling.
+
+### Compatibility
 **Important note:** We only use and test Nix builds of our software
 against Nix 2.3. There are a variety of bugs and subtle problems in
 newer Nix versions which we do not have the bandwidth to address,
 builds in newer Nix versions may or may not work.
-
-The CLI can also be built with standard Rust tooling (i.e. `cargo build`),
-as long as you are in a shell with the right dependencies (provided by `mg
-shell //tvix:shell`).
 
 ## Rust projects, crate2nix
 
@@ -37,7 +45,7 @@ configuration.
 When making changes to Cargo dependency configuration in any of the
 Rust projects under `//tvix`, be sure to run
 `mg run //tvix:crate2nixGenerate --` in `//tvix` itself and commit the changes
-to the generated `Cargo.nix` file.
+to the generated `Cargo.nix` file. This only applies to the full TVL checkout.
 
 ## License structure
 
