@@ -1252,7 +1252,7 @@ fn compile_src_builtin(
     let file = source.add_file(format!("<src-builtins/{}.nix>", name), code.to_string());
     let weak = weak.clone();
 
-    Value::Thunk(Thunk::new_suspended_native(Rc::new(move |_| {
+    Value::Thunk(Thunk::new_suspended_native(Box::new(move |_| {
         let result = compile(
             &parsed.tree().expr().unwrap(),
             None,
@@ -1313,7 +1313,7 @@ pub fn prepare_globals(
         let weak_globals = weak.clone();
         builtins.insert(
             "builtins",
-            Value::Thunk(Thunk::new_suspended_native(Rc::new(move |_| {
+            Value::Thunk(Thunk::new_suspended_native(Box::new(move |_| {
                 Ok(weak_globals
                     .upgrade()
                     .unwrap()

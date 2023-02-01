@@ -39,8 +39,7 @@ use crate::{
 use super::{Lambda, TotalDisplay};
 
 /// Internal representation of a suspended native thunk.
-#[derive(Clone)]
-struct SuspendedNative(Rc<dyn Fn(&mut VM) -> Result<Value, ErrorKind>>);
+struct SuspendedNative(Box<dyn Fn(&mut VM) -> Result<Value, ErrorKind>>);
 
 impl Debug for SuspendedNative {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -53,7 +52,7 @@ impl Debug for SuspendedNative {
 /// Upvalues must be finalised before leaving the initial state
 /// (Suspended or RecursiveClosure).  The [`value()`] function may
 /// not be called until the thunk is in the final state (Evaluated).
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 enum ThunkRepr {
     /// Thunk is closed over some values, suspended and awaiting
     /// execution.
@@ -99,7 +98,7 @@ impl Thunk {
         })))
     }
 
-    pub fn new_suspended_native(native: Rc<dyn Fn(&mut VM) -> Result<Value, ErrorKind>>) -> Self {
+    pub fn new_suspended_native(native: Box<dyn Fn(&mut VM) -> Result<Value, ErrorKind>>) -> Self {
         Thunk(Rc::new(RefCell::new(ThunkRepr::Native(SuspendedNative(
             native,
         )))))
@@ -112,8 +111,8 @@ impl Thunk {
         if self.is_forced() {
             return Ok(());
         }
-        vm.push(Value::Thunk(self.clone()));
-        let mut trampoline = Self::force_trampoline(vm)?;
+
+        let mut trampoline = Self::force_trampoline(vm, Value::Thunk(self.clone()))?;
         loop {
             match trampoline.action {
                 None => (),
@@ -139,15 +138,11 @@ impl Thunk {
     /// Evaluate the content of a thunk, potentially repeatedly, until a
     /// non-thunk value is returned.
     ///
-    /// This will change the existing thunk (and thus all references to it,
-    /// providing memoization) through interior mutability. In case of nested
-    /// thunks, the intermediate thunk representations are replaced.
-    ///
-    /// The thunk to be forced should be at the top of the VM stack,
-    /// and will be left there (but possibly partially forced) when
-    /// this function returns.
-    pub fn force_trampoline(vm: &mut VM) -> Result<Trampoline, ErrorKind> {
-        match vm.pop() {
+    /// When this function returns, the result of one "round" of forcing is left
+    /// at the top of the stack. This may still be a partially evaluated thunk
+    /// which must be further run through the trampoline.
+    pub fn force_trampoline(vm: &mut VM, outer: Value) -> Result<Trampoline, ErrorKind> {
+        match outer {
             Value::Thunk(thunk) => thunk.force_trampoline_self(vm),
             v => {
                 vm.push(v);
@@ -156,59 +151,204 @@ impl Thunk {
         }
     }
 
+    /// Analyses `self` and, upon finding a suspended thunk, requests evaluation
+    /// of the contained code from the VM. Control flow may pass back and forth
+    /// between this function and the VM multiple times through continuations
+    /// that call `force_trampoline` again if nested thunks are encountered.
+    ///
+    /// This function is entered again by returning a continuation that calls
+    /// [force_trampoline].
+    // When working on this function, care should be taken to ensure that each
+    // evaluated thunk's *own copy* of its inner representation is replaced by
+    // evaluated results and blackholes, as appropriate. It is a critical error
+    // to move the representation of one thunk into another and can lead to
+    // hard-to-debug performance issues.
+    // TODO: check Rc count when replacing inner repr, to skip it optionally
     fn force_trampoline_self(&self, vm: &mut VM) -> Result<Trampoline, ErrorKind> {
-        loop {
-            if !self.is_suspended() {
-                // thunk is already evaluated (or infinitely
-                // recursive), inspect the situation and replace the
-                // inner representation if this is a nested thunk
-                let thunk = self.0.borrow();
-                match *thunk {
-                    ThunkRepr::Evaluated(Value::Thunk(ref inner_thunk)) => {
-                        let inner_repr = inner_thunk.0.borrow().clone();
-                        drop(thunk);
-                        self.0.replace(inner_repr);
+        // If the current thunk is already fully evaluated, leave its evaluated
+        // value on the stack and return an empty trampoline. The VM will
+        // continue running the code that landed us here.
+        if self.is_forced() {
+            vm.push(self.value().clone());
+            return Ok(Trampoline::default());
+        }
+
+        // Begin evaluation of this thunk by marking it as a blackhole, meaning
+        // that any other trampoline loop round encountering this thunk before
+        // its evaluation is completed detected an evaluation cycle.
+        let inner = self.0.replace(ThunkRepr::Blackhole);
+
+        match inner {
+            // If there was already a blackhole in the thunk, this is an
+            // evaluation cycle.
+            ThunkRepr::Blackhole => return Err(ErrorKind::InfiniteRecursion),
+
+            // If there is a native function stored in the thunk, evaluate it
+            // and replace this thunk's representation with it. Then bounces off
+            // the trampoline, to handle the case of the native function
+            // returning another thunk.
+            ThunkRepr::Native(native) => {
+                let value = native.0(vm)?;
+                self.0.replace(ThunkRepr::Evaluated(value.clone()));
+                let self_clone = self.clone();
+
+                return Ok(Trampoline {
+                    action: None,
+                    continuation: Some(Box::new(move |vm| {
+                        Thunk::force_trampoline(vm, Value::Thunk(self_clone))
+                            .map_err(|kind| Error::new(kind, todo!("BUG: b/238")))
+                    })),
+                });
+            }
+
+            // When encountering a suspended thunk, construct a trampoline that
+            // enters the thunk's code in the VM and replaces the thunks
+            // representation with the evaluated one upon return.
+            //
+            // Thunks may be nested, so this case initiates another round of
+            // trampolining to ensure that the returned value is forced.
+            ThunkRepr::Suspended {
+                lambda,
+                upvalues,
+                light_span,
+            } => {
+                // Clone self to move an Rc pointing to *this* thunk instance
+                // into the continuation closure.
+                let self_clone = self.clone();
+
+                return Ok(Trampoline {
+                    // Ask VM to enter frame of this thunk ...
+                    action: Some(TrampolineAction::EnterFrame {
+                        lambda,
+                        upvalues,
+                        arg_count: 0,
+                        light_span: light_span.clone(),
+                    }),
+
+                    // ... and replace the inner representation once that is done,
+                    // looping back around to here.
+                    continuation: Some(Box::new(move |vm: &mut VM| {
+                        let should_be_blackhole =
+                            self_clone.0.replace(ThunkRepr::Evaluated(vm.pop()));
+                        debug_assert!(matches!(should_be_blackhole, ThunkRepr::Blackhole));
+
+                        Thunk::force_trampoline(vm, Value::Thunk(self_clone))
+                            .map_err(|kind| Error::new(kind, light_span.span()))
+                    })),
+                });
+            }
+
+            // Note by tazjin: I have decided at this point to fully unroll the inner thunk handling
+            // here, leaving no room for confusion about how inner thunks are handled. This *could*
+            // be written in a shorter way (for example by using a helper function that handles all
+            // cases in which inner thunks can trivially be turned into a value), but given that we
+            // have been bitten by this logic repeatedly, I think it is better to let it be slightly
+            // verbose for now.
+
+            // If an inner thunk is found and already fully-forced, we can
+            // short-circuit and replace the representation of self with it.
+            ThunkRepr::Evaluated(Value::Thunk(ref inner)) if inner.is_forced() => {
+                self.0.replace(ThunkRepr::Evaluated(inner.value().clone()));
+                vm.push(inner.value().clone());
+                return Ok(Trampoline::default());
+            }
+
+            // Otherwise we handle inner thunks mostly as above, with the
+            // primary difference that we set the representations of *both*
+            // thunks in this case.
+            ThunkRepr::Evaluated(Value::Thunk(ref inner)) => {
+                // The inner thunk is now under evaluation, mark it as such.
+                let inner_repr = inner.0.replace(ThunkRepr::Blackhole);
+
+                match inner_repr {
+                    ThunkRepr::Blackhole => return Err(ErrorKind::InfiniteRecursion),
+
+                    // Same as for the native case above, but results are placed
+                    // in *both* thunks.
+                    ThunkRepr::Native(native) => {
+                        let value = native.0(vm)?;
+                        self.0.replace(ThunkRepr::Evaluated(value.clone()));
+                        inner.0.replace(ThunkRepr::Evaluated(value.clone()));
+                        let self_clone = self.clone();
+
+                        return Ok(Trampoline {
+                            action: None,
+                            continuation: Some(Box::new(move |vm| {
+                                Thunk::force_trampoline(vm, Value::Thunk(self_clone))
+                                    .map_err(|kind| Error::new(kind, todo!("BUG: b/238")))
+                            })),
+                        });
                     }
 
-                    ThunkRepr::Evaluated(ref v) => {
-                        vm.push(v.clone());
-                        return Ok(Trampoline::default());
-                    }
-                    ThunkRepr::Blackhole => return Err(ErrorKind::InfiniteRecursion),
-                    _ => unreachable!(),
-                }
-            } else {
-                match self.0.replace(ThunkRepr::Blackhole) {
+                    // Inner suspended thunks are trampolined to the VM, and
+                    // their results written to both thunks in the continuation.
                     ThunkRepr::Suspended {
                         lambda,
                         upvalues,
                         light_span,
                     } => {
                         let self_clone = self.clone();
+                        let inner_clone = inner.clone();
+
                         return Ok(Trampoline {
+                            // Ask VM to enter frame of this thunk ...
                             action: Some(TrampolineAction::EnterFrame {
                                 lambda,
                                 upvalues,
                                 arg_count: 0,
                                 light_span: light_span.clone(),
                             }),
-                            continuation: Some(Box::new(move |vm| {
-                                let should_be_blackhole =
-                                    self_clone.0.replace(ThunkRepr::Evaluated(vm.pop()));
-                                assert!(matches!(should_be_blackhole, ThunkRepr::Blackhole));
-                                vm.push(Value::Thunk(self_clone));
-                                Self::force_trampoline(vm)
+
+                            // ... and replace the inner representations.
+                            continuation: Some(Box::new(move |vm: &mut VM| {
+                                let result = vm.pop();
+
+                                let self_blackhole =
+                                    self_clone.0.replace(ThunkRepr::Evaluated(result.clone()));
+                                debug_assert!(matches!(self_blackhole, ThunkRepr::Blackhole));
+
+                                let inner_blackhole =
+                                    inner_clone.0.replace(ThunkRepr::Evaluated(result.clone()));
+                                debug_assert!(matches!(inner_blackhole, ThunkRepr::Blackhole));
+
+                                Thunk::force_trampoline(vm, Value::Thunk(self_clone))
                                     .map_err(|kind| Error::new(kind, light_span.span()))
                             })),
                         });
                     }
-                    ThunkRepr::Native(native) => {
-                        let value = native.0(vm)?;
-                        self.0.replace(ThunkRepr::Evaluated(value.clone()));
+
+                    // If the inner thunk is some arbitrary other value (this is
+                    // almost guaranteed to be another thunk), change our
+                    // representation to the same inner thunk and bounce off the
+                    // trampoline. The inner thunk is changed *back* to the same
+                    // state.
+                    //
+                    // This is safe because we are not cloning the innermost
+                    // thunk's representation, so while the inner thunk will not
+                    // eventually have its representation replaced by _this_
+                    // trampoline run, we will return the correct representation
+                    // out of here and memoize the innermost thunk.
+                    ThunkRepr::Evaluated(v) => {
+                        self.0.replace(ThunkRepr::Evaluated(v.clone()));
+                        inner.0.replace(ThunkRepr::Evaluated(v.clone()));
+                        let self_clone = self.clone();
+
+                        return Ok(Trampoline {
+                            action: None,
+                            continuation: Some(Box::new(move |vm: &mut VM| {
+                                // TODO(tazjin): not sure about this span ...
+                                // let span = vm.current_span();
+                                Thunk::force_trampoline(vm, Value::Thunk(self_clone))
+                                    .map_err(|kind| Error::new(kind, todo!("BUG: b/238")))
+                            })),
+                        });
                     }
-                    _ => unreachable!(),
                 }
             }
+
+            // This branch can not occur here, it would have been caught by our
+            // `self.is_forced()` check above.
+            ThunkRepr::Evaluated(_) => unreachable!("BUG: definition of Thunk::is_forced changed"),
         }
     }
 

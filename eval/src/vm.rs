@@ -1017,7 +1017,8 @@ impl<'o> VM<'o> {
 
             OpCode::OpForce => {
                 if let Some(Value::Thunk(_)) = self.stack.last() {
-                    let trampoline = fallible!(self, Thunk::force_trampoline(self));
+                    let value = self.pop();
+                    let trampoline = fallible!(self, Thunk::force_trampoline(self, value));
                     return Ok(trampoline);
                 }
             }

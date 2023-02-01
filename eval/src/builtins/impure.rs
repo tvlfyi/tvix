@@ -3,7 +3,6 @@ use smol_str::SmolStr;
 
 use std::{
     env,
-    rc::Rc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -69,7 +68,7 @@ pub fn impure_builtins() -> Vec<(&'static str, Value)> {
 
     result.push((
         "storeDir",
-        Value::Thunk(Thunk::new_suspended_native(Rc::new(
+        Value::Thunk(Thunk::new_suspended_native(Box::new(
             |vm: &mut VM| match vm.io().store_dir() {
                 None => Ok(Value::Null),
                 Some(dir) => Ok(Value::String(dir.into())),

@@ -15,5 +15,10 @@ fn test_source_builtin() {
         result.errors
     );
 
-    assert!(matches!(result.value.unwrap(), Value::Integer(42)));
+    let value = result.value.unwrap();
+    assert!(
+        matches!(value, Value::Integer(42)),
+        "expected the integer 42, but got {}",
+        value,
+    );
 }
