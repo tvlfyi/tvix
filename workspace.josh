@@ -1,0 +1,5 @@
+:/third_party:[
+    ::nixpkgs/
+    ::sources/
+]
+:/tvix
