@@ -99,7 +99,7 @@ pub fn decode(input: &[u8]) -> Result<Vec<u8>, Nixbase32DecodeError> {
 
 /// Returns the decoded length of an input of length len.
 pub fn decode_len(len: usize) -> usize {
-    return (len * 5) / 8;
+    (len * 5) / 8
 }
 
 /// Returns the encoded length of an input of length len
@@ -107,7 +107,7 @@ pub fn encode_len(len: usize) -> usize {
     if len == 0 {
         return 0;
     }
-    return (len * 8 - 1) / 5 + 1;
+    (len * 8 - 1) / 5 + 1
 }
 
 #[cfg(test)]
