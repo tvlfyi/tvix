@@ -1,16 +1,56 @@
 Tvix
 ====
 
-For more information about Tvix, feel free to reach out.
-We are interested in people who would like to help us review designs,
-brainstorm and describe requirements that we may not yet have considered.
+Tvix is a new implementation of the Nix language and package manager. See the
+[announcement post][post-1] for information about the background of this
+project.
 
-Most of the discussion around development happens on our IRC channel, which
-you can join in several ways documented on
-[tvl.fyi](https://tvl.fyi/#getting-in-touch).
+Tvix is developed by [TVL][tvl] in our monorepo, the `depot`, at
+[//tvix][tvix-src]. Code reviews take place on [Gerrit][tvix-gerrit], bugs are
+filed in [our issue tracker][b].
 
-There's also some discussion around development on our
-[mailing list](https://inbox.tvl.su).
+For more information about Tvix, feel free to reach out. We are interested in
+people who would like to help us review designs, brainstorm and describe
+requirements that we may not yet have considered.
+
+Most of the discussion around development happens on our IRC channel, which you
+can join in several ways documented on [tvl.fyi][getting-in-touch], or on our
+[mailing list][].
+
+Contributions to Tvix follow the TVL [review flow][review-docs] and
+[contribution guidelines][contributing].
+
+[post-1]: https://tvl.fyi/blog/rewriting-nix
+[tvl]: https://tvl.fyi
+[tvix-src]: https://cs.tvl.fyi/depot/-/tree/tvix/
+[tvix-gerrit]: https://cl.tvl.fyi/q/path:%255Etvix.*
+[b]: https://b.tvl.fyi
+[getting-in-touch]: https://tvl.fyi/#getting-in-touch
+[mailing list]: https://inbox.tvl.su
+[review-docs]: https://code.tvl.fyi/about/docs/REVIEWS.md
+[contributing]: https://code.tvl.fyi/about/docs/CONTRIBUTING.md
+
+WARNING: Tvix is not ready for use in production. None of our current APIs
+should be considered stable in any way.
+
+WARNING: Any other instances of this project or repository are
+[`josh`-mirrors][josh]. We do not accept code contributions or issues outside of
+the tooling and communication methods outlined above.
+
+[josh]: https://github.com/josh-project/josh
+
+## Components
+
+This folder contains the following components:
+
+* `//tvix/eval` - an implementation of the Nix programming language
+* `//tvix/nix-compat` - library functions for compatibility with C++ Nix
+* `//tvix/cli` - preliminary REPL & CLI implementation for Tvix
+* `//tvix/serde` - Rust library for using the Nix language for app configuration
+* `//tvix/store` - implementation of a file store for Tvix
+
+Some additional folders with auxiliary things exist and can be explored at your
+leisure.
 
 ## Building the CLI
 
