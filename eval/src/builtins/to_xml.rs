@@ -24,7 +24,7 @@ pub(super) fn value_to_xml<W: Write>(mut writer: W, value: &Value) -> Result<(),
 
     // Write a literal document declaration, using C++-Nix-style
     // single quotes.
-    write!(writer, "<?xml version='1.0' encoding='utf-8'?>\n")?;
+    writeln!(writer, "<?xml version='1.0' encoding='utf-8'?>")?;
 
     let mut writer = EventWriter::new_with_config(writer, config);
 
@@ -33,7 +33,7 @@ pub(super) fn value_to_xml<W: Write>(mut writer: W, value: &Value) -> Result<(),
     writer.write(XmlEvent::end_element())?;
 
     // Unwrap the writer to add the final newline that C++ Nix adds.
-    write!(writer.into_inner(), "\n")?;
+    writeln!(writer.into_inner())?;
 
     Ok(())
 }
