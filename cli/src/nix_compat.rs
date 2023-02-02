@@ -6,6 +6,7 @@
 //! is still being implemented in Tvix.
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
 use std::rc::Rc;
@@ -25,6 +26,12 @@ pub struct NixCompatIO {
     /// Ingested paths must be reported to this known paths tracker
     /// for accurate build reference scanning.
     known_paths: Rc<RefCell<KnownPaths>>,
+
+    /// Cache paths for identical files being imported to the store.
+    // TODO(tazjin): This could be done better by having a thunk cache
+    // for these calls on the eval side, but that is a little more
+    // complex.
+    import_cache: RefCell<HashMap<PathBuf, PathBuf>>,
 }
 
 impl EvalIO for NixCompatIO {
@@ -34,10 +41,20 @@ impl EvalIO for NixCompatIO {
 
     // Pass path imports through to `nix-store --add`
     fn import_path(&self, path: &Path) -> Result<PathBuf, ErrorKind> {
-        self.add_to_store(path).map_err(|error| ErrorKind::IO {
+        let path = path.to_owned();
+        if let Some(path) = self.import_cache.borrow().get(&path) {
+            return Ok(path.to_path_buf());
+        }
+
+        let store_path = self.add_to_store(&path).map_err(|error| ErrorKind::IO {
             error: std::rc::Rc::new(error),
             path: Some(path.to_path_buf()),
-        })
+        })?;
+
+        self.import_cache
+            .borrow_mut()
+            .insert(path, store_path.clone());
+        Ok(store_path)
     }
 
     // Pass the rest of the functions through to `Self::underlying`
@@ -58,6 +75,7 @@ impl NixCompatIO {
     pub fn new(known_paths: Rc<RefCell<KnownPaths>>) -> Self {
         NixCompatIO {
             underlying: StdIO,
+            import_cache: RefCell::new(HashMap::new()),
             known_paths,
         }
     }
