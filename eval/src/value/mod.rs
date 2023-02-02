@@ -553,7 +553,7 @@ fn total_fmt_float<F: std::fmt::Write>(num: f64, mut f: F) -> std::fmt::Result {
         }
 
         // if we modified the scientific notation, flip the reference
-        if new_s.len() != 0 {
+        if !new_s.is_empty() {
             s = &mut new_s
         }
     }
