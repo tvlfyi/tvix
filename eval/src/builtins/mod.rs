@@ -1011,12 +1011,10 @@ mod placeholder_builtins {
 
     #[builtin("unsafeDiscardStringContext")]
     fn builtin_unsafe_discard_string_context(
-        vm: &mut VM,
+        _: &mut VM,
         #[lazy] s: Value,
     ) -> Result<Value, ErrorKind> {
-        vm.emit_warning(WarningKind::NotImplemented(
-            "builtins.unsafeDiscardStringContext",
-        ));
+        // Tvix does not manually track contexts, and this is a no-op for us.
         Ok(s)
     }
 
