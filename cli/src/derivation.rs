@@ -8,7 +8,7 @@ use tvix_eval::builtin_macros::builtins;
 use tvix_eval::{AddContext, CoercionKind, ErrorKind, NixAttrs, NixList, Value, VM};
 
 use crate::errors::Error;
-use crate::known_paths::{KnownPaths, PathType};
+use crate::known_paths::{KnownPaths, PathKind, PathName};
 
 // Constants used for strangely named fields in derivation inputs.
 const STRUCTURED_ATTRS: &str = "__structuredAttrs";
@@ -41,18 +41,19 @@ fn populate_outputs(vm: &mut VM, drv: &mut Derivation, outputs: NixList) -> Resu
 
 /// Populate the inputs of a derivation from the build references
 /// found when scanning the derivation's parameters.
-fn populate_inputs<I: IntoIterator<Item = String>>(
+fn populate_inputs<I: IntoIterator<Item = PathName>>(
     drv: &mut Derivation,
     known_paths: &KnownPaths,
     references: I,
 ) {
     for reference in references.into_iter() {
-        match &known_paths[&reference] {
-            PathType::Plain => {
-                drv.input_sources.insert(reference.to_string());
+        let reference = &known_paths[&reference];
+        match &reference.kind {
+            PathKind::Plain => {
+                drv.input_sources.insert(reference.path.clone());
             }
 
-            PathType::Output { name, derivation } => {
+            PathKind::Output { name, derivation } => {
                 match drv.input_derivations.entry(derivation.clone()) {
                     btree_map::Entry::Vacant(entry) => {
                         entry.insert(BTreeSet::from([name.clone()]));
@@ -64,8 +65,8 @@ fn populate_inputs<I: IntoIterator<Item = String>>(
                 }
             }
 
-            PathType::Derivation { output_names } => {
-                match drv.input_derivations.entry(reference.to_string()) {
+            PathKind::Derivation { output_names } => {
+                match drv.input_derivations.entry(reference.path.clone()) {
                     btree_map::Entry::Vacant(entry) => {
                         entry.insert(output_names.clone());
                     }
@@ -389,7 +390,14 @@ mod derivation_builtins {
 
         let mut refscan = state.borrow().reference_scanner();
         refscan.scan_str(content.as_str());
-        let refs = refscan.finalise();
+        let refs = {
+            let paths = state.borrow();
+            refscan
+                .finalise()
+                .into_iter()
+                .map(|path| paths[&path].path.to_string())
+                .collect::<Vec<_>>()
+        };
 
         // TODO: fail on derivation references (only "plain" is allowed here)
 
@@ -491,7 +499,7 @@ mod tests {
             "/nix/store/aqffiyqx602lbam7n1zsaz3yrh6v08pc-bar.drv",
         );
 
-        let inputs: Vec<String> = vec![
+        let inputs = vec![
             "/nix/store/fn7zvafq26f0c8b17brs7s95s10ibfzs-foo".into(),
             "/nix/store/aqffiyqx602lbam7n1zsaz3yrh6v08pc-bar.drv".into(),
             "/nix/store/zvpskvjwi72fjxg0vzq822sfvq20mq4l-bar".into(),

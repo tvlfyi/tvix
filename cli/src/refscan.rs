@@ -14,16 +14,16 @@ pub const STORE_PATH_LEN: usize = "/nix/store/00000000000000000000000000000000".
 
 /// Represents a "primed" reference scanner with an automaton that knows the set
 /// of store paths to scan for.
-pub struct ReferenceScanner {
-    candidates: Vec<String>,
+pub struct ReferenceScanner<P: Ord + AsRef<[u8]>> {
+    candidates: Vec<P>,
     searcher: TwoByteWM,
     matches: Vec<usize>,
 }
 
-impl ReferenceScanner {
+impl<P: Clone + Ord + AsRef<[u8]>> ReferenceScanner<P> {
     /// Construct a new `ReferenceScanner` that knows how to scan for the given
     /// candidate store paths.
-    pub fn new(candidates: Vec<String>) -> Self {
+    pub fn new(candidates: Vec<P>) -> Self {
         let searcher = TwoByteWM::new(&candidates);
 
         ReferenceScanner {
@@ -46,7 +46,7 @@ impl ReferenceScanner {
     }
 
     /// Finalise the reference scanner and return the resulting matches.
-    pub fn finalise(self) -> BTreeSet<String> {
+    pub fn finalise(self) -> BTreeSet<P> {
         self.matches
             .into_iter()
             .map(|idx| self.candidates[idx].clone())
@@ -64,7 +64,7 @@ mod tests {
     #[test]
     fn test_single_match() {
         let mut scanner = ReferenceScanner::new(vec![
-            "/nix/store/4xw8n979xpivdc46a9ndcvyhwgif00hz-bash-5.1-p16".into(),
+            "/nix/store/4xw8n979xpivdc46a9ndcvyhwgif00hz-bash-5.1-p16".to_string(),
         ]);
         scanner.scan_str(HELLO_DRV);
 
@@ -78,11 +78,11 @@ mod tests {
     fn test_multiple_matches() {
         let candidates = vec![
             // these exist in the drv:
-            "/nix/store/33l4p0pn0mybmqzaxfkpppyh7vx1c74p-hello-2.12.1".into(),
-            "/nix/store/pf80kikyxr63wrw56k00i1kw6ba76qik-hello-2.12.1.tar.gz.drv".into(),
-            "/nix/store/cp65c8nk29qq5cl1wyy5qyw103cwmax7-stdenv-linux".into(),
+            "/nix/store/33l4p0pn0mybmqzaxfkpppyh7vx1c74p-hello-2.12.1".to_string(),
+            "/nix/store/pf80kikyxr63wrw56k00i1kw6ba76qik-hello-2.12.1.tar.gz.drv".to_string(),
+            "/nix/store/cp65c8nk29qq5cl1wyy5qyw103cwmax7-stdenv-linux".to_string(),
             // this doesn't:
-            "/nix/store/fn7zvafq26f0c8b17brs7s95s10ibfzs-emacs-28.2.drv".into(),
+            "/nix/store/fn7zvafq26f0c8b17brs7s95s10ibfzs-emacs-28.2.drv".to_string(),
         ];
 
         let mut scanner = ReferenceScanner::new(candidates.clone());

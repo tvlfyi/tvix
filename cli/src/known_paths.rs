@@ -18,7 +18,7 @@ use std::{
 };
 
 #[derive(Debug, PartialEq)]
-pub enum PathType {
+pub enum PathKind {
     /// A literal derivation (`.drv`-file), and the *names* of its outputs.
     Derivation { output_names: BTreeSet<String> },
 
@@ -29,10 +29,43 @@ pub enum PathType {
     Plain,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct KnownPath {
+    pub path: String,
+    pub kind: PathKind,
+}
+
+impl KnownPath {
+    fn new(path: String, kind: PathKind) -> Self {
+        KnownPath { path, kind }
+    }
+}
+
+/// Internal struct to prevent accidental leaks of the truncated path
+/// names.
+#[repr(transparent)]
+#[derive(Clone, Debug, Default, PartialEq, PartialOrd, Ord, Eq, Hash)]
+pub struct PathName(String);
+
+impl From<&str> for PathName {
+    fn from(s: &str) -> Self {
+        PathName(s[..STORE_PATH_LEN].to_string())
+    }
+}
+
+/// This instance is required to pass PathName instances as needles to
+/// the reference scanner.
+impl AsRef<[u8]> for PathName {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct KnownPaths {
-    /// All known paths, and their associated [`PathType`].
-    paths: HashMap<String, PathType>,
+    /// All known paths, keyed by a truncated version of their store
+    /// path used for reference scanning.
+    paths: HashMap<PathName, KnownPath>,
 
     /// All known replacement strings for derivations.
     ///
@@ -41,39 +74,40 @@ pub struct KnownPaths {
     replacements: HashMap<String, String>,
 }
 
-impl Index<&str> for KnownPaths {
-    type Output = PathType;
+impl Index<&PathName> for KnownPaths {
+    type Output = KnownPath;
 
-    fn index(&self, index: &str) -> &Self::Output {
-        &self.paths[&index[..STORE_PATH_LEN]]
+    fn index(&self, index: &PathName) -> &Self::Output {
+        &self.paths[index]
     }
 }
 
 impl KnownPaths {
-    fn insert_path(&mut self, path: String, path_type: PathType) {
-        let path = path[..STORE_PATH_LEN].to_owned();
-        assert_eq!(path.len(), STORE_PATH_LEN, "should match");
-        match self.paths.entry(path) {
+    fn insert_path(&mut self, path: String, path_kind: PathKind) {
+        match self.paths.entry(path.as_str().into()) {
             hash_map::Entry::Vacant(entry) => {
-                entry.insert(path_type);
+                entry.insert(KnownPath::new(path, path_kind));
             }
 
             hash_map::Entry::Occupied(mut entry) => {
-                match (path_type, entry.get_mut()) {
+                match (path_kind, &mut entry.get_mut().kind) {
                     // These variant combinations require no "merging action".
-                    (PathType::Plain, PathType::Plain) => (),
-                    (PathType::Output { .. }, PathType::Output { .. }) => (),
+                    (PathKind::Plain, PathKind::Plain) => (),
+                    (PathKind::Output { .. }, PathKind::Output { .. }) => (),
 
                     (
-                        PathType::Derivation { output_names: new },
-                        PathType::Derivation {
+                        PathKind::Derivation { output_names: new },
+                        PathKind::Derivation {
                             output_names: ref mut old,
                         },
                     ) => {
                         old.extend(new);
                     }
 
-                    _ => panic!("path '{}' inserted twice with different types", entry.key()),
+                    _ => panic!(
+                        "path '{}' inserted twice with different types",
+                        entry.key().0
+                    ),
                 };
             }
         };
@@ -81,14 +115,14 @@ impl KnownPaths {
 
     /// Mark a plain path as known.
     pub fn plain<S: ToString>(&mut self, path: S) {
-        self.insert_path(path.to_string(), PathType::Plain);
+        self.insert_path(path.to_string(), PathKind::Plain);
     }
 
     /// Mark a derivation as known.
     pub fn drv<P: ToString, O: ToString>(&mut self, path: P, outputs: &[O]) {
         self.insert_path(
             path.to_string(),
-            PathType::Derivation {
+            PathKind::Derivation {
                 output_names: outputs.into_iter().map(ToString::to_string).collect(),
             },
         );
@@ -103,7 +137,7 @@ impl KnownPaths {
     ) {
         self.insert_path(
             output_path.to_string(),
-            PathType::Output {
+            PathKind::Output {
                 name: name.to_string(),
                 derivation: drv_path.to_string(),
             },
@@ -117,7 +151,7 @@ impl KnownPaths {
     }
 
     /// Create a reference scanner from the current set of known paths.
-    pub fn reference_scanner(&self) -> ReferenceScanner {
+    pub fn reference_scanner(&self) -> ReferenceScanner<PathName> {
         let candidates = self.paths.keys().map(Clone::clone).collect();
         ReferenceScanner::new(candidates)
     }
