@@ -2,7 +2,7 @@
 //! Tvix bytecode.
 
 use serde_json::json;
-use std::{cmp::Ordering, collections::BTreeMap, ops::DerefMut, path::PathBuf, rc::Rc};
+use std::{cmp::Ordering, collections::HashMap, ops::DerefMut, path::PathBuf, rc::Rc};
 
 use crate::{
     chunk::Chunk,
@@ -113,7 +113,7 @@ pub struct VM<'o> {
     /// Import cache, mapping absolute file paths to the value that
     /// they compile to. Note that this reuses thunks, too!
     // TODO: should probably be based on a file hash
-    pub import_cache: Box<BTreeMap<PathBuf, Value>>,
+    pub import_cache: Box<HashMap<PathBuf, Value>>,
 
     /// Parsed Nix search path, which is used to resolve `<...>`
     /// references.
