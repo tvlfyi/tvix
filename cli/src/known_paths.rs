@@ -11,7 +11,7 @@
 //! Please see //tvix/eval/docs/build-references.md for more
 //! information.
 
-use crate::refscan::ReferenceScanner;
+use crate::refscan::{ReferenceScanner, STORE_PATH_LEN};
 use std::{
     collections::{hash_map, BTreeSet, HashMap},
     ops::Index,
@@ -45,12 +45,14 @@ impl Index<&str> for KnownPaths {
     type Output = PathType;
 
     fn index(&self, index: &str) -> &Self::Output {
-        &self.paths[index]
+        &self.paths[&index[..STORE_PATH_LEN]]
     }
 }
 
 impl KnownPaths {
     fn insert_path(&mut self, path: String, path_type: PathType) {
+        let path = path[..STORE_PATH_LEN].to_owned();
+        assert_eq!(path.len(), STORE_PATH_LEN, "should match");
         match self.paths.entry(path) {
             hash_map::Entry::Vacant(entry) => {
                 entry.insert(path_type);
@@ -106,6 +108,12 @@ impl KnownPaths {
                 derivation: drv_path.to_string(),
             },
         );
+    }
+
+    /// Checks whether there are any known paths. If not, a reference
+    /// scanner can not be created.
+    pub fn is_empty(&self) -> bool {
+        self.paths.is_empty()
     }
 
     /// Create a reference scanner from the current set of known paths.

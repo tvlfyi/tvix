@@ -7809,6 +7809,10 @@ rec {
             name = "tvix-eval";
             packageId = "tvix-eval";
           }
+          {
+            name = "wu-manber";
+            packageId = "wu-manber";
+          }
         ];
 
       };
@@ -9461,6 +9465,21 @@ rec {
         sha256 = "1zfgzsmc0j5p9yx25j15lb1yh45mazl4hhjdvfqqhcm16snn0xj4";
         authors = [
           "Microsoft"
+        ];
+
+      };
+      "wu-manber" = rec {
+        crateName = "wu-manber";
+        version = "0.1.0";
+        edition = "2015";
+        workspace_member = null;
+        src = pkgs.fetchgit {
+          url = "https://github.com/jneem/wu-manber.git";
+          rev = "acff1ffc303935ce55a6c36bd89b0819688b27b7";
+          sha256 = "1r6r87746qry48rmsdk7x3l4w5wlhkny8al9mz2ic83j7vm1wivz";
+        };
+        authors = [
+          "Joe Neeman <joeneeman@gmail.com>"
         ];
 
       };

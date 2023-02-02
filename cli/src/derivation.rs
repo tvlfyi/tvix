@@ -298,10 +298,19 @@ mod derivation_builtins {
         }
 
         // Scan references in relevant attributes to detect any build-references.
-        let mut refscan = state.borrow().reference_scanner();
-        drv.arguments.iter().for_each(|s| refscan.scan_str(s));
-        drv.environment.values().for_each(|s| refscan.scan_str(s));
-        refscan.scan_str(&drv.builder);
+        let references = {
+            let state = state.borrow();
+            if state.is_empty() {
+                // skip reference scanning, create an empty result
+                Default::default()
+            } else {
+                let mut refscan = state.reference_scanner();
+                drv.arguments.iter().for_each(|s| refscan.scan_str(s));
+                drv.environment.values().for_each(|s| refscan.scan_str(s));
+                refscan.scan_str(&drv.builder);
+                refscan.finalise()
+            }
+        };
 
         // Each output name needs to exist in the environment, at this
         // point initialised as an empty string because that is the
@@ -317,7 +326,7 @@ mod derivation_builtins {
         }
 
         let mut known_paths = state.borrow_mut();
-        populate_inputs(&mut drv, &known_paths, refscan.finalise());
+        populate_inputs(&mut drv, &known_paths, references);
 
         // At this point, derivation fields are fully populated from
         // eval data structures.

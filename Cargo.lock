@@ -2622,7 +2622,6 @@ checksum = "3528ecfd12c466c6f163363caf2d02a71161dd5e1cc6ae7b34207ea2d42d81ed"
 name = "tvix-cli"
 version = "0.1.0"
 dependencies = [
- "aho-corasick",
  "clap 4.1.4",
  "data-encoding",
  "dirs",
@@ -2632,6 +2631,7 @@ dependencies = [
  "ssri",
  "thiserror",
  "tvix-eval",
+ "wu-manber",
 ]
 
 [[package]]
@@ -2956,6 +2956,11 @@ name = "windows_x86_64_msvc"
 version = "0.42.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "447660ad36a13288b1db4d4248e857b510e8c3a225c822ba4fb748c0aafecffd"
+
+[[package]]
+name = "wu-manber"
+version = "0.1.0"
+source = "git+https://github.com/jneem/wu-manber.git#acff1ffc303935ce55a6c36bd89b0819688b27b7"
 
 [[package]]
 name = "xml-rs"
