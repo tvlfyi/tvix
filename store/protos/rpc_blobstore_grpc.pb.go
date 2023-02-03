@@ -29,10 +29,26 @@ type BlobServiceClient interface {
 	// If there's no more granular chunking available, the response will simply
 	// contain a single chunk.
 	Stat(ctx context.Context, in *StatBlobRequest, opts ...grpc.CallOption) (*BlobMeta, error)
-	// Read returns a stream of BlobChunk, which is just a stream of bytes - not necessarily
-	// using the chunking that's returned in the reply of a Stat() call.
+	// Read returns a stream of BlobChunk, which is just a stream of bytes with
+	// the digest specified in ReadBlobRequest.
+	//
+	// The server may decide on whatever chunking it may seem fit as a size for
+	// the individual BlobChunk sent in the response stream.
+	//
+	// It specifically is NOT necessarily using chunk sizes communicated in a
+	// previous Stat request.
+	//
+	// It's up to the specific store to decide on whether it allows Read on a
+	// Blob at all, or only on smaller chunks communicated in a Stat() call
+	// first.
+	//
+	// Clients are enouraged to Stat() first, and then only read the individual
+	// chunks they don't have yet.
 	Read(ctx context.Context, in *ReadBlobRequest, opts ...grpc.CallOption) (BlobService_ReadClient, error)
 	// Put uploads a Blob, by reading a stream of bytes.
+	//
+	// The way the data is chunked up in individual BlobChunk messages sent in
+	// the stream has no effect on how the server ends up chunking blobs up.
 	Put(ctx context.Context, opts ...grpc.CallOption) (BlobService_PutClient, error)
 }
 
@@ -130,10 +146,26 @@ type BlobServiceServer interface {
 	// If there's no more granular chunking available, the response will simply
 	// contain a single chunk.
 	Stat(context.Context, *StatBlobRequest) (*BlobMeta, error)
-	// Read returns a stream of BlobChunk, which is just a stream of bytes - not necessarily
-	// using the chunking that's returned in the reply of a Stat() call.
+	// Read returns a stream of BlobChunk, which is just a stream of bytes with
+	// the digest specified in ReadBlobRequest.
+	//
+	// The server may decide on whatever chunking it may seem fit as a size for
+	// the individual BlobChunk sent in the response stream.
+	//
+	// It specifically is NOT necessarily using chunk sizes communicated in a
+	// previous Stat request.
+	//
+	// It's up to the specific store to decide on whether it allows Read on a
+	// Blob at all, or only on smaller chunks communicated in a Stat() call
+	// first.
+	//
+	// Clients are enouraged to Stat() first, and then only read the individual
+	// chunks they don't have yet.
 	Read(*ReadBlobRequest, BlobService_ReadServer) error
 	// Put uploads a Blob, by reading a stream of bytes.
+	//
+	// The way the data is chunked up in individual BlobChunk messages sent in
+	// the stream has no effect on how the server ends up chunking blobs up.
 	Put(BlobService_PutServer) error
 	mustEmbedUnimplementedBlobServiceServer()
 }

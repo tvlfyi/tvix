@@ -161,7 +161,7 @@ type ReadBlobRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// The blake3 digest of the blob requested
+	// The blake3 digest of the blob or chunk requested
 	Digest []byte `protobuf:"bytes,1,opt,name=digest,proto3" json:"digest,omitempty"`
 }
 
