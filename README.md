@@ -57,8 +57,8 @@ leisure.
 The CLI can also be built with standard Rust tooling (i.e. `cargo build`),
 as long as you are in a shell with the right dependencies.
 
- - If you cloned the full monorepo, it can be provided by `mg shell //
-   tvix:shell`.
+ - If you cloned the full monorepo, it can be provided by
+   `mg shell //tvix:shell`.
  - If you cloned the `tvix` workspace only
    (`git clone https://code.tvl.fyi/depot.git:workspace=views/tvix.git`),
    `nix-shell` provides it.
