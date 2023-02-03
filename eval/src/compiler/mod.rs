@@ -302,9 +302,11 @@ impl Compiler<'_> {
     /// Compiles an expression, but does not emit any code for it as
     /// it is considered dead. This will still catch errors and
     /// warnings in that expression.
+    ///
+    /// A warning about the that code being dead is assumed to already be
+    /// emitted by the caller of [compile_dead_code].
     fn compile_dead_code(&mut self, slot: LocalIdx, node: ast::Expr) {
         self.dead_scope += 1;
-        self.emit_warning(&node, WarningKind::DeadCode);
         self.compile(slot, node);
         self.dead_scope -= 1;
     }
