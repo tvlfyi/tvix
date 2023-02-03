@@ -15,11 +15,12 @@
 //! In the context of Nix builds, callers also use this interface to determine
 //! how store paths are opened and so on.
 
+use crate::errors::ErrorKind;
 use smol_str::SmolStr;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
-use crate::errors::ErrorKind;
+#[cfg(feature = "impure")]
+use std::rc::Rc;
 
 /// Types of files as represented by `builtins.readDir` in Nix.
 #[derive(Debug)]
