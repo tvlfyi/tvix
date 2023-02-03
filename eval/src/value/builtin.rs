@@ -33,6 +33,19 @@ pub struct BuiltinArgument {
     pub name: &'static str,
 }
 
+#[derive(Clone)]
+pub struct BuiltinRepr {
+    name: &'static str,
+    /// Array of arguments to the builtin.
+    arguments: &'static [BuiltinArgument],
+    /// Optional documentation for the builtin.
+    documentation: Option<&'static str>,
+    func: Rc<dyn BuiltinFn>,
+
+    /// Partially applied function arguments.
+    partials: Vec<Value>,
+}
+
 /// Represents a single built-in function which directly executes Rust
 /// code that operates on a Nix value.
 ///
@@ -46,16 +59,12 @@ pub struct BuiltinArgument {
 /// "capture" the partially applied arguments, and are treated
 /// specially when printing their representation etc.
 #[derive(Clone)]
-pub struct Builtin {
-    name: &'static str,
-    /// Array of arguments to the builtin.
-    arguments: &'static [BuiltinArgument],
-    /// Optional documentation for the builtin.
-    documentation: Option<&'static str>,
-    func: Rc<dyn BuiltinFn>,
+pub struct Builtin(Box<BuiltinRepr>);
 
-    /// Partially applied function arguments.
-    partials: Vec<Value>,
+impl From<BuiltinRepr> for Builtin {
+    fn from(value: BuiltinRepr) -> Self {
+        Builtin(Box::new(value))
+    }
 }
 
 impl Builtin {
@@ -65,36 +74,37 @@ impl Builtin {
         documentation: Option<&'static str>,
         func: F,
     ) -> Self {
-        Builtin {
+        BuiltinRepr {
             name,
             arguments,
             documentation,
             func: Rc::new(func),
             partials: vec![],
         }
+        .into()
     }
 
     pub fn name(&self) -> &'static str {
-        self.name
+        self.0.name
     }
 
     pub fn documentation(&self) -> Option<&'static str> {
-        self.documentation
+        self.0.documentation
     }
 
     /// Apply an additional argument to the builtin, which will either
     /// lead to execution of the function or to returning a partial
     /// builtin.
     pub fn apply(mut self, vm: &mut VM, arg: Value) -> Result<Value, ErrorKind> {
-        self.partials.push(arg);
+        self.0.partials.push(arg);
 
-        if self.partials.len() == self.arguments.len() {
-            for (idx, BuiltinArgument { strict, .. }) in self.arguments.iter().enumerate() {
+        if self.0.partials.len() == self.0.arguments.len() {
+            for (idx, BuiltinArgument { strict, .. }) in self.0.arguments.iter().enumerate() {
                 if *strict {
-                    self.partials[idx].force(vm)?;
+                    self.0.partials[idx].force(vm)?;
                 }
             }
-            return (self.func)(self.partials, vm);
+            return (self.0.func)(self.0.partials, vm);
         }
 
         // Function is not yet ready to be called.
@@ -104,13 +114,13 @@ impl Builtin {
 
 impl Debug for Builtin {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "builtin[{}]", self.name)
+        write!(f, "builtin[{}]", self.0.name)
     }
 }
 
 impl Display for Builtin {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if !self.partials.is_empty() {
+        if !self.0.partials.is_empty() {
             f.write_str("<<primop-app>>")
         } else {
             f.write_str("<<primop>>")
@@ -121,6 +131,6 @@ impl Display for Builtin {
 /// Builtins are uniquely identified by their name
 impl PartialEq for Builtin {
     fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
+        self.0.name == other.0.name
     }
 }
