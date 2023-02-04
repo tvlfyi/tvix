@@ -1,5 +1,5 @@
 {
   "test-generator 0.3.0 (git+https://github.com/JamesGuthrie/test-generator.git?rev=82e799979980962aec1aa324ec6e0e4cad781f41#82e799979980962aec1aa324ec6e0e4cad781f41)": "08brp3qqa55hijc7xby3lam2cc84hvx1zzfqv6lj7smlczh8k32y",
   "tonic-mock 0.1.0 (git+https://github.com/brainrake/tonic-mock?branch=bump-dependencies#ec1a15510875de99d709d684190db5d9beab175e)": "0lwa03hpp0mxa6aa1zv5w68k61y4hccfm0q2ykyq392fwal8vb50",
-  "wu-manber 0.1.0 (git+https://github.com/jneem/wu-manber.git#acff1ffc303935ce55a6c36bd89b0819688b27b7)": "1r6r87746qry48rmsdk7x3l4w5wlhkny8al9mz2ic83j7vm1wivz"
+  "wu-manber 0.1.0 (git+https://github.com/tvlfyi/wu-manber.git#e77628cafcf45d41b9e455be86a6b1b9f46b2092)": "02byhfiw41mlgr1c43n2iq6jw5sbyn8l1acv5v71a07h5l18q0cy"
 }

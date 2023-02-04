@@ -19,4 +19,4 @@ data-encoding = "2.3.3"
 thiserror = "1.0.38"
 
 [dependencies.wu-manber]
-git = "https://github.com/jneem/wu-manber.git"
+git = "https://github.com/tvlfyi/wu-manber.git"
