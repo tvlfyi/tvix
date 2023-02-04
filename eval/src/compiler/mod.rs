@@ -335,7 +335,7 @@ impl Compiler<'_> {
             Path::new(&raw_path).to_owned()
         } else if raw_path.starts_with('~') {
             return self.thunk(slot, node, move |c, _| {
-                // We assume that paths that home paths start with ~/ or fail to parse
+                // We assume that home paths start with ~/ or fail to parse
                 // TODO: this should be checked using a parse-fail test.
                 debug_assert!(raw_path.len() > 2 && raw_path.starts_with("~/"));
 
@@ -343,10 +343,6 @@ impl Compiler<'_> {
                 c.emit_constant(Value::UnresolvedPath(home_relative_path.into()), node);
                 c.push_op(OpCode::OpResolveHomePath, node);
             });
-        } else if raw_path.starts_with('.') {
-            let mut buf = self.root_dir.clone();
-            buf.push(&raw_path);
-            buf
         } else if raw_path.starts_with('<') {
             // TODO: decide what to do with findFile
             if raw_path.len() == 2 {
@@ -362,11 +358,9 @@ impl Compiler<'_> {
                 c.push_op(OpCode::OpFindFile, node);
             });
         } else {
-            self.emit_error(
-                node,
-                ErrorKind::NotImplemented("other path types not yet implemented"),
-            );
-            return;
+            let mut buf = self.root_dir.clone();
+            buf.push(&raw_path);
+            buf
         };
 
         // TODO: Use https://github.com/rust-lang/rfcs/issues/2208
