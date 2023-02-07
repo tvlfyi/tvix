@@ -62,7 +62,7 @@ pub enum Error {
     InvalidAlgo(String),
     #[error("invalid sri string")]
     InvalidSRI,
-    #[error("invalid encoded digest length '{0}' for algo {0}")]
+    #[error("invalid encoded digest length '{0}' for algo {1}")]
     InvalidEncodedDigestLength(usize, HashAlgo),
     #[error("invalid base16 encoding: {0}")]
     InvalidBase16Encoding(data_encoding::DecodeError),
