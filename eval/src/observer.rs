@@ -152,7 +152,7 @@ impl<W: Write> RuntimeObserver for TracingObserver<W> {
         let _ = writeln!(
             &mut self.writer,
             "in frame[{}] @ {:p} ===",
-            call_depth, lambda
+            call_depth, *lambda
         );
     }
 
