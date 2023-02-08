@@ -352,7 +352,7 @@ mod tests {
 
     /// Ensure we reject SRI strings with multiple hashes, as Nix doesn't support that.
     #[test]
-    fn from_stri_str_unsupported_multiple() {
+    fn from_sri_str_unsupported_multiple() {
         nixhash::from_sri_str("sha256-ngth6szLtC1IJIYyz3lhftzL8SkrJkqPyPve+dGqa1Y= sha512-q0DQvjVB8HdLungV0T0QsDJS6W6V99u07pmjtDHCFmL9aXGgIBYOOYSKpfMFub4PeHJ7KweJ458STSHpK4857w==").expect_err("must fail");
     }
 }
