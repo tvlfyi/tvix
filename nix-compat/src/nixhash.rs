@@ -1,3 +1,4 @@
+use data_encoding::{BASE64, BASE64_NOPAD};
 use std::fmt::Display;
 use thiserror::Error;
 
@@ -111,11 +112,9 @@ pub fn from_str(s: &str, algo_str: Option<&str>) -> Result<NixHash, Error> {
             n if n == nixbase32::encode_len(expected_digest_len) => {
                 nixbase32::decode(s.as_ref()).map_err(Error::InvalidBase32Encoding)
             }
-            n if n == data_encoding::BASE64.encode_len(expected_digest_len) => {
-                data_encoding::BASE64
-                    .decode(s.as_ref())
-                    .map_err(Error::InvalidBase64Encoding)
-            }
+            n if n == BASE64.encode_len(expected_digest_len) => BASE64
+                .decode(s.as_ref())
+                .map_err(Error::InvalidBase64Encoding),
             _ => {
                 // another length than what we expected from the passed hash algo
                 // try to parse as SRI
@@ -150,6 +149,7 @@ pub fn from_str(s: &str, algo_str: Option<&str>) -> Result<NixHash, Error> {
 /// Contrary to the SRI spec, Nix doesn't support SRI strings with multiple hashes,
 /// only supports sha256 and sha512 from the spec, and supports sha1 and md5
 /// additionally.
+/// It also accepts SRI strings where the base64 has an with invalid padding.
 pub fn from_sri_str(s: &str) -> Result<NixHash, Error> {
     // try to find the first occurence of "-"
     let idx = s.as_bytes().iter().position(|&e| e == b'-');
@@ -164,22 +164,32 @@ pub fn from_sri_str(s: &str) -> Result<NixHash, Error> {
     let algo: HashAlgo = s[..idx].try_into()?;
 
     // the rest should be the digest (as Nix doesn't support more than one hash in an SRI string).
-    let digest_str = &s[idx + 1..];
+    let encoded_digest = &s[idx + 1..];
+    let actual_len = encoded_digest.as_bytes().len();
 
-    // verify the digest length matches what we'd expect from the hash function.
-    // This will also reject strings with more than one hash, because the length won't match.
-    if digest_str.as_bytes().len() != data_encoding::BASE64.encode_len(hash_algo_length(&algo)) {
-        return Err(Error::InvalidEncodedDigestLength(
-            digest_str.as_bytes().len(),
+    // verify the digest length matches what we'd expect from the hash function,
+    // and then either try decoding as BASE64 or BASE64_NOPAD.
+    // This will also reject SRI strings with more than one hash, because the length won't match
+    if actual_len == BASE64.encode_len(hash_algo_length(&algo)) {
+        let digest: Vec<u8> = BASE64
+            .decode(encoded_digest.as_bytes())
+            .map_err(Error::InvalidBase64Encoding)?;
+        Ok(NixHash { digest, algo })
+    } else if actual_len == BASE64_NOPAD.encode_len(hash_algo_length(&algo)) {
+        let digest: Vec<u8> = BASE64_NOPAD
+            .decode(encoded_digest.as_bytes())
+            .map_err(Error::InvalidBase64Encoding)?;
+        Ok(NixHash { digest, algo })
+    } else {
+        // NOTE: As of now, we reject SRI hashes containing additional
+        // characters (which upstream Nix seems to simply truncate), as
+        // there's no occurence of this is in nixpkgs.
+        // It most likely should also be a bug in Nix.
+        Err(Error::InvalidEncodedDigestLength(
+            encoded_digest.as_bytes().len(),
             algo,
-        ));
+        ))
     }
-
-    // decode the base64 string
-    let digest: Vec<u8> = data_encoding::BASE64
-        .decode(digest_str.as_bytes())
-        .map_err(Error::InvalidBase64Encoding)?;
-    Ok(NixHash { digest, algo })
 }
 
 #[cfg(test)]
@@ -354,5 +364,37 @@ mod tests {
     #[test]
     fn from_sri_str_unsupported_multiple() {
         nixhash::from_sri_str("sha256-ngth6szLtC1IJIYyz3lhftzL8SkrJkqPyPve+dGqa1Y= sha512-q0DQvjVB8HdLungV0T0QsDJS6W6V99u07pmjtDHCFmL9aXGgIBYOOYSKpfMFub4PeHJ7KweJ458STSHpK4857w==").expect_err("must fail");
+    }
+
+    /// Nix also accepts SRI strings with missing padding, but only in case the
+    /// string is expressed as SRI, so it still needs to have a `sha256-` prefix.
+    ///
+    /// This both seems to work if it is passed with and without specifying the
+    /// hash algo out-of-band (hash = "sha256-…" or sha256 = "sha256-…")
+    ///
+    /// Passing the same broken base64 string, but not as SRI, while passing
+    /// the hash algo out-of-band does not work.
+    #[test]
+    fn sha256_broken_padding() {
+        let broken_base64 = "fgIr3TyFGDAXP5+qoAaiMKDg/a1MlT6Fv/S/DaA24S8";
+        // if padded with a trailing '='
+        let expected_digest = vec![
+            0x7e, 0x02, 0x2b, 0xdd, 0x3c, 0x85, 0x18, 0x30, 0x17, 0x3f, 0x9f, 0xaa, 0xa0, 0x06,
+            0xa2, 0x30, 0xa0, 0xe0, 0xfd, 0xad, 0x4c, 0x95, 0x3e, 0x85, 0xbf, 0xf4, 0xbf, 0x0d,
+            0xa0, 0x36, 0xe1, 0x2f,
+        ];
+
+        // passing hash algo out of band should succeed
+        let nix_hash = nixhash::from_str(&format!("sha256-{}", &broken_base64), Some("sha256"))
+            .expect("must succeed");
+        assert_eq!(&expected_digest, &nix_hash.digest);
+
+        // not passing hash algo out of band should succeed
+        let nix_hash =
+            nixhash::from_str(&format!("sha256-{}", &broken_base64), None).expect("must succeed");
+        assert_eq!(&expected_digest, &nix_hash.digest);
+
+        // not passing SRI, but hash algo out of band should fail
+        nixhash::from_str(&broken_base64, Some("sha256")).expect_err("must fail");
     }
 }
