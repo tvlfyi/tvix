@@ -9,9 +9,11 @@ use nix_compat::store_path::{ParseStorePathError, StorePath};
 
 mod grpc_blobservice_wrapper;
 mod grpc_directoryservice_wrapper;
+mod grpc_pathinfoservice_wrapper;
 
 pub use grpc_blobservice_wrapper::GRPCBlobServiceWrapper;
 pub use grpc_directoryservice_wrapper::GRPCDirectoryServiceWrapper;
+pub use grpc_pathinfoservice_wrapper::GRPCPathInfoServiceWrapper;
 
 tonic::include_proto!("tvix.store.v1");
 
