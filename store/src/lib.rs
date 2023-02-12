@@ -2,6 +2,7 @@ pub mod client;
 
 mod errors;
 
+pub mod blobservice;
 pub mod chunkservice;
 pub mod proto;
 
