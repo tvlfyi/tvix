@@ -5,6 +5,7 @@ mod errors;
 
 pub mod blobservice;
 pub mod chunkservice;
+pub mod directoryservice;
 pub mod proto;
 
 pub use blobreader::BlobReader;
