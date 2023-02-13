@@ -423,6 +423,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3ad85c1f65dc7b37604eb0e89748faf0b9653065f2a8ef69f96a687ec1e9279"
 
 [[package]]
+name = "count-write"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ced507ab50aa0123e2c54db8b5f44fdfee04b1c93744d69e924307945fe57a85"
+
+[[package]]
 name = "countme"
 version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2770,12 +2776,14 @@ dependencies = [
  "anyhow",
  "blake3",
  "clap 4.1.4",
+ "count-write",
  "data-encoding",
  "fastcdc",
  "lazy_static",
  "nix-compat",
  "prost",
  "prost-build",
+ "sha2 0.10.6",
  "sled",
  "tempfile",
  "test-case",
