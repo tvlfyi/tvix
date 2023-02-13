@@ -6,6 +6,7 @@ mod errors;
 pub mod blobservice;
 pub mod chunkservice;
 pub mod directoryservice;
+pub mod pathinfoservice;
 pub mod proto;
 
 pub use blobreader::BlobReader;
