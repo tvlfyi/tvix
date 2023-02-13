@@ -1,12 +1,17 @@
-use data_encoding::BASE64;
-
-use crate::client::StoreClient;
-use crate::nar::write_nar;
+use crate::blobservice::BlobService;
+use crate::blobservice::SledBlobService;
+use crate::chunkservice::ChunkService;
+use crate::chunkservice::SledChunkService;
+use crate::directoryservice::DirectoryService;
+use crate::directoryservice::SledDirectoryService;
+use crate::nar::NARRenderer;
 use crate::proto;
 use crate::proto::DirectoryNode;
 use crate::proto::FileNode;
 use crate::proto::SymlinkNode;
 use lazy_static::lazy_static;
+use std::path::Path;
+use tempfile::TempDir;
 
 const HELLOWORLD_BLOB_CONTENTS: &[u8] = b"Hello World!";
 const EMPTY_BLOB_CONTENTS: &[u8] = b"";
@@ -44,93 +49,39 @@ lazy_static! {
     };
 }
 
-/// A Store client that fails if you ask it for a blob or a directory
-#[derive(Default)]
-struct FailingStoreClient {}
-
-impl StoreClient for FailingStoreClient {
-    fn open_blob(&self, digest: Vec<u8>) -> std::io::Result<Box<dyn std::io::BufRead>> {
-        panic!(
-            "open_blob should never be called, but was called with {}",
-            BASE64.encode(&digest),
-        );
-    }
-
-    fn get_directory(&self, digest: Vec<u8>) -> std::io::Result<Option<proto::Directory>> {
-        panic!(
-            "get_directory should never be called, but was called with {}",
-            BASE64.encode(&digest),
-        );
-    }
+fn gen_blob_service(p: &Path) -> impl BlobService {
+    SledBlobService::new(p.join("blobs")).unwrap()
 }
 
-/// Only allow a request for a blob with [HELLOWORLD_BLOB_DIGEST]
-/// panic on everything else.
-#[derive(Default)]
-struct HelloWorldBlobStoreClient {}
-
-impl StoreClient for HelloWorldBlobStoreClient {
-    fn open_blob(&self, digest: Vec<u8>) -> std::io::Result<Box<dyn std::io::BufRead>> {
-        if digest != HELLOWORLD_BLOB_DIGEST.to_vec() {
-            panic!("open_blob called with {}", BASE64.encode(&digest));
-        }
-
-        let b: Box<&[u8]> = Box::new(&HELLOWORLD_BLOB_CONTENTS);
-
-        Ok(b)
-    }
-
-    fn get_directory(&self, digest: Vec<u8>) -> std::io::Result<Option<proto::Directory>> {
-        panic!(
-            "get_directory should never be called, but was called with {}",
-            BASE64.encode(&digest),
-        );
-    }
+fn gen_chunk_service(p: &Path) -> impl ChunkService + Clone {
+    SledChunkService::new(p.join("chunks")).unwrap()
 }
 
-/// Allow blob requests for [HELLOWORLD_BLOB_DIGEST] and EMPTY_BLOB_DIGEST, and
-/// allow DIRECTORY_WITH_KEEP and DIRECTORY_COMPLICATED.
-#[derive(Default)]
-struct SomeDirectoryStoreClient {}
-
-impl StoreClient for SomeDirectoryStoreClient {
-    fn open_blob(&self, digest: Vec<u8>) -> std::io::Result<Box<dyn std::io::BufRead>> {
-        if digest == HELLOWORLD_BLOB_DIGEST.to_vec() {
-            let b: Box<&[u8]> = Box::new(&HELLOWORLD_BLOB_CONTENTS);
-            return Ok(b);
-        }
-        if digest == EMPTY_BLOB_DIGEST.to_vec() {
-            let b: Box<&[u8]> = Box::new(&EMPTY_BLOB_CONTENTS);
-            return Ok(b);
-        }
-        panic!("open_blob called with {}", BASE64.encode(&digest));
-    }
-
-    fn get_directory(&self, digest: Vec<u8>) -> std::io::Result<Option<proto::Directory>> {
-        if digest == DIRECTORY_WITH_KEEP.digest() {
-            return Ok(Some(DIRECTORY_WITH_KEEP.clone()));
-        }
-        if digest == DIRECTORY_COMPLICATED.digest() {
-            return Ok(Some(DIRECTORY_COMPLICATED.clone()));
-        }
-        panic!("get_directory called with {}", BASE64.encode(&digest));
-    }
+fn gen_directory_service(p: &Path) -> impl DirectoryService {
+    SledDirectoryService::new(p.join("directories")).unwrap()
 }
 
-#[tokio::test]
-async fn single_symlink() -> anyhow::Result<()> {
+#[test]
+fn single_symlink() -> anyhow::Result<()> {
+    let tmpdir = TempDir::new()?;
+    let renderer = NARRenderer::new(
+        gen_blob_service(tmpdir.path()),
+        gen_chunk_service(tmpdir.path()),
+        gen_directory_service(tmpdir.path()),
+    );
+    // don't put anything in the stores, as we don't actually do any requests.
+
     let mut buf: Vec<u8> = vec![];
-    let mut store_client = FailingStoreClient::default();
 
-    write_nar(
-        &mut buf,
-        crate::proto::node::Node::Symlink(SymlinkNode {
-            name: "doesntmatter".to_string(),
-            target: "/nix/store/somewhereelse".to_string(),
-        }),
-        &mut store_client,
-    )
-    .expect("must succeed");
+    renderer
+        .write_nar(
+            &mut buf,
+            crate::proto::node::Node::Symlink(SymlinkNode {
+                name: "doesntmatter".to_string(),
+                target: "/nix/store/somewhereelse".to_string(),
+            }),
+        )
+        .expect("must succeed");
 
     assert_eq!(
         buf,
@@ -150,22 +101,48 @@ async fn single_symlink() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn single_file() -> anyhow::Result<()> {
-    let mut buf: Vec<u8> = vec![];
-    let mut store_client = HelloWorldBlobStoreClient::default();
+#[test]
+fn single_file() -> anyhow::Result<()> {
+    let tmpdir = TempDir::new()?;
 
-    write_nar(
-        &mut buf,
-        crate::proto::node::Node::File(FileNode {
-            name: "doesntmatter".to_string(),
-            digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
-            size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
-            executable: false,
-        }),
-        &mut store_client,
-    )
-    .expect("must succeed");
+    let blob_service = gen_blob_service(tmpdir.path());
+    let chunk_service = gen_chunk_service(tmpdir.path());
+
+    chunk_service
+        .put(HELLOWORLD_BLOB_CONTENTS.to_vec())
+        .unwrap();
+
+    blob_service
+        .put(
+            &HELLOWORLD_BLOB_DIGEST,
+            proto::BlobMeta {
+                chunks: vec![proto::blob_meta::ChunkMeta {
+                    digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
+                    size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
+                }],
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+    let renderer = NARRenderer::new(
+        blob_service,
+        chunk_service,
+        gen_directory_service(tmpdir.path()),
+    );
+    let mut buf: Vec<u8> = vec![];
+
+    renderer
+        .write_nar(
+            &mut buf,
+            crate::proto::node::Node::File(FileNode {
+                name: "doesntmatter".to_string(),
+                digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
+                size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
+                executable: false,
+            }),
+        )
+        .expect("must succeed");
 
     assert_eq!(
         buf,
@@ -185,21 +162,50 @@ async fn single_file() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn test_complicated() -> anyhow::Result<()> {
-    let mut buf: Vec<u8> = vec![];
-    let mut store_client = SomeDirectoryStoreClient::default();
+#[test]
+fn test_complicated() -> anyhow::Result<()> {
+    let tmpdir = TempDir::new()?;
 
-    write_nar(
-        &mut buf,
-        crate::proto::node::Node::Directory(DirectoryNode {
-            name: "doesntmatter".to_string(),
-            digest: DIRECTORY_COMPLICATED.digest(),
-            size: DIRECTORY_COMPLICATED.size() as u32,
-        }),
-        &mut store_client,
-    )
-    .expect("must succeed");
+    let blob_service = gen_blob_service(tmpdir.path());
+    let chunk_service = gen_chunk_service(tmpdir.path());
+    let directory_service = gen_directory_service(tmpdir.path());
+
+    // put all data into the stores.
+    for blob_contents in [HELLOWORLD_BLOB_CONTENTS, EMPTY_BLOB_CONTENTS] {
+        let digest = chunk_service.put(blob_contents.to_vec()).unwrap();
+
+        blob_service
+            .put(
+                &digest,
+                proto::BlobMeta {
+                    chunks: vec![proto::blob_meta::ChunkMeta {
+                        digest: digest.to_vec(),
+                        size: blob_contents.len() as u32,
+                    }],
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+    }
+
+    directory_service.put(DIRECTORY_WITH_KEEP.clone()).unwrap();
+    directory_service
+        .put(DIRECTORY_COMPLICATED.clone())
+        .unwrap();
+
+    let renderer = NARRenderer::new(blob_service, chunk_service, directory_service);
+    let mut buf: Vec<u8> = vec![];
+
+    renderer
+        .write_nar(
+            &mut buf,
+            crate::proto::node::Node::Directory(DirectoryNode {
+                name: "doesntmatter".to_string(),
+                digest: DIRECTORY_COMPLICATED.digest(),
+                size: DIRECTORY_COMPLICATED.size(),
+            }),
+        )
+        .expect("must succeed");
 
     assert_eq!(
         buf,
