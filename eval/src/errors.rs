@@ -257,9 +257,9 @@ impl From<toml::de::Error> for ErrorKind {
 
 #[derive(Clone, Debug)]
 pub struct Error {
-    kind: ErrorKind,
-    span: Span,
-    contexts: Vec<String>,
+    pub kind: ErrorKind,
+    pub span: Span,
+    pub contexts: Vec<String>,
 }
 
 impl Error {
