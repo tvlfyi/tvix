@@ -317,6 +317,12 @@ fn parse_compile_internal(
     result.warnings = compiler_result.warnings;
     result.errors.extend(compiler_result.errors);
 
+    // Short-circuit if errors exist at this point (do not pass broken
+    // bytecode to the runtime).
+    if !result.errors.is_empty() {
+        return None;
+    }
+
     // Return the lambda (for execution) and the globals map (to
     // ensure the invariant that the globals outlive the runtime).
     Some((compiler_result.lambda, compiler_result.globals))

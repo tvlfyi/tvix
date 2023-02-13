@@ -22,3 +22,15 @@ fn test_source_builtin() {
         value,
     );
 }
+
+#[test]
+fn skip_broken_bytecode() {
+    let result = Evaluation::new(/* code = */ "x", None).evaluate();
+
+    assert_eq!(result.errors.len(), 1);
+
+    assert!(matches!(
+        result.errors[0].kind,
+        ErrorKind::UnknownStaticVariable
+    ));
+}
