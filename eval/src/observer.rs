@@ -11,9 +11,9 @@ use std::rc::Rc;
 use tabwriter::TabWriter;
 
 use crate::chunk::Chunk;
+use crate::generators::GeneratorRequest;
 use crate::opcode::{CodeIdx, OpCode};
 use crate::value::Lambda;
-use crate::vm::generators::GeneratorRequest;
 use crate::SourceCode;
 use crate::Value;
 

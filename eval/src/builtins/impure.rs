@@ -1,4 +1,5 @@
 use builtin_macros::builtins;
+use genawaiter::rc::Gen;
 use smol_str::SmolStr;
 
 use std::{
@@ -6,7 +7,13 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::{errors::ErrorKind, io::FileType, value::NixAttrs, vm::VM, Value};
+use crate::{
+    errors::ErrorKind,
+    io::FileType,
+    value::NixAttrs,
+    vm::generators::{self, GenCo},
+    Value,
+};
 
 #[builtins]
 mod impure_builtins {
@@ -14,21 +21,22 @@ mod impure_builtins {
     use crate::builtins::coerce_value_to_path;
 
     #[builtin("getEnv")]
-    fn builtin_get_env(_: &mut VM, var: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_get_env(co: GenCo, var: Value) -> Result<Value, ErrorKind> {
         Ok(env::var(var.to_str()?).unwrap_or_else(|_| "".into()).into())
     }
 
     #[builtin("pathExists")]
-    fn builtin_path_exists(vm: &mut VM, s: Value) -> Result<Value, ErrorKind> {
-        let path = coerce_value_to_path(&s, vm)?;
-        vm.io().path_exists(path).map(Value::Bool)
+    async fn builtin_path_exists(co: GenCo, path: Value) -> Result<Value, ErrorKind> {
+        let path = coerce_value_to_path(&co, path).await?;
+        Ok(generators::request_path_exists(&co, path).await)
     }
 
     #[builtin("readDir")]
-    fn builtin_read_dir(vm: &mut VM, path: Value) -> Result<Value, ErrorKind> {
-        let path = coerce_value_to_path(&path, vm)?;
+    async fn builtin_read_dir(co: GenCo, path: Value) -> Result<Value, ErrorKind> {
+        let path = coerce_value_to_path(&co, path).await?;
 
-        let res = vm.io().read_dir(path)?.into_iter().map(|(name, ftype)| {
+        let dir = generators::request_read_dir(&co, path).await;
+        let res = dir.into_iter().map(|(name, ftype)| {
             (
                 name,
                 Value::String(
@@ -47,11 +55,9 @@ mod impure_builtins {
     }
 
     #[builtin("readFile")]
-    fn builtin_read_file(vm: &mut VM, path: Value) -> Result<Value, ErrorKind> {
-        let path = coerce_value_to_path(&path, vm)?;
-        vm.io()
-            .read_to_string(path)
-            .map(|s| Value::String(s.into()))
+    async fn builtin_read_file(co: GenCo, path: Value) -> Result<Value, ErrorKind> {
+        let path = coerce_value_to_path(&co, path).await?;
+        Ok(generators::request_read_to_string(&co, path).await)
     }
 }
 

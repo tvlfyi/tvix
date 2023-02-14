@@ -154,6 +154,14 @@ pub enum OpCode {
     /// index (which must be a Value::Thunk) after the scope is fully bound.
     OpFinalise(StackIdx),
 
+    /// Final instruction emitted in a chunk. Does not have an
+    /// inherent effect, but can simplify VM logic as a marker in some
+    /// cases.
+    ///
+    /// Can be thought of as "returning" the value to the parent
+    /// frame, hence the name.
+    OpReturn,
+
     // [`OpClosure`], [`OpThunkSuspended`], and [`OpThunkClosure`] have a
     // variable number of arguments to the instruction, which is
     // represented here by making their data part of the opcodes.

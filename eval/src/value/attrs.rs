@@ -13,7 +13,6 @@ use serde::ser::SerializeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::errors::ErrorKind;
-use crate::vm::VM;
 
 use super::string::NixString;
 use super::thunk::ThunkSet;
@@ -393,72 +392,6 @@ impl NixAttrs {
     /// `"name"` key, and the value for the `"value"` key
     pub(crate) fn from_kv(name: Value, value: Value) -> Self {
         NixAttrs(AttrsRep::KV { name, value })
-    }
-
-    /// Compare `self` against `other` for equality using Nix equality semantics
-    pub fn nix_eq(&self, other: &Self, vm: &mut VM) -> Result<bool, ErrorKind> {
-        match (&self.0, &other.0) {
-            (AttrsRep::Empty, AttrsRep::Empty) => Ok(true),
-
-            // It is possible to create an empty attribute set that
-            // has Map representation like so: ` { ${null} = 1; }`.
-            //
-            // Preventing this would incur a cost on all attribute set
-            // construction (we'd have to check the actual number of
-            // elements after key construction). In practice this
-            // probably does not happen, so it's better to just bite
-            // the bullet and implement this branch.
-            (AttrsRep::Empty, AttrsRep::Im(map)) | (AttrsRep::Im(map), AttrsRep::Empty) => {
-                Ok(map.is_empty())
-            }
-
-            // Other specialised representations (KV ...) definitely
-            // do not match `Empty`.
-            (AttrsRep::Empty, _) | (_, AttrsRep::Empty) => Ok(false),
-
-            (
-                AttrsRep::KV {
-                    name: n1,
-                    value: v1,
-                },
-                AttrsRep::KV {
-                    name: n2,
-                    value: v2,
-                },
-            ) => Ok(n1.nix_eq(n2, vm)? && v1.nix_eq(v2, vm)?),
-
-            (AttrsRep::Im(map), AttrsRep::KV { name, value })
-            | (AttrsRep::KV { name, value }, AttrsRep::Im(map)) => {
-                if map.len() != 2 {
-                    return Ok(false);
-                }
-
-                if let (Some(m_name), Some(m_value)) =
-                    (map.get(&NixString::NAME), map.get(&NixString::VALUE))
-                {
-                    return Ok(name.nix_eq(m_name, vm)? && value.nix_eq(m_value, vm)?);
-                }
-
-                Ok(false)
-            }
-
-            (AttrsRep::Im(m1), AttrsRep::Im(m2)) => {
-                if m1.len() != m2.len() {
-                    return Ok(false);
-                }
-
-                for (k, v1) in m1 {
-                    if let Some(v2) = m2.get(k) {
-                        if !v1.nix_eq(v2, vm)? {
-                            return Ok(false);
-                        }
-                    } else {
-                        return Ok(false);
-                    }
-                }
-                Ok(true)
-            }
-        }
     }
 }
 

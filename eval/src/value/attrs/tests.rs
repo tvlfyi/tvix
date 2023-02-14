@@ -1,57 +1,5 @@
 use super::*;
 
-mod nix_eq {
-    use crate::observer::NoOpObserver;
-
-    use super::*;
-    use proptest::prelude::ProptestConfig;
-    use test_strategy::proptest;
-
-    #[proptest(ProptestConfig { cases: 2, ..Default::default() })]
-    fn reflexive(x: NixAttrs) {
-        let mut observer = NoOpObserver {};
-        let mut vm = VM::new(
-            Default::default(),
-            Box::new(crate::DummyIO),
-            &mut observer,
-            Default::default(),
-        );
-
-        assert!(x.nix_eq(&x, &mut vm).unwrap())
-    }
-
-    #[proptest(ProptestConfig { cases: 2, ..Default::default() })]
-    fn symmetric(x: NixAttrs, y: NixAttrs) {
-        let mut observer = NoOpObserver {};
-        let mut vm = VM::new(
-            Default::default(),
-            Box::new(crate::DummyIO),
-            &mut observer,
-            Default::default(),
-        );
-
-        assert_eq!(
-            x.nix_eq(&y, &mut vm).unwrap(),
-            y.nix_eq(&x, &mut vm).unwrap()
-        )
-    }
-
-    #[proptest(ProptestConfig { cases: 2, ..Default::default() })]
-    fn transitive(x: NixAttrs, y: NixAttrs, z: NixAttrs) {
-        let mut observer = NoOpObserver {};
-        let mut vm = VM::new(
-            Default::default(),
-            Box::new(crate::DummyIO),
-            &mut observer,
-            Default::default(),
-        );
-
-        if x.nix_eq(&y, &mut vm).unwrap() && y.nix_eq(&z, &mut vm).unwrap() {
-            assert!(x.nix_eq(&z, &mut vm).unwrap())
-        }
-    }
-}
-
 #[test]
 fn test_empty_attrs() {
     let attrs = NixAttrs::construct(0, vec![]).expect("empty attr construction should succeed");

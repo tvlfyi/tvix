@@ -12,7 +12,7 @@ use clap::Parser;
 use known_paths::KnownPaths;
 use rustyline::{error::ReadlineError, Editor};
 use tvix_eval::observer::{DisassemblingObserver, TracingObserver};
-use tvix_eval::{Builtin, BuiltinArgument, Value, VM};
+use tvix_eval::{Builtin, Value};
 
 #[derive(Parser)]
 struct Args {

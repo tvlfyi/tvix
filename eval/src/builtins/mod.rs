@@ -3,19 +3,21 @@
 //! See //tvix/eval/docs/builtins.md for a some context on the
 //! available builtins in Nix.
 
+use builtin_macros::builtins;
+use genawaiter::rc::Gen;
+use regex::Regex;
 use std::cmp::{self, Ordering};
+use std::collections::VecDeque;
 use std::collections::{BTreeMap, HashSet};
 use std::path::PathBuf;
 
-use builtin_macros::builtins;
-use regex::Regex;
-
 use crate::arithmetic_op;
+use crate::value::PointerEquality;
+use crate::vm::generators::{self, GenCo};
 use crate::warnings::WarningKind;
 use crate::{
-    errors::{ErrorKind, EvalResult},
-    value::{CoercionKind, NixAttrs, NixList, NixString, Value},
-    vm::VM,
+    errors::ErrorKind,
+    value::{CoercionKind, NixAttrs, NixList, NixString, SharedThunkSet, Value},
 };
 
 use self::versions::{VersionPart, VersionPartsIter};
@@ -37,46 +39,44 @@ pub const CURRENT_PLATFORM: &str = env!("TVIX_CURRENT_SYSTEM");
 /// builtin. This coercion can _never_ be performed in a Nix program
 /// without using builtins (i.e. the trick `path: /. + path` to
 /// convert from a string to a path wouldn't hit this code).
-pub fn coerce_value_to_path(v: &Value, vm: &mut VM) -> Result<PathBuf, ErrorKind> {
-    let value = v.force(vm)?;
-    match &*value {
-        Value::Thunk(t) => coerce_value_to_path(&t.value(), vm),
-        Value::Path(p) => Ok(p.clone()),
-        _ => value
-            .coerce_to_string(CoercionKind::Weak, vm)
-            .map(|s| PathBuf::from(s.as_str()))
-            .and_then(|path| {
-                if path.is_absolute() {
-                    Ok(path)
-                } else {
-                    Err(ErrorKind::NotAnAbsolutePath(path))
-                }
-            }),
+pub async fn coerce_value_to_path(co: &GenCo, v: Value) -> Result<PathBuf, ErrorKind> {
+    let value = generators::request_force(co, v).await;
+    if let Value::Path(p) = value {
+        return Ok(p);
+    }
+
+    let vs = generators::request_string_coerce(co, value, CoercionKind::Weak).await;
+    let path = PathBuf::from(vs.as_str());
+    if path.is_absolute() {
+        Ok(path)
+    } else {
+        Err(ErrorKind::NotAnAbsolutePath(path))
     }
 }
 
 #[builtins]
 mod pure_builtins {
-    use std::collections::VecDeque;
+    use crate::value::PointerEquality;
 
     use super::*;
 
     #[builtin("abort")]
-    fn builtin_abort(_vm: &mut VM, message: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_abort(co: GenCo, message: Value) -> Result<Value, ErrorKind> {
         Err(ErrorKind::Abort(message.to_str()?.to_string()))
     }
 
     #[builtin("add")]
-    fn builtin_add(vm: &mut VM, #[lazy] x: Value, #[lazy] y: Value) -> Result<Value, ErrorKind> {
-        arithmetic_op!(&*x.force(vm)?, &*y.force(vm)?, +)
+    async fn builtin_add(co: GenCo, x: Value, y: Value) -> Result<Value, ErrorKind> {
+        arithmetic_op!(&x, &y, +)
     }
 
     #[builtin("all")]
-    fn builtin_all(vm: &mut VM, pred: Value, list: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_all(co: GenCo, pred: Value, list: Value) -> Result<Value, ErrorKind> {
         for value in list.to_list()?.into_iter() {
-            let pred_result = vm.call_with(&pred, [value])?;
+            let pred_result = generators::request_call_with(&co, pred.clone(), [value]).await;
+            let pred_result = generators::request_force(&co, pred_result).await;
 
-            if !pred_result.force(vm)?.as_bool()? {
+            if !pred_result.as_bool()? {
                 return Ok(Value::Bool(false));
             }
         }
@@ -85,11 +85,12 @@ mod pure_builtins {
     }
 
     #[builtin("any")]
-    fn builtin_any(vm: &mut VM, pred: Value, list: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_any(co: GenCo, pred: Value, list: Value) -> Result<Value, ErrorKind> {
         for value in list.to_list()?.into_iter() {
-            let pred_result = vm.call_with(&pred, [value])?;
+            let pred_result = generators::request_call_with(&co, pred.clone(), [value]).await;
+            let pred_result = generators::request_force(&co, pred_result).await;
 
-            if pred_result.force(vm)?.as_bool()? {
+            if pred_result.as_bool()? {
                 return Ok(Value::Bool(true));
             }
         }
@@ -98,7 +99,7 @@ mod pure_builtins {
     }
 
     #[builtin("attrNames")]
-    fn builtin_attr_names(_: &mut VM, set: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_attr_names(co: GenCo, set: Value) -> Result<Value, ErrorKind> {
         let xs = set.to_attrs()?;
         let mut output = Vec::with_capacity(xs.len());
 
@@ -110,7 +111,7 @@ mod pure_builtins {
     }
 
     #[builtin("attrValues")]
-    fn builtin_attr_values(_: &mut VM, set: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_attr_values(co: GenCo, set: Value) -> Result<Value, ErrorKind> {
         let xs = set.to_attrs()?;
         let mut output = Vec::with_capacity(xs.len());
 
@@ -122,35 +123,36 @@ mod pure_builtins {
     }
 
     #[builtin("baseNameOf")]
-    fn builtin_base_name_of(vm: &mut VM, s: Value) -> Result<Value, ErrorKind> {
-        let s = s.coerce_to_string(CoercionKind::Weak, vm)?;
+    async fn builtin_base_name_of(co: GenCo, s: Value) -> Result<Value, ErrorKind> {
+        let s = s.coerce_to_string(co, CoercionKind::Weak).await?.to_str()?;
         let result: String = s.rsplit_once('/').map(|(_, x)| x).unwrap_or(&s).into();
         Ok(result.into())
     }
 
     #[builtin("bitAnd")]
-    fn builtin_bit_and(_: &mut VM, x: Value, y: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_bit_and(co: GenCo, x: Value, y: Value) -> Result<Value, ErrorKind> {
         Ok(Value::Integer(x.as_int()? & y.as_int()?))
     }
 
     #[builtin("bitOr")]
-    fn builtin_bit_or(_: &mut VM, x: Value, y: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_bit_or(co: GenCo, x: Value, y: Value) -> Result<Value, ErrorKind> {
         Ok(Value::Integer(x.as_int()? | y.as_int()?))
     }
 
     #[builtin("bitXor")]
-    fn builtin_bit_xor(_: &mut VM, x: Value, y: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_bit_xor(co: GenCo, x: Value, y: Value) -> Result<Value, ErrorKind> {
         Ok(Value::Integer(x.as_int()? ^ y.as_int()?))
     }
 
     #[builtin("catAttrs")]
-    fn builtin_cat_attrs(vm: &mut VM, key: Value, list: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_cat_attrs(co: GenCo, key: Value, list: Value) -> Result<Value, ErrorKind> {
         let key = key.to_str()?;
         let list = list.to_list()?;
         let mut output = vec![];
 
         for item in list.into_iter() {
-            let set = item.force(vm)?.to_attrs()?;
+            let set = generators::request_force(&co, item).await.to_attrs()?;
+
             if let Some(value) = set.select(key.as_str()) {
                 output.push(value.clone());
             }
@@ -160,12 +162,12 @@ mod pure_builtins {
     }
 
     #[builtin("ceil")]
-    fn builtin_ceil(_: &mut VM, double: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_ceil(co: GenCo, double: Value) -> Result<Value, ErrorKind> {
         Ok(Value::Integer(double.as_float()?.ceil() as i64))
     }
 
     #[builtin("compareVersions")]
-    fn builtin_compare_versions(_: &mut VM, x: Value, y: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_compare_versions(co: GenCo, x: Value, y: Value) -> Result<Value, ErrorKind> {
         let s1 = x.to_str()?;
         let s1 = VersionPartsIter::new_for_cmp(s1.as_str());
         let s2 = y.to_str()?;
@@ -179,34 +181,32 @@ mod pure_builtins {
     }
 
     #[builtin("concatLists")]
-    fn builtin_concat_lists(vm: &mut VM, lists: Value) -> Result<Value, ErrorKind> {
-        let list = lists.to_list()?;
-        let lists = list
-            .into_iter()
-            .map(|elem| {
-                let value = elem.force(vm)?;
-                value.to_list()
-            })
-            .collect::<Result<Vec<NixList>, ErrorKind>>()?;
+    async fn builtin_concat_lists(co: GenCo, lists: Value) -> Result<Value, ErrorKind> {
+        let mut out = imbl::Vector::new();
 
-        Ok(Value::List(NixList::from(
-            lists.into_iter().flatten().collect::<imbl::Vector<Value>>(),
-        )))
+        for value in lists.to_list()? {
+            let list = generators::request_force(&co, value).await.to_list()?;
+            out.extend(list.into_iter());
+        }
+
+        Ok(Value::List(out.into()))
     }
 
     #[builtin("concatMap")]
-    fn builtin_concat_map(vm: &mut VM, f: Value, list: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_concat_map(co: GenCo, f: Value, list: Value) -> Result<Value, ErrorKind> {
         let list = list.to_list()?;
         let mut res = imbl::Vector::new();
         for val in list {
-            res.extend(vm.call_with(&f, [val])?.force(vm)?.to_list()?);
+            let out = generators::request_call_with(&co, f.clone(), [val]).await;
+            let out = generators::request_force(&co, out).await;
+            res.extend(out.to_list()?);
         }
         Ok(Value::List(res.into()))
     }
 
     #[builtin("concatStringsSep")]
-    fn builtin_concat_strings_sep(
-        vm: &mut VM,
+    async fn builtin_concat_strings_sep(
+        co: GenCo,
         separator: Value,
         list: Value,
     ) -> Result<Value, ErrorKind> {
@@ -217,25 +217,27 @@ mod pure_builtins {
             if i != 0 {
                 res.push_str(&separator);
             }
-            res.push_str(&val.force(vm)?.coerce_to_string(CoercionKind::Weak, vm)?);
+            let s = generators::request_string_coerce(&co, val, CoercionKind::Weak).await;
+            res.push_str(s.as_str());
         }
         Ok(res.into())
     }
 
     #[builtin("deepSeq")]
-    fn builtin_deep_seq(vm: &mut VM, x: Value, y: Value) -> Result<Value, ErrorKind> {
-        x.deep_force(vm, &mut Default::default())?;
+    async fn builtin_deep_seq(co: GenCo, x: Value, y: Value) -> Result<Value, ErrorKind> {
+        generators::request_deep_force(&co, x, SharedThunkSet::default()).await;
         Ok(y)
     }
 
     #[builtin("div")]
-    fn builtin_div(vm: &mut VM, #[lazy] x: Value, #[lazy] y: Value) -> Result<Value, ErrorKind> {
-        arithmetic_op!(&*x.force(vm)?, &*y.force(vm)?, /)
+    async fn builtin_div(co: GenCo, x: Value, y: Value) -> Result<Value, ErrorKind> {
+        arithmetic_op!(&x, &y, /)
     }
 
     #[builtin("dirOf")]
-    fn builtin_dir_of(vm: &mut VM, s: Value) -> Result<Value, ErrorKind> {
-        let str = s.coerce_to_string(CoercionKind::Weak, vm)?;
+    async fn builtin_dir_of(co: GenCo, s: Value) -> Result<Value, ErrorKind> {
+        let is_path = s.is_path();
+        let str = s.coerce_to_string(co, CoercionKind::Weak).await?.to_str()?;
         let result = str
             .rsplit_once('/')
             .map(|(x, _)| match x {
@@ -243,7 +245,7 @@ mod pure_builtins {
                 _ => x,
             })
             .unwrap_or(".");
-        if s.is_path() {
+        if is_path {
             Ok(Value::Path(result.into()))
         } else {
             Ok(result.into())
@@ -251,9 +253,9 @@ mod pure_builtins {
     }
 
     #[builtin("elem")]
-    fn builtin_elem(vm: &mut VM, x: Value, xs: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_elem(co: GenCo, x: Value, xs: Value) -> Result<Value, ErrorKind> {
         for val in xs.to_list()? {
-            if vm.nix_eq(val, x.clone(), true)? {
+            if generators::check_equality(&co, x.clone(), val, PointerEquality::AllowAll).await? {
                 return Ok(true.into());
             }
         }
@@ -261,7 +263,7 @@ mod pure_builtins {
     }
 
     #[builtin("elemAt")]
-    fn builtin_elem_at(_: &mut VM, xs: Value, i: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_elem_at(co: GenCo, xs: Value, i: Value) -> Result<Value, ErrorKind> {
         let xs = xs.to_list()?;
         let i = i.as_int()?;
         if i < 0 {
@@ -275,57 +277,68 @@ mod pure_builtins {
     }
 
     #[builtin("filter")]
-    fn builtin_filter(vm: &mut VM, pred: Value, list: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_filter(co: GenCo, pred: Value, list: Value) -> Result<Value, ErrorKind> {
         let list: NixList = list.to_list()?;
+        let mut out = imbl::Vector::new();
 
-        list.into_iter()
-            .filter_map(|elem| {
-                let result = match vm.call_with(&pred, [elem.clone()]) {
-                    Err(err) => return Some(Err(err)),
-                    Ok(result) => result,
-                };
+        for value in list {
+            let result = generators::request_call_with(&co, pred.clone(), [value.clone()]).await;
 
-                // Must be assigned to a local to avoid a borrowcheck
-                // failure related to the ForceResult destructor.
-                let result = match result.force(vm) {
-                    Err(err) => Some(Err(vm.error(err))),
-                    Ok(value) => match value.as_bool() {
-                        Ok(true) => Some(Ok(elem)),
-                        Ok(false) => None,
-                        Err(err) => Some(Err(vm.error(err))),
-                    },
-                };
+            if generators::request_force(&co, result).await.as_bool()? {
+                out.push_back(value);
+            }
+        }
 
-                result
-            })
-            .collect::<Result<imbl::Vector<Value>, _>>()
-            .map(|list| Value::List(NixList::from(list)))
-            .map_err(Into::into)
+        Ok(Value::List(out.into()))
+        // list.into_iter()
+        //     .filter_map(|elem| {
+        //         let result = match vm.call_with(&pred, [elem.clone()]) {
+        //             Err(err) => return Some(Err(err)),
+        //             Ok(result) => result,
+        //         };
+
+        //         // Must be assigned to a local to avoid a borrowcheck
+        //         // failure related to the ForceResult destructor.
+        //         let result = match result.force(vm) {
+        //             Err(err) => Some(Err(vm.error(err))),
+        //             Ok(value) => match value.as_bool() {
+        //                 Ok(true) => Some(Ok(elem)),
+        //                 Ok(false) => None,
+        //                 Err(err) => Some(Err(vm.error(err))),
+        //             },
+        //         };
+
+        //         result
+        //     })
+        //     .collect::<Result<imbl::Vector<Value>, _>>()
+        //     .map(|list| Value::List(NixList::from(list)))
+        //     .map_err(Into::into)
     }
 
     #[builtin("floor")]
-    fn builtin_floor(_: &mut VM, double: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_floor(co: GenCo, double: Value) -> Result<Value, ErrorKind> {
         Ok(Value::Integer(double.as_float()?.floor() as i64))
     }
 
     #[builtin("foldl'")]
-    fn builtin_foldl(
-        vm: &mut VM,
+    async fn builtin_foldl(
+        co: GenCo,
         op: Value,
-        #[lazy] mut nul: Value,
+        #[lazy] nul: Value,
         list: Value,
     ) -> Result<Value, ErrorKind> {
+        let mut nul = nul;
         let list = list.to_list()?;
         for val in list {
-            nul = vm.call_with(&op, [nul, val])?;
-            nul.force(vm)?;
+            nul = generators::request_call_with(&co, op.clone(), [nul, val]).await;
+            nul = generators::request_force(&co, nul).await;
         }
 
         Ok(nul)
     }
 
     #[builtin("functionArgs")]
-    fn builtin_function_args(_: &mut VM, f: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_function_args(co: GenCo, f: Value) -> Result<Value, ErrorKind> {
         let lambda = &f.as_closure()?.lambda();
         let formals = if let Some(formals) = &lambda.formals {
             formals
@@ -338,87 +351,88 @@ mod pure_builtins {
     }
 
     #[builtin("fromJSON")]
-    fn builtin_from_json(_: &mut VM, json: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_from_json(co: GenCo, json: Value) -> Result<Value, ErrorKind> {
         let json_str = json.to_str()?;
 
         serde_json::from_str(&json_str).map_err(|err| err.into())
     }
 
     #[builtin("toJSON")]
-    fn builtin_to_json(vm: &mut VM, val: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_to_json(co: GenCo, val: Value) -> Result<Value, ErrorKind> {
         // All thunks need to be evaluated before serialising, as the
-        // data structure is fully traversed by the Serializer (which
-        // does not have a `VM` available).
-        val.deep_force(vm, &mut Default::default())?;
-
+        // data structure is fully traversed by the Serializer.
+        let val = generators::request_deep_force(&co, val, SharedThunkSet::default()).await;
         let json_str = serde_json::to_string(&val)?;
         Ok(json_str.into())
     }
 
     #[builtin("fromTOML")]
-    fn builtin_from_toml(_: &mut VM, toml: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_from_toml(co: GenCo, toml: Value) -> Result<Value, ErrorKind> {
         let toml_str = toml.to_str()?;
 
         toml::from_str(&toml_str).map_err(|err| err.into())
     }
 
     #[builtin("genericClosure")]
-    fn builtin_generic_closure(vm: &mut VM, input: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_generic_closure(co: GenCo, input: Value) -> Result<Value, ErrorKind> {
         let attrs = input.to_attrs()?;
 
         // The work set is maintained as a VecDeque because new items
         // are popped from the front.
-        let mut work_set: VecDeque<Value> = attrs
-            .select_required("startSet")?
-            .force(vm)?
-            .to_list()?
-            .into_iter()
-            .collect();
+        let mut work_set: VecDeque<Value> =
+            generators::request_force(&co, attrs.select_required("startSet")?.clone())
+                .await
+                .to_list()?
+                .into_iter()
+                .collect();
 
         let operator = attrs.select_required("operator")?;
 
         let mut res = imbl::Vector::new();
         let mut done_keys: Vec<Value> = vec![];
 
-        let mut insert_key = |k: Value, vm: &mut VM| -> Result<bool, ErrorKind> {
-            for existing in &done_keys {
-                if existing.nix_eq(&k, vm)? {
-                    return Ok(false);
-                }
-            }
-            done_keys.push(k);
-            Ok(true)
-        };
-
         while let Some(val) = work_set.pop_front() {
-            let attrs = val.force(vm)?.to_attrs()?;
+            let val = generators::request_force(&co, val).await;
+            let attrs = val.to_attrs()?;
             let key = attrs.select_required("key")?;
 
-            if !insert_key(key.clone(), vm)? {
+            if !bgc_insert_key(&co, key.clone(), &mut done_keys).await? {
                 continue;
             }
 
             res.push_back(val.clone());
 
-            let op_result = vm.call_with(operator, Some(val))?.force(vm)?.to_list()?;
-            work_set.extend(op_result.into_iter());
+            let op_result = generators::request_force(
+                &co,
+                generators::request_call_with(&co, operator.clone(), [val]).await,
+            )
+            .await;
+
+            work_set.extend(op_result.to_list()?.into_iter());
         }
 
         Ok(Value::List(NixList::from(res)))
     }
 
     #[builtin("genList")]
-    fn builtin_gen_list(vm: &mut VM, generator: Value, length: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_gen_list(
+        co: GenCo,
+        generator: Value,
+        length: Value,
+    ) -> Result<Value, ErrorKind> {
+        let mut out = imbl::Vector::<Value>::new();
         let len = length.as_int()?;
-        (0..len)
-            .map(|i| vm.call_with(&generator, [i.into()]))
-            .collect::<Result<imbl::Vector<Value>, _>>()
-            .map(|list| Value::List(NixList::from(list)))
-            .map_err(Into::into)
+
+        for i in 0..len {
+            let val = generators::request_call_with(&co, generator.clone(), [i.into()]).await;
+            out.push_back(val);
+        }
+
+        Ok(Value::List(out.into()))
     }
 
     #[builtin("getAttr")]
-    fn builtin_get_attr(_: &mut VM, key: Value, set: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_get_attr(co: GenCo, key: Value, set: Value) -> Result<Value, ErrorKind> {
         let k = key.to_str()?;
         let xs = set.to_attrs()?;
 
@@ -431,10 +445,16 @@ mod pure_builtins {
     }
 
     #[builtin("groupBy")]
-    fn builtin_group_by(vm: &mut VM, f: Value, list: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_group_by(co: GenCo, f: Value, list: Value) -> Result<Value, ErrorKind> {
         let mut res: BTreeMap<NixString, imbl::Vector<Value>> = BTreeMap::new();
         for val in list.to_list()? {
-            let key = vm.call_with(&f, [val.clone()])?.force(vm)?.to_str()?;
+            let key = generators::request_force(
+                &co,
+                generators::request_call_with(&co, f.clone(), [val.clone()]).await,
+            )
+            .await
+            .to_str()?;
+
             res.entry(key)
                 .or_insert_with(imbl::Vector::new)
                 .push_back(val);
@@ -446,7 +466,7 @@ mod pure_builtins {
     }
 
     #[builtin("hasAttr")]
-    fn builtin_has_attr(_: &mut VM, key: Value, set: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_has_attr(co: GenCo, key: Value, set: Value) -> Result<Value, ErrorKind> {
         let k = key.to_str()?;
         let xs = set.to_attrs()?;
 
@@ -454,7 +474,7 @@ mod pure_builtins {
     }
 
     #[builtin("head")]
-    fn builtin_head(_: &mut VM, list: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_head(co: GenCo, list: Value) -> Result<Value, ErrorKind> {
         match list.to_list()?.get(0) {
             Some(x) => Ok(x.clone()),
             None => Err(ErrorKind::IndexOutOfBounds { index: 0 }),
@@ -462,7 +482,7 @@ mod pure_builtins {
     }
 
     #[builtin("intersectAttrs")]
-    fn builtin_intersect_attrs(_: &mut VM, x: Value, y: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_intersect_attrs(co: GenCo, x: Value, y: Value) -> Result<Value, ErrorKind> {
         let attrs1 = x.to_attrs()?;
         let attrs2 = y.to_attrs()?;
         let res = attrs2.iter().filter_map(|(k, v)| {
@@ -475,89 +495,76 @@ mod pure_builtins {
         Ok(Value::attrs(NixAttrs::from_iter(res)))
     }
 
-    // For `is*` predicates we force manually, as Value::force also unwraps any Thunks
-
     #[builtin("isAttrs")]
-    fn builtin_is_attrs(vm: &mut VM, #[lazy] x: Value) -> Result<Value, ErrorKind> {
-        let value = x.force(vm)?;
-        Ok(Value::Bool(matches!(*value, Value::Attrs(_))))
+    async fn builtin_is_attrs(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
+        Ok(Value::Bool(matches!(value, Value::Attrs(_))))
     }
 
     #[builtin("isBool")]
-    fn builtin_is_bool(vm: &mut VM, #[lazy] x: Value) -> Result<Value, ErrorKind> {
-        let value = x.force(vm)?;
-        Ok(Value::Bool(matches!(*value, Value::Bool(_))))
+    async fn builtin_is_bool(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
+        Ok(Value::Bool(matches!(value, Value::Bool(_))))
     }
 
     #[builtin("isFloat")]
-    fn builtin_is_float(vm: &mut VM, #[lazy] x: Value) -> Result<Value, ErrorKind> {
-        let value = x.force(vm)?;
-        Ok(Value::Bool(matches!(*value, Value::Float(_))))
+    async fn builtin_is_float(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
+        Ok(Value::Bool(matches!(value, Value::Float(_))))
     }
 
     #[builtin("isFunction")]
-    fn builtin_is_function(vm: &mut VM, #[lazy] x: Value) -> Result<Value, ErrorKind> {
-        let value = x.force(vm)?;
+    async fn builtin_is_function(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
         Ok(Value::Bool(matches!(
-            *value,
+            value,
             Value::Closure(_) | Value::Builtin(_)
         )))
     }
 
     #[builtin("isInt")]
-    fn builtin_is_int(vm: &mut VM, #[lazy] x: Value) -> Result<Value, ErrorKind> {
-        let value = x.force(vm)?;
-        Ok(Value::Bool(matches!(*value, Value::Integer(_))))
+    async fn builtin_is_int(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
+        Ok(Value::Bool(matches!(value, Value::Integer(_))))
     }
 
     #[builtin("isList")]
-    fn builtin_is_list(vm: &mut VM, #[lazy] x: Value) -> Result<Value, ErrorKind> {
-        let value = x.force(vm)?;
-        Ok(Value::Bool(matches!(*value, Value::List(_))))
+    async fn builtin_is_list(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
+        Ok(Value::Bool(matches!(value, Value::List(_))))
     }
 
     #[builtin("isNull")]
-    fn builtin_is_null(vm: &mut VM, #[lazy] x: Value) -> Result<Value, ErrorKind> {
-        let value = x.force(vm)?;
-        Ok(Value::Bool(matches!(*value, Value::Null)))
+    async fn builtin_is_null(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
+        Ok(Value::Bool(matches!(value, Value::Null)))
     }
 
     #[builtin("isPath")]
-    fn builtin_is_path(vm: &mut VM, #[lazy] x: Value) -> Result<Value, ErrorKind> {
-        let value = x.force(vm)?;
-        Ok(Value::Bool(matches!(*value, Value::Path(_))))
+    async fn builtin_is_path(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
+        Ok(Value::Bool(matches!(value, Value::Path(_))))
     }
 
     #[builtin("isString")]
-    fn builtin_is_string(vm: &mut VM, #[lazy] x: Value) -> Result<Value, ErrorKind> {
-        let value = x.force(vm)?;
-        Ok(Value::Bool(matches!(*value, Value::String(_))))
+    async fn builtin_is_string(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
+        Ok(Value::Bool(matches!(value, Value::String(_))))
     }
 
     #[builtin("length")]
-    fn builtin_length(_: &mut VM, list: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_length(co: GenCo, list: Value) -> Result<Value, ErrorKind> {
         Ok(Value::Integer(list.to_list()?.len() as i64))
     }
 
     #[builtin("lessThan")]
-    fn builtin_less_than(
-        vm: &mut VM,
-        #[lazy] x: Value,
-        #[lazy] y: Value,
-    ) -> Result<Value, ErrorKind> {
+    async fn builtin_less_than(co: GenCo, x: Value, y: Value) -> Result<Value, ErrorKind> {
         Ok(Value::Bool(matches!(
-            x.force(vm)?.nix_cmp(&*y.force(vm)?, vm)?,
+            x.nix_cmp_ordering(y, co).await?,
             Some(Ordering::Less)
         )))
     }
 
     #[builtin("listToAttrs")]
-    fn builtin_list_to_attrs(vm: &mut VM, list: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_list_to_attrs(co: GenCo, list: Value) -> Result<Value, ErrorKind> {
         let list = list.to_list()?;
         let mut map = BTreeMap::new();
         for val in list {
-            let attrs = val.force(vm)?.to_attrs()?;
-            let name = attrs.select_required("name")?.force(vm)?.to_str()?;
+            let attrs = generators::request_force(&co, val).await.to_attrs()?;
+            let name = generators::request_force(&co, attrs.select_required("name")?.clone())
+                .await
+                .to_str()?;
             let value = attrs.select_required("value")?.clone();
             // Map entries earlier in the list take precedence over entries later in the list
             map.entry(name).or_insert(value);
@@ -566,32 +573,41 @@ mod pure_builtins {
     }
 
     #[builtin("map")]
-    fn builtin_map(vm: &mut VM, f: Value, list: Value) -> Result<Value, ErrorKind> {
-        let list: NixList = list.to_list()?;
+    async fn builtin_map(co: GenCo, f: Value, list: Value) -> Result<Value, ErrorKind> {
+        let mut out = imbl::Vector::<Value>::new();
 
-        list.into_iter()
-            .map(|val| vm.call_with(&f, [val]))
-            .collect::<Result<imbl::Vector<Value>, _>>()
-            .map(|list| Value::List(NixList::from(list)))
-            .map_err(Into::into)
+        for val in list.to_list()? {
+            let result = generators::request_call_with(&co, f.clone(), [val]).await;
+            out.push_back(result)
+        }
+
+        Ok(Value::List(out.into()))
     }
 
     #[builtin("mapAttrs")]
-    fn builtin_map_attrs(vm: &mut VM, f: Value, attrs: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_map_attrs(co: GenCo, f: Value, attrs: Value) -> Result<Value, ErrorKind> {
         let attrs = attrs.to_attrs()?;
-        let res =
-            attrs
-                .as_ref()
-                .into_iter()
-                .flat_map(|(key, value)| -> EvalResult<(NixString, Value)> {
-                    let value = vm.call_with(&f, [key.clone().into(), value.clone()])?;
-                    Ok((key.to_owned(), value))
-                });
-        Ok(Value::attrs(NixAttrs::from_iter(res)))
+        let mut out = imbl::OrdMap::new();
+
+        for (key, value) in attrs.into_iter() {
+            let result =
+                generators::request_call_with(&co, f.clone(), [key.clone().into(), value]).await;
+            out.insert(key, result);
+        }
+
+        // let res =
+        //     attrs
+        //         .as_ref()
+        //         .into_iter()
+        //         .flat_map(|(key, value)| -> EvalResult<(NixString, Value)> {
+        //             let value = vm.call_with(&f, [key.clone().into(), value.clone()])?;
+        //             Ok((key.to_owned(), value))
+        //         });
+        Ok(Value::attrs(out.into()))
     }
 
     #[builtin("match")]
-    fn builtin_match(_: &mut VM, regex: Value, str: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_match(co: GenCo, regex: Value, str: Value) -> Result<Value, ErrorKind> {
         let s = str.to_str()?;
         let re = regex.to_str()?;
         let re: Regex = Regex::new(&format!("^{}$", re.as_str())).unwrap();
@@ -608,12 +624,12 @@ mod pure_builtins {
     }
 
     #[builtin("mul")]
-    fn builtin_mul(vm: &mut VM, #[lazy] x: Value, #[lazy] y: Value) -> Result<Value, ErrorKind> {
-        arithmetic_op!(&*x.force(vm)?, &*y.force(vm)?, *)
+    async fn builtin_mul(co: GenCo, x: Value, y: Value) -> Result<Value, ErrorKind> {
+        arithmetic_op!(&x, &y, *)
     }
 
     #[builtin("parseDrvName")]
-    fn builtin_parse_drv_name(_vm: &mut VM, s: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_parse_drv_name(co: GenCo, s: Value) -> Result<Value, ErrorKind> {
         // This replicates cppnix's (mis?)handling of codepoints
         // above U+007f following 0x2d ('-')
         let s = s.to_str()?;
@@ -636,16 +652,17 @@ mod pure_builtins {
             [("name", core::str::from_utf8(name)?), ("version", version)].into_iter(),
         )))
     }
+
     #[builtin("partition")]
-    fn builtin_partition(vm: &mut VM, pred: Value, list: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_partition(co: GenCo, pred: Value, list: Value) -> Result<Value, ErrorKind> {
         let mut right: imbl::Vector<Value> = Default::default();
         let mut wrong: imbl::Vector<Value> = Default::default();
 
         let list: NixList = list.to_list()?;
         for elem in list {
-            let result = vm.call_with(&pred, [elem.clone()])?;
+            let result = generators::request_call_with(&co, pred.clone(), [elem.clone()]).await;
 
-            if result.force(vm)?.as_bool()? {
+            if generators::request_force(&co, result).await.as_bool()? {
                 right.push_back(elem);
             } else {
                 wrong.push_back(elem);
@@ -661,7 +678,11 @@ mod pure_builtins {
     }
 
     #[builtin("removeAttrs")]
-    fn builtin_remove_attrs(_: &mut VM, attrs: Value, keys: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_remove_attrs(
+        co: GenCo,
+        attrs: Value,
+        keys: Value,
+    ) -> Result<Value, ErrorKind> {
         let attrs = attrs.to_attrs()?;
         let keys = keys
             .to_list()?
@@ -679,16 +700,22 @@ mod pure_builtins {
     }
 
     #[builtin("replaceStrings")]
-    fn builtin_replace_strings(
-        vm: &mut VM,
+    async fn builtin_replace_strings(
+        co: GenCo,
         from: Value,
         to: Value,
         s: Value,
     ) -> Result<Value, ErrorKind> {
         let from = from.to_list()?;
-        from.force_elements(vm)?;
+        for val in &from {
+            generators::request_force(&co, val.clone()).await;
+        }
+
         let to = to.to_list()?;
-        to.force_elements(vm)?;
+        for val in &to {
+            generators::request_force(&co, val.clone()).await;
+        }
+
         let string = s.to_str()?;
 
         let mut res = String::new();
@@ -755,14 +782,14 @@ mod pure_builtins {
     }
 
     #[builtin("seq")]
-    fn builtin_seq(_: &mut VM, _x: Value, y: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_seq(co: GenCo, _x: Value, y: Value) -> Result<Value, ErrorKind> {
         // The builtin calling infra has already forced both args for us, so
         // we just return the second and ignore the first
         Ok(y)
     }
 
     #[builtin("split")]
-    fn builtin_split(_: &mut VM, regex: Value, str: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_split(co: GenCo, regex: Value, str: Value) -> Result<Value, ErrorKind> {
         let s = str.to_str()?;
         let text = s.as_str();
         let re = regex.to_str()?;
@@ -798,51 +825,14 @@ mod pure_builtins {
     }
 
     #[builtin("sort")]
-    fn builtin_sort(vm: &mut VM, comparator: Value, list: Value) -> Result<Value, ErrorKind> {
-        // TODO: the bound on the sort function in
-        // `imbl::Vector::sort_by` is `Fn(...)`, which means that we can
-        // not use the mutable VM inside of its closure, hence the
-        // dance via `Vec`. I think this is just an unnecessarily
-        // restrictive bound in `im`, not a functional requirement.
-        let mut list = list.to_list()?.into_iter().collect::<Vec<_>>();
-
-        // Used to let errors "escape" from the sorting closure. If anything
-        // ends up setting an error, it is returned from this function.
-        let mut error: Option<ErrorKind> = None;
-
-        list.sort_by(|lhs, rhs| {
-            let result = vm
-                .call_with(&comparator, [lhs.clone(), rhs.clone()])
-                .map_err(|err| ErrorKind::ThunkForce(Box::new(err)))
-                .and_then(|v| v.force(vm)?.as_bool());
-
-            match (&error, result) {
-                // The contained closure only returns a "less
-                // than?"-boolean, no way to yield "equal".
-                (None, Ok(true)) => Ordering::Less,
-                (None, Ok(false)) => Ordering::Greater,
-
-                // Closest thing to short-circuiting out if an error was
-                // thrown.
-                (Some(_), _) => Ordering::Equal,
-
-                // Propagate the error if one was encountered.
-                (_, Err(e)) => {
-                    error = Some(e);
-                    Ordering::Equal
-                }
-            }
-        });
-
-        match error {
-            #[allow(deprecated)] // imbl::Vector usage prevented by its API
-            None => Ok(Value::List(NixList::from_vec(list))),
-            Some(e) => Err(e),
-        }
+    async fn builtin_sort(co: GenCo, comparator: Value, list: Value) -> Result<Value, ErrorKind> {
+        let mut list = list.to_list()?;
+        list.sort_by(&co, comparator).await?;
+        Ok(Value::List(list))
     }
 
     #[builtin("splitVersion")]
-    fn builtin_split_version(_: &mut VM, s: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_split_version(co: GenCo, s: Value) -> Result<Value, ErrorKind> {
         let s = s.to_str()?;
         let s = VersionPartsIter::new(s.as_str());
 
@@ -858,20 +848,20 @@ mod pure_builtins {
     }
 
     #[builtin("stringLength")]
-    fn builtin_string_length(vm: &mut VM, #[lazy] s: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_string_length(co: GenCo, #[lazy] s: Value) -> Result<Value, ErrorKind> {
         // also forces the value
-        let s = s.coerce_to_string(CoercionKind::Weak, vm)?;
-        Ok(Value::Integer(s.as_str().len() as i64))
+        let s = s.coerce_to_string(co, CoercionKind::Weak).await?;
+        Ok(Value::Integer(s.to_str()?.as_str().len() as i64))
     }
 
     #[builtin("sub")]
-    fn builtin_sub(vm: &mut VM, #[lazy] x: Value, #[lazy] y: Value) -> Result<Value, ErrorKind> {
-        arithmetic_op!(&*x.force(vm)?, &*y.force(vm)?, -)
+    async fn builtin_sub(co: GenCo, x: Value, y: Value) -> Result<Value, ErrorKind> {
+        arithmetic_op!(&x, &y, -)
     }
 
     #[builtin("substring")]
-    fn builtin_substring(
-        _: &mut VM,
+    async fn builtin_substring(
+        co: GenCo,
         start: Value,
         len: Value,
         s: Value,
@@ -903,7 +893,7 @@ mod pure_builtins {
     }
 
     #[builtin("tail")]
-    fn builtin_tail(_: &mut VM, list: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_tail(co: GenCo, list: Value) -> Result<Value, ErrorKind> {
         let xs = list.to_list()?;
 
         if xs.is_empty() {
@@ -915,34 +905,32 @@ mod pure_builtins {
     }
 
     #[builtin("throw")]
-    fn builtin_throw(_: &mut VM, message: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_throw(co: GenCo, message: Value) -> Result<Value, ErrorKind> {
         Err(ErrorKind::Throw(message.to_str()?.to_string()))
     }
 
     #[builtin("toString")]
-    fn builtin_to_string(vm: &mut VM, #[lazy] x: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_to_string(co: GenCo, #[lazy] x: Value) -> Result<Value, ErrorKind> {
         // coerce_to_string forces for us
-        x.coerce_to_string(CoercionKind::Strong, vm)
-            .map(Value::String)
+        x.coerce_to_string(co, CoercionKind::Strong).await
     }
 
     #[builtin("toXML")]
-    fn builtin_to_xml(vm: &mut VM, value: Value) -> Result<Value, ErrorKind> {
-        value.deep_force(vm, &mut Default::default())?;
+    async fn builtin_to_xml(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
+        let value = generators::request_deep_force(&co, value, SharedThunkSet::default()).await;
         let mut buf: Vec<u8> = vec![];
         to_xml::value_to_xml(&mut buf, &value)?;
         Ok(String::from_utf8(buf)?.into())
     }
 
     #[builtin("placeholder")]
-    fn builtin_placeholder(vm: &mut VM, #[lazy] _: Value) -> Result<Value, ErrorKind> {
-        // TODO(amjoseph)
-        vm.emit_warning(WarningKind::NotImplemented("builtins.placeholder"));
+    async fn builtin_placeholder(co: GenCo, #[lazy] _x: Value) -> Result<Value, ErrorKind> {
+        generators::emit_warning(&co, WarningKind::NotImplemented("builtins.placeholder")).await;
         Ok("<builtins.placeholder-is-not-implemented-in-tvix-yet>".into())
     }
 
     #[builtin("trace")]
-    fn builtin_trace(_: &mut VM, message: Value, value: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_trace(co: GenCo, message: Value, value: Value) -> Result<Value, ErrorKind> {
         // TODO(grfn): `trace` should be pluggable and capturable, probably via a method on
         // the VM
         println!("trace: {} :: {}", message, message.type_of());
@@ -950,29 +938,46 @@ mod pure_builtins {
     }
 
     #[builtin("toPath")]
-    fn builtin_to_path(vm: &mut VM, #[lazy] s: Value) -> Result<Value, ErrorKind> {
-        let path: Value = crate::value::canon_path(coerce_value_to_path(&s, vm)?).into();
-        Ok(path.coerce_to_string(CoercionKind::Weak, vm)?.into())
+    async fn builtin_to_path(co: GenCo, s: Value) -> Result<Value, ErrorKind> {
+        let path: Value = crate::value::canon_path(coerce_value_to_path(&co, s).await?).into();
+        Ok(path.coerce_to_string(co, CoercionKind::Weak).await?)
     }
 
     #[builtin("tryEval")]
-    fn builtin_try_eval(vm: &mut VM, #[lazy] e: Value) -> Result<Value, ErrorKind> {
-        let res = match e.force(vm) {
-            Ok(value) => [("value", (*value).clone()), ("success", true.into())],
-            Err(e) if e.is_catchable() => [("value", false.into()), ("success", false.into())],
-            Err(e) => return Err(e),
+    async fn builtin_try_eval(co: GenCo, #[lazy] e: Value) -> Result<Value, ErrorKind> {
+        let res = match generators::request_try_force(&co, e).await {
+            Some(value) => [("value", value), ("success", true.into())],
+            None => [("value", false.into()), ("success", false.into())],
         };
+
         Ok(Value::attrs(NixAttrs::from_iter(res.into_iter())))
     }
 
     #[builtin("typeOf")]
-    fn builtin_type_of(vm: &mut VM, #[lazy] x: Value) -> Result<Value, ErrorKind> {
-        // We force manually here because it also unwraps the Thunk
-        // representation, if any.
-        // TODO(sterni): it'd be nice if we didn't have to worry about this
-        let value = x.force(vm)?;
-        Ok(Value::String(value.type_of().into()))
+    async fn builtin_type_of(co: GenCo, x: Value) -> Result<Value, ErrorKind> {
+        Ok(Value::String(x.type_of().into()))
     }
+}
+
+/// Internal helper function for genericClosure, determining whether a
+/// value has been seen before.
+async fn bgc_insert_key(co: &GenCo, key: Value, done: &mut Vec<Value>) -> Result<bool, ErrorKind> {
+    for existing in done.iter() {
+        if generators::check_equality(
+            co,
+            existing.clone(),
+            key.clone(),
+            // TODO(tazjin): not actually sure which semantics apply here
+            PointerEquality::ForbidAll,
+        )
+        .await?
+        {
+            return Ok(false);
+        }
+    }
+
+    done.push(key);
+    Ok(true)
 }
 
 /// The set of standard pure builtins in Nix, mostly concerned with
@@ -999,32 +1004,37 @@ pub fn pure_builtins() -> Vec<(&'static str, Value)> {
 mod placeholder_builtins {
     use super::*;
 
-    #[builtin("addErrorContext")]
-    fn builtin_add_error_context(
-        vm: &mut VM,
-        #[lazy] _context: Value,
-        #[lazy] val: Value,
-    ) -> Result<Value, ErrorKind> {
-        vm.emit_warning(WarningKind::NotImplemented("builtins.addErrorContext"));
-        Ok(val)
-    }
-
     #[builtin("unsafeDiscardStringContext")]
-    fn builtin_unsafe_discard_string_context(
-        _: &mut VM,
+    async fn builtin_unsafe_discard_string_context(
+        _: GenCo,
         #[lazy] s: Value,
     ) -> Result<Value, ErrorKind> {
         // Tvix does not manually track contexts, and this is a no-op for us.
         Ok(s)
     }
 
+    #[builtin("addErrorContext")]
+    async fn builtin_add_error_context(
+        co: GenCo,
+        #[lazy] _context: Value,
+        #[lazy] val: Value,
+    ) -> Result<Value, ErrorKind> {
+        generators::emit_warning(&co, WarningKind::NotImplemented("builtins.addErrorContext"))
+            .await;
+        Ok(val)
+    }
+
     #[builtin("unsafeGetAttrPos")]
-    fn builtin_unsafe_get_attr_pos(
-        vm: &mut VM,
+    async fn builtin_unsafe_get_attr_pos(
+        co: GenCo,
         _name: Value,
         _attrset: Value,
     ) -> Result<Value, ErrorKind> {
-        vm.emit_warning(WarningKind::NotImplemented("builtins.unsafeGetAttrsPos"));
+        generators::emit_warning(
+            &co,
+            WarningKind::NotImplemented("builtins.unsafeGetAttrsPos"),
+        )
+        .await;
         let res = [
             ("line", 42.into()),
             ("col", 42.into()),

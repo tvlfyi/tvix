@@ -5,11 +5,10 @@ use imbl::{vector, Vector};
 
 use serde::{Deserialize, Serialize};
 
-use crate::errors::AddContext;
-use crate::errors::ErrorKind;
-use crate::vm::generators;
-use crate::vm::generators::GenCo;
-use crate::vm::VM;
+use crate::generators;
+use crate::generators::GenCo;
+use crate::AddContext;
+use crate::ErrorKind;
 
 use super::thunk::ThunkSet;
 use super::TotalDisplay;
@@ -68,29 +67,6 @@ impl NixList {
 
     pub fn ptr_eq(&self, other: &Self) -> bool {
         self.0.ptr_eq(&other.0)
-    }
-
-    /// Compare `self` against `other` for equality using Nix equality semantics
-    pub fn nix_eq(&self, other: &Self, vm: &mut VM) -> Result<bool, ErrorKind> {
-        if self.ptr_eq(other) {
-            return Ok(true);
-        }
-        if self.len() != other.len() {
-            return Ok(false);
-        }
-
-        for (v1, v2) in self.iter().zip(other.iter()) {
-            if !v1.nix_eq(v2, vm)? {
-                return Ok(false);
-            }
-        }
-
-        Ok(true)
-    }
-
-    /// force each element of the list (shallowly), making it safe to call .get().value()
-    pub fn force_elements(&self, vm: &mut VM) -> Result<(), ErrorKind> {
-        self.iter().try_for_each(|v| v.force(vm).map(|_| ()))
     }
 
     pub fn into_inner(self) -> Vector<Value> {

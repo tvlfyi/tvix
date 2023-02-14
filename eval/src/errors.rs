@@ -365,7 +365,6 @@ to a missing value in the attribute set(s) included via `with`."#,
 
             ErrorKind::NotCoercibleToString { kind, from } => {
                 let kindly = match kind {
-                    CoercionKind::ThunksOnly => "thunksonly",
                     CoercionKind::Strong => "strongly",
                     CoercionKind::Weak => "weakly",
                 };

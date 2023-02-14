@@ -136,7 +136,6 @@ impl Display for GeneratorRequest {
             GeneratorRequest::StringCoerce(v, kind) => match kind {
                 CoercionKind::Weak => write!(f, "weak_string_coerce({})", v),
                 CoercionKind::Strong => write!(f, "strong_string_coerce({})", v),
-                CoercionKind::ThunksOnly => todo!("remove this branch (not live)"),
             },
             GeneratorRequest::Call(v) => write!(f, "call({})", v),
             GeneratorRequest::EnterLambda { lambda, .. } => {
@@ -209,6 +208,240 @@ pub fn pin_generator(
     f: impl Future<Output = Result<Value, ErrorKind>> + 'static,
 ) -> Pin<Box<dyn Future<Output = Result<Value, ErrorKind>>>> {
     Box::pin(f)
+}
+
+impl<'o> VM<'o> {
+    /// Helper function to re-enqueue the current generator while it
+    /// is awaiting a value.
+    fn reenqueue_generator(&mut self, span: LightSpan, generator: Generator) {
+        self.frames.push(Frame::Generator {
+            generator,
+            span,
+            state: GeneratorState::AwaitingValue,
+        });
+    }
+
+    /// Helper function to enqueue a new generator.
+    pub(super) fn enqueue_generator<F, G>(&mut self, span: LightSpan, gen: G)
+    where
+        F: Future<Output = Result<Value, ErrorKind>> + 'static,
+        G: FnOnce(GenCo) -> F,
+    {
+        self.frames.push(Frame::Generator {
+            span,
+            state: GeneratorState::Running,
+            generator: Gen::new(|co| pin_generator(gen(co))),
+        });
+    }
+
+    /// Run a generator frame until it yields to the outer control loop, or runs
+    /// to completion.
+    ///
+    /// The return value indicates whether the generator has completed (true),
+    /// or was suspended (false).
+    pub(crate) fn run_generator(
+        &mut self,
+        span: LightSpan,
+        frame_id: usize,
+        state: GeneratorState,
+        mut generator: Generator,
+        initial_message: Option<GeneratorResponse>,
+    ) -> EvalResult<bool> {
+        // Determine what to send to the generator based on its state.
+        let mut message = match (initial_message, state) {
+            (Some(msg), _) => msg,
+            (_, GeneratorState::Running) => GeneratorResponse::Empty,
+
+            // If control returned here, and the generator is
+            // awaiting a value, send it the top of the stack.
+            (_, GeneratorState::AwaitingValue) => GeneratorResponse::Value(self.stack_pop()),
+        };
+
+        loop {
+            match generator.resume_with(message) {
+                // If the generator yields, it contains an instruction
+                // for what the VM should do.
+                genawaiter::GeneratorState::Yielded(request) => {
+                    self.observer.observe_generator_request(&request);
+
+                    match request {
+                        GeneratorRequest::StackPush(value) => {
+                            self.stack.push(value);
+                            message = GeneratorResponse::Empty;
+                        }
+
+                        GeneratorRequest::StackPop => {
+                            message = GeneratorResponse::Value(self.stack_pop());
+                        }
+
+                        // Generator has requested a force, which means that
+                        // this function prepares the frame stack and yields
+                        // back to the outer VM loop.
+                        GeneratorRequest::ForceValue(value) => {
+                            self.reenqueue_generator(span.clone(), generator);
+                            self.enqueue_generator(span, |co| value.force(co));
+                            return Ok(false);
+                        }
+
+                        // Generator has requested a deep-force.
+                        GeneratorRequest::DeepForceValue(value, thunk_set) => {
+                            self.reenqueue_generator(span.clone(), generator);
+                            self.enqueue_generator(span, |co| value.deep_force(co, thunk_set));
+                            return Ok(false);
+                        }
+
+                        // Generator has requested a value from the with-stack.
+                        // Logic is similar to `ForceValue`, except with the
+                        // value being taken from that stack.
+                        GeneratorRequest::WithValue(idx) => {
+                            self.reenqueue_generator(span.clone(), generator);
+
+                            let value = self.stack[self.with_stack[idx]].clone();
+                            self.enqueue_generator(span, |co| value.force(co));
+
+                            return Ok(false);
+                        }
+
+                        // Generator has requested a value from the *captured*
+                        // with-stack. Logic is same as above, except for the
+                        // value being from that stack.
+                        GeneratorRequest::CapturedWithValue(idx) => {
+                            self.reenqueue_generator(span.clone(), generator);
+
+                            let call_frame = self.last_call_frame()
+                                .expect("Tvix bug: generator requested captured with-value, but there is no call frame");
+
+                            let value = call_frame.upvalues.with_stack().unwrap()[idx].clone();
+                            self.enqueue_generator(span, |co| value.force(co));
+
+                            return Ok(false);
+                        }
+
+                        GeneratorRequest::NixEquality(values, ptr_eq) => {
+                            let values = *values;
+                            self.reenqueue_generator(span.clone(), generator);
+                            self.enqueue_generator(span, |co| {
+                                values.0.nix_eq(values.1, co, ptr_eq)
+                            });
+                            return Ok(false);
+                        }
+
+                        GeneratorRequest::StringCoerce(val, kind) => {
+                            self.reenqueue_generator(span.clone(), generator);
+                            self.enqueue_generator(span, |co| val.coerce_to_string(co, kind));
+                            return Ok(false);
+                        }
+
+                        GeneratorRequest::Call(callable) => {
+                            self.reenqueue_generator(span.clone(), generator);
+                            self.tail_call_value(span, None, callable)?;
+                            return Ok(false);
+                        }
+
+                        GeneratorRequest::EnterLambda {
+                            lambda,
+                            upvalues,
+                            light_span,
+                        } => {
+                            self.reenqueue_generator(span, generator);
+
+                            self.frames.push(Frame::CallFrame {
+                                span: light_span,
+                                call_frame: CallFrame {
+                                    lambda,
+                                    upvalues,
+                                    ip: CodeIdx(0),
+                                    stack_offset: self.stack.len(),
+                                },
+                            });
+
+                            return Ok(false);
+                        }
+
+                        GeneratorRequest::EmitWarning(kind) => {
+                            self.emit_warning(kind);
+                            message = GeneratorResponse::Empty;
+                        }
+
+                        GeneratorRequest::ImportCacheLookup(path) => {
+                            if let Some(cached) = self.import_cache.get(&path) {
+                                message = GeneratorResponse::Value(cached.clone());
+                            } else {
+                                message = GeneratorResponse::Empty;
+                            }
+                        }
+
+                        GeneratorRequest::ImportCachePut(path, value) => {
+                            self.import_cache.insert(path, value);
+                            message = GeneratorResponse::Empty;
+                        }
+
+                        GeneratorRequest::PathImport(path) => {
+                            let imported = self
+                                .io_handle
+                                .import_path(&path)
+                                .map_err(|kind| Error::new(kind, span.span()))?;
+
+                            message = GeneratorResponse::Path(imported);
+                        }
+
+                        GeneratorRequest::ReadToString(path) => {
+                            let content = self
+                                .io_handle
+                                .read_to_string(path)
+                                .map_err(|kind| Error::new(kind, span.span()))?;
+
+                            message = GeneratorResponse::Value(Value::String(content.into()))
+                        }
+
+                        GeneratorRequest::PathExists(path) => {
+                            let exists = self
+                                .io_handle
+                                .path_exists(path)
+                                .map(Value::Bool)
+                                .map_err(|kind| Error::new(kind, span.span()))?;
+
+                            message = GeneratorResponse::Value(exists);
+                        }
+
+                        GeneratorRequest::ReadDir(path) => {
+                            let dir = self
+                                .io_handle
+                                .read_dir(path)
+                                .map_err(|kind| Error::new(kind, span.span()))?;
+
+                            message = GeneratorResponse::Directory(dir);
+                        }
+
+                        GeneratorRequest::Span => {
+                            message = GeneratorResponse::Span(self.reasonable_light_span());
+                        }
+
+                        GeneratorRequest::TryForce(value) => {
+                            self.try_eval_frames.push(frame_id);
+                            self.reenqueue_generator(span.clone(), generator);
+
+                            debug_assert!(
+                                self.frames.len() == frame_id + 1,
+                                "generator should be reenqueued with the same frame ID"
+                            );
+
+                            self.enqueue_generator(span, |co| value.force(co));
+                            return Ok(false);
+                        }
+                    }
+                }
+
+                // Generator has completed, and its result value should
+                // be left on the stack.
+                genawaiter::GeneratorState::Complete(result) => {
+                    let value = result.map_err(|kind| Error::new(kind, span.span()))?;
+                    self.stack.push(value);
+                    return Ok(true);
+                }
+            }
+        }
+    }
 }
 
 pub type GenCo = Co<GeneratorRequest, GeneratorResponse>;
@@ -327,28 +560,6 @@ pub async fn request_deep_force(co: &GenCo, val: Value, thunk_set: SharedThunkSe
         .yield_(GeneratorRequest::DeepForceValue(val, thunk_set))
         .await
     {
-        GeneratorResponse::Value(value) => value,
-        msg => panic!(
-            "Tvix bug: VM responded with incorrect generator message: {}",
-            msg
-        ),
-    }
-}
-
-/// Fetch and force a value on the with-stack from the VM.
-async fn fetch_forced_with(co: &GenCo, idx: usize) -> Value {
-    match co.yield_(GeneratorRequest::WithValue(idx)).await {
-        GeneratorResponse::Value(value) => value,
-        msg => panic!(
-            "Tvix bug: VM responded with incorrect generator message: {}",
-            msg
-        ),
-    }
-}
-
-/// Fetch and force a value on the *captured* with-stack from the VM.
-async fn fetch_captured_with(co: &GenCo, idx: usize) -> Value {
-    match co.yield_(GeneratorRequest::CapturedWithValue(idx)).await {
         GeneratorResponse::Value(value) => value,
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
@@ -484,34 +695,6 @@ pub(crate) async fn request_span(co: &GenCo) -> LightSpan {
             msg
         ),
     }
-}
-
-pub(crate) async fn neo_resolve_with(
-    co: GenCo,
-    ident: String,
-    vm_with_len: usize,
-    upvalue_with_len: usize,
-) -> Result<Value, ErrorKind> {
-    for with_stack_idx in (0..vm_with_len).rev() {
-        // TODO(tazjin): is this branch still live with the current with-thunking?
-        let with = fetch_forced_with(&co, with_stack_idx).await;
-
-        match with.to_attrs()?.select(&ident) {
-            None => continue,
-            Some(val) => return Ok(val.clone()),
-        }
-    }
-
-    for upvalue_with_idx in (0..upvalue_with_len).rev() {
-        let with = fetch_captured_with(&co, upvalue_with_idx).await;
-
-        match with.to_attrs()?.select(&ident) {
-            None => continue,
-            Some(val) => return Ok(val.clone()),
-        }
-    }
-
-    Err(ErrorKind::UnknownDynamicVariable(ident))
 }
 
 /// Call the given value as if it was an attribute set containing a functor. The

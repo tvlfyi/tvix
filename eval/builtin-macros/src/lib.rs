@@ -6,20 +6,24 @@ use quote::{quote, quote_spanned, ToTokens};
 use syn::parse::Parse;
 use syn::spanned::Spanned;
 use syn::{
-    parse2, parse_macro_input, parse_quote, Attribute, FnArg, Ident, Item, ItemMod, LitStr, Meta,
-    Pat, PatIdent, PatType, Token, Type,
+    parse2, parse_macro_input, parse_quote, parse_quote_spanned, Attribute, FnArg, Ident, Item,
+    ItemMod, LitStr, Meta, Pat, PatIdent, PatType, Token, Type,
 };
 
-struct BuiltinArgs {
-    name: LitStr,
-}
+/// Description of a single argument passed to a builtin
+struct BuiltinArgument {
+    /// The name of the argument, to be used in docstrings and error messages
+    name: Ident,
 
-impl Parse for BuiltinArgs {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        Ok(BuiltinArgs {
-            name: input.parse()?,
-        })
-    }
+    /// Type of the argument.
+    ty: Box<Type>,
+
+    /// Whether the argument should be forced before the underlying builtin
+    /// function is called.
+    strict: bool,
+
+    /// Span at which the argument was defined.
+    span: Span,
 }
 
 fn extract_docstring(attrs: &[Attribute]) -> Option<String> {
@@ -97,6 +101,11 @@ fn parse_module_args(args: TokenStream) -> Option<Type> {
 /// builtin upon instantiation. Using this, builtins that close over some external state can be
 /// written.
 ///
+/// The type of each function is rewritten to receive a `Vec<Value>`, containing each `Value`
+/// argument that the function receives. The body of functions is accordingly rewritten to "unwrap"
+/// values from this vector and bind them to the correct names, so unless a static error occurs this
+/// transformation is mostly invisible to users of the macro.
+///
 /// A function `fn builtins() -> Vec<Builtin>` will be defined within the annotated module,
 /// returning a list of [`tvix_eval::Builtin`] for each function annotated with the `#[builtin]`
 /// attribute within the module. If a `state` type is specified, the `builtins` function will take a
@@ -114,10 +123,10 @@ fn parse_module_args(args: TokenStream) -> Option<Type> {
 ///
 /// #[builtins]
 /// mod builtins {
-///     use tvix_eval::{ErrorKind, Value, VM};
+///     use tvix_eval::{GenCo, ErrorKind, Value};
 ///
 ///     #[builtin("identity")]
-///     pub fn builtin_identity(_vm: &mut VM, x: Value) -> Result<Value, ErrorKind> {
+///     pub async fn builtin_identity(co: GenCo, x: Value) -> Result<Value, ErrorKind> {
 ///         Ok(x)
 ///     }
 ///
@@ -125,7 +134,7 @@ fn parse_module_args(args: TokenStream) -> Option<Type> {
 ///     // argument with the `#[lazy]` attribute
 ///
 ///     #[builtin("tryEval")]
-///     pub fn builtin_try_eval(vm: &mut VM, #[lazy] x: Value) -> Result<Value, ErrorKind> {
+///     pub async fn builtin_try_eval(co: GenCo, #[lazy] x: Value) -> Result<Value, ErrorKind> {
 ///         todo!()
 ///     }
 /// }
@@ -156,7 +165,7 @@ pub fn builtins(args: TokenStream, item: TokenStream) -> TokenStream {
                 .position(|attr| attr.path.get_ident().iter().any(|id| *id == "builtin"))
             {
                 let builtin_attr = f.attrs.remove(builtin_attr_pos);
-                let BuiltinArgs { name } = match builtin_attr.parse_args() {
+                let name: LitStr = match builtin_attr.parse_args() {
                     Ok(args) => args,
                     Err(err) => return err.into_compile_error().into(),
                 };
@@ -169,10 +178,11 @@ pub fn builtins(args: TokenStream, item: TokenStream) -> TokenStream {
                     .into();
                 }
 
-                // Determine if this function is taking the state parameter.
-                let mut args_iter = f.sig.inputs.iter_mut().peekable();
+                // Inspect the first argument to determine if this function is
+                // taking the state parameter.
+                // TODO(tazjin): add a test in //tvix/eval that covers this
                 let mut captures_state = false;
-                if let Some(FnArg::Typed(PatType { pat, .. })) = args_iter.peek() {
+                if let FnArg::Typed(PatType { pat, .. }) = &f.sig.inputs[0] {
                     if let Pat::Ident(PatIdent { ident, .. }) = pat.as_ref() {
                         if ident.to_string() == "state" {
                             if state_type.is_none() {
@@ -184,20 +194,28 @@ pub fn builtins(args: TokenStream, item: TokenStream) -> TokenStream {
                     }
                 }
 
-                // skip state and/or VM args ..
-                let skip_num = if captures_state { 2 } else { 1 };
+                let mut rewritten_args = std::mem::take(&mut f.sig.inputs)
+                    .into_iter()
+                    .collect::<Vec<_>>();
 
-                let builtin_arguments = args_iter
-                    .skip(skip_num)
+                // Split out the value arguments from the static arguments.
+                let split_idx = if captures_state { 2 } else { 1 };
+                let value_args = rewritten_args.split_off(split_idx);
+
+                let builtin_arguments = value_args
+                    .into_iter()
                     .map(|arg| {
+                        let span = arg.span();
                         let mut strict = true;
-                        let name = match arg {
+                        let (name, ty) = match arg {
                             FnArg::Receiver(_) => {
-                                return Err(quote_spanned!(arg.span() => {
-                                    compile_error!("Unexpected receiver argument in builtin")
+                                return Err(quote_spanned!(span => {
+                                    compile_error!("unexpected receiver argument in builtin")
                                 }))
                             }
-                            FnArg::Typed(PatType { attrs, pat, .. }) => {
+                            FnArg::Typed(PatType {
+                                mut attrs, pat, ty, ..
+                            }) => {
                                 attrs.retain(|attr| {
                                     attr.path.get_ident().into_iter().any(|id| {
                                         if id == "lazy" {
@@ -209,34 +227,66 @@ pub fn builtins(args: TokenStream, item: TokenStream) -> TokenStream {
                                     })
                                 });
                                 match pat.as_ref() {
-                                    Pat::Ident(PatIdent { ident, .. }) => ident.to_string(),
-                                    _ => "unknown".to_string(),
+                                    Pat::Ident(PatIdent { ident, .. }) => {
+                                        (ident.clone(), ty.clone())
+                                    }
+                                    _ => panic!("ignored value parameters must be named, e.g. `_x` and not just `_`"),
                                 }
                             }
                         };
 
-                        Ok(quote_spanned!(arg.span() => {
-                            crate::BuiltinArgument {
-                                strict: #strict,
-                                name: #name,
-                            }
-                        }))
+                        Ok(BuiltinArgument {
+                            strict,
+                            span,
+                            name,
+                            ty,
+                        })
                     })
-                    .collect::<Result<Vec<_>, _>>();
+                    .collect::<Result<Vec<BuiltinArgument>, _>>();
 
                 let builtin_arguments = match builtin_arguments {
-                    Ok(args) => args,
                     Err(err) => return err.into(),
+
+                    // reverse argument order, as they are popped from the stack
+                    // slice in opposite order
+                    Ok(args) => args,
                 };
 
-                let fn_name = f.sig.ident.clone();
-                let num_args = f.sig.inputs.len() - skip_num;
-                let args = (0..num_args)
-                    .map(|n| Ident::new(&format!("arg_{n}"), Span::call_site()))
-                    .collect::<Vec<_>>();
-                let mut reversed_args = args.clone();
-                reversed_args.reverse();
+                // Rewrite the argument to the actual function to take a
+                // `Vec<Value>`, which is then destructured into the
+                // user-defined values in the function header.
+                let sig_span = f.sig.span();
+                rewritten_args.push(parse_quote_spanned!(sig_span=> mut values: Vec<Value>));
+                f.sig.inputs = rewritten_args.into_iter().collect();
 
+                // Rewrite the body of the function to do said argument forcing.
+                //
+                // This is done by creating a new block for each of the
+                // arguments that evaluates it, and wraps the inner block.
+                for arg in &builtin_arguments {
+                    let block = &f.block;
+                    let ty = &arg.ty;
+                    let ident = &arg.name;
+
+                    if arg.strict {
+                        f.block = Box::new(parse_quote_spanned! {arg.span=> {
+                            let #ident: #ty = generators::request_force(&co, values.pop()
+                              .expect("Tvix bug: builtin called with incorrect number of arguments")).await;
+
+                            #block
+                        }});
+                    } else {
+                        f.block = Box::new(parse_quote_spanned! {arg.span=> {
+                            let #ident: #ty = values.pop()
+                              .expect("Tvix bug: builtin called with incorrect number of arguments");
+
+                            #block
+                        }})
+                    }
+                }
+
+                let fn_name = f.sig.ident.clone();
+                let arg_count = builtin_arguments.len();
                 let docstring = match extract_docstring(&f.attrs) {
                     Some(docs) => quote!(Some(#docs)),
                     None => quote!(None),
@@ -247,24 +297,18 @@ pub fn builtins(args: TokenStream, item: TokenStream) -> TokenStream {
                         let inner_state = state.clone();
                         crate::Builtin::new(
                             #name,
-                            &[#(#builtin_arguments),*],
                             #docstring,
-                            move |mut args: Vec<crate::Value>, vm: &mut crate::VM| {
-                                #(let #reversed_args = args.pop().unwrap();)*
-                                #fn_name(inner_state.clone(), vm, #(#args),*)
-                            }
+                            #arg_count,
+                            move |values| Gen::new(|co| generators::pin_generator(#fn_name(inner_state.clone(), co, values))),
                         )
                     }});
                 } else {
                     builtins.push(quote_spanned! { builtin_attr.span() => {
                         crate::Builtin::new(
                             #name,
-                            &[#(#builtin_arguments),*],
                             #docstring,
-                            |mut args: Vec<crate::Value>, vm: &mut crate::VM| {
-                                #(let #reversed_args = args.pop().unwrap();)*
-                                #fn_name(vm, #(#args),*)
-                            }
+                            #arg_count,
+                            |values| Gen::new(|co| generators::pin_generator(#fn_name(co, values))),
                         )
                     }});
                 }

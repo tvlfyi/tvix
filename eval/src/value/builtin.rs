@@ -3,7 +3,7 @@
 //!
 //! Builtins are directly backed by Rust code operating on Nix values.
 
-use crate::{errors::ErrorKind, vm::VM};
+use crate::vm::generators::Generator;
 
 use super::Value;
 
@@ -12,38 +12,36 @@ use std::{
     rc::Rc,
 };
 
-/// Trait for closure types of builtins implemented directly by
-/// backing Rust code.
+/// Trait for closure types of builtins.
 ///
-/// Builtins declare their arity and are passed a vector with the
-/// right number of arguments. Additionally, as they might have to
-/// force the evaluation of thunks, they are passed a reference to the
-/// current VM which they can use for forcing a value.
+/// Builtins are expected to yield a generator which can be run by the VM to
+/// produce the final value.
 ///
-/// Errors returned from a builtin will be annotated with the location
-/// of the call to the builtin.
-pub trait BuiltinFn: Fn(Vec<Value>, &mut VM) -> Result<Value, ErrorKind> {}
-impl<F: Fn(Vec<Value>, &mut VM) -> Result<Value, ErrorKind>> BuiltinFn for F {}
-
-/// Description of a single argument passed to a builtin
-pub struct BuiltinArgument {
-    /// Whether the argument should be forced before the underlying builtin function is called
-    pub strict: bool,
-    /// The name of the argument, to be used in docstrings and error messages
-    pub name: &'static str,
-}
+/// Implementors should use the builtins-macros to create these functions
+/// instead of handling the argument-passing logic manually.
+pub trait BuiltinGen: Fn(Vec<Value>) -> Generator {}
+impl<F: Fn(Vec<Value>) -> Generator> BuiltinGen for F {}
 
 #[derive(Clone)]
 pub struct BuiltinRepr {
     name: &'static str,
-    /// Array of arguments to the builtin.
-    arguments: &'static [BuiltinArgument],
     /// Optional documentation for the builtin.
     documentation: Option<&'static str>,
-    func: Rc<dyn BuiltinFn>,
+    arg_count: usize,
+
+    func: Rc<dyn BuiltinGen>,
 
     /// Partially applied function arguments.
     partials: Vec<Value>,
+}
+
+pub enum BuiltinResult {
+    /// Builtin was not ready to be called (arguments missing) and remains
+    /// partially applied.
+    Partial(Builtin),
+
+    /// Builtin was called and constructed a generator that the VM must run.
+    Called(Generator),
 }
 
 /// Represents a single built-in function which directly executes Rust
@@ -68,16 +66,16 @@ impl From<BuiltinRepr> for Builtin {
 }
 
 impl Builtin {
-    pub fn new<F: BuiltinFn + 'static>(
+    pub fn new<F: BuiltinGen + 'static>(
         name: &'static str,
-        arguments: &'static [BuiltinArgument],
         documentation: Option<&'static str>,
+        arg_count: usize,
         func: F,
     ) -> Self {
         BuiltinRepr {
             name,
-            arguments,
             documentation,
+            arg_count,
             func: Rc::new(func),
             partials: vec![],
         }
@@ -92,23 +90,25 @@ impl Builtin {
         self.0.documentation
     }
 
-    /// Apply an additional argument to the builtin, which will either
-    /// lead to execution of the function or to returning a partial
-    /// builtin.
-    pub fn apply(mut self, vm: &mut VM, arg: Value) -> Result<Value, ErrorKind> {
+    /// Apply an additional argument to the builtin. After this, [`call`] *must*
+    /// be called, otherwise it may leave the builtin in an incorrect state.
+    pub fn apply_arg(&mut self, arg: Value) {
         self.0.partials.push(arg);
 
-        if self.0.partials.len() == self.0.arguments.len() {
-            for (idx, BuiltinArgument { strict, .. }) in self.0.arguments.iter().enumerate() {
-                if *strict {
-                    self.0.partials[idx].force(vm)?;
-                }
-            }
-            return (self.0.func)(self.0.partials, vm);
-        }
+        debug_assert!(
+            self.0.partials.len() <= self.0.arg_count,
+            "Tvix bug: pushed too many arguments to builtin"
+        );
+    }
 
-        // Function is not yet ready to be called.
-        Ok(Value::Builtin(self))
+    /// Attempt to call a builtin, which will produce a generator if it is fully
+    /// applied or return the builtin if it is partially applied.
+    pub fn call(self) -> BuiltinResult {
+        if self.0.partials.len() == self.0.arg_count {
+            BuiltinResult::Called((self.0.func)(self.0.partials))
+        } else {
+            BuiltinResult::Partial(self)
+        }
     }
 }
 

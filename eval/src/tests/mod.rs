@@ -10,12 +10,12 @@ mod one_offs;
 mod mock_builtins {
     //! Builtins which are required by language tests, but should not
     //! actually exist in //tvix/eval.
+    use crate::generators::GenCo;
     use crate::*;
+    use genawaiter::rc::Gen;
 
     #[builtin("derivation")]
-    fn builtin_derivation(vm: &mut VM, input: Value) -> Result<Value, ErrorKind> {
-        vm.emit_warning(WarningKind::NotImplemented("builtins.derivation"));
-
+    async fn builtin_derivation(co: GenCo, input: Value) -> Result<Value, ErrorKind> {
         let input = input.to_attrs()?;
         let attrs = input.update(NixAttrs::from_iter(
             [

@@ -1,11 +1,12 @@
 //! This module implements the backing representation of runtime
 //! values in the Nix language.
 use std::cmp::Ordering;
+use std::fmt::Display;
+use std::future::Future;
 use std::num::{NonZeroI32, NonZeroUsize};
-use std::ops::Deref;
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::rc::Rc;
-use std::{cell::Ref, fmt::Display};
 
 use lexical_core::format::CXX_LITERAL;
 use serde::{Deserialize, Serialize};
@@ -20,12 +21,12 @@ mod path;
 mod string;
 mod thunk;
 
-use crate::errors::{AddContext, ErrorKind};
+use crate::errors::ErrorKind;
 use crate::opcode::StackIdx;
 use crate::vm::generators::{self, GenCo};
-use crate::vm::VM;
+use crate::AddContext;
 pub use attrs::NixAttrs;
-pub use builtin::{Builtin, BuiltinArgument};
+pub use builtin::{Builtin, BuiltinResult};
 pub(crate) use function::Formals;
 pub use function::{Closure, Lambda};
 pub use list::NixList;
@@ -139,8 +140,6 @@ macro_rules! gen_is {
 /// Describes what input types are allowed when coercing a `Value` to a string
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum CoercionKind {
-    /// Force thunks, but perform no other coercions.
-    ThunksOnly,
     /// Only coerce already "stringly" types like strings and paths, but also
     /// coerce sets that have a `__toString` attribute. Equivalent to
     /// `!coerceMore` in C++ Nix.
@@ -149,26 +148,6 @@ pub enum CoercionKind {
     /// booleans, integers, floats and lists of coercible types. Equivalent to
     /// `coerceMore` in C++ Nix.
     Strong,
-}
-
-/// A reference to a [`Value`] returned by a call to [`Value::force`], whether the value was
-/// originally a thunk or not.
-///
-/// Implements [`Deref`] to [`Value`], so can generally be used as a [`Value`]
-pub enum ForceResult<'a> {
-    ForcedThunk(Ref<'a, Value>),
-    Immediate(&'a Value),
-}
-
-impl<'a> Deref for ForceResult<'a> {
-    type Target = Value;
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            ForceResult::ForcedThunk(r) => r,
-            ForceResult::Immediate(v) => v,
-        }
-    }
 }
 
 impl<T> From<T> for Value
@@ -204,33 +183,80 @@ pub enum PointerEquality {
 }
 
 impl Value {
+    /// Deeply forces a value, traversing e.g. lists and attribute sets and forcing
+    /// their contents, too.
+    ///
+    /// This is a generator function.
+    pub(super) async fn deep_force(
+        self,
+        co: GenCo,
+        thunk_set: SharedThunkSet,
+    ) -> Result<Value, ErrorKind> {
+        // Get rid of any top-level thunks, and bail out of self-recursive
+        // thunks.
+        let value = if let Value::Thunk(ref t) = &self {
+            if !thunk_set.insert(t) {
+                return Ok(self);
+            }
+            generators::request_force(&co, self).await
+        } else {
+            self
+        };
+
+        match &value {
+            // Short-circuit on already evaluated values, or fail on internal values.
+            Value::Null
+            | Value::Bool(_)
+            | Value::Integer(_)
+            | Value::Float(_)
+            | Value::String(_)
+            | Value::Path(_)
+            | Value::Closure(_)
+            | Value::Builtin(_) => return Ok(value),
+
+            Value::List(list) => {
+                for val in list {
+                    generators::request_deep_force(&co, val.clone(), thunk_set.clone()).await;
+                }
+            }
+
+            Value::Attrs(attrs) => {
+                for (_, val) in attrs.iter() {
+                    generators::request_deep_force(&co, val.clone(), thunk_set.clone()).await;
+                }
+            }
+
+            Value::Thunk(_) => panic!("Tvix bug: force_value() returned a thunk"),
+
+            Value::AttrNotFound
+            | Value::Blueprint(_)
+            | Value::DeferredUpvalue(_)
+            | Value::UnresolvedPath(_) => panic!(
+                "Tvix bug: internal value left on stack: {}",
+                value.type_of()
+            ),
+        };
+
+        Ok(value)
+    }
+
     /// Coerce a `Value` to a string. See `CoercionKind` for a rundown of what
     /// input types are accepted under what circumstances.
-    pub fn coerce_to_string(
-        &self,
-        kind: CoercionKind,
-        vm: &mut VM,
-    ) -> Result<NixString, ErrorKind> {
-        // TODO: eventually, this will need to handle string context and importing
-        // files into the Nix store depending on what context the coercion happens in
-        if let Value::Thunk(t) = self {
-            t.force(vm)?;
-        }
+    pub async fn coerce_to_string(self, co: GenCo, kind: CoercionKind) -> Result<Value, ErrorKind> {
+        let value = generators::request_force(&co, self).await;
 
-        match (self, kind) {
-            // deal with thunks
-            (Value::Thunk(t), _) => t.value().coerce_to_string(kind, vm),
-
+        match (value, kind) {
             // coercions that are always done
-            (Value::String(s), _) => Ok(s.clone()),
+            tuple @ (Value::String(_), _) => Ok(tuple.0),
 
             // TODO(sterni): Think about proper encoding handling here. This needs
             // general consideration anyways, since one current discrepancy between
             // C++ Nix and Tvix is that the former's strings are arbitrary byte
             // sequences without NUL bytes, whereas Tvix only allows valid
             // Unicode. See also b/189.
-            (Value::Path(p), kind) if kind != CoercionKind::ThunksOnly => {
-                let imported = vm.io().import_path(p)?;
+            (Value::Path(p), _) => {
+                // TODO(tazjin): there are cases where coerce_to_string does not import
+                let imported = generators::request_path_import(&co, p).await;
                 Ok(imported.to_string_lossy().into_owned().into())
             }
 
@@ -238,38 +264,32 @@ impl Value {
             // `__toString` attribute which holds a function that receives the
             // set itself or an `outPath` attribute which should be a string.
             // `__toString` is preferred.
-            (Value::Attrs(attrs), kind) if kind != CoercionKind::ThunksOnly => {
+            (Value::Attrs(attrs), kind) => {
                 match (attrs.select("__toString"), attrs.select("outPath")) {
                     (None, None) => Err(ErrorKind::NotCoercibleToString { from: "set", kind }),
 
                     (Some(f), _) => {
-                        // use a closure here to deal with the thunk borrow we need to do below
-                        let call_to_string = |value: &Value, vm: &mut VM| {
-                            // Leave self on the stack as an argument to the function call.
-                            vm.push(self.clone());
-                            vm.call_value(value)?;
-                            let result = vm.pop();
+                        let callable = generators::request_force(&co, f.clone()).await;
 
-                            match result {
-                                Value::String(s) => Ok(s),
-                                // Attribute set coercion actually works
-                                // recursively, e.g. you can even return
-                                // /another/ set with a __toString attr.
-                                _ => result.coerce_to_string(kind, vm),
-                            }
-                        };
+                        // Leave the attribute set on the stack as an argument
+                        // to the function call.
+                        generators::request_stack_push(&co, Value::Attrs(attrs)).await;
 
-                        if let Value::Thunk(t) = f {
-                            t.force(vm)?;
-                            let guard = t.value();
-                            call_to_string(&guard, vm)
-                        } else {
-                            call_to_string(f, vm)
-                        }
+                        // Call the callable ...
+                        let result = generators::request_call(&co, callable).await;
+
+                        // Recurse on the result, as attribute set coercion
+                        // actually works recursively, e.g. you can even return
+                        // /another/ set with a __toString attr.
+                        let s = generators::request_string_coerce(&co, result, kind).await;
+                        Ok(Value::String(s))
                     }
 
                     // Similarly to `__toString` we also coerce recursively for `outPath`
-                    (None, Some(s)) => s.coerce_to_string(kind, vm),
+                    (None, Some(s)) => {
+                        let s = generators::request_string_coerce(&co, s.clone(), kind).await;
+                        Ok(Value::String(s))
+                    }
                 }
             }
 
@@ -287,30 +307,31 @@ impl Value {
             }
 
             // Lists are coerced by coercing their elements and interspersing spaces
-            (Value::List(l), CoercionKind::Strong) => {
-                // TODO(sterni): use intersperse when it becomes available?
-                // https://github.com/rust-lang/rust/issues/79524
-                l.iter()
-                    .map(|v| v.coerce_to_string(kind, vm))
-                    .reduce(|acc, string| {
-                        let a = acc?;
-                        let s = &string?;
-                        Ok(a.concat(&" ".into()).concat(s))
-                    })
-                    // None from reduce indicates empty iterator
-                    .unwrap_or_else(|| Ok("".into()))
+            (Value::List(list), CoercionKind::Strong) => {
+                let mut out = String::new();
+
+                for (idx, elem) in list.into_iter().enumerate() {
+                    if idx > 0 {
+                        out.push(' ');
+                    }
+
+                    let s = generators::request_string_coerce(&co, elem, kind).await;
+                    out.push_str(s.as_str());
+                }
+
+                Ok(Value::String(out.into()))
             }
 
-            (Value::Path(_), _)
-            | (Value::Attrs(_), _)
-            | (Value::Closure(_), _)
-            | (Value::Builtin(_), _)
-            | (Value::Null, _)
-            | (Value::Bool(_), _)
-            | (Value::Integer(_), _)
-            | (Value::Float(_), _)
-            | (Value::List(_), _) => Err(ErrorKind::NotCoercibleToString {
-                from: self.type_of(),
+            (Value::Thunk(_), _) => panic!("Tvix bug: force returned unforced thunk"),
+
+            val @ (Value::Closure(_), _)
+            | val @ (Value::Builtin(_), _)
+            | val @ (Value::Null, _)
+            | val @ (Value::Bool(_), _)
+            | val @ (Value::Integer(_), _)
+            | val @ (Value::Float(_), _)
+            | val @ (Value::List(_), _) => Err(ErrorKind::NotCoercibleToString {
+                from: val.0.type_of(),
                 kind,
             }),
 
@@ -333,7 +354,7 @@ impl Value {
     /// The `top_level` parameter controls whether this invocation is the top-level
     /// comparison, or a nested value comparison. See
     /// `//tvix/docs/value-pointer-equality.md`
-    pub(crate) async fn neo_nix_eq(
+    pub(crate) async fn nix_eq(
         self,
         other: Value,
         co: GenCo,
@@ -530,49 +551,52 @@ impl Value {
     gen_is!(is_number, Value::Integer(_) | Value::Float(_));
     gen_is!(is_bool, Value::Bool(_));
 
-    /// Compare `self` against `other` for equality using Nix equality semantics.
-    ///
-    /// Takes a reference to the `VM` to allow forcing thunks during comparison
-    pub fn nix_eq(&self, other: &Self, vm: &mut VM) -> Result<bool, ErrorKind> {
-        match (self, other) {
-            // Trivial comparisons
-            (Value::Null, Value::Null) => Ok(true),
-            (Value::Bool(b1), Value::Bool(b2)) => Ok(b1 == b2),
-            (Value::String(s1), Value::String(s2)) => Ok(s1 == s2),
-            (Value::Path(p1), Value::Path(p2)) => Ok(p1 == p2),
-
-            // Numerical comparisons (they work between float & int)
-            (Value::Integer(i1), Value::Integer(i2)) => Ok(i1 == i2),
-            (Value::Integer(i), Value::Float(f)) => Ok(*i as f64 == *f),
-            (Value::Float(f1), Value::Float(f2)) => Ok(f1 == f2),
-            (Value::Float(f), Value::Integer(i)) => Ok(*i as f64 == *f),
-
-            (Value::Attrs(_), Value::Attrs(_))
-            | (Value::List(_), Value::List(_))
-            | (Value::Thunk(_), _)
-            | (_, Value::Thunk(_)) => Ok(vm.nix_eq(self.clone(), other.clone(), false)?),
-
-            // Everything else is either incomparable (e.g. internal
-            // types) or false.
-            _ => Ok(false),
-        }
+    /// Internal helper to allow `nix_cmp_ordering` to recurse.
+    fn nix_cmp_boxed(
+        self,
+        other: Self,
+        co: GenCo,
+    ) -> Pin<Box<dyn Future<Output = Result<Option<Ordering>, ErrorKind>>>> {
+        Box::pin(self.nix_cmp_ordering(other, co))
     }
 
     /// Compare `self` against other using (fallible) Nix ordering semantics.
-    pub fn nix_cmp(&self, other: &Self, vm: &mut VM) -> Result<Option<Ordering>, ErrorKind> {
+    ///
+    /// Note that as this returns an `Option<Ordering>` it can not directly be
+    /// used as a generator function in the VM. The exact use depends on the
+    /// callsite, as the meaning is interpreted in different ways e.g. based on
+    /// the comparison operator used.
+    ///
+    /// The function is intended to be used from within other generator
+    /// functions or `gen!` blocks.
+    pub async fn nix_cmp_ordering(
+        self,
+        other: Self,
+        co: GenCo,
+    ) -> Result<Option<Ordering>, ErrorKind> {
         match (self, other) {
             // same types
-            (Value::Integer(i1), Value::Integer(i2)) => Ok(i1.partial_cmp(i2)),
-            (Value::Float(f1), Value::Float(f2)) => Ok(f1.partial_cmp(f2)),
-            (Value::String(s1), Value::String(s2)) => Ok(s1.partial_cmp(s2)),
+            (Value::Integer(i1), Value::Integer(i2)) => Ok(i1.partial_cmp(&i2)),
+            (Value::Float(f1), Value::Float(f2)) => Ok(f1.partial_cmp(&f2)),
+            (Value::String(s1), Value::String(s2)) => Ok(s1.partial_cmp(&s2)),
             (Value::List(l1), Value::List(l2)) => {
                 for i in 0.. {
                     if i == l2.len() {
                         return Ok(Some(Ordering::Greater));
                     } else if i == l1.len() {
                         return Ok(Some(Ordering::Less));
-                    } else if !vm.nix_eq(l1[i].clone(), l2[i].clone(), true)? {
-                        return l1[i].force(vm)?.nix_cmp(&*l2[i].force(vm)?, vm);
+                    } else if !generators::check_equality(
+                        &co,
+                        l1[i].clone(),
+                        l2[i].clone(),
+                        PointerEquality::AllowAll,
+                    )
+                    .await?
+                    {
+                        // TODO: do we need to control `top_level` here?
+                        let v1 = generators::request_force(&co, l1[i].clone()).await;
+                        let v2 = generators::request_force(&co, l2[i].clone()).await;
+                        return v1.nix_cmp_boxed(v2, co).await;
                     }
                 }
 
@@ -580,8 +604,8 @@ impl Value {
             }
 
             // different types
-            (Value::Integer(i1), Value::Float(f2)) => Ok((*i1 as f64).partial_cmp(f2)),
-            (Value::Float(f1), Value::Integer(i2)) => Ok(f1.partial_cmp(&(*i2 as f64))),
+            (Value::Integer(i1), Value::Float(f2)) => Ok((i1 as f64).partial_cmp(&f2)),
+            (Value::Float(f1), Value::Integer(i2)) => Ok(f1.partial_cmp(&(i2 as f64))),
 
             // unsupported types
             (lhs, rhs) => Err(ErrorKind::Incomparable {
@@ -591,58 +615,12 @@ impl Value {
         }
     }
 
-    /// Ensure `self` is forced if it is a thunk, and return a reference to the resulting value.
-    pub fn force(&self, vm: &mut VM) -> Result<ForceResult, ErrorKind> {
-        match self {
-            Self::Thunk(thunk) => {
-                thunk.force(vm)?;
-                Ok(ForceResult::ForcedThunk(thunk.value()))
-            }
-            _ => Ok(ForceResult::Immediate(self)),
+    pub async fn force(self, co: GenCo) -> Result<Value, ErrorKind> {
+        if let Value::Thunk(thunk) = self {
+            return thunk.force(co).await;
         }
-    }
 
-    /// Ensure `self` is *deeply* forced, including all recursive sub-values
-    pub(crate) fn deep_force(
-        &self,
-        vm: &mut VM,
-        thunk_set: &mut ThunkSet,
-    ) -> Result<(), ErrorKind> {
-        match self {
-            Value::Null
-            | Value::Bool(_)
-            | Value::Integer(_)
-            | Value::Float(_)
-            | Value::String(_)
-            | Value::Path(_)
-            | Value::Closure(_)
-            | Value::Builtin(_)
-            | Value::AttrNotFound
-            | Value::Blueprint(_)
-            | Value::DeferredUpvalue(_)
-            | Value::UnresolvedPath(_) => Ok(()),
-            Value::Attrs(a) => {
-                for (_, v) in a.iter() {
-                    v.deep_force(vm, thunk_set)?;
-                }
-                Ok(())
-            }
-            Value::List(l) => {
-                for val in l {
-                    val.deep_force(vm, thunk_set)?;
-                }
-                Ok(())
-            }
-            Value::Thunk(thunk) => {
-                if !thunk_set.insert(thunk) {
-                    return Ok(());
-                }
-
-                thunk.force(vm)?;
-                let value = thunk.value().clone();
-                value.deep_force(vm, thunk_set)
-            }
-        }
+        Ok(self)
     }
 
     /// Explain a value in a human-readable way, e.g. by presenting
@@ -835,9 +813,6 @@ fn type_error(expected: &'static str, actual: &Value) -> ErrorKind {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use imbl::vector;
-
     mod floats {
         use crate::value::total_fmt_float;
 
@@ -863,74 +838,6 @@ mod tests {
                     n, expected, &buf
                 );
             }
-        }
-    }
-
-    mod nix_eq {
-        use crate::observer::NoOpObserver;
-
-        use super::*;
-        use proptest::prelude::ProptestConfig;
-        use test_strategy::proptest;
-
-        #[proptest(ProptestConfig { cases: 5, ..Default::default() })]
-        fn reflexive(x: Value) {
-            let mut observer = NoOpObserver {};
-            let mut vm = VM::new(
-                Default::default(),
-                Box::new(crate::DummyIO),
-                &mut observer,
-                Default::default(),
-            );
-
-            assert!(x.nix_eq(&x, &mut vm).unwrap())
-        }
-
-        #[proptest(ProptestConfig { cases: 5, ..Default::default() })]
-        fn symmetric(x: Value, y: Value) {
-            let mut observer = NoOpObserver {};
-            let mut vm = VM::new(
-                Default::default(),
-                Box::new(crate::DummyIO),
-                &mut observer,
-                Default::default(),
-            );
-
-            assert_eq!(
-                x.nix_eq(&y, &mut vm).unwrap(),
-                y.nix_eq(&x, &mut vm).unwrap()
-            )
-        }
-
-        #[proptest(ProptestConfig { cases: 5, ..Default::default() })]
-        fn transitive(x: Value, y: Value, z: Value) {
-            let mut observer = NoOpObserver {};
-            let mut vm = VM::new(
-                Default::default(),
-                Box::new(crate::DummyIO),
-                &mut observer,
-                Default::default(),
-            );
-
-            if x.nix_eq(&y, &mut vm).unwrap() && y.nix_eq(&z, &mut vm).unwrap() {
-                assert!(x.nix_eq(&z, &mut vm).unwrap())
-            }
-        }
-
-        #[test]
-        fn list_int_float_fungibility() {
-            let mut observer = NoOpObserver {};
-            let mut vm = VM::new(
-                Default::default(),
-                Box::new(crate::DummyIO),
-                &mut observer,
-                Default::default(),
-            );
-
-            let v1 = Value::List(NixList::from(vector![Value::Integer(1)]));
-            let v2 = Value::List(NixList::from(vector![Value::Float(1.0)]));
-
-            assert!(v1.nix_eq(&v2, &mut vm).unwrap())
         }
     }
 }
