@@ -333,23 +333,17 @@ impl Iterator for DirectoryNodesIterator<'_> {
             if left_name_lt_right(self.i_directories.peek(), self.i_symlinks.peek()) {
                 self.i_directories
                     .next()
-                    .map(|x| x.clone())
+                    .cloned()
                     .map(node::Node::Directory)
             } else {
-                self.i_symlinks
-                    .next()
-                    .map(|x| x.clone())
-                    .map(node::Node::Symlink)
+                self.i_symlinks.next().cloned().map(node::Node::Symlink)
             }
         } else {
             // i_files is still in the game, compare with symlinks
             if left_name_lt_right(self.i_files.peek(), self.i_symlinks.peek()) {
-                self.i_files.next().map(|x| x.clone()).map(node::Node::File)
+                self.i_files.next().cloned().map(node::Node::File)
             } else {
-                self.i_symlinks
-                    .next()
-                    .map(|x| x.clone())
-                    .map(node::Node::Symlink)
+                self.i_symlinks.next().cloned().map(node::Node::Symlink)
             }
         }
     }
