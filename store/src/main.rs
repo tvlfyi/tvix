@@ -1,6 +1,14 @@
+use tvix_store::blobservice::SledBlobService;
+use tvix_store::chunkservice::SledChunkService;
+use tvix_store::directoryservice::SledDirectoryService;
+use tvix_store::nar::NonCachingNARCalculationService;
+use tvix_store::pathinfoservice::SledPathInfoService;
 use tvix_store::proto::blob_service_server::BlobServiceServer;
 use tvix_store::proto::directory_service_server::DirectoryServiceServer;
 use tvix_store::proto::path_info_service_server::PathInfoServiceServer;
+use tvix_store::proto::GRPCBlobServiceWrapper;
+use tvix_store::proto::GRPCDirectoryServiceWrapper;
+use tvix_store::proto::GRPCPathInfoServiceWrapper;
 
 #[cfg(feature = "reflection")]
 use tvix_store::proto::FILE_DESCRIPTOR_SET;
@@ -34,16 +42,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut server = Server::builder();
 
-    let blob_service = tvix_store::dummy_blob_service::DummyBlobService {};
-    let directory_service =
-        tvix_store::sled_directory_service::SledDirectoryService::new("directories.sled".into())?;
-    let path_info_service =
-        tvix_store::sled_path_info_service::SledPathInfoService::new("pathinfo.sled".into())?;
+    let blob_service = SledBlobService::new("blobs.sled".into())?;
+    let chunk_service = SledChunkService::new("chunks.sled".into())?;
+    let directory_service = SledDirectoryService::new("directories.sled".into())?;
+    let path_info_service = SledPathInfoService::new("pathinfo.sled".into())?;
+
+    let nar_calculation_service = NonCachingNARCalculationService::new(
+        blob_service.clone(),
+        chunk_service.clone(),
+        directory_service.clone(),
+    );
 
     let mut router = server
-        .add_service(BlobServiceServer::new(blob_service))
-        .add_service(DirectoryServiceServer::new(directory_service))
-        .add_service(PathInfoServiceServer::new(path_info_service));
+        .add_service(BlobServiceServer::new(GRPCBlobServiceWrapper::new(
+            blob_service,
+            chunk_service,
+        )))
+        .add_service(DirectoryServiceServer::new(
+            GRPCDirectoryServiceWrapper::from(directory_service),
+        ))
+        .add_service(PathInfoServiceServer::new(GRPCPathInfoServiceWrapper::new(
+            path_info_service,
+            nar_calculation_service,
+        )));
 
     #[cfg(feature = "reflection")]
     {
