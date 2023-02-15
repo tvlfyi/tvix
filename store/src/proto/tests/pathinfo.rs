@@ -201,7 +201,7 @@ fn validate_references() {
             signatures: vec![],
             reference_names: vec![format!("/nix/store/{}", DUMMY_NAME)],
         }),
-        ..path_info.clone()
+        ..path_info
     };
     assert!(path_info_with_narinfo.validate().is_ok());
 }
