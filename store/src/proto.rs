@@ -220,7 +220,7 @@ impl Directory {
             + self
                 .directories
                 .iter()
-                .fold(0, |acc: u32, e| (acc + 1 + e.size) as u32)
+                .fold(0, |acc: u32, e| (acc + 1 + e.size))
     }
 
     /// Calculates the digest of a Directory, which is the blake3 hash of a
