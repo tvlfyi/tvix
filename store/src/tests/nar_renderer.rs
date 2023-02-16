@@ -100,6 +100,107 @@ fn single_symlink() {
     );
 }
 
+/// Make sure the NARRenderer fails if the blob size in the proto node doesn't
+/// match what's in the store.
+#[test]
+fn single_file_missing_blob() {
+    let tmpdir = TempDir::new().unwrap();
+
+    let blob_service = gen_blob_service(tmpdir.path());
+    let chunk_service = gen_chunk_service(tmpdir.path());
+
+    let renderer = NARRenderer::new(
+        blob_service,
+        chunk_service,
+        gen_directory_service(tmpdir.path()),
+    );
+    let mut buf: Vec<u8> = vec![];
+
+    let e = renderer
+        .write_nar(
+            &mut buf,
+            crate::proto::node::Node::File(FileNode {
+                name: "doesntmatter".to_string(),
+                digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
+                size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
+                executable: false,
+            }),
+        )
+        .expect_err("must fail");
+
+    if let crate::nar::RenderError::BlobNotFound(actual_digest, _) = e {
+        assert_eq!(HELLOWORLD_BLOB_DIGEST.to_vec(), actual_digest);
+    } else {
+        panic!("unexpected error")
+    }
+}
+
+/// Make sure the NAR Renderer fails if the returned blob meta has another size
+/// than specified in the proto node.
+#[test]
+fn single_file_wrong_blob_size() {
+    let tmpdir = TempDir::new().unwrap();
+
+    let blob_service = gen_blob_service(tmpdir.path());
+    let chunk_service = gen_chunk_service(tmpdir.path());
+
+    // insert blob and chunk into the stores
+    chunk_service
+        .put(HELLOWORLD_BLOB_CONTENTS.to_vec())
+        .unwrap();
+
+    blob_service
+        .put(
+            &HELLOWORLD_BLOB_DIGEST,
+            proto::BlobMeta {
+                chunks: vec![proto::blob_meta::ChunkMeta {
+                    digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
+                    size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
+                }],
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+    let renderer = NARRenderer::new(
+        blob_service,
+        chunk_service,
+        gen_directory_service(tmpdir.path()),
+    );
+    let mut buf: Vec<u8> = vec![];
+
+    let e = renderer
+        .write_nar(
+            &mut buf,
+            crate::proto::node::Node::File(FileNode {
+                name: "doesntmatter".to_string(),
+                digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
+                size: 42, // <- note the wrong size here!
+                executable: false,
+            }),
+        )
+        .expect_err("must fail");
+
+    if let crate::nar::RenderError::UnexpectedBlobMeta(digest, _, expected_size, actual_size) = e {
+        assert_eq!(
+            digest,
+            HELLOWORLD_BLOB_DIGEST.to_vec(),
+            "expect digest to match"
+        );
+        assert_eq!(
+            expected_size, 42,
+            "expected expected size to be what's passed in the request"
+        );
+        assert_eq!(
+            actual_size,
+            HELLOWORLD_BLOB_CONTENTS.len() as u32,
+            "expected actual size to be correct"
+        );
+    } else {
+        panic!("unexpected error")
+    }
+}
+
 #[test]
 fn single_file() {
     let tmpdir = TempDir::new().unwrap();

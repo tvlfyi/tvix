@@ -76,6 +76,17 @@ impl<BS: BlobService, CS: ChunkService + Clone, DS: DirectoryService> NARRendere
                         return Err(RenderError::BlobNotFound(digest, proto_file_node.name));
                     }
                     Some(blob_meta) => {
+                        // make sure the blob_meta size matches what we expect from proto_file_node
+                        let blob_meta_size = blob_meta.chunks.iter().fold(0, |acc, e| acc + e.size);
+                        if blob_meta_size != proto_file_node.size {
+                            return Err(RenderError::UnexpectedBlobMeta(
+                                digest,
+                                proto_file_node.name,
+                                proto_file_node.size,
+                                blob_meta_size,
+                            ));
+                        }
+
                         let mut blob_reader = std::io::BufReader::new(BlobReader::open(
                             &self.chunk_service,
                             blob_meta,
