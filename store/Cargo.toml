@@ -23,7 +23,7 @@ tokio-stream = "0.1.11"
 tokio = { version = "1.23.0", features = ["rt-multi-thread"] }
 tonic = "0.8.2"
 tracing = "0.1.37"
-tracing-subscriber = "0.3.16"
+tracing-subscriber = { version = "0.3.16", features = ["json"] }
 
 [dependencies.tonic-reflection]
 optional = true
