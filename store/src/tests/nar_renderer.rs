@@ -62,8 +62,8 @@ fn gen_directory_service(p: &Path) -> impl DirectoryService {
 }
 
 #[test]
-fn single_symlink() -> anyhow::Result<()> {
-    let tmpdir = TempDir::new()?;
+fn single_symlink() {
+    let tmpdir = TempDir::new().unwrap();
     let renderer = NARRenderer::new(
         gen_blob_service(tmpdir.path()),
         gen_chunk_service(tmpdir.path()),
@@ -98,12 +98,11 @@ fn single_symlink() -> anyhow::Result<()> {
             1, 0, 0, 0, 0, 0, 0, 0, 41, 0, 0, 0, 0, 0, 0, 0 // ")"
         ]
     );
-    Ok(())
 }
 
 #[test]
-fn single_file() -> anyhow::Result<()> {
-    let tmpdir = TempDir::new()?;
+fn single_file() {
+    let tmpdir = TempDir::new().unwrap();
 
     let blob_service = gen_blob_service(tmpdir.path());
     let chunk_service = gen_chunk_service(tmpdir.path());
@@ -158,13 +157,11 @@ fn single_file() -> anyhow::Result<()> {
             1, 0, 0, 0, 0, 0, 0, 0, 41, 0, 0, 0, 0, 0, 0, 0 // ")"
         ]
     );
-
-    Ok(())
 }
 
 #[test]
-fn test_complicated() -> anyhow::Result<()> {
-    let tmpdir = TempDir::new()?;
+fn test_complicated() {
+    let tmpdir = TempDir::new().unwrap();
 
     let blob_service = gen_blob_service(tmpdir.path());
     let chunk_service = gen_chunk_service(tmpdir.path());
@@ -268,6 +265,4 @@ fn test_complicated() -> anyhow::Result<()> {
             1, 0, 0, 0, 0, 0, 0, 0, 41, 0, 0, 0, 0, 0, 0, 0 // ")"
         ]
     );
-
-    Ok(())
 }
