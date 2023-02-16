@@ -303,7 +303,7 @@ fn parse_compile_internal(
     let compiler_result = match compiler::compile(
         result.expr.as_ref().unwrap(),
         location,
-        file.clone(),
+        file,
         builtins,
         compiler_observer,
     ) {

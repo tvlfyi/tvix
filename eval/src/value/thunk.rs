@@ -189,7 +189,7 @@ impl Thunk {
             // returning another thunk.
             ThunkRepr::Native(native) => {
                 let value = native.0(vm)?;
-                self.0.replace(ThunkRepr::Evaluated(value.clone()));
+                self.0.replace(ThunkRepr::Evaluated(value));
                 let self_clone = self.clone();
 
                 return Ok(Trampoline {
@@ -268,7 +268,7 @@ impl Thunk {
                     ThunkRepr::Native(native) => {
                         let value = native.0(vm)?;
                         self.0.replace(ThunkRepr::Evaluated(value.clone()));
-                        inner.0.replace(ThunkRepr::Evaluated(value.clone()));
+                        inner.0.replace(ThunkRepr::Evaluated(value));
                         let self_clone = self.clone();
 
                         return Ok(Trampoline {
@@ -308,7 +308,7 @@ impl Thunk {
                                 debug_assert!(matches!(self_blackhole, ThunkRepr::Blackhole));
 
                                 let inner_blackhole =
-                                    inner_clone.0.replace(ThunkRepr::Evaluated(result.clone()));
+                                    inner_clone.0.replace(ThunkRepr::Evaluated(result));
                                 debug_assert!(matches!(inner_blackhole, ThunkRepr::Blackhole));
 
                                 Thunk::force_trampoline(vm, Value::Thunk(self_clone))
@@ -330,7 +330,7 @@ impl Thunk {
                     // out of here and memoize the innermost thunk.
                     ThunkRepr::Evaluated(v) => {
                         self.0.replace(ThunkRepr::Evaluated(v.clone()));
-                        inner.0.replace(ThunkRepr::Evaluated(v.clone()));
+                        inner.0.replace(ThunkRepr::Evaluated(v));
                         let self_clone = self.clone();
 
                         return Ok(Trampoline {
