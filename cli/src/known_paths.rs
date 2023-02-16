@@ -123,7 +123,7 @@ impl KnownPaths {
         self.insert_path(
             path.to_string(),
             PathKind::Derivation {
-                output_names: outputs.into_iter().map(ToString::to_string).collect(),
+                output_names: outputs.iter().map(ToString::to_string).collect(),
             },
         );
     }
