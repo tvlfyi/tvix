@@ -5,7 +5,7 @@ use crate::proto::FileNode;
 use crate::proto::SymlinkNode;
 
 #[test]
-fn iterator() -> anyhow::Result<()> {
+fn iterator() {
     let d = Directory {
         directories: vec![
             DirectoryNode {
@@ -77,6 +77,4 @@ fn iterator() -> anyhow::Result<()> {
         vec!["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"],
         node_names
     );
-
-    Ok(())
 }
