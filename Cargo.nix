@@ -1915,9 +1915,9 @@ rec {
       };
       "fastcdc" = rec {
         crateName = "fastcdc";
-        version = "2.0.0";
+        version = "3.0.0";
         edition = "2018";
-        sha256 = "1cbjm24yq0rpykb0lp4s5w4hvixj0k3m10w95sncd62h784ax4w0";
+        sha256 = "1qi398l32355b9kh0qr57rin86cv2z8kga25h1yis1wab9cjcxy4";
         authors = [
           "Nathan Fiedler <nathanfiedler@fastmail.fm>"
         ];

@@ -157,7 +157,7 @@ impl<
 
         // initialize a new chunker
         // TODO: play with chunking sizes
-        let chunker = fastcdc::FastCDC::new(
+        let chunker = fastcdc::v2020::FastCDC::new(
             &blob_contents,
             64 * 1024 / 4, // min
             64 * 1024,     // avg
