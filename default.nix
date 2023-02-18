@@ -9,17 +9,6 @@
 , ...
 }:
 
-let
-  # `Call $methodName --bytes-as-base64` support for evans
-  evans = pkgs.evans.overrideAttrs (old: {
-    patches = old.patches or [ ] ++ [
-      (pkgs.fetchpatch {
-        url = "https://github.com/ktr0731/evans/pull/611/commits/f2109627c0d20588980fe6fd6348d223dbdf7c33.patch";
-        hash = "sha256-ff8drvAYwQvHeymaHEruvwDYynClpzPM5lrB7IeQHBs=";
-      })
-    ];
-  });
-in
 pkgs.mkShell {
   name = "tvix-rust-dev-env";
   packages = [
@@ -30,7 +19,6 @@ pkgs.mkShell {
     pkgs.rustc
     pkgs.rustfmt
     pkgs.protobuf
-
-    evans
+    pkgs.evans
   ];
 }
