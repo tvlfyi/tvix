@@ -166,6 +166,39 @@ async fn put_read_stat_large() {
     }
     assert_eq!(BLOB_B.len() as u32, size_in_stat);
 
+    // Chunks are chunked up the same way we would do locally, when initializing the chunker with the same values.
+    // TODO: make the chunker config better accessible, so we don't need to synchronize this.
+    {
+        let chunker_avg_size = 64 * 1024;
+        let chunker_min_size = chunker_avg_size / 4;
+        let chunker_max_size = chunker_avg_size * 4;
+
+        // initialize a chunker with the current buffer
+        let blob_b = BLOB_B.to_vec();
+        let chunker = fastcdc::v2020::FastCDC::new(
+            &blob_b,
+            chunker_min_size,
+            chunker_avg_size,
+            chunker_max_size,
+        );
+
+        let mut num_chunks = 0;
+        for (i, chunk) in chunker.enumerate() {
+            assert_eq!(
+                resp.chunks[i].size, chunk.length as u32,
+                "expected locally-chunked chunk length to match stat response"
+            );
+
+            num_chunks += 1;
+        }
+
+        assert_eq!(
+            resp.chunks.len(),
+            num_chunks,
+            "expected number of chunks to match"
+        );
+    }
+
     // Reading the whole blob by its digest via the read() interface should succeed.
     {
         let resp = service
