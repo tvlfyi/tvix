@@ -73,6 +73,17 @@ enum ThunkRepr {
     Evaluated(Value),
 }
 
+impl ThunkRepr {
+    fn debug_repr(&self) -> String {
+        match self {
+            ThunkRepr::Evaluated(v) => format!("thunk(val|{})", v),
+            ThunkRepr::Blackhole => "thunk(blackhole)".to_string(),
+            ThunkRepr::Native(_) => "thunk(native)".to_string(),
+            ThunkRepr::Suspended { lambda, .. } => format!("thunk({:p})", *lambda),
+        }
+    }
+}
+
 /// A thunk is created for any value which requires non-strict
 /// evaluation due to self-reference or lazy semantics (or both).
 /// Every reference cycle involving `Value`s will contain at least
@@ -427,6 +438,11 @@ impl Thunk {
             },
             _ => false,
         }
+    }
+
+    /// Helper function to format thunks in observer output.
+    pub(crate) fn debug_repr(&self) -> String {
+        self.0.borrow().debug_repr()
     }
 }
 

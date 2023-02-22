@@ -143,7 +143,15 @@ impl Chunk {
         }
 
         match self[idx] {
-            OpCode::OpConstant(idx) => writeln!(writer, "OpConstant({}@{})", self[idx], idx.0),
+            OpCode::OpConstant(idx) => {
+                let val_str = match &self[idx] {
+                    Value::Thunk(t) => t.debug_repr(),
+                    Value::Closure(c) => format!("closure({:p})", c.lambda),
+                    val => format!("{}", val),
+                };
+
+                writeln!(writer, "OpConstant({}@{})", val_str, idx.0)
+            }
             op => writeln!(writer, "{:?}", op),
         }?;
 
