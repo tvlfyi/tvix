@@ -42,6 +42,12 @@ impl LightSpan {
     }
 }
 
+impl From<Span> for LightSpan {
+    fn from(span: Span) -> Self {
+        LightSpan::Actual { span }
+    }
+}
+
 /// Trait implemented by all types from which we can retrieve a span.
 pub trait ToSpan {
     fn span_for(&self, file: &File) -> Span;
