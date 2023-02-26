@@ -103,11 +103,7 @@ where
     where
         T: IntoIterator<Item = (K, V)>,
     {
-        NixAttrs(AttrsRep::Im(
-            iter.into_iter()
-                .map(|(k, v)| (k.into(), v.into()))
-                .collect(),
-        ))
+        NixAttrs(AttrsRep::Im(iter.into_iter().collect()))
     }
 }
 
