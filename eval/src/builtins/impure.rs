@@ -6,13 +6,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::{
-    errors::ErrorKind,
-    io::FileType,
-    value::{NixAttrs, Thunk},
-    vm::VM,
-    Value,
-};
+use crate::{errors::ErrorKind, io::FileType, value::NixAttrs, vm::VM, Value};
 
 #[builtins]
 mod impure_builtins {

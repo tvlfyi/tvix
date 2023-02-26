@@ -39,7 +39,7 @@ use crate::{
 use super::{Lambda, TotalDisplay};
 
 /// Internal representation of a suspended native thunk.
-struct SuspendedNative(Box<dyn Fn(&mut VM) -> Result<Value, ErrorKind>>);
+struct SuspendedNative(Box<dyn Fn() -> Result<Value, ErrorKind>>);
 
 impl Debug for SuspendedNative {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -109,7 +109,7 @@ impl Thunk {
         })))
     }
 
-    pub fn new_suspended_native(native: Box<dyn Fn(&mut VM) -> Result<Value, ErrorKind>>) -> Self {
+    pub fn new_suspended_native(native: Box<dyn Fn() -> Result<Value, ErrorKind>>) -> Self {
         Thunk(Rc::new(RefCell::new(ThunkRepr::Native(SuspendedNative(
             native,
         )))))
@@ -199,7 +199,7 @@ impl Thunk {
             // the trampoline, to handle the case of the native function
             // returning another thunk.
             ThunkRepr::Native(native) => {
-                let value = native.0(vm)?;
+                let value = native.0()?;
                 self.0.replace(ThunkRepr::Evaluated(value));
                 let self_clone = self.clone();
 
@@ -277,7 +277,7 @@ impl Thunk {
                     // Same as for the native case above, but results are placed
                     // in *both* thunks.
                     ThunkRepr::Native(native) => {
-                        let value = native.0(vm)?;
+                        let value = native.0()?;
                         self.0.replace(ThunkRepr::Evaluated(value.clone()));
                         inner.0.replace(ThunkRepr::Evaluated(value));
                         let self_clone = self.clone();
