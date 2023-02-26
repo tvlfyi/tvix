@@ -1118,7 +1118,7 @@ rec {
           }
           {
             name = "proc-macro-error";
-            packageId = "proc-macro-error";
+            packageId = "proc-macro-error 1.0.4";
           }
           {
             name = "proc-macro2";
@@ -2307,6 +2307,85 @@ rec {
           }
         ];
 
+      };
+      "genawaiter" = rec {
+        crateName = "genawaiter";
+        version = "0.99.1";
+        edition = "2018";
+        sha256 = "1861a6vy9lc9a8lbw496m9j9jcjcn9nf7rkm6jqkkpnb3cvd0sy8";
+        authors = [
+          "John Simon <john@whatisaph.one>"
+        ];
+        dependencies = [
+          {
+            name = "genawaiter-macro";
+            packageId = "genawaiter-macro";
+          }
+          {
+            name = "genawaiter-proc-macro";
+            packageId = "genawaiter-proc-macro";
+            optional = true;
+          }
+          {
+            name = "proc-macro-hack";
+            packageId = "proc-macro-hack";
+            optional = true;
+          }
+        ];
+        features = {
+          "default" = [ "proc_macro" ];
+          "futures-core" = [ "dep:futures-core" ];
+          "futures03" = [ "futures-core" ];
+          "genawaiter-proc-macro" = [ "dep:genawaiter-proc-macro" ];
+          "proc-macro-hack" = [ "dep:proc-macro-hack" ];
+          "proc_macro" = [ "genawaiter-proc-macro" "proc-macro-hack" "genawaiter-macro/proc_macro" ];
+        };
+        resolvedDefaultFeatures = [ "default" "genawaiter-proc-macro" "proc-macro-hack" "proc_macro" ];
+      };
+      "genawaiter-macro" = rec {
+        crateName = "genawaiter-macro";
+        version = "0.99.1";
+        edition = "2018";
+        sha256 = "1g6zmr88fk48f1ksz9ik1i2mwjsiam9s4p9aybhvs2zwzphxychb";
+        authors = [
+          "Devin R <devin.ragotzy@gmail.com>"
+        ];
+        features = { };
+        resolvedDefaultFeatures = [ "proc_macro" ];
+      };
+      "genawaiter-proc-macro" = rec {
+        crateName = "genawaiter-proc-macro";
+        version = "0.99.1";
+        edition = "2018";
+        sha256 = "0f0pcaln4wrpi35nwxs9g516ysiax373m32a3hjiavinpkp88kvq";
+        procMacro = true;
+        authors = [
+          "Devin R <devin.ragotzy@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "proc-macro-error";
+            packageId = "proc-macro-error 0.4.12";
+          }
+          {
+            name = "proc-macro-hack";
+            packageId = "proc-macro-hack";
+          }
+          {
+            name = "proc-macro2";
+            packageId = "proc-macro2 1.0.50";
+          }
+          {
+            name = "quote";
+            packageId = "quote 1.0.23";
+          }
+          {
+            name = "syn";
+            packageId = "syn 1.0.107";
+            features = [ "visit-mut" "full" ];
+          }
+        ];
+        features = { };
       };
       "generic-array 0.12.4" = rec {
         crateName = "generic-array";
@@ -4357,7 +4436,43 @@ rec {
           "verbatim" = [ "syn/parsing" ];
         };
       };
-      "proc-macro-error" = rec {
+      "proc-macro-error 0.4.12" = rec {
+        crateName = "proc-macro-error";
+        version = "0.4.12";
+        edition = "2018";
+        sha256 = "1rvpaadwv7vmsp142qqh2axqrr9v78f1nvdsi9nhmfhy10kk1wqq";
+        authors = [
+          "CreepySkeleton <creepy-skeleton@yandex.ru>"
+        ];
+        dependencies = [
+          {
+            name = "proc-macro-error-attr";
+            packageId = "proc-macro-error-attr 0.4.12";
+          }
+          {
+            name = "proc-macro2";
+            packageId = "proc-macro2 1.0.50";
+          }
+          {
+            name = "quote";
+            packageId = "quote 1.0.23";
+          }
+          {
+            name = "syn";
+            packageId = "syn 1.0.107";
+            usesDefaultFeatures = false;
+            features = [ "derive" "parsing" "proc-macro" "printing" ];
+          }
+        ];
+        buildDependencies = [
+          {
+            name = "version_check";
+            packageId = "version_check";
+          }
+        ];
+
+      };
+      "proc-macro-error 1.0.4" = rec {
         crateName = "proc-macro-error";
         version = "1.0.4";
         edition = "2018";
@@ -4368,7 +4483,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro-error-attr";
-            packageId = "proc-macro-error-attr";
+            packageId = "proc-macro-error-attr 1.0.4";
           }
           {
             name = "proc-macro2";
@@ -4398,7 +4513,44 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "syn" "syn-error" ];
       };
-      "proc-macro-error-attr" = rec {
+      "proc-macro-error-attr 0.4.12" = rec {
+        crateName = "proc-macro-error-attr";
+        version = "0.4.12";
+        edition = "2018";
+        sha256 = "1pk9mwcfnpf8favgc2cl4sqlmi818p96hg8pfb51wg5nzmvlnnwa";
+        procMacro = true;
+        authors = [
+          "CreepySkeleton <creepy-skeleton@yandex.ru>"
+        ];
+        dependencies = [
+          {
+            name = "proc-macro2";
+            packageId = "proc-macro2 1.0.50";
+          }
+          {
+            name = "quote";
+            packageId = "quote 1.0.23";
+          }
+          {
+            name = "syn";
+            packageId = "syn 1.0.107";
+            usesDefaultFeatures = false;
+            features = [ "derive" "parsing" "proc-macro" "printing" ];
+          }
+          {
+            name = "syn-mid";
+            packageId = "syn-mid";
+          }
+        ];
+        buildDependencies = [
+          {
+            name = "version_check";
+            packageId = "version_check";
+          }
+        ];
+
+      };
+      "proc-macro-error-attr 1.0.4" = rec {
         crateName = "proc-macro-error-attr";
         version = "1.0.4";
         edition = "2018";
@@ -4422,6 +4574,17 @@ rec {
             name = "version_check";
             packageId = "version_check";
           }
+        ];
+
+      };
+      "proc-macro-hack" = rec {
+        crateName = "proc-macro-hack";
+        version = "0.5.20+deprecated";
+        edition = "2018";
+        sha256 = "0s402hmcs3k9nd6rlp07zkr1lz7yimkmcwcbgnly2zr44wamwdyw";
+        procMacro = true;
+        authors = [
+          "David Tolnay <dtolnay@gmail.com>"
         ];
 
       };
@@ -6247,6 +6410,36 @@ rec {
         };
         resolvedDefaultFeatures = [ "clone-impls" "default" "derive" "extra-traits" "full" "parsing" "printing" "proc-macro" "quote" "visit" "visit-mut" ];
       };
+      "syn-mid" = rec {
+        crateName = "syn-mid";
+        version = "0.5.3";
+        edition = "2018";
+        sha256 = "1jgslzpdf78646wafyplc39lkgwsqnh1hpd544bdnkhn19bfga5s";
+        authors = [
+          "Taiki Endo <te316e89@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "proc-macro2";
+            packageId = "proc-macro2 1.0.50";
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "quote";
+            packageId = "quote 1.0.23";
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "syn";
+            packageId = "syn 1.0.107";
+            usesDefaultFeatures = false;
+            features = [ "parsing" "printing" "derive" ];
+          }
+        ];
+        features = {
+          "clone-impls" = [ "syn/clone-impls" ];
+        };
+      };
       "sync_wrapper" = rec {
         crateName = "sync_wrapper";
         version = "0.1.2";
@@ -6401,7 +6594,7 @@ rec {
           }
           {
             name = "proc-macro-error";
-            packageId = "proc-macro-error";
+            packageId = "proc-macro-error 1.0.4";
           }
           {
             name = "proc-macro2";
@@ -7856,6 +8049,10 @@ rec {
           {
             name = "dirs";
             packageId = "dirs";
+          }
+          {
+            name = "genawaiter";
+            packageId = "genawaiter";
           }
           {
             name = "imbl";

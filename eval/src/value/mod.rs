@@ -32,7 +32,7 @@ pub use path::canon_path;
 pub use string::NixString;
 pub use thunk::Thunk;
 
-use self::thunk::ThunkSet;
+pub use self::thunk::{SharedThunkSet, ThunkSet};
 
 use lazy_static::lazy_static;
 

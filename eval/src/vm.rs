@@ -1,6 +1,8 @@
 //! This module implements the virtual (or abstract) machine that runs
 //! Tvix bytecode.
 
+pub mod generators;
+
 use serde_json::json;
 use std::{cmp::Ordering, collections::HashMap, ops::DerefMut, path::PathBuf, rc::Rc};
 
