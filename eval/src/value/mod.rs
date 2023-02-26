@@ -521,7 +521,7 @@ impl Display for Value {
 fn total_fmt_float<F: std::fmt::Write>(num: f64, mut f: F) -> std::fmt::Result {
     let mut buf = [b'0'; lexical_core::BUFFER_SIZE];
     let mut s = lexical_core::write_with_options::<f64, { CXX_LITERAL }>(
-        num.clone(),
+        num,
         &mut buf,
         &WRITE_FLOAT_OPTIONS,
     );
@@ -566,7 +566,7 @@ fn total_fmt_float<F: std::fmt::Write>(num: f64, mut f: F) -> std::fmt::Result {
             if c == &b'.' {
                 // trim zeroes from the right side.
                 let frac = String::from_utf8_lossy(&s[i + 1..]);
-                let frac_no_trailing_zeroes = frac.trim_end_matches("0");
+                let frac_no_trailing_zeroes = frac.trim_end_matches('0');
 
                 if frac.len() != frac_no_trailing_zeroes.len() {
                     // we managed to strip something, construct new_s
@@ -587,7 +587,7 @@ fn total_fmt_float<F: std::fmt::Write>(num: f64, mut f: F) -> std::fmt::Result {
         }
     }
 
-    write!(f, "{}", format!("{}", String::from_utf8_lossy(&s)))
+    write!(f, "{}", format!("{}", String::from_utf8_lossy(s)))
 }
 
 impl TotalDisplay for Value {
@@ -671,7 +671,7 @@ mod tests {
                 (1e6, "1e+06"),
                 (-2E-2, "-0.02"),
                 (6.626e-34, "6.626e-34"),
-                (9_224_617.445_991_228_313, "9.22462e+06"),
+                (9_224_617.445_991_227, "9.22462e+06"),
             ];
             for (n, expected) in ff.iter() {
                 let mut buf = String::new();

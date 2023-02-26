@@ -67,7 +67,7 @@ fn value_variant_to_xml<W: Write>(w: &mut EventWriter<W>, value: &Value) -> Resu
             w.write(XmlEvent::start_element("list"))?;
 
             for elem in list.into_iter() {
-                value_variant_to_xml(w, &elem)?;
+                value_variant_to_xml(w, elem)?;
             }
 
             w.write(XmlEvent::end_element())
@@ -78,7 +78,7 @@ fn value_variant_to_xml<W: Write>(w: &mut EventWriter<W>, value: &Value) -> Resu
 
             for elem in attrs.iter() {
                 w.write(XmlEvent::start_element("attr").attr("name", elem.0.as_str()))?;
-                value_variant_to_xml(w, &elem.1)?;
+                value_variant_to_xml(w, elem.1)?;
                 w.write(XmlEvent::end_element())?;
             }
 

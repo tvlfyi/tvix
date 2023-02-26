@@ -192,7 +192,7 @@ impl Thunk {
         match inner {
             // If there was already a blackhole in the thunk, this is an
             // evaluation cycle.
-            ThunkRepr::Blackhole => return Err(ErrorKind::InfiniteRecursion),
+            ThunkRepr::Blackhole => Err(ErrorKind::InfiniteRecursion),
 
             // If there is a native function stored in the thunk, evaluate it
             // and replace this thunk's representation with it. Then bounces off
@@ -203,13 +203,13 @@ impl Thunk {
                 self.0.replace(ThunkRepr::Evaluated(value));
                 let self_clone = self.clone();
 
-                return Ok(Trampoline {
+                Ok(Trampoline {
                     action: None,
                     continuation: Some(Box::new(move |vm| {
                         Thunk::force_trampoline(vm, Value::Thunk(self_clone))
                             .map_err(|kind| Error::new(kind, todo!("BUG: b/238")))
                     })),
-                });
+                })
             }
 
             // When encountering a suspended thunk, construct a trampoline that
@@ -227,7 +227,7 @@ impl Thunk {
                 // into the continuation closure.
                 let self_clone = self.clone();
 
-                return Ok(Trampoline {
+                Ok(Trampoline {
                     // Ask VM to enter frame of this thunk ...
                     action: Some(TrampolineAction::EnterFrame {
                         lambda,
@@ -246,7 +246,7 @@ impl Thunk {
                         Thunk::force_trampoline(vm, Value::Thunk(self_clone))
                             .map_err(|kind| Error::new(kind, light_span.span()))
                     })),
-                });
+                })
             }
 
             // Note by tazjin: I have decided at this point to fully unroll the inner thunk handling
@@ -261,7 +261,7 @@ impl Thunk {
             ThunkRepr::Evaluated(Value::Thunk(ref inner)) if inner.is_forced() => {
                 self.0.replace(ThunkRepr::Evaluated(inner.value().clone()));
                 vm.push(inner.value().clone());
-                return Ok(Trampoline::default());
+                Ok(Trampoline::default())
             }
 
             // Otherwise we handle inner thunks mostly as above, with the
@@ -272,7 +272,7 @@ impl Thunk {
                 let inner_repr = inner.0.replace(ThunkRepr::Blackhole);
 
                 match inner_repr {
-                    ThunkRepr::Blackhole => return Err(ErrorKind::InfiniteRecursion),
+                    ThunkRepr::Blackhole => Err(ErrorKind::InfiniteRecursion),
 
                     // Same as for the native case above, but results are placed
                     // in *both* thunks.
@@ -282,13 +282,13 @@ impl Thunk {
                         inner.0.replace(ThunkRepr::Evaluated(value));
                         let self_clone = self.clone();
 
-                        return Ok(Trampoline {
+                        Ok(Trampoline {
                             action: None,
                             continuation: Some(Box::new(move |vm| {
                                 Thunk::force_trampoline(vm, Value::Thunk(self_clone))
                                     .map_err(|kind| Error::new(kind, todo!("BUG: b/238")))
                             })),
-                        });
+                        })
                     }
 
                     // Inner suspended thunks are trampolined to the VM, and
@@ -301,7 +301,7 @@ impl Thunk {
                         let self_clone = self.clone();
                         let inner_clone = inner.clone();
 
-                        return Ok(Trampoline {
+                        Ok(Trampoline {
                             // Ask VM to enter frame of this thunk ...
                             action: Some(TrampolineAction::EnterFrame {
                                 lambda,
@@ -325,7 +325,7 @@ impl Thunk {
                                 Thunk::force_trampoline(vm, Value::Thunk(self_clone))
                                     .map_err(|kind| Error::new(kind, light_span.span()))
                             })),
-                        });
+                        })
                     }
 
                     // If the inner thunk is some arbitrary other value (this is
@@ -344,7 +344,7 @@ impl Thunk {
                         inner.0.replace(ThunkRepr::Evaluated(v));
                         let self_clone = self.clone();
 
-                        return Ok(Trampoline {
+                        Ok(Trampoline {
                             action: None,
                             continuation: Some(Box::new(move |vm: &mut VM| {
                                 // TODO(tazjin): not sure about this span ...
@@ -352,7 +352,7 @@ impl Thunk {
                                 Thunk::force_trampoline(vm, Value::Thunk(self_clone))
                                     .map_err(|kind| Error::new(kind, todo!("BUG: b/238")))
                             })),
-                        });
+                        })
                     }
                 }
             }

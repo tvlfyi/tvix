@@ -85,7 +85,7 @@ pub(crate) type GlobalsMap = HashMap<&'static str, Value>;
 /// the global scope, meaning that they can be accessed not just
 /// through `builtins.<name>`, but directly as `<name>`. This is not
 /// configurable, it is based on what Nix 2.3 exposed.
-const GLOBAL_BUILTINS: &'static [&'static str] = &[
+const GLOBAL_BUILTINS: &[&str] = &[
     "abort",
     "baseNameOf",
     "derivation",
@@ -1408,7 +1408,7 @@ pub fn prepare_globals(
         // If "source builtins" were supplied, compile them and insert
         // them.
         builtins.extend(src_builtins.into_iter().map(move |(name, code)| {
-            let compiled = compile_src_builtin(name, code, &source, &weak);
+            let compiled = compile_src_builtin(name, code, &source, weak);
             (name, compiled)
         }));
 
