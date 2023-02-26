@@ -66,16 +66,6 @@ mod impure_builtins {
 pub fn impure_builtins() -> Vec<(&'static str, Value)> {
     let mut result = impure_builtins::builtins();
 
-    result.push((
-        "storeDir",
-        Value::Thunk(Thunk::new_suspended_native(Box::new(
-            |vm: &mut VM| match vm.io().store_dir() {
-                None => Ok(Value::Null),
-                Some(dir) => Ok(Value::String(dir.into())),
-            },
-        ))),
-    ));
-
     // currentTime pins the time at which evaluation was started
     {
         let seconds = match SystemTime::now().duration_since(UNIX_EPOCH) {
