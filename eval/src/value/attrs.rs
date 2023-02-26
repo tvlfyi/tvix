@@ -94,6 +94,12 @@ impl AttrsRep {
 #[derive(Clone, Debug, Default)]
 pub struct NixAttrs(pub(super) AttrsRep);
 
+impl From<OrdMap<NixString, Value>> for NixAttrs {
+    fn from(map: OrdMap<NixString, Value>) -> Self {
+        NixAttrs(AttrsRep::Im(map))
+    }
+}
+
 impl<K, V> FromIterator<(K, V)> for NixAttrs
 where
     NixString: From<K>,
