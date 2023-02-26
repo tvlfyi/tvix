@@ -141,7 +141,6 @@ pub enum OpCode {
 
     // Lambdas & closures
     OpCall,
-    OpTailCall,
     OpGetUpvalue(UpvalueIdx),
     /// A Closure which has upvalues but no self-references
     OpClosure(ConstantIdx),

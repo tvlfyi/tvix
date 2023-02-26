@@ -956,11 +956,6 @@ impl<'o> VM<'o> {
 
             OpCode::OpCall => {
                 let callable = self.pop();
-                self.call_value(&callable)?;
-            }
-
-            OpCode::OpTailCall => {
-                let callable = self.pop();
                 self.tail_call_value(callable)?;
             }
 

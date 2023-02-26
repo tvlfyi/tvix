@@ -1019,11 +1019,6 @@ impl Compiler<'_> {
         // lambda as a constant.
         let mut compiled = self.contexts.pop().unwrap();
 
-        // Check if tail-call optimisation is possible and perform it.
-        if self.dead_scope == 0 {
-            optimise_tail_call(&mut compiled.lambda.chunk);
-        }
-
         // Capturing the with stack counts as an upvalue, as it is
         // emitted as an upvalue data instruction.
         if compiled.captures_with_stack {
@@ -1285,19 +1280,6 @@ fn expr_static_attr_str(node: &ast::Attr) -> Option<SmolStr> {
             ast::Expr::Str(s) => expr_static_str(&s),
             _ => None,
         },
-    }
-}
-
-/// Perform tail-call optimisation if the last call within a
-/// compiled chunk is another call.
-fn optimise_tail_call(chunk: &mut Chunk) {
-    let last_op = chunk
-        .code
-        .last_mut()
-        .expect("compiler bug: chunk should never be empty");
-
-    if matches!(last_op, OpCode::OpCall) {
-        *last_op = OpCode::OpTailCall;
     }
 }
 
