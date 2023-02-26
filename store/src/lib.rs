@@ -1,4 +1,5 @@
 mod blobreader;
+mod blobwriter;
 mod errors;
 
 pub mod blobservice;
@@ -9,6 +10,7 @@ pub mod pathinfoservice;
 pub mod proto;
 
 pub use blobreader::BlobReader;
+pub use blobwriter::BlobWriter;
 pub use errors::Error;
 
 #[cfg(test)]

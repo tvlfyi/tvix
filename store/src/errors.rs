@@ -26,3 +26,13 @@ impl From<Error> for Status {
         }
     }
 }
+
+// TODO: this should probably go somewhere else?
+impl From<Error> for std::io::Error {
+    fn from(value: Error) -> Self {
+        match value {
+            Error::InvalidRequest(msg) => Self::new(std::io::ErrorKind::InvalidInput, msg),
+            Error::StorageError(msg) => Self::new(std::io::ErrorKind::Other, msg),
+        }
+    }
+}
