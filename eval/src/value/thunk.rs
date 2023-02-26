@@ -478,13 +478,13 @@ impl Serialize for Thunk {
 /// The inner `HashSet` is not available on the outside, as it would be
 /// potentially unsafe to interact with the pointers in the set.
 #[derive(Default)]
-pub struct ThunkSet(HashSet<*mut ThunkRepr>);
+pub struct ThunkSet(HashSet<*const ThunkRepr>);
 
 impl ThunkSet {
     /// Check whether the given thunk has already been seen. Will mark the thunk
     /// as seen otherwise.
     pub fn insert(&mut self, thunk: &Thunk) -> bool {
-        let ptr: *mut ThunkRepr = thunk.0.as_ptr();
+        let ptr: *const ThunkRepr = thunk.0.as_ptr();
         self.0.insert(ptr)
     }
 }
