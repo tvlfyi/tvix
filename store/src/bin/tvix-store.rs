@@ -23,7 +23,6 @@ use tracing::{info, Level};
 struct Cli {
     #[clap(long, short = 'l')]
     listen_address: Option<String>,
-
     /// Whether to log in JSON
     #[clap(long)]
     json: bool,
