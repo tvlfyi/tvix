@@ -8370,6 +8370,10 @@ rec {
             packageId = "tracing-subscriber";
             features = [ "json" ];
           }
+          {
+            name = "walkdir";
+            packageId = "walkdir";
+          }
         ];
         buildDependencies = [
           {

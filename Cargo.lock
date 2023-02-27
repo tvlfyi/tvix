@@ -2809,6 +2809,7 @@ dependencies = [
  "tonic-reflection",
  "tracing",
  "tracing-subscriber",
+ "walkdir",
 ]
 
 [[package]]

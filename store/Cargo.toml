@@ -24,6 +24,7 @@ tokio = { version = "1.23.0", features = ["rt-multi-thread"] }
 tonic = "0.8.2"
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.16", features = ["json"] }
+walkdir = "2.3.2"
 
 [dependencies.tonic-reflection]
 optional = true
