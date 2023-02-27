@@ -134,22 +134,14 @@ mod tests {
     use super::BlobReader;
     use crate::chunkservice::ChunkService;
     use crate::proto;
+    use crate::tests::fixtures::DUMMY_DATA_1;
+    use crate::tests::fixtures::DUMMY_DATA_2;
+    use crate::tests::fixtures::DUMMY_DIGEST;
     use crate::tests::utils::gen_chunk_service;
-    use lazy_static::lazy_static;
     use std::io::Cursor;
     use std::io::Read;
     use std::io::Write;
     use tempfile::TempDir;
-
-    lazy_static! {
-        static ref DUMMY_DIGEST: Vec<u8> = vec![
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-        ];
-        static ref DUMMY_DATA_1: Vec<u8> = vec![0x01, 0x02, 0x03];
-        static ref DUMMY_DATA_2: Vec<u8> = vec![0x04, 0x05];
-    }
 
     #[test]
     /// reading from a blobmeta with zero chunks should produce zero bytes.

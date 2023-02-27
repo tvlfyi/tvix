@@ -6,45 +6,9 @@ use crate::proto;
 use crate::proto::DirectoryNode;
 use crate::proto::FileNode;
 use crate::proto::SymlinkNode;
+use crate::tests::fixtures::*;
 use crate::tests::utils::*;
-use lazy_static::lazy_static;
 use tempfile::TempDir;
-
-const HELLOWORLD_BLOB_CONTENTS: &[u8] = b"Hello World!";
-const EMPTY_BLOB_CONTENTS: &[u8] = b"";
-
-lazy_static! {
-    static ref HELLOWORLD_BLOB_DIGEST: Vec<u8> =
-        blake3::hash(HELLOWORLD_BLOB_CONTENTS).as_bytes().to_vec();
-    static ref EMPTY_BLOB_DIGEST: Vec<u8> = blake3::hash(EMPTY_BLOB_CONTENTS).as_bytes().to_vec();
-    static ref DIRECTORY_WITH_KEEP: proto::Directory = proto::Directory {
-        directories: vec![],
-        files: vec![FileNode {
-            name: ".keep".to_string(),
-            digest: EMPTY_BLOB_DIGEST.to_vec(),
-            size: 0,
-            executable: false,
-        }],
-        symlinks: vec![],
-    };
-    static ref DIRECTORY_COMPLICATED: proto::Directory = proto::Directory {
-        directories: vec![DirectoryNode {
-            name: "keep".to_string(),
-            digest: DIRECTORY_WITH_KEEP.digest(),
-            size: DIRECTORY_WITH_KEEP.size(),
-        }],
-        files: vec![FileNode {
-            name: ".keep".to_string(),
-            digest: EMPTY_BLOB_DIGEST.to_vec(),
-            size: 0,
-            executable: false,
-        }],
-        symlinks: vec![SymlinkNode {
-            name: "aa".to_string(),
-            target: "/nix/store/somewhereelse".to_string(),
-        }],
-    };
-}
 
 #[test]
 fn single_symlink() {

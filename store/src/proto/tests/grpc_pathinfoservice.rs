@@ -5,20 +5,13 @@ use crate::proto::path_info_service_server::PathInfoService as GRPCPathInfoServi
 use crate::proto::GRPCPathInfoServiceWrapper;
 use crate::proto::PathInfo;
 use crate::proto::{GetPathInfoRequest, Node, SymlinkNode};
+use crate::tests::fixtures::DUMMY_OUTPUT_HASH;
 use crate::tests::utils::{
     gen_blob_service, gen_chunk_service, gen_directory_service, gen_pathinfo_service,
 };
-use lazy_static::lazy_static;
 use std::path::Path;
 use tempfile::TempDir;
 use tonic::Request;
-
-lazy_static! {
-    static ref DUMMY_OUTPUT_HASH: Vec<u8> = vec![
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00
-    ];
-}
 
 /// generates a GRPCPathInfoService out of blob, chunk, directory and pathinfo services.
 ///

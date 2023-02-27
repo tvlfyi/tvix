@@ -3,20 +3,10 @@ use crate::chunkservice::ChunkService;
 use crate::proto::blob_meta::ChunkMeta;
 use crate::proto::blob_service_server::BlobService as GRPCBlobService;
 use crate::proto::{BlobChunk, GRPCBlobServiceWrapper, ReadBlobRequest, StatBlobRequest};
+use crate::tests::fixtures::{BLOB_A, BLOB_A_DIGEST, BLOB_B, BLOB_B_DIGEST};
 use crate::tests::utils::{gen_blob_service, gen_chunk_service};
-use lazy_static::lazy_static;
 use std::path::Path;
 use tempfile::TempDir;
-
-lazy_static! {
-    // 2 bytes
-    static ref BLOB_A: Vec<u8> = vec![0x00, 0x01];
-    static ref BLOB_A_DIGEST: Vec<u8> = blake3::hash(&BLOB_A).as_bytes().to_vec();
-
-    // 1MB
-    static ref BLOB_B: Vec<u8> = (0..255).collect::<Vec<u8>>().repeat(4 * 1024);
-    static ref BLOB_B_DIGEST: Vec<u8> = blake3::hash(&BLOB_B).as_bytes().to_vec();
-}
 
 fn gen_grpc_blob_service(
     p: &Path,
