@@ -1,8 +1,9 @@
-use crate::blobservice::{BlobService, SledBlobService};
-use crate::chunkservice::{ChunkService, SledChunkService};
+use crate::blobservice::BlobService;
+use crate::chunkservice::ChunkService;
 use crate::proto::blob_meta::ChunkMeta;
 use crate::proto::blob_service_server::BlobService as GRPCBlobService;
 use crate::proto::{BlobChunk, GRPCBlobServiceWrapper, ReadBlobRequest, StatBlobRequest};
+use crate::tests::utils::{gen_blob_service, gen_chunk_service};
 use lazy_static::lazy_static;
 use std::path::Path;
 use tempfile::TempDir;
@@ -23,8 +24,8 @@ fn gen_grpc_blob_service(
     impl BlobService + Send + Sync + Clone + 'static,
     impl ChunkService + Send + Sync + Clone + 'static,
 > {
-    let blob_service = SledBlobService::new(p.join("blobs")).unwrap();
-    let chunk_service = SledChunkService::new(p.join("chunks")).unwrap();
+    let blob_service = gen_blob_service(p);
+    let chunk_service = gen_chunk_service(p);
     GRPCBlobServiceWrapper::new(blob_service, chunk_service)
 }
 

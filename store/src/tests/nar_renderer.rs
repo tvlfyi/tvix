@@ -1,16 +1,13 @@
 use crate::blobservice::BlobService;
-use crate::blobservice::SledBlobService;
 use crate::chunkservice::ChunkService;
-use crate::chunkservice::SledChunkService;
 use crate::directoryservice::DirectoryService;
-use crate::directoryservice::SledDirectoryService;
 use crate::nar::NARRenderer;
 use crate::proto;
 use crate::proto::DirectoryNode;
 use crate::proto::FileNode;
 use crate::proto::SymlinkNode;
+use crate::tests::utils::*;
 use lazy_static::lazy_static;
-use std::path::Path;
 use tempfile::TempDir;
 
 const HELLOWORLD_BLOB_CONTENTS: &[u8] = b"Hello World!";
@@ -47,18 +44,6 @@ lazy_static! {
             target: "/nix/store/somewhereelse".to_string(),
         }],
     };
-}
-
-fn gen_blob_service(p: &Path) -> impl BlobService {
-    SledBlobService::new(p.join("blobs")).unwrap()
-}
-
-fn gen_chunk_service(p: &Path) -> impl ChunkService + Clone {
-    SledChunkService::new(p.join("chunks")).unwrap()
-}
-
-fn gen_directory_service(p: &Path) -> impl DirectoryService {
-    SledDirectoryService::new(p.join("directories")).unwrap()
 }
 
 #[test]

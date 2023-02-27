@@ -1,21 +1,17 @@
-use std::path::Path;
-
-use tempfile::TempDir;
-use tonic::Request;
-
-use crate::blobservice::{BlobService, SledBlobService};
-use crate::chunkservice::{ChunkService, SledChunkService};
-use crate::directoryservice::{DirectoryService, SledDirectoryService};
 use crate::nar::NonCachingNARCalculationService;
-use crate::pathinfoservice::{PathInfoService, SledPathInfoService};
 use crate::proto::get_path_info_request::ByWhat::ByOutputHash;
 use crate::proto::node::Node::Symlink;
 use crate::proto::path_info_service_server::PathInfoService as GRPCPathInfoService;
 use crate::proto::GRPCPathInfoServiceWrapper;
 use crate::proto::PathInfo;
 use crate::proto::{GetPathInfoRequest, Node, SymlinkNode};
-
+use crate::tests::utils::{
+    gen_blob_service, gen_chunk_service, gen_directory_service, gen_pathinfo_service,
+};
 use lazy_static::lazy_static;
+use std::path::Path;
+use tempfile::TempDir;
+use tonic::Request;
 
 lazy_static! {
     static ref DUMMY_OUTPUT_HASH: Vec<u8> = vec![
@@ -24,38 +20,19 @@ lazy_static! {
     ];
 }
 
-// TODO: dedup these helpers
-fn gen_pathinfo_service(p: &Path) -> impl PathInfoService {
-    SledPathInfoService::new(p.join("pathinfo")).unwrap()
-}
-fn gen_blob_service(p: &Path) -> impl BlobService {
-    SledBlobService::new(p.join("blobs")).unwrap()
-}
-
-fn gen_chunk_service(p: &Path) -> impl ChunkService + Clone {
-    SledChunkService::new(p.join("chunks")).unwrap()
-}
-
-fn gen_directory_service(p: &Path) -> impl DirectoryService {
-    SledDirectoryService::new(p.join("directories")).unwrap()
-}
-
 /// generates a GRPCPathInfoService out of blob, chunk, directory and pathinfo services.
 ///
-/// It doesn't create underlying services on its own, as we don't need to
-/// preseed them with existing data for the test - we only interact with it via
-// the PathInfo GRPC interface.
+/// We only interact with it via the PathInfo GRPC interface.
 /// It uses the NonCachingNARCalculationService NARCalculationService to
 /// calculate NARs.
 fn gen_grpc_service(p: &Path) -> impl GRPCPathInfoService {
-    let blob_service = gen_blob_service(p);
-    let chunk_service = gen_chunk_service(p);
-    let directory_service = gen_directory_service(p);
-    let pathinfo_service = gen_pathinfo_service(p);
-
     GRPCPathInfoServiceWrapper::new(
-        pathinfo_service,
-        NonCachingNARCalculationService::new(blob_service, chunk_service, directory_service),
+        gen_pathinfo_service(p),
+        NonCachingNARCalculationService::new(
+            gen_blob_service(p),
+            gen_chunk_service(p),
+            gen_directory_service(p),
+        ),
     )
 }
 

@@ -1,8 +1,9 @@
-use crate::directoryservice::SledDirectoryService;
+use crate::directoryservice::DirectoryService;
 use crate::proto::directory_service_server::DirectoryService as GRPCDirectoryService;
 use crate::proto::get_directory_request::ByWhat;
 use crate::proto::{Directory, DirectoryNode, SymlinkNode};
 use crate::proto::{GRPCDirectoryServiceWrapper, GetDirectoryRequest};
+use crate::tests::utils::gen_directory_service;
 use lazy_static::lazy_static;
 use std::path::Path;
 use tempfile::TempDir;
@@ -36,8 +37,10 @@ lazy_static! {
     };
 }
 
-fn gen_grpc_service(p: &Path) -> GRPCDirectoryServiceWrapper<SledDirectoryService> {
-    let directory_service = SledDirectoryService::new(p.join("directories")).unwrap();
+fn gen_grpc_service(
+    p: &Path,
+) -> GRPCDirectoryServiceWrapper<impl DirectoryService + Send + Sync + Clone + 'static> {
+    let directory_service = gen_directory_service(p);
     GRPCDirectoryServiceWrapper::from(directory_service)
 }
 
