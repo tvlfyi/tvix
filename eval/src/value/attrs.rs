@@ -8,16 +8,23 @@
 use std::iter::FromIterator;
 
 use imbl::{ordmap, OrdMap};
+use lazy_static::lazy_static;
 use serde::de::{Deserializer, Error, Visitor};
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Serialize};
-
-use crate::errors::ErrorKind;
 
 use super::string::NixString;
 use super::thunk::ThunkSet;
 use super::TotalDisplay;
 use super::Value;
+use crate::errors::ErrorKind;
+
+lazy_static! {
+    static ref NAME_S: NixString = "name".into();
+    static ref NAME_REF: &'static NixString = &NAME_S;
+    static ref VALUE_S: NixString = "value".into();
+    static ref VALUE_REF: &'static NixString = &VALUE_S;
+}
 
 #[cfg(test)]
 mod tests;
@@ -57,8 +64,8 @@ impl AttrsRep {
 
             AttrsRep::KV { name, value } => {
                 *self = AttrsRep::Im(ordmap! {
-                    NixString::NAME => name.clone(),
-                    NixString::VALUE => value.clone()
+                    NAME_S.clone() => name.clone(),
+                    VALUE_S.clone() => value.clone()
                 });
 
                 self.map_mut()
@@ -230,13 +237,13 @@ impl NixAttrs {
         // Slightly more advanced, but still optimised updates
         match (self.0, other.0) {
             (AttrsRep::Im(mut m), AttrsRep::KV { name, value }) => {
-                m.insert(NixString::NAME, name);
-                m.insert(NixString::VALUE, value);
+                m.insert(NAME_S.clone(), name);
+                m.insert(VALUE_S.clone(), value);
                 NixAttrs(AttrsRep::Im(m))
             }
 
             (AttrsRep::KV { name, value }, AttrsRep::Im(mut m)) => {
-                match m.entry(NixString::NAME) {
+                match m.entry(NAME_S.clone()) {
                     imbl::ordmap::Entry::Vacant(e) => {
                         e.insert(name);
                     }
@@ -244,7 +251,7 @@ impl NixAttrs {
                     imbl::ordmap::Entry::Occupied(_) => { /* name from `m` has precedence */ }
                 };
 
-                match m.entry(NixString::VALUE) {
+                match m.entry(VALUE_S.clone()) {
                     imbl::ordmap::Entry::Vacant(e) => {
                         e.insert(value);
                     }
@@ -318,11 +325,7 @@ impl NixAttrs {
         match self.0 {
             AttrsRep::Empty => IntoIter(IntoIterRepr::Empty),
             AttrsRep::KV { name, value } => IntoIter(IntoIterRepr::Finite(
-                vec![
-                    (NixString::NAME_REF.clone(), name),
-                    (NixString::VALUE_REF.clone(), value),
-                ]
-                .into_iter(),
+                vec![(NAME_REF.clone(), name), (VALUE_REF.clone(), value)].into_iter(),
             )),
             AttrsRep::Im(map) => IntoIter(IntoIterRepr::Im(map.into_iter())),
         }
@@ -411,17 +414,9 @@ impl NixAttrs {
 fn attempt_optimise_kv(slice: &mut [Value]) -> Option<NixAttrs> {
     let (name_idx, value_idx) = {
         match (&slice[2], &slice[0]) {
-            (Value::String(s1), Value::String(s2))
-                if (*s1 == NixString::NAME && *s2 == NixString::VALUE) =>
-            {
-                (3, 1)
-            }
+            (Value::String(s1), Value::String(s2)) if (*s1 == *NAME_S && *s2 == *VALUE_S) => (3, 1),
 
-            (Value::String(s1), Value::String(s2))
-                if (*s1 == NixString::VALUE && *s2 == NixString::NAME) =>
-            {
-                (1, 3)
-            }
+            (Value::String(s1), Value::String(s2)) if (*s1 == *VALUE_S && *s2 == *NAME_S) => (1, 3),
 
             // Technically this branch lets type errors pass,
             // but they will be caught during normal attribute
@@ -502,12 +497,12 @@ impl<'a> Iterator for Iter<KeyValue<'a>> {
             KeyValue::KV { name, value, at } => match at {
                 IterKV::Name => {
                     at.next();
-                    Some((NixString::NAME_REF, name))
+                    Some((&NAME_REF, name))
                 }
 
                 IterKV::Value => {
                     at.next();
-                    Some((NixString::VALUE_REF, value))
+                    Some((&VALUE_REF, value))
                 }
 
                 IterKV::Done => None,
@@ -542,11 +537,11 @@ impl<'a> Iterator for Keys<'a> {
             KeysInner::Empty => None,
             KeysInner::KV(at @ IterKV::Name) => {
                 at.next();
-                Some(NixString::NAME_REF)
+                Some(&NAME_REF)
             }
             KeysInner::KV(at @ IterKV::Value) => {
                 at.next();
-                Some(NixString::VALUE_REF)
+                Some(&VALUE_REF)
             }
             KeysInner::KV(IterKV::Done) => None,
             KeysInner::Im(m) => m.next(),

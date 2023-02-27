@@ -1,5 +1,8 @@
-//! This module implements Nix language strings and their different
-//! backing implementations.
+//! This module implements Nix language strings.
+//!
+//! Nix language strings never need to be modified on the language
+//! level, allowing us to shave off some memory overhead and only
+//! paying the cost when creating new strings.
 use rnix::ast;
 use smol_str::SmolStr;
 use std::ffi::OsStr;
@@ -11,16 +14,9 @@ use std::{borrow::Cow, fmt::Display, str::Chars};
 use serde::de::{Deserializer, Visitor};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize)]
-#[serde(untagged)]
-enum StringRepr {
-    Smol(SmolStr),
-    Heap(String),
-}
-
 #[repr(transparent)]
 #[derive(Clone, Debug, Serialize)]
-pub struct NixString(StringRepr);
+pub struct NixString(Box<str>);
 
 impl PartialEq for NixString {
     fn eq(&self, other: &Self) -> bool {
@@ -44,19 +40,19 @@ impl Ord for NixString {
 
 impl From<&str> for NixString {
     fn from(s: &str) -> Self {
-        NixString(StringRepr::Smol(SmolStr::new(s)))
+        NixString(Box::from(s))
     }
 }
 
 impl From<String> for NixString {
     fn from(s: String) -> Self {
-        NixString(StringRepr::Heap(s))
+        NixString(s.into_boxed_str())
     }
 }
 
 impl From<SmolStr> for NixString {
     fn from(s: SmolStr) -> Self {
-        NixString(StringRepr::Smol(s))
+        NixString(Box::from(s.as_str()))
     }
 }
 
@@ -109,7 +105,6 @@ impl<'de> Deserialize<'de> for NixString {
 mod arbitrary {
     use super::*;
     use proptest::prelude::{any_with, Arbitrary};
-    use proptest::prop_oneof;
     use proptest::strategy::{BoxedStrategy, Strategy};
 
     impl Arbitrary for NixString {
@@ -118,29 +113,14 @@ mod arbitrary {
         type Strategy = BoxedStrategy<Self>;
 
         fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-            prop_oneof![
-                // Either generate `StringRepr::Heap`...
-                any_with::<String>(args).prop_map(Self::from),
-                // ...or generate `StringRepr::Smol` (which `impl From<&str> for NixString` returns)
-                any_with::<String>(args).prop_map(|s| Self::from(s.as_str())),
-            ]
-            .boxed()
+            any_with::<String>(args).prop_map(Self::from).boxed()
         }
     }
 }
 
 impl NixString {
-    pub const NAME: Self = NixString(StringRepr::Smol(SmolStr::new_inline("name")));
-    pub const NAME_REF: &'static Self = &Self::NAME;
-
-    pub const VALUE: Self = NixString(StringRepr::Smol(SmolStr::new_inline("value")));
-    pub const VALUE_REF: &'static Self = &Self::VALUE;
-
     pub fn as_str(&self) -> &str {
-        match &self.0 {
-            StringRepr::Smol(s) => s.as_str(),
-            StringRepr::Heap(s) => s,
-        }
+        &self.0
     }
 
     /// Return a displayable representation of the string as an
@@ -172,14 +152,11 @@ impl NixString {
     pub fn concat(&self, other: &Self) -> Self {
         let mut s = self.as_str().to_owned();
         s.push_str(other.as_str());
-        NixString(StringRepr::Heap(s))
+        NixString(s.into_boxed_str())
     }
 
     pub fn chars(&self) -> Chars<'_> {
-        match &self.0 {
-            StringRepr::Heap(h) => h.chars(),
-            StringRepr::Smol(s) => s.chars(),
-        }
+        self.0.chars()
     }
 }
 

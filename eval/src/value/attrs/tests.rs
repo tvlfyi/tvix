@@ -84,10 +84,10 @@ fn test_kv_attrs_iter() {
         .into_iter()
         .map(|(k, v)| (k, v));
     let (k, v) = iter.next().unwrap();
-    assert!(k == NixString::NAME_REF);
+    assert!(k == *NAME_REF);
     assert!(v.to_str().unwrap() == meaning_val.to_str().unwrap());
     let (k, v) = iter.next().unwrap();
-    assert!(k == NixString::VALUE_REF);
+    assert!(k == *VALUE_REF);
     assert!(v.as_int().unwrap() == forty_two_val.as_int().unwrap());
     assert!(iter.next().is_none());
 }
