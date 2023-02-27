@@ -1,6 +1,5 @@
 use builtin_macros::builtins;
 use genawaiter::rc::Gen;
-use smol_str::SmolStr;
 
 use std::{
     env,
@@ -12,7 +11,7 @@ use crate::{
     io::FileType,
     value::NixAttrs,
     vm::generators::{self, GenCo},
-    Value,
+    NixString, Value,
 };
 
 #[builtins]
@@ -38,14 +37,14 @@ mod impure_builtins {
         let dir = generators::request_read_dir(&co, path).await;
         let res = dir.into_iter().map(|(name, ftype)| {
             (
-                name,
+                NixString::from(name.as_str()),
                 Value::String(
-                    SmolStr::new(match ftype {
+                    match ftype {
                         FileType::Directory => "directory",
                         FileType::Regular => "regular",
                         FileType::Symlink => "symlink",
                         FileType::Unknown => "unknown",
-                    })
+                    }
                     .into(),
                 ),
             )

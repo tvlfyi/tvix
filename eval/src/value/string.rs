@@ -4,7 +4,6 @@
 //! level, allowing us to shave off some memory overhead and only
 //! paying the cost when creating new strings.
 use rnix::ast;
-use smol_str::SmolStr;
 use std::ffi::OsStr;
 use std::hash::Hash;
 use std::ops::Deref;
@@ -50,9 +49,9 @@ impl From<String> for NixString {
     }
 }
 
-impl From<SmolStr> for NixString {
-    fn from(s: SmolStr) -> Self {
-        NixString(Box::from(s.as_str()))
+impl From<Box<str>> for NixString {
+    fn from(s: Box<str>) -> Self {
+        Self(s)
     }
 }
 

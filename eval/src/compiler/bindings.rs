@@ -361,7 +361,7 @@ impl Compiler<'_> {
 
                         // Place key on the stack when compiling attribute sets.
                         if kind.is_attrs() {
-                            self.emit_constant(Value::String(name.clone().into()), &attr);
+                            self.emit_constant(Value::String(name.as_str().into()), &attr);
                             let span = self.span_for(&attr);
                             self.scope_mut().declare_phantom(span, true);
                         }
@@ -569,7 +569,7 @@ impl Compiler<'_> {
 
                 KeySlot::Static { slot, name } => {
                     let span = self.scope()[slot].span;
-                    self.emit_constant(Value::String(name.into()), &span);
+                    self.emit_constant(Value::String(name.as_str().into()), &span);
                     self.scope_mut().mark_initialised(slot);
                 }
 
@@ -593,7 +593,7 @@ impl Compiler<'_> {
                         c.compile(s, namespace.clone());
                         c.emit_force(&namespace);
 
-                        c.emit_constant(Value::String(name.into()), &span);
+                        c.emit_constant(Value::String(name.as_str().into()), &span);
                         c.push_op(OpCode::OpAttrsSelect, &span);
                     })
                 }
@@ -681,7 +681,7 @@ impl Compiler<'_> {
         // (OpAttrs consumes all of these locals).
         self.scope_mut().end_scope();
 
-        self.emit_constant(Value::String(SmolStr::new_inline("body").into()), node);
+        self.emit_constant(Value::String("body".into()), node);
         self.push_op(OpCode::OpAttrsSelect, node);
     }
 
@@ -726,7 +726,7 @@ impl Compiler<'_> {
                 if self.has_dynamic_ancestor() {
                     self.thunk(slot, node, |c, _| {
                         c.context_mut().captures_with_stack = true;
-                        c.emit_constant(Value::String(SmolStr::new(ident).into()), node);
+                        c.emit_constant(Value::String(ident.into()), node);
                         c.push_op(OpCode::OpResolveWith, node);
                     });
                     return;
