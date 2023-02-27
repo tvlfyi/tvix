@@ -49,7 +49,7 @@ pub enum Value {
     String(NixString),
 
     #[serde(skip)]
-    Path(PathBuf),
+    Path(Box<PathBuf>),
     Attrs(Box<NixAttrs>),
     List(NixList),
 
@@ -75,7 +75,7 @@ pub enum Value {
     #[serde(skip)]
     DeferredUpvalue(StackIdx),
     #[serde(skip)]
-    UnresolvedPath(PathBuf),
+    UnresolvedPath(Box<PathBuf>),
 }
 
 lazy_static! {
@@ -256,7 +256,7 @@ impl Value {
             // Unicode. See also b/189.
             (Value::Path(p), _) => {
                 // TODO(tazjin): there are cases where coerce_to_string does not import
-                let imported = generators::request_path_import(&co, p).await;
+                let imported = generators::request_path_import(&co, *p).await;
                 Ok(imported.to_string_lossy().into_owned().into())
             }
 
@@ -800,7 +800,7 @@ impl From<f64> for Value {
 
 impl From<PathBuf> for Value {
     fn from(path: PathBuf) -> Self {
-        Self::Path(path)
+        Self::Path(Box::new(path))
     }
 }
 

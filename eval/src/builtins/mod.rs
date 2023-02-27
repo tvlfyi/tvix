@@ -42,7 +42,7 @@ pub const CURRENT_PLATFORM: &str = env!("TVIX_CURRENT_SYSTEM");
 pub async fn coerce_value_to_path(co: &GenCo, v: Value) -> Result<PathBuf, ErrorKind> {
     let value = generators::request_force(co, v).await;
     if let Value::Path(p) = value {
-        return Ok(p);
+        return Ok(*p);
     }
 
     let vs = generators::request_string_coerce(co, value, CoercionKind::Weak).await;
@@ -246,7 +246,7 @@ mod pure_builtins {
             })
             .unwrap_or(".");
         if is_path {
-            Ok(Value::Path(result.into()))
+            Ok(Value::Path(Box::new(result.into())))
         } else {
             Ok(result.into())
         }
@@ -1038,7 +1038,7 @@ mod placeholder_builtins {
         let res = [
             ("line", 42.into()),
             ("col", 42.into()),
-            ("file", Value::Path("/deep/thought".into())),
+            ("file", Value::Path(Box::new("/deep/thought".into()))),
         ];
         Ok(Value::attrs(NixAttrs::from_iter(res.into_iter())))
     }

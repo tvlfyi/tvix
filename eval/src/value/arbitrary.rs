@@ -92,7 +92,7 @@ fn leaf_value() -> impl Strategy<Value = Value> {
         any::<i64>().prop_map(Integer),
         any::<f64>().prop_map(Float),
         any::<NixString>().prop_map(String),
-        any::<OsString>().prop_map(|s| Path(s.into())),
+        any::<OsString>().prop_map(|s| Path(Box::new(s.into()))),
     ]
 }
 
