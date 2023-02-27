@@ -826,9 +826,9 @@ mod pure_builtins {
 
     #[builtin("sort")]
     async fn builtin_sort(co: GenCo, comparator: Value, list: Value) -> Result<Value, ErrorKind> {
-        let mut list = list.to_list()?;
-        list.sort_by(&co, comparator).await?;
-        Ok(Value::List(list))
+        let list = list.to_list()?;
+        let sorted = list.sort_by(&co, comparator).await?;
+        Ok(Value::List(sorted))
     }
 
     #[builtin("splitVersion")]

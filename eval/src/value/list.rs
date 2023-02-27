@@ -1,5 +1,6 @@
 //! This module implements Nix lists.
 use std::ops::Index;
+use std::rc::Rc;
 
 use imbl::{vector, Vector};
 
@@ -16,7 +17,7 @@ use super::Value;
 
 #[repr(transparent)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct NixList(Vector<Value>);
+pub struct NixList(Rc<Vector<Value>>);
 
 impl TotalDisplay for NixList {
     fn total_fmt(&self, f: &mut std::fmt::Formatter<'_>, set: &mut ThunkSet) -> std::fmt::Result {
@@ -33,7 +34,7 @@ impl TotalDisplay for NixList {
 
 impl From<Vector<Value>> for NixList {
     fn from(vs: Vector<Value>) -> Self {
-        Self(vs)
+        Self(Rc::new(vs))
     }
 }
 
@@ -58,7 +59,7 @@ impl NixList {
             stack_slice.len(),
         );
 
-        NixList(Vector::from_iter(stack_slice.into_iter()))
+        NixList(Rc::new(Vector::from_iter(stack_slice.into_iter())))
     }
 
     pub fn iter(&self) -> vector::Iter<Value> {
@@ -66,16 +67,16 @@ impl NixList {
     }
 
     pub fn ptr_eq(&self, other: &Self) -> bool {
-        self.0.ptr_eq(&other.0)
+        Rc::ptr_eq(&self.0, &other.0)
     }
 
     pub fn into_inner(self) -> Vector<Value> {
-        self.0
+        Rc::try_unwrap(self.0).unwrap_or_else(|rc| (*rc).clone())
     }
 
     #[deprecated(note = "callers should avoid constructing from Vec")]
     pub fn from_vec(vs: Vec<Value>) -> Self {
-        Self(Vector::from_iter(vs.into_iter()))
+        Self(Rc::new(Vector::from_iter(vs.into_iter())))
     }
 
     /// Asynchronous sorting algorithm in which the comparator can make use of
@@ -88,8 +89,9 @@ impl NixList {
     /// implementation of sorting (which is a lot longer, but a lot more
     /// efficient) here.
     // TODO(amjoseph): Investigate potential impl in Nix code, or Tvix bytecode.
-    pub async fn sort_by(&mut self, co: &GenCo, cmp: Value) -> Result<(), ErrorKind> {
+    pub async fn sort_by(self, co: &GenCo, cmp: Value) -> Result<Self, ErrorKind> {
         let mut len = self.len();
+        let mut data = self.into_inner();
 
         loop {
             let mut new_len = 0;
@@ -99,7 +101,7 @@ impl NixList {
                     generators::request_call_with(
                         co,
                         cmp.clone(),
-                        [self.0[i].clone(), self.0[i - 1].clone()],
+                        [data[i].clone(), data[i - 1].clone()],
                     )
                     .await,
                 )
@@ -107,7 +109,7 @@ impl NixList {
                 .as_bool()
                 .context("evaluating comparator in `builtins.sort`")?
                 {
-                    self.0.swap(i, i - 1);
+                    data.swap(i, i - 1);
                     new_len = i;
                 }
             }
@@ -119,7 +121,7 @@ impl NixList {
             len = new_len;
         }
 
-        Ok(())
+        Ok(data.into())
     }
 }
 
@@ -128,7 +130,7 @@ impl IntoIterator for NixList {
     type IntoIter = imbl::vector::ConsumingIter<Value>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
+        self.into_inner().into_iter()
     }
 }
 
