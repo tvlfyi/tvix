@@ -191,22 +191,20 @@ fn test_complicated() {
     let directory_service = gen_directory_service(tmpdir.path());
 
     // put all data into the stores.
-    for blob_contents in [HELLOWORLD_BLOB_CONTENTS, EMPTY_BLOB_CONTENTS] {
-        let digest = chunk_service.put(blob_contents.to_vec()).unwrap();
+    let digest = chunk_service.put(EMPTY_BLOB_CONTENTS.to_vec()).unwrap();
 
-        blob_service
-            .put(
-                &digest,
-                proto::BlobMeta {
-                    chunks: vec![proto::blob_meta::ChunkMeta {
-                        digest: digest.to_vec(),
-                        size: blob_contents.len() as u32,
-                    }],
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-    }
+    blob_service
+        .put(
+            &digest,
+            proto::BlobMeta {
+                chunks: vec![proto::blob_meta::ChunkMeta {
+                    digest: digest.to_vec(),
+                    size: EMPTY_BLOB_CONTENTS.len() as u32,
+                }],
+                ..Default::default()
+            },
+        )
+        .unwrap();
 
     directory_service.put(DIRECTORY_WITH_KEEP.clone()).unwrap();
     directory_service
