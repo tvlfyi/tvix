@@ -1,6 +1,10 @@
+use clap::Parser;
 use clap::Subcommand;
 
 use futures::future::try_join_all;
+use tonic::transport::Server;
+use tracing::info;
+use tracing::Level;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -9,6 +13,7 @@ use tokio_listener::SystemOptions;
 use tokio_listener::UserOptions;
 
 use tracing_subscriber::prelude::*;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use tvix_castore::proto::blob_service_server::BlobServiceServer;
 use tvix_castore::proto::directory_service_server::DirectoryServiceServer;
@@ -31,10 +36,6 @@ use tvix_castore::fs::virtiofs::start_virtiofs_daemon;
 use tvix_castore::proto::FILE_DESCRIPTOR_SET as CASTORE_FILE_DESCRIPTOR_SET;
 #[cfg(feature = "tonic-reflection")]
 use tvix_store::proto::FILE_DESCRIPTOR_SET;
-
-use clap::Parser;
-use tonic::{transport::Server, Result};
-use tracing::{info, Level};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -170,7 +171,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ),
         );
 
-    tracing::subscriber::set_global_default(subscriber).expect("Unable to set global subscriber");
+    // Add the otlp layer (when otlp is enabled), then init the registry.
+    // Or if the feature is disabled, just init without adding the layer.
+    // It's necessary to do this separately, as every with() call chains the
+    // layer into the type of the registry.
+    #[cfg(feature = "otlp")]
+    {
+        let opentelemetry_layer = {
+            let otlp_exporter = opentelemetry_otlp::new_exporter().tonic();
+            // TODO: re-add once https://github.com/open-telemetry/opentelemetry-rust/pull/1252 is solved.
+            // let mut metadata = tonic::metadata::MetadataMap::new();
+            // metadata.insert("service.name", "tvix.store".parse()?);
+            // otlp_exporter.with_metadata(metadata),
+
+            let tracer = opentelemetry_otlp::new_pipeline()
+                .tracing()
+                .with_exporter(otlp_exporter)
+                .install_batch(opentelemetry_sdk::runtime::Tokio)?;
+
+            // Create a tracing layer with the configured tracer
+            tracing_opentelemetry::layer().with_tracer(tracer)
+        };
+
+        let subscriber = subscriber.with(opentelemetry_layer);
+        subscriber.try_init()?;
+    }
+
+    // Init the registry (when otlp is not enabled)
+    #[cfg(not(feature = "otlp"))]
+    {
+        subscriber.try_init()?;
+    }
 
     match cli.command {
         Commands::Daemon {

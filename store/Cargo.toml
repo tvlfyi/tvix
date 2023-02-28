@@ -16,6 +16,9 @@ lazy_static = "1.4.0"
 nix-compat = { path = "../nix-compat", features = ["async"] }
 pin-project-lite = "0.2.13"
 prost = "0.12.1"
+opentelemetry = { version = "0.21.0", optional = true}
+opentelemetry-otlp = { version = "0.14.0", optional = true }
+opentelemetry_sdk = { version = "0.21.0", features = ["rt-tokio"], optional = true}
 sha2 = "0.10.6"
 sled = { version = "0.34.7" }
 thiserror = "1.0.38"
@@ -26,6 +29,7 @@ tokio-util = { version = "0.7.9", features = ["io", "io-util", "compat"] }
 tonic = { version = "0.10.2", features = ["tls", "tls-roots"] }
 tower = "0.4.13"
 tracing = "0.1.37"
+tracing-opentelemetry = "0.22.0"
 tracing-subscriber = { version = "0.3.16", features = ["json"] }
 tvix-castore = { path = "../castore" }
 url = "2.4.0"
@@ -48,7 +52,8 @@ tempfile = "3.3.0"
 tokio-retry = "0.3.0"
 
 [features]
-default = ["fuse", "tonic-reflection"]
+default = ["fuse", "otlp", "tonic-reflection"]
 fuse = ["tvix-castore/fuse"]
-virtiofs = ["tvix-castore/virtiofs"]
+otlp = ["dep:opentelemetry", "dep:opentelemetry-otlp", "dep:opentelemetry_sdk"]
 tonic-reflection = ["dep:tonic-reflection", "tvix-castore/tonic-reflection"]
+virtiofs = ["tvix-castore/virtiofs"]
