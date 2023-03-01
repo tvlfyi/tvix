@@ -21,6 +21,13 @@ impl SledPathInfoService {
 
         Ok(Self { db })
     }
+
+    pub fn new_temporary() -> Result<Self, sled::Error> {
+        let config = sled::Config::default().temporary(true);
+        let db = config.open()?;
+
+        Ok(Self { db })
+    }
 }
 
 impl PathInfoService for SledPathInfoService {

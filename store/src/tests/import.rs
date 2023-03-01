@@ -12,15 +12,18 @@ use tempfile::TempDir;
 fn symlink() {
     let tmpdir = TempDir::new().unwrap();
 
-    let data_dir = tmpdir.path().join("data");
-    std::fs::create_dir_all(&data_dir).unwrap();
-    std::os::unix::fs::symlink("/nix/store/somewhereelse", data_dir.join("doesntmatter")).unwrap();
+    std::fs::create_dir_all(&tmpdir).unwrap();
+    std::os::unix::fs::symlink(
+        "/nix/store/somewhereelse",
+        tmpdir.path().join("doesntmatter"),
+    )
+    .unwrap();
 
     let root_node = import_path(
-        &mut gen_blob_service(tmpdir.path()),
-        &mut gen_chunk_service(tmpdir.path()),
-        &mut gen_directory_service(tmpdir.path()),
-        data_dir.join("doesntmatter"),
+        &mut gen_blob_service(),
+        &mut gen_chunk_service(),
+        &mut gen_directory_service(),
+        tmpdir.path().join("doesntmatter"),
     )
     .expect("must succeed");
 
@@ -37,17 +40,15 @@ fn symlink() {
 fn single_file() {
     let tmpdir = TempDir::new().unwrap();
 
-    let data_dir = tmpdir.path().join("data");
-    std::fs::create_dir_all(&data_dir).unwrap();
-    std::fs::write(data_dir.join("root"), HELLOWORLD_BLOB_CONTENTS).unwrap();
+    std::fs::write(tmpdir.path().join("root"), HELLOWORLD_BLOB_CONTENTS).unwrap();
 
-    let mut blob_service = gen_blob_service(tmpdir.path());
+    let mut blob_service = gen_blob_service();
 
     let root_node = import_path(
         &mut blob_service,
-        &mut gen_chunk_service(tmpdir.path()),
-        &mut gen_directory_service(tmpdir.path()),
-        data_dir.join("root"),
+        &mut gen_chunk_service(),
+        &mut gen_directory_service(),
+        tmpdir.path().join("root"),
     )
     .expect("must succeed");
 
@@ -76,34 +77,35 @@ fn single_file() {
 fn complicated() {
     let tmpdir = TempDir::new().unwrap();
 
-    let data_dir = tmpdir.path().join("data");
-
-    // Populate path to import
-    std::fs::create_dir_all(&data_dir).unwrap();
     // File ``.keep`
-    std::fs::write(data_dir.join(".keep"), vec![]).unwrap();
+    std::fs::write(tmpdir.path().join(".keep"), vec![]).unwrap();
     // Symlink `aa`
-    std::os::unix::fs::symlink("/nix/store/somewhereelse", data_dir.join("aa")).unwrap();
+    std::os::unix::fs::symlink("/nix/store/somewhereelse", tmpdir.path().join("aa")).unwrap();
     // Directory `keep`
-    std::fs::create_dir(data_dir.join("keep")).unwrap();
+    std::fs::create_dir(tmpdir.path().join("keep")).unwrap();
     // File ``keep/.keep`
-    std::fs::write(data_dir.join("keep").join(".keep"), vec![]).unwrap();
+    std::fs::write(tmpdir.path().join("keep").join(".keep"), vec![]).unwrap();
 
-    let mut blob_service = gen_blob_service(tmpdir.path());
-    let mut directory_service = gen_directory_service(tmpdir.path());
+    let mut blob_service = gen_blob_service();
+    let mut directory_service = gen_directory_service();
 
     let root_node = import_path(
         &mut blob_service,
-        &mut gen_chunk_service(tmpdir.path()),
+        &mut gen_chunk_service(),
         &mut directory_service,
-        data_dir,
+        tmpdir.path(),
     )
     .expect("must succeed");
 
     // ensure root_node matched expectations
     assert_eq!(
         crate::proto::node::Node::Directory(proto::DirectoryNode {
-            name: "data".to_string(),
+            name: tmpdir
+                .path()
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .to_string(),
             digest: DIRECTORY_COMPLICATED.digest(),
             size: DIRECTORY_COMPLICATED.size(),
         }),

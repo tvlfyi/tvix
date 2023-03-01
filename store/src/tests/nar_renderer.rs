@@ -8,15 +8,13 @@ use crate::proto::FileNode;
 use crate::proto::SymlinkNode;
 use crate::tests::fixtures::*;
 use crate::tests::utils::*;
-use tempfile::TempDir;
 
 #[test]
 fn single_symlink() {
-    let tmpdir = TempDir::new().unwrap();
     let renderer = NARRenderer::new(
-        gen_blob_service(tmpdir.path()),
-        gen_chunk_service(tmpdir.path()),
-        gen_directory_service(tmpdir.path()),
+        gen_blob_service(),
+        gen_chunk_service(),
+        gen_directory_service(),
     );
     // don't put anything in the stores, as we don't actually do any requests.
 
@@ -39,15 +37,10 @@ fn single_symlink() {
 /// match what's in the store.
 #[test]
 fn single_file_missing_blob() {
-    let tmpdir = TempDir::new().unwrap();
-
-    let blob_service = gen_blob_service(tmpdir.path());
-    let chunk_service = gen_chunk_service(tmpdir.path());
-
     let renderer = NARRenderer::new(
-        blob_service,
-        chunk_service,
-        gen_directory_service(tmpdir.path()),
+        gen_blob_service(),
+        gen_chunk_service(),
+        gen_directory_service(),
     );
     let mut buf: Vec<u8> = vec![];
 
@@ -74,10 +67,8 @@ fn single_file_missing_blob() {
 /// than specified in the proto node.
 #[test]
 fn single_file_wrong_blob_size() {
-    let tmpdir = TempDir::new().unwrap();
-
-    let blob_service = gen_blob_service(tmpdir.path());
-    let chunk_service = gen_chunk_service(tmpdir.path());
+    let blob_service = gen_blob_service();
+    let chunk_service = gen_chunk_service();
 
     // insert blob and chunk into the stores
     chunk_service
@@ -97,11 +88,7 @@ fn single_file_wrong_blob_size() {
         )
         .unwrap();
 
-    let renderer = NARRenderer::new(
-        blob_service,
-        chunk_service,
-        gen_directory_service(tmpdir.path()),
-    );
+    let renderer = NARRenderer::new(blob_service, chunk_service, gen_directory_service());
     let mut buf: Vec<u8> = vec![];
 
     let e = renderer
@@ -138,10 +125,8 @@ fn single_file_wrong_blob_size() {
 
 #[test]
 fn single_file() {
-    let tmpdir = TempDir::new().unwrap();
-
-    let blob_service = gen_blob_service(tmpdir.path());
-    let chunk_service = gen_chunk_service(tmpdir.path());
+    let blob_service = gen_blob_service();
+    let chunk_service = gen_chunk_service();
 
     chunk_service
         .put(HELLOWORLD_BLOB_CONTENTS.to_vec())
@@ -160,11 +145,7 @@ fn single_file() {
         )
         .unwrap();
 
-    let renderer = NARRenderer::new(
-        blob_service,
-        chunk_service,
-        gen_directory_service(tmpdir.path()),
-    );
+    let renderer = NARRenderer::new(blob_service, chunk_service, gen_directory_service());
     let mut buf: Vec<u8> = vec![];
 
     renderer
@@ -184,11 +165,9 @@ fn single_file() {
 
 #[test]
 fn test_complicated() {
-    let tmpdir = TempDir::new().unwrap();
-
-    let blob_service = gen_blob_service(tmpdir.path());
-    let chunk_service = gen_chunk_service(tmpdir.path());
-    let directory_service = gen_directory_service(tmpdir.path());
+    let blob_service = gen_blob_service();
+    let chunk_service = gen_chunk_service();
+    let directory_service = gen_directory_service();
 
     // put all data into the stores.
     let digest = chunk_service.put(EMPTY_BLOB_CONTENTS.to_vec()).unwrap();

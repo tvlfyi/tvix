@@ -5,15 +5,12 @@ use crate::proto::{Directory, DirectoryNode, SymlinkNode};
 use crate::proto::{GRPCDirectoryServiceWrapper, GetDirectoryRequest};
 use crate::tests::fixtures::{DIRECTORY_A, DIRECTORY_B, DIRECTORY_C};
 use crate::tests::utils::gen_directory_service;
-use std::path::Path;
-use tempfile::TempDir;
 use tokio_stream::StreamExt;
 use tonic::Status;
 
 fn gen_grpc_service(
-    p: &Path,
 ) -> GRPCDirectoryServiceWrapper<impl DirectoryService + Send + Sync + Clone + 'static> {
-    let directory_service = gen_directory_service(p);
+    let directory_service = gen_directory_service();
     GRPCDirectoryServiceWrapper::from(directory_service)
 }
 
@@ -43,7 +40,7 @@ async fn get_directories<S: GRPCDirectoryService>(
 /// Trying to get a non-existent Directory should return a not found error.
 #[tokio::test]
 async fn not_found() {
-    let service = gen_grpc_service(TempDir::new().unwrap().path());
+    let service = gen_grpc_service();
 
     let resp = service
         .get(tonic::Request::new(GetDirectoryRequest {
@@ -69,7 +66,7 @@ async fn not_found() {
 /// Put a Directory into the store, get it back.
 #[tokio::test]
 async fn put_get() {
-    let service = gen_grpc_service(TempDir::new().unwrap().path());
+    let service = gen_grpc_service();
 
     let streaming_request = tonic_mock::streaming_request(vec![DIRECTORY_A.clone()]);
     let put_resp = service
@@ -98,7 +95,7 @@ async fn put_get() {
 /// Put multiple Directories into the store, and get them back
 #[tokio::test]
 async fn put_get_multiple() {
-    let service = gen_grpc_service(TempDir::new().unwrap().path());
+    let service = gen_grpc_service();
 
     // sending "b" (which refers to "a") without sending "a" first should fail.
     let put_resp = service
@@ -151,7 +148,7 @@ async fn put_get_multiple() {
 /// Put multiple Directories into the store, and omit duplicates.
 #[tokio::test]
 async fn put_get_dedup() {
-    let service = gen_grpc_service(TempDir::new().unwrap().path());
+    let service = gen_grpc_service();
 
     // Send "A", then "C", which refers to "A" two times
     // Pretend we're a dumb client sending A twice.
@@ -184,7 +181,7 @@ async fn put_get_dedup() {
 /// Trying to upload a Directory failing validation should fail.
 #[tokio::test]
 async fn put_reject_failed_validation() {
-    let service = gen_grpc_service(TempDir::new().unwrap().path());
+    let service = gen_grpc_service();
 
     // construct a broken Directory message that fails validation
     let broken_directory = Directory {
@@ -208,7 +205,7 @@ async fn put_reject_failed_validation() {
 /// Trying to upload a Directory with wrong size should fail.
 #[tokio::test]
 async fn put_reject_wrong_size() {
-    let service = gen_grpc_service(TempDir::new().unwrap().path());
+    let service = gen_grpc_service();
 
     // Construct a directory referring to DIRECTORY_A, but with wrong size.
     let broken_parent_directory = Directory {

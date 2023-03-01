@@ -9,8 +9,6 @@ use crate::tests::fixtures::DUMMY_OUTPUT_HASH;
 use crate::tests::utils::{
     gen_blob_service, gen_chunk_service, gen_directory_service, gen_pathinfo_service,
 };
-use std::path::Path;
-use tempfile::TempDir;
 use tonic::Request;
 
 /// generates a GRPCPathInfoService out of blob, chunk, directory and pathinfo services.
@@ -18,13 +16,13 @@ use tonic::Request;
 /// We only interact with it via the PathInfo GRPC interface.
 /// It uses the NonCachingNARCalculationService NARCalculationService to
 /// calculate NARs.
-fn gen_grpc_service(p: &Path) -> impl GRPCPathInfoService {
+fn gen_grpc_service() -> impl GRPCPathInfoService {
     GRPCPathInfoServiceWrapper::new(
-        gen_pathinfo_service(p),
+        gen_pathinfo_service(),
         NonCachingNARCalculationService::new(
-            gen_blob_service(p),
-            gen_chunk_service(p),
-            gen_directory_service(p),
+            gen_blob_service(),
+            gen_chunk_service(),
+            gen_directory_service(),
         ),
     )
 }
@@ -32,8 +30,7 @@ fn gen_grpc_service(p: &Path) -> impl GRPCPathInfoService {
 /// Trying to get a non-existent PathInfo should return a not found error.
 #[tokio::test]
 async fn not_found() {
-    let tmpdir = TempDir::new().unwrap();
-    let service = gen_grpc_service(tmpdir.path());
+    let service = gen_grpc_service();
 
     let resp = service
         .get(Request::new(GetPathInfoRequest {
@@ -48,8 +45,7 @@ async fn not_found() {
 /// Put a PathInfo into the store, get it back.
 #[tokio::test]
 async fn put_get() {
-    let tmpdir = TempDir::new().unwrap();
-    let service = gen_grpc_service(tmpdir.path());
+    let service = gen_grpc_service();
 
     let path_info = PathInfo {
         node: Some(Node {

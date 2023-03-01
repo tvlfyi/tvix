@@ -5,24 +5,20 @@ use crate::proto::blob_service_server::BlobService as GRPCBlobService;
 use crate::proto::{BlobChunk, GRPCBlobServiceWrapper, ReadBlobRequest, StatBlobRequest};
 use crate::tests::fixtures::{BLOB_A, BLOB_A_DIGEST, BLOB_B, BLOB_B_DIGEST};
 use crate::tests::utils::{gen_blob_service, gen_chunk_service};
-use std::path::Path;
-use tempfile::TempDir;
 
-fn gen_grpc_blob_service(
-    p: &Path,
-) -> GRPCBlobServiceWrapper<
+fn gen_grpc_blob_service() -> GRPCBlobServiceWrapper<
     impl BlobService + Send + Sync + Clone + 'static,
     impl ChunkService + Send + Sync + Clone + 'static,
 > {
-    let blob_service = gen_blob_service(p);
-    let chunk_service = gen_chunk_service(p);
+    let blob_service = gen_blob_service();
+    let chunk_service = gen_chunk_service();
     GRPCBlobServiceWrapper::new(blob_service, chunk_service)
 }
 
 /// Trying to read a non-existent blob should return a not found error.
 #[tokio::test]
 async fn not_found_read() {
-    let service = gen_grpc_blob_service(TempDir::new().unwrap().path());
+    let service = gen_grpc_blob_service();
 
     let resp = service
         .read(tonic::Request::new(ReadBlobRequest {
@@ -37,7 +33,7 @@ async fn not_found_read() {
 /// Trying to stat a non-existent blob should return a not found error.
 #[tokio::test]
 async fn not_found_stat() {
-    let service = gen_grpc_blob_service(TempDir::new().unwrap().path());
+    let service = gen_grpc_blob_service();
 
     let resp = service
         .stat(tonic::Request::new(StatBlobRequest {
@@ -55,7 +51,7 @@ async fn not_found_stat() {
 /// won't get split into multiple chunks.
 #[tokio::test]
 async fn put_read_stat() {
-    let service = gen_grpc_blob_service(TempDir::new().unwrap().path());
+    let service = gen_grpc_blob_service();
 
     // Send blob A.
     let put_resp = service
@@ -117,7 +113,7 @@ async fn put_read_stat() {
 /// `read()` method.
 #[tokio::test]
 async fn put_read_stat_large() {
-    let service = gen_grpc_blob_service(TempDir::new().unwrap().path());
+    let service = gen_grpc_blob_service();
 
     // split up BLOB_B into BlobChunks containing 1K bytes each.
     let blob_b_blobchunks: Vec<BlobChunk> = BLOB_B
