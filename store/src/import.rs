@@ -58,7 +58,7 @@ impl From<super::Error> for Error {
 //
 // It assumes the caller adds returned nodes to the directories it assembles.
 #[instrument(skip_all, fields(entry.file_type=?&entry.file_type(),entry.path=?entry.path()))]
-fn process_entry<BS: BlobService, CS: ChunkService, DS: DirectoryService>(
+fn process_entry<BS: BlobService, CS: ChunkService + std::marker::Sync, DS: DirectoryService>(
     blob_service: &mut BS,
     chunk_service: &mut CS,
     directory_service: &mut DS,
@@ -167,7 +167,7 @@ fn process_entry<BS: BlobService, CS: ChunkService, DS: DirectoryService>(
 #[instrument(skip(blob_service, chunk_service, directory_service), fields(path=?p))]
 pub fn import_path<
     BS: BlobService,
-    CS: ChunkService,
+    CS: ChunkService + std::marker::Sync,
     DS: DirectoryService,
     P: AsRef<Path> + Debug,
 >(

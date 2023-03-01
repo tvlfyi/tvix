@@ -8331,6 +8331,10 @@ rec {
             packageId = "prost";
           }
           {
+            name = "rayon";
+            packageId = "rayon";
+          }
+          {
             name = "sha2";
             packageId = "sha2 0.10.6";
           }

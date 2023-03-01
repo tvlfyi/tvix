@@ -1,5 +1,6 @@
 use crate::chunkservice::ChunkService;
 use crate::{proto, Error};
+use rayon::prelude::*;
 use tracing::{debug, instrument};
 
 pub struct BlobWriter<'a, CS: ChunkService> {
@@ -11,6 +12,31 @@ pub struct BlobWriter<'a, CS: ChunkService> {
 
     // filled with data from previous writes that didn't end up producing a full chunk.
     buf: Vec<u8>,
+}
+
+// upload a chunk to the chunk service, and return its digest (or an error) when done.
+#[instrument(skip_all)]
+fn upload_chunk<CS: ChunkService>(
+    chunk_service: &CS,
+    chunk_data: Vec<u8>,
+) -> Result<Vec<u8>, Error> {
+    let mut hasher = blake3::Hasher::new();
+    // TODO: benchmark this number and factor it out
+    if chunk_data.len() >= 128 * 1024 {
+        hasher.update_rayon(&chunk_data);
+    } else {
+        hasher.update(&chunk_data);
+    }
+    let digest = hasher.finalize();
+
+    if chunk_service.has(digest.as_bytes())? {
+        debug!("already has chunk, skipping");
+    }
+    let digest_resp = chunk_service.put(chunk_data)?;
+
+    assert_eq!(digest_resp, digest.as_bytes());
+
+    Ok(digest.as_bytes().to_vec())
 }
 
 impl<'a, CS: ChunkService> BlobWriter<'a, CS> {
@@ -35,7 +61,7 @@ impl<'a, CS: ChunkService> BlobWriter<'a, CS> {
             // Also upload the last chunk (what's left in `self.buf`) to the chunk
             // service and record it in BlobMeta.
             let buf_len = self.buf.len() as u32;
-            let chunk_digest = self.upload_chunk(self.buf.clone())?;
+            let chunk_digest = upload_chunk(self.chunk_service, self.buf.clone())?;
 
             self.blob_meta.chunks.push(proto::blob_meta::ChunkMeta {
                 digest: chunk_digest,
@@ -49,32 +75,11 @@ impl<'a, CS: ChunkService> BlobWriter<'a, CS> {
             self.blob_meta.clone(),
         ));
     }
-
-    // upload a chunk to the chunk service, and return its digest (or an error) when done.
-    #[instrument(skip(self, chunk_data))]
-    fn upload_chunk(&mut self, chunk_data: Vec<u8>) -> Result<Vec<u8>, Error> {
-        let mut hasher = blake3::Hasher::new();
-        if chunk_data.len() >= 128 * 1024 {
-            hasher.update_rayon(&chunk_data);
-        } else {
-            hasher.update(&chunk_data);
-        }
-        let digest = hasher.finalize();
-
-        if self.chunk_service.has(digest.as_bytes())? {
-            debug!("already has chunk, skipping");
-        }
-        let digest_resp = self.chunk_service.put(chunk_data)?;
-
-        assert_eq!(digest_resp, digest.as_bytes());
-
-        Ok(digest.as_bytes().to_vec())
-    }
 }
 
 /// This chunks up all data written using fastcdc, uploads all chunks to the
 // [ChunkService], and fills a [proto::BlobMeta] linking to these chunks.
-impl<CS: ChunkService> std::io::Write for BlobWriter<'_, CS> {
+impl<CS: ChunkService + std::marker::Sync> std::io::Write for BlobWriter<'_, CS> {
     fn write(&mut self, input_buf: &[u8]) -> std::io::Result<usize> {
         // calculate input_buf.len(), we need to return that later.
         let input_buf_len = input_buf.len();
@@ -107,6 +112,9 @@ impl<CS: ChunkService> std::io::Write for BlobWriter<'_, CS> {
             chunker_max_size,
         );
 
+        // assemble a list of byte slices to be uploaded
+        let mut chunk_slices: Vec<&[u8]> = Vec::new();
+
         // ask the chunker for cutting points in the buffer.
         let mut start_pos = 0_usize;
         let rest = loop {
@@ -114,31 +122,44 @@ impl<CS: ChunkService> std::io::Write for BlobWriter<'_, CS> {
             let (_fp, end_pos) = chunker.cut(start_pos, buf.len() - start_pos);
 
             // whenever the last cut point is pointing to the end of the buffer,
-            // keep that chunk left in there.
+            // return that from the loop.
             // We don't know if the chunker decided to cut here simply because it was
             // at the end of the buffer, or if it would also cut if there
             // were more data.
             //
             // Split off all previous chunks and keep this chunk data in the buffer.
             if end_pos == buf.len() {
-                break buf[start_pos..].to_vec();
+                break &buf[start_pos..];
             }
 
-            // Upload that chunk to the chunk service and record it in BlobMeta.
-            // TODO: make upload_chunk async and upload concurrently?
-            let chunk_data = &buf[start_pos..end_pos];
-            let chunk_digest = self.upload_chunk(chunk_data.to_vec())?;
+            // if it's an intermediate chunk, add it to chunk_slices.
+            // We'll later upload all of them in batch.
+            chunk_slices.push(&buf[start_pos..end_pos]);
 
-            self.blob_meta.chunks.push(proto::blob_meta::ChunkMeta {
-                digest: chunk_digest,
-                size: chunk_data.len() as u32,
-            });
-
-            // move start_pos over the processed chunk.
+            // advance start_pos over the processed chunk.
             start_pos = end_pos;
         };
 
-        self.buf = rest;
+        // Upload all chunks to the chunk service and map them to a ChunkMeta
+        let blob_meta_chunks: Vec<Result<proto::blob_meta::ChunkMeta, Error>> = chunk_slices
+            .into_par_iter()
+            .map(|chunk_slice| {
+                let chunk_service = self.chunk_service.clone();
+                let chunk_digest = upload_chunk(chunk_service.clone(), chunk_slice.to_vec())?;
+
+                Ok(proto::blob_meta::ChunkMeta {
+                    digest: chunk_digest,
+                    size: chunk_slice.len() as u32,
+                })
+            })
+            .collect();
+
+        self.blob_meta.chunks = blob_meta_chunks
+            .into_iter()
+            .collect::<Result<Vec<proto::blob_meta::ChunkMeta>, Error>>()?;
+
+        // update buf to point to the rest we didn't upload.
+        self.buf = rest.to_vec();
 
         Ok(input_buf_len)
     }
