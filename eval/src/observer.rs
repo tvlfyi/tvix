@@ -166,7 +166,14 @@ impl<W: Write> TracingObserver<W> {
     fn write_stack(&mut self, stack: &[Value]) {
         let _ = write!(&mut self.writer, "[ ");
 
-        for val in stack {
+        // Print out a maximum of 6 values from the top of the stack,
+        // before abbreviating it to `...`.
+        for (i, val) in stack.iter().rev().enumerate() {
+            if i == 6 {
+                let _ = write!(&mut self.writer, "...");
+                break;
+            }
+
             self.write_value(&val);
         }
 
