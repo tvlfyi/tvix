@@ -359,6 +359,15 @@ mod pure_builtins {
 
     #[builtin("toJSON")]
     async fn builtin_to_json(co: GenCo, val: Value) -> Result<Value, ErrorKind> {
+        if let Value::Attrs(attrs) = &val {
+            // Attribute sets with a callable `__toString` attribute
+            // serialise to the string-coerced version of the result of
+            // calling that.
+            if let Some(s) = attrs.try_to_string(&co, CoercionKind::Weak).await {
+                return Ok(Value::String(serde_json::to_string(&s)?.into()));
+            }
+        }
+
         // All thunks need to be evaluated before serialising, as the
         // data structure is fully traversed by the Serializer.
         let val = generators::request_deep_force(&co, val, SharedThunkSet::default()).await;
