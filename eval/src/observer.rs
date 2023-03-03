@@ -49,16 +49,16 @@ pub trait RuntimeObserver {
     fn observe_suspend_call_frame(&mut self, _frame_at: usize, _stack: &[Value]) {}
 
     /// Called when the runtime enters a generator frame.
-    fn observe_enter_generator(&mut self, _frame_at: usize, _stack: &[Value]) {}
+    fn observe_enter_generator(&mut self, _frame_at: usize, _name: &str, _stack: &[Value]) {}
 
     /// Called when the runtime exits a generator frame.
-    fn observe_exit_generator(&mut self, _frame_at: usize, _stack: &[Value]) {}
+    fn observe_exit_generator(&mut self, _frame_at: usize, _name: &str, _stack: &[Value]) {}
 
     /// Called when the runtime suspends a generator frame.
-    fn observe_suspend_generator(&mut self, _frame_at: usize, _stack: &[Value]) {}
+    fn observe_suspend_generator(&mut self, _frame_at: usize, _name: &str, _stack: &[Value]) {}
 
     /// Called when a generator requests an action from the VM.
-    fn observe_generator_request(&mut self, _msg: &GeneratorRequest) {}
+    fn observe_generator_request(&mut self, _name: &str, _msg: &GeneratorRequest) {}
 
     /// Called when the runtime replaces the current call frame for a
     /// tail call.
@@ -219,34 +219,42 @@ impl<W: Write> RuntimeObserver for TracingObserver<W> {
         self.write_stack(stack);
     }
 
-    fn observe_enter_generator(&mut self, frame_at: usize, stack: &[Value]) {
+    fn observe_enter_generator(&mut self, frame_at: usize, name: &str, stack: &[Value]) {
         let _ = write!(
             &mut self.writer,
-            "=== entering generator frame {} ===\t",
-            frame_at
+            "=== entering generator frame '{}' [{}] ===\t",
+            name, frame_at,
         );
 
         self.write_stack(stack);
     }
 
-    fn observe_exit_generator(&mut self, frame_at: usize, stack: &[Value]) {
-        let _ = write!(&mut self.writer, "=== exiting generator {} ===\t", frame_at);
-
-        self.write_stack(stack);
-    }
-
-    fn observe_suspend_generator(&mut self, frame_at: usize, stack: &[Value]) {
+    fn observe_exit_generator(&mut self, frame_at: usize, name: &str, stack: &[Value]) {
         let _ = write!(
             &mut self.writer,
-            "=== suspending generator {} ===\t",
-            frame_at
+            "=== exiting generator '{}' [{}] ===\t",
+            name, frame_at
         );
 
         self.write_stack(stack);
     }
 
-    fn observe_generator_request(&mut self, msg: &GeneratorRequest) {
-        let _ = writeln!(&mut self.writer, "=== generator requested {} ===", msg);
+    fn observe_suspend_generator(&mut self, frame_at: usize, name: &str, stack: &[Value]) {
+        let _ = write!(
+            &mut self.writer,
+            "=== suspending generator '{}' [{}] ===\t",
+            name, frame_at
+        );
+
+        self.write_stack(stack);
+    }
+
+    fn observe_generator_request(&mut self, name: &str, msg: &GeneratorRequest) {
+        let _ = writeln!(
+            &mut self.writer,
+            "=== generator '{}' requested {} ===",
+            name, msg
+        );
     }
 
     fn observe_enter_builtin(&mut self, name: &'static str) {

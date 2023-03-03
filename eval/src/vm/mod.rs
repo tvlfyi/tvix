@@ -125,6 +125,9 @@ enum Frame {
     /// be suspended while waiting for the VM to do something (e.g.
     /// thunk forcing), and resume at the same point.
     Generator {
+        /// human-readable description of the generator,
+        name: &'static str,
+
         /// Span from which the generator was launched.
         span: LightSpan,
 
@@ -296,11 +299,13 @@ impl<'o> VM<'o> {
                 // Handle generator frames, which can request thunk forcing
                 // during their execution.
                 Frame::Generator {
+                    name,
                     span,
                     state,
                     generator,
                 } => {
-                    self.observer.observe_enter_generator(frame_id, &self.stack);
+                    self.observer
+                        .observe_enter_generator(frame_id, name, &self.stack);
 
                     let initial_msg = if catchable_error_occurred {
                         catchable_error_occurred = false;
@@ -309,16 +314,24 @@ impl<'o> VM<'o> {
                         None
                     };
 
-                    match self.run_generator(span, frame_id, state, generator, initial_msg) {
-                        Ok(true) => self.observer.observe_exit_generator(frame_id, &self.stack),
-                        Ok(false) => self
-                            .observer
-                            .observe_suspend_generator(frame_id, &self.stack),
+                    match self.run_generator(name, span, frame_id, state, generator, initial_msg) {
+                        Ok(true) => {
+                            self.observer
+                                .observe_exit_generator(frame_id, name, &self.stack)
+                        }
+                        Ok(false) => {
+                            self.observer
+                                .observe_suspend_generator(frame_id, name, &self.stack)
+                        }
 
                         Err(err) => {
                             if let Some(catching_frame_idx) = self.try_eval_frames.pop() {
                                 if err.kind.is_catchable() {
-                                    self.observer.observe_exit_generator(frame_id, &self.stack);
+                                    self.observer.observe_exit_generator(
+                                        frame_id,
+                                        name,
+                                        &self.stack,
+                                    );
                                     catchable_error_occurred = true;
 
                                     // truncate the frame stack back to the
@@ -395,7 +408,7 @@ impl<'o> VM<'o> {
                     // OpAdd can add not just numbers, but also string-like
                     // things, which requires more VM logic. This operation is
                     // evaluated in a generator frame.
-                    self.enqueue_generator(gen_span, |co| add_values(co, a, b));
+                    self.enqueue_generator("add_values", gen_span, |co| add_values(co, a, b));
                     return Ok(false);
                 }
 
@@ -450,7 +463,7 @@ impl<'o> VM<'o> {
                     let a = self.stack_pop();
                     let gen_span = frame.current_light_span();
                     self.push_call_frame(span, frame);
-                    self.enqueue_generator(gen_span, |co| {
+                    self.enqueue_generator("nix_eq", gen_span, |co| {
                         a.nix_eq(b, co, PointerEquality::ForbidAll)
                     });
                     return Ok(false);
@@ -548,7 +561,7 @@ impl<'o> VM<'o> {
                     let gen_span = frame.current_light_span();
                     self.push_call_frame(span, frame);
 
-                    self.enqueue_generator(gen_span, |co| {
+                    self.enqueue_generator("coerce_to_string", gen_span, |co| {
                         value.coerce_to_string(co, CoercionKind::Weak)
                     });
 
@@ -665,7 +678,7 @@ impl<'o> VM<'o> {
                         .map(|frame| frame.upvalues.with_stack_len())
                         .unwrap_or(0);
 
-                    self.enqueue_generator(op_span, |co| {
+                    self.enqueue_generator("resolve_with", op_span, |co| {
                         resolve_with(
                             co,
                             ident.as_str().to_owned(),
@@ -752,7 +765,7 @@ impl<'o> VM<'o> {
                         let gen_span = frame.current_light_span();
 
                         self.push_call_frame(span, frame);
-                        self.enqueue_generator(gen_span, |co| thunk.force(co));
+                        self.enqueue_generator("force", gen_span, |co| thunk.force(co));
                         return Ok(false);
                     }
                 }
@@ -873,9 +886,10 @@ impl<'o> VM<'o> {
             BuiltinResult::Partial(partial) => self.stack.push(Value::Builtin(partial)),
 
             // Builtin is fully applied and the generator needs to be run by the VM.
-            BuiltinResult::Called(generator) => self.frames.push(Frame::Generator {
+            BuiltinResult::Called(name, generator) => self.frames.push(Frame::Generator {
                 generator,
                 span,
+                name,
                 state: GeneratorState::Running,
             }),
         }
@@ -922,7 +936,7 @@ impl<'o> VM<'o> {
                     .map(|p| p.current_light_span())
                     .unwrap_or_else(|| self.reasonable_light_span());
 
-                self.enqueue_generator(gen_span, |co| call_functor(co, val));
+                self.enqueue_generator("__functor call", gen_span, |co| call_functor(co, val));
                 Ok(())
             }
             v => Err(self.error(ErrorKind::NotCallable(v.type_of()))),
@@ -1104,7 +1118,7 @@ pub fn run_lambda(
 
     // Synthesise a frame that will instruct the VM to deep-force the final
     // value before returning it.
-    vm.enqueue_generator(root_span.into(), final_deep_force);
+    vm.enqueue_generator("final_deep_force", root_span.into(), final_deep_force);
 
     vm.frames.push(Frame::CallFrame {
         span: root_span.into(),

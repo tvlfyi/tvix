@@ -217,8 +217,9 @@ pub fn pin_generator(
 impl<'o> VM<'o> {
     /// Helper function to re-enqueue the current generator while it
     /// is awaiting a value.
-    fn reenqueue_generator(&mut self, span: LightSpan, generator: Generator) {
+    fn reenqueue_generator(&mut self, name: &'static str, span: LightSpan, generator: Generator) {
         self.frames.push(Frame::Generator {
+            name,
             generator,
             span,
             state: GeneratorState::AwaitingValue,
@@ -226,12 +227,13 @@ impl<'o> VM<'o> {
     }
 
     /// Helper function to enqueue a new generator.
-    pub(super) fn enqueue_generator<F, G>(&mut self, span: LightSpan, gen: G)
+    pub(super) fn enqueue_generator<F, G>(&mut self, name: &'static str, span: LightSpan, gen: G)
     where
         F: Future<Output = Result<Value, ErrorKind>> + 'static,
         G: FnOnce(GenCo) -> F,
     {
         self.frames.push(Frame::Generator {
+            name,
             span,
             state: GeneratorState::Running,
             generator: Gen::new(|co| pin_generator(gen(co))),
@@ -245,6 +247,7 @@ impl<'o> VM<'o> {
     /// or was suspended (false).
     pub(crate) fn run_generator(
         &mut self,
+        name: &'static str,
         span: LightSpan,
         frame_id: usize,
         state: GeneratorState,
@@ -266,7 +269,7 @@ impl<'o> VM<'o> {
                 // If the generator yields, it contains an instruction
                 // for what the VM should do.
                 genawaiter::GeneratorState::Yielded(request) => {
-                    self.observer.observe_generator_request(&request);
+                    self.observer.observe_generator_request(name, &request);
 
                     match request {
                         GeneratorRequest::StackPush(value) => {
@@ -282,15 +285,17 @@ impl<'o> VM<'o> {
                         // this function prepares the frame stack and yields
                         // back to the outer VM loop.
                         GeneratorRequest::ForceValue(value) => {
-                            self.reenqueue_generator(span.clone(), generator);
-                            self.enqueue_generator(span, |co| value.force(co));
+                            self.reenqueue_generator(name, span.clone(), generator);
+                            self.enqueue_generator("force", span, |co| value.force(co));
                             return Ok(false);
                         }
 
                         // Generator has requested a deep-force.
                         GeneratorRequest::DeepForceValue(value, thunk_set) => {
-                            self.reenqueue_generator(span.clone(), generator);
-                            self.enqueue_generator(span, |co| value.deep_force(co, thunk_set));
+                            self.reenqueue_generator(name, span.clone(), generator);
+                            self.enqueue_generator("deep_force", span, |co| {
+                                value.deep_force(co, thunk_set)
+                            });
                             return Ok(false);
                         }
 
@@ -298,10 +303,10 @@ impl<'o> VM<'o> {
                         // Logic is similar to `ForceValue`, except with the
                         // value being taken from that stack.
                         GeneratorRequest::WithValue(idx) => {
-                            self.reenqueue_generator(span.clone(), generator);
+                            self.reenqueue_generator(name, span.clone(), generator);
 
                             let value = self.stack[self.with_stack[idx]].clone();
-                            self.enqueue_generator(span, |co| value.force(co));
+                            self.enqueue_generator("force", span, |co| value.force(co));
 
                             return Ok(false);
                         }
@@ -310,34 +315,36 @@ impl<'o> VM<'o> {
                         // with-stack. Logic is same as above, except for the
                         // value being from that stack.
                         GeneratorRequest::CapturedWithValue(idx) => {
-                            self.reenqueue_generator(span.clone(), generator);
+                            self.reenqueue_generator(name, span.clone(), generator);
 
                             let call_frame = self.last_call_frame()
                                 .expect("Tvix bug: generator requested captured with-value, but there is no call frame");
 
                             let value = call_frame.upvalues.with_stack().unwrap()[idx].clone();
-                            self.enqueue_generator(span, |co| value.force(co));
+                            self.enqueue_generator("force", span, |co| value.force(co));
 
                             return Ok(false);
                         }
 
                         GeneratorRequest::NixEquality(values, ptr_eq) => {
                             let values = *values;
-                            self.reenqueue_generator(span.clone(), generator);
-                            self.enqueue_generator(span, |co| {
+                            self.reenqueue_generator(name, span.clone(), generator);
+                            self.enqueue_generator("nix_eq", span, |co| {
                                 values.0.nix_eq(values.1, co, ptr_eq)
                             });
                             return Ok(false);
                         }
 
                         GeneratorRequest::StringCoerce(val, kind) => {
-                            self.reenqueue_generator(span.clone(), generator);
-                            self.enqueue_generator(span, |co| val.coerce_to_string(co, kind));
+                            self.reenqueue_generator(name, span.clone(), generator);
+                            self.enqueue_generator("coerce_to_string", span, |co| {
+                                val.coerce_to_string(co, kind)
+                            });
                             return Ok(false);
                         }
 
                         GeneratorRequest::Call(callable) => {
-                            self.reenqueue_generator(span.clone(), generator);
+                            self.reenqueue_generator(name, span.clone(), generator);
                             self.tail_call_value(span, None, callable)?;
                             return Ok(false);
                         }
@@ -347,7 +354,7 @@ impl<'o> VM<'o> {
                             upvalues,
                             light_span,
                         } => {
-                            self.reenqueue_generator(span, generator);
+                            self.reenqueue_generator(name, span, generator);
 
                             self.frames.push(Frame::CallFrame {
                                 span: light_span,
@@ -423,14 +430,14 @@ impl<'o> VM<'o> {
 
                         GeneratorRequest::TryForce(value) => {
                             self.try_eval_frames.push(frame_id);
-                            self.reenqueue_generator(span.clone(), generator);
+                            self.reenqueue_generator(name, span.clone(), generator);
 
                             debug_assert!(
                                 self.frames.len() == frame_id + 1,
                                 "generator should be reenqueued with the same frame ID"
                             );
 
-                            self.enqueue_generator(span, |co| value.force(co));
+                            self.enqueue_generator("force", span, |co| value.force(co));
                             return Ok(false);
                         }
                     }

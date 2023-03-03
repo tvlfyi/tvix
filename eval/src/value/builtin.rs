@@ -41,7 +41,7 @@ pub enum BuiltinResult {
     Partial(Builtin),
 
     /// Builtin was called and constructed a generator that the VM must run.
-    Called(Generator),
+    Called(&'static str, Generator),
 }
 
 /// Represents a single built-in function which directly executes Rust
@@ -105,7 +105,7 @@ impl Builtin {
     /// applied or return the builtin if it is partially applied.
     pub fn call(self) -> BuiltinResult {
         if self.0.partials.len() == self.0.arg_count {
-            BuiltinResult::Called((self.0.func)(self.0.partials))
+            BuiltinResult::Called(self.0.name, (self.0.func)(self.0.partials))
         } else {
             BuiltinResult::Partial(self)
         }
