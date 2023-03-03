@@ -937,7 +937,17 @@ impl Compiler<'_> {
                 let jump_over_default = self.push_op(OpCode::OpJump(JumpOffset(0)), &default_expr);
 
                 self.patch_jump(jump_to_default);
-                self.compile(idx, default_expr);
+
+                // Thunk the default expression, but only if it is something
+                // other than an identifier.
+                if let ast::Expr::Ident(_) = &default_expr {
+                    self.compile(idx, default_expr);
+                } else {
+                    self.thunk(idx, &self.span_for(&default_expr), move |c, s| {
+                        c.compile(s, default_expr)
+                    });
+                }
+
                 self.patch_jump(jump_over_default);
             } else {
                 self.push_op(OpCode::OpAttrsSelect, &entry.ident().unwrap());
