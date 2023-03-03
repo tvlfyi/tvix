@@ -146,7 +146,7 @@ impl Frame {
     }
 }
 
-pub struct VM<'o> {
+struct VM<'o> {
     /// VM's frame stack, representing the execution contexts the VM is working
     /// through. Elements are usually pushed when functions are called, or
     /// thunks are being forced.
