@@ -1,22 +1,22 @@
 use crate::{
-    blobservice::{BlobService, SledBlobService},
-    chunkservice::{ChunkService, SledChunkService},
-    directoryservice::{DirectoryService, SledDirectoryService},
-    pathinfoservice::{PathInfoService, SledPathInfoService},
+    blobservice::{BlobService, MemoryBlobService},
+    chunkservice::{ChunkService, MemoryChunkService},
+    directoryservice::{DirectoryService, MemoryDirectoryService},
+    pathinfoservice::{MemoryPathInfoService, PathInfoService},
 };
 
 pub fn gen_blob_service() -> impl BlobService + Send + Sync + Clone + 'static {
-    SledBlobService::new_temporary().unwrap()
+    MemoryBlobService::new()
 }
 
 pub fn gen_chunk_service() -> impl ChunkService + Clone {
-    SledChunkService::new_temporary().unwrap()
+    MemoryChunkService::new()
 }
 
 pub fn gen_directory_service() -> impl DirectoryService + Send + Sync + Clone + 'static {
-    SledDirectoryService::new_temporary().unwrap()
+    MemoryDirectoryService::new()
 }
 
 pub fn gen_pathinfo_service() -> impl PathInfoService {
-    SledPathInfoService::new_temporary().unwrap()
+    MemoryPathInfoService::new()
 }
