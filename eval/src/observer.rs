@@ -149,6 +149,16 @@ impl<W: Write> TracingObserver<W> {
             writer: TabWriter::new(writer),
         }
     }
+
+    fn write_stack(&mut self, stack: &[Value]) {
+        let _ = write!(&mut self.writer, "[ ");
+
+        for val in stack {
+            let _ = write!(&mut self.writer, "{} ", val);
+        }
+
+        let _ = writeln!(&mut self.writer, "]");
+    }
 }
 
 impl<W: Write> RuntimeObserver for TracingObserver<W> {
@@ -179,69 +189,40 @@ impl<W: Write> RuntimeObserver for TracingObserver<W> {
 
     /// Called when the runtime exits a call frame.
     fn observe_exit_call_frame(&mut self, frame_at: usize, stack: &[Value]) {
-        let _ = write!(&mut self.writer, "=== exiting frame {} ===\t[ ", frame_at);
-
-        for val in stack {
-            let _ = write!(&mut self.writer, "{} ", val);
-        }
-
-        let _ = writeln!(&mut self.writer, "]");
+        let _ = write!(&mut self.writer, "=== exiting frame {} ===\t ", frame_at);
+        self.write_stack(stack);
     }
 
     fn observe_suspend_call_frame(&mut self, frame_at: usize, stack: &[Value]) {
-        let _ = write!(
-            &mut self.writer,
-            "=== suspending frame {} ===\t[ ",
-            frame_at
-        );
+        let _ = write!(&mut self.writer, "=== suspending frame {} ===\t", frame_at);
 
-        for val in stack {
-            let _ = write!(&mut self.writer, "{} ", val);
-        }
-
-        let _ = writeln!(&mut self.writer, "]");
+        self.write_stack(stack);
     }
 
     fn observe_enter_generator(&mut self, frame_at: usize, stack: &[Value]) {
         let _ = write!(
             &mut self.writer,
-            "=== entering generator frame {} ===\t[ ",
+            "=== entering generator frame {} ===\t",
             frame_at
         );
 
-        for val in stack {
-            let _ = write!(&mut self.writer, "{} ", val);
-        }
-
-        let _ = writeln!(&mut self.writer, "]");
+        self.write_stack(stack);
     }
 
     fn observe_exit_generator(&mut self, frame_at: usize, stack: &[Value]) {
-        let _ = write!(
-            &mut self.writer,
-            "=== exiting generator {} ===\t[ ",
-            frame_at
-        );
+        let _ = write!(&mut self.writer, "=== exiting generator {} ===\t", frame_at);
 
-        for val in stack {
-            let _ = write!(&mut self.writer, "{} ", val);
-        }
-
-        let _ = writeln!(&mut self.writer, "]");
+        self.write_stack(stack);
     }
 
     fn observe_suspend_generator(&mut self, frame_at: usize, stack: &[Value]) {
         let _ = write!(
             &mut self.writer,
-            "=== suspending generator {} ===\t[ ",
+            "=== suspending generator {} ===\t",
             frame_at
         );
 
-        for val in stack {
-            let _ = write!(&mut self.writer, "{} ", val);
-        }
-
-        let _ = writeln!(&mut self.writer, "]");
+        self.write_stack(stack);
     }
 
     fn observe_generator_request(&mut self, msg: &GeneratorRequest) {
@@ -253,13 +234,8 @@ impl<W: Write> RuntimeObserver for TracingObserver<W> {
     }
 
     fn observe_exit_builtin(&mut self, name: &'static str, stack: &[Value]) {
-        let _ = write!(&mut self.writer, "=== exiting builtin {} ===\t[ ", name);
-
-        for val in stack {
-            let _ = write!(&mut self.writer, "{} ", val);
-        }
-
-        let _ = writeln!(&mut self.writer, "]");
+        let _ = write!(&mut self.writer, "=== exiting builtin {} ===\t", name);
+        self.write_stack(stack);
     }
 
     fn observe_tail_call(&mut self, frame_at: usize, lambda: &Rc<Lambda>) {
@@ -271,13 +247,8 @@ impl<W: Write> RuntimeObserver for TracingObserver<W> {
     }
 
     fn observe_execute_op(&mut self, ip: CodeIdx, op: &OpCode, stack: &[Value]) {
-        let _ = write!(&mut self.writer, "{:04} {:?}\t[ ", ip.0, op);
-
-        for val in stack {
-            let _ = write!(&mut self.writer, "{} ", val);
-        }
-
-        let _ = writeln!(&mut self.writer, "]");
+        let _ = write!(&mut self.writer, "{:04} {:?}\t", ip.0, op);
+        self.write_stack(stack);
     }
 }
 
