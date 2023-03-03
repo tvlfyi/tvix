@@ -120,22 +120,26 @@ pub enum GeneratorRequest {
 impl Display for GeneratorRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            GeneratorRequest::ForceValue(v) => write!(f, "force_value({})", v),
-            GeneratorRequest::DeepForceValue(v, _) => write!(f, "deep_force_value({})", v),
+            GeneratorRequest::ForceValue(v) => write!(f, "force_value({})", v.type_of()),
+            GeneratorRequest::DeepForceValue(v, _) => {
+                write!(f, "deep_force_value({})", v.type_of())
+            }
             GeneratorRequest::WithValue(_) => write!(f, "with_value"),
             GeneratorRequest::CapturedWithValue(_) => write!(f, "captured_with_value"),
             GeneratorRequest::NixEquality(values, ptr_eq) => {
                 write!(
                     f,
                     "nix_eq({}, {}, PointerEquality::{:?})",
-                    values.0, values.1, ptr_eq
+                    values.0.type_of(),
+                    values.1.type_of(),
+                    ptr_eq
                 )
             }
-            GeneratorRequest::StackPush(v) => write!(f, "stack_push({})", v),
+            GeneratorRequest::StackPush(v) => write!(f, "stack_push({})", v.type_of()),
             GeneratorRequest::StackPop => write!(f, "stack_pop"),
             GeneratorRequest::StringCoerce(v, kind) => match kind {
-                CoercionKind::Weak => write!(f, "weak_string_coerce({})", v),
-                CoercionKind::Strong => write!(f, "strong_string_coerce({})", v),
+                CoercionKind::Weak => write!(f, "weak_string_coerce({})", v.type_of()),
+                CoercionKind::Strong => write!(f, "strong_string_coerce({})", v.type_of()),
             },
             GeneratorRequest::Call(v) => write!(f, "call({})", v),
             GeneratorRequest::EnterLambda { lambda, .. } => {
@@ -155,7 +159,7 @@ impl Display for GeneratorRequest {
             GeneratorRequest::PathExists(p) => write!(f, "path_exists({})", p.to_string_lossy()),
             GeneratorRequest::ReadDir(p) => write!(f, "read_dir({})", p.to_string_lossy()),
             GeneratorRequest::Span => write!(f, "span"),
-            GeneratorRequest::TryForce(v) => write!(f, "try_force({})", v),
+            GeneratorRequest::TryForce(v) => write!(f, "try_force({})", v.type_of()),
         }
     }
 }
