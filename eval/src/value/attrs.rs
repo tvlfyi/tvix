@@ -15,9 +15,11 @@ use serde::{Deserialize, Serialize};
 
 use super::string::NixString;
 use super::thunk::ThunkSet;
+use super::CoercionKind;
 use super::TotalDisplay;
 use super::Value;
 use crate::errors::ErrorKind;
+use crate::generators::{self, GenCo};
 
 lazy_static! {
     static ref NAME_S: NixString = "name".into();
@@ -395,6 +397,30 @@ impl NixAttrs {
     /// `"name"` key, and the value for the `"value"` key
     pub(crate) fn from_kv(name: Value, value: Value) -> Self {
         NixAttrs(AttrsRep::KV { name, value })
+    }
+
+    /// Attempt to coerce an attribute set with a `__toString`
+    /// attribute to a string.
+    pub(crate) async fn try_to_string(&self, co: &GenCo, kind: CoercionKind) -> Option<NixString> {
+        if let Some(to_string) = self.select("__toString") {
+            let callable = generators::request_force(&co, to_string.clone()).await;
+
+            // Leave the attribute set on the stack as an argument
+            // to the function call.
+            generators::request_stack_push(&co, Value::Attrs(Box::new(self.clone()))).await;
+
+            // Call the callable ...
+            let result = generators::request_call(&co, callable).await;
+
+            // Recurse on the result, as attribute set coercion
+            // actually works recursively, e.g. you can even return
+            // /another/ set with a __toString attr.
+            let s = generators::request_string_coerce(&co, result, kind).await;
+
+            return Some(s);
+        }
+
+        None
     }
 }
 

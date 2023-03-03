@@ -265,32 +265,16 @@ impl Value {
             // set itself or an `outPath` attribute which should be a string.
             // `__toString` is preferred.
             (Value::Attrs(attrs), kind) => {
-                match (attrs.select("__toString"), attrs.select("outPath")) {
-                    (None, None) => Err(ErrorKind::NotCoercibleToString { from: "set", kind }),
-
-                    (Some(f), _) => {
-                        let callable = generators::request_force(&co, f.clone()).await;
-
-                        // Leave the attribute set on the stack as an argument
-                        // to the function call.
-                        generators::request_stack_push(&co, Value::Attrs(attrs)).await;
-
-                        // Call the callable ...
-                        let result = generators::request_call(&co, callable).await;
-
-                        // Recurse on the result, as attribute set coercion
-                        // actually works recursively, e.g. you can even return
-                        // /another/ set with a __toString attr.
-                        let s = generators::request_string_coerce(&co, result, kind).await;
-                        Ok(Value::String(s))
-                    }
-
-                    // Similarly to `__toString` we also coerce recursively for `outPath`
-                    (None, Some(s)) => {
-                        let s = generators::request_string_coerce(&co, s.clone(), kind).await;
-                        Ok(Value::String(s))
-                    }
+                if let Some(s) = attrs.try_to_string(&co, kind).await {
+                    return Ok(Value::String(s));
                 }
+
+                if let Some(out_path) = attrs.select("outPath") {
+                    let s = generators::request_string_coerce(&co, out_path.clone(), kind).await;
+                    return Ok(Value::String(s));
+                }
+
+                Err(ErrorKind::NotCoercibleToString { from: "set", kind })
             }
 
             // strong coercions
