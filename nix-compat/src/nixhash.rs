@@ -61,8 +61,8 @@ fn hash_algo_length(hash_algo: &HashAlgo) -> usize {
 pub enum Error {
     #[error("invalid hash algo: {0}")]
     InvalidAlgo(String),
-    #[error("invalid sri string")]
-    InvalidSRI,
+    #[error("invalid SRI string: {0}")]
+    InvalidSRI(String),
     #[error("invalid encoded digest length '{0}' for algo {1}")]
     InvalidEncodedDigestLength(usize, HashAlgo),
     #[error("invalid base16 encoding: {0}")]
@@ -155,7 +155,7 @@ pub fn from_sri_str(s: &str) -> Result<NixHash, Error> {
     let idx = s.as_bytes().iter().position(|&e| e == b'-');
 
     if idx.is_none() {
-        return Err(Error::InvalidSRI);
+        return Err(Error::InvalidSRI(s.to_string()));
     }
 
     let idx = idx.unwrap();
