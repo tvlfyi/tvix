@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use imbl::{vector, Vector};
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::generators;
 use crate::generators::GenCo;
@@ -16,7 +16,7 @@ use super::TotalDisplay;
 use super::Value;
 
 #[repr(transparent)]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct NixList(Rc<Vector<Value>>);
 
 impl TotalDisplay for NixList {

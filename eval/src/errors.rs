@@ -134,6 +134,9 @@ pub enum ErrorKind {
     /// Errors converting JSON to a value
     FromJsonError(String),
 
+    /// Nix value that can not be serialised to JSON.
+    NotSerialisableToJson(&'static str),
+
     /// Errors converting TOML to a value
     FromTomlError(String),
 
@@ -440,6 +443,10 @@ to a missing value in the attribute set(s) included via `with`."#,
 
             ErrorKind::FromJsonError(msg) => {
                 write!(f, "Error converting JSON to a Nix value: {msg}")
+            }
+
+            ErrorKind::NotSerialisableToJson(_type) => {
+                write!(f, "a {} cannot be converted to JSON", _type)
             }
 
             ErrorKind::FromTomlError(msg) => {
@@ -761,6 +768,7 @@ impl Error {
             | ErrorKind::ImportCompilerError { .. }
             | ErrorKind::IO { .. }
             | ErrorKind::FromJsonError(_)
+            | ErrorKind::NotSerialisableToJson(_)
             | ErrorKind::FromTomlError(_)
             | ErrorKind::Xml(_)
             | ErrorKind::TvixError(_)
@@ -809,6 +817,7 @@ impl Error {
             ErrorKind::DivisionByZero => "E033",
             ErrorKind::Xml(_) => "E034",
             ErrorKind::FromTomlError(_) => "E035",
+            ErrorKind::NotSerialisableToJson(_) => "E036",
 
             // Special error code for errors from other Tvix
             // components. We may want to introduce a code namespacing

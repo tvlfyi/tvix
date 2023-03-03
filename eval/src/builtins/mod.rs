@@ -359,36 +359,8 @@ mod pure_builtins {
 
     #[builtin("toJSON")]
     async fn builtin_to_json(co: GenCo, val: Value) -> Result<Value, ErrorKind> {
-        let mut val = val; // shadow mutably, not supported by macro
-        loop {
-            if let Value::Attrs(attrs) = &val {
-                // Attribute sets with a callable `__toString` attribute
-                // serialise to the string-coerced version of the result of
-                // calling that.
-                if let Some(s) = attrs.try_to_string(&co, CoercionKind::Weak).await {
-                    return Ok(Value::String(serde_json::to_string(&s)?.into()));
-                }
-
-                // Attribute sets with an `outPath` attribute
-                // serialise to a JSON serialisation of that inner
-                // value (regardless of what it is!).
-                if let Some(out_path) = attrs.select("outPath") {
-                    val = out_path.clone();
-                    continue;
-                }
-
-                // Attribute set should be serialised normally (by
-                // traversing it and serialising keys/values).
-                break;
-            }
-
-            break;
-        }
-
-        // All thunks need to be evaluated before serialising, as the
-        // data structure is fully traversed by the Serializer.
-        let val = generators::request_deep_force(&co, val, SharedThunkSet::default()).await;
-        let json_str = serde_json::to_string(&val)?;
+        let json_value = val.to_json(&co).await?;
+        let json_str = serde_json::to_string(&json_value)?;
         Ok(json_str.into())
     }
 

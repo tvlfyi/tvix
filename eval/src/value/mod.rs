@@ -9,13 +9,14 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 use lexical_core::format::CXX_LITERAL;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 #[cfg(feature = "arbitrary")]
 mod arbitrary;
 mod attrs;
 mod builtin;
 mod function;
+mod json;
 mod list;
 mod path;
 mod string;
@@ -39,7 +40,7 @@ pub use self::thunk::{SharedThunkSet, ThunkSet};
 use lazy_static::lazy_static;
 
 #[warn(variant_size_differences)]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
 pub enum Value {
     Null,
@@ -76,6 +77,8 @@ pub enum Value {
     DeferredUpvalue(StackIdx),
     #[serde(skip)]
     UnresolvedPath(Box<PathBuf>),
+    #[serde(skip)]
+    Json(serde_json::Value),
 }
 
 lazy_static! {
@@ -231,7 +234,8 @@ impl Value {
             Value::AttrNotFound
             | Value::Blueprint(_)
             | Value::DeferredUpvalue(_)
-            | Value::UnresolvedPath(_) => panic!(
+            | Value::UnresolvedPath(_)
+            | Value::Json(_) => panic!(
                 "Tvix bug: internal value left on stack: {}",
                 value.type_of()
             ),
@@ -322,7 +326,8 @@ impl Value {
             (Value::AttrNotFound, _)
             | (Value::Blueprint(_), _)
             | (Value::DeferredUpvalue(_), _)
-            | (Value::UnresolvedPath(_), _) => {
+            | (Value::UnresolvedPath(_), _)
+            | (Value::Json(_), _) => {
                 panic!("tvix bug: .coerce_to_string() called on internal value")
             }
         }
@@ -512,6 +517,7 @@ impl Value {
             Value::Blueprint(_) => "internal[blueprint]",
             Value::DeferredUpvalue(_) => "internal[deferred_upvalue]",
             Value::UnresolvedPath(_) => "internal[unresolved_path]",
+            Value::Json(_) => "internal[json]",
         }
     }
 
@@ -643,7 +649,8 @@ impl Value {
             Value::AttrNotFound
             | Value::Blueprint(_)
             | Value::DeferredUpvalue(_)
-            | Value::UnresolvedPath(_) => "an internal Tvix evaluator value".into(),
+            | Value::UnresolvedPath(_)
+            | Value::Json(_) => "an internal Tvix evaluator value".into(),
         }
     }
 }
@@ -756,6 +763,7 @@ impl TotalDisplay for Value {
             Value::Blueprint(_) => f.write_str("internal[blueprint]"),
             Value::DeferredUpvalue(_) => f.write_str("internal[deferred_upvalue]"),
             Value::UnresolvedPath(_) => f.write_str("internal[unresolved_path]"),
+            Value::Json(_) => f.write_str("internal[json]"),
 
             // Delegate thunk display to the type, as it must handle
             // the case of already evaluated or cyclic thunks.

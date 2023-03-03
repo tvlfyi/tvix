@@ -91,7 +91,8 @@ impl<'de> de::Deserializer<'de> for NixDeserializer {
             | Value::AttrNotFound
             | Value::Blueprint(_)
             | Value::DeferredUpvalue(_)
-            | Value::UnresolvedPath(_) => Err(Error::Unserializable {
+            | Value::UnresolvedPath(_)
+            | Value::Json(_) => Err(Error::Unserializable {
                 value_type: self.value.type_of(),
             }),
         }

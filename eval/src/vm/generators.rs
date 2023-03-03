@@ -114,6 +114,10 @@ pub enum GeneratorRequest {
     /// Request evaluation of `builtins.tryEval` from the VM. See
     /// [`VM::catch_result`] for an explanation of how this works.
     TryForce(Value),
+
+    /// Request serialisation of a value to JSON, according to the
+    /// slightly odd Nix evaluation rules.
+    ToJson(Value),
 }
 
 /// Human-readable representation of a generator message, used by observers.
@@ -160,6 +164,7 @@ impl Display for GeneratorRequest {
             GeneratorRequest::ReadDir(p) => write!(f, "read_dir({})", p.to_string_lossy()),
             GeneratorRequest::Span => write!(f, "span"),
             GeneratorRequest::TryForce(v) => write!(f, "try_force({})", v.type_of()),
+            GeneratorRequest::ToJson(v) => write!(f, "to_json({})", v.type_of()),
         }
     }
 }
@@ -440,6 +445,14 @@ impl<'o> VM<'o> {
                             self.enqueue_generator("force", span, |co| value.force(co));
                             return Ok(false);
                         }
+
+                        GeneratorRequest::ToJson(value) => {
+                            self.reenqueue_generator(name, span.clone(), generator);
+                            self.enqueue_generator("to_json", span, |co| {
+                                value.to_json_generator(co)
+                            });
+                            return Ok(false);
+                        }
                     }
                 }
 
@@ -701,6 +714,16 @@ pub(crate) async fn request_read_dir(co: &GenCo, path: PathBuf) -> Vec<(SmolStr,
 pub(crate) async fn request_span(co: &GenCo) -> LightSpan {
     match co.yield_(GeneratorRequest::Span).await {
         GeneratorResponse::Span(span) => span,
+        msg => panic!(
+            "Tvix bug: VM responded with incorrect generator message: {}",
+            msg
+        ),
+    }
+}
+
+pub(crate) async fn request_to_json(co: &GenCo, value: Value) -> serde_json::Value {
+    match co.yield_(GeneratorRequest::ToJson(value)).await {
+        GeneratorResponse::Value(Value::Json(json)) => json,
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg
