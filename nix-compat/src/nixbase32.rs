@@ -150,7 +150,7 @@ mod tests {
             }
             None => {
                 // the decode needs to be an error
-                assert_eq!(true, super::decode(enc.as_bytes()).is_err());
+                assert!(super::decode(enc.as_bytes()).is_err());
             }
         }
     }
