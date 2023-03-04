@@ -1,4 +1,4 @@
-use data_encoding::{BASE64, BASE64_NOPAD};
+use data_encoding::{BASE64, BASE64_NOPAD, HEXLOWER};
 use std::fmt::Display;
 use thiserror::Error;
 
@@ -10,6 +10,19 @@ use crate::nixbase32;
 pub struct NixHash {
     pub digest: Vec<u8>,
     pub algo: HashAlgo,
+}
+
+impl NixHash {
+    /// Constructs a new [NixHash] by specifying [HashAlgo] and digest.
+    pub fn new(algo: HashAlgo, digest: Vec<u8>) -> Self {
+        Self { algo, digest }
+    }
+
+    /// Formats a [NixHash] in the Nix default hash format,
+    /// which is the algo, followed by a colon, then the lower hex encoded digest.
+    pub fn to_nix_hash_string(&self) -> String {
+        format!("{}:{}", self.algo, HEXLOWER.encode(&self.digest))
+    }
 }
 
 /// This are the hash algorithms supported by cppnix.
