@@ -130,7 +130,7 @@ mod tests {
         let example_nix_path_str =
             "00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432";
         let nixpath =
-            StorePath::from_string(&example_nix_path_str).expect("Error parsing example string");
+            StorePath::from_string(example_nix_path_str).expect("Error parsing example string");
 
         let expected_digest: [u8; DIGEST_SIZE] = [
             0x8a, 0x12, 0x32, 0x15, 0x22, 0xfd, 0x91, 0xef, 0xbd, 0x60, 0xeb, 0xb2, 0x48, 0x1a,
@@ -173,7 +173,7 @@ mod tests {
     fn absolute_path() {
         let example_nix_path_str =
             "00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432";
-        let nixpath_expected = StorePath::from_string(&example_nix_path_str).expect("must parse");
+        let nixpath_expected = StorePath::from_string(example_nix_path_str).expect("must parse");
 
         let nixpath_actual = StorePath::from_absolute_path(
             "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432",
