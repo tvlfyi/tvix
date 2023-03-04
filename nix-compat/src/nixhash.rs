@@ -75,35 +75,13 @@ pub enum Error {
     ConflictingHashAlgos(String, String),
 }
 
-/// parses a string to a nix hash.
-///
-/// strings can be encoded as:
-/// - base16 (lowerhex),
-/// - nixbase32,
-/// - base64 (StdEncoding)
-/// - sri string
-///
-/// The encoding is derived from the length of the string and the hash type.
-/// The hash type may be omitted if the hash is expressed in SRI.
-/// Even though SRI allows specifying multiple algorithms, Nix does only
-/// support a single one.
-pub fn from_str(s: &str, algo_str: Option<&str>) -> Result<NixHash, Error> {
-    // validate algo_str, construct hash_algo
-    let hash_algo: Option<HashAlgo> = match &algo_str {
-        Some("sha1") => Some(HashAlgo::Sha1),
-        Some("sha256") => Some(HashAlgo::Sha256),
-        Some("sha512") => Some(HashAlgo::Sha512),
-        Some("md5") => Some(HashAlgo::Md5),
-        Some(e) => return Err(Error::InvalidAlgo(e.to_string())),
-        None => None,
-    };
+/// decode a string depending on the hash algo specified externally.
+fn decode_digest(s: &str, algo: HashAlgo) -> Result<NixHash, Error> {
+    // for the chosen hash algo, calculate the expected digest length (as bytes)
+    let expected_digest_len = hash_algo_length(&algo);
 
-    // in case the hash algo is set, try to detect the encoding
-    if let Some(hash_algo) = hash_algo {
-        // for the chosen hash algo, calculate the expected digest length (as bytes)
-        let expected_digest_len = hash_algo_length(&hash_algo);
-
-        let decoded_digest = match s.len() {
+    Ok(NixHash {
+        digest: match s.len() {
             n if n == data_encoding::HEXLOWER.encode_len(expected_digest_len) => {
                 data_encoding::HEXLOWER
                     .decode(s.as_ref())
@@ -121,9 +99,9 @@ pub fn from_str(s: &str, algo_str: Option<&str>) -> Result<NixHash, Error> {
                 let nix_hash = from_sri_str(s)?;
 
                 // ensure the algo matches what was specified
-                if hash_algo != nix_hash.algo {
+                if algo != nix_hash.algo {
                     return Err(Error::ConflictingHashAlgos(
-                        hash_algo.to_string(),
+                        algo.to_string(),
                         nix_hash.algo.to_string(),
                     ));
                 }
@@ -131,12 +109,37 @@ pub fn from_str(s: &str, algo_str: Option<&str>) -> Result<NixHash, Error> {
                 // return
                 return Ok(nix_hash);
             }
-        }?;
+        }?,
+        algo,
+    })
+}
 
-        Ok(NixHash {
-            digest: decoded_digest,
-            algo: hash_algo,
-        })
+/// parses a string to a nix hash.
+///
+/// strings can be encoded as:
+/// - base16 (lowerhex),
+/// - nixbase32,
+/// - base64 (StdEncoding)
+/// - sri string
+///
+/// The encoding is derived from the length of the string and the hash type.
+/// The hash type may be omitted if the hash is expressed in SRI.
+/// Even though SRI allows specifying multiple algorithms, Nix does only
+/// support a single one.
+pub fn from_str(s: &str, algo_str: Option<&str>) -> Result<NixHash, Error> {
+    // validate algo_str, construct hash_algo
+    let algo: Option<HashAlgo> = match &algo_str {
+        Some("sha1") => Some(HashAlgo::Sha1),
+        Some("sha256") => Some(HashAlgo::Sha256),
+        Some("sha512") => Some(HashAlgo::Sha512),
+        Some("md5") => Some(HashAlgo::Md5),
+        Some(e) => return Err(Error::InvalidAlgo(e.to_string())),
+        None => None,
+    };
+
+    // in case the hash algo is set, decode the digest and return
+    if let Some(algo) = algo {
+        Ok(decode_digest(s, algo))?
     } else {
         // try to decode as SRI
         let nix_hash = from_sri_str(s)?;
