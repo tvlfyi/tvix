@@ -1,5 +1,6 @@
 use crate::derivation::DerivationError;
 use crate::nixbase32;
+use crate::nixhash::NixHash;
 use crate::store_path::{self, StorePath};
 use sha2::{Digest, Sha256};
 
@@ -67,9 +68,11 @@ pub fn path_with_references<S: AsRef<str>, I: IntoIterator<Item = S>, C: AsRef<[
         hasher.finalize()
     };
 
+    let h = NixHash::new(crate::nixhash::HashAlgo::Sha256, content_digest.to_vec());
+
     s.push_str(&format!(
-        ":sha256:{:x}:{}:{}",
-        content_digest,
+        ":{}:{}:{}",
+        h.to_nix_hash_string(),
         store_path::STORE_DIR,
         name
     ));

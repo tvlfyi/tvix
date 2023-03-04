@@ -1,4 +1,7 @@
-use crate::store_path::{self, StorePath};
+use crate::{
+    nixhash::NixHash,
+    store_path::{self, StorePath},
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -100,7 +103,7 @@ impl Derivation {
     ///     This is: `text:`,
     ///     all d.InputDerivations and d.InputSources (sorted, separated by a `:`),
     ///     a `:`,
-    ///     a `sha256:`, followed by the sha256 digest of the ATerm representation (hex-encoded)
+    ///     the nix string representation of the sha256 sum of the ATerm representation
     ///     a `:`,
     ///     the storeDir, followed by a `:`,
     ///     the name of a derivation,
@@ -135,9 +138,11 @@ impl Derivation {
             derivation_hasher.finalize()
         };
 
+        let h = NixHash::new(crate::nixhash::HashAlgo::Sha256, aterm_digest.to_vec());
+
         s.push_str(&format!(
-            "sha256:{:x}:{}:{}.drv",
-            aterm_digest,
+            "{}:{}:{}.drv",
+            h.to_nix_hash_string(),
             store_path::STORE_DIR,
             name,
         ));
