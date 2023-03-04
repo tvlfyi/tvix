@@ -59,10 +59,24 @@ impl EvalIO for NixCompatIO {
 
     // Pass the rest of the functions through to `Self::underlying`
     fn path_exists(&self, path: PathBuf) -> Result<bool, ErrorKind> {
+        if path.starts_with("/__corepkgs__") {
+            return Ok(true);
+        }
+
         self.underlying.path_exists(path)
     }
 
     fn read_to_string(&self, path: PathBuf) -> Result<String, ErrorKind> {
+        // Bundled version of corepkgs/fetchurl.nix. This workaround
+        // is similar to what cppnix does for passing the path
+        // through.
+        //
+        // TODO: this comparison is bad and allocates, we should use
+        // the sane path library.
+        if path.starts_with("/__corepkgs__/fetchurl.nix") {
+            return Ok(include_str!("fetchurl.nix").to_string());
+        }
+
         self.underlying.read_to_string(path)
     }
 

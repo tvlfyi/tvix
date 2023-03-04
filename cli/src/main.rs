@@ -56,7 +56,15 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
     let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
 
     eval.io_handle = Box::new(nix_compat::NixCompatIO::new(known_paths.clone()));
-    eval.nix_path = args.nix_search_path.clone();
+
+    // bundle fetchurl.nix (used in nixpkgs) by resolving <nix> to
+    // `/__corepkgs__`, which has special handling in [`nix_compat`].
+    eval.nix_path = args
+        .nix_search_path
+        .as_ref()
+        .map(|p| format!("nix=/__corepkgs__:{}", p))
+        .or_else(|| Some("nix=/__corepkgs__".to_string()));
+
     eval.builtins
         .extend(derivation::derivation_builtins(known_paths));
 
