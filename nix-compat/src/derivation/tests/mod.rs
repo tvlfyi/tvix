@@ -17,7 +17,7 @@ fn read_file(path: &str) -> String {
 
     file.read_to_string(&mut data).unwrap();
 
-    return data;
+    data
 }
 
 #[test_resources("src/derivation/tests/derivation_tests/*.drv")]
@@ -155,7 +155,7 @@ fn output_paths(name: &str, drv_path: &str) {
 
     // We need to calculate the replacement_str, as fixed-sha1 does use it.
     derivation
-        .calculate_output_paths(&name, &replacement_str)
+        .calculate_output_paths(name, &replacement_str)
         .unwrap();
 
     // The derivation should now look like it was before
