@@ -570,7 +570,10 @@ impl<'o> VM<'o> {
 
                 OpCode::OpFindFile => match self.stack_pop() {
                     Value::UnresolvedPath(path) => {
-                        let resolved = self.nix_search_path.resolve(*path).with_span(&frame)?;
+                        let resolved = self
+                            .nix_search_path
+                            .resolve(&*self.io_handle, *path)
+                            .with_span(&frame)?;
                         self.stack.push(resolved.into());
                     }
 

@@ -1,9 +1,10 @@
+use path_clean::PathClean;
 use std::convert::Infallible;
-use std::io;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use crate::errors::ErrorKind;
+use crate::EvalIO;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum NixSearchPathEntry {
@@ -42,24 +43,43 @@ enum NixSearchPathEntry {
     Prefix { prefix: PathBuf, path: PathBuf },
 }
 
-impl NixSearchPathEntry {
-    fn resolve(&self, lookup_path: &Path) -> io::Result<Option<PathBuf>> {
-        let resolve_in =
-            |parent: &Path, lookup_path: &Path| match parent.join(lookup_path).canonicalize() {
-                Ok(path) => Ok(Some(path)),
-                Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
-                Err(e) => Err(e),
-            };
+fn canonicalise(path: PathBuf) -> Result<PathBuf, ErrorKind> {
+    let absolute = if path.is_absolute() {
+        path
+    } else {
+        // TODO(tazjin): probably panics in wasm?
+        std::env::current_dir()?.join(path)
+    }
+    .clean();
 
-        match self {
-            NixSearchPathEntry::Path(p) => resolve_in(p, lookup_path),
+    Ok(absolute)
+}
+
+impl NixSearchPathEntry {
+    /// Determine whether this path entry matches the given lookup path.
+    ///
+    /// For bare paths, an entry is considered to match if a matching
+    /// file exists under it.
+    ///
+    /// For prefixed path, an entry matches if the prefix does.
+    // TODO(tazjin): verify these rules in the C++ impl, seems fishy.
+    fn resolve(&self, io: &dyn EvalIO, lookup_path: &Path) -> Result<Option<PathBuf>, ErrorKind> {
+        let path = match self {
+            NixSearchPathEntry::Path(parent) => canonicalise(parent.join(lookup_path))?,
+
             NixSearchPathEntry::Prefix { prefix, path } => {
                 if let Ok(child_path) = lookup_path.strip_prefix(prefix) {
-                    resolve_in(path, child_path)
+                    canonicalise(path.join(child_path))?
                 } else {
-                    Ok(None)
+                    return Ok(None);
                 }
             }
+        };
+
+        if io.path_exists(path.clone())? {
+            Ok(Some(path))
+        } else {
+            Ok(None)
         }
     }
 }
@@ -92,13 +112,13 @@ pub struct NixSearchPath {
 impl NixSearchPath {
     /// Attempt to resolve the given `path` within this [`NixSearchPath`] using the
     /// path resolution rules for `<...>`-style paths
-    pub fn resolve<P>(&self, path: P) -> Result<PathBuf, ErrorKind>
+    pub fn resolve<P>(&self, io: &dyn EvalIO, path: P) -> Result<PathBuf, ErrorKind>
     where
         P: AsRef<Path>,
     {
         let path = path.as_ref();
         for entry in &self.entries {
-            if let Some(p) = entry.resolve(path)? {
+            if let Some(p) = entry.resolve(io, path)? {
                 return Ok(p);
             }
         }
@@ -159,23 +179,25 @@ mod tests {
     }
 
     mod resolve {
-        use std::env::current_dir;
-
+        use crate::StdIO;
         use path_clean::PathClean;
+        use std::env::current_dir;
 
         use super::*;
 
         #[test]
         fn simple_dir() {
             let nix_search_path = NixSearchPath::from_str("./.").unwrap();
-            let res = nix_search_path.resolve("src").unwrap();
+            let io = StdIO {};
+            let res = nix_search_path.resolve(&io, "src").unwrap();
             assert_eq!(res, current_dir().unwrap().join("src").clean());
         }
 
         #[test]
         fn failed_resolution() {
             let nix_search_path = NixSearchPath::from_str("./.").unwrap();
-            let err = nix_search_path.resolve("nope").unwrap_err();
+            let io = StdIO {};
+            let err = nix_search_path.resolve(&io, "nope").unwrap_err();
             assert!(
                 matches!(err, ErrorKind::NixPathResolution(..)),
                 "err = {err:?}"
@@ -185,21 +207,24 @@ mod tests {
         #[test]
         fn second_in_path() {
             let nix_search_path = NixSearchPath::from_str("./.:/").unwrap();
-            let res = nix_search_path.resolve("etc").unwrap();
+            let io = StdIO {};
+            let res = nix_search_path.resolve(&io, "etc").unwrap();
             assert_eq!(res, Path::new("/etc"));
         }
 
         #[test]
         fn prefix() {
             let nix_search_path = NixSearchPath::from_str("/:tvix=.").unwrap();
-            let res = nix_search_path.resolve("tvix/src").unwrap();
+            let io = StdIO {};
+            let res = nix_search_path.resolve(&io, "tvix/src").unwrap();
             assert_eq!(res, current_dir().unwrap().join("src").clean());
         }
 
         #[test]
         fn matching_prefix() {
             let nix_search_path = NixSearchPath::from_str("/:tvix=.").unwrap();
-            let res = nix_search_path.resolve("tvix").unwrap();
+            let io = StdIO {};
+            let res = nix_search_path.resolve(&io, "tvix").unwrap();
             assert_eq!(res, current_dir().unwrap().clean());
         }
     }
