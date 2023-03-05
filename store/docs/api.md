@@ -134,11 +134,11 @@ There's three different services:
 `BlobService` can be used to store and retrieve blobs of data, used to host
 regular file contents.
 
-It is content-addressed, using [blake3](https://github.com/BLAKE3-team/BLAKE3)
+It is content-addressed, using [blake3][blake3]
 as a hashing function.
 
 As blake3 is a tree hash, there's an opportunity to do
-[verified streaming](https://github.com/oconnor663/bao) of parts of the file,
+[verified streaming][bao] of parts of the file,
 which doesn't need to trust any more information than the root hash itself.
 Future extensions of the `BlobService` protocol will enable this.
 
@@ -270,6 +270,7 @@ access, which is very useful in remote builder scenarios.
 
 
 [blake3]: https://github.com/BLAKE3-team/BLAKE3
+[bao]: https://github.com/oconnor663/bao
 [^input-addressed]: Nix hashes the A-Term representation of a .drv, after doing
                     some replacements on refered Input Derivations to calculate
                     output paths.
