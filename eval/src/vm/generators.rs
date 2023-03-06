@@ -15,7 +15,7 @@ use std::fmt::Display;
 use std::future::Future;
 
 use crate::value::{PointerEquality, SharedThunkSet};
-use crate::warnings::WarningKind;
+use crate::warnings::{EvalWarning, WarningKind};
 use crate::FileType;
 use crate::NixString;
 
@@ -85,8 +85,12 @@ pub enum GeneratorRequest {
         light_span: LightSpan,
     },
 
-    /// Emit a runtime warning through the VM. Receives a NoOp-response.
-    EmitWarning(WarningKind),
+    /// Emit a runtime warning (already containing a span) through the VM.
+    EmitWarning(EvalWarning),
+
+    /// Emit a runtime warning through the VM. The span of the current generator
+    /// is used for the final warning.
+    EmitWarningKind(WarningKind),
 
     /// Request a lookup in the VM's import cache, which tracks the
     /// thunks yielded by previously imported files.
@@ -150,6 +154,7 @@ impl Display for GeneratorRequest {
                 write!(f, "enter_lambda({:p})", *lambda)
             }
             GeneratorRequest::EmitWarning(_) => write!(f, "emit_warning"),
+            GeneratorRequest::EmitWarningKind(_) => write!(f, "emit_warning_kind"),
             GeneratorRequest::ImportCacheLookup(p) => {
                 write!(f, "import_cache_lookup({})", p.to_string_lossy())
             }
@@ -374,7 +379,12 @@ impl<'o> VM<'o> {
                             return Ok(false);
                         }
 
-                        GeneratorRequest::EmitWarning(kind) => {
+                        GeneratorRequest::EmitWarning(warning) => {
+                            self.push_warning(warning);
+                            message = GeneratorResponse::Empty;
+                        }
+
+                        GeneratorRequest::EmitWarningKind(kind) => {
                             self.emit_warning(kind);
                             message = GeneratorResponse::Empty;
                         }
@@ -611,9 +621,20 @@ pub(crate) async fn check_equality(
     }
 }
 
-/// Emit a runtime warning.
-pub(crate) async fn emit_warning(co: &GenCo, kind: WarningKind) {
-    match co.yield_(GeneratorRequest::EmitWarning(kind)).await {
+/// Emit a fully constructed runtime warning.
+pub(crate) async fn emit_warning(co: &GenCo, warning: EvalWarning) {
+    match co.yield_(GeneratorRequest::EmitWarning(warning)).await {
+        GeneratorResponse::Empty => {}
+        msg => panic!(
+            "Tvix bug: VM responded with incorrect generator message: {}",
+            msg
+        ),
+    }
+}
+
+/// Emit a runtime warning with the span of the current generator.
+pub(crate) async fn emit_warning_kind(co: &GenCo, kind: WarningKind) {
+    match co.yield_(GeneratorRequest::EmitWarningKind(kind)).await {
         GeneratorResponse::Empty => {}
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",

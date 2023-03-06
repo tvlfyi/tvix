@@ -77,10 +77,9 @@ async fn import_impl(
         });
     }
 
-    // TODO: emit not just the warning kind, hmm
-    // for warning in result.warnings {
-    //     vm.push_warning(warning);
-    // }
+    for warning in result.warnings {
+        generators::emit_warning(&co, warning).await;
+    }
 
     // Compilation succeeded, we can construct a thunk from whatever it spat
     // out and return that.

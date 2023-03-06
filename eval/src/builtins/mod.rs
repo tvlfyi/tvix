@@ -923,7 +923,8 @@ mod pure_builtins {
 
     #[builtin("placeholder")]
     async fn builtin_placeholder(co: GenCo, #[lazy] _x: Value) -> Result<Value, ErrorKind> {
-        generators::emit_warning(&co, WarningKind::NotImplemented("builtins.placeholder")).await;
+        generators::emit_warning_kind(&co, WarningKind::NotImplemented("builtins.placeholder"))
+            .await;
         Ok("<builtins.placeholder-is-not-implemented-in-tvix-yet>".into())
     }
 
@@ -1017,7 +1018,7 @@ mod placeholder_builtins {
         #[lazy] _context: Value,
         #[lazy] val: Value,
     ) -> Result<Value, ErrorKind> {
-        generators::emit_warning(&co, WarningKind::NotImplemented("builtins.addErrorContext"))
+        generators::emit_warning_kind(&co, WarningKind::NotImplemented("builtins.addErrorContext"))
             .await;
         Ok(val)
     }
@@ -1028,7 +1029,7 @@ mod placeholder_builtins {
         _name: Value,
         _attrset: Value,
     ) -> Result<Value, ErrorKind> {
-        generators::emit_warning(
+        generators::emit_warning_kind(
             &co,
             WarningKind::NotImplemented("builtins.unsafeGetAttrsPos"),
         )
