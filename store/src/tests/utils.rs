@@ -10,7 +10,7 @@ pub fn gen_blob_service() -> impl BlobService + Send + Sync + Clone + 'static {
 }
 
 pub fn gen_chunk_service() -> impl ChunkService + Clone {
-    MemoryChunkService::new()
+    MemoryChunkService::default()
 }
 
 pub fn gen_directory_service() -> impl DirectoryService + Send + Sync + Clone + 'static {
