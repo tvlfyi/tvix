@@ -14,16 +14,12 @@ use smol_str::SmolStr;
 use std::fmt::Display;
 use std::future::Future;
 
-use crate::value::SharedThunkSet;
+use crate::value::{PointerEquality, SharedThunkSet};
 use crate::warnings::WarningKind;
 use crate::FileType;
 use crate::NixString;
 
 use super::*;
-
-/// Dummy type, before the actual implementation is in place.
-#[derive(Debug)]
-pub struct PointerEquality {}
 
 // -- Implementation of generic generator logic.
 
