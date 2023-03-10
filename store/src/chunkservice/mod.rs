@@ -1,3 +1,5 @@
+mod util;
+
 pub mod memory;
 pub mod sled;
 
@@ -5,6 +7,7 @@ use crate::Error;
 
 pub use self::memory::MemoryChunkService;
 pub use self::sled::SledChunkService;
+pub use self::util::upload_chunk;
 
 /// The base trait all ChunkService services need to implement.
 /// It allows checking for the existence, download and upload of chunks.
