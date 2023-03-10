@@ -13,6 +13,7 @@ use tabwriter::TabWriter;
 use crate::chunk::Chunk;
 use crate::opcode::{CodeIdx, OpCode};
 use crate::value::Lambda;
+use crate::vm::generators::GeneratorRequest;
 use crate::SourceCode;
 use crate::Value;
 
@@ -39,10 +40,25 @@ pub trait CompilerObserver {
 /// the Tvix virtual machine at runtime.
 pub trait RuntimeObserver {
     /// Called when the runtime enters a new call frame.
-    fn observe_enter_frame(&mut self, _arg_count: usize, _: &Rc<Lambda>, _call_depth: usize) {}
+    fn observe_enter_call_frame(&mut self, _arg_count: usize, _: &Rc<Lambda>, _call_depth: usize) {}
 
     /// Called when the runtime exits a call frame.
-    fn observe_exit_frame(&mut self, _frame_at: usize, _stack: &[Value]) {}
+    fn observe_exit_call_frame(&mut self, _frame_at: usize, _stack: &[Value]) {}
+
+    /// Called when the runtime suspends a call frame.
+    fn observe_suspend_call_frame(&mut self, _frame_at: usize, _stack: &[Value]) {}
+
+    /// Called when the runtime enters a generator frame.
+    fn observe_enter_generator(&mut self, _frame_at: usize, _stack: &[Value]) {}
+
+    /// Called when the runtime exits a generator frame.
+    fn observe_exit_generator(&mut self, _frame_at: usize, _stack: &[Value]) {}
+
+    /// Called when the runtime suspends a generator frame.
+    fn observe_suspend_generator(&mut self, _frame_at: usize, _stack: &[Value]) {}
+
+    /// Called when a generator requests an action from the VM.
+    fn observe_generator_request(&mut self, _msg: &GeneratorRequest) {}
 
     /// Called when the runtime replaces the current call frame for a
     /// tail call.
@@ -136,7 +152,12 @@ impl<W: Write> TracingObserver<W> {
 }
 
 impl<W: Write> RuntimeObserver for TracingObserver<W> {
-    fn observe_enter_frame(&mut self, arg_count: usize, lambda: &Rc<Lambda>, call_depth: usize) {
+    fn observe_enter_call_frame(
+        &mut self,
+        arg_count: usize,
+        lambda: &Rc<Lambda>,
+        call_depth: usize,
+    ) {
         let _ = write!(&mut self.writer, "=== entering ");
 
         let _ = if arg_count == 0 {
@@ -156,7 +177,8 @@ impl<W: Write> RuntimeObserver for TracingObserver<W> {
         );
     }
 
-    fn observe_exit_frame(&mut self, frame_at: usize, stack: &[Value]) {
+    /// Called when the runtime exits a call frame.
+    fn observe_exit_call_frame(&mut self, frame_at: usize, stack: &[Value]) {
         let _ = write!(&mut self.writer, "=== exiting frame {} ===\t[ ", frame_at);
 
         for val in stack {
@@ -164,6 +186,66 @@ impl<W: Write> RuntimeObserver for TracingObserver<W> {
         }
 
         let _ = writeln!(&mut self.writer, "]");
+    }
+
+    fn observe_suspend_call_frame(&mut self, frame_at: usize, stack: &[Value]) {
+        let _ = write!(
+            &mut self.writer,
+            "=== suspending frame {} ===\t[ ",
+            frame_at
+        );
+
+        for val in stack {
+            let _ = write!(&mut self.writer, "{} ", val);
+        }
+
+        let _ = writeln!(&mut self.writer, "]");
+    }
+
+    fn observe_enter_generator(&mut self, frame_at: usize, stack: &[Value]) {
+        let _ = write!(
+            &mut self.writer,
+            "=== entering generator frame {} ===\t[ ",
+            frame_at
+        );
+
+        for val in stack {
+            let _ = write!(&mut self.writer, "{} ", val);
+        }
+
+        let _ = writeln!(&mut self.writer, "]");
+    }
+
+    fn observe_exit_generator(&mut self, frame_at: usize, stack: &[Value]) {
+        let _ = write!(
+            &mut self.writer,
+            "=== exiting generator {} ===\t[ ",
+            frame_at
+        );
+
+        for val in stack {
+            let _ = write!(&mut self.writer, "{} ", val);
+        }
+
+        let _ = writeln!(&mut self.writer, "]");
+    }
+
+    fn observe_suspend_generator(&mut self, frame_at: usize, stack: &[Value]) {
+        let _ = write!(
+            &mut self.writer,
+            "=== suspending generator {} ===\t[ ",
+            frame_at
+        );
+
+        for val in stack {
+            let _ = write!(&mut self.writer, "{} ", val);
+        }
+
+        let _ = writeln!(&mut self.writer, "]");
+    }
+
+    fn observe_generator_request(&mut self, msg: &GeneratorRequest) {
+        let _ = writeln!(&mut self.writer, "=== generator requested {} ===", msg);
     }
 
     fn observe_enter_builtin(&mut self, name: &'static str) {
@@ -184,7 +266,7 @@ impl<W: Write> RuntimeObserver for TracingObserver<W> {
         let _ = writeln!(
             &mut self.writer,
             "=== tail-calling {:p} in frame[{}] ===",
-            lambda, frame_at
+            *lambda, frame_at
         );
     }
 

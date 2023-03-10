@@ -436,7 +436,7 @@ impl<'o> VM<'o> {
         arg_count: usize,
     ) -> EvalResult<()> {
         self.observer
-            .observe_enter_frame(arg_count, &lambda, self.frames.len() + 1);
+            .observe_enter_call_frame(arg_count, &lambda, self.frames.len() + 1);
 
         let frame = CallFrame {
             lambda,
@@ -472,7 +472,7 @@ impl<'o> VM<'o> {
         };
 
         self.observer
-            .observe_exit_frame(self.frames.len() + 1, &self.stack);
+            .observe_exit_call_frame(self.frames.len() + 1, &self.stack);
 
         result
     }
