@@ -1,4 +1,7 @@
-use crate::{chunkservice::upload_chunk, proto};
+use crate::{
+    chunkservice::{update_hasher, upload_chunk},
+    proto,
+};
 use std::{
     collections::HashMap,
     fmt::Debug,
@@ -138,12 +141,8 @@ fn process_entry<BS: BlobService, CS: ChunkService + std::marker::Sync, DS: Dire
 
                 let chunk_len = chunk.data.len() as u32;
 
-                // update calculate blob hash, and use rayon if data is > 128KiB.
-                if chunk_len > 128 * 1024 {
-                    blob_hasher.update_rayon(&chunk.data);
-                } else {
-                    blob_hasher.update(&chunk.data);
-                }
+                // update calculate blob hash
+                update_hasher(&mut blob_hasher, &chunk.data);
 
                 let chunk_digest = upload_chunk(chunk_service, chunk.data)?;
 

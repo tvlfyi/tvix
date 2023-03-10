@@ -1,4 +1,8 @@
-use crate::{blobservice::BlobService, chunkservice::ChunkService, Error};
+use crate::{
+    blobservice::BlobService,
+    chunkservice::{update_hasher, ChunkService},
+    Error,
+};
 use data_encoding::BASE64;
 use std::io::{BufWriter, Write};
 use tokio::{sync::mpsc::channel, task};
@@ -23,11 +27,7 @@ impl<BS: BlobService, CS: ChunkService> GRPCBlobServiceWrapper<BS, CS> {
     #[instrument(skip(chunk_service))]
     fn upload_chunk(chunk_service: CS, chunk_data: Vec<u8>) -> Result<Vec<u8>, Error> {
         let mut hasher = blake3::Hasher::new();
-        if chunk_data.len() >= 128 * 1024 {
-            hasher.update_rayon(&chunk_data);
-        } else {
-            hasher.update(&chunk_data);
-        }
+        update_hasher(&mut hasher, &chunk_data);
         let digest = hasher.finalize();
 
         if chunk_service.has(digest.as_bytes())? {
