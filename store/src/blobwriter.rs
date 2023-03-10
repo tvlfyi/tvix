@@ -144,8 +144,7 @@ impl<CS: ChunkService + std::marker::Sync> std::io::Write for BlobWriter<'_, CS>
         let blob_meta_chunks: Vec<Result<proto::blob_meta::ChunkMeta, Error>> = chunk_slices
             .into_par_iter()
             .map(|chunk_slice| {
-                let chunk_service = self.chunk_service.clone();
-                let chunk_digest = upload_chunk(chunk_service.clone(), chunk_slice.to_vec())?;
+                let chunk_digest = upload_chunk(self.chunk_service, chunk_slice.to_vec())?;
 
                 Ok(proto::blob_meta::ChunkMeta {
                     digest: chunk_digest,
