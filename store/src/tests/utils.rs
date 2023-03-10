@@ -6,7 +6,7 @@ use crate::{
 };
 
 pub fn gen_blob_service() -> impl BlobService + Send + Sync + Clone + 'static {
-    MemoryBlobService::new()
+    MemoryBlobService::default()
 }
 
 pub fn gen_chunk_service() -> impl ChunkService + Clone {

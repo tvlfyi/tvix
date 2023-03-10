@@ -9,17 +9,9 @@ use crate::{proto, Error};
 
 use super::BlobService;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct MemoryBlobService {
     db: Arc<RwLock<HashMap<Vec<u8>, proto::BlobMeta>>>,
-}
-
-impl MemoryBlobService {
-    pub fn new() -> Self {
-        let db = Arc::new(RwLock::new(HashMap::default()));
-
-        Self { db }
-    }
 }
 
 impl BlobService for MemoryBlobService {
