@@ -4,7 +4,7 @@ use crate::Error;
 
 use super::ChunkService;
 
-// upload a chunk to the chunk service, and return its digest (or an error) when done.
+/// uploads a chunk to a chunk service, and returns its digest (or an error) when done.
 #[instrument(skip_all, err)]
 pub fn upload_chunk<CS: ChunkService>(
     chunk_service: &CS,
