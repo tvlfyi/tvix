@@ -129,7 +129,7 @@ fn process_entry<BS: BlobService, CS: ChunkService + std::marker::Sync, DS: Dire
             let chunker_max_size = chunker_avg_size * 4;
 
             let chunker = fastcdc::v2020::StreamCDC::new(
-                Box::new(file),
+                file,
                 chunker_min_size,
                 chunker_avg_size,
                 chunker_max_size,
