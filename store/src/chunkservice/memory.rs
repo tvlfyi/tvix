@@ -28,7 +28,7 @@ impl ChunkService for MemoryChunkService {
             None => Ok(None),
             Some(data) => {
                 // calculate the hash to verify this is really what we expect
-                let actual_digest = blake3::hash(&data).as_bytes().to_vec();
+                let actual_digest = blake3::hash(data).as_bytes().to_vec();
                 if actual_digest != digest {
                     return Err(Error::StorageError(format!(
                         "invalid hash encountered when reading chunk, expected {}, got {}",
