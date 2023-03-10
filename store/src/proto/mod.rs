@@ -198,8 +198,8 @@ impl NamedNode for node::Node {
 /// Accepts a name, and a mutable reference to the previous name.
 /// If the passed name is larger than the previous one, the reference is updated.
 /// If it's not, an error is returned.
-fn update_if_lt_prev<'set, 'n>(
-    prev_name: &'set mut &'n str,
+fn update_if_lt_prev<'n>(
+    prev_name: &mut &'n str,
     name: &'n str,
 ) -> Result<(), ValidateDirectoryError> {
     if *name < **prev_name {
