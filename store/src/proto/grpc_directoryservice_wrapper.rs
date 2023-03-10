@@ -8,18 +8,20 @@ use tonic::{async_trait, Request, Response, Status, Streaming};
 use tracing::{debug, info_span, instrument, warn};
 
 pub struct GRPCDirectoryServiceWrapper<C: DirectoryService> {
-    client: C,
+    directory_service: C,
 }
 
-impl<C: DirectoryService> From<C> for GRPCDirectoryServiceWrapper<C> {
-    fn from(value: C) -> Self {
-        Self { client: value }
+impl<DS: DirectoryService> From<DS> for GRPCDirectoryServiceWrapper<DS> {
+    fn from(value: DS) -> Self {
+        Self {
+            directory_service: value,
+        }
     }
 }
 
 #[async_trait]
-impl<C: DirectoryService + Send + Sync + Clone + 'static>
-    proto::directory_service_server::DirectoryService for GRPCDirectoryServiceWrapper<C>
+impl<DS: DirectoryService + Send + Sync + Clone + 'static>
+    proto::directory_service_server::DirectoryService for GRPCDirectoryServiceWrapper<DS>
 {
     type GetStream = ReceiverStream<tonic::Result<proto::Directory, Status>>;
 
@@ -32,7 +34,7 @@ impl<C: DirectoryService + Send + Sync + Clone + 'static>
 
         let req_inner = request.into_inner();
 
-        let client = self.client.clone();
+        let client = self.directory_service.clone();
 
         // kick off an async thread
         task::spawn(async move {
@@ -201,7 +203,7 @@ impl<C: DirectoryService + Send + Sync + Clone + 'static>
             // check if the directory already exists in the database. We can skip
             // inserting if it's already there, as that'd be a no-op.
             match self
-                .client
+                .directory_service
                 .get(&proto::get_directory_request::ByWhat::Digest(dgst.to_vec()))
             {
                 Err(e) => {
@@ -212,7 +214,7 @@ impl<C: DirectoryService + Send + Sync + Clone + 'static>
                 Ok(Some(_)) => {}
                 // insert if it doesn't already exist
                 Ok(None) => {
-                    self.client.put(directory)?;
+                    self.directory_service.put(directory)?;
                 }
             }
         }
