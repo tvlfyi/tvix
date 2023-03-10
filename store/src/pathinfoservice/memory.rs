@@ -8,16 +8,9 @@ use nix_compat::store_path::DIGEST_SIZE;
 
 use super::PathInfoService;
 
+#[derive(Default)]
 pub struct MemoryPathInfoService {
     db: Arc<RwLock<HashMap<Vec<u8>, proto::PathInfo>>>,
-}
-
-impl MemoryPathInfoService {
-    pub fn new() -> Self {
-        let db = Arc::new(RwLock::new(HashMap::default()));
-
-        Self { db }
-    }
 }
 
 impl PathInfoService for MemoryPathInfoService {
