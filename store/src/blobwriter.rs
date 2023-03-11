@@ -1,4 +1,4 @@
-use crate::chunkservice::{upload_chunk, ChunkService};
+use crate::chunkservice::{update_hasher, upload_chunk, ChunkService};
 use crate::{proto, Error};
 use rayon::prelude::*;
 use tracing::instrument;
@@ -59,12 +59,8 @@ impl<CS: ChunkService + std::marker::Sync> std::io::Write for BlobWriter<'_, CS>
         // calculate input_buf.len(), we need to return that later.
         let input_buf_len = input_buf.len();
 
-        // update calculate blob hash, and use rayon if data is > 128KiB.
-        if input_buf.len() > 128 * 1024 {
-            self.blob_hasher.update_rayon(input_buf);
-        } else {
-            self.blob_hasher.update(input_buf);
-        }
+        // update blob hash
+        update_hasher(&mut self.blob_hasher, input_buf);
 
         // prepend buf with existing data (from self.buf)
         let buf: Vec<u8> = {
