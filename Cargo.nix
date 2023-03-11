@@ -129,49 +129,6 @@ rec {
     #   inject test dependencies into the build
 
     crates = {
-      "addr2line" = rec {
-        crateName = "addr2line";
-        version = "0.19.0";
-        edition = "2015";
-        sha256 = "15ywmr5wx22q69ffnn79qp65ir5p1x0k2q06plcpv6v74c5xcvx7";
-        dependencies = [
-          {
-            name = "gimli";
-            packageId = "gimli";
-            usesDefaultFeatures = false;
-            features = [ "read" ];
-          }
-        ];
-        features = {
-          "alloc" = [ "dep:alloc" ];
-          "compiler_builtins" = [ "dep:compiler_builtins" ];
-          "core" = [ "dep:core" ];
-          "cpp_demangle" = [ "dep:cpp_demangle" ];
-          "default" = [ "rustc-demangle" "cpp_demangle" "std-object" "fallible-iterator" "smallvec" ];
-          "fallible-iterator" = [ "dep:fallible-iterator" ];
-          "object" = [ "dep:object" ];
-          "rustc-demangle" = [ "dep:rustc-demangle" ];
-          "rustc-dep-of-std" = [ "core" "alloc" "compiler_builtins" "gimli/rustc-dep-of-std" ];
-          "smallvec" = [ "dep:smallvec" ];
-          "std" = [ "gimli/std" ];
-          "std-object" = [ "std" "object" "object/std" "object/compression" "gimli/endian-reader" ];
-        };
-      };
-      "adler" = rec {
-        crateName = "adler";
-        version = "1.0.2";
-        edition = "2015";
-        sha256 = "1zim79cvzd5yrkzl3nyfx0avijwgk9fqv3yrscdy1cc79ih02qpj";
-        authors = [
-          "Jonas Schievink <jonasschievink@gmail.com>"
-        ];
-        features = {
-          "compiler_builtins" = [ "dep:compiler_builtins" ];
-          "core" = [ "dep:core" ];
-          "default" = [ "std" ];
-          "rustc-dep-of-std" = [ "core" "compiler_builtins" ];
-        };
-      };
       "aho-corasick" = rec {
         crateName = "aho-corasick";
         version = "0.7.20";
@@ -540,87 +497,6 @@ rec {
           {
             name = "futures-util";
             packageId = "futures-util";
-          }
-        ];
-
-      };
-      "backtrace" = rec {
-        crateName = "backtrace";
-        version = "0.3.67";
-        edition = "2018";
-        sha256 = "1jk48laqafvbyc0mn1v0didk307qc0zji3z5jcq2lpqqdmnkfg93";
-        authors = [
-          "The Rust Project Developers"
-        ];
-        dependencies = [
-          {
-            name = "addr2line";
-            packageId = "addr2line";
-            usesDefaultFeatures = false;
-          }
-          {
-            name = "cfg-if";
-            packageId = "cfg-if";
-          }
-          {
-            name = "libc";
-            packageId = "libc";
-            usesDefaultFeatures = false;
-          }
-          {
-            name = "miniz_oxide";
-            packageId = "miniz_oxide";
-            usesDefaultFeatures = false;
-          }
-          {
-            name = "object";
-            packageId = "object";
-            usesDefaultFeatures = false;
-            features = [ "read_core" "elf" "macho" "pe" "unaligned" "archive" ];
-          }
-          {
-            name = "rustc-demangle";
-            packageId = "rustc-demangle";
-          }
-        ];
-        buildDependencies = [
-          {
-            name = "cc";
-            packageId = "cc";
-          }
-        ];
-        features = {
-          "cpp_demangle" = [ "dep:cpp_demangle" ];
-          "default" = [ "std" ];
-          "rustc-serialize" = [ "dep:rustc-serialize" ];
-          "serde" = [ "dep:serde" ];
-          "serialize-rustc" = [ "rustc-serialize" ];
-          "serialize-serde" = [ "serde" ];
-          "verify-winapi" = [ "winapi/dbghelp" "winapi/handleapi" "winapi/libloaderapi" "winapi/memoryapi" "winapi/minwindef" "winapi/processthreadsapi" "winapi/synchapi" "winapi/tlhelp32" "winapi/winbase" "winapi/winnt" ];
-          "winapi" = [ "dep:winapi" ];
-        };
-        resolvedDefaultFeatures = [ "default" "std" ];
-      };
-      "backtrace-on-stack-overflow" = rec {
-        crateName = "backtrace-on-stack-overflow";
-        version = "0.2.0";
-        edition = "2018";
-        sha256 = "1gf9b8wblqq74aal0g6130wq6a5lnmi9dji72xq71jypwimyy76m";
-        authors = [
-          "Aleksey Kladov <aleksey.kladov@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "backtrace";
-            packageId = "backtrace";
-          }
-          {
-            name = "libc";
-            packageId = "libc";
-          }
-          {
-            name = "nix";
-            packageId = "nix 0.23.2";
           }
         ];
 
@@ -1118,7 +994,7 @@ rec {
           }
           {
             name = "proc-macro-error";
-            packageId = "proc-macro-error 1.0.4";
+            packageId = "proc-macro-error";
           }
           {
             name = "proc-macro2";
@@ -2336,16 +2212,6 @@ rec {
             name = "genawaiter-macro";
             packageId = "genawaiter-macro";
           }
-          {
-            name = "genawaiter-proc-macro";
-            packageId = "genawaiter-proc-macro";
-            optional = true;
-          }
-          {
-            name = "proc-macro-hack";
-            packageId = "proc-macro-hack";
-            optional = true;
-          }
         ];
         features = {
           "default" = [ "proc_macro" ];
@@ -2355,7 +2221,6 @@ rec {
           "proc-macro-hack" = [ "dep:proc-macro-hack" ];
           "proc_macro" = [ "genawaiter-proc-macro" "proc-macro-hack" "genawaiter-macro/proc_macro" ];
         };
-        resolvedDefaultFeatures = [ "default" "genawaiter-proc-macro" "proc-macro-hack" "proc_macro" ];
       };
       "genawaiter-macro" = rec {
         crateName = "genawaiter-macro";
@@ -2364,41 +2229,6 @@ rec {
         sha256 = "1g6zmr88fk48f1ksz9ik1i2mwjsiam9s4p9aybhvs2zwzphxychb";
         authors = [
           "Devin R <devin.ragotzy@gmail.com>"
-        ];
-        features = { };
-        resolvedDefaultFeatures = [ "proc_macro" ];
-      };
-      "genawaiter-proc-macro" = rec {
-        crateName = "genawaiter-proc-macro";
-        version = "0.99.1";
-        edition = "2018";
-        sha256 = "0f0pcaln4wrpi35nwxs9g516ysiax373m32a3hjiavinpkp88kvq";
-        procMacro = true;
-        authors = [
-          "Devin R <devin.ragotzy@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "proc-macro-error";
-            packageId = "proc-macro-error 0.4.12";
-          }
-          {
-            name = "proc-macro-hack";
-            packageId = "proc-macro-hack";
-          }
-          {
-            name = "proc-macro2";
-            packageId = "proc-macro2 1.0.50";
-          }
-          {
-            name = "quote";
-            packageId = "quote 1.0.23";
-          }
-          {
-            name = "syn";
-            packageId = "syn 1.0.107";
-            features = [ "visit-mut" "full" ];
-          }
         ];
         features = { };
       };
@@ -2484,27 +2314,6 @@ rec {
           "wasm-bindgen" = [ "dep:wasm-bindgen" ];
         };
         resolvedDefaultFeatures = [ "std" ];
-      };
-      "gimli" = rec {
-        crateName = "gimli";
-        version = "0.27.1";
-        edition = "2018";
-        sha256 = "1v7xrvjv12rm5pycqm3ac411zqsa3hhgipkkhxqhybqrfkvrc692";
-        features = {
-          "alloc" = [ "dep:alloc" ];
-          "compiler_builtins" = [ "dep:compiler_builtins" ];
-          "core" = [ "dep:core" ];
-          "default" = [ "read" "write" "std" "fallible-iterator" "endian-reader" ];
-          "endian-reader" = [ "read" "stable_deref_trait" ];
-          "fallible-iterator" = [ "dep:fallible-iterator" ];
-          "indexmap" = [ "dep:indexmap" ];
-          "read" = [ "read-core" ];
-          "rustc-dep-of-std" = [ "core" "alloc" "compiler_builtins" ];
-          "stable_deref_trait" = [ "dep:stable_deref_trait" ];
-          "std" = [ "fallible-iterator/std" "stable_deref_trait/std" ];
-          "write" = [ "indexmap" ];
-        };
-        resolvedDefaultFeatures = [ "read" "read-core" ];
       };
       "glob" = rec {
         crateName = "glob";
@@ -3618,32 +3427,6 @@ rec {
         ];
 
       };
-      "miniz_oxide" = rec {
-        crateName = "miniz_oxide";
-        version = "0.6.2";
-        edition = "2018";
-        sha256 = "1yp8z6yll5ypz1ldmgnv7zi0r78kbvmqmn2mii77jzmk5069axdj";
-        authors = [
-          "Frommi <daniil.liferenko@gmail.com>"
-          "oyvindln <oyvindln@users.noreply.github.com>"
-        ];
-        dependencies = [
-          {
-            name = "adler";
-            packageId = "adler";
-            usesDefaultFeatures = false;
-          }
-        ];
-        features = {
-          "alloc" = [ "dep:alloc" ];
-          "compiler_builtins" = [ "dep:compiler_builtins" ];
-          "core" = [ "dep:core" ];
-          "default" = [ "with-alloc" ];
-          "rustc-dep-of-std" = [ "core" "alloc" "compiler_builtins" "adler/rustc-dep-of-std" ];
-          "simd" = [ "simd-adler32" ];
-          "simd-adler32" = [ "dep:simd-adler32" ];
-        };
-      };
       "mio" = rec {
         crateName = "mio";
         version = "0.8.5";
@@ -3716,44 +3499,7 @@ rec {
         ];
 
       };
-      "nix 0.23.2" = rec {
-        crateName = "nix";
-        version = "0.23.2";
-        edition = "2018";
-        sha256 = "0p5kxhm5d8lry0szqbsllpcb5i3z7lg1dkglw0ni2l011b090dwg";
-        authors = [
-          "The nix-rust Project Developers"
-        ];
-        dependencies = [
-          {
-            name = "bitflags";
-            packageId = "bitflags";
-          }
-          {
-            name = "cfg-if";
-            packageId = "cfg-if";
-          }
-          {
-            name = "libc";
-            packageId = "libc";
-            features = [ "extra_traits" ];
-          }
-          {
-            name = "memoffset";
-            packageId = "memoffset 0.6.5";
-            target = { target, features }: (!("redox" == target."os"));
-          }
-        ];
-        buildDependencies = [
-          {
-            name = "cc";
-            packageId = "cc";
-            target = { target, features }: ("dragonfly" == target."os");
-          }
-        ];
-
-      };
-      "nix 0.25.1" = rec {
+      "nix" = rec {
         crateName = "nix";
         version = "0.25.1";
         edition = "2018";
@@ -3977,43 +3723,6 @@ rec {
           }
         ];
 
-      };
-      "object" = rec {
-        crateName = "object";
-        version = "0.30.3";
-        edition = "2018";
-        sha256 = "0fdl7qjsz1j9kl3j7f4656fswzrqpyj2kgaizhknmjrx7mfjd1pa";
-        dependencies = [
-          {
-            name = "memchr";
-            packageId = "memchr";
-            usesDefaultFeatures = false;
-          }
-        ];
-        features = {
-          "all" = [ "read" "write" "std" "compression" "wasm" ];
-          "alloc" = [ "dep:alloc" ];
-          "compiler_builtins" = [ "dep:compiler_builtins" ];
-          "compression" = [ "flate2" "std" ];
-          "core" = [ "dep:core" ];
-          "crc32fast" = [ "dep:crc32fast" ];
-          "default" = [ "read" "compression" ];
-          "doc" = [ "read_core" "write_std" "std" "compression" "archive" "coff" "elf" "macho" "pe" "wasm" ];
-          "flate2" = [ "dep:flate2" ];
-          "hashbrown" = [ "dep:hashbrown" ];
-          "indexmap" = [ "dep:indexmap" ];
-          "pe" = [ "coff" ];
-          "read" = [ "read_core" "archive" "coff" "elf" "macho" "pe" "unaligned" ];
-          "rustc-dep-of-std" = [ "core" "compiler_builtins" "alloc" "memchr/rustc-dep-of-std" ];
-          "std" = [ "memchr/std" ];
-          "unstable-all" = [ "all" "unstable" "xcoff" ];
-          "wasm" = [ "wasmparser" ];
-          "wasmparser" = [ "dep:wasmparser" ];
-          "write" = [ "write_std" "coff" "elf" "macho" "pe" ];
-          "write_core" = [ "crc32fast" "indexmap" "hashbrown" ];
-          "write_std" = [ "write_core" "std" "indexmap/std" "crc32fast/std" ];
-        };
-        resolvedDefaultFeatures = [ "archive" "coff" "elf" "macho" "pe" "read_core" "unaligned" ];
       };
       "once_cell" = rec {
         crateName = "once_cell";
@@ -4451,43 +4160,7 @@ rec {
           "verbatim" = [ "syn/parsing" ];
         };
       };
-      "proc-macro-error 0.4.12" = rec {
-        crateName = "proc-macro-error";
-        version = "0.4.12";
-        edition = "2018";
-        sha256 = "1rvpaadwv7vmsp142qqh2axqrr9v78f1nvdsi9nhmfhy10kk1wqq";
-        authors = [
-          "CreepySkeleton <creepy-skeleton@yandex.ru>"
-        ];
-        dependencies = [
-          {
-            name = "proc-macro-error-attr";
-            packageId = "proc-macro-error-attr 0.4.12";
-          }
-          {
-            name = "proc-macro2";
-            packageId = "proc-macro2 1.0.50";
-          }
-          {
-            name = "quote";
-            packageId = "quote 1.0.23";
-          }
-          {
-            name = "syn";
-            packageId = "syn 1.0.107";
-            usesDefaultFeatures = false;
-            features = [ "derive" "parsing" "proc-macro" "printing" ];
-          }
-        ];
-        buildDependencies = [
-          {
-            name = "version_check";
-            packageId = "version_check";
-          }
-        ];
-
-      };
-      "proc-macro-error 1.0.4" = rec {
+      "proc-macro-error" = rec {
         crateName = "proc-macro-error";
         version = "1.0.4";
         edition = "2018";
@@ -4498,7 +4171,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro-error-attr";
-            packageId = "proc-macro-error-attr 1.0.4";
+            packageId = "proc-macro-error-attr";
           }
           {
             name = "proc-macro2";
@@ -4528,44 +4201,7 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "syn" "syn-error" ];
       };
-      "proc-macro-error-attr 0.4.12" = rec {
-        crateName = "proc-macro-error-attr";
-        version = "0.4.12";
-        edition = "2018";
-        sha256 = "1pk9mwcfnpf8favgc2cl4sqlmi818p96hg8pfb51wg5nzmvlnnwa";
-        procMacro = true;
-        authors = [
-          "CreepySkeleton <creepy-skeleton@yandex.ru>"
-        ];
-        dependencies = [
-          {
-            name = "proc-macro2";
-            packageId = "proc-macro2 1.0.50";
-          }
-          {
-            name = "quote";
-            packageId = "quote 1.0.23";
-          }
-          {
-            name = "syn";
-            packageId = "syn 1.0.107";
-            usesDefaultFeatures = false;
-            features = [ "derive" "parsing" "proc-macro" "printing" ];
-          }
-          {
-            name = "syn-mid";
-            packageId = "syn-mid";
-          }
-        ];
-        buildDependencies = [
-          {
-            name = "version_check";
-            packageId = "version_check";
-          }
-        ];
-
-      };
-      "proc-macro-error-attr 1.0.4" = rec {
+      "proc-macro-error-attr" = rec {
         crateName = "proc-macro-error-attr";
         version = "1.0.4";
         edition = "2018";
@@ -4589,17 +4225,6 @@ rec {
             name = "version_check";
             packageId = "version_check";
           }
-        ];
-
-      };
-      "proc-macro-hack" = rec {
-        crateName = "proc-macro-hack";
-        version = "0.5.20+deprecated";
-        edition = "2018";
-        sha256 = "0s402hmcs3k9nd6rlp07zkr1lz7yimkmcwcbgnly2zr44wamwdyw";
-        procMacro = true;
-        authors = [
-          "David Tolnay <dtolnay@gmail.com>"
         ];
 
       };
@@ -5470,20 +5095,6 @@ rec {
           "serde1" = [ "serde" "text-size/serde" ];
         };
       };
-      "rustc-demangle" = rec {
-        crateName = "rustc-demangle";
-        version = "0.1.21";
-        edition = "2015";
-        sha256 = "0hn3xyd2n3bg3jnc5a5jbzll32n4r5a65bqzs287l30m5c53xw3y";
-        authors = [
-          "Alex Crichton <alex@alexcrichton.com>"
-        ];
-        features = {
-          "compiler_builtins" = [ "dep:compiler_builtins" ];
-          "core" = [ "dep:core" ];
-          "rustc-dep-of-std" = [ "core" "compiler_builtins" ];
-        };
-      };
       "rustc-hash" = rec {
         crateName = "rustc-hash";
         version = "1.1.0";
@@ -5701,7 +5312,7 @@ rec {
           }
           {
             name = "nix";
-            packageId = "nix 0.25.1";
+            packageId = "nix";
             usesDefaultFeatures = false;
             target = { target, features }: (target."unix" or false);
             features = [ "fs" "ioctl" "poll" "signal" "term" ];
@@ -6425,36 +6036,6 @@ rec {
         };
         resolvedDefaultFeatures = [ "clone-impls" "default" "derive" "extra-traits" "full" "parsing" "printing" "proc-macro" "quote" "visit" "visit-mut" ];
       };
-      "syn-mid" = rec {
-        crateName = "syn-mid";
-        version = "0.5.3";
-        edition = "2018";
-        sha256 = "1jgslzpdf78646wafyplc39lkgwsqnh1hpd544bdnkhn19bfga5s";
-        authors = [
-          "Taiki Endo <te316e89@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "proc-macro2";
-            packageId = "proc-macro2 1.0.50";
-            usesDefaultFeatures = false;
-          }
-          {
-            name = "quote";
-            packageId = "quote 1.0.23";
-            usesDefaultFeatures = false;
-          }
-          {
-            name = "syn";
-            packageId = "syn 1.0.107";
-            usesDefaultFeatures = false;
-            features = [ "parsing" "printing" "derive" ];
-          }
-        ];
-        features = {
-          "clone-impls" = [ "syn/clone-impls" ];
-        };
-      };
       "sync_wrapper" = rec {
         crateName = "sync_wrapper";
         version = "0.1.2";
@@ -6609,7 +6190,7 @@ rec {
           }
           {
             name = "proc-macro-error";
-            packageId = "proc-macro-error 1.0.4";
+            packageId = "proc-macro-error";
           }
           {
             name = "proc-macro2";
@@ -8045,6 +7626,10 @@ rec {
             packageId = "dirs";
           }
           {
+            name = "lazy_static";
+            packageId = "lazy_static";
+          }
+          {
             name = "nix-compat";
             packageId = "nix-compat";
           }
@@ -8053,12 +7638,20 @@ rec {
             packageId = "rustyline";
           }
           {
+            name = "serde_json";
+            packageId = "serde_json";
+          }
+          {
             name = "smol_str";
             packageId = "smol_str";
           }
           {
             name = "ssri";
             packageId = "ssri";
+          }
+          {
+            name = "tempfile";
+            packageId = "tempfile";
           }
           {
             name = "thiserror";
@@ -8088,11 +7681,6 @@ rec {
         libName = "tvix_eval";
         dependencies = [
           {
-            name = "backtrace-on-stack-overflow";
-            packageId = "backtrace-on-stack-overflow";
-            optional = true;
-          }
-          {
             name = "codemap";
             packageId = "codemap";
           }
@@ -8107,6 +7695,7 @@ rec {
           {
             name = "genawaiter";
             packageId = "genawaiter";
+            usesDefaultFeatures = false;
           }
           {
             name = "imbl";
@@ -8205,13 +7794,11 @@ rec {
         ];
         features = {
           "arbitrary" = [ "proptest" "test-strategy" "imbl/proptest" ];
-          "backtrace-on-stack-overflow" = [ "dep:backtrace-on-stack-overflow" ];
-          "backtrace_overflow" = [ "backtrace-on-stack-overflow" ];
-          "default" = [ "impure" "arbitrary" "nix_tests" "backtrace_overflow" ];
+          "default" = [ "impure" "arbitrary" "nix_tests" ];
           "proptest" = [ "dep:proptest" ];
           "test-strategy" = [ "dep:test-strategy" ];
         };
-        resolvedDefaultFeatures = [ "arbitrary" "backtrace-on-stack-overflow" "backtrace_overflow" "default" "impure" "nix_tests" "proptest" "test-strategy" ];
+        resolvedDefaultFeatures = [ "arbitrary" "default" "impure" "nix_tests" "proptest" "test-strategy" ];
       };
       "tvix-eval-builtin-macros" = rec {
         crateName = "tvix-eval-builtin-macros";
