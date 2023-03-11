@@ -64,7 +64,7 @@ pub enum GeneratorRequest {
     /// stack for requesting a function call from the VM.
     ///
     /// The VM does not respond to this request, so the next message received is
-    /// a `NoOp`.
+    /// `Empty`.
     StackPush(Value),
 
     /// Pop a value from the stack and return it to the generator.
