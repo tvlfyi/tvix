@@ -164,6 +164,7 @@ impl KnownPaths {
     }
 
     pub fn add_replacement_string<D: ToString>(&mut self, drv: D, replacement_str: &str) {
+        #[allow(unused_variables)] // assertions on this only compiled in debug builds
         let old = self
             .replacements
             .insert(drv.to_string(), replacement_str.to_owned());
