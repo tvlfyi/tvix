@@ -382,8 +382,54 @@ impl<'o> VM<'o> {
             let op = frame.inc_ip();
             self.observer.observe_execute_op(frame.ip, &op, &self.stack);
 
-            // TODO: might be useful to reorder ops with most frequent ones first
             match op {
+                OpCode::OpThunkSuspended(idx) | OpCode::OpThunkClosure(idx) => {
+                    let blueprint = match &frame.chunk()[idx] {
+                        Value::Blueprint(lambda) => lambda.clone(),
+                        _ => panic!("compiler bug: non-blueprint in blueprint slot"),
+                    };
+
+                    let upvalue_count = blueprint.upvalue_count;
+                    let thunk = if matches!(op, OpCode::OpThunkClosure(_)) {
+                        debug_assert!(
+                            upvalue_count > 0,
+                            "OpThunkClosure should not be called for plain lambdas"
+                        );
+                        Thunk::new_closure(blueprint)
+                    } else {
+                        Thunk::new_suspended(blueprint, frame.current_light_span())
+                    };
+                    let upvalues = thunk.upvalues_mut();
+                    self.stack.push(Value::Thunk(thunk.clone()));
+
+                    // From this point on we internally mutate the
+                    // upvalues. The closure (if `is_closure`) is
+                    // already in its stack slot, which means that it
+                    // can capture itself as an upvalue for
+                    // self-recursion.
+                    self.populate_upvalues(&mut frame, upvalue_count, upvalues)?;
+                }
+
+                OpCode::OpForce => {
+                    if let Some(Value::Thunk(_)) = self.stack.last() {
+                        let thunk = match self.stack_pop() {
+                            Value::Thunk(t) => t,
+                            _ => unreachable!(),
+                        };
+
+                        let gen_span = frame.current_light_span();
+
+                        self.push_call_frame(span, frame);
+                        self.enqueue_generator("force", gen_span, |co| thunk.force(co));
+                        return Ok(false);
+                    }
+                }
+
+                OpCode::OpGetUpvalue(upv_idx) => {
+                    let value = frame.upvalue(upv_idx).clone();
+                    self.stack.push(value);
+                }
+
                 // Discard the current frame.
                 OpCode::OpReturn => {
                     return Ok(true);
@@ -394,8 +440,248 @@ impl<'o> VM<'o> {
                     self.stack.push(c);
                 }
 
+                OpCode::OpCall => {
+                    let callable = self.stack_pop();
+                    self.call_value(frame.current_light_span(), Some(frame), callable)?;
+
+                    // exit this loop and let the outer loop enter the new call
+                    return Ok(true);
+                }
+
+                // Remove the given number of elements from the stack,
+                // but retain the top value.
+                OpCode::OpCloseScope(Count(count)) => {
+                    // Immediately move the top value into the right
+                    // position.
+                    let target_idx = self.stack.len() - 1 - count;
+                    self.stack[target_idx] = self.stack_pop();
+
+                    // Then drop the remaining values.
+                    for _ in 0..(count - 1) {
+                        self.stack.pop();
+                    }
+                }
+
+                OpCode::OpClosure(idx) => {
+                    let blueprint = match &frame.chunk()[idx] {
+                        Value::Blueprint(lambda) => lambda.clone(),
+                        _ => panic!("compiler bug: non-blueprint in blueprint slot"),
+                    };
+
+                    let upvalue_count = blueprint.upvalue_count;
+                    debug_assert!(
+                        upvalue_count > 0,
+                        "OpClosure should not be called for plain lambdas"
+                    );
+
+                    let mut upvalues = Upvalues::with_capacity(blueprint.upvalue_count);
+                    self.populate_upvalues(&mut frame, upvalue_count, &mut upvalues)?;
+                    self.stack
+                        .push(Value::Closure(Rc::new(Closure::new_with_upvalues(
+                            Rc::new(upvalues),
+                            blueprint,
+                        ))));
+                }
+
+                OpCode::OpAttrsSelect => {
+                    let key = self.stack_pop().to_str().with_span(&frame)?;
+                    let attrs = self.stack_pop().to_attrs().with_span(&frame)?;
+
+                    match attrs.select(key.as_str()) {
+                        Some(value) => self.stack.push(value.clone()),
+
+                        None => {
+                            return Err(frame.error(ErrorKind::AttributeNotFound {
+                                name: key.as_str().to_string(),
+                            }))
+                        }
+                    }
+                }
+
+                OpCode::OpJumpIfFalse(JumpOffset(offset)) => {
+                    debug_assert!(offset != 0);
+                    if !self.stack_peek(0).as_bool().with_span(&frame)? {
+                        frame.ip += offset;
+                    }
+                }
+
                 OpCode::OpPop => {
                     self.stack.pop();
+                }
+
+                OpCode::OpAttrsTrySelect => {
+                    let key = self.stack_pop().to_str().with_span(&frame)?;
+                    let value = match self.stack_pop() {
+                        Value::Attrs(attrs) => match attrs.select(key.as_str()) {
+                            Some(value) => value.clone(),
+                            None => Value::AttrNotFound,
+                        },
+
+                        _ => Value::AttrNotFound,
+                    };
+
+                    self.stack.push(value);
+                }
+
+                OpCode::OpGetLocal(StackIdx(local_idx)) => {
+                    let idx = frame.stack_offset + local_idx;
+                    self.stack.push(self.stack[idx].clone());
+                }
+
+                OpCode::OpJumpIfNotFound(JumpOffset(offset)) => {
+                    debug_assert!(offset != 0);
+                    if matches!(self.stack_peek(0), Value::AttrNotFound) {
+                        self.stack_pop();
+                        frame.ip += offset;
+                    }
+                }
+
+                OpCode::OpJump(JumpOffset(offset)) => {
+                    debug_assert!(offset != 0);
+                    frame.ip += offset;
+                }
+
+                OpCode::OpEqual => {
+                    let b = self.stack_pop();
+                    let a = self.stack_pop();
+                    let gen_span = frame.current_light_span();
+                    self.push_call_frame(span, frame);
+                    self.enqueue_generator("nix_eq", gen_span, |co| {
+                        a.nix_eq(b, co, PointerEquality::ForbidAll)
+                    });
+                    return Ok(false);
+                }
+
+                // These assertion operations error out if the stack
+                // top is not of the expected type. This is necessary
+                // to implement some specific behaviours of Nix
+                // exactly.
+                OpCode::OpAssertBool => {
+                    let val = self.stack_peek(0);
+                    if !val.is_bool() {
+                        return Err(frame.error(ErrorKind::TypeError {
+                            expected: "bool",
+                            actual: val.type_of(),
+                        }));
+                    }
+                }
+
+                OpCode::OpAttrs(Count(count)) => self.run_attrset(&frame, count)?,
+
+                OpCode::OpAttrsUpdate => {
+                    let rhs = self.stack_pop().to_attrs().with_span(&frame)?;
+                    let lhs = self.stack_pop().to_attrs().with_span(&frame)?;
+
+                    self.stack.push(Value::attrs(lhs.update(*rhs)))
+                }
+
+                OpCode::OpInvert => {
+                    let v = self.stack_pop().as_bool().with_span(&frame)?;
+                    self.stack.push(Value::Bool(!v));
+                }
+
+                OpCode::OpList(Count(count)) => {
+                    let list =
+                        NixList::construct(count, self.stack.split_off(self.stack.len() - count));
+
+                    self.stack.push(Value::List(list));
+                }
+
+                OpCode::OpJumpIfTrue(JumpOffset(offset)) => {
+                    debug_assert!(offset != 0);
+                    if self.stack_peek(0).as_bool().with_span(&frame)? {
+                        frame.ip += offset;
+                    }
+                }
+
+                OpCode::OpHasAttr => {
+                    let key = self.stack_pop().to_str().with_span(&frame)?;
+                    let result = match self.stack_pop() {
+                        Value::Attrs(attrs) => attrs.contains(key.as_str()),
+
+                        // Nix allows use of `?` on non-set types, but
+                        // always returns false in those cases.
+                        _ => false,
+                    };
+
+                    self.stack.push(Value::Bool(result));
+                }
+
+                OpCode::OpConcat => {
+                    let rhs = self.stack_pop().to_list().with_span(&frame)?.into_inner();
+                    let lhs = self.stack_pop().to_list().with_span(&frame)?.into_inner();
+                    self.stack.push(Value::List(NixList::from(lhs + rhs)))
+                }
+
+                OpCode::OpResolveWith => {
+                    let ident = self.stack_pop().to_str().with_span(&frame)?;
+
+                    // Re-enqueue this frame.
+                    let op_span = frame.current_light_span();
+                    self.push_call_frame(span, frame);
+
+                    // Construct a generator frame doing the lookup in constant
+                    // stack space.
+                    let with_stack_len = self.with_stack.len();
+                    let closed_with_stack_len = self
+                        .last_call_frame()
+                        .map(|frame| frame.upvalues.with_stack_len())
+                        .unwrap_or(0);
+
+                    self.enqueue_generator("resolve_with", op_span, |co| {
+                        resolve_with(
+                            co,
+                            ident.as_str().to_owned(),
+                            with_stack_len,
+                            closed_with_stack_len,
+                        )
+                    });
+
+                    return Ok(false);
+                }
+
+                OpCode::OpFinalise(StackIdx(idx)) => {
+                    match &self.stack[frame.stack_offset + idx] {
+                        Value::Closure(_) => panic!("attempted to finalise a closure"),
+                        Value::Thunk(thunk) => thunk.finalise(&self.stack[frame.stack_offset..]),
+
+                        // In functions with "formals" attributes, it is
+                        // possible for `OpFinalise` to be called on a
+                        // non-capturing value, in which case it is a no-op.
+                        //
+                        // TODO: detect this in some phase and skip the finalise; fail here
+                        _ => { /* TODO: panic here again to catch bugs */ }
+                    }
+                }
+
+                OpCode::OpCoerceToString => {
+                    let value = self.stack_pop();
+                    let gen_span = frame.current_light_span();
+                    self.push_call_frame(span, frame);
+
+                    self.enqueue_generator("coerce_to_string", gen_span, |co| {
+                        value.coerce_to_string(co, CoercionKind::Weak)
+                    });
+
+                    return Ok(false);
+                }
+
+                OpCode::OpInterpolate(Count(count)) => self.run_interpolate(&frame, count)?,
+
+                OpCode::OpValidateClosedFormals => {
+                    let formals = frame.lambda.formals.as_ref().expect(
+                        "OpValidateClosedFormals called within the frame of a lambda without formals",
+                    );
+
+                    let args = self.stack_peek(0).to_attrs().with_span(&frame)?;
+                    for arg in args.keys() {
+                        if !formals.contains(arg) {
+                            return Err(frame.error(ErrorKind::UnexpectedArgument {
+                                arg: arg.clone(),
+                                formals_span: formals.span,
+                            }));
+                        }
+                    }
                 }
 
                 OpCode::OpAdd => {
@@ -442,11 +728,6 @@ impl<'o> VM<'o> {
                     self.stack.push(result);
                 }
 
-                OpCode::OpInvert => {
-                    let v = self.stack_pop().as_bool().with_span(&frame)?;
-                    self.stack.push(Value::Bool(!v));
-                }
-
                 OpCode::OpNegate => match self.stack_pop() {
                     Value::Integer(i) => self.stack.push(Value::Integer(-i)),
                     Value::Float(f) => self.stack.push(Value::Float(-f)),
@@ -458,115 +739,10 @@ impl<'o> VM<'o> {
                     }
                 },
 
-                OpCode::OpEqual => {
-                    let b = self.stack_pop();
-                    let a = self.stack_pop();
-                    let gen_span = frame.current_light_span();
-                    self.push_call_frame(span, frame);
-                    self.enqueue_generator("nix_eq", gen_span, |co| {
-                        a.nix_eq(b, co, PointerEquality::ForbidAll)
-                    });
-                    return Ok(false);
-                }
-
                 OpCode::OpLess => cmp_op!(self, frame, span, <),
                 OpCode::OpLessOrEq => cmp_op!(self, frame, span, <=),
                 OpCode::OpMore => cmp_op!(self, frame, span, >),
                 OpCode::OpMoreOrEq => cmp_op!(self, frame, span, >=),
-
-                OpCode::OpAttrs(Count(count)) => self.run_attrset(&frame, count)?,
-
-                OpCode::OpAttrsUpdate => {
-                    let rhs = self.stack_pop().to_attrs().with_span(&frame)?;
-                    let lhs = self.stack_pop().to_attrs().with_span(&frame)?;
-
-                    self.stack.push(Value::attrs(lhs.update(*rhs)))
-                }
-
-                OpCode::OpAttrsSelect => {
-                    let key = self.stack_pop().to_str().with_span(&frame)?;
-                    let attrs = self.stack_pop().to_attrs().with_span(&frame)?;
-
-                    match attrs.select(key.as_str()) {
-                        Some(value) => self.stack.push(value.clone()),
-
-                        None => {
-                            return Err(frame.error(ErrorKind::AttributeNotFound {
-                                name: key.as_str().to_string(),
-                            }))
-                        }
-                    }
-                }
-
-                OpCode::OpAttrsTrySelect => {
-                    let key = self.stack_pop().to_str().with_span(&frame)?;
-                    let value = match self.stack_pop() {
-                        Value::Attrs(attrs) => match attrs.select(key.as_str()) {
-                            Some(value) => value.clone(),
-                            None => Value::AttrNotFound,
-                        },
-
-                        _ => Value::AttrNotFound,
-                    };
-
-                    self.stack.push(value);
-                }
-
-                OpCode::OpHasAttr => {
-                    let key = self.stack_pop().to_str().with_span(&frame)?;
-                    let result = match self.stack_pop() {
-                        Value::Attrs(attrs) => attrs.contains(key.as_str()),
-
-                        // Nix allows use of `?` on non-set types, but
-                        // always returns false in those cases.
-                        _ => false,
-                    };
-
-                    self.stack.push(Value::Bool(result));
-                }
-
-                OpCode::OpValidateClosedFormals => {
-                    let formals = frame.lambda.formals.as_ref().expect(
-                        "OpValidateClosedFormals called within the frame of a lambda without formals",
-                    );
-
-                    let args = self.stack_peek(0).to_attrs().with_span(&frame)?;
-                    for arg in args.keys() {
-                        if !formals.contains(arg) {
-                            return Err(frame.error(ErrorKind::UnexpectedArgument {
-                                arg: arg.clone(),
-                                formals_span: formals.span,
-                            }));
-                        }
-                    }
-                }
-
-                OpCode::OpList(Count(count)) => {
-                    let list =
-                        NixList::construct(count, self.stack.split_off(self.stack.len() - count));
-
-                    self.stack.push(Value::List(list));
-                }
-
-                OpCode::OpConcat => {
-                    let rhs = self.stack_pop().to_list().with_span(&frame)?.into_inner();
-                    let lhs = self.stack_pop().to_list().with_span(&frame)?.into_inner();
-                    self.stack.push(Value::List(NixList::from(lhs + rhs)))
-                }
-
-                OpCode::OpInterpolate(Count(count)) => self.run_interpolate(&frame, count)?,
-
-                OpCode::OpCoerceToString => {
-                    let value = self.stack_pop();
-                    let gen_span = frame.current_light_span();
-                    self.push_call_frame(span, frame);
-
-                    self.enqueue_generator("coerce_to_string", gen_span, |co| {
-                        value.coerce_to_string(co, CoercionKind::Weak)
-                    });
-
-                    return Ok(false);
-                }
 
                 OpCode::OpFindFile => match self.stack_pop() {
                     Value::UnresolvedPath(path) => {
@@ -600,191 +776,14 @@ impl<'o> VM<'o> {
                     }
                 },
 
-                OpCode::OpJump(JumpOffset(offset)) => {
-                    debug_assert!(offset != 0);
-                    frame.ip += offset;
-                }
-
-                OpCode::OpJumpIfTrue(JumpOffset(offset)) => {
-                    debug_assert!(offset != 0);
-                    if self.stack_peek(0).as_bool().with_span(&frame)? {
-                        frame.ip += offset;
-                    }
-                }
-
-                OpCode::OpJumpIfFalse(JumpOffset(offset)) => {
-                    debug_assert!(offset != 0);
-                    if !self.stack_peek(0).as_bool().with_span(&frame)? {
-                        frame.ip += offset;
-                    }
-                }
-
-                OpCode::OpJumpIfNotFound(JumpOffset(offset)) => {
-                    debug_assert!(offset != 0);
-                    if matches!(self.stack_peek(0), Value::AttrNotFound) {
-                        self.stack_pop();
-                        frame.ip += offset;
-                    }
-                }
-
-                // These assertion operations error out if the stack
-                // top is not of the expected type. This is necessary
-                // to implement some specific behaviours of Nix
-                // exactly.
-                OpCode::OpAssertBool => {
-                    let val = self.stack_peek(0);
-                    if !val.is_bool() {
-                        return Err(frame.error(ErrorKind::TypeError {
-                            expected: "bool",
-                            actual: val.type_of(),
-                        }));
-                    }
-                }
-
-                // Remove the given number of elements from the stack,
-                // but retain the top value.
-                OpCode::OpCloseScope(Count(count)) => {
-                    // Immediately move the top value into the right
-                    // position.
-                    let target_idx = self.stack.len() - 1 - count;
-                    self.stack[target_idx] = self.stack_pop();
-
-                    // Then drop the remaining values.
-                    for _ in 0..(count - 1) {
-                        self.stack.pop();
-                    }
-                }
-
-                OpCode::OpGetLocal(StackIdx(local_idx)) => {
-                    let idx = frame.stack_offset + local_idx;
-                    self.stack.push(self.stack[idx].clone());
-                }
-
                 OpCode::OpPushWith(StackIdx(idx)) => self.with_stack.push(frame.stack_offset + idx),
 
                 OpCode::OpPopWith => {
                     self.with_stack.pop();
                 }
 
-                OpCode::OpResolveWith => {
-                    let ident = self.stack_pop().to_str().with_span(&frame)?;
-
-                    // Re-enqueue this frame.
-                    let op_span = frame.current_light_span();
-                    self.push_call_frame(span, frame);
-
-                    // Construct a generator frame doing the lookup in constant
-                    // stack space.
-                    let with_stack_len = self.with_stack.len();
-                    let closed_with_stack_len = self
-                        .last_call_frame()
-                        .map(|frame| frame.upvalues.with_stack_len())
-                        .unwrap_or(0);
-
-                    self.enqueue_generator("resolve_with", op_span, |co| {
-                        resolve_with(
-                            co,
-                            ident.as_str().to_owned(),
-                            with_stack_len,
-                            closed_with_stack_len,
-                        )
-                    });
-
-                    return Ok(false);
-                }
-
                 OpCode::OpAssertFail => {
                     return Err(frame.error(ErrorKind::AssertionFailed));
-                }
-
-                OpCode::OpCall => {
-                    let callable = self.stack_pop();
-                    self.call_value(frame.current_light_span(), Some(frame), callable)?;
-
-                    // exit this loop and let the outer loop enter the new call
-                    return Ok(true);
-                }
-
-                OpCode::OpGetUpvalue(upv_idx) => {
-                    let value = frame.upvalue(upv_idx).clone();
-                    self.stack.push(value);
-                }
-
-                OpCode::OpClosure(idx) => {
-                    let blueprint = match &frame.chunk()[idx] {
-                        Value::Blueprint(lambda) => lambda.clone(),
-                        _ => panic!("compiler bug: non-blueprint in blueprint slot"),
-                    };
-
-                    let upvalue_count = blueprint.upvalue_count;
-                    debug_assert!(
-                        upvalue_count > 0,
-                        "OpClosure should not be called for plain lambdas"
-                    );
-
-                    let mut upvalues = Upvalues::with_capacity(blueprint.upvalue_count);
-                    self.populate_upvalues(&mut frame, upvalue_count, &mut upvalues)?;
-                    self.stack
-                        .push(Value::Closure(Rc::new(Closure::new_with_upvalues(
-                            Rc::new(upvalues),
-                            blueprint,
-                        ))));
-                }
-
-                OpCode::OpThunkSuspended(idx) | OpCode::OpThunkClosure(idx) => {
-                    let blueprint = match &frame.chunk()[idx] {
-                        Value::Blueprint(lambda) => lambda.clone(),
-                        _ => panic!("compiler bug: non-blueprint in blueprint slot"),
-                    };
-
-                    let upvalue_count = blueprint.upvalue_count;
-                    let thunk = if matches!(op, OpCode::OpThunkClosure(_)) {
-                        debug_assert!(
-                            upvalue_count > 0,
-                            "OpThunkClosure should not be called for plain lambdas"
-                        );
-                        Thunk::new_closure(blueprint)
-                    } else {
-                        Thunk::new_suspended(blueprint, frame.current_light_span())
-                    };
-                    let upvalues = thunk.upvalues_mut();
-                    self.stack.push(Value::Thunk(thunk.clone()));
-
-                    // From this point on we internally mutate the
-                    // upvalues. The closure (if `is_closure`) is
-                    // already in its stack slot, which means that it
-                    // can capture itself as an upvalue for
-                    // self-recursion.
-                    self.populate_upvalues(&mut frame, upvalue_count, upvalues)?;
-                }
-
-                OpCode::OpForce => {
-                    if let Some(Value::Thunk(_)) = self.stack.last() {
-                        let thunk = match self.stack_pop() {
-                            Value::Thunk(t) => t,
-                            _ => unreachable!(),
-                        };
-
-                        let gen_span = frame.current_light_span();
-
-                        self.push_call_frame(span, frame);
-                        self.enqueue_generator("force", gen_span, |co| thunk.force(co));
-                        return Ok(false);
-                    }
-                }
-
-                OpCode::OpFinalise(StackIdx(idx)) => {
-                    match &self.stack[frame.stack_offset + idx] {
-                        Value::Closure(_) => panic!("attempted to finalise a closure"),
-                        Value::Thunk(thunk) => thunk.finalise(&self.stack[frame.stack_offset..]),
-
-                        // In functions with "formals" attributes, it is
-                        // possible for `OpFinalise` to be called on a
-                        // non-capturing value, in which case it is a no-op.
-                        //
-                        // TODO: detect this in some phase and skip the finalise; fail here
-                        _ => { /* TODO: panic here again to catch bugs */ }
-                    }
                 }
 
                 // Data-carrying operands should never be executed,
