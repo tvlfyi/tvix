@@ -355,7 +355,7 @@ impl<'o> VM<'o> {
 
                         GeneratorRequest::Call(callable) => {
                             self.reenqueue_generator(name, span.clone(), generator);
-                            self.tail_call_value(span, None, callable)?;
+                            self.call_value(span, None, callable)?;
                             return Ok(false);
                         }
 

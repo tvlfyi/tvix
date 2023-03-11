@@ -699,7 +699,7 @@ impl<'o> VM<'o> {
 
                 OpCode::OpCall => {
                     let callable = self.stack_pop();
-                    self.tail_call_value(frame.current_light_span(), Some(frame), callable)?;
+                    self.call_value(frame.current_light_span(), Some(frame), callable)?;
 
                     // exit this loop and let the outer loop enter the new call
                     return Ok(true);
@@ -900,7 +900,7 @@ impl<'o> VM<'o> {
         Ok(())
     }
 
-    fn tail_call_value(
+    fn call_value(
         &mut self,
         span: LightSpan,
         parent: Option<CallFrame>,
@@ -908,7 +908,7 @@ impl<'o> VM<'o> {
     ) -> EvalResult<()> {
         match callable {
             Value::Builtin(builtin) => self.call_builtin(span, builtin),
-            Value::Thunk(thunk) => self.tail_call_value(span, parent, thunk.value().clone()),
+            Value::Thunk(thunk) => self.call_value(span, parent, thunk.value().clone()),
 
             Value::Closure(closure) => {
                 let lambda = closure.lambda();
