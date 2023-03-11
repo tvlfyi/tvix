@@ -7004,9 +7004,9 @@ rec {
       };
       "tokio-util" = rec {
         crateName = "tokio-util";
-        version = "0.7.4";
+        version = "0.7.7";
         edition = "2018";
-        sha256 = "0h67jb56bsxy4pi1a41pda8d52569ci5clvqv3c6cg9vy1sy1chb";
+        sha256 = "1cp6yx4789j6gvbp4xnbk7lpd7q0j2a2qd4g1pg2b4q0afadh9sl";
         authors = [
           "Tokio Contributors <team@tokio.rs>"
         ];
@@ -7062,7 +7062,7 @@ rec {
           "time" = [ "tokio/time" "slab" ];
           "tracing" = [ "dep:tracing" ];
         };
-        resolvedDefaultFeatures = [ "codec" "default" "tracing" ];
+        resolvedDefaultFeatures = [ "codec" "default" "io" "io-util" "tracing" ];
       };
       "toml" = rec {
         crateName = "toml";
@@ -8355,6 +8355,11 @@ rec {
           {
             name = "tokio-stream";
             packageId = "tokio-stream";
+          }
+          {
+            name = "tokio-util";
+            packageId = "tokio-util";
+            features = [ "io" "io-util" ];
           }
           {
             name = "tonic";
