@@ -7,6 +7,7 @@ use crate::Error;
 
 pub use self::memory::MemoryChunkService;
 pub use self::sled::SledChunkService;
+pub use self::util::read_all_and_chunk;
 pub use self::util::update_hasher;
 pub use self::util::upload_chunk;
 

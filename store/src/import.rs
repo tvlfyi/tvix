@@ -1,7 +1,4 @@
-use crate::{
-    chunkservice::{update_hasher, upload_chunk},
-    proto,
-};
+use crate::{chunkservice::read_all_and_chunk, proto};
 use std::{
     collections::HashMap,
     fmt::Debug,
@@ -115,44 +112,10 @@ fn process_entry<BS: BlobService, CS: ChunkService + std::marker::Sync, DS: Dire
             .metadata()
             .map_err(|e| Error::UnableToStat(entry_path.clone(), e.into()))?;
 
-        // hash the file contents, upload chunks if not there yet
-        let (blob_digest, blob_meta) = {
-            let file = File::open(entry_path.clone())
-                .map_err(|e| Error::UnableToOpen(entry_path.clone(), e))?;
+        let file = File::open(entry_path.clone())
+            .map_err(|e| Error::UnableToOpen(entry_path.clone(), e))?;
 
-            let mut blob_meta = proto::BlobMeta::default();
-            let mut blob_hasher = blake3::Hasher::new();
-
-            // TODO: play with chunking sizes
-            let chunker_avg_size = 64 * 1024;
-            let chunker_min_size = chunker_avg_size / 4;
-            let chunker_max_size = chunker_avg_size * 4;
-
-            let chunker = fastcdc::v2020::StreamCDC::new(
-                file,
-                chunker_min_size,
-                chunker_avg_size,
-                chunker_max_size,
-            );
-
-            for chunking_result in chunker {
-                let chunk = chunking_result.unwrap();
-                // TODO: convert to error::UnableToRead
-
-                let chunk_len = chunk.data.len() as u32;
-
-                // update calculate blob hash
-                update_hasher(&mut blob_hasher, &chunk.data);
-
-                let chunk_digest = upload_chunk(chunk_service, chunk.data)?;
-
-                blob_meta.chunks.push(proto::blob_meta::ChunkMeta {
-                    digest: chunk_digest,
-                    size: chunk_len,
-                });
-            }
-            (blob_hasher.finalize().as_bytes().to_vec(), blob_meta)
-        };
+        let (blob_digest, blob_meta) = read_all_and_chunk(chunk_service, file)?;
 
         // upload blobmeta if not there yet
         if blob_service
