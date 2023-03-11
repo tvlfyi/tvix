@@ -200,21 +200,21 @@ suspension (as a result of which control is returned to the outer loop), or
 until the generator is done and yields a value.
 
 ```
-   ┏━━━━━━━━━━━━━┓       [Done]
+   ┏━━━━━━━━━━━━━┓
 ◄──┨ return true ┃ ◄───────────────────╮
    ┗━━━━━━━━━━━━━┛                     │
                                        │
-                                       │
+                               [Done]  │
                     ╭──────────────────┴─────────╮
-            ╭───────┤ inspect generator response │
-            │       ╰──────────────────┬─────────╯
-   ┏━━━━━━━━┷━━━━━━━━┓                 │
-──►┃ gen.resume(msg) ┃                 │[Yielded]
-   ┗━━━━━━━━━━━━━━━━━┛                 │
-            ▲                   ╭──────┴─────╮
-            │          [yes]    │ same-frame │
-            ╰───────────────────┤  request?  │
-                                ╰──────┬─────╯
+                    │ inspect generator response │◄────────────╮
+                    ╰──────────────────┬─────────╯             │
+                            [yielded]  │              ┏━━━━━━━━┷━━━━━━━━┓
+                                       │              ┃ gen.resume(msg) ┃◄──
+                                       ▼              ┗━━━━━━━━━━━━━━━━━┛
+                                 ╭────────────╮                ▲
+                                 │ same-frame │                │
+                                 │  request?  ├────────────────╯
+                                 ╰─────┬──────╯      [yes]
    ┏━━━━━━━━━━━━━━┓                    │
 ◄──┨ return false ┃ ◄──────────────────╯
    ┗━━━━━━━━━━━━━━┛                [no]
