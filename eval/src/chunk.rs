@@ -65,6 +65,11 @@ impl Chunk {
         CodeIdx(idx)
     }
 
+    /// Get the first span of a chunk, no questions asked.
+    pub fn first_span(&self) -> codemap::Span {
+        self.spans[0].span
+    }
+
     /// Pop the last operation from the chunk and clean up its tracked
     /// span. Used when the compiler backtracks.
     pub fn pop_op(&mut self) {

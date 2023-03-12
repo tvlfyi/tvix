@@ -35,6 +35,7 @@ use crate::{
 };
 
 use super::{Lambda, TotalDisplay};
+use codemap::Span;
 
 /// Internal representation of a suspended native thunk.
 struct SuspendedNative(Box<dyn Fn() -> Result<Value, ErrorKind>>);
@@ -65,7 +66,17 @@ enum ThunkRepr {
 
     /// Thunk currently under-evaluation; encountering a blackhole
     /// value means that infinite recursion has occured.
-    Blackhole { forced_at: LightSpan },
+    Blackhole {
+        /// Span at which the thunk was first forced.
+        forced_at: LightSpan,
+
+        /// Span at which the thunk was originally suspended.
+        suspended_at: Option<LightSpan>,
+
+        /// Span of the first instruction of the actual code inside
+        /// the thunk.
+        content_span: Option<Span>,
+    },
 
     /// Fully evaluated thunk.
     Evaluated(Value),
@@ -113,6 +124,24 @@ impl Thunk {
         )))))
     }
 
+    fn prepare_blackhole(&self, forced_at: LightSpan) -> ThunkRepr {
+        match &*self.0.borrow() {
+            ThunkRepr::Suspended {
+                light_span, lambda, ..
+            } => ThunkRepr::Blackhole {
+                forced_at,
+                suspended_at: Some(light_span.clone()),
+                content_span: Some(lambda.chunk.first_span()),
+            },
+
+            _ => ThunkRepr::Blackhole {
+                forced_at,
+                suspended_at: None,
+                content_span: None,
+            },
+        }
+    }
+
     // TODO(amjoseph): de-asyncify this
     pub async fn force(self, co: GenCo, span: LightSpan) -> Result<Value, ErrorKind> {
         // If the current thunk is already fully evaluated, return its evaluated
@@ -124,13 +153,19 @@ impl Thunk {
         // Begin evaluation of this thunk by marking it as a blackhole, meaning
         // that any other forcing frame encountering this thunk before its
         // evaluation is completed detected an evaluation cycle.
-        let inner = self.0.replace(ThunkRepr::Blackhole { forced_at: span });
+        let inner = self.0.replace(self.prepare_blackhole(span));
 
         match inner {
             // If there was already a blackhole in the thunk, this is an
             // evaluation cycle.
-            ThunkRepr::Blackhole { forced_at } => Err(ErrorKind::InfiniteRecursion {
+            ThunkRepr::Blackhole {
+                forced_at,
+                suspended_at,
+                content_span,
+            } => Err(ErrorKind::InfiniteRecursion {
                 first_force: forced_at.span(),
+                suspended_at: suspended_at.map(|s| s.span()),
+                content_span,
             }),
 
             // If there is a native function stored in the thunk, evaluate it
@@ -148,7 +183,6 @@ impl Thunk {
 
             // When encountering a suspended thunk, request that the VM enters
             // it and produces the result.
-            //
             ThunkRepr::Suspended {
                 lambda,
                 upvalues,

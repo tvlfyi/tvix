@@ -79,6 +79,8 @@ pub enum ErrorKind {
     /// Infinite recursion encountered while forcing thunks.
     InfiniteRecursion {
         first_force: Span,
+        suspended_at: Option<Span>,
+        content_span: Option<Span>,
     },
 
     ParseErrors(Vec<rnix::parser::ParseError>),
@@ -871,19 +873,42 @@ impl Error {
                 ]
             }
 
-            ErrorKind::InfiniteRecursion { first_force } => {
-                vec![
-                    SpanLabel {
-                        label: Some("first requested here".into()),
-                        span: *first_force,
+            ErrorKind::InfiniteRecursion {
+                first_force,
+                suspended_at,
+                content_span,
+            } => {
+                let mut spans = vec![];
+
+                if let Some(content_span) = content_span {
+                    spans.push(SpanLabel {
+                        label: Some("this lazily-evaluated code".into()),
+                        span: *content_span,
                         style: SpanStyle::Secondary,
-                    },
-                    SpanLabel {
-                        label: Some("requested again here".into()),
-                        span: self.span,
-                        style: SpanStyle::Primary,
-                    },
-                ]
+                    })
+                }
+
+                if let Some(suspended_at) = suspended_at {
+                    spans.push(SpanLabel {
+                        label: Some("which was instantiated here".into()),
+                        span: *suspended_at,
+                        style: SpanStyle::Secondary,
+                    })
+                }
+
+                spans.push(SpanLabel {
+                    label: Some("was first requested to be evaluated here".into()),
+                    span: *first_force,
+                    style: SpanStyle::Secondary,
+                });
+
+                spans.push(SpanLabel {
+                    label: Some("but then requested again here during its own evaluation".into()),
+                    span: self.span,
+                    style: SpanStyle::Primary,
+                });
+
+                spans
             }
 
             // All other errors pretty much have the same shape.
