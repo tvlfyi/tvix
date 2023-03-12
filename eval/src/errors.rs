@@ -77,7 +77,9 @@ pub enum ErrorKind {
     NotCallable(&'static str),
 
     /// Infinite recursion encountered while forcing thunks.
-    InfiniteRecursion,
+    InfiniteRecursion {
+        first_force: Span,
+    },
 
     ParseErrors(Vec<rnix::parser::ParseError>),
 
@@ -354,7 +356,7 @@ to a missing value in the attribute set(s) included via `with`."#,
                 )
             }
 
-            ErrorKind::InfiniteRecursion => write!(f, "infinite recursion encountered"),
+            ErrorKind::InfiniteRecursion { .. } => write!(f, "infinite recursion encountered"),
 
             // Errors themselves ignored here & handled in Self::spans instead
             ErrorKind::ParseErrors(_) => write!(f, "failed to parse Nix code:"),
@@ -754,7 +756,7 @@ impl Error {
             | ErrorKind::UnknownDynamicVariable(_)
             | ErrorKind::VariableAlreadyDefined(_)
             | ErrorKind::NotCallable(_)
-            | ErrorKind::InfiniteRecursion
+            | ErrorKind::InfiniteRecursion { .. }
             | ErrorKind::ParseErrors(_)
             | ErrorKind::NativeError { .. }
             | ErrorKind::BytecodeError(_)
@@ -797,7 +799,7 @@ impl Error {
             ErrorKind::UnknownDynamicVariable(_) => "E011",
             ErrorKind::VariableAlreadyDefined(_) => "E012",
             ErrorKind::NotCallable(_) => "E013",
-            ErrorKind::InfiniteRecursion => "E014",
+            ErrorKind::InfiniteRecursion { .. } => "E014",
             ErrorKind::ParseErrors(_) => "E015",
             ErrorKind::DuplicateAttrsKey { .. } => "E016",
             ErrorKind::NotCoercibleToString { .. } => "E018",
@@ -865,6 +867,21 @@ impl Error {
                         label: Some("the accepted arguments".into()),
                         span: *formals_span,
                         style: SpanStyle::Secondary,
+                    },
+                ]
+            }
+
+            ErrorKind::InfiniteRecursion { first_force } => {
+                vec![
+                    SpanLabel {
+                        label: Some("first requested here".into()),
+                        span: *first_force,
+                        style: SpanStyle::Secondary,
+                    },
+                    SpanLabel {
+                        label: Some("requested again here".into()),
+                        span: self.span,
+                        style: SpanStyle::Primary,
                     },
                 ]
             }

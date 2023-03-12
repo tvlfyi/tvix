@@ -483,7 +483,10 @@ impl<'o> VM<'o> {
                         let gen_span = frame.current_light_span();
 
                         self.push_call_frame(span, frame);
-                        self.enqueue_generator("force", gen_span, |co| thunk.force(co));
+                        self.enqueue_generator("force", gen_span.clone(), |co| {
+                            thunk.force(co, gen_span)
+                        });
+
                         return Ok(false);
                     }
                 }

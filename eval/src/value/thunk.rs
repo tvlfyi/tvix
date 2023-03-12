@@ -65,7 +65,7 @@ enum ThunkRepr {
 
     /// Thunk currently under-evaluation; encountering a blackhole
     /// value means that infinite recursion has occured.
-    Blackhole,
+    Blackhole { forced_at: LightSpan },
 
     /// Fully evaluated thunk.
     Evaluated(Value),
@@ -75,7 +75,7 @@ impl ThunkRepr {
     fn debug_repr(&self) -> String {
         match self {
             ThunkRepr::Evaluated(v) => format!("thunk(val|{})", v),
-            ThunkRepr::Blackhole => "thunk(blackhole)".to_string(),
+            ThunkRepr::Blackhole { .. } => "thunk(blackhole)".to_string(),
             ThunkRepr::Native(_) => "thunk(native)".to_string(),
             ThunkRepr::Suspended { lambda, .. } => format!("thunk({:p})", *lambda),
         }
@@ -114,7 +114,7 @@ impl Thunk {
     }
 
     // TODO(amjoseph): de-asyncify this
-    pub async fn force(self, co: GenCo) -> Result<Value, ErrorKind> {
+    pub async fn force(self, co: GenCo, span: LightSpan) -> Result<Value, ErrorKind> {
         // If the current thunk is already fully evaluated, return its evaluated
         // value. The VM will continue running the code that landed us here.
         if self.is_forced() {
@@ -124,12 +124,14 @@ impl Thunk {
         // Begin evaluation of this thunk by marking it as a blackhole, meaning
         // that any other forcing frame encountering this thunk before its
         // evaluation is completed detected an evaluation cycle.
-        let inner = self.0.replace(ThunkRepr::Blackhole);
+        let inner = self.0.replace(ThunkRepr::Blackhole { forced_at: span });
 
         match inner {
             // If there was already a blackhole in the thunk, this is an
             // evaluation cycle.
-            ThunkRepr::Blackhole => Err(ErrorKind::InfiniteRecursion),
+            ThunkRepr::Blackhole { forced_at } => Err(ErrorKind::InfiniteRecursion {
+                first_force: forced_at.span(),
+            }),
 
             // If there is a native function stored in the thunk, evaluate it
             // and replace this thunk's representation with the result.
@@ -206,7 +208,7 @@ impl Thunk {
     pub fn value(&self) -> Ref<Value> {
         Ref::map(self.0.borrow(), |thunk| match thunk {
             ThunkRepr::Evaluated(value) => value,
-            ThunkRepr::Blackhole => panic!("Thunk::value called on a black-holed thunk"),
+            ThunkRepr::Blackhole { .. } => panic!("Thunk::value called on a black-holed thunk"),
             ThunkRepr::Suspended { .. } | ThunkRepr::Native(_) => {
                 panic!("Thunk::value called on a suspended thunk")
             }

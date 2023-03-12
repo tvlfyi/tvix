@@ -22,6 +22,7 @@ mod thunk;
 
 use crate::errors::ErrorKind;
 use crate::opcode::StackIdx;
+use crate::spans::LightSpan;
 use crate::vm::generators::{self, GenCo};
 use crate::AddContext;
 pub use attrs::NixAttrs;
@@ -611,9 +612,9 @@ impl Value {
     }
 
     // TODO(amjoseph): de-asyncify this (when called directly by the VM)
-    pub async fn force(self, co: GenCo) -> Result<Value, ErrorKind> {
+    pub async fn force(self, co: GenCo, span: LightSpan) -> Result<Value, ErrorKind> {
         if let Value::Thunk(thunk) = self {
-            return thunk.force(co).await;
+            return thunk.force(co, span).await;
         }
 
         Ok(self)
