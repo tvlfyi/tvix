@@ -1339,7 +1339,8 @@ fn compile_src_builtin(
             file.clone(),
             weak.upgrade().unwrap(),
             &mut crate::observer::NoOpObserver {},
-        )?;
+        )
+        .map_err(|e| ErrorKind::NativeError(Box::new(e)))?;
 
         if !result.errors.is_empty() {
             return Err(ErrorKind::ImportCompilerError {

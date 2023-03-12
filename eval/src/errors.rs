@@ -81,9 +81,13 @@ pub enum ErrorKind {
 
     ParseErrors(Vec<rnix::parser::ParseError>),
 
-    /// An error occured while forcing a thunk, and needs to be
-    /// chained up.
-    ThunkForce(Box<Error>),
+    /// An error occured while executing some native code (e.g. a
+    /// builtin), and needs to be chained up.
+    NativeError(Box<Error>),
+
+    /// An error occured while executing Tvix bytecode, but needs to
+    /// be chained up.
+    BytecodeError(Box<Error>),
 
     /// Given type can't be coerced to a string in the respective context
     NotCoercibleToString {
@@ -175,7 +179,7 @@ pub enum ErrorKind {
 impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match &self.kind {
-            ErrorKind::ThunkForce(err) => err.source(),
+            ErrorKind::NativeError(err) | ErrorKind::BytecodeError(err) => err.source(),
             ErrorKind::ParseErrors(err) => err.first().map(|e| e as &dyn error::Error),
             ErrorKind::ParseIntError(err) => Some(err),
             ErrorKind::ImportParseError { errors, .. } => {
@@ -216,15 +220,6 @@ impl From<XmlError> for ErrorKind {
     }
 }
 
-/// Implementation used if errors occur while forcing thunks (which
-/// can potentially be threaded through a few contexts, i.e. nested
-/// thunks).
-impl From<Error> for ErrorKind {
-    fn from(e: Error) -> Self {
-        Self::ThunkForce(Box::new(e))
-    }
-}
-
 impl From<io::Error> for ErrorKind {
     fn from(e: io::Error) -> Self {
         ErrorKind::IO {
@@ -239,7 +234,7 @@ impl ErrorKind {
     pub fn is_catchable(&self) -> bool {
         match self {
             Self::Throw(_) | Self::AssertionFailed | Self::NixPathResolution(_) => true,
-            Self::ThunkForce(err) => err.kind.is_catchable(),
+            Self::NativeError(err) | Self::BytecodeError(err) => err.kind.is_catchable(),
             _ => false,
         }
     }
@@ -361,10 +356,8 @@ to a missing value in the attribute set(s) included via `with`."#,
             // Errors themselves ignored here & handled in Self::spans instead
             ErrorKind::ParseErrors(_) => write!(f, "failed to parse Nix code:"),
 
-            // TODO(tazjin): trace through the whole chain of thunk
-            // forcing errors with secondary spans, instead of just
-            // delegating to the inner error
-            ErrorKind::ThunkForce(err) => write!(f, "{err}"),
+            ErrorKind::NativeError(_) => write!(f, "while evaluating this native code"),
+            ErrorKind::BytecodeError(_) => write!(f, "while evaluating this Nix code"),
 
             ErrorKind::NotCoercibleToString { kind, from } => {
                 let kindly = match kind {
@@ -757,7 +750,8 @@ impl Error {
             | ErrorKind::NotCallable(_)
             | ErrorKind::InfiniteRecursion
             | ErrorKind::ParseErrors(_)
-            | ErrorKind::ThunkForce(_)
+            | ErrorKind::NativeError(_)
+            | ErrorKind::BytecodeError(_)
             | ErrorKind::NotCoercibleToString { .. }
             | ErrorKind::NotAnAbsolutePath(_)
             | ErrorKind::ParseIntError(_)
@@ -831,12 +825,9 @@ impl Error {
             // Placeholder error while Tvix is under construction.
             ErrorKind::NotImplemented(_) => "E999",
 
-            // TODO: thunk force errors should yield a chained
-            // diagnostic, but until then we just forward the error
-            // code from the inner error.
-            //
-            // The error code for thunk forces is E017.
-            ErrorKind::ThunkForce(ref err) => err.code(),
+            // Chained errors should yield the code of the innermost
+            // error.
+            ErrorKind::NativeError(ref err) | ErrorKind::BytecodeError(ref err) => err.code(),
 
             ErrorKind::WithContext { .. } => {
                 panic!("internal ErrorKind::WithContext variant leaked")
@@ -853,27 +844,6 @@ impl Error {
             ErrorKind::ParseErrors(errors) => {
                 let file = source.get_file(self.span);
                 spans_for_parse_errors(&file, errors)
-            }
-
-            // Unwrap thunk errors to the innermost one
-            // TODO: limit the number of intermediates!
-            ErrorKind::ThunkForce(err) => {
-                let mut labels = err.spans(source);
-
-                // Only add this thunk to the "cause chain" if it span isn't
-                // exactly identical to the next-higher level, which is very
-                // common for the last thunk in a chain.
-                if let Some(label) = labels.last() {
-                    if label.span != self.span {
-                        labels.push(SpanLabel {
-                            label: Some("while evaluating this".into()),
-                            span: self.span,
-                            style: SpanStyle::Secondary,
-                        });
-                    }
-                }
-
-                labels
             }
 
             ErrorKind::UnexpectedArgument { formals_span, .. } => {
@@ -926,16 +896,79 @@ impl Error {
     /// any) of an error.
     fn diagnostics(&self, source: &SourceCode) -> Vec<Diagnostic> {
         match &self.kind {
-            ErrorKind::ThunkForce(err) => err.diagnostics(source),
-
             ErrorKind::ImportCompilerError { errors, .. } => {
                 let mut out = vec![self.diagnostic(source)];
                 out.extend(errors.iter().map(|e| e.diagnostic(source)));
                 out
             }
 
+            // When encountering either of these error kinds, we are dealing
+            // with the top of an error chain.
+            //
+            // An error chain creates a list of diagnostics which provide trace
+            // information.
+            //
+            // We don't know how deep this chain is, so we avoid recursing in
+            // this function while unrolling the chain.
+            ErrorKind::NativeError(next) | ErrorKind::BytecodeError(next) => {
+                // Accumulated diagnostics to return.
+                let mut diagnostics: Vec<Diagnostic> = vec![];
+
+                // The next (inner) error to add to the diagnostics, after this
+                // one.
+                let mut next = *next.clone();
+
+                // Diagnostic message for *this* error.
+                let mut this_message = self.to_string();
+
+                // Primary span for *this* error.
+                let mut this_span = self.span;
+
+                // Diagnostic spans for *this* error.
+                let mut this_spans = self.spans(source);
+
+                loop {
+                    if is_new_span(
+                        this_span,
+                        diagnostics.last().and_then(|last| last.spans.last()),
+                    ) {
+                        diagnostics.push(Diagnostic {
+                            level: Level::Note,
+                            message: this_message,
+                            spans: this_spans,
+                            code: None, // only the top-level error has one
+                        });
+                    }
+
+                    this_message = next.to_string();
+                    this_span = next.span;
+                    this_spans = next.spans(source);
+
+                    match next.kind {
+                        ErrorKind::NativeError(inner) | ErrorKind::BytecodeError(inner) => {
+                            next = *inner;
+                            continue;
+                        }
+                        _ => {
+                            diagnostics.extend(next.diagnostics(source));
+                            break;
+                        }
+                    }
+                }
+
+                diagnostics
+            }
+
             _ => vec![self.diagnostic(source)],
         }
+    }
+}
+
+// Check if this error is in a different span from its immediate ancestor.
+fn is_new_span(this_span: Span, parent: Option<&SpanLabel>) -> bool {
+    match parent {
+        None => true,
+        Some(parent) => parent.span != this_span,
     }
 }
 

@@ -12,6 +12,7 @@
 pub mod generators;
 mod macros;
 
+use codemap::Span;
 use serde_json::json;
 use std::{cmp::Ordering, collections::HashMap, ops::DerefMut, path::PathBuf, rc::Rc};
 
@@ -39,15 +40,75 @@ use generators::{call_functor, Generator, GeneratorState};
 
 use self::generators::{VMRequest, VMResponse};
 
-/// Internal helper trait for ergonomically converting from a `Result<T,
-/// ErrorKind>` to a `Result<T, Error>` using the current span of a call frame.
-trait WithSpan<T> {
-    fn with_span(self, frame: &CallFrame) -> Result<T, Error>;
+/// Internal helper trait for taking a span from a variety of types, to make use
+/// of `WithSpan` (defined below) more ergonomic at call sites.
+trait GetSpan {
+    fn get_span(self) -> Span;
 }
 
-impl<T> WithSpan<T> for Result<T, ErrorKind> {
-    fn with_span(self, frame: &CallFrame) -> Result<T, Error> {
-        self.map_err(|kind| frame.error(kind))
+impl<'o> GetSpan for &VM<'o> {
+    fn get_span(self) -> Span {
+        self.reasonable_span.span()
+    }
+}
+
+impl GetSpan for &CallFrame {
+    fn get_span(self) -> Span {
+        self.current_span()
+    }
+}
+
+impl GetSpan for &LightSpan {
+    fn get_span(self) -> Span {
+        self.span()
+    }
+}
+
+impl GetSpan for Span {
+    fn get_span(self) -> Span {
+        self
+    }
+}
+
+/// Internal helper trait for ergonomically converting from a `Result<T,
+/// ErrorKind>` to a `Result<T, Error>` using the current span of a call frame,
+/// and chaining the VM's frame stack around it for printing a cause chain.
+trait WithSpan<T, S: GetSpan> {
+    fn with_span(self, top_span: S, vm: &VM) -> Result<T, Error>;
+}
+
+impl<T, S: GetSpan> WithSpan<T, S> for Result<T, ErrorKind> {
+    fn with_span(self, top_span: S, vm: &VM) -> Result<T, Error> {
+        match self {
+            Ok(something) => Ok(something),
+            Err(kind) => {
+                let mut error = Error::new(kind, top_span.get_span());
+
+                // Short-circuit the wrapping if we're dealing with tryEval, in
+                // which case the error is hidden and does not need to be
+                // exhaustive.
+                if !vm.try_eval_frames.is_empty() && error.kind.is_catchable() {
+                    return Err(error);
+                }
+
+                // Wrap the top-level error in chaining errors for each element
+                // of the frame stack.
+                for frame in vm.frames.iter().rev() {
+                    match frame {
+                        Frame::CallFrame { span, .. } => {
+                            error =
+                                Error::new(ErrorKind::BytecodeError(Box::new(error)), span.span());
+                        }
+                        Frame::Generator { span, .. } => {
+                            error =
+                                Error::new(ErrorKind::NativeError(Box::new(error)), span.span());
+                        }
+                    }
+                }
+
+                Err(error)
+            }
+        }
     }
 }
 
@@ -86,10 +147,16 @@ impl CallFrame {
         op
     }
 
-    /// Construct an error from the given ErrorKind and the source span of the
-    /// current instruction.
-    pub fn error(&self, kind: ErrorKind) -> Error {
-        Error::new(kind, self.chunk().get_span(self.ip - 1))
+    /// Construct an error result from the given ErrorKind and the source span
+    /// of the current instruction.
+    pub fn error<T>(&self, vm: &VM, kind: ErrorKind) -> Result<T, Error> {
+        Err(kind).with_span(self, vm)
+    }
+
+    /// Returns the current span. This is potentially expensive and should only
+    /// be used when actually constructing an error or warning.
+    pub fn current_span(&self) -> Span {
+        self.chunk().get_span(self.ip - 1)
     }
 
     /// Returns the information needed to calculate the current span,
@@ -475,23 +542,26 @@ impl<'o> VM<'o> {
                 }
 
                 OpCode::OpAttrsSelect => {
-                    let key = self.stack_pop().to_str().with_span(&frame)?;
-                    let attrs = self.stack_pop().to_attrs().with_span(&frame)?;
+                    let key = self.stack_pop().to_str().with_span(&frame, self)?;
+                    let attrs = self.stack_pop().to_attrs().with_span(&frame, self)?;
 
                     match attrs.select(key.as_str()) {
                         Some(value) => self.stack.push(value.clone()),
 
                         None => {
-                            return Err(frame.error(ErrorKind::AttributeNotFound {
-                                name: key.as_str().to_string(),
-                            }))
+                            return frame.error(
+                                self,
+                                ErrorKind::AttributeNotFound {
+                                    name: key.as_str().to_string(),
+                                },
+                            );
                         }
                     }
                 }
 
                 OpCode::OpJumpIfFalse(JumpOffset(offset)) => {
                     debug_assert!(offset != 0);
-                    if !self.stack_peek(0).as_bool().with_span(&frame)? {
+                    if !self.stack_peek(0).as_bool().with_span(&frame, self)? {
                         frame.ip += offset;
                     }
                 }
@@ -501,7 +571,7 @@ impl<'o> VM<'o> {
                 }
 
                 OpCode::OpAttrsTrySelect => {
-                    let key = self.stack_pop().to_str().with_span(&frame)?;
+                    let key = self.stack_pop().to_str().with_span(&frame, self)?;
                     let value = match self.stack_pop() {
                         Value::Attrs(attrs) => match attrs.select(key.as_str()) {
                             Some(value) => value.clone(),
@@ -550,24 +620,27 @@ impl<'o> VM<'o> {
                 OpCode::OpAssertBool => {
                     let val = self.stack_peek(0);
                     if !val.is_bool() {
-                        return Err(frame.error(ErrorKind::TypeError {
-                            expected: "bool",
-                            actual: val.type_of(),
-                        }));
+                        return frame.error(
+                            self,
+                            ErrorKind::TypeError {
+                                expected: "bool",
+                                actual: val.type_of(),
+                            },
+                        );
                     }
                 }
 
                 OpCode::OpAttrs(Count(count)) => self.run_attrset(&frame, count)?,
 
                 OpCode::OpAttrsUpdate => {
-                    let rhs = self.stack_pop().to_attrs().with_span(&frame)?;
-                    let lhs = self.stack_pop().to_attrs().with_span(&frame)?;
+                    let rhs = self.stack_pop().to_attrs().with_span(&frame, self)?;
+                    let lhs = self.stack_pop().to_attrs().with_span(&frame, self)?;
 
                     self.stack.push(Value::attrs(lhs.update(*rhs)))
                 }
 
                 OpCode::OpInvert => {
-                    let v = self.stack_pop().as_bool().with_span(&frame)?;
+                    let v = self.stack_pop().as_bool().with_span(&frame, self)?;
                     self.stack.push(Value::Bool(!v));
                 }
 
@@ -580,13 +653,13 @@ impl<'o> VM<'o> {
 
                 OpCode::OpJumpIfTrue(JumpOffset(offset)) => {
                     debug_assert!(offset != 0);
-                    if self.stack_peek(0).as_bool().with_span(&frame)? {
+                    if self.stack_peek(0).as_bool().with_span(&frame, self)? {
                         frame.ip += offset;
                     }
                 }
 
                 OpCode::OpHasAttr => {
-                    let key = self.stack_pop().to_str().with_span(&frame)?;
+                    let key = self.stack_pop().to_str().with_span(&frame, self)?;
                     let result = match self.stack_pop() {
                         Value::Attrs(attrs) => attrs.contains(key.as_str()),
 
@@ -599,13 +672,21 @@ impl<'o> VM<'o> {
                 }
 
                 OpCode::OpConcat => {
-                    let rhs = self.stack_pop().to_list().with_span(&frame)?.into_inner();
-                    let lhs = self.stack_pop().to_list().with_span(&frame)?.into_inner();
+                    let rhs = self
+                        .stack_pop()
+                        .to_list()
+                        .with_span(&frame, self)?
+                        .into_inner();
+                    let lhs = self
+                        .stack_pop()
+                        .to_list()
+                        .with_span(&frame, self)?
+                        .into_inner();
                     self.stack.push(Value::List(NixList::from(lhs + rhs)))
                 }
 
                 OpCode::OpResolveWith => {
-                    let ident = self.stack_pop().to_str().with_span(&frame)?;
+                    let ident = self.stack_pop().to_str().with_span(&frame, self)?;
 
                     // Re-enqueue this frame.
                     let op_span = frame.current_light_span();
@@ -664,13 +745,16 @@ impl<'o> VM<'o> {
                         "OpValidateClosedFormals called within the frame of a lambda without formals",
                     );
 
-                    let args = self.stack_peek(0).to_attrs().with_span(&frame)?;
+                    let args = self.stack_peek(0).to_attrs().with_span(&frame, self)?;
                     for arg in args.keys() {
                         if !formals.contains(arg) {
-                            return Err(frame.error(ErrorKind::UnexpectedArgument {
-                                arg: arg.clone(),
-                                formals_span: formals.span,
-                            }));
+                            return frame.error(
+                                self,
+                                ErrorKind::UnexpectedArgument {
+                                    arg: arg.clone(),
+                                    formals_span: formals.span,
+                                },
+                            );
                         }
                     }
                 }
@@ -692,14 +776,14 @@ impl<'o> VM<'o> {
                 OpCode::OpSub => {
                     let b = self.stack_pop();
                     let a = self.stack_pop();
-                    let result = arithmetic_op!(&a, &b, -).with_span(&frame)?;
+                    let result = arithmetic_op!(&a, &b, -).with_span(&frame, self)?;
                     self.stack.push(result);
                 }
 
                 OpCode::OpMul => {
                     let b = self.stack_pop();
                     let a = self.stack_pop();
-                    let result = arithmetic_op!(&a, &b, *).with_span(&frame)?;
+                    let result = arithmetic_op!(&a, &b, *).with_span(&frame, self)?;
                     self.stack.push(result);
                 }
 
@@ -707,15 +791,15 @@ impl<'o> VM<'o> {
                     let b = self.stack_pop();
 
                     match b {
-                        Value::Integer(0) => return Err(frame.error(ErrorKind::DivisionByZero)),
+                        Value::Integer(0) => return frame.error(self, ErrorKind::DivisionByZero),
                         Value::Float(b) if b == 0.0_f64 => {
-                            return Err(frame.error(ErrorKind::DivisionByZero))
+                            return frame.error(self, ErrorKind::DivisionByZero)
                         }
                         _ => {}
                     };
 
                     let a = self.stack_pop();
-                    let result = arithmetic_op!(&a, &b, /).with_span(&frame)?;
+                    let result = arithmetic_op!(&a, &b, /).with_span(&frame, self)?;
                     self.stack.push(result);
                 }
 
@@ -723,10 +807,13 @@ impl<'o> VM<'o> {
                     Value::Integer(i) => self.stack.push(Value::Integer(-i)),
                     Value::Float(f) => self.stack.push(Value::Float(-f)),
                     v => {
-                        return Err(frame.error(ErrorKind::TypeError {
-                            expected: "number (either int or float)",
-                            actual: v.type_of(),
-                        }));
+                        return frame.error(
+                            self,
+                            ErrorKind::TypeError {
+                                expected: "number (either int or float)",
+                                actual: v.type_of(),
+                            },
+                        );
                     }
                 },
 
@@ -740,7 +827,7 @@ impl<'o> VM<'o> {
                         let resolved = self
                             .nix_search_path
                             .resolve(&*self.io_handle, *path)
-                            .with_span(&frame)?;
+                            .with_span(&frame, self)?;
                         self.stack.push(resolved.into());
                     }
 
@@ -751,9 +838,12 @@ impl<'o> VM<'o> {
                     Value::UnresolvedPath(path) => {
                         match dirs::home_dir() {
                             None => {
-                                return Err(frame.error(ErrorKind::RelativePathResolution(
-                                    "failed to determine home directory".into(),
-                                )));
+                                return frame.error(
+                                    self,
+                                    ErrorKind::RelativePathResolution(
+                                        "failed to determine home directory".into(),
+                                    ),
+                                );
                             }
                             Some(mut buf) => {
                                 buf.push(*path);
@@ -774,7 +864,7 @@ impl<'o> VM<'o> {
                 }
 
                 OpCode::OpAssertFail => {
-                    return Err(frame.error(ErrorKind::AssertionFailed));
+                    frame.error(self, ErrorKind::AssertionFailed)?;
                 }
 
                 // Data-carrying operands should never be executed,
@@ -802,7 +892,7 @@ impl<'o> VM<'o> {
 
     fn run_attrset(&mut self, frame: &CallFrame, count: usize) -> EvalResult<()> {
         let attrs = NixAttrs::construct(count, self.stack.split_off(self.stack.len() - count * 2))
-            .with_span(frame)?;
+            .with_span(frame, self)?;
 
         self.stack.push(Value::attrs(attrs));
         Ok(())
@@ -842,7 +932,7 @@ impl<'o> VM<'o> {
         let mut out = String::new();
 
         for _ in 0..count {
-            out.push_str(self.stack_pop().to_str().with_span(frame)?.as_str());
+            out.push_str(self.stack_pop().to_str().with_span(frame, self)?.as_str());
         }
 
         self.stack.push(Value::String(out.into()));
@@ -853,12 +943,6 @@ impl<'o> VM<'o> {
     /// in.
     pub fn reasonable_light_span(&self) -> LightSpan {
         self.reasonable_span.clone()
-    }
-
-    /// Construct an error from the given ErrorKind and the source
-    /// span of the current instruction.
-    pub fn error(&self, kind: ErrorKind) -> Error {
-        Error::new(kind, self.reasonable_span.span())
     }
 
     /// Apply an argument from the stack to a builtin, and attempt to call it.
@@ -932,7 +1016,7 @@ impl<'o> VM<'o> {
                 self.enqueue_generator("__functor call", gen_span, |co| call_functor(co, val));
                 Ok(())
             }
-            v => Err(self.error(ErrorKind::NotCallable(v.type_of()))),
+            v => Err(ErrorKind::NotCallable(v.type_of())).with_span(&span, self),
         }
     }
 
@@ -951,14 +1035,17 @@ impl<'o> VM<'o> {
                     let val = match self.stack.get(idx) {
                         Some(val) => val.clone(),
                         None => {
-                            return Err(frame.error(ErrorKind::TvixBug {
-                                msg: "upvalue to be captured was missing on stack",
-                                metadata: Some(Rc::new(json!({
-                                    "ip": format!("{:#x}", frame.ip.0 - 1),
-                                    "stack_idx(relative)": stack_idx,
-                                    "stack_idx(absolute)": idx,
-                                }))),
-                            }))
+                            return frame.error(
+                                self,
+                                ErrorKind::TvixBug {
+                                    msg: "upvalue to be captured was missing on stack",
+                                    metadata: Some(Rc::new(json!({
+                                        "ip": format!("{:#x}", frame.ip.0 - 1),
+                                        "stack_idx(relative)": stack_idx,
+                                        "stack_idx(absolute)": idx,
+                                    }))),
+                                },
+                            );
                         }
                     };
 
