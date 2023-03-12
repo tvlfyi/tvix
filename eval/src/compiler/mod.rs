@@ -1340,7 +1340,10 @@ fn compile_src_builtin(
             weak.upgrade().unwrap(),
             &mut crate::observer::NoOpObserver {},
         )
-        .map_err(|e| ErrorKind::NativeError(Box::new(e)))?;
+        .map_err(|e| ErrorKind::NativeError {
+            gen_type: "derivation",
+            err: Box::new(e),
+        })?;
 
         if !result.errors.is_empty() {
             return Err(ErrorKind::ImportCompilerError {

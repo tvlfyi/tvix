@@ -99,9 +99,14 @@ impl<T, S: GetSpan> WithSpan<T, S> for Result<T, ErrorKind> {
                             error =
                                 Error::new(ErrorKind::BytecodeError(Box::new(error)), span.span());
                         }
-                        Frame::Generator { span, .. } => {
-                            error =
-                                Error::new(ErrorKind::NativeError(Box::new(error)), span.span());
+                        Frame::Generator { name, span, .. } => {
+                            error = Error::new(
+                                ErrorKind::NativeError {
+                                    err: Box::new(error),
+                                    gen_type: name,
+                                },
+                                span.span(),
+                            );
                         }
                     }
                 }

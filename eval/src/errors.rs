@@ -83,7 +83,10 @@ pub enum ErrorKind {
 
     /// An error occured while executing some native code (e.g. a
     /// builtin), and needs to be chained up.
-    NativeError(Box<Error>),
+    NativeError {
+        gen_type: &'static str,
+        err: Box<Error>,
+    },
 
     /// An error occured while executing Tvix bytecode, but needs to
     /// be chained up.
@@ -179,7 +182,7 @@ pub enum ErrorKind {
 impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match &self.kind {
-            ErrorKind::NativeError(err) | ErrorKind::BytecodeError(err) => err.source(),
+            ErrorKind::NativeError { err, .. } | ErrorKind::BytecodeError(err) => err.source(),
             ErrorKind::ParseErrors(err) => err.first().map(|e| e as &dyn error::Error),
             ErrorKind::ParseIntError(err) => Some(err),
             ErrorKind::ImportParseError { errors, .. } => {
@@ -234,7 +237,7 @@ impl ErrorKind {
     pub fn is_catchable(&self) -> bool {
         match self {
             Self::Throw(_) | Self::AssertionFailed | Self::NixPathResolution(_) => true,
-            Self::NativeError(err) | Self::BytecodeError(err) => err.kind.is_catchable(),
+            Self::NativeError { err, .. } | Self::BytecodeError(err) => err.kind.is_catchable(),
             _ => false,
         }
     }
@@ -356,7 +359,10 @@ to a missing value in the attribute set(s) included via `with`."#,
             // Errors themselves ignored here & handled in Self::spans instead
             ErrorKind::ParseErrors(_) => write!(f, "failed to parse Nix code:"),
 
-            ErrorKind::NativeError(_) => write!(f, "while evaluating this native code"),
+            ErrorKind::NativeError { gen_type, .. } => {
+                write!(f, "while evaluating this as native code ({})", gen_type)
+            }
+
             ErrorKind::BytecodeError(_) => write!(f, "while evaluating this Nix code"),
 
             ErrorKind::NotCoercibleToString { kind, from } => {
@@ -750,7 +756,7 @@ impl Error {
             | ErrorKind::NotCallable(_)
             | ErrorKind::InfiniteRecursion
             | ErrorKind::ParseErrors(_)
-            | ErrorKind::NativeError(_)
+            | ErrorKind::NativeError { .. }
             | ErrorKind::BytecodeError(_)
             | ErrorKind::NotCoercibleToString { .. }
             | ErrorKind::NotAnAbsolutePath(_)
@@ -827,7 +833,9 @@ impl Error {
 
             // Chained errors should yield the code of the innermost
             // error.
-            ErrorKind::NativeError(ref err) | ErrorKind::BytecodeError(ref err) => err.code(),
+            ErrorKind::NativeError { ref err, .. } | ErrorKind::BytecodeError(ref err) => {
+                err.code()
+            }
 
             ErrorKind::WithContext { .. } => {
                 panic!("internal ErrorKind::WithContext variant leaked")
@@ -910,7 +918,7 @@ impl Error {
             //
             // We don't know how deep this chain is, so we avoid recursing in
             // this function while unrolling the chain.
-            ErrorKind::NativeError(next) | ErrorKind::BytecodeError(next) => {
+            ErrorKind::NativeError { err: next, .. } | ErrorKind::BytecodeError(next) => {
                 // Accumulated diagnostics to return.
                 let mut diagnostics: Vec<Diagnostic> = vec![];
 
@@ -945,7 +953,8 @@ impl Error {
                     this_spans = next.spans(source);
 
                     match next.kind {
-                        ErrorKind::NativeError(inner) | ErrorKind::BytecodeError(inner) => {
+                        ErrorKind::NativeError { err: inner, .. }
+                        | ErrorKind::BytecodeError(inner) => {
                             next = *inner;
                             continue;
                         }
