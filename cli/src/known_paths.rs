@@ -12,6 +12,7 @@
 //! information.
 
 use crate::refscan::{ReferenceScanner, STORE_PATH_LEN};
+use nix_compat::nixhash::NixHash;
 use std::{
     collections::{hash_map, BTreeSet, HashMap},
     ops::Index,
@@ -67,11 +68,10 @@ pub struct KnownPaths {
     /// path used for reference scanning.
     paths: HashMap<PathName, KnownPath>,
 
-    /// All known replacement strings for derivations.
+    /// All known derivation or FOD hashes.
     ///
-    /// Keys are derivation paths, values are the opaque replacement
-    /// strings.
-    replacements: HashMap<String, String>,
+    /// Keys are derivation paths, values is the NixHash.
+    derivation_or_fod_hashes: HashMap<String, NixHash>,
 }
 
 impl Index<&PathName> for KnownPaths {
@@ -156,25 +156,29 @@ impl KnownPaths {
         ReferenceScanner::new(candidates)
     }
 
-    /// Fetch the opaque "replacement string" for a given derivation path.
-    pub fn get_replacement_string(&self, drv: &str) -> String {
+    /// Fetch the opaque "hash derivation modulo" for a given derivation path.
+    pub fn get_hash_derivation_modulo(&self, drv_path: &str) -> NixHash {
         // TODO: we rely on an invariant that things *should* have
         // been calculated if we get this far.
-        self.replacements[drv].clone()
+        self.derivation_or_fod_hashes[drv_path].clone()
     }
 
-    pub fn add_replacement_string<D: ToString>(&mut self, drv: D, replacement_str: &str) {
+    pub fn add_hash_derivation_modulo<D: ToString>(
+        &mut self,
+        drv: D,
+        hash_derivation_modulo: &NixHash,
+    ) {
         #[allow(unused_variables)] // assertions on this only compiled in debug builds
         let old = self
-            .replacements
-            .insert(drv.to_string(), replacement_str.to_owned());
+            .derivation_or_fod_hashes
+            .insert(drv.to_string(), hash_derivation_modulo.to_owned());
 
         #[cfg(debug_assertions)]
         {
             if let Some(old) = old {
                 debug_assert!(
-                    old == replacement_str,
-                    "replacement string for a given derivation should always match"
+                    old == *hash_derivation_modulo,
+                    "hash derivation modulo for a given derivation should always be calculated the same"
                 );
             }
         }

@@ -150,21 +150,31 @@ impl Derivation {
         utils::build_store_path(true, &s, name)
     }
 
-    /// Calculate the drv replacement string for a given derivation.
+    /// Calculates the hash of a derivation modulo fixed-output subderivations.
     ///
-    /// This is either called on a struct without output paths populated,
-    /// to provide the `drv_replacement_str` value for the `calculate_output_paths`
-    /// function call, or called on a struct with output paths populated, to
-    /// calculate / cache lookups for calls to fn_get_drv_replacement.
+    /// This is called `hashDerivationModulo` in nixcpp.
     ///
-    /// `fn_get_drv_replacement` is used to look up the drv replacement strings
-    /// for input_derivations the Derivation refers to.
-    pub fn calculate_drv_replacement_str<F>(&self, fn_get_drv_replacement: F) -> String
+    /// It returns a [NixHash], created by calculating the sha256 digest of
+    /// the derivation ATerm representation, except that:
+    ///  -  any input derivation paths have beed replaced "by the result of a
+    ///     recursive call to this function" and that
+    ///  - for fixed-output derivations the special
+    ///    `fixed:out:${algo}:${digest}:${fodPath}` string is hashed instead of
+    ///    the A-Term.
+    ///
+    /// TODO: what's the representation of ${digest}?
+    ///
+    /// If the derivation is not a fixed derivation, it's up to the caller of
+    /// this function to provide a lookup function to lookup these calculation
+    /// results of parent derivations at `fn_get_hash_derivation_modulo` (by
+    /// drv path).
+    pub fn derivation_or_fod_hash<F>(&self, fn_get_derivation_or_fod_hash: F) -> NixHash
     where
-        F: Fn(&str) -> String,
+        F: Fn(&str) -> NixHash,
     {
         let mut hasher = Sha256::new();
         let digest = match self.get_fixed_output() {
+            // Fixed-output derivations return a fixed hash
             Some((fixed_output_path, fixed_output_hash)) => {
                 hasher.update(format!(
                     "fixed:out:{}:{}:{}",
@@ -172,15 +182,24 @@ impl Derivation {
                 ));
                 hasher.finalize()
             }
+            // Non-Fixed-output derivations return a hash of the ATerm notation, but with all
+            // input_derivation paths replaced by a recursive call to this function.
+            // We use fn_get_derivation_or_fod_hash here, so callers can precompute this.
             None => {
+                // This is a new map from derivation_or_fod_hash.digest (as lowerhex)
+                // to list of output names
                 let mut replaced_input_derivations: BTreeMap<String, BTreeSet<String>> =
                     BTreeMap::new();
 
-                // For each input_derivation, look up the replacement.
-                for (drv_path, input_derivation) in &self.input_derivations {
+                // For each input_derivation, look up the
+                // derivation_or_fod_hash, and replace the derivation path with it's HEXLOWER
+                // digest.
+                // This is not the [NixHash::to_nix_hash_string], but without the sha256: prefix).
+                for (drv_path, output_names) in &self.input_derivations {
                     replaced_input_derivations.insert(
-                        fn_get_drv_replacement(drv_path).to_string(),
-                        input_derivation.clone(),
+                        data_encoding::HEXLOWER
+                            .encode(&fn_get_derivation_or_fod_hash(&drv_path).digest),
+                        output_names.clone(),
                     );
                 }
 
@@ -196,8 +215,7 @@ impl Derivation {
                 hasher.finalize()
             }
         };
-
-        format!("{:x}", digest)
+        NixHash::new(crate::nixhash::HashAlgo::Sha256, digest.to_vec())
     }
 
     /// This calculates all output paths of a Derivation and updates the struct.
@@ -205,17 +223,13 @@ impl Derivation {
     /// This means, self.outputs[$outputName].path needs to be an empty string,
     /// and self.environment[$outputName] needs to be an empty string.
     ///
-    /// Output path calculation requires knowledge of "drv replacement
-    /// strings", and in case of non-fixed-output derivations, also knowledge
-    /// of "drv replacement" strings (recursively) of all input derivations.
+    /// Output path calculation requires knowledge of the
+    /// derivation_or_fod_hash [NixHash], which (in case of non-fixed-output
+    /// derivations) also requires knowledge of other hash_derivation_modulo
+    /// [NixHash]es.
     ///
-    /// We solve this by asking the caller of this function to provide
-    /// the drv replacement string of the current derivation itself,
-    /// which is ran on the struct without output paths.
-    ///
-    /// This sound terribly ugly, but won't be too much of a concern later on, as
-    /// naming fixed-output paths once uploaded will be a tvix-store concern,
-    /// so there's no need to calculate them here anymore.
+    /// We solve this by asking the caller of this function to provide the
+    /// hash_derivation_modulo of the current Derivation.
     ///
     /// On completion, self.environment[$outputName] and
     /// self.outputs[$outputName].path are set to the calculated output path for all
@@ -223,7 +237,7 @@ impl Derivation {
     pub fn calculate_output_paths(
         &mut self,
         name: &str,
-        drv_replacement_str: &str,
+        derivation_or_fod_hash: &NixHash,
     ) -> Result<(), DerivationError> {
         // Check if the Derivation is fixed output, because they cause
         // different fingerprints to be hashed.
@@ -244,9 +258,9 @@ impl Derivation {
                     }
 
                     let s = &format!(
-                        "output:{}:sha256:{}:{}:{}",
+                        "output:{}:{}:{}:{}",
                         output_name,
-                        drv_replacement_str,
+                        derivation_or_fod_hash.to_nix_hash_string(),
                         store_path::STORE_DIR,
                         output_path_name,
                     );
@@ -277,9 +291,9 @@ impl Derivation {
                             fixed_output_hash.digest, // nixbase32
                         ));
                     } else {
-                        s.push_str("output:out:sha256:");
+                        s.push_str("output:out:");
                         // This is drv_replacement for FOD, with an empty fixed_output_path.
-                        s.push_str(drv_replacement_str);
+                        s.push_str(&derivation_or_fod_hash.to_nix_hash_string());
                     }
                     s.push_str(&format!(":{}:{}", store_path::STORE_DIR, name));
                     s

@@ -96,16 +96,16 @@ fn derivation_with_trimmed_outputs(derivation: &Derivation) -> Derivation {
     }
 }
 
-#[test_case("0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv", "724f3e3634fce4cbbbd3483287b8798588e80280660b9a63fd13a1bc90485b33"; "fixed_sha256")]
-#[test_case("ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv", "c79aebd0ce3269393d4a1fde2cbd1d975d879b40f0bf40a48f550edc107fd5df";"fixed-sha1")]
-fn replacement_drv_path(drv_path: &str, expected_replacement_str: &str) {
+#[test_case("0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv", "sha256:724f3e3634fce4cbbbd3483287b8798588e80280660b9a63fd13a1bc90485b33"; "fixed_sha256")]
+#[test_case("ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv", "sha256:c79aebd0ce3269393d4a1fde2cbd1d975d879b40f0bf40a48f550edc107fd5df";"fixed-sha1")]
+fn hash_derivation_modulo(drv_path: &str, expected_nix_hash_string: &str) {
     // read in the fixture
     let data = read_file(&format!("{}/{}.json", RESOURCES_PATHS, drv_path));
     let drv: Derivation = serde_json::from_str(&data).expect("must deserialize");
 
-    let drv_replacement_str = drv.calculate_drv_replacement_str(|_| panic!("must not be called"));
+    let actual = drv.derivation_or_fod_hash(|_| panic!("must not be called"));
 
-    assert_eq!(expected_replacement_str, drv_replacement_str);
+    assert_eq!(expected_nix_hash_string, actual.to_nix_hash_string());
 }
 
 #[test_case("bar","0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv"; "fixed_sha256")]
@@ -122,16 +122,16 @@ fn output_paths(name: &str, drv_path: &str) {
 
     let mut derivation = derivation_with_trimmed_outputs(&expected_derivation);
 
-    // calculate the drv replacement string.
+    // calculate the derivation_or_fod_hash of derivation
     // We don't expect the lookup function to be called for most derivations.
-    let replacement_str = derivation.calculate_drv_replacement_str(|drv_name| {
+    let calculated_derivation_or_fod_hash = derivation.derivation_or_fod_hash(|parent_drv_path| {
         // 4wvvbi4jwn0prsdxb7vs673qa5h9gr7x-foo.drv may lookup /nix/store/0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv
         // ch49594n9avinrf8ip0aslidkc4lxkqv-foo.drv may lookup /nix/store/ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv
         if name == "foo"
             && ((drv_path == "4wvvbi4jwn0prsdxb7vs673qa5h9gr7x-foo.drv"
-                && drv_name == "/nix/store/0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv")
+                && parent_drv_path == "/nix/store/0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv")
                 || (drv_path == "ch49594n9avinrf8ip0aslidkc4lxkqv-foo.drv"
-                    && drv_name == "/nix/store/ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv"))
+                    && parent_drv_path == "/nix/store/ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv"))
         {
             // do the lookup, by reading in the fixture of the requested
             // drv_name, and calculating its drv replacement (on the non-stripped version)
@@ -140,22 +140,25 @@ fn output_paths(name: &str, drv_path: &str) {
             let data = read_file(&format!(
                 "{}/{}.json",
                 RESOURCES_PATHS,
-                Path::new(drv_name).file_name().unwrap().to_string_lossy()
+                Path::new(parent_drv_path)
+                    .file_name()
+                    .unwrap()
+                    .to_string_lossy()
             ));
 
             let drv: Derivation = serde_json::from_str(&data).expect("must deserialize");
 
-            // calculate replacement string. These don't trigger any subsequent requests, as they're both FOD.
-            drv.calculate_drv_replacement_str(|_| panic!("must not lookup"))
+            // calculate derivation_or_fod_hash for each parent.
+            // This may not trigger subsequent requests, as both parents are FOD.
+            drv.derivation_or_fod_hash(|_| panic!("must not lookup"))
         } else {
             // we only expect this to be called in the "foo" testcase, for the "bar derivations"
             panic!("may only be called for foo testcase on bar derivations");
         }
     });
 
-    // We need to calculate the replacement_str, as fixed-sha1 does use it.
     derivation
-        .calculate_output_paths(name, &replacement_str)
+        .calculate_output_paths(name, &calculated_derivation_or_fod_hash)
         .unwrap();
 
     // The derivation should now look like it was before
@@ -226,7 +229,7 @@ fn output_path_construction() {
     // calculate bar output paths
     let bar_calc_result = bar_drv.calculate_output_paths(
         "bar",
-        &bar_drv.calculate_drv_replacement_str(|_| panic!("is FOD, should not lookup")),
+        &bar_drv.derivation_or_fod_hash(|_| panic!("is FOD, should not lookup")),
     );
     assert!(bar_calc_result.is_ok());
 
@@ -241,8 +244,8 @@ fn output_path_construction() {
     // now construct foo, which requires bar_drv
     // Note how we refer to the output path, drv name and replacement_str (with calculated output paths) of bar.
     let bar_output_path = &bar_drv.outputs.get("out").expect("must exist").path;
-    let bar_drv_replacement_str =
-        &bar_drv.calculate_drv_replacement_str(|_| panic!("is FOD, should not lookup"));
+    let bar_drv_derivation_or_fod_hash =
+        bar_drv.derivation_or_fod_hash(|_| panic!("is FOD, should not lookup"));
 
     let bar_drv_path = bar_drv
         .calculate_derivation_path("bar")
@@ -281,11 +284,11 @@ fn output_path_construction() {
     // calculate foo output paths
     let foo_calc_result = foo_drv.calculate_output_paths(
         "foo",
-        &foo_drv.calculate_drv_replacement_str(|drv_name| {
-            if drv_name != "/nix/store/0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv" {
-                panic!("lookup called with unexpected drv_name: {}", drv_name);
+        &foo_drv.derivation_or_fod_hash(|drv_path| {
+            if drv_path != "/nix/store/0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv" {
+                panic!("lookup called with unexpected drv_path: {}", drv_path);
             }
-            bar_drv_replacement_str.clone()
+            bar_drv_derivation_or_fod_hash.clone()
         }),
     );
     assert!(foo_calc_result.is_ok());
