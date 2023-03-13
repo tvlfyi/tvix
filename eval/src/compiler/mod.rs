@@ -683,7 +683,7 @@ impl Compiler<'_> {
         }
 
         // Push the set onto the stack
-        self.compile(slot, set);
+        self.compile(slot, set.clone());
         if self.optimise_select(&path) {
             return;
         }
@@ -694,7 +694,7 @@ impl Compiler<'_> {
         // nested selects.
         for fragment in path.attrs() {
             // Force the current set value.
-            self.emit_force(&fragment);
+            self.emit_force(&set);
 
             self.compile_attr(slot, &fragment);
             self.push_op(OpCode::OpAttrsSelect, &fragment);
