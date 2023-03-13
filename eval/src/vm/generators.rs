@@ -32,12 +32,12 @@ pub(crate) enum GeneratorState {
     AwaitingValue,
 }
 
-/// Messages that can be sent from generators to the VM. In most
+/// Messages that can be sent from generators *to* the VM. In most
 /// cases, the VM will suspend the generator when receiving a message
 /// and enter some other frame to process the request.
 ///
 /// Responses are returned to generators via the [`GeneratorResponse`] type.
-pub enum GeneratorRequest {
+pub enum VMRequest {
     /// Request that the VM forces this value. This message is first sent to the
     /// VM with the unforced value, then returned to the generator with the
     /// forced result.
@@ -125,16 +125,16 @@ pub enum GeneratorRequest {
 }
 
 /// Human-readable representation of a generator message, used by observers.
-impl Display for GeneratorRequest {
+impl Display for VMRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            GeneratorRequest::ForceValue(v) => write!(f, "force_value({})", v.type_of()),
-            GeneratorRequest::DeepForceValue(v, _) => {
+            VMRequest::ForceValue(v) => write!(f, "force_value({})", v.type_of()),
+            VMRequest::DeepForceValue(v, _) => {
                 write!(f, "deep_force_value({})", v.type_of())
             }
-            GeneratorRequest::WithValue(_) => write!(f, "with_value"),
-            GeneratorRequest::CapturedWithValue(_) => write!(f, "captured_with_value"),
-            GeneratorRequest::NixEquality(values, ptr_eq) => {
+            VMRequest::WithValue(_) => write!(f, "with_value"),
+            VMRequest::CapturedWithValue(_) => write!(f, "captured_with_value"),
+            VMRequest::NixEquality(values, ptr_eq) => {
                 write!(
                     f,
                     "nix_eq({}, {}, PointerEquality::{:?})",
@@ -143,39 +143,39 @@ impl Display for GeneratorRequest {
                     ptr_eq
                 )
             }
-            GeneratorRequest::StackPush(v) => write!(f, "stack_push({})", v.type_of()),
-            GeneratorRequest::StackPop => write!(f, "stack_pop"),
-            GeneratorRequest::StringCoerce(v, kind) => match kind {
+            VMRequest::StackPush(v) => write!(f, "stack_push({})", v.type_of()),
+            VMRequest::StackPop => write!(f, "stack_pop"),
+            VMRequest::StringCoerce(v, kind) => match kind {
                 CoercionKind::Weak => write!(f, "weak_string_coerce({})", v.type_of()),
                 CoercionKind::Strong => write!(f, "strong_string_coerce({})", v.type_of()),
             },
-            GeneratorRequest::Call(v) => write!(f, "call({})", v),
-            GeneratorRequest::EnterLambda { lambda, .. } => {
+            VMRequest::Call(v) => write!(f, "call({})", v),
+            VMRequest::EnterLambda { lambda, .. } => {
                 write!(f, "enter_lambda({:p})", *lambda)
             }
-            GeneratorRequest::EmitWarning(_) => write!(f, "emit_warning"),
-            GeneratorRequest::EmitWarningKind(_) => write!(f, "emit_warning_kind"),
-            GeneratorRequest::ImportCacheLookup(p) => {
+            VMRequest::EmitWarning(_) => write!(f, "emit_warning"),
+            VMRequest::EmitWarningKind(_) => write!(f, "emit_warning_kind"),
+            VMRequest::ImportCacheLookup(p) => {
                 write!(f, "import_cache_lookup({})", p.to_string_lossy())
             }
-            GeneratorRequest::ImportCachePut(p, _) => {
+            VMRequest::ImportCachePut(p, _) => {
                 write!(f, "import_cache_put({})", p.to_string_lossy())
             }
-            GeneratorRequest::PathImport(p) => write!(f, "path_import({})", p.to_string_lossy()),
-            GeneratorRequest::ReadToString(p) => {
+            VMRequest::PathImport(p) => write!(f, "path_import({})", p.to_string_lossy()),
+            VMRequest::ReadToString(p) => {
                 write!(f, "read_to_string({})", p.to_string_lossy())
             }
-            GeneratorRequest::PathExists(p) => write!(f, "path_exists({})", p.to_string_lossy()),
-            GeneratorRequest::ReadDir(p) => write!(f, "read_dir({})", p.to_string_lossy()),
-            GeneratorRequest::Span => write!(f, "span"),
-            GeneratorRequest::TryForce(v) => write!(f, "try_force({})", v.type_of()),
-            GeneratorRequest::ToJson(v) => write!(f, "to_json({})", v.type_of()),
+            VMRequest::PathExists(p) => write!(f, "path_exists({})", p.to_string_lossy()),
+            VMRequest::ReadDir(p) => write!(f, "read_dir({})", p.to_string_lossy()),
+            VMRequest::Span => write!(f, "span"),
+            VMRequest::TryForce(v) => write!(f, "try_force({})", v.type_of()),
+            VMRequest::ToJson(v) => write!(f, "to_json({})", v.type_of()),
         }
     }
 }
 
-/// Responses returned to generators from the VM.
-pub enum GeneratorResponse {
+/// Responses returned to generators *from* the VM.
+pub enum VMResponse {
     /// Empty message. Passed to the generator as the first message,
     /// or when return values were optional.
     Empty,
@@ -197,24 +197,21 @@ pub enum GeneratorResponse {
     ForceError,
 }
 
-impl Display for GeneratorResponse {
+impl Display for VMResponse {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            GeneratorResponse::Empty => write!(f, "empty"),
-            GeneratorResponse::Value(v) => write!(f, "value({})", v),
-            GeneratorResponse::Path(p) => write!(f, "path({})", p.to_string_lossy()),
-            GeneratorResponse::Directory(d) => write!(f, "dir(len = {})", d.len()),
-            GeneratorResponse::Span(_) => write!(f, "span"),
-            GeneratorResponse::ForceError => write!(f, "force_error"),
+            VMResponse::Empty => write!(f, "empty"),
+            VMResponse::Value(v) => write!(f, "value({})", v),
+            VMResponse::Path(p) => write!(f, "path({})", p.to_string_lossy()),
+            VMResponse::Directory(d) => write!(f, "dir(len = {})", d.len()),
+            VMResponse::Span(_) => write!(f, "span"),
+            VMResponse::ForceError => write!(f, "force_error"),
         }
     }
 }
 
-pub(crate) type Generator = Gen<
-    GeneratorRequest,
-    GeneratorResponse,
-    Pin<Box<dyn Future<Output = Result<Value, ErrorKind>>>>,
->;
+pub(crate) type Generator =
+    Gen<VMRequest, VMResponse, Pin<Box<dyn Future<Output = Result<Value, ErrorKind>>>>>;
 
 /// Helper function to provide type annotations which are otherwise difficult to
 /// infer.
@@ -262,16 +259,16 @@ impl<'o> VM<'o> {
         frame_id: usize,
         state: GeneratorState,
         mut generator: Generator,
-        initial_message: Option<GeneratorResponse>,
+        initial_message: Option<VMResponse>,
     ) -> EvalResult<bool> {
         // Determine what to send to the generator based on its state.
         let mut message = match (initial_message, state) {
             (Some(msg), _) => msg,
-            (_, GeneratorState::Running) => GeneratorResponse::Empty,
+            (_, GeneratorState::Running) => VMResponse::Empty,
 
             // If control returned here, and the generator is
             // awaiting a value, send it the top of the stack.
-            (_, GeneratorState::AwaitingValue) => GeneratorResponse::Value(self.stack_pop()),
+            (_, GeneratorState::AwaitingValue) => VMResponse::Value(self.stack_pop()),
         };
 
         loop {
@@ -282,26 +279,26 @@ impl<'o> VM<'o> {
                     self.observer.observe_generator_request(name, &request);
 
                     match request {
-                        GeneratorRequest::StackPush(value) => {
+                        VMRequest::StackPush(value) => {
                             self.stack.push(value);
-                            message = GeneratorResponse::Empty;
+                            message = VMResponse::Empty;
                         }
 
-                        GeneratorRequest::StackPop => {
-                            message = GeneratorResponse::Value(self.stack_pop());
+                        VMRequest::StackPop => {
+                            message = VMResponse::Value(self.stack_pop());
                         }
 
                         // Generator has requested a force, which means that
                         // this function prepares the frame stack and yields
                         // back to the outer VM loop.
-                        GeneratorRequest::ForceValue(value) => {
+                        VMRequest::ForceValue(value) => {
                             self.reenqueue_generator(name, span.clone(), generator);
                             self.enqueue_generator("force", span, |co| value.force(co));
                             return Ok(false);
                         }
 
                         // Generator has requested a deep-force.
-                        GeneratorRequest::DeepForceValue(value, thunk_set) => {
+                        VMRequest::DeepForceValue(value, thunk_set) => {
                             self.reenqueue_generator(name, span.clone(), generator);
                             self.enqueue_generator("deep_force", span, |co| {
                                 value.deep_force(co, thunk_set)
@@ -312,7 +309,7 @@ impl<'o> VM<'o> {
                         // Generator has requested a value from the with-stack.
                         // Logic is similar to `ForceValue`, except with the
                         // value being taken from that stack.
-                        GeneratorRequest::WithValue(idx) => {
+                        VMRequest::WithValue(idx) => {
                             self.reenqueue_generator(name, span.clone(), generator);
 
                             let value = self.stack[self.with_stack[idx]].clone();
@@ -324,7 +321,7 @@ impl<'o> VM<'o> {
                         // Generator has requested a value from the *captured*
                         // with-stack. Logic is same as above, except for the
                         // value being from that stack.
-                        GeneratorRequest::CapturedWithValue(idx) => {
+                        VMRequest::CapturedWithValue(idx) => {
                             self.reenqueue_generator(name, span.clone(), generator);
 
                             let call_frame = self.last_call_frame()
@@ -336,7 +333,7 @@ impl<'o> VM<'o> {
                             return Ok(false);
                         }
 
-                        GeneratorRequest::NixEquality(values, ptr_eq) => {
+                        VMRequest::NixEquality(values, ptr_eq) => {
                             let values = *values;
                             self.reenqueue_generator(name, span.clone(), generator);
                             self.enqueue_generator("nix_eq", span, |co| {
@@ -345,7 +342,7 @@ impl<'o> VM<'o> {
                             return Ok(false);
                         }
 
-                        GeneratorRequest::StringCoerce(val, kind) => {
+                        VMRequest::StringCoerce(val, kind) => {
                             self.reenqueue_generator(name, span.clone(), generator);
                             self.enqueue_generator("coerce_to_string", span, |co| {
                                 val.coerce_to_string(co, kind)
@@ -353,13 +350,13 @@ impl<'o> VM<'o> {
                             return Ok(false);
                         }
 
-                        GeneratorRequest::Call(callable) => {
+                        VMRequest::Call(callable) => {
                             self.reenqueue_generator(name, span.clone(), generator);
                             self.call_value(span, None, callable)?;
                             return Ok(false);
                         }
 
-                        GeneratorRequest::EnterLambda {
+                        VMRequest::EnterLambda {
                             lambda,
                             upvalues,
                             light_span,
@@ -379,71 +376,71 @@ impl<'o> VM<'o> {
                             return Ok(false);
                         }
 
-                        GeneratorRequest::EmitWarning(warning) => {
+                        VMRequest::EmitWarning(warning) => {
                             self.push_warning(warning);
-                            message = GeneratorResponse::Empty;
+                            message = VMResponse::Empty;
                         }
 
-                        GeneratorRequest::EmitWarningKind(kind) => {
+                        VMRequest::EmitWarningKind(kind) => {
                             self.emit_warning(kind);
-                            message = GeneratorResponse::Empty;
+                            message = VMResponse::Empty;
                         }
 
-                        GeneratorRequest::ImportCacheLookup(path) => {
+                        VMRequest::ImportCacheLookup(path) => {
                             if let Some(cached) = self.import_cache.get(&path) {
-                                message = GeneratorResponse::Value(cached.clone());
+                                message = VMResponse::Value(cached.clone());
                             } else {
-                                message = GeneratorResponse::Empty;
+                                message = VMResponse::Empty;
                             }
                         }
 
-                        GeneratorRequest::ImportCachePut(path, value) => {
+                        VMRequest::ImportCachePut(path, value) => {
                             self.import_cache.insert(path, value);
-                            message = GeneratorResponse::Empty;
+                            message = VMResponse::Empty;
                         }
 
-                        GeneratorRequest::PathImport(path) => {
+                        VMRequest::PathImport(path) => {
                             let imported = self
                                 .io_handle
                                 .import_path(&path)
                                 .map_err(|kind| Error::new(kind, span.span()))?;
 
-                            message = GeneratorResponse::Path(imported);
+                            message = VMResponse::Path(imported);
                         }
 
-                        GeneratorRequest::ReadToString(path) => {
+                        VMRequest::ReadToString(path) => {
                             let content = self
                                 .io_handle
                                 .read_to_string(path)
                                 .map_err(|kind| Error::new(kind, span.span()))?;
 
-                            message = GeneratorResponse::Value(Value::String(content.into()))
+                            message = VMResponse::Value(Value::String(content.into()))
                         }
 
-                        GeneratorRequest::PathExists(path) => {
+                        VMRequest::PathExists(path) => {
                             let exists = self
                                 .io_handle
                                 .path_exists(path)
                                 .map(Value::Bool)
                                 .map_err(|kind| Error::new(kind, span.span()))?;
 
-                            message = GeneratorResponse::Value(exists);
+                            message = VMResponse::Value(exists);
                         }
 
-                        GeneratorRequest::ReadDir(path) => {
+                        VMRequest::ReadDir(path) => {
                             let dir = self
                                 .io_handle
                                 .read_dir(path)
                                 .map_err(|kind| Error::new(kind, span.span()))?;
 
-                            message = GeneratorResponse::Directory(dir);
+                            message = VMResponse::Directory(dir);
                         }
 
-                        GeneratorRequest::Span => {
-                            message = GeneratorResponse::Span(self.reasonable_light_span());
+                        VMRequest::Span => {
+                            message = VMResponse::Span(self.reasonable_light_span());
                         }
 
-                        GeneratorRequest::TryForce(value) => {
+                        VMRequest::TryForce(value) => {
                             self.try_eval_frames.push(frame_id);
                             self.reenqueue_generator(name, span.clone(), generator);
 
@@ -456,7 +453,7 @@ impl<'o> VM<'o> {
                             return Ok(false);
                         }
 
-                        GeneratorRequest::ToJson(value) => {
+                        VMRequest::ToJson(value) => {
                             self.reenqueue_generator(name, span.clone(), generator);
                             self.enqueue_generator("to_json", span, |co| {
                                 value.to_json_generator(co)
@@ -478,14 +475,14 @@ impl<'o> VM<'o> {
     }
 }
 
-pub type GenCo = Co<GeneratorRequest, GeneratorResponse>;
+pub type GenCo = Co<VMRequest, VMResponse>;
 
 // -- Implementation of concrete generator use-cases.
 
 /// Request that the VM place the given value on its stack.
 pub async fn request_stack_push(co: &GenCo, val: Value) {
-    match co.yield_(GeneratorRequest::StackPush(val)).await {
-        GeneratorResponse::Empty => {}
+    match co.yield_(VMRequest::StackPush(val)).await {
+        VMResponse::Empty => {}
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg
@@ -496,8 +493,8 @@ pub async fn request_stack_push(co: &GenCo, val: Value) {
 /// Request that the VM pop a value from the stack and return it to the
 /// generator.
 pub async fn request_stack_pop(co: &GenCo) -> Value {
-    match co.yield_(GeneratorRequest::StackPop).await {
-        GeneratorResponse::Value(value) => value,
+    match co.yield_(VMRequest::StackPop).await {
+        VMResponse::Value(value) => value,
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg
@@ -508,8 +505,8 @@ pub async fn request_stack_pop(co: &GenCo) -> Value {
 /// Force any value and return the evaluated result from the VM.
 pub async fn request_force(co: &GenCo, val: Value) -> Value {
     if let Value::Thunk(_) = val {
-        match co.yield_(GeneratorRequest::ForceValue(val)).await {
-            GeneratorResponse::Value(value) => value,
+        match co.yield_(VMRequest::ForceValue(val)).await {
+            VMResponse::Value(value) => value,
             msg => panic!(
                 "Tvix bug: VM responded with incorrect generator message: {}",
                 msg
@@ -524,9 +521,9 @@ pub async fn request_force(co: &GenCo, val: Value) -> Value {
 /// error occured.
 pub(crate) async fn request_try_force(co: &GenCo, val: Value) -> Option<Value> {
     if let Value::Thunk(_) = val {
-        match co.yield_(GeneratorRequest::TryForce(val)).await {
-            GeneratorResponse::Value(value) => Some(value),
-            GeneratorResponse::ForceError => None,
+        match co.yield_(VMRequest::TryForce(val)).await {
+            VMResponse::Value(value) => Some(value),
+            VMResponse::ForceError => None,
             msg => panic!(
                 "Tvix bug: VM responded with incorrect generator message: {}",
                 msg
@@ -541,8 +538,8 @@ pub(crate) async fn request_try_force(co: &GenCo, val: Value) -> Option<Value> {
 /// on the stack.
 pub async fn request_call(co: &GenCo, val: Value) -> Value {
     let val = request_force(co, val).await;
-    match co.yield_(GeneratorRequest::Call(val)).await {
-        GeneratorResponse::Value(value) => value,
+    match co.yield_(VMRequest::Call(val)).await {
+        VMResponse::Value(value) => value,
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg
@@ -576,8 +573,8 @@ where
 pub async fn request_string_coerce(co: &GenCo, val: Value, kind: CoercionKind) -> NixString {
     match val {
         Value::String(s) => s,
-        _ => match co.yield_(GeneratorRequest::StringCoerce(val, kind)).await {
-            GeneratorResponse::Value(value) => value
+        _ => match co.yield_(VMRequest::StringCoerce(val, kind)).await {
+            VMResponse::Value(value) => value
                 .to_str()
                 .expect("coerce_to_string always returns a string"),
             msg => panic!(
@@ -590,11 +587,8 @@ pub async fn request_string_coerce(co: &GenCo, val: Value, kind: CoercionKind) -
 
 /// Deep-force any value and return the evaluated result from the VM.
 pub async fn request_deep_force(co: &GenCo, val: Value, thunk_set: SharedThunkSet) -> Value {
-    match co
-        .yield_(GeneratorRequest::DeepForceValue(val, thunk_set))
-        .await
-    {
-        GeneratorResponse::Value(value) => value,
+    match co.yield_(VMRequest::DeepForceValue(val, thunk_set)).await {
+        VMResponse::Value(value) => value,
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg
@@ -610,10 +604,10 @@ pub(crate) async fn check_equality(
     ptr_eq: PointerEquality,
 ) -> Result<bool, ErrorKind> {
     match co
-        .yield_(GeneratorRequest::NixEquality(Box::new((a, b)), ptr_eq))
+        .yield_(VMRequest::NixEquality(Box::new((a, b)), ptr_eq))
         .await
     {
-        GeneratorResponse::Value(value) => value.as_bool(),
+        VMResponse::Value(value) => value.as_bool(),
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg
@@ -623,8 +617,8 @@ pub(crate) async fn check_equality(
 
 /// Emit a fully constructed runtime warning.
 pub(crate) async fn emit_warning(co: &GenCo, warning: EvalWarning) {
-    match co.yield_(GeneratorRequest::EmitWarning(warning)).await {
-        GeneratorResponse::Empty => {}
+    match co.yield_(VMRequest::EmitWarning(warning)).await {
+        VMResponse::Empty => {}
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg
@@ -634,8 +628,8 @@ pub(crate) async fn emit_warning(co: &GenCo, warning: EvalWarning) {
 
 /// Emit a runtime warning with the span of the current generator.
 pub(crate) async fn emit_warning_kind(co: &GenCo, kind: WarningKind) {
-    match co.yield_(GeneratorRequest::EmitWarningKind(kind)).await {
-        GeneratorResponse::Empty => {}
+    match co.yield_(VMRequest::EmitWarningKind(kind)).await {
+        VMResponse::Empty => {}
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg
@@ -650,14 +644,14 @@ pub(crate) async fn request_enter_lambda(
     upvalues: Rc<Upvalues>,
     light_span: LightSpan,
 ) -> Value {
-    let msg = GeneratorRequest::EnterLambda {
+    let msg = VMRequest::EnterLambda {
         lambda,
         upvalues,
         light_span,
     };
 
     match co.yield_(msg).await {
-        GeneratorResponse::Value(value) => value,
+        VMResponse::Value(value) => value,
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg
@@ -667,9 +661,9 @@ pub(crate) async fn request_enter_lambda(
 
 /// Request a lookup in the VM's import cache.
 pub(crate) async fn request_import_cache_lookup(co: &GenCo, path: PathBuf) -> Option<Value> {
-    match co.yield_(GeneratorRequest::ImportCacheLookup(path)).await {
-        GeneratorResponse::Value(value) => Some(value),
-        GeneratorResponse::Empty => None,
+    match co.yield_(VMRequest::ImportCacheLookup(path)).await {
+        VMResponse::Value(value) => Some(value),
+        VMResponse::Empty => None,
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg
@@ -679,11 +673,8 @@ pub(crate) async fn request_import_cache_lookup(co: &GenCo, path: PathBuf) -> Op
 
 /// Request that the VM populate its input cache for the given path.
 pub(crate) async fn request_import_cache_put(co: &GenCo, path: PathBuf, value: Value) {
-    match co
-        .yield_(GeneratorRequest::ImportCachePut(path, value))
-        .await
-    {
-        GeneratorResponse::Empty => {}
+    match co.yield_(VMRequest::ImportCachePut(path, value)).await {
+        VMResponse::Empty => {}
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg
@@ -693,8 +684,8 @@ pub(crate) async fn request_import_cache_put(co: &GenCo, path: PathBuf, value: V
 
 /// Request that the VM import the given path.
 pub(crate) async fn request_path_import(co: &GenCo, path: PathBuf) -> PathBuf {
-    match co.yield_(GeneratorRequest::PathImport(path)).await {
-        GeneratorResponse::Path(path) => path,
+    match co.yield_(VMRequest::PathImport(path)).await {
+        VMResponse::Path(path) => path,
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg
@@ -703,8 +694,8 @@ pub(crate) async fn request_path_import(co: &GenCo, path: PathBuf) -> PathBuf {
 }
 
 pub(crate) async fn request_read_to_string(co: &GenCo, path: PathBuf) -> Value {
-    match co.yield_(GeneratorRequest::ReadToString(path)).await {
-        GeneratorResponse::Value(value) => value,
+    match co.yield_(VMRequest::ReadToString(path)).await {
+        VMResponse::Value(value) => value,
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg
@@ -713,8 +704,8 @@ pub(crate) async fn request_read_to_string(co: &GenCo, path: PathBuf) -> Value {
 }
 
 pub(crate) async fn request_path_exists(co: &GenCo, path: PathBuf) -> Value {
-    match co.yield_(GeneratorRequest::PathExists(path)).await {
-        GeneratorResponse::Value(value) => value,
+    match co.yield_(VMRequest::PathExists(path)).await {
+        VMResponse::Value(value) => value,
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg
@@ -723,8 +714,8 @@ pub(crate) async fn request_path_exists(co: &GenCo, path: PathBuf) -> Value {
 }
 
 pub(crate) async fn request_read_dir(co: &GenCo, path: PathBuf) -> Vec<(SmolStr, FileType)> {
-    match co.yield_(GeneratorRequest::ReadDir(path)).await {
-        GeneratorResponse::Directory(dir) => dir,
+    match co.yield_(VMRequest::ReadDir(path)).await {
+        VMResponse::Directory(dir) => dir,
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg
@@ -733,8 +724,8 @@ pub(crate) async fn request_read_dir(co: &GenCo, path: PathBuf) -> Vec<(SmolStr,
 }
 
 pub(crate) async fn request_span(co: &GenCo) -> LightSpan {
-    match co.yield_(GeneratorRequest::Span).await {
-        GeneratorResponse::Span(span) => span,
+    match co.yield_(VMRequest::Span).await {
+        VMResponse::Span(span) => span,
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg
@@ -743,8 +734,8 @@ pub(crate) async fn request_span(co: &GenCo) -> LightSpan {
 }
 
 pub(crate) async fn request_to_json(co: &GenCo, value: Value) -> serde_json::Value {
-    match co.yield_(GeneratorRequest::ToJson(value)).await {
-        GeneratorResponse::Value(Value::Json(json)) => json,
+    match co.yield_(VMRequest::ToJson(value)).await {
+        VMResponse::Value(Value::Json(json)) => json,
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg

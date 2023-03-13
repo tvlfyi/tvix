@@ -37,7 +37,7 @@ use crate::{
 
 use generators::{call_functor, Generator, GeneratorState};
 
-use self::generators::{GeneratorRequest, GeneratorResponse};
+use self::generators::{VMRequest, VMResponse};
 
 /// Internal helper trait for ergonomically converting from a `Result<T,
 /// ErrorKind>` to a `Result<T, Error>` using the current span of a call frame.
@@ -300,7 +300,7 @@ impl<'o> VM<'o> {
 
                     let initial_msg = if catchable_error_occurred {
                         catchable_error_occurred = false;
-                        Some(GeneratorResponse::ForceError)
+                        Some(VMResponse::ForceError)
                     } else {
                         None
                     };
@@ -1009,8 +1009,8 @@ async fn resolve_with(
 ) -> Result<Value, ErrorKind> {
     /// Fetch and force a value on the with-stack from the VM.
     async fn fetch_forced_with(co: &GenCo, idx: usize) -> Value {
-        match co.yield_(GeneratorRequest::WithValue(idx)).await {
-            GeneratorResponse::Value(value) => value,
+        match co.yield_(VMRequest::WithValue(idx)).await {
+            VMResponse::Value(value) => value,
             msg => panic!(
                 "Tvix bug: VM responded with incorrect generator message: {}",
                 msg
@@ -1020,8 +1020,8 @@ async fn resolve_with(
 
     /// Fetch and force a value on the *captured* with-stack from the VM.
     async fn fetch_captured_with(co: &GenCo, idx: usize) -> Value {
-        match co.yield_(GeneratorRequest::CapturedWithValue(idx)).await {
-            GeneratorResponse::Value(value) => value,
+        match co.yield_(VMRequest::CapturedWithValue(idx)).await {
+            VMResponse::Value(value) => value,
             msg => panic!(
                 "Tvix bug: VM responded with incorrect generator message: {}",
                 msg
