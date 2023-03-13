@@ -113,6 +113,7 @@ impl Thunk {
         )))))
     }
 
+    // TODO(amjoseph): de-asyncify this
     pub async fn force(self, co: GenCo) -> Result<Value, ErrorKind> {
         // If the current thunk is already fully evaluated, return its evaluated
         // value. The VM will continue running the code that landed us here.
