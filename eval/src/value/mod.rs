@@ -2,10 +2,8 @@
 //! values in the Nix language.
 use std::cmp::Ordering;
 use std::fmt::Display;
-use std::future::Future;
 use std::num::{NonZeroI32, NonZeroUsize};
 use std::path::PathBuf;
-use std::pin::Pin;
 use std::rc::Rc;
 
 use lexical_core::format::CXX_LITERAL;
@@ -541,15 +539,6 @@ impl Value {
     gen_is!(is_number, Value::Integer(_) | Value::Float(_));
     gen_is!(is_bool, Value::Bool(_));
 
-    /// Internal helper to allow `nix_cmp_ordering` to recurse.
-    fn nix_cmp_boxed(
-        self,
-        other: Self,
-        co: GenCo,
-    ) -> Pin<Box<dyn Future<Output = Result<Option<Ordering>, ErrorKind>>>> {
-        Box::pin(self.nix_cmp_ordering(other, co))
-    }
-
     /// Compare `self` against other using (fallible) Nix ordering semantics.
     ///
     /// Note that as this returns an `Option<Ordering>` it can not directly be
@@ -564,44 +553,56 @@ impl Value {
         other: Self,
         co: GenCo,
     ) -> Result<Option<Ordering>, ErrorKind> {
-        match (self, other) {
-            // same types
-            (Value::Integer(i1), Value::Integer(i2)) => Ok(i1.partial_cmp(&i2)),
-            (Value::Float(f1), Value::Float(f2)) => Ok(f1.partial_cmp(&f2)),
-            (Value::String(s1), Value::String(s2)) => Ok(s1.partial_cmp(&s2)),
-            (Value::List(l1), Value::List(l2)) => {
-                for i in 0.. {
-                    if i == l2.len() {
-                        return Ok(Some(Ordering::Greater));
-                    } else if i == l1.len() {
-                        return Ok(Some(Ordering::Less));
-                    } else if !generators::check_equality(
-                        &co,
-                        l1[i].clone(),
-                        l2[i].clone(),
-                        PointerEquality::AllowAll,
-                    )
-                    .await?
-                    {
-                        // TODO: do we need to control `top_level` here?
-                        let v1 = generators::request_force(&co, l1[i].clone()).await;
-                        let v2 = generators::request_force(&co, l2[i].clone()).await;
-                        return v1.nix_cmp_boxed(v2, co).await;
+        Self::nix_cmp_ordering_(self, other, co).await
+    }
+
+    async fn nix_cmp_ordering_(
+        mut myself: Self,
+        mut other: Self,
+        co: GenCo,
+    ) -> Result<Option<Ordering>, ErrorKind> {
+        'outer: loop {
+            match (myself, other) {
+                // same types
+                (Value::Integer(i1), Value::Integer(i2)) => return Ok(i1.partial_cmp(&i2)),
+                (Value::Float(f1), Value::Float(f2)) => return Ok(f1.partial_cmp(&f2)),
+                (Value::String(s1), Value::String(s2)) => return Ok(s1.partial_cmp(&s2)),
+                (Value::List(l1), Value::List(l2)) => {
+                    for i in 0.. {
+                        if i == l2.len() {
+                            return Ok(Some(Ordering::Greater));
+                        } else if i == l1.len() {
+                            return Ok(Some(Ordering::Less));
+                        } else if !generators::check_equality(
+                            &co,
+                            l1[i].clone(),
+                            l2[i].clone(),
+                            PointerEquality::AllowAll,
+                        )
+                        .await?
+                        {
+                            // TODO: do we need to control `top_level` here?
+                            myself = generators::request_force(&co, l1[i].clone()).await;
+                            other = generators::request_force(&co, l2[i].clone()).await;
+                            continue 'outer;
+                        }
                     }
+
+                    unreachable!()
                 }
 
-                unreachable!()
+                // different types
+                (Value::Integer(i1), Value::Float(f2)) => return Ok((i1 as f64).partial_cmp(&f2)),
+                (Value::Float(f1), Value::Integer(i2)) => return Ok(f1.partial_cmp(&(i2 as f64))),
+
+                // unsupported types
+                (lhs, rhs) => {
+                    return Err(ErrorKind::Incomparable {
+                        lhs: lhs.type_of(),
+                        rhs: rhs.type_of(),
+                    })
+                }
             }
-
-            // different types
-            (Value::Integer(i1), Value::Float(f2)) => Ok((i1 as f64).partial_cmp(&f2)),
-            (Value::Float(f1), Value::Integer(i2)) => Ok(f1.partial_cmp(&(i2 as f64))),
-
-            // unsupported types
-            (lhs, rhs) => Err(ErrorKind::Incomparable {
-                lhs: lhs.type_of(),
-                rhs: rhs.type_of(),
-            }),
         }
     }
 
