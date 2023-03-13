@@ -998,28 +998,6 @@ impl<'o> VM<'o> {
     }
 }
 
-/// Fetch and force a value on the with-stack from the VM.
-async fn fetch_forced_with(co: &GenCo, idx: usize) -> Value {
-    match co.yield_(GeneratorRequest::WithValue(idx)).await {
-        GeneratorResponse::Value(value) => value,
-        msg => panic!(
-            "Tvix bug: VM responded with incorrect generator message: {}",
-            msg
-        ),
-    }
-}
-
-/// Fetch and force a value on the *captured* with-stack from the VM.
-async fn fetch_captured_with(co: &GenCo, idx: usize) -> Value {
-    match co.yield_(GeneratorRequest::CapturedWithValue(idx)).await {
-        GeneratorResponse::Value(value) => value,
-        msg => panic!(
-            "Tvix bug: VM responded with incorrect generator message: {}",
-            msg
-        ),
-    }
-}
-
 /// Resolve a dynamically bound identifier (through `with`) by looking
 /// for matching values in the with-stacks carried at runtime.
 async fn resolve_with(
@@ -1028,6 +1006,28 @@ async fn resolve_with(
     vm_with_len: usize,
     upvalue_with_len: usize,
 ) -> Result<Value, ErrorKind> {
+    /// Fetch and force a value on the with-stack from the VM.
+    async fn fetch_forced_with(co: &GenCo, idx: usize) -> Value {
+        match co.yield_(GeneratorRequest::WithValue(idx)).await {
+            GeneratorResponse::Value(value) => value,
+            msg => panic!(
+                "Tvix bug: VM responded with incorrect generator message: {}",
+                msg
+            ),
+        }
+    }
+
+    /// Fetch and force a value on the *captured* with-stack from the VM.
+    async fn fetch_captured_with(co: &GenCo, idx: usize) -> Value {
+        match co.yield_(GeneratorRequest::CapturedWithValue(idx)).await {
+            GeneratorResponse::Value(value) => value,
+            msg => panic!(
+                "Tvix bug: VM responded with incorrect generator message: {}",
+                msg
+            ),
+        }
+    }
+
     for with_stack_idx in (0..vm_with_len).rev() {
         // TODO(tazjin): is this branch still live with the current with-thunking?
         let with = fetch_forced_with(&co, with_stack_idx).await;
