@@ -98,7 +98,7 @@ fn derivation_with_trimmed_outputs(derivation: &Derivation) -> Derivation {
 
 #[test_case("0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv", "sha256:724f3e3634fce4cbbbd3483287b8798588e80280660b9a63fd13a1bc90485b33"; "fixed_sha256")]
 #[test_case("ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv", "sha256:c79aebd0ce3269393d4a1fde2cbd1d975d879b40f0bf40a48f550edc107fd5df";"fixed-sha1")]
-fn hash_derivation_modulo(drv_path: &str, expected_nix_hash_string: &str) {
+fn derivation_or_fod_hash(drv_path: &str, expected_nix_hash_string: &str) {
     // read in the fixture
     let data = read_file(&format!("{}/{}.json", RESOURCES_PATHS, drv_path));
     let drv: Derivation = serde_json::from_str(&data).expect("must deserialize");
