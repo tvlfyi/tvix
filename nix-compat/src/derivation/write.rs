@@ -58,16 +58,22 @@ pub fn write_outputs(
 
         let mut elements: Vec<&str> = vec![output_name, &output.path];
 
-        match &output.hash {
-            Some(hash) => {
-                elements.push(&hash.algo);
-                elements.push(&hash.digest);
-            }
-            None => {
-                elements.push("");
-                elements.push("");
-            }
-        }
+        let (e2, e3) = match &output.hash_with_mode {
+            Some(hash) => match hash {
+                crate::nixhash::NixHashWithMode::Flat(h) => (
+                    h.algo.to_string(),
+                    data_encoding::HEXLOWER.encode(&h.digest),
+                ),
+                crate::nixhash::NixHashWithMode::Recursive(h) => (
+                    format!("r:{}", h.algo),
+                    data_encoding::HEXLOWER.encode(&h.digest),
+                ),
+            },
+            None => ("".to_string(), "".to_string()),
+        };
+
+        elements.push(&e2);
+        elements.push(&e3);
 
         write_array_elements(
             writer,

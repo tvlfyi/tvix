@@ -1,5 +1,5 @@
 //! Implements `builtins.derivation`, the core of what makes Nix build packages.
-use nix_compat::derivation::{Derivation, Hash};
+use nix_compat::derivation::Derivation;
 use nix_compat::{hash_placeholder, nixhash};
 use std::cell::RefCell;
 use std::collections::{btree_map, BTreeSet};
@@ -126,19 +126,18 @@ fn populate_output_configuration(
 
                 let output_hash = nixhash::from_str(&hash, a).map_err(Error::InvalidOutputHash)?;
 
-                // construct the algo string. Depending on hashMode, we prepend a `r:`.
-                let algo = match hash_mode.as_deref() {
-                    None | Some("flat") => format!("{}", &output_hash.algo),
-                    Some("recursive") => format!("r:{}", &output_hash.algo),
+                // construct the NixHashWithMode.
+                out.hash_with_mode = match hash_mode.as_deref() {
+                    None | Some("flat") => Some(nixhash::NixHashWithMode::Flat(
+                        nixhash::NixHash::new(output_hash.algo, output_hash.digest),
+                    )),
+                    Some("recursive") => Some(nixhash::NixHashWithMode::Recursive(
+                        nixhash::NixHash::new(output_hash.algo, output_hash.digest),
+                    )),
                     Some(other) => {
                         return Err(Error::InvalidOutputHashMode(other.to_string()).into())
                     }
-                };
-
-                out.hash = Some(Hash {
-                    algo,
-                    digest: data_encoding::HEXLOWER.encode(&output_hash.digest),
-                });
+                }
             }
         }
     }
