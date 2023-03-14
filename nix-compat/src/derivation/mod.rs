@@ -236,86 +236,64 @@ impl Derivation {
         name: &str,
         derivation_or_fod_hash: &NixHash,
     ) -> Result<(), DerivationError> {
-        // Check if the Derivation is fixed output, because they cause
-        // different fingerprints to be hashed.
-        match self.get_fixed_output() {
-            None => {
-                // The fingerprint and hash differs per output
-                for (output_name, output) in self.outputs.iter_mut() {
-                    // Assert that outputs are not yet populated, to avoid using this function wrongly.
-                    // We don't also go over self.environment, but it's a sufficient
-                    // footgun prevention mechanism.
-                    assert!(output.path.is_empty());
+        let num_outputs = self.outputs.len();
+        // The fingerprint and hash differs per output
+        for (output_name, output) in self.outputs.iter_mut() {
+            // Assert that outputs are not yet populated, to avoid using this function wrongly.
+            // We don't also go over self.environment, but it's a sufficient
+            // footgun prevention mechanism.
+            assert!(output.path.is_empty());
 
-                    // calculate the output_name_path, which is the part of the NixPath after the digest.
-                    let mut output_path_name = name.to_string();
-                    if output_name != "out" {
-                        output_path_name.push('-');
-                        output_path_name.push_str(output_name);
-                    }
-
-                    let fp = &format!(
-                        "output:{}:{}:{}:{}",
-                        output_name,
-                        derivation_or_fod_hash.to_nix_hash_string(),
-                        store_path::STORE_DIR,
-                        output_path_name,
-                    );
-
-                    let abs_store_path =
-                        utils::build_store_path(false, fp, &output_path_name)?.to_absolute_path();
-
-                    output.path = abs_store_path.clone();
-                    self.environment
-                        .insert(output_name.to_string(), abs_store_path);
+            // calculate the output_name_path, which is the part of the NixPath after the digest.
+            // It's the name, and (if it's the non-out output), the output name after a `-`.
+            let output_path_name = {
+                let mut output_path_name = name.to_string();
+                if output_name != "out" {
+                    output_path_name.push('-');
+                    output_path_name.push_str(output_name);
                 }
-            }
-            Some((fixed_output_path, fixed_output_hash)) => {
-                // Assert that outputs are not yet populated, to avoid using this function wrongly.
-                // We don't also go over self.environment, but it's a sufficient
-                // footgun prevention mechanism.
-                assert!(fixed_output_path.is_empty());
+                output_path_name
+            };
 
-                let fp = {
-                    let mut fp = String::new();
-                    // Fixed-output derivation.
-                    // There's two different hashing strategies in place,
-                    // depending on whether the hash is recursive AND sha256 or anything else.
-                    // This code is _weird_ but it is what Nix is doing. See:
-                    // https://github.com/NixOS/nix/blob/1385b2007804c8a0370f2a6555045a00e34b07c7/src/libstore/store-api.cc#L178-L196
-                    if let NixHashWithMode::Recursive(recursive_hash) = fixed_output_hash {
-                        if recursive_hash.algo == HashAlgo::Sha256 {
-                            fp.push_str(&format!("source:{}", recursive_hash.to_nix_hash_string()));
-                        } else {
-                            // This is similar to the FOD case, with an empty fixed_output_path.
-                            fp.push_str(&format!(
-                                "output:out:{}",
-                                derivation_or_fod_hash.to_nix_hash_string(),
-                            ));
-                        }
-                    } else {
-                        // This is similar to the FOD case, with an empty fixed_output_path.
-                        fp.push_str(&format!(
-                            "output:out:{}",
-                            derivation_or_fod_hash.to_nix_hash_string(),
-                        ));
+            // In the case this is a fixed-output derivation AND the
+            // hash mode is recursive AND the hash algo is sha256, a
+            // custom fingerprint is used to calculate the output path.
+            //
+            // In all other cases, the fingerprint is derived from the
+            // derivation_or_fod_hash.
+            let custom_fp: Option<String> =
+                if num_outputs == 1 && output_name == "out" && output.hash_with_mode.is_some() {
+                    match &output.hash_with_mode {
+                        Some(NixHashWithMode::Recursive(NixHash {
+                            digest,
+                            algo: HashAlgo::Sha256,
+                        })) => Some(format!(
+                            "source:sha256:{}:{}:{}",
+                            data_encoding::HEXLOWER.encode(digest),
+                            store_path::STORE_DIR,
+                            output_path_name
+                        )),
+                        _ => None,
                     }
-                    fp.push_str(&format!(":{}:{}", store_path::STORE_DIR, name));
-                    fp
+                } else {
+                    None
                 };
 
-                let abs_store_path = utils::build_store_path(false, &fp, name)?.to_absolute_path();
+            // If no custom_fp has been determined, use the default one.
+            let fp = custom_fp.unwrap_or(format!(
+                "output:{}:{}:{}:{}",
+                output_name,
+                derivation_or_fod_hash.to_nix_hash_string(),
+                store_path::STORE_DIR,
+                output_path_name,
+            ));
+            let abs_store_path =
+                utils::build_store_path(false, &fp, &output_path_name)?.to_absolute_path();
 
-                self.outputs.insert(
-                    "out".to_string(),
-                    Output {
-                        path: abs_store_path.clone(),
-                        hash_with_mode: Some(fixed_output_hash.clone()),
-                    },
-                );
-                self.environment.insert("out".to_string(), abs_store_path);
-            }
-        };
+            output.path = abs_store_path.clone();
+            self.environment
+                .insert(output_name.to_string(), abs_store_path);
+        }
 
         Ok(())
     }
