@@ -1,5 +1,8 @@
-Tvix
-====
+<div align="center">
+  <img src="https://tvix.dev/tvix-logo.webp">
+</div>
+
+-----------------
 
 Tvix is a new implementation of the Nix language and package manager. See the
 [announcement post][post-1] for information about the background of this
