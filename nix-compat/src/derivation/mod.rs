@@ -85,15 +85,13 @@ impl Derivation {
             return None;
         }
 
-        match self.outputs.get("out") {
-            #[allow(clippy::manual_map)]
-            Some(out_output) => match &out_output.hash {
-                Some(out_output_hash) => Some((&out_output.path, out_output_hash)),
-                // There has to be a hash, otherwise it would not be FOD
-                None => None,
-            },
-            None => None,
+        if let Some(out_output) = self.outputs.get("out") {
+            if let Some(out_output_hash) = &out_output.hash {
+                return Some((&out_output.path, out_output_hash));
+            }
+            // There has to be a hash, otherwise it would not be FOD
         }
+        return None;
     }
 
     /// Returns the drv path of a Derivation struct.
