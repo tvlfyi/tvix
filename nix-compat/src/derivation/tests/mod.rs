@@ -70,9 +70,9 @@ fn derivation_path(name: &str, expected_path: &str) {
     );
 }
 
-/// This trims all outputs from a Derivation struct,
+/// This trims all output paths from a Derivation struct,
 /// by setting outputs[$outputName].path and environment[$outputName] to the empty string.
-fn derivation_with_trimmed_outputs(derivation: &Derivation) -> Derivation {
+fn derivation_with_trimmed_output_paths(derivation: &Derivation) -> Derivation {
     let mut trimmed_env = derivation.environment.clone();
     let mut trimmed_outputs = derivation.outputs.clone();
 
@@ -120,7 +120,7 @@ fn output_paths(name: &str, drv_path: &str) {
     let data = read_file(&format!("{}/{}.json", RESOURCES_PATHS, drv_path));
     let expected_derivation: Derivation = serde_json::from_str(&data).expect("must deserialize");
 
-    let mut derivation = derivation_with_trimmed_outputs(&expected_derivation);
+    let mut derivation = derivation_with_trimmed_output_paths(&expected_derivation);
 
     // calculate the derivation_or_fod_hash of derivation
     // We don't expect the lookup function to be called for most derivations.
