@@ -9,10 +9,6 @@
       needsOutput = true;
 
       command = pkgs.writeShellScript "tvix-eval-stdenv" ''
-        # Ensure tvix can find <nix/fetchurl.nix>
-        COREPKGS=$(${pkgs.nix}/bin/nix-instantiate --eval -E '<nix>')
-        export NIX_PATH="nix=''${COREPKGS}:''${NIX_PATH}"
-
         TVIX_OUTPUT=$(result/bin/tvix -E '(import ${pkgs.path} {}).stdenv.drvPath')
         EXPECTED='${/* the verbatim expected Tvix output: */ "=> \"${pkgs.stdenv.drvPath}\" :: string"}'
 
