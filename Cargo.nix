@@ -93,10 +93,10 @@ rec {
       # File a bug if you depend on any for non-debug work!
       debug = internal.debugCrate { inherit packageId; };
     };
-    "tvix-store-bin" = rec {
-      packageId = "tvix-store-bin";
+    "tvix-store" = rec {
+      packageId = "tvix-store";
       build = internal.buildRustCrateWithFeatures {
-        packageId = "tvix-store-bin";
+        packageId = "tvix-store";
       };
 
       # Debug support which might change between releases.
@@ -7626,10 +7626,6 @@ rec {
             packageId = "dirs";
           }
           {
-            name = "lazy_static";
-            packageId = "lazy_static";
-          }
-          {
             name = "nix-compat";
             packageId = "nix-compat";
           }
@@ -7638,20 +7634,12 @@ rec {
             packageId = "rustyline";
           }
           {
-            name = "serde_json";
-            packageId = "serde_json";
-          }
-          {
             name = "smol_str";
             packageId = "smol_str";
           }
           {
             name = "ssri";
             packageId = "ssri";
-          }
-          {
-            name = "tempfile";
-            packageId = "tempfile";
           }
           {
             name = "thiserror";
@@ -7860,8 +7848,8 @@ rec {
         ];
 
       };
-      "tvix-store-bin" = rec {
-        crateName = "tvix-store-bin";
+      "tvix-store" = rec {
+        crateName = "tvix-store";
         version = "0.1.0";
         edition = "2021";
         crateBin = [
@@ -7877,7 +7865,6 @@ rec {
           if (lib.versionOlder builtins.nixVersion "2.4pre20211007")
           then lib.cleanSourceWith { filter = sourceFilter; src = ./store; }
           else ./store;
-        libName = "tvix_store";
         dependencies = [
           {
             name = "anyhow";
