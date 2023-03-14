@@ -288,7 +288,7 @@ impl Derivation {
                     if fixed_output_hash.algo == "r:sha256" {
                         s.push_str(&format!(
                             "source:sha256:{}",
-                            fixed_output_hash.digest, // nixbase32
+                            fixed_output_hash.digest, // lowerhex
                         ));
                     } else {
                         s.push_str("output:out:");
