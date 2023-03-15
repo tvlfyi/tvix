@@ -175,7 +175,6 @@ async fn handle_derivation_parameters(
                 .to_list()
                 .context("looking at the `outputs` parameter of the derivation")?;
 
-            drv.outputs.clear();
             populate_outputs(co, drv, outputs).await?;
         }
 
@@ -264,20 +263,7 @@ mod derivation_builtins {
             Ok(None)
         }
 
-        populate_output_configuration(
-            &mut drv,
-            select_string(&co, &input, "outputHash")
-                .await
-                .context("evaluating the `outputHash` parameter")?,
-            select_string(&co, &input, "outputHashAlgo")
-                .await
-                .context("evaluating the `outputHashAlgo` parameter")?,
-            select_string(&co, &input, "outputHashMode")
-                .await
-                .context("evaluating the `outputHashMode` parameter")?,
-        )?;
-
-        for (name, value) in input.into_iter_sorted() {
+        for (name, value) in input.clone().into_iter_sorted() {
             let value = generators::request_force(&co, value).await;
             if ignore_nulls && matches!(value, Value::Null) {
                 continue;
@@ -302,6 +288,19 @@ mod derivation_builtins {
                 return Err(Error::DuplicateEnvVar(name.as_str().to_string()).into());
             }
         }
+
+        populate_output_configuration(
+            &mut drv,
+            select_string(&co, &input, "outputHash")
+                .await
+                .context("evaluating the `outputHash` parameter")?,
+            select_string(&co, &input, "outputHashAlgo")
+                .await
+                .context("evaluating the `outputHashAlgo` parameter")?,
+            select_string(&co, &input, "outputHashMode")
+                .await
+                .context("evaluating the `outputHashMode` parameter")?,
+        )?;
 
         // Scan references in relevant attributes to detect any build-references.
         let references = {
