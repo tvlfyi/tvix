@@ -97,33 +97,42 @@ impl<CS: ChunkService> std::io::Read for BlobReader<'_, CS> {
                     return Ok(bytes_read);
                 }
                 // There's another chunk to visit, fetch its contents
-                Some(chunk_meta) => match self.chunk_service.get(&chunk_meta.digest) {
-                    // Fetch successful, put it into `self.current_chunk` and restart the loop.
-                    Ok(Some(chunk_data)) => {
-                        // make sure the size matches what chunk_meta says as well.
-                        if chunk_data.len() as u32 != chunk_meta.size {
-                            break Err(std::io::Error::new(
+                Some(chunk_meta) => {
+                    let chunk_meta_digest: [u8; 32] =
+                        chunk_meta.digest.clone().try_into().map_err(|_e| {
+                            std::io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                format!("chunk in chunkmeta has wrong digest size"),
+                            )
+                        })?;
+                    match self.chunk_service.get(&chunk_meta_digest) {
+                        // Fetch successful, put it into `self.current_chunk` and restart the loop.
+                        Ok(Some(chunk_data)) => {
+                            // make sure the size matches what chunk_meta says as well.
+                            if chunk_data.len() as u32 != chunk_meta.size {
+                                break Err(std::io::Error::new(
                                 io::ErrorKind::InvalidData,
                                 format!(
                                     "chunk_service returned chunk with wrong size for {}, expected {}, got {}",
                                     BASE64.encode(&chunk_meta.digest), chunk_meta.size, chunk_data.len()
                                 )
                             ));
+                            }
+                            self.current_chunk = Some(Cursor::new(chunk_data));
                         }
-                        self.current_chunk = Some(Cursor::new(chunk_data));
+                        // Chunk requested does not exist
+                        Ok(None) => {
+                            break Err(std::io::Error::new(
+                                io::ErrorKind::NotFound,
+                                format!("chunk {} not found", BASE64.encode(&chunk_meta.digest)),
+                            ))
+                        }
+                        // Error occured while fetching the next chunk, propagate the error from the chunk service
+                        Err(e) => {
+                            break Err(std::io::Error::new(io::ErrorKind::InvalidData, e));
+                        }
                     }
-                    // Chunk requested does not exist
-                    Ok(None) => {
-                        break Err(std::io::Error::new(
-                            io::ErrorKind::NotFound,
-                            format!("chunk {} not found", BASE64.encode(&chunk_meta.digest)),
-                        ))
-                    }
-                    // Error occured while fetching the next chunk, propagate the error from the chunk service
-                    Err(e) => {
-                        break Err(std::io::Error::new(io::ErrorKind::InvalidData, e));
-                    }
-                },
+                }
             }
         }
     }
@@ -196,7 +205,7 @@ mod tests {
         // assemble a blobmeta
         let blobmeta = proto::BlobMeta {
             chunks: vec![proto::blob_meta::ChunkMeta {
-                digest: dgst,
+                digest: dgst.to_vec(),
                 size: 0,
             }],
             inline_bao: vec![],
@@ -228,7 +237,7 @@ mod tests {
         // assemble a blobmeta
         let blobmeta = proto::BlobMeta {
             chunks: vec![proto::blob_meta::ChunkMeta {
-                digest: dgst,
+                digest: dgst.to_vec(),
                 size: 3,
             }],
             inline_bao: vec![],
@@ -260,7 +269,7 @@ mod tests {
         // assemble a blobmeta
         let blobmeta = proto::BlobMeta {
             chunks: vec![proto::blob_meta::ChunkMeta {
-                digest: dgst_1,
+                digest: dgst_1.to_vec(),
                 size: 42,
             }],
             inline_bao: vec![],
@@ -294,15 +303,15 @@ mod tests {
         let blobmeta = proto::BlobMeta {
             chunks: vec![
                 proto::blob_meta::ChunkMeta {
-                    digest: dgst_1.clone(),
+                    digest: dgst_1.to_vec(),
                     size: 3,
                 },
                 proto::blob_meta::ChunkMeta {
-                    digest: dgst_2,
+                    digest: dgst_2.to_vec(),
                     size: 2,
                 },
                 proto::blob_meta::ChunkMeta {
-                    digest: dgst_1,
+                    digest: dgst_1.to_vec(),
                     size: 3,
                 },
             ],

@@ -17,12 +17,12 @@ pub use self::util::upload_chunk;
 /// chunking information.
 pub trait ChunkService {
     /// check if the service has a chunk, given by its digest.
-    fn has(&self, digest: &[u8]) -> Result<bool, Error>;
+    fn has(&self, digest: &[u8; 32]) -> Result<bool, Error>;
 
     /// retrieve a chunk by its digest. Implementations MUST validate the digest
     /// matches.
-    fn get(&self, digest: &[u8]) -> Result<Option<Vec<u8>>, Error>;
+    fn get(&self, digest: &[u8; 32]) -> Result<Option<Vec<u8>>, Error>;
 
     /// insert a chunk. returns the digest of the chunk, or an error.
-    fn put(&self, data: Vec<u8>) -> Result<Vec<u8>, Error>;
+    fn put(&self, data: Vec<u8>) -> Result<[u8; 32], Error>;
 }

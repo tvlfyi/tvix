@@ -36,7 +36,7 @@ impl<BS: BlobService, CS: ChunkService> GRPCBlobServiceWrapper<BS, CS> {
         }
         let digest_resp = chunk_service.put(chunk_data)?;
 
-        assert_eq!(digest_resp, digest.as_bytes());
+        assert_eq!(&digest_resp, digest.as_bytes());
 
         Ok(digest.as_bytes().to_vec())
     }
@@ -74,9 +74,14 @@ impl<
         let req = request.into_inner();
         let (tx, rx) = channel(5);
 
+        let req_digest: [u8; 32] = req
+            .digest
+            .try_into()
+            .map_err(|_e| Status::invalid_argument("invalid digest length"))?;
+
         // query the chunk service for more detailed blob info
         let stat_resp = self.blob_service.stat(&super::StatBlobRequest {
-            digest: req.digest.to_vec(),
+            digest: req_digest.to_vec(),
             include_chunks: true,
             ..Default::default()
         })?;
@@ -86,7 +91,7 @@ impl<
                 // If the stat didn't return any blobmeta, the client might
                 // still have asked for a single chunk to be read.
                 // Check the chunkstore.
-                if let Some(data) = self.chunk_service.get(&req.digest)? {
+                if let Some(data) = self.chunk_service.get(&req_digest)? {
                     // We already know the hash matches, and contrary to
                     // iterating over a blobmeta, we can't know the size,
                     // so send the contents of that chunk over,
@@ -101,7 +106,7 @@ impl<
                 } else {
                     return Err(Status::not_found(format!(
                         "blob {} not found",
-                        BASE64.encode(&req.digest),
+                        BASE64.encode(&req_digest),
                     )));
                 }
             }
@@ -118,13 +123,15 @@ impl<
                         // request chunk.
                         // We don't need to validate the digest again, as
                         // that's required for all implementations of ChunkService.
-                        let res = match chunk_client.get(&chunkmeta.digest) {
+                        // TODO: handle error
+                        let chunkmeta_digest = &chunkmeta.digest.try_into().unwrap();
+                        let res = match chunk_client.get(&chunkmeta_digest) {
                             Err(e) => Err(e.into()),
                             // TODO: make this a separate error type
                             Ok(None) => Err(Error::StorageError(format!(
                                 "consistency error: chunk {} for blob {} not found",
-                                BASE64.encode(&chunkmeta.digest),
-                                BASE64.encode(&req.digest),
+                                BASE64.encode(chunkmeta_digest),
+                                BASE64.encode(&req_digest),
                             ))
                             .into()),
                             Ok(Some(data)) => {
@@ -133,8 +140,8 @@ impl<
                                 if data.len() as u32 != chunkmeta.size {
                                     Err(Error::StorageError(format!(
                                         "consistency error: chunk {} for blob {} has wrong size, expected {}, got {}",
-                                        BASE64.encode(&chunkmeta.digest),
-                                        BASE64.encode(&req.digest),
+                                        BASE64.encode(chunkmeta_digest),
+                                        BASE64.encode(&req_digest),
                                         chunkmeta.size,
                                         data.len(),
                                     )).into())

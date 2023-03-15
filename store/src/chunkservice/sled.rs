@@ -30,7 +30,7 @@ impl SledChunkService {
 
 impl ChunkService for SledChunkService {
     #[instrument(name = "SledChunkService::has", skip(self, digest), fields(chunk.digest=BASE64.encode(digest)))]
-    fn has(&self, digest: &[u8]) -> Result<bool, Error> {
+    fn has(&self, digest: &[u8; 32]) -> Result<bool, Error> {
         match self.db.get(digest) {
             Ok(None) => Ok(false),
             Ok(Some(_)) => Ok(true),
@@ -39,7 +39,7 @@ impl ChunkService for SledChunkService {
     }
 
     #[instrument(name = "SledChunkService::get", skip(self), fields(chunk.digest=BASE64.encode(digest)))]
-    fn get(&self, digest: &[u8]) -> Result<Option<Vec<u8>>, Error> {
+    fn get(&self, digest: &[u8; 32]) -> Result<Option<Vec<u8>>, Error> {
         match self.db.get(digest) {
             Ok(None) => Ok(None),
             Ok(Some(data)) => {
@@ -59,12 +59,12 @@ impl ChunkService for SledChunkService {
     }
 
     #[instrument(name = "SledChunkService::put", skip(self, data))]
-    fn put(&self, data: Vec<u8>) -> Result<Vec<u8>, Error> {
-        let digest = blake3::hash(&data).as_bytes().to_vec();
-        let result = self.db.insert(&digest, data);
+    fn put(&self, data: Vec<u8>) -> Result<[u8; 32], Error> {
+        let digest = blake3::hash(&data);
+        let result = self.db.insert(&digest.as_bytes(), data);
         if let Err(e) = result {
             return Err(Error::StorageError(e.to_string()));
         }
-        Ok(digest)
+        Ok(digest.as_bytes().clone())
     }
 }

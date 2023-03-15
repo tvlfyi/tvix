@@ -9,7 +9,7 @@ use super::ChunkService;
 pub fn upload_chunk<CS: ChunkService>(
     chunk_service: &CS,
     chunk_data: Vec<u8>,
-) -> Result<Vec<u8>, Error> {
+) -> Result<[u8; 32], Error> {
     let mut hasher = blake3::Hasher::new();
     update_hasher(&mut hasher, &chunk_data);
     let digest = hasher.finalize();
@@ -19,9 +19,9 @@ pub fn upload_chunk<CS: ChunkService>(
     }
     let digest_resp = chunk_service.put(chunk_data)?;
 
-    assert_eq!(digest_resp, digest.as_bytes());
+    assert_eq!(&digest_resp, digest.as_bytes());
 
-    Ok(digest.as_bytes().to_vec())
+    Ok(digest.as_bytes().clone())
 }
 
 /// reads through a reader, writes chunks to a [ChunkService] and returns a
@@ -56,7 +56,7 @@ pub fn read_all_and_chunk<CS: ChunkService, R: Read>(
         let chunk_digest = upload_chunk(chunk_service, chunk.data)?;
 
         blob_meta.chunks.push(proto::blob_meta::ChunkMeta {
-            digest: chunk_digest,
+            digest: chunk_digest.to_vec(),
             size: chunk_len,
         });
     }
