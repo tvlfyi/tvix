@@ -76,24 +76,6 @@ impl Derivation {
         buffer
     }
 
-    /// Returns the fixed output path and its [NixHashWithMode]
-    /// (if the Derivation is fixed output), or None if there is no fixed output.
-    /// This takes some shortcuts in case more than one output exists, as this
-    /// can't be a valid fixed-output Derivation.
-    pub fn get_fixed_output(&self) -> Option<(&String, &NixHashWithMode)> {
-        if self.outputs.len() != 1 {
-            return None;
-        }
-
-        if let Some(out_output) = self.outputs.get("out") {
-            if let Some(out_output_hash) = &out_output.hash_with_mode {
-                return Some((&out_output.path, out_output_hash));
-            }
-            // There has to be a hash, otherwise it would not be FOD
-        }
-        None
-    }
-
     /// Returns the drv path of a Derivation struct.
     ///
     /// The drv path is calculated like this:
@@ -130,22 +112,37 @@ impl Derivation {
 
         // calculate the sha256 hash of the ATerm representation, and represent
         // it as a hex-encoded string (prefixed with sha256:).
-        let aterm_digest = {
-            let mut derivation_hasher = Sha256::new();
-            derivation_hasher.update(self.to_aterm_string());
-            derivation_hasher.finalize()
-        };
-
-        let h = NixHash::new(crate::nixhash::HashAlgo::Sha256, aterm_digest.to_vec());
+        let aterm_digest = Sha256::new_with_prefix(self.to_aterm_string())
+            .finalize()
+            .to_vec();
 
         s.push_str(&format!(
             "{}:{}:{}.drv",
-            h.to_nix_hash_string(),
+            NixHash::new(HashAlgo::Sha256, aterm_digest).to_nix_hash_string(),
             store_path::STORE_DIR,
             name,
         ));
 
         utils::build_store_path(true, &s, name)
+    }
+
+    /// Returns the FOD digest, if the derivation is fixed-output, or None if
+    /// it's not.
+    fn fod_digest(&self) -> Option<Vec<u8>> {
+        if self.outputs.len() != 1 {
+            return None;
+        }
+
+        let out_output = self.outputs.get("out")?;
+        Some(
+            Sha256::new_with_prefix(format!(
+                "fixed:out:{}:{}",
+                out_output.hash_with_mode.clone()?.to_nix_hash_string(),
+                out_output.path
+            ))
+            .finalize()
+            .to_vec(),
+        )
     }
 
     /// Calculates the hash of a derivation modulo fixed-output subderivations.
@@ -168,50 +165,39 @@ impl Derivation {
     where
         F: Fn(&str) -> NixHash,
     {
-        let mut hasher = Sha256::new();
-        let digest = match self.get_fixed_output() {
-            // Fixed-output derivations return a fixed hash
-            Some((fixed_output_path, fixed_output_hash)) => {
-                hasher.update(format!(
-                    "fixed:out:{}:{}",
-                    fixed_output_hash.to_nix_hash_string(),
-                    fixed_output_path
-                ));
-                hasher.finalize()
+        // Fixed-output derivations return a fixed hash.
+        // Non-Fixed-output derivations return a hash of the ATerm notation, but with all
+        // input_derivation paths replaced by a recursive call to this function.
+        // We use fn_get_derivation_or_fod_hash here, so callers can precompute this.
+        let digest = self.fod_digest().unwrap_or({
+            // This is a new map from derivation_or_fod_hash.digest (as lowerhex)
+            // to list of output names
+            let mut replaced_input_derivations: BTreeMap<String, BTreeSet<String>> =
+                BTreeMap::new();
+
+            // For each input_derivation, look up the
+            // derivation_or_fod_hash, and replace the derivation path with it's HEXLOWER
+            // digest.
+            // This is not the [NixHash::to_nix_hash_string], but without the sha256: prefix).
+            for (drv_path, output_names) in &self.input_derivations {
+                replaced_input_derivations.insert(
+                    data_encoding::HEXLOWER.encode(&fn_get_derivation_or_fod_hash(drv_path).digest),
+                    output_names.clone(),
+                );
             }
-            // Non-Fixed-output derivations return a hash of the ATerm notation, but with all
-            // input_derivation paths replaced by a recursive call to this function.
-            // We use fn_get_derivation_or_fod_hash here, so callers can precompute this.
-            None => {
-                // This is a new map from derivation_or_fod_hash.digest (as lowerhex)
-                // to list of output names
-                let mut replaced_input_derivations: BTreeMap<String, BTreeSet<String>> =
-                    BTreeMap::new();
 
-                // For each input_derivation, look up the
-                // derivation_or_fod_hash, and replace the derivation path with it's HEXLOWER
-                // digest.
-                // This is not the [NixHash::to_nix_hash_string], but without the sha256: prefix).
-                for (drv_path, output_names) in &self.input_derivations {
-                    replaced_input_derivations.insert(
-                        data_encoding::HEXLOWER
-                            .encode(&fn_get_derivation_or_fod_hash(drv_path).digest),
-                        output_names.clone(),
-                    );
-                }
+            // construct a new derivation struct with these replaced input derivation strings
+            let replaced_derivation = Derivation {
+                input_derivations: replaced_input_derivations,
+                ..self.clone()
+            };
 
-                // construct a new derivation struct with these replaced input derivation strings
-                let replaced_derivation = Derivation {
-                    input_derivations: replaced_input_derivations,
-                    ..self.clone()
-                };
+            // write the ATerm of that to the hash function
+            let mut hasher = Sha256::new();
+            hasher.update(replaced_derivation.to_aterm_string());
 
-                // write the ATerm of that to the hash function
-                hasher.update(replaced_derivation.to_aterm_string());
-
-                hasher.finalize()
-            }
-        };
+            hasher.finalize().to_vec()
+        });
         NixHash::new(crate::nixhash::HashAlgo::Sha256, digest.to_vec())
     }
 
