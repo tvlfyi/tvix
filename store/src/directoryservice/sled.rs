@@ -29,48 +29,40 @@ impl SledDirectoryService {
 }
 
 impl DirectoryService for SledDirectoryService {
-    // TODO: change api to only be by digest
-    #[instrument(name = "SledDirectoryService::get", skip(self, by_what))]
-    fn get(
-        &self,
-        by_what: &proto::get_directory_request::ByWhat,
-    ) -> Result<Option<proto::Directory>, Error> {
-        match by_what {
-            proto::get_directory_request::ByWhat::Digest(digest) => {
-                match self.db.get(digest) {
-                    // The directory was not found, return
-                    Ok(None) => Ok(None),
+    #[instrument(name = "SledDirectoryService::get", skip(self, digest), fields(directory.digest = BASE64.encode(digest)))]
+    fn get(&self, digest: &[u8; 32]) -> Result<Option<proto::Directory>, Error> {
+        match self.db.get(digest) {
+            // The directory was not found, return
+            Ok(None) => Ok(None),
 
-                    // The directory was found, try to parse the data as Directory message
-                    Ok(Some(data)) => match Directory::decode(&*data) {
-                        Ok(directory) => {
-                            // Validate the retrieved Directory indeed has the
-                            // digest we expect it to have, to detect corruptions.
-                            let actual_digest = directory.digest();
-                            if actual_digest.as_slice() != digest {
-                                return Err(Error::StorageError(format!(
-                                    "requested directory with digest {}, but got {}",
-                                    BASE64.encode(digest),
-                                    BASE64.encode(&actual_digest)
-                                )));
-                            }
+            // The directory was found, try to parse the data as Directory message
+            Ok(Some(data)) => match Directory::decode(&*data) {
+                Ok(directory) => {
+                    // Validate the retrieved Directory indeed has the
+                    // digest we expect it to have, to detect corruptions.
+                    let actual_digest = directory.digest();
+                    if actual_digest.as_slice() != digest {
+                        return Err(Error::StorageError(format!(
+                            "requested directory with digest {}, but got {}",
+                            BASE64.encode(digest),
+                            BASE64.encode(&actual_digest)
+                        )));
+                    }
 
-                            Ok(Some(directory))
-                        }
-                        Err(e) => {
-                            warn!("unable to parse directory {}: {}", BASE64.encode(digest), e);
-                            Err(Error::StorageError(e.to_string()))
-                        }
-                    },
-                    // some storage error?
-                    Err(e) => Err(Error::StorageError(e.to_string())),
+                    Ok(Some(directory))
                 }
-            }
+                Err(e) => {
+                    warn!("unable to parse directory {}: {}", BASE64.encode(digest), e);
+                    Err(Error::StorageError(e.to_string()))
+                }
+            },
+            // some storage error?
+            Err(e) => Err(Error::StorageError(e.to_string())),
         }
     }
 
     #[instrument(name = "SledDirectoryService::put", skip(self, directory), fields(directory.digest = BASE64.encode(&directory.digest())))]
-    fn put(&self, directory: proto::Directory) -> Result<Vec<u8>, Error> {
+    fn put(&self, directory: proto::Directory) -> Result<[u8; 32], Error> {
         let digest = directory.digest();
 
         // validate the directory itself.
@@ -82,7 +74,7 @@ impl DirectoryService for SledDirectoryService {
             )));
         }
         // store it
-        let result = self.db.insert(&digest, directory.encode_to_vec());
+        let result = self.db.insert(digest, directory.encode_to_vec());
         if let Err(e) = result {
             return Err(Error::StorageError(e.to_string()));
         }

@@ -85,7 +85,7 @@ fn process_entry<BS: BlobService, CS: ChunkService + std::marker::Sync, DS: Dire
                 .to_str()
                 .map(|s| Ok(s.to_owned()))
                 .unwrap_or(Err(Error::InvalidEncoding(entry.path().to_path_buf())))?,
-            digest: directory_digest,
+            digest: directory_digest.to_vec(),
             size: directory_size,
         }));
     }

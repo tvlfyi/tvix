@@ -106,7 +106,7 @@ fn complicated() {
                 .unwrap()
                 .to_string_lossy()
                 .to_string(),
-            digest: DIRECTORY_COMPLICATED.digest(),
+            digest: DIRECTORY_COMPLICATED.digest().to_vec(),
             size: DIRECTORY_COMPLICATED.size(),
         }),
         root_node,
@@ -114,15 +114,11 @@ fn complicated() {
 
     // ensure DIRECTORY_WITH_KEEP and DIRECTORY_COMPLICATED have been uploaded
     assert!(directory_service
-        .get(&proto::get_directory_request::ByWhat::Digest(
-            DIRECTORY_WITH_KEEP.digest()
-        ))
+        .get(&DIRECTORY_WITH_KEEP.digest())
         .unwrap()
         .is_some());
     assert!(directory_service
-        .get(&proto::get_directory_request::ByWhat::Digest(
-            DIRECTORY_COMPLICATED.digest()
-        ))
+        .get(&DIRECTORY_COMPLICATED.digest())
         .unwrap()
         .is_some());
 

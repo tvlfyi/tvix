@@ -11,11 +11,8 @@ pub use self::sled::SledDirectoryService;
 pub trait DirectoryService {
     /// Get looks up a single Directory message by its digest.
     /// In case the directory is not found, Ok(None) is returned.
-    fn get(
-        &self,
-        by_what: &proto::get_directory_request::ByWhat,
-    ) -> Result<Option<proto::Directory>, Error>;
+    fn get(&self, digest: &[u8; 32]) -> Result<Option<proto::Directory>, Error>;
     /// Get uploads a single Directory message, and returns the calculated
     /// digest, or an error.
-    fn put(&self, directory: proto::Directory) -> Result<Vec<u8>, Error>;
+    fn put(&self, directory: proto::Directory) -> Result<[u8; 32], Error>;
 }

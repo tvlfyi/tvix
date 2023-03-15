@@ -236,10 +236,10 @@ impl Directory {
 
     /// Calculates the digest of a Directory, which is the blake3 hash of a
     /// Directory protobuf message, serialized in protobuf canonical form.
-    pub fn digest(&self) -> Vec<u8> {
+    pub fn digest(&self) -> [u8; 32] {
         let mut hasher = blake3::Hasher::new();
 
-        hasher.update(&self.encode_to_vec()).finalize().as_bytes()[..].to_vec()
+        *hasher.update(&self.encode_to_vec()).finalize().as_bytes()
     }
 
     /// validate checks the directory for invalid data, such as:

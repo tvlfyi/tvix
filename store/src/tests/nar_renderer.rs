@@ -198,7 +198,7 @@ fn test_complicated() {
             &mut buf,
             crate::proto::node::Node::Directory(DirectoryNode {
                 name: "doesntmatter".to_string(),
-                digest: DIRECTORY_COMPLICATED.digest(),
+                digest: DIRECTORY_COMPLICATED.digest().to_vec(),
                 size: DIRECTORY_COMPLICATED.size(),
             }),
         )

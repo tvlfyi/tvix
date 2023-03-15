@@ -34,31 +34,33 @@ impl<DS: DirectoryService + Send + Sync + Clone + 'static>
 
         let req_inner = request.into_inner();
 
-        let client = self.directory_service.clone();
+        let directory_service = self.directory_service.clone();
 
         // kick off an async thread
         task::spawn(async move {
             // Keep the list of directory digests to traverse.
             // As per rpc_directory.proto, we traverse in BFS order.
-            let mut deq: VecDeque<Vec<u8>> = VecDeque::new();
+            let mut deq: VecDeque<[u8; 32]> = VecDeque::new();
 
             // look at the digest in the request and put it in the top of the queue.
             match &req_inner.by_what {
                 None => return Err(Status::invalid_argument("by_what needs to be specified")),
                 Some(proto::get_directory_request::ByWhat::Digest(digest)) => {
-                    if digest.len() != 32 {
-                        return Err(Status::invalid_argument("invalid digest length"));
-                    }
-                    deq.push_back(digest.clone());
+                    deq.push_back(
+                        digest
+                            .as_slice()
+                            .try_into()
+                            .map_err(|_e| Status::invalid_argument("invalid digest length"))?,
+                    );
                 }
             }
 
             // keep a list of all the Directory messages already sent, so we can omit sending the same.
-            let mut sent_directory_dgsts: HashSet<Vec<u8>> = HashSet::new();
+            let mut sent_directory_dgsts: HashSet<[u8; 32]> = HashSet::new();
 
             // look up the directory at the top of the queue
-            while let Some(ref digest) = deq.pop_front() {
-                let digest_b64: String = BASE64.encode(digest);
+            while let Some(digest) = deq.pop_front() {
+                let digest_b64: String = BASE64.encode(&digest);
 
                 // add digest we're currently processing to a span, but pay attention to
                 // https://docs.rs/tracing/0.1.37/tracing/span/struct.Span.html#in-asynchronous-code
@@ -69,9 +71,7 @@ impl<DS: DirectoryService + Send + Sync + Clone + 'static>
                     let _enter = span.enter();
 
                     // invoke client.get, and map to a Result<Directory, Status>
-                    match client.get(&proto::get_directory_request::ByWhat::Digest(
-                        digest.to_vec(),
-                    )) {
+                    match directory_service.get(&digest) {
                         // The directory was not found, abort
                         Ok(None) => {
                             if !sent_directory_dgsts.is_empty() {
@@ -94,10 +94,19 @@ impl<DS: DirectoryService + Send + Sync + Clone + 'static>
                             // Same applies to when it already is in the queue.
                             if req_inner.recursive {
                                 for child_directory_node in &directory.directories {
-                                    if !sent_directory_dgsts.contains(&child_directory_node.digest)
-                                        && !deq.contains(&child_directory_node.digest)
+                                    let child_directory_node_digest: [u8; 32] =
+                                        child_directory_node.digest.clone().try_into().map_err(
+                                            |_e| {
+                                                Status::internal(
+                                                    "invalid child directory digest len",
+                                                )
+                                            },
+                                        )?;
+
+                                    if !sent_directory_dgsts.contains(&child_directory_node_digest)
+                                        && !deq.contains(&child_directory_node_digest)
                                     {
-                                        deq.push_back(child_directory_node.digest.clone());
+                                        deq.push_back(child_directory_node_digest);
                                     }
                                 }
                             }
@@ -106,7 +115,7 @@ impl<DS: DirectoryService + Send + Sync + Clone + 'static>
                             // Strictly speaking, it wasn't sent yet, but tx.send happens right after,
                             // and the only way we can still fail is by the remote side to hang up,
                             // in which case we stop anyways.
-                            sent_directory_dgsts.insert(digest.to_vec());
+                            sent_directory_dgsts.insert(digest);
 
                             Ok(directory)
                         }
@@ -143,8 +152,8 @@ impl<DS: DirectoryService + Send + Sync + Clone + 'static>
         // This keeps track of the seen directory keys, and their size.
         // This is used to validate the size field of a reference to a previously sent directory.
         // We don't need to keep the contents around, they're stored in the DB.
-        let mut seen_directories_sizes: HashMap<Vec<u8>, u32> = HashMap::new();
-        let mut last_directory_dgst: Option<Vec<u8>> = None;
+        let mut seen_directories_sizes: HashMap<[u8; 32], u32> = HashMap::new();
+        let mut last_directory_dgst: Option<[u8; 32]> = None;
 
         // Consume directories, and insert them into the store.
         // Reject directory messages that refer to Directories not sent in the same stream.
@@ -162,12 +171,18 @@ impl<DS: DirectoryService + Send + Sync + Clone + 'static>
             // to ensure it has been seen already in this stream, and that the size
             // matches what we recorded.
             for child_directory in &directory.directories {
-                match seen_directories_sizes.get(&child_directory.digest) {
+                let child_directory_digest: [u8; 32] = child_directory
+                    .digest
+                    .clone()
+                    .try_into()
+                    .map_err(|_e| Status::internal("invalid child directory digest len"))?;
+
+                match seen_directories_sizes.get(&child_directory_digest) {
                     None => {
                         return Err(Status::invalid_argument(format!(
                             "child directory '{}' ({}) in directory '{}' not seen yet",
                             child_directory.name,
-                            BASE64.encode(&child_directory.digest),
+                            BASE64.encode(&child_directory_digest),
                             BASE64.encode(&directory.digest()),
                         )));
                     }
@@ -176,7 +191,7 @@ impl<DS: DirectoryService + Send + Sync + Clone + 'static>
                             return Err(Status::invalid_argument(format!(
                                     "child directory '{}' ({}) in directory '{}' referred with wrong size, expected {}, actual {}",
                                     child_directory.name,
-                                    BASE64.encode(&child_directory.digest),
+                                    BASE64.encode(&child_directory_digest),
                                     BASE64.encode(&directory.digest()),
                                     seen_child_directory_size,
                                     child_directory.size,
@@ -197,15 +212,12 @@ impl<DS: DirectoryService + Send + Sync + Clone + 'static>
             // does a reachability check.
 
             let dgst = directory.digest();
-            seen_directories_sizes.insert(dgst.clone(), directory.size());
-            last_directory_dgst = Some(dgst.clone());
+            seen_directories_sizes.insert(dgst, directory.size());
+            last_directory_dgst = Some(dgst);
 
             // check if the directory already exists in the database. We can skip
             // inserting if it's already there, as that'd be a no-op.
-            match self
-                .directory_service
-                .get(&proto::get_directory_request::ByWhat::Digest(dgst.to_vec()))
-            {
+            match self.directory_service.get(&dgst) {
                 Err(e) => {
                     warn!("error checking if directory already exists: {}", e);
                     return Err(e.into());
@@ -224,7 +236,7 @@ impl<DS: DirectoryService + Send + Sync + Clone + 'static>
         match last_directory_dgst {
             None => Err(Status::invalid_argument("no directories received")),
             Some(last_directory_dgst) => Ok(Response::new(proto::PutDirectoryResponse {
-                root_digest: last_directory_dgst,
+                root_digest: last_directory_dgst.to_vec(),
             })),
         }
     }

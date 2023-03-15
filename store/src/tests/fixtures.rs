@@ -39,7 +39,7 @@ lazy_static! {
     pub static ref DIRECTORY_COMPLICATED: proto::Directory = proto::Directory {
         directories: vec![DirectoryNode {
             name: "keep".to_string(),
-            digest: DIRECTORY_WITH_KEEP.digest(),
+            digest: DIRECTORY_WITH_KEEP.digest().to_vec(),
             size: DIRECTORY_WITH_KEEP.size(),
         }],
         files: vec![FileNode {
@@ -57,7 +57,7 @@ lazy_static! {
     pub static ref DIRECTORY_B: Directory = Directory {
         directories: vec![DirectoryNode {
             name: "a".to_string(),
-            digest: DIRECTORY_A.digest(),
+            digest: DIRECTORY_A.digest().to_vec(),
             size: DIRECTORY_A.size(),
         }],
         ..Default::default()
@@ -66,12 +66,12 @@ lazy_static! {
         directories: vec![
             DirectoryNode {
                 name: "a".to_string(),
-                digest: DIRECTORY_A.digest(),
+                digest: DIRECTORY_A.digest().to_vec(),
                 size: DIRECTORY_A.size(),
             },
             DirectoryNode {
                 name: "a'".to_string(),
-                digest: DIRECTORY_A.digest(),
+                digest: DIRECTORY_A.digest().to_vec(),
                 size: DIRECTORY_A.size(),
             }
         ],

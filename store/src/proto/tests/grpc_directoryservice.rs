@@ -44,7 +44,7 @@ async fn not_found() {
 
     let resp = service
         .get(tonic::Request::new(GetDirectoryRequest {
-            by_what: Some(ByWhat::Digest(DIRECTORY_A.digest())),
+            by_what: Some(ByWhat::Digest(DIRECTORY_A.digest().to_vec())),
             ..Default::default()
         }))
         .await;
@@ -114,14 +114,17 @@ async fn put_get_multiple() {
         .await
         .expect("must succeed");
 
-    assert_eq!(DIRECTORY_B.digest(), put_resp.into_inner().root_digest);
+    assert_eq!(
+        DIRECTORY_B.digest().to_vec(),
+        put_resp.into_inner().root_digest
+    );
 
     // now, request b, first in non-recursive mode.
     let items = get_directories(
         &service,
         GetDirectoryRequest {
             recursive: false,
-            by_what: Some(ByWhat::Digest(DIRECTORY_B.digest())),
+            by_what: Some(ByWhat::Digest(DIRECTORY_B.digest().to_vec())),
         },
     )
     .await
@@ -135,7 +138,7 @@ async fn put_get_multiple() {
         &service,
         GetDirectoryRequest {
             recursive: true,
-            by_what: Some(ByWhat::Digest(DIRECTORY_B.digest())),
+            by_what: Some(ByWhat::Digest(DIRECTORY_B.digest().to_vec())),
         },
     )
     .await
@@ -161,14 +164,17 @@ async fn put_get_dedup() {
         .await
         .expect("must succeed");
 
-    assert_eq!(DIRECTORY_C.digest(), put_resp.into_inner().root_digest);
+    assert_eq!(
+        DIRECTORY_C.digest().to_vec(),
+        put_resp.into_inner().root_digest
+    );
 
     // Ask for "C" recursively. We expect to only get "A" once, as there's no point sending it twice.
     let items = get_directories(
         &service,
         GetDirectoryRequest {
             recursive: true,
-            by_what: Some(ByWhat::Digest(DIRECTORY_C.digest())),
+            by_what: Some(ByWhat::Digest(DIRECTORY_C.digest().to_vec())),
         },
     )
     .await
@@ -211,7 +217,7 @@ async fn put_reject_wrong_size() {
     let broken_parent_directory = Directory {
         directories: vec![DirectoryNode {
             name: "foo".to_string(),
-            digest: DIRECTORY_A.digest(),
+            digest: DIRECTORY_A.digest().to_vec(),
             size: 42,
         }],
         ..Default::default()
