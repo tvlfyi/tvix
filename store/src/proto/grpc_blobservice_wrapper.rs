@@ -125,7 +125,7 @@ impl<
                         // that's required for all implementations of ChunkService.
                         // TODO: handle error
                         let chunkmeta_digest = &chunkmeta.digest.try_into().unwrap();
-                        let res = match chunk_client.get(&chunkmeta_digest) {
+                        let res = match chunk_client.get(chunkmeta_digest) {
                             Err(e) => Err(e.into()),
                             // TODO: make this a separate error type
                             Ok(None) => Err(Error::StorageError(format!(
