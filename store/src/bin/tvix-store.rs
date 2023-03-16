@@ -1,11 +1,17 @@
 use clap::Subcommand;
 use data_encoding::BASE64;
+use nix_compat::derivation::Derivation;
+use nix_compat::derivation::Output;
+use nix_compat::nixhash::HashAlgo;
+use nix_compat::nixhash::NixHash;
+use nix_compat::nixhash::NixHashWithMode;
 use std::path::PathBuf;
 use tracing_subscriber::prelude::*;
 use tvix_store::blobservice::SledBlobService;
 use tvix_store::chunkservice::SledChunkService;
 use tvix_store::directoryservice::SledDirectoryService;
 use tvix_store::import::import_path;
+use tvix_store::nar::NARCalculationService;
 use tvix_store::nar::NonCachingNARCalculationService;
 use tvix_store::pathinfoservice::SledPathInfoService;
 use tvix_store::proto::blob_service_server::BlobServiceServer;
@@ -127,6 +133,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             router.serve(listen_address).await?;
         }
         Commands::Import { paths } => {
+            let nar_calculation_service = NonCachingNARCalculationService::new(
+                blob_service.clone(),
+                chunk_service.clone(),
+                directory_service.clone(),
+            );
+
             for path in paths {
                 let root_node = import_path(
                     &mut blob_service,
@@ -134,6 +146,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &mut directory_service,
                     &path,
                 )?;
+
+                let nar_hash = NixHashWithMode::Recursive(NixHash::new(
+                    HashAlgo::Sha256,
+                    nar_calculation_service
+                        .calculate_nar(&root_node)?
+                        .nar_sha256,
+                ));
+
+                let mut drv = Derivation::default();
+                drv.outputs.insert(
+                    "out".to_string(),
+                    Output {
+                        path: "".to_string(),
+                        hash_with_mode: Some(nar_hash),
+                    },
+                );
+                drv.calculate_output_paths(
+                    path.file_name()
+                        .expect("path must not be ..")
+                        .to_str()
+                        .expect("path must be valid unicode"),
+                    // Note the derivation_or_fod_hash argument is *unused* for FODs, so it doesn't matter what we pass here.
+                    &NixHash::new(HashAlgo::Sha256, vec![]),
+                )?;
+
+                println!("{}", drv.outputs.get("out").unwrap().path);
 
                 match root_node {
                     tvix_store::proto::node::Node::Directory(directory_node) => {
