@@ -102,7 +102,10 @@ impl<CS: ChunkService> std::io::Read for BlobReader<'_, CS> {
                         chunk_meta.digest.clone().try_into().map_err(|_e| {
                             std::io::Error::new(
                                 io::ErrorKind::InvalidData,
-                                format!("chunk in chunkmeta has wrong digest size"),
+                                format!(
+                                    "chunk in chunkmeta has wrong digest size, expected 32, got {}",
+                                    chunk_meta.digest.len(),
+                                ),
                             )
                         })?;
                     match self.chunk_service.get(&chunk_meta_digest) {
