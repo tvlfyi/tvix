@@ -64,7 +64,7 @@ impl<
     ) -> Result<Response<proto::CalculateNarResponse>> {
         match request.into_inner().node {
             None => Err(Status::invalid_argument("no root node sent")),
-            Some(root_node) => match self.nar_calculation_service.calculate_nar(root_node) {
+            Some(root_node) => match self.nar_calculation_service.calculate_nar(&root_node) {
                 Ok(resp) => Ok(Response::new(resp)),
                 Err(e) => Err(e.into()),
             },

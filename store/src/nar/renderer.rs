@@ -36,7 +36,7 @@ impl<BS: BlobService, CS: ChunkService + Clone, DS: DirectoryService> NARRendere
     pub fn write_nar<W: std::io::Write>(
         &self,
         w: &mut W,
-        proto_root_node: proto::node::Node,
+        proto_root_node: &proto::node::Node,
     ) -> Result<(), RenderError> {
         // Initialize NAR writer
         let nar_root_node = nar::writer::open(w).map_err(RenderError::NARWriterError)?;
@@ -49,7 +49,7 @@ impl<BS: BlobService, CS: ChunkService + Clone, DS: DirectoryService> NARRendere
     fn walk_node(
         &self,
         nar_node: nar::writer::Node,
-        proto_node: proto::node::Node,
+        proto_node: &proto::node::Node,
     ) -> Result<(), RenderError> {
         match proto_node {
             proto::node::Node::Symlink(proto_symlink_node) => {
@@ -59,7 +59,7 @@ impl<BS: BlobService, CS: ChunkService + Clone, DS: DirectoryService> NARRendere
             }
             proto::node::Node::File(proto_file_node) => {
                 // get the digest we're referring to
-                let digest = proto_file_node.digest;
+                let digest = &proto_file_node.digest;
                 // query blob_service for blob_meta
                 let resp = self
                     .blob_service
@@ -73,15 +73,18 @@ impl<BS: BlobService, CS: ChunkService + Clone, DS: DirectoryService> NARRendere
                 match resp {
                     // if it's None, that's an error!
                     None => {
-                        return Err(RenderError::BlobNotFound(digest, proto_file_node.name));
+                        return Err(RenderError::BlobNotFound(
+                            digest.to_vec(),
+                            proto_file_node.name.to_owned(),
+                        ));
                     }
                     Some(blob_meta) => {
                         // make sure the blob_meta size matches what we expect from proto_file_node
                         let blob_meta_size = blob_meta.chunks.iter().fold(0, |acc, e| acc + e.size);
                         if blob_meta_size != proto_file_node.size {
                             return Err(RenderError::UnexpectedBlobMeta(
-                                digest,
-                                proto_file_node.name,
+                                digest.to_vec(),
+                                proto_file_node.name.to_owned(),
                                 proto_file_node.size,
                                 blob_meta_size,
                             ));
@@ -103,11 +106,16 @@ impl<BS: BlobService, CS: ChunkService + Clone, DS: DirectoryService> NARRendere
             }
             proto::node::Node::Directory(proto_directory_node) => {
                 // get the digest we're referring to
-                let digest: [u8; 32] = proto_directory_node.digest.try_into().map_err(|_e| {
-                    RenderError::StoreError(crate::Error::StorageError(
-                        "invalid digest len in directory node".to_string(),
-                    ))
-                })?;
+                let digest: [u8; 32] =
+                    proto_directory_node
+                        .digest
+                        .to_owned()
+                        .try_into()
+                        .map_err(|_e| {
+                            RenderError::StoreError(crate::Error::StorageError(
+                                "invalid digest len in directory node".to_string(),
+                            ))
+                        })?;
 
                 // look it up with the directory service
                 let resp = self
@@ -120,7 +128,7 @@ impl<BS: BlobService, CS: ChunkService + Clone, DS: DirectoryService> NARRendere
                     None => {
                         return Err(RenderError::DirectoryNotFound(
                             digest.to_vec(),
-                            proto_directory_node.name,
+                            proto_directory_node.name.to_owned(),
                         ))
                     }
                     Some(proto_directory) => {
@@ -134,7 +142,7 @@ impl<BS: BlobService, CS: ChunkService + Clone, DS: DirectoryService> NARRendere
                             let child_node = nar_node_directory
                                 .entry(proto_node.get_name())
                                 .map_err(RenderError::NARWriterError)?;
-                            self.walk_node(child_node, proto_node)?;
+                            self.walk_node(child_node, &proto_node)?;
                         }
 
                         // close the directory

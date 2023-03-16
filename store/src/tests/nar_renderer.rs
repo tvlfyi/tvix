@@ -23,7 +23,7 @@ fn single_symlink() {
     renderer
         .write_nar(
             &mut buf,
-            crate::proto::node::Node::Symlink(SymlinkNode {
+            &crate::proto::node::Node::Symlink(SymlinkNode {
                 name: "doesntmatter".to_string(),
                 target: "/nix/store/somewhereelse".to_string(),
             }),
@@ -47,7 +47,7 @@ fn single_file_missing_blob() {
     let e = renderer
         .write_nar(
             &mut buf,
-            crate::proto::node::Node::File(FileNode {
+            &crate::proto::node::Node::File(FileNode {
                 name: "doesntmatter".to_string(),
                 digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
                 size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
@@ -94,7 +94,7 @@ fn single_file_wrong_blob_size() {
     let e = renderer
         .write_nar(
             &mut buf,
-            crate::proto::node::Node::File(FileNode {
+            &crate::proto::node::Node::File(FileNode {
                 name: "doesntmatter".to_string(),
                 digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
                 size: 42, // <- note the wrong size here!
@@ -151,7 +151,7 @@ fn single_file() {
     renderer
         .write_nar(
             &mut buf,
-            crate::proto::node::Node::File(FileNode {
+            &crate::proto::node::Node::File(FileNode {
                 name: "doesntmatter".to_string(),
                 digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
                 size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
@@ -196,7 +196,7 @@ fn test_complicated() {
     renderer
         .write_nar(
             &mut buf,
-            crate::proto::node::Node::Directory(DirectoryNode {
+            &crate::proto::node::Node::Directory(DirectoryNode {
                 name: "doesntmatter".to_string(),
                 digest: DIRECTORY_COMPLICATED.digest().to_vec(),
                 size: DIRECTORY_COMPLICATED.size(),

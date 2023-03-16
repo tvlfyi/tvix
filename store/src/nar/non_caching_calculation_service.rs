@@ -35,7 +35,7 @@ impl<BS: BlobService, CS: ChunkService + Clone, DS: DirectoryService> NARCalcula
 {
     fn calculate_nar(
         &self,
-        root_node: proto::node::Node,
+        root_node: &proto::node::Node,
     ) -> Result<proto::CalculateNarResponse, RenderError> {
         let h = Sha256::new();
         let mut cw = CountWrite::from(h);

@@ -31,6 +31,6 @@ pub enum RenderError {
 pub trait NARCalculationService {
     fn calculate_nar(
         &self,
-        root_node: proto::node::Node,
+        root_node: &proto::node::Node,
     ) -> Result<proto::CalculateNarResponse, RenderError>;
 }
