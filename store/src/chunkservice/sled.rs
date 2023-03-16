@@ -61,10 +61,10 @@ impl ChunkService for SledChunkService {
     #[instrument(name = "SledChunkService::put", skip(self, data))]
     fn put(&self, data: Vec<u8>) -> Result<[u8; 32], Error> {
         let digest = blake3::hash(&data);
-        let result = self.db.insert(&digest.as_bytes(), data);
+        let result = self.db.insert(digest.as_bytes(), data);
         if let Err(e) = result {
             return Err(Error::StorageError(e.to_string()));
         }
-        Ok(digest.as_bytes().clone())
+        Ok(*digest.as_bytes())
     }
 }

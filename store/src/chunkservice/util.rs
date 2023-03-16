@@ -21,7 +21,7 @@ pub fn upload_chunk<CS: ChunkService>(
 
     assert_eq!(&digest_resp, digest.as_bytes());
 
-    Ok(digest.as_bytes().clone())
+    Ok(*digest.as_bytes())
 }
 
 /// reads through a reader, writes chunks to a [ChunkService] and returns a

@@ -46,8 +46,8 @@ impl ChunkService for MemoryChunkService {
         let digest = blake3::hash(&data);
 
         let mut db = self.db.write().unwrap();
-        db.insert(digest.as_bytes().clone(), data);
+        db.insert(*digest.as_bytes(), data);
 
-        Ok(digest.as_bytes().clone())
+        Ok(*digest.as_bytes())
     }
 }
