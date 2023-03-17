@@ -299,6 +299,7 @@ impl TotalDisplay for Thunk {
 
         match &*self.0.borrow() {
             ThunkRepr::Evaluated(v) => v.total_fmt(f, set),
+            ThunkRepr::Suspended { .. } | ThunkRepr::Native(_) => f.write_str("<CODE>"),
             other => write!(f, "internal[{}]", other.debug_repr()),
         }
     }
