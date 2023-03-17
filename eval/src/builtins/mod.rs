@@ -835,7 +835,7 @@ mod pure_builtins {
     ) -> Result<Value, ErrorKind> {
         let beg = start.as_int()?;
         let len = len.as_int()?;
-        let x = s.to_str()?;
+        let x = s.coerce_to_string(co, CoercionKind::Weak).await?.to_str()?;
 
         if beg < 0 {
             return Err(ErrorKind::IndexOutOfBounds { index: beg });
