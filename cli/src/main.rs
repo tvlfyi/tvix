@@ -46,6 +46,12 @@ struct Args {
     /// Print "raw" (unquoted) output.
     #[clap(long)]
     raw: bool,
+
+    /// Strictly evaluate values, traversing them and forcing e.g.
+    /// elements of lists and attribute sets before printing the
+    /// return value.
+    #[clap(long)]
+    strict: bool,
 }
 
 /// Interprets the given code snippet, printing out warnings, errors
@@ -55,6 +61,7 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
     let mut eval = tvix_eval::Evaluation::new_impure(code, path);
     let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
 
+    eval.strict = args.strict;
     eval.io_handle = Box::new(nix_compat::NixCompatIO::new(known_paths.clone()));
 
     // bundle fetchurl.nix (used in nixpkgs) by resolving <nix> to
@@ -118,6 +125,8 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
 /// on it and return errors and warnings.
 fn lint(code: &str, path: Option<PathBuf>, args: &Args) -> bool {
     let mut eval = tvix_eval::Evaluation::new_impure(code, path);
+    eval.strict = args.strict;
+
     let source_map = eval.source_map();
 
     let mut compiler_observer = DisassemblingObserver::new(source_map.clone(), std::io::stderr());
