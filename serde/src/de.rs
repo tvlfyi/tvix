@@ -33,7 +33,8 @@ where
     T: serde::Deserialize<'code>,
 {
     // First step is to evaluate the Nix code ...
-    let eval = tvix_eval::Evaluation::new(src, None);
+    let mut eval = tvix_eval::Evaluation::new(src, None);
+    eval.strict = true;
     let source = eval.source_map();
     let result = eval.evaluate();
 

@@ -104,6 +104,11 @@ pub struct Evaluation<'code, 'co, 'ro> {
     /// able to read the files specified as arguments to `import`.
     pub enable_import: bool,
 
+    /// Determines whether the returned value should be strictly
+    /// evaluated, that is whether its list and attribute set elements
+    /// should be forced recursively.
+    pub strict: bool,
+
     /// (optional) Nix search path, e.g. the value of `NIX_PATH` used
     /// for resolving items on the search path (such as `<nixpkgs>`).
     pub nix_path: Option<String>,
@@ -161,6 +166,7 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
             src_builtins: vec![],
             io_handle: Box::new(DummyIO {}),
             enable_import: false,
+            strict: false,
             nix_path: None,
             compiler_observer: None,
             runtime_observer: None,
@@ -256,7 +262,15 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
             .unwrap_or_default();
 
         let runtime_observer = self.runtime_observer.take().unwrap_or(&mut noop_observer);
-        let vm_result = run_lambda(nix_path, self.io_handle, runtime_observer, globals, lambda);
+
+        let vm_result = run_lambda(
+            nix_path,
+            self.io_handle,
+            runtime_observer,
+            globals,
+            lambda,
+            self.strict,
+        );
 
         match vm_result {
             Ok(mut runtime_result) => {

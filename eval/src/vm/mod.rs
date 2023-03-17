@@ -1190,6 +1190,7 @@ pub fn run_lambda(
     observer: &mut dyn RuntimeObserver,
     globals: Rc<GlobalsMap>,
     lambda: Rc<Lambda>,
+    strict: bool,
 ) -> EvalResult<RuntimeResult> {
     // Retain the top-level span of the expression in this lambda, as
     // synthetic "calls" in deep_force will otherwise not have a span
@@ -1207,9 +1208,11 @@ pub fn run_lambda(
         root_span.into(),
     );
 
-    // Synthesise a frame that will instruct the VM to deep-force the final
-    // value before returning it.
-    vm.enqueue_generator("final_deep_force", root_span.into(), final_deep_force);
+    // When evaluating strictly, synthesise a frame that will instruct
+    // the VM to deep-force the final value before returning it.
+    if strict {
+        vm.enqueue_generator("final_deep_force", root_span.into(), final_deep_force);
+    }
 
     vm.frames.push(Frame::CallFrame {
         span: root_span.into(),

@@ -41,6 +41,7 @@ fn nix_eval(expr: &str) -> String {
 fn compare_eval(expr: &str) {
     let nix_result = nix_eval(expr);
     let mut eval = tvix_eval::Evaluation::new(expr, None);
+    eval.strict = true;
     eval.io_handle = Box::new(tvix_eval::StdIO);
 
     let tvix_result = eval

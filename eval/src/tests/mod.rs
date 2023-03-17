@@ -52,6 +52,7 @@ fn eval_test(code_path: &str, expect_success: bool) {
     }
 
     let mut eval = crate::Evaluation::new_impure(&code, Some(code_path.into()));
+    eval.strict = true;
     eval.builtins.extend(mock_builtins::builtins());
 
     let result = eval.evaluate();
@@ -100,6 +101,7 @@ fn identity(code_path: &str) {
     let code = std::fs::read_to_string(code_path).expect("should be able to read test code");
 
     let mut eval = crate::Evaluation::new(&code, None);
+    eval.strict = true;
     eval.io_handle = Box::new(crate::StdIO);
 
     let result = eval.evaluate();
