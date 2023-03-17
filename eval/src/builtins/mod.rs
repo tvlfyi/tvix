@@ -290,29 +290,6 @@ mod pure_builtins {
         }
 
         Ok(Value::List(out.into()))
-        // list.into_iter()
-        //     .filter_map(|elem| {
-        //         let result = match vm.call_with(&pred, [elem.clone()]) {
-        //             Err(err) => return Some(Err(err)),
-        //             Ok(result) => result,
-        //         };
-
-        //         // Must be assigned to a local to avoid a borrowcheck
-        //         // failure related to the ForceResult destructor.
-        //         let result = match result.force(vm) {
-        //             Err(err) => Some(Err(vm.error(err))),
-        //             Ok(value) => match value.as_bool() {
-        //                 Ok(true) => Some(Ok(elem)),
-        //                 Ok(false) => None,
-        //                 Err(err) => Some(Err(vm.error(err))),
-        //             },
-        //         };
-
-        //         result
-        //     })
-        //     .collect::<Result<imbl::Vector<Value>, _>>()
-        //     .map(|list| Value::List(NixList::from(list)))
-        //     .map_err(Into::into)
     }
 
     #[builtin("floor")]
@@ -593,14 +570,6 @@ mod pure_builtins {
             out.insert(key, result);
         }
 
-        // let res =
-        //     attrs
-        //         .as_ref()
-        //         .into_iter()
-        //         .flat_map(|(key, value)| -> EvalResult<(NixString, Value)> {
-        //             let value = vm.call_with(&f, [key.clone().into(), value.clone()])?;
-        //             Ok((key.to_owned(), value))
-        //         });
         Ok(Value::attrs(out.into()))
     }
 
