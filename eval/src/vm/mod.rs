@@ -508,7 +508,7 @@ impl<'o> VM<'o> {
 
                 OpCode::OpCall => {
                     let callable = self.stack_pop();
-                    self.call_value(frame.current_light_span(), Some(frame), callable)?;
+                    self.call_value(frame.current_light_span(), Some((span, frame)), callable)?;
 
                     // exit this loop and let the outer loop enter the new call
                     return Ok(true);
@@ -985,7 +985,7 @@ impl<'o> VM<'o> {
     fn call_value(
         &mut self,
         span: LightSpan,
-        parent: Option<CallFrame>,
+        parent: Option<(LightSpan, CallFrame)>,
         callable: Value,
     ) -> EvalResult<()> {
         match callable {
@@ -1002,6 +1002,13 @@ impl<'o> VM<'o> {
                 // `stack_len - 1`.
                 let stack_offset = self.stack.len() - 1;
 
+                // Reenqueue the parent frame, which should only have
+                // `OpReturn` left. Not throwing it away leads to more
+                // useful error traces.
+                if let Some((parent_span, parent_frame)) = parent {
+                    self.push_call_frame(parent_span, parent_frame);
+                }
+
                 self.push_call_frame(
                     span,
                     CallFrame {
@@ -1017,11 +1024,11 @@ impl<'o> VM<'o> {
 
             // Attribute sets with a __functor attribute are callable.
             val @ Value::Attrs(_) => {
-                let gen_span = parent
-                    .map(|p| p.current_light_span())
-                    .unwrap_or_else(|| self.reasonable_light_span());
+                if let Some((parent_span, parent_frame)) = parent {
+                    self.push_call_frame(parent_span, parent_frame);
+                }
 
-                self.enqueue_generator("__functor call", gen_span, |co| call_functor(co, val));
+                self.enqueue_generator("__functor call", span, |co| call_functor(co, val));
                 Ok(())
             }
             v => Err(ErrorKind::NotCallable(v.type_of())).with_span(&span, self),
