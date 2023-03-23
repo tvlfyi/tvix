@@ -18,12 +18,13 @@ sha2 = "0.10.6"
 sled = { version = "0.34.7", features = ["compression"] }
 thiserror = "1.0.38"
 tokio-stream = "0.1.11"
-tokio = { version = "1.23.0", features = ["rt-multi-thread"] }
+tokio = { version = "1.23.0", features = ["rt-multi-thread", "net"] }
 tonic = "0.8.2"
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.16", features = ["json"] }
 walkdir = "2.3.2"
 tokio-util = { version = "0.7.7", features = ["io", "io-util"] }
+tower = "0.4.13"
 
 [dependencies.tonic-reflection]
 optional = true
