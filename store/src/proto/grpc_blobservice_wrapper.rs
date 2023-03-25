@@ -79,7 +79,7 @@ impl<
             .try_into()
             .map_err(|_e| Status::invalid_argument("invalid digest length"))?;
 
-        // query the chunk service for more detailed blob info
+        // query the blob service for more detailed blob info
         let stat_resp = self.blob_service.stat(&super::StatBlobRequest {
             digest: req_digest.to_vec(),
             include_chunks: true,
