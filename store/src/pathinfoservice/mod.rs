@@ -1,8 +1,10 @@
+mod grpc;
 mod memory;
 mod sled;
 
 use crate::{proto, Error};
 
+pub use self::grpc::GRPCPathInfoService;
 pub use self::memory::MemoryPathInfoService;
 pub use self::sled::SledPathInfoService;
 

@@ -1,5 +1,6 @@
 use std::sync::PoisonError;
 use thiserror::Error;
+use tokio::task::JoinError;
 use tonic::Status;
 
 /// Errors related to communication with the store.
@@ -14,6 +15,12 @@ pub enum Error {
 
 impl<T> From<PoisonError<T>> for Error {
     fn from(value: PoisonError<T>) -> Self {
+        Error::StorageError(value.to_string())
+    }
+}
+
+impl From<JoinError> for Error {
+    fn from(value: JoinError) -> Self {
         Error::StorageError(value.to_string())
     }
 }
