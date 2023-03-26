@@ -5,7 +5,7 @@ use prost::Message;
 use std::path::PathBuf;
 use tracing::{instrument, warn};
 
-use super::DirectoryService;
+use super::{DirectoryService, DirectoryTraverser};
 
 #[derive(Clone)]
 pub struct SledDirectoryService {
@@ -29,6 +29,8 @@ impl SledDirectoryService {
 }
 
 impl DirectoryService for SledDirectoryService {
+    type DirectoriesIterator = DirectoryTraverser<Self>;
+
     #[instrument(name = "SledDirectoryService::get", skip(self, digest), fields(directory.digest = BASE64.encode(digest)))]
     fn get(&self, digest: &[u8; 32]) -> Result<Option<proto::Directory>, Error> {
         match self.db.get(digest) {
@@ -46,6 +48,16 @@ impl DirectoryService for SledDirectoryService {
                             "requested directory with digest {}, but got {}",
                             BASE64.encode(digest),
                             BASE64.encode(&actual_digest)
+                        )));
+                    }
+
+                    // Validate the Directory itself is valid.
+                    if let Err(e) = directory.validate() {
+                        warn!("directory failed validation: {}", e.to_string());
+                        return Err(Error::StorageError(format!(
+                            "directory {} failed validation: {}",
+                            BASE64.encode(&actual_digest),
+                            e,
                         )));
                     }
 
@@ -79,5 +91,10 @@ impl DirectoryService for SledDirectoryService {
             return Err(Error::StorageError(e.to_string()));
         }
         Ok(digest)
+    }
+
+    #[instrument(skip_all, fields(directory.digest = BASE64.encode(root_directory_digest)))]
+    fn get_recursive(&self, root_directory_digest: &[u8; 32]) -> Self::DirectoriesIterator {
+        DirectoryTraverser::with(self.clone(), root_directory_digest)
     }
 }

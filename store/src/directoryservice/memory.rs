@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use tracing::{instrument, warn};
 
-use super::DirectoryService;
+use super::{DirectoryService, DirectoryTraverser};
 
 #[derive(Clone, Default)]
 pub struct MemoryDirectoryService {
@@ -12,6 +12,8 @@ pub struct MemoryDirectoryService {
 }
 
 impl DirectoryService for MemoryDirectoryService {
+    type DirectoriesIterator = DirectoryTraverser<Self>;
+
     #[instrument(skip(self, digest), fields(directory.digest = BASE64.encode(digest)))]
     fn get(&self, digest: &[u8; 32]) -> Result<Option<proto::Directory>, Error> {
         let db = self.db.read()?;
@@ -30,6 +32,16 @@ impl DirectoryService for MemoryDirectoryService {
                         "requested directory with digest {}, but got {}",
                         BASE64.encode(digest),
                         BASE64.encode(&actual_digest)
+                    )));
+                }
+
+                // Validate the Directory itself is valid.
+                if let Err(e) = directory.validate() {
+                    warn!("directory failed validation: {}", e.to_string());
+                    return Err(Error::StorageError(format!(
+                        "directory {} failed validation: {}",
+                        BASE64.encode(&actual_digest),
+                        e,
                     )));
                 }
 
@@ -56,5 +68,10 @@ impl DirectoryService for MemoryDirectoryService {
         db.insert(digest, directory);
 
         Ok(digest)
+    }
+
+    #[instrument(skip_all, fields(directory.digest = BASE64.encode(root_directory_digest)))]
+    fn get_recursive(&self, root_directory_digest: &[u8; 32]) -> Self::DirectoriesIterator {
+        DirectoryTraverser::with(self.clone(), root_directory_digest)
     }
 }
