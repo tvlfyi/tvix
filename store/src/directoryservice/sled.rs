@@ -5,6 +5,7 @@ use prost::Message;
 use std::path::PathBuf;
 use tracing::{instrument, warn};
 
+use super::utils::SimplePutter;
 use super::{DirectoryService, DirectoryTraverser};
 
 #[derive(Clone)]
@@ -96,5 +97,15 @@ impl DirectoryService for SledDirectoryService {
     #[instrument(skip_all, fields(directory.digest = BASE64.encode(root_directory_digest)))]
     fn get_recursive(&self, root_directory_digest: &[u8; 32]) -> Self::DirectoriesIterator {
         DirectoryTraverser::with(self.clone(), root_directory_digest)
+    }
+
+    type DirectoryPutter = SimplePutter<Self>;
+
+    #[instrument(skip_all)]
+    fn put_multiple_start(&self) -> Self::DirectoryPutter
+    where
+        Self: Clone,
+    {
+        SimplePutter::new(self.clone())
     }
 }

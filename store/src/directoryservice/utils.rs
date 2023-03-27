@@ -1,3 +1,4 @@
+use super::DirectoryPutter;
 use super::DirectoryService;
 use crate::proto;
 use crate::Error;
@@ -101,6 +102,43 @@ impl<DS: DirectoryService> Iterator for DirectoryTraverser<DS> {
                 self.enqueue_child_directories(&current_directory);
                 Some(Ok(current_directory))
             }
+        }
+    }
+}
+
+/// This is a simple implementation of a Directory uploader.
+/// TODO: verify connectivity? Factor out these checks into generic helpers?
+pub struct SimplePutter<DS: DirectoryService> {
+    directory_service: DS,
+    last_directory_digest: Option<[u8; 32]>,
+}
+
+impl<DS: DirectoryService> SimplePutter<DS> {
+    pub fn new(directory_service: DS) -> Self {
+        Self {
+            directory_service,
+            last_directory_digest: None,
+        }
+    }
+}
+
+impl<DS: DirectoryService> DirectoryPutter for SimplePutter<DS> {
+    fn put(&mut self, directory: proto::Directory) -> Result<(), Error> {
+        let digest = self.directory_service.put(directory)?;
+
+        // track the last directory digest
+        self.last_directory_digest = Some(digest);
+
+        Ok(())
+    }
+
+    /// We need to be mutable here, as that's the signature of the trait.
+    fn close(&mut self) -> Result<[u8; 32], Error> {
+        match self.last_directory_digest {
+            Some(last_digest) => Ok(last_digest),
+            None => Err(Error::InvalidRequest(
+                "no directories sent, can't show root digest".to_string(),
+            )),
         }
     }
 }
