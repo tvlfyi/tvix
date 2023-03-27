@@ -1,4 +1,4 @@
-use crate::{chunkservice::read_all_and_chunk, proto};
+use crate::{chunkservice::read_all_and_chunk, directoryservice::DirectoryPutter, proto};
 use std::{
     collections::HashMap,
     fmt::Debug,
@@ -57,10 +57,10 @@ impl From<super::Error> for Error {
 //
 // It assumes the caller adds returned nodes to the directories it assembles.
 #[instrument(skip_all, fields(entry.file_type=?&entry.file_type(),entry.path=?entry.path()))]
-fn process_entry<BS: BlobService, CS: ChunkService + std::marker::Sync, DS: DirectoryService>(
+fn process_entry<BS: BlobService, CS: ChunkService + std::marker::Sync, DP: DirectoryPutter>(
     blob_service: &mut BS,
     chunk_service: &mut CS,
-    directory_service: &mut DS,
+    directory_putter: &mut DP,
     entry: &walkdir::DirEntry,
     maybe_directory: Option<proto::Directory>,
 ) -> Result<proto::node::Node, Error> {
@@ -75,7 +75,7 @@ fn process_entry<BS: BlobService, CS: ChunkService + std::marker::Sync, DS: Dire
         let directory_size = directory.size();
 
         // upload this directory
-        directory_service
+        directory_putter
             .put(directory)
             .map_err(|e| Error::UploadDirectoryError(entry.path().to_path_buf(), e))?;
 
@@ -188,6 +188,8 @@ pub fn import_path<
 
     let mut directories: HashMap<PathBuf, proto::Directory> = HashMap::default();
 
+    let mut directory_putter = directory_service.put_multiple_start();
+
     for entry in WalkDir::new(p)
         .follow_links(false)
         .contents_first(true)
@@ -213,7 +215,7 @@ pub fn import_path<
         let node = process_entry(
             blob_service,
             chunk_service,
-            directory_service,
+            &mut directory_putter,
             &entry,
             maybe_directory,
         )?;
