@@ -294,7 +294,7 @@ mod tests {
                     .expect("must succeed")
             );
 
-            // And retrieve it. We don't compare the two structs literally
+            // And retrieve it, compare for equality.
             assert_eq!(
                 DIRECTORY_A.clone(),
                 directory_service
