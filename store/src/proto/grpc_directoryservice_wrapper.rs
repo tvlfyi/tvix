@@ -91,6 +91,9 @@ impl<DS: DirectoryService + Send + Sync + Clone + 'static>
         request: Request<Streaming<proto::Directory>>,
     ) -> Result<Response<proto::PutDirectoryResponse>, Status> {
         let mut req_inner = request.into_inner();
+        // TODO: let this use DirectoryPutter to the store it's connected to,
+        // and move the validation logic into [SimplePutter].
+
         // This keeps track of the seen directory keys, and their size.
         // This is used to validate the size field of a reference to a previously sent directory.
         // We don't need to keep the contents around, they're stored in the DB.
