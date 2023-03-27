@@ -33,7 +33,7 @@ impl<'a, CS: ChunkService> BlobReader<'a, CS> {
     /// a chunk).
     ///
     /// If it arrives at the end of the chunk, sets it back to None.
-    /// Returns a io::Result<usize> of the bytes read from the chunk.
+    /// Returns a [std::io::Result<usize>] of the bytes read from the chunk.
     fn read_from_current_chunk<W: std::io::Write>(
         &mut self,
         m: usize,
