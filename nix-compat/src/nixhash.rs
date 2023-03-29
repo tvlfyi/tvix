@@ -1,10 +1,8 @@
+use crate::nixbase32;
 use data_encoding::{BASE64, BASE64_NOPAD, HEXLOWER};
-use serde::{Deserialize, Serialize};
-use std::fmt::Display;
 use thiserror::Error;
 
-use crate::nixbase32;
-
+pub use crate::nixhash_algos::HashAlgo;
 pub use crate::nixhash_with_mode::NixHashWithMode;
 
 /// Nix allows specifying hashes in various encodings, and magically just
@@ -26,40 +24,6 @@ impl NixHash {
     /// which is the algo, followed by a colon, then the lower hex encoded digest.
     pub fn to_nix_hash_string(&self) -> String {
         format!("{}:{}", self.algo, HEXLOWER.encode(&self.digest))
-    }
-}
-
-/// This are the hash algorithms supported by cppnix.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum HashAlgo {
-    Md5,
-    Sha1,
-    Sha256,
-    Sha512,
-}
-
-impl Display for HashAlgo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self {
-            HashAlgo::Md5 => write!(f, "md5"),
-            HashAlgo::Sha1 => write!(f, "sha1"),
-            HashAlgo::Sha256 => write!(f, "sha256"),
-            HashAlgo::Sha512 => write!(f, "sha512"),
-        }
-    }
-}
-
-impl TryFrom<&str> for HashAlgo {
-    type Error = Error;
-
-    fn try_from(algo_str: &str) -> Result<Self, Self::Error> {
-        match algo_str {
-            "md5" => Ok(Self::Md5),
-            "sha1" => Ok(Self::Sha1),
-            "sha256" => Ok(Self::Sha256),
-            "sha512" => Ok(Self::Sha512),
-            _ => Err(Error::InvalidAlgo(algo_str.to_string())),
-        }
     }
 }
 
