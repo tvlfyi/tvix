@@ -4,6 +4,7 @@ pub mod derivation;
 pub mod nar;
 pub mod nixbase32;
 pub mod nixhash;
+mod nixhash_with_mode;
 pub mod store_path;
 
 /// Nix placeholders (i.e. values returned by `builtins.placeholder`)
