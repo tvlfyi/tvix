@@ -1,6 +1,6 @@
 //! Implements `builtins.derivation`, the core of what makes Nix build packages.
 use nix_compat::derivation::Derivation;
-use nix_compat::{hash_placeholder, nixhash};
+use nix_compat::nixhash;
 use std::cell::RefCell;
 use std::collections::{btree_map, BTreeSet};
 use std::rc::Rc;
@@ -202,6 +202,7 @@ async fn strong_coerce_to_string(co: &GenCo, val: Value) -> Result<String, Error
 #[builtins(state = "Rc<RefCell<KnownPaths>>")]
 mod derivation_builtins {
     use super::*;
+    use nix_compat::store_path::hash_placeholder;
     use tvix_eval::generators::Gen;
 
     #[builtin("placeholder")]
@@ -411,10 +412,16 @@ mod derivation_builtins {
 
         // TODO: fail on derivation references (only "plain" is allowed here)
 
-        let path =
-            nix_compat::derivation::path_with_references(name.as_str(), content.as_str(), refs)
-                .map_err(Error::InvalidDerivation)?
-                .to_absolute_path();
+        let path = nix_compat::store_path::build_store_path_from_references(
+            name.as_str(),
+            content.as_str(),
+            refs,
+        )
+        .map_err(|_e| {
+            nix_compat::derivation::DerivationError::InvalidOutputName(name.as_str().to_string())
+        })
+        .map_err(Error::InvalidDerivation)?
+        .to_absolute_path();
 
         state.borrow_mut().plain(&path);
 
@@ -428,7 +435,7 @@ pub use derivation_builtins::builtins as derivation_builtins;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use nix_compat::store_path::hash_placeholder;
     use tvix_eval::observer::NoOpObserver;
 
     // TODO: These tests are commented out because we do not have

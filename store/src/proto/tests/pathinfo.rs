@@ -1,6 +1,6 @@
 use crate::proto::{self, Node, PathInfo, ValidatePathInfoError};
 use lazy_static::lazy_static;
-use nix_compat::store_path::{ParseStorePathError, StorePath};
+use nix_compat::store_path::{self, StorePath};
 use test_case::test_case;
 
 lazy_static! {
@@ -66,7 +66,7 @@ fn validate_no_node(
     },
     Err(ValidatePathInfoError::InvalidNodeName(
         "invalid".to_string(),
-        ParseStorePathError::InvalidName("".to_string())
+        store_path::Error::InvalidName("".to_string())
     ));
     "invalid node name"
 )]
@@ -111,7 +111,7 @@ fn validate_directory(
     },
     Err(ValidatePathInfoError::InvalidNodeName(
         "invalid".to_string(),
-        ParseStorePathError::InvalidName("".to_string())
+        store_path::Error::InvalidName("".to_string())
     ));
     "invalid node name"
 )]
@@ -141,7 +141,7 @@ fn validate_file(t_file_node: proto::FileNode, t_result: Result<StorePath, Valid
     },
     Err(ValidatePathInfoError::InvalidNodeName(
         "invalid".to_string(),
-        ParseStorePathError::InvalidName("".to_string())
+        store_path::Error::InvalidName("".to_string())
     ));
     "invalid node name"
 )]

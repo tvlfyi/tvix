@@ -1,7 +1,8 @@
 use crate::{
     nixhash::HashAlgo,
-    store_path::{self, StorePath},
-    texthash::text_hash_string,
+    store_path::{
+        self, build_store_path_from_fingerprint, build_store_path_from_references, StorePath,
+    },
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -10,7 +11,6 @@ use std::collections::{BTreeMap, BTreeSet};
 mod errors;
 mod output;
 mod string_escape;
-mod utils;
 mod validate;
 mod write;
 
@@ -21,7 +21,6 @@ mod tests;
 pub use crate::nixhash::{NixHash, NixHashWithMode};
 pub use errors::{DerivationError, OutputError};
 pub use output::Output;
-pub use utils::path_with_references;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Derivation {
@@ -77,12 +76,12 @@ impl Derivation {
         buffer
     }
 
-    /// Returns the drv path of a Derivation struct.
+    /// Returns the drv path of a [Derivation] struct.
     ///
-    /// The drv path is calculated by calculating the [text_hash_string], using
-    /// the `name` with a `.drv` suffix as name, all d.InputDerivations and d.InputSources as references,
-    /// and the ATerm representation of the Derivation as contents.
-    /// The text_hash_string is then passed to the build_store_path function.
+    /// The drv path is calculated by invoking [build_store_path_from_references], using
+    /// the `name` with a `.drv` suffix as name, all [Derivation::input_sources] and
+    /// keys of [Derivation::input_derivations] as references, and the ATerm string of
+    /// the [Derivation] as content.
     pub fn calculate_derivation_path(&self, name: &str) -> Result<StorePath, DerivationError> {
         // append .drv to the name
         let name = &format!("{}.drv", name);
@@ -97,9 +96,8 @@ impl Derivation {
             inputs
         };
 
-        let text_hash_str = &text_hash_string(name, self.to_aterm_string(), references);
-
-        utils::build_store_path(text_hash_str, name)
+        build_store_path_from_references(name, self.to_aterm_string(), references)
+            .map_err(|_e| DerivationError::InvalidOutputName(name.to_string()))
     }
 
     /// Returns the FOD digest, if the derivation is fixed-output, or None if
@@ -249,8 +247,10 @@ impl Derivation {
                 store_path::STORE_DIR,
                 output_path_name,
             ));
-            let abs_store_path =
-                utils::build_store_path(&fp, &output_path_name)?.to_absolute_path();
+
+            let abs_store_path = build_store_path_from_fingerprint(&output_path_name, &fp)
+                .map_err(|_e| DerivationError::InvalidOutputName(output_path_name.to_string()))?
+                .to_absolute_path();
 
             output.path = abs_store_path.clone();
             self.environment

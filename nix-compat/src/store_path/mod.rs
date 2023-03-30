@@ -2,6 +2,13 @@ use crate::nixbase32::{self, Nixbase32DecodeError};
 use std::fmt;
 use thiserror::Error;
 
+mod utils;
+
+pub use utils::{
+    build_store_path_from_fingerprint, build_store_path_from_references, compress_hash,
+    hash_placeholder,
+};
+
 pub const DIGEST_SIZE: usize = 20;
 // lazy_static doesn't allow us to call NIXBASE32.encode_len(), so we ran it
 // manually and have an assert in the tests.
@@ -14,7 +21,7 @@ pub const STORE_DIR_WITH_SLASH: &str = "/nix/store/";
 
 /// Errors that can occur during the validation of name characters.
 #[derive(Debug, PartialEq, Eq, Error)]
-pub enum ParseStorePathError {
+pub enum Error {
     #[error("Dash is missing between hash and name")]
     MissingDash(),
     #[error("Hash encoding is invalid: {0}")]
@@ -42,25 +49,23 @@ pub struct StorePath {
 }
 
 impl StorePath {
-    pub fn from_string(s: &str) -> Result<StorePath, ParseStorePathError> {
+    pub fn from_string(s: &str) -> Result<StorePath, Error> {
         // the whole string needs to be at least:
         //
         // - 32 characters (encoded hash)
         // - 1 dash
         // - 1 character for the name
         if s.len() < ENCODED_DIGEST_SIZE + 2 {
-            return Err(ParseStorePathError::InvalidName("".to_string()));
+            return Err(Error::InvalidName("".to_string()));
         }
 
         let digest = match nixbase32::decode(s[..ENCODED_DIGEST_SIZE].as_bytes()) {
             Ok(decoded) => decoded,
-            Err(decoder_error) => {
-                return Err(ParseStorePathError::InvalidHashEncoding(decoder_error))
-            }
+            Err(decoder_error) => return Err(Error::InvalidHashEncoding(decoder_error)),
         };
 
         if s.as_bytes()[ENCODED_DIGEST_SIZE] != b'-' {
-            return Err(ParseStorePathError::MissingDash());
+            return Err(Error::MissingDash());
         }
 
         StorePath::validate_name(&s[ENCODED_DIGEST_SIZE + 2..])?;
@@ -73,10 +78,10 @@ impl StorePath {
 
     /// Construct a [StorePath] from an absolute store path string.
     /// That is a string starting with the store prefix (/nix/store)
-    pub fn from_absolute_path(s: &str) -> Result<StorePath, ParseStorePathError> {
+    pub fn from_absolute_path(s: &str) -> Result<StorePath, Error> {
         match s.strip_prefix(STORE_DIR_WITH_SLASH) {
             Some(s_stripped) => Self::from_string(s_stripped),
-            None => Err(ParseStorePathError::MissingStoreDir()),
+            None => Err(Error::MissingStoreDir()),
         }
     }
 
@@ -87,7 +92,7 @@ impl StorePath {
     }
 
     /// Checks a given &str to match the restrictions for store path names.
-    pub fn validate_name(s: &str) -> Result<(), ParseStorePathError> {
+    pub fn validate_name(s: &str) -> Result<(), Error> {
         for c in s.chars() {
             if c.is_ascii_alphanumeric()
                 || c == '-'
@@ -100,7 +105,7 @@ impl StorePath {
                 continue;
             }
 
-            return Err(ParseStorePathError::InvalidName(s.to_string()));
+            return Err(Error::InvalidName(s.to_string()));
         }
 
         Ok(())
@@ -118,7 +123,7 @@ mod tests {
     use crate::nixbase32;
     use crate::store_path::{DIGEST_SIZE, ENCODED_DIGEST_SIZE};
 
-    use super::{ParseStorePathError, StorePath};
+    use super::{Error, StorePath};
 
     #[test]
     fn encoded_digest_size() {
@@ -191,7 +196,7 @@ mod tests {
     #[test]
     fn absolute_path_missing_prefix() {
         assert_eq!(
-            ParseStorePathError::MissingStoreDir(),
+            Error::MissingStoreDir(),
             StorePath::from_absolute_path("foobar-123").expect_err("must fail")
         );
     }

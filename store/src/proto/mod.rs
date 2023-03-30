@@ -5,7 +5,7 @@ use thiserror::Error;
 
 use prost::Message;
 
-use nix_compat::store_path::{ParseStorePathError, StorePath};
+use nix_compat::store_path::{self, StorePath};
 
 mod grpc_blobservice_wrapper;
 mod grpc_directoryservice_wrapper;
@@ -52,7 +52,7 @@ pub enum ValidatePathInfoError {
 
     /// Invalid node name encountered.
     #[error("Failed to parse {0} as NixPath: {1}")]
-    InvalidNodeName(String, ParseStorePathError),
+    InvalidNodeName(String, store_path::Error),
 
     /// The digest the (root) node refers to has invalid length.
     #[error("Invalid Digest length: {0}")]
@@ -91,7 +91,7 @@ fn validate_digest<E>(digest: &Vec<u8>, err: fn(usize) -> E) -> Result<(), E> {
 /// On error, it returns an error generated from the supplied constructor.
 fn parse_node_name_root<E>(
     name: &str,
-    err: fn(String, ParseStorePathError) -> E,
+    err: fn(String, store_path::Error) -> E,
 ) -> Result<StorePath, E> {
     match StorePath::from_string(name) {
         Ok(np) => Ok(np),

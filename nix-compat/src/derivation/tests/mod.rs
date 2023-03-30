@@ -1,7 +1,7 @@
 use crate::derivation::output::Output;
 use crate::derivation::Derivation;
 use crate::nixhash::NixHash;
-use crate::store_path::StorePath;
+use crate::store_path::{build_store_path_from_references, StorePath};
 use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::Read;
@@ -311,42 +311,5 @@ fn output_path_construction() {
         foo_drv
             .calculate_derivation_path("foo")
             .expect("must succeed")
-    );
-}
-
-#[test]
-fn path_with_zero_references() {
-    // This hash should match `builtins.toFile`, e.g.:
-    //
-    // nix-repl> builtins.toFile "foo" "bar"
-    // "/nix/store/vxjiwkjkn7x4079qvh1jkl5pn05j2aw0-foo"
-
-    let store_path = crate::derivation::path_with_references("foo", "bar", Vec::<String>::new())
-        .expect("path_with_references() should succeed");
-
-    assert_eq!(
-        store_path.to_absolute_path().as_str(),
-        "/nix/store/vxjiwkjkn7x4079qvh1jkl5pn05j2aw0-foo"
-    );
-}
-
-#[test]
-fn path_with_non_zero_references() {
-    // This hash should match:
-    //
-    // nix-repl> builtins.toFile "baz" "${builtins.toFile "foo" "bar"}"
-    // "/nix/store/5xd714cbfnkz02h2vbsj4fm03x3f15nf-baz"
-
-    let inner = crate::derivation::path_with_references("foo", "bar", Vec::<String>::new())
-        .expect("path_with_references() should succeed");
-    let inner_path = inner.to_absolute_path();
-
-    let outer =
-        crate::derivation::path_with_references("baz", &inner_path, vec![inner_path.as_str()])
-            .expect("path_with_references() should succeed");
-
-    assert_eq!(
-        outer.to_absolute_path().as_str(),
-        "/nix/store/5xd714cbfnkz02h2vbsj4fm03x3f15nf-baz"
     );
 }

@@ -1,4 +1,4 @@
-use crate::{nixbase32::Nixbase32DecodeError, store_path::ParseStorePathError};
+use crate::{nixbase32::Nixbase32DecodeError, store_path};
 use thiserror::Error;
 
 /// Errors that can occur during the validation of Derivation structs.
@@ -17,7 +17,7 @@ pub enum DerivationError {
     InvalidOutput(String, OutputError),
     // input derivation
     #[error("unable to parse input derivation path {0}: {1}")]
-    InvalidInputDerivationPath(String, ParseStorePathError),
+    InvalidInputDerivationPath(String, store_path::Error),
     #[error("input derivation {0} doesn't end with .drv")]
     InvalidInputDerivationPrefix(String),
     #[error("input derivation {0} output names are empty")]
@@ -27,7 +27,7 @@ pub enum DerivationError {
 
     // input sources
     #[error("unable to parse input sources path {0}: {1}")]
-    InvalidInputSourcesPath(String, ParseStorePathError),
+    InvalidInputSourcesPath(String, store_path::Error),
 
     // platform
     #[error("invalid platform field: {0}")]
@@ -46,8 +46,8 @@ pub enum DerivationError {
 // [crate::derivation::Output] of a [crate::derivation::Derviation].
 #[derive(Debug, Error, PartialEq)]
 pub enum OutputError {
-    #[error("Invalid ouput path {0}: {1}")]
-    InvalidOutputPath(String, ParseStorePathError),
+    #[error("Invalid output path {0}: {1}")]
+    InvalidOutputPath(String, store_path::Error),
     #[error("Invalid hash encoding: {0}")]
     InvalidHashEncoding(String, Nixbase32DecodeError),
     #[error("Invalid hash algo: {0}")]
