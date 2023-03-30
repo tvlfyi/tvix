@@ -32,8 +32,7 @@ pub(super) fn build_store_path(
     name: &str,
 ) -> Result<StorePath, DerivationError> {
     let digest = {
-        let mut hasher = Sha256::new();
-        hasher.update(fingerprint);
+        let hasher = Sha256::new_with_prefix(fingerprint);
         hasher.finalize()
     };
     let compressed = compress_hash(&digest, 20);
