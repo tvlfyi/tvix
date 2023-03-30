@@ -28,7 +28,6 @@ fn compress_hash(input: &[u8], output_size: usize) -> Vec<u8> {
 /// The string is hashed with sha256, its digest is compressed to 20 bytes, and
 /// nixbase32-encoded (32 characters)
 pub(super) fn build_store_path(
-    is_derivation: bool,
     fingerprint: &str,
     name: &str,
 ) -> Result<StorePath, DerivationError> {
@@ -38,12 +37,8 @@ pub(super) fn build_store_path(
         hasher.finalize()
     };
     let compressed = compress_hash(&digest, 20);
-    if is_derivation {
-        StorePath::from_string(format!("{}-{}.drv", nixbase32::encode(&compressed), name).as_str())
-    } else {
-        StorePath::from_string(format!("{}-{}", nixbase32::encode(&compressed), name,).as_str())
-    }
-    .map_err(|_e| DerivationError::InvalidOutputName(name.to_string()))
+    StorePath::from_string(format!("{}-{}", nixbase32::encode(&compressed), name,).as_str())
+        .map_err(|_e| DerivationError::InvalidOutputName(name.to_string()))
     // Constructing the StorePath can only fail if the passed output name was
     // invalid, so map errors to a [DerivationError::InvalidOutputName].
 }
@@ -56,5 +51,5 @@ pub fn path_with_references<S: AsRef<str>, I: IntoIterator<Item = S>, C: AsRef<[
     references: I,
 ) -> Result<StorePath, DerivationError> {
     let text_hash_str = text_hash_string(name, content, references);
-    build_store_path(false, &text_hash_str, name)
+    build_store_path(&text_hash_str, name)
 }

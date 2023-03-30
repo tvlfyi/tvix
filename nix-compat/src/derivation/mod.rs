@@ -85,7 +85,7 @@ impl Derivation {
     /// The text_hash_string is then passed to the build_store_path function.
     pub fn calculate_derivation_path(&self, name: &str) -> Result<StorePath, DerivationError> {
         // append .drv to the name
-        let name_with_suffix = &format!("{}.drv", name);
+        let name = &format!("{}.drv", name);
 
         // collect the list of paths from input_sources and input_derivations
         // into a (sorted, guaranteed by BTreeSet) list of references
@@ -97,9 +97,9 @@ impl Derivation {
             inputs
         };
 
-        let text_hash_str = &text_hash_string(name_with_suffix, self.to_aterm_string(), references);
+        let text_hash_str = &text_hash_string(name, self.to_aterm_string(), references);
 
-        utils::build_store_path(true, text_hash_str, name)
+        utils::build_store_path(text_hash_str, name)
     }
 
     /// Returns the FOD digest, if the derivation is fixed-output, or None if
@@ -250,7 +250,7 @@ impl Derivation {
                 output_path_name,
             ));
             let abs_store_path =
-                utils::build_store_path(false, &fp, &output_path_name)?.to_absolute_path();
+                utils::build_store_path(&fp, &output_path_name)?.to_absolute_path();
 
             output.path = abs_store_path.clone();
             self.environment
