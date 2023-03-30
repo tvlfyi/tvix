@@ -1,7 +1,7 @@
 use crate::derivation::DerivationError;
 use crate::nixbase32;
-use crate::nixhash::NixHash;
-use crate::store_path::{self, StorePath};
+use crate::store_path::StorePath;
+use crate::texthash::text_hash_string;
 use sha2::{Digest, Sha256};
 
 /// compress_hash takes an arbitrarily long sequence of bytes (usually
@@ -55,27 +55,6 @@ pub fn path_with_references<S: AsRef<str>, I: IntoIterator<Item = S>, C: AsRef<[
     content: C,
     references: I,
 ) -> Result<StorePath, DerivationError> {
-    let mut s = String::from("text");
-
-    for reference in references {
-        s.push(':');
-        s.push_str(reference.as_ref());
-    }
-
-    let content_digest = {
-        let mut hasher = Sha256::new();
-        hasher.update(content);
-        hasher.finalize()
-    };
-
-    let h = NixHash::new(crate::nixhash::HashAlgo::Sha256, content_digest.to_vec());
-
-    s.push_str(&format!(
-        ":{}:{}:{}",
-        h.to_nix_hash_string(),
-        store_path::STORE_DIR,
-        name
-    ));
-
-    build_store_path(false, &s, name)
+    let text_hash_str = text_hash_string(name, content, references);
+    build_store_path(false, &text_hash_str, name)
 }

@@ -1,6 +1,7 @@
 use crate::{
     nixhash::HashAlgo,
     store_path::{self, StorePath},
+    texthash::text_hash_string,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -78,26 +79,17 @@ impl Derivation {
 
     /// Returns the drv path of a Derivation struct.
     ///
-    /// The drv path is calculated like this:
-    ///   - Write the fingerprint of the Derivation to the sha256 hash function.
-    ///     This is: `text:`,
-    ///     all d.InputDerivations and d.InputSources (sorted, separated by a `:`),
-    ///     a `:`,
-    ///     the nix string representation of the sha256 sum of the ATerm representation
-    ///     a `:`,
-    ///     the storeDir, followed by a `:`,
-    ///     the name of a derivation,
-    ///     a `.drv`.
-    ///   - Write the .drv A-Term contents to a hash function
-    ///   - Take the digest, run hash.CompressHash(digest, 20) on it.
-    ///   - Encode it with nixbase32
-    ///   - Use it (and the name) to construct a [StorePath].
+    /// The drv path is calculated by calculating the [text_hash_string], using
+    /// the `name` with a `.drv` suffix as name, all d.InputDerivations and d.InputSources as references,
+    /// and the ATerm representation of the Derivation as contents.
+    /// The text_hash_string is then passed to the build_store_path function.
     pub fn calculate_derivation_path(&self, name: &str) -> Result<StorePath, DerivationError> {
-        let mut s = String::from("text:");
+        // append .drv to the name
+        let name_with_suffix = &format!("{}.drv", name);
 
         // collect the list of paths from input_sources and input_derivations
-        // into a (sorted, guaranteed by BTreeSet) list, and join them by :
-        let concat_inputs: BTreeSet<String> = {
+        // into a (sorted, guaranteed by BTreeSet) list of references
+        let references: BTreeSet<String> = {
             let mut inputs = self.input_sources.clone();
             let input_derivation_keys: Vec<String> =
                 self.input_derivations.keys().cloned().collect();
@@ -105,25 +97,9 @@ impl Derivation {
             inputs
         };
 
-        for input in concat_inputs {
-            s.push_str(&input);
-            s.push(':');
-        }
+        let text_hash_str = &text_hash_string(name_with_suffix, self.to_aterm_string(), references);
 
-        // calculate the sha256 hash of the ATerm representation, and represent
-        // it as a hex-encoded string (prefixed with sha256:).
-        let aterm_digest = Sha256::new_with_prefix(self.to_aterm_string())
-            .finalize()
-            .to_vec();
-
-        s.push_str(&format!(
-            "{}:{}:{}.drv",
-            NixHash::new(HashAlgo::Sha256, aterm_digest).to_nix_hash_string(),
-            store_path::STORE_DIR,
-            name,
-        ));
-
-        utils::build_store_path(true, &s, name)
+        utils::build_store_path(true, text_hash_str, name)
     }
 
     /// Returns the FOD digest, if the derivation is fixed-output, or None if

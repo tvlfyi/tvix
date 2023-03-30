@@ -7,6 +7,7 @@ pub mod nixhash;
 mod nixhash_algos;
 mod nixhash_with_mode;
 pub mod store_path;
+mod texthash;
 
 /// Nix placeholders (i.e. values returned by `builtins.placeholder`)
 /// are used to populate outputs with paths that must be
