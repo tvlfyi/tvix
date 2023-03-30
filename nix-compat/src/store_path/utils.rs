@@ -7,7 +7,7 @@ use super::Error;
 
 /// compress_hash takes an arbitrarily long sequence of bytes (usually
 /// a hash digest), and returns a sequence of bytes of length
-/// output_size.
+/// OUTPUT_SIZE.
 ///
 /// It's calculated by rotating through the bytes in the output buffer
 /// (zero- initialized), and XOR'ing with each byte of the passed
@@ -15,11 +15,11 @@ use super::Error;
 /// value in the output buffer.
 ///
 /// This mimics equivalent functionality in C++ Nix.
-pub fn compress_hash(input: &[u8], output_size: usize) -> Vec<u8> {
-    let mut output: Vec<u8> = vec![0; output_size];
+pub fn compress_hash<const OUTPUT_SIZE: usize>(input: &[u8]) -> [u8; OUTPUT_SIZE] {
+    let mut output = [0; OUTPUT_SIZE];
 
     for (ii, ch) in input.iter().enumerate() {
-        output[ii % output_size] ^= ch;
+        output[ii % OUTPUT_SIZE] ^= ch;
     }
 
     output
@@ -56,8 +56,12 @@ pub fn build_store_path_from_fingerprint(
         let hasher = Sha256::new_with_prefix(fingerprint);
         hasher.finalize()
     };
-    let compressed = compress_hash(&digest, 20);
-    StorePath::from_string(format!("{}-{}", nixbase32::encode(&compressed), name).as_str())
+    let compressed = compress_hash::<20>(&digest);
+    StorePath::validate_name(name)?;
+    Ok(StorePath {
+        digest: compressed,
+        name: name.to_string(),
+    })
 }
 
 /// This contains the Nix logic to create "text hash strings", which are used
