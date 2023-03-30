@@ -21,8 +21,8 @@ struct SourceSpan {
     /// Span into the [codemap::Codemap].
     span: codemap::Span,
 
-    /// Number of instructions derived from this span.
-    count: usize,
+    /// Index of the first operation covered by this span.
+    start: usize,
 }
 
 /// A chunk is a representation of a sequence of bytecode
@@ -61,7 +61,7 @@ impl Chunk {
     pub fn push_op(&mut self, data: OpCode, span: codemap::Span) -> CodeIdx {
         let idx = self.code.len();
         self.code.push(data);
-        self.push_span(span);
+        self.push_span(span, idx);
         CodeIdx(idx)
     }
 
@@ -76,19 +76,11 @@ impl Chunk {
         // Simply drop the last op.
         self.code.pop();
 
-        // If the last span only had this op, drop it, otherwise
-        // decrease its operation counter.
-        match self.spans.last_mut() {
-            // If the last span had more than one op, decrease the
-            // counter.
-            Some(span) if span.count > 1 => span.count -= 1,
-
-            // Otherwise, drop it.
-            Some(_) => {
+        if let Some(span) = self.spans.last() {
+            // If the last span started at this op, drop it.
+            if span.start == self.code.len() {
                 self.spans.pop();
             }
-
-            None => unreachable!(),
         }
     }
 
@@ -100,31 +92,37 @@ impl Chunk {
 
     // Span tracking implementation
 
-    fn push_span(&mut self, span: codemap::Span) {
+    fn push_span(&mut self, span: codemap::Span, start: usize) {
         match self.spans.last_mut() {
             // We do not need to insert the same span again, as this
             // instruction was compiled from the same span as the last
             // one.
-            Some(last) if last.span == span => last.count += 1,
+            Some(last) if last.span == span => {}
 
             // In all other cases, this is a new source span.
-            _ => self.spans.push(SourceSpan { span, count: 1 }),
+            _ => self.spans.push(SourceSpan { span, start }),
         }
     }
 
     /// Retrieve the [codemap::Span] from which the instruction at
     /// `offset` was compiled.
     pub fn get_span(&self, offset: CodeIdx) -> codemap::Span {
-        let mut pos = 0;
+        let position = self
+            .spans
+            .binary_search_by(|span| span.start.cmp(&offset.0));
 
-        for span in &self.spans {
-            pos += span.count;
-            if pos > offset.0 {
-                return span.span;
+        let span = match position {
+            Ok(index) => &self.spans[index],
+            Err(index) => {
+                if index == 0 {
+                    &self.spans[0]
+                } else {
+                    &self.spans[index - 1]
+                }
             }
-        }
+        };
 
-        panic!("compiler error: chunk missing span for offset {}", offset.0);
+        span.span
     }
 
     /// Write the disassembler representation of the operation at
