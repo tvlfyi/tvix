@@ -5,4 +5,3 @@ pub mod nixhash;
 mod nixhash_algos;
 mod nixhash_with_mode;
 pub mod store_path;
-mod texthash;
