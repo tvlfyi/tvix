@@ -2,8 +2,11 @@ use crate::nixbase32;
 use data_encoding::{BASE64, BASE64_NOPAD, HEXLOWER};
 use thiserror::Error;
 
-pub use crate::nixhash_algos::HashAlgo;
-pub use crate::nixhash_with_mode::NixHashWithMode;
+mod algos;
+mod with_mode;
+
+pub use algos::HashAlgo;
+pub use with_mode::NixHashWithMode;
 
 /// Nix allows specifying hashes in various encodings, and magically just
 /// derives the encoding.
