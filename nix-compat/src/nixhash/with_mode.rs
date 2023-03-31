@@ -3,6 +3,20 @@ use crate::nixhash::{HashAlgo, NixHash};
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+pub enum NixHashMode {
+    Flat,
+    Recursive,
+}
+
+impl NixHashMode {
+    pub fn prefix(self) -> &'static str {
+        match self {
+            Self::Flat => "",
+            Self::Recursive => "r:",
+        }
+    }
+}
+
 /// A Nix Hash can either be flat or recursive.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum NixHashWithMode {
@@ -11,14 +25,25 @@ pub enum NixHashWithMode {
 }
 
 impl NixHashWithMode {
+    pub fn mode(&self) -> NixHashMode {
+        match self {
+            Self::Flat(_) => NixHashMode::Flat,
+            Self::Recursive(_) => NixHashMode::Recursive,
+        }
+    }
+
+    pub fn digest(&self) -> &NixHash {
+        match self {
+            Self::Flat(ref h) => h,
+            Self::Recursive(ref h) => h,
+        }
+    }
+
     /// Formats a [NixHashWithMode] in the Nix default hash format,
     /// which is the algo, followed by a colon, then the lower hex encoded digest.
     /// In case the hash itself is recursive, a `r:` is added as prefix
     pub fn to_nix_hash_string(&self) -> String {
-        match self {
-            NixHashWithMode::Flat(h) => h.to_nix_hash_string(),
-            NixHashWithMode::Recursive(h) => format!("r:{}", h.to_nix_hash_string()),
-        }
+        String::from(self.mode().prefix()) + &self.digest().to_nix_hash_string()
     }
 }
 

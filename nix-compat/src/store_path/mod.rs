@@ -4,10 +4,7 @@ use thiserror::Error;
 
 mod utils;
 
-pub use utils::{
-    build_store_path_from_fingerprint, build_store_path_from_references, compress_hash,
-    hash_placeholder,
-};
+pub use utils::*;
 
 pub const DIGEST_SIZE: usize = 20;
 // lazy_static doesn't allow us to call NIXBASE32.encode_len(), so we ran it
@@ -19,17 +16,30 @@ pub const ENCODED_DIGEST_SIZE: usize = 32;
 pub const STORE_DIR: &str = "/nix/store";
 pub const STORE_DIR_WITH_SLASH: &str = "/nix/store/";
 
-/// Errors that can occur during the validation of name characters.
+/// Errors that can occur when parsing a literal store path
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum Error {
     #[error("Dash is missing between hash and name")]
     MissingDash(),
     #[error("Hash encoding is invalid: {0}")]
     InvalidHashEncoding(Nixbase32DecodeError),
-    #[error("Invalid name: {0}")]
-    InvalidName(String),
+    #[error("{0}")]
+    InvalidName(NameError),
     #[error("Tried to parse an absolute path which was missing the store dir prefix.")]
     MissingStoreDir(),
+}
+
+/// Errors that can occur during the validation of name characters.
+#[derive(Debug, PartialEq, Eq, Error)]
+pub enum NameError {
+    #[error("Invalid name: {0}")]
+    InvalidName(String),
+}
+
+impl From<NameError> for Error {
+    fn from(e: NameError) -> Self {
+        Self::InvalidName(e)
+    }
 }
 
 /// Represents a path in the Nix store (a direct child of [STORE_DIR]).
@@ -56,7 +66,7 @@ impl StorePath {
         // - 1 dash
         // - 1 character for the name
         if s.len() < ENCODED_DIGEST_SIZE + 2 {
-            return Err(Error::InvalidName("".to_string()));
+            Err(NameError::InvalidName("".to_string()))?;
         }
 
         let digest = match nixbase32::decode(s[..ENCODED_DIGEST_SIZE].as_bytes()) {
@@ -92,7 +102,7 @@ impl StorePath {
     }
 
     /// Checks a given &str to match the restrictions for store path names.
-    pub fn validate_name(s: &str) -> Result<(), Error> {
+    pub fn validate_name(s: &str) -> Result<(), NameError> {
         for c in s.chars() {
             if c.is_ascii_alphanumeric()
                 || c == '-'
@@ -105,7 +115,7 @@ impl StorePath {
                 continue;
             }
 
-            return Err(Error::InvalidName(s.to_string()));
+            return Err(NameError::InvalidName(s.to_string()));
         }
 
         Ok(())

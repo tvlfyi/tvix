@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::nixhash::Error;
 
 /// This are the hash algorithms supported by cppnix.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum HashAlgo {
     Md5,
     Sha1,

@@ -1,7 +1,7 @@
 use crate::derivation::output::Output;
 use crate::derivation::Derivation;
 use crate::nixhash::NixHash;
-use crate::store_path::{build_store_path_from_references, StorePath};
+use crate::store_path::StorePath;
 use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::Read;

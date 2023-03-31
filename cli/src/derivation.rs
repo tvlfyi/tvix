@@ -412,16 +412,14 @@ mod derivation_builtins {
 
         // TODO: fail on derivation references (only "plain" is allowed here)
 
-        let path = nix_compat::store_path::build_store_path_from_references(
-            name.as_str(),
-            content.as_str(),
-            refs,
-        )
-        .map_err(|_e| {
-            nix_compat::derivation::DerivationError::InvalidOutputName(name.as_str().to_string())
-        })
-        .map_err(Error::InvalidDerivation)?
-        .to_absolute_path();
+        let path = nix_compat::store_path::build_text_path(name.as_str(), content.as_str(), refs)
+            .map_err(|_e| {
+                nix_compat::derivation::DerivationError::InvalidOutputName(
+                    name.as_str().to_string(),
+                )
+            })
+            .map_err(Error::InvalidDerivation)?
+            .to_absolute_path();
 
         state.borrow_mut().plain(&path);
 

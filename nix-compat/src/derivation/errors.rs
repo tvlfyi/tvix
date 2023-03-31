@@ -15,6 +15,8 @@ pub enum DerivationError {
     InvalidOutputNameForFixed(String),
     #[error("unable to validate output {0}: {1}")]
     InvalidOutput(String, OutputError),
+    #[error("unable to validate output {0}: {1}")]
+    InvalidOutputDerivationPath(String, store_path::BuildStorePathError),
     // input derivation
     #[error("unable to parse input derivation path {0}: {1}")]
     InvalidInputDerivationPath(String, store_path::Error),

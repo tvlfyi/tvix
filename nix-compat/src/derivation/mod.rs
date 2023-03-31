@@ -1,8 +1,5 @@
-use crate::{
-    nixhash::HashAlgo,
-    store_path::{
-        self, build_store_path_from_fingerprint, build_store_path_from_references, StorePath,
-    },
+use crate::store_path::{
+    self, build_output_path, build_regular_ca_path, build_text_path, StorePath,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -78,7 +75,7 @@ impl Derivation {
 
     /// Returns the drv path of a [Derivation] struct.
     ///
-    /// The drv path is calculated by invoking [build_store_path_from_references], using
+    /// The drv path is calculated by invoking [build_text_path], using
     /// the `name` with a `.drv` suffix as name, all [Derivation::input_sources] and
     /// keys of [Derivation::input_derivations] as references, and the ATerm string of
     /// the [Derivation] as content.
@@ -96,7 +93,7 @@ impl Derivation {
             inputs
         };
 
-        build_store_path_from_references(name, self.to_aterm_string(), references)
+        build_text_path(name, self.to_aterm_string(), references)
             .map_err(|_e| DerivationError::InvalidOutputName(name.to_string()))
     }
 
@@ -196,7 +193,6 @@ impl Derivation {
         name: &str,
         derivation_or_fod_hash: &NixHash,
     ) -> Result<(), DerivationError> {
-        let num_outputs = self.outputs.len();
         // The fingerprint and hash differs per output
         for (output_name, output) in self.outputs.iter_mut() {
             // Assert that outputs are not yet populated, to avoid using this function wrongly.
@@ -204,59 +200,43 @@ impl Derivation {
             // footgun prevention mechanism.
             assert!(output.path.is_empty());
 
-            // calculate the output_name_path, which is the part of the NixPath after the digest.
-            // It's the name, and (if it's the non-out output), the output name after a `-`.
-            let output_path_name = {
-                let mut output_path_name = name.to_string();
-                if output_name != "out" {
-                    output_path_name.push('-');
-                    output_path_name.push_str(output_name);
-                }
-                output_path_name
+            let path_name = output_path_name(name, output_name);
+
+            // For fixed output derivation we use the per-output info, otherwise we use the
+            // derivation hash.
+            let abs_store_path = if let Some(ref hwm) = output.hash_with_mode {
+                build_regular_ca_path(&path_name, hwm, Vec::<String>::new(), false).map_err(
+                    |e| DerivationError::InvalidOutputDerivationPath(output_name.to_string(), e),
+                )?
+            } else {
+                build_output_path(derivation_or_fod_hash, &output_name, &path_name).map_err(
+                    |e| {
+                        DerivationError::InvalidOutputDerivationPath(
+                            output_name.to_string(),
+                            store_path::BuildStorePathError::InvalidName(e),
+                        )
+                    },
+                )?
             };
 
-            // In the case this is a fixed-output derivation AND the
-            // hash mode is recursive AND the hash algo is sha256, a
-            // custom fingerprint is used to calculate the output path.
-            //
-            // In all other cases, the fingerprint is derived from the
-            // derivation_or_fod_hash.
-            let custom_fp: Option<String> =
-                if num_outputs == 1 && output_name == "out" && output.hash_with_mode.is_some() {
-                    match &output.hash_with_mode {
-                        Some(NixHashWithMode::Recursive(NixHash {
-                            digest,
-                            algo: HashAlgo::Sha256,
-                        })) => Some(format!(
-                            "source:sha256:{}:{}:{}",
-                            data_encoding::HEXLOWER.encode(digest),
-                            store_path::STORE_DIR,
-                            output_path_name
-                        )),
-                        _ => None,
-                    }
-                } else {
-                    None
-                };
-
-            // If no custom_fp has been determined, use the default one.
-            let fp = custom_fp.unwrap_or(format!(
-                "output:{}:{}:{}:{}",
-                output_name,
-                derivation_or_fod_hash.to_nix_hash_string(),
-                store_path::STORE_DIR,
-                output_path_name,
-            ));
-
-            let abs_store_path = build_store_path_from_fingerprint(&output_path_name, &fp)
-                .map_err(|_e| DerivationError::InvalidOutputName(output_path_name.to_string()))?
-                .to_absolute_path();
-
-            output.path = abs_store_path.clone();
+            output.path = abs_store_path.to_absolute_path();
             self.environment
-                .insert(output_name.to_string(), abs_store_path);
+                .insert(output_name.to_string(), abs_store_path.to_absolute_path());
         }
 
         Ok(())
     }
+}
+
+/// Calculate the name part of the store path of a derivation [Output].
+///
+/// It's the name, and (if it's the non-out output), the output name
+/// after a `-`.
+fn output_path_name(derivation_name: &str, output_name: &str) -> String {
+    let mut output_path_name = derivation_name.to_string();
+    if output_name != "out" {
+        output_path_name.push('-');
+        output_path_name.push_str(output_name);
+    }
+    output_path_name
 }
