@@ -146,15 +146,12 @@ impl<DS: DirectoryService + Send + Sync + Clone + 'static>
                 }
             }
 
-            // TODO: We don't validate the currently received directory refers
-            // to at least one child we already received.
-            // This means, we thoeretically allow uploading multiple disconnected graphs,
-            // and the digest of the last element in the stream becomes the root node.
-            // For example, you can upload a leaf directory A, a leaf directory
-            // B, and then as last element a directory C that only refers to A,
-            // leaving B disconnected.
-            // At some point, we might want to populate a datastructure that
-            // does a reachability check.
+            // NOTE: We can't know if a directory we're receiving actually is
+            // part of the closure, because we receive directories from the leaf nodes up to
+            // the root.
+            // The only thing we could to would be doing a final check when the
+            // last Directory was received, that all Directories received so far are
+            // reachable from that (root) node.
 
             let dgst = directory.digest();
             seen_directories_sizes.insert(dgst, directory.size());
