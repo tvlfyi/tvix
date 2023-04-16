@@ -54,6 +54,10 @@ let
 
       # binaryen does not build on unstable as of 2022-08-22
       binaryen
+
+      # mysql80 is broken as of 2023-04-26, but should work after the next
+      # staging-next cycle: https://github.com/NixOS/nixpkgs/issues/226673
+      mysql80
       ;
   };
 
