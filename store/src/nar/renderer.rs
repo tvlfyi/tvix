@@ -58,8 +58,13 @@ impl<BS: BlobService, CS: ChunkService + Clone, DS: DirectoryService> NARRendere
                     .map_err(RenderError::NARWriterError)?;
             }
             proto::node::Node::File(proto_file_node) => {
-                // get the digest we're referring to
-                let digest = &proto_file_node.digest;
+                let digest: [u8; 32] =
+                    proto_file_node.digest.to_owned().try_into().map_err(|_e| {
+                        RenderError::StoreError(crate::Error::StorageError(
+                            "invalid digest len in file node".to_string(),
+                        ))
+                    })?;
+
                 // query blob_service for blob_meta
                 let resp = self
                     .blob_service
@@ -105,7 +110,6 @@ impl<BS: BlobService, CS: ChunkService + Clone, DS: DirectoryService> NARRendere
                 }
             }
             proto::node::Node::Directory(proto_directory_node) => {
-                // get the digest we're referring to
                 let digest: [u8; 32] =
                     proto_directory_node
                         .digest
