@@ -28,7 +28,11 @@
 //! # Ok::<(), std::io::Error>(())
 //! ```
 
-use std::io::{self, BufRead, ErrorKind::UnexpectedEof, Write};
+use std::io::{
+    self, BufRead,
+    ErrorKind::{InvalidInput, UnexpectedEof},
+    Write,
+};
 
 mod wire;
 
@@ -106,6 +110,15 @@ impl<'a, 'w> Node<'a, 'w> {
 
             need -= n as u64;
             reader.consume(n);
+        }
+
+        // bail if there's still data left in the passed reader.
+        // This uses the same code as [BufRead::has_data_left] (unstable).
+        if reader.fill_buf().map(|b| !b.is_empty())? {
+            return Err(io::Error::new(
+                InvalidInput,
+                "reader contained more data than specified size",
+            ));
         }
 
         self.pad(size)?;
