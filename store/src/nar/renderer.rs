@@ -1,10 +1,11 @@
+use std::io::{self, BufReader};
+
 use crate::{
     blobservice::BlobService,
-    chunkservice::ChunkService,
     directoryservice::DirectoryService,
     proto::{self, NamedNode},
-    BlobReader,
 };
+use data_encoding::BASE64;
 use nix_compat::nar;
 
 use super::RenderError;
@@ -12,17 +13,15 @@ use super::RenderError;
 /// A NAR renderer, using a blob_service, chunk_service and directory_service
 /// to render a NAR to a writer.
 #[derive(Clone)]
-pub struct NARRenderer<BS: BlobService, CS: ChunkService + Clone, DS: DirectoryService> {
+pub struct NARRenderer<BS: BlobService, DS: DirectoryService> {
     blob_service: BS,
-    chunk_service: CS,
     directory_service: DS,
 }
 
-impl<BS: BlobService, CS: ChunkService + Clone, DS: DirectoryService> NARRenderer<BS, CS, DS> {
-    pub fn new(blob_service: BS, chunk_service: CS, directory_service: DS) -> Self {
+impl<BS: BlobService, DS: DirectoryService> NARRenderer<BS, DS> {
+    pub fn new(blob_service: BS, directory_service: DS) -> Self {
         Self {
             blob_service,
-            chunk_service,
             directory_service,
         }
     }
@@ -65,49 +64,22 @@ impl<BS: BlobService, CS: ChunkService + Clone, DS: DirectoryService> NARRendere
                         ))
                     })?;
 
-                // query blob_service for blob_meta
-                let resp = self
-                    .blob_service
-                    .stat(&proto::StatBlobRequest {
-                        digest: digest.to_vec(),
-                        include_chunks: true,
-                        ..Default::default()
-                    })
-                    .map_err(RenderError::StoreError)?;
+                // TODO: handle error
+                let mut blob_reader = match self.blob_service.open_read(&digest).unwrap() {
+                    Some(blob_reader) => Ok(BufReader::new(blob_reader)),
+                    None => Err(RenderError::NARWriterError(io::Error::new(
+                        io::ErrorKind::NotFound,
+                        format!("blob with digest {} not found", BASE64.encode(&digest)),
+                    ))),
+                }?;
 
-                match resp {
-                    // if it's None, that's an error!
-                    None => {
-                        return Err(RenderError::BlobNotFound(
-                            digest.to_vec(),
-                            proto_file_node.name.to_owned(),
-                        ));
-                    }
-                    Some(blob_meta) => {
-                        // make sure the blob_meta size matches what we expect from proto_file_node
-                        let blob_meta_size = blob_meta.chunks.iter().fold(0, |acc, e| acc + e.size);
-                        if blob_meta_size != proto_file_node.size {
-                            return Err(RenderError::UnexpectedBlobMeta(
-                                digest.to_vec(),
-                                proto_file_node.name.to_owned(),
-                                proto_file_node.size,
-                                blob_meta_size,
-                            ));
-                        }
-
-                        let mut blob_reader = std::io::BufReader::new(BlobReader::open(
-                            &self.chunk_service,
-                            blob_meta,
-                        ));
-                        nar_node
-                            .file(
-                                proto_file_node.executable,
-                                proto_file_node.size.into(),
-                                &mut blob_reader,
-                            )
-                            .map_err(RenderError::NARWriterError)?;
-                    }
-                }
+                nar_node
+                    .file(
+                        proto_file_node.executable,
+                        proto_file_node.size.into(),
+                        &mut blob_reader,
+                    )
+                    .map_err(RenderError::NARWriterError)?;
             }
             proto::node::Node::Directory(proto_directory_node) => {
                 let digest: [u8; 32] =

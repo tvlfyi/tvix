@@ -1,21 +1,17 @@
 use crate::blobservice::BlobService;
-use crate::chunkservice::ChunkService;
+use crate::blobservice::BlobWriter;
 use crate::directoryservice::DirectoryService;
 use crate::nar::NARRenderer;
-use crate::proto;
 use crate::proto::DirectoryNode;
 use crate::proto::FileNode;
 use crate::proto::SymlinkNode;
 use crate::tests::fixtures::*;
 use crate::tests::utils::*;
+use std::io;
 
 #[test]
 fn single_symlink() {
-    let renderer = NARRenderer::new(
-        gen_blob_service(),
-        gen_chunk_service(),
-        gen_directory_service(),
-    );
+    let renderer = NARRenderer::new(gen_blob_service(), gen_directory_service());
     // don't put anything in the stores, as we don't actually do any requests.
 
     let mut buf: Vec<u8> = vec![];
@@ -37,11 +33,7 @@ fn single_symlink() {
 /// match what's in the store.
 #[test]
 fn single_file_missing_blob() {
-    let renderer = NARRenderer::new(
-        gen_blob_service(),
-        gen_chunk_service(),
-        gen_directory_service(),
-    );
+    let renderer = NARRenderer::new(gen_blob_service(), gen_directory_service());
     let mut buf: Vec<u8> = vec![];
 
     let e = renderer
@@ -56,10 +48,11 @@ fn single_file_missing_blob() {
         )
         .expect_err("must fail");
 
-    if let crate::nar::RenderError::BlobNotFound(actual_digest, _) = e {
-        assert_eq!(HELLOWORLD_BLOB_DIGEST.to_vec(), actual_digest);
-    } else {
-        panic!("unexpected error")
+    match e {
+        crate::nar::RenderError::NARWriterError(e) => {
+            assert_eq!(io::ErrorKind::NotFound, e.kind());
+        }
+        _ => panic!("unexpected error: {:?}", e),
     }
 }
 
@@ -68,84 +61,79 @@ fn single_file_missing_blob() {
 #[test]
 fn single_file_wrong_blob_size() {
     let blob_service = gen_blob_service();
-    let chunk_service = gen_chunk_service();
 
-    // insert blob and chunk into the stores
-    chunk_service
-        .put(HELLOWORLD_BLOB_CONTENTS.to_vec())
-        .unwrap();
+    // insert blob into the store
+    let mut writer = blob_service.open_write().unwrap();
+    io::copy(
+        &mut io::Cursor::new(HELLOWORLD_BLOB_CONTENTS.to_vec()),
+        &mut writer,
+    )
+    .unwrap();
+    assert_eq!(HELLOWORLD_BLOB_DIGEST.to_vec(), writer.close().unwrap());
 
-    blob_service
-        .put(
-            &HELLOWORLD_BLOB_DIGEST,
-            proto::BlobMeta {
-                chunks: vec![proto::blob_meta::ChunkMeta {
+    let renderer = NARRenderer::new(blob_service, gen_directory_service());
+
+    // Test with a root FileNode of a too big size
+    {
+        let mut buf: Vec<u8> = vec![];
+        let e = renderer
+            .write_nar(
+                &mut buf,
+                &crate::proto::node::Node::File(FileNode {
+                    name: "doesntmatter".to_string(),
                     digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
-                    size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
-                }],
-                ..Default::default()
-            },
-        )
-        .unwrap();
+                    size: 42, // <- note the wrong size here!
+                    executable: false,
+                }),
+            )
+            .expect_err("must fail");
 
-    let renderer = NARRenderer::new(blob_service, chunk_service, gen_directory_service());
-    let mut buf: Vec<u8> = vec![];
+        match e {
+            crate::nar::RenderError::NARWriterError(e) => {
+                assert_eq!(io::ErrorKind::UnexpectedEof, e.kind());
+            }
+            _ => panic!("unexpected error: {:?}", e),
+        }
+    }
 
-    let e = renderer
-        .write_nar(
-            &mut buf,
-            &crate::proto::node::Node::File(FileNode {
-                name: "doesntmatter".to_string(),
-                digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
-                size: 42, // <- note the wrong size here!
-                executable: false,
-            }),
-        )
-        .expect_err("must fail");
+    // Test with a root FileNode of a too small size
+    {
+        let mut buf: Vec<u8> = vec![];
+        let e = renderer
+            .write_nar(
+                &mut buf,
+                &crate::proto::node::Node::File(FileNode {
+                    name: "doesntmatter".to_string(),
+                    digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
+                    size: 2, // <- note the wrong size here!
+                    executable: false,
+                }),
+            )
+            .expect_err("must fail");
 
-    if let crate::nar::RenderError::UnexpectedBlobMeta(digest, _, expected_size, actual_size) = e {
-        assert_eq!(
-            digest,
-            HELLOWORLD_BLOB_DIGEST.to_vec(),
-            "expect digest to match"
-        );
-        assert_eq!(
-            expected_size, 42,
-            "expected expected size to be what's passed in the request"
-        );
-        assert_eq!(
-            actual_size,
-            HELLOWORLD_BLOB_CONTENTS.len() as u32,
-            "expected actual size to be correct"
-        );
-    } else {
-        panic!("unexpected error")
+        match e {
+            crate::nar::RenderError::NARWriterError(e) => {
+                assert_eq!(io::ErrorKind::InvalidInput, e.kind());
+            }
+            _ => panic!("unexpected error: {:?}", e),
+        }
     }
 }
 
 #[test]
 fn single_file() {
     let blob_service = gen_blob_service();
-    let chunk_service = gen_chunk_service();
 
-    chunk_service
-        .put(HELLOWORLD_BLOB_CONTENTS.to_vec())
-        .unwrap();
+    // insert blob into the store
+    let mut writer = blob_service.open_write().unwrap();
+    io::copy(
+        &mut io::Cursor::new(HELLOWORLD_BLOB_CONTENTS.to_vec()),
+        &mut writer,
+    )
+    .unwrap();
+    assert_eq!(HELLOWORLD_BLOB_DIGEST.to_vec(), writer.close().unwrap());
 
-    blob_service
-        .put(
-            &HELLOWORLD_BLOB_DIGEST,
-            proto::BlobMeta {
-                chunks: vec![proto::blob_meta::ChunkMeta {
-                    digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
-                    size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
-                }],
-                ..Default::default()
-            },
-        )
-        .unwrap();
-
-    let renderer = NARRenderer::new(blob_service, chunk_service, gen_directory_service());
+    let renderer = NARRenderer::new(blob_service, gen_directory_service());
     let mut buf: Vec<u8> = vec![];
 
     renderer
@@ -166,31 +154,24 @@ fn single_file() {
 #[test]
 fn test_complicated() {
     let blob_service = gen_blob_service();
-    let chunk_service = gen_chunk_service();
     let directory_service = gen_directory_service();
 
     // put all data into the stores.
-    let digest = chunk_service.put(EMPTY_BLOB_CONTENTS.to_vec()).unwrap();
-
-    blob_service
-        .put(
-            &digest,
-            proto::BlobMeta {
-                chunks: vec![proto::blob_meta::ChunkMeta {
-                    digest: digest.to_vec(),
-                    size: EMPTY_BLOB_CONTENTS.len() as u32,
-                }],
-                ..Default::default()
-            },
-        )
-        .unwrap();
+    // insert blob into the store
+    let mut writer = blob_service.open_write().unwrap();
+    io::copy(
+        &mut io::Cursor::new(EMPTY_BLOB_CONTENTS.to_vec()),
+        &mut writer,
+    )
+    .unwrap();
+    assert_eq!(EMPTY_BLOB_DIGEST.to_vec(), writer.close().unwrap());
 
     directory_service.put(DIRECTORY_WITH_KEEP.clone()).unwrap();
     directory_service
         .put(DIRECTORY_COMPLICATED.clone())
         .unwrap();
 
-    let renderer = NARRenderer::new(blob_service, chunk_service, directory_service);
+    let renderer = NARRenderer::new(blob_service, directory_service);
     let mut buf: Vec<u8> = vec![];
 
     renderer

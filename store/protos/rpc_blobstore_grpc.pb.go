@@ -43,16 +43,6 @@ type BlobServiceClient interface {
 	//
 	// The server may decide on whatever chunking it may seem fit as a size for
 	// the individual BlobChunk sent in the response stream.
-	//
-	// It specifically is NOT necessarily using chunk sizes communicated in a
-	// previous Stat request.
-	//
-	// It's up to the specific store to decide on whether it allows Read on a
-	// Blob at all, or only on smaller chunks communicated in a Stat() call
-	// first.
-	//
-	// Clients are enouraged to Stat() first, and then only read the individual
-	// chunks they don't have yet.
 	Read(ctx context.Context, in *ReadBlobRequest, opts ...grpc.CallOption) (BlobService_ReadClient, error)
 	// Put uploads a Blob, by reading a stream of bytes.
 	//
@@ -160,16 +150,6 @@ type BlobServiceServer interface {
 	//
 	// The server may decide on whatever chunking it may seem fit as a size for
 	// the individual BlobChunk sent in the response stream.
-	//
-	// It specifically is NOT necessarily using chunk sizes communicated in a
-	// previous Stat request.
-	//
-	// It's up to the specific store to decide on whether it allows Read on a
-	// Blob at all, or only on smaller chunks communicated in a Stat() call
-	// first.
-	//
-	// Clients are enouraged to Stat() first, and then only read the individual
-	// chunks they don't have yet.
 	Read(*ReadBlobRequest, BlobService_ReadServer) error
 	// Put uploads a Blob, by reading a stream of bytes.
 	//

@@ -6,12 +6,10 @@ use crate::proto::GRPCPathInfoServiceWrapper;
 use crate::proto::PathInfo;
 use crate::proto::{GetPathInfoRequest, Node, SymlinkNode};
 use crate::tests::fixtures::DUMMY_OUTPUT_HASH;
-use crate::tests::utils::{
-    gen_blob_service, gen_chunk_service, gen_directory_service, gen_pathinfo_service,
-};
+use crate::tests::utils::{gen_blob_service, gen_directory_service, gen_pathinfo_service};
 use tonic::Request;
 
-/// generates a GRPCPathInfoService out of blob, chunk, directory and pathinfo services.
+/// generates a GRPCPathInfoService out of blob, directory and pathinfo services.
 ///
 /// We only interact with it via the PathInfo GRPC interface.
 /// It uses the NonCachingNARCalculationService NARCalculationService to
@@ -19,11 +17,7 @@ use tonic::Request;
 fn gen_grpc_service() -> impl GRPCPathInfoService {
     GRPCPathInfoServiceWrapper::new(
         gen_pathinfo_service(),
-        NonCachingNARCalculationService::new(
-            gen_blob_service(),
-            gen_chunk_service(),
-            gen_directory_service(),
-        ),
+        NonCachingNARCalculationService::new(gen_blob_service(), gen_directory_service()),
     )
 }
 

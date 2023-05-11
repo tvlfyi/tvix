@@ -1934,16 +1934,6 @@ rec {
         ];
 
       };
-      "fastcdc" = rec {
-        crateName = "fastcdc";
-        version = "3.0.3";
-        edition = "2018";
-        sha256 = "0ykqz1wrzhspn41af7kfbklgqha2ry2m7csw8kdcy6k05sdhy08h";
-        authors = [
-          "Nathan Fiedler <nathanfiedler@fastmail.fm>"
-        ];
-
-      };
       "fastrand" = rec {
         crateName = "fastrand";
         version = "1.9.0";
@@ -8006,6 +7996,10 @@ rec {
             features = [ "rayon" "std" ];
           }
           {
+            name = "bytes";
+            packageId = "bytes";
+          }
+          {
             name = "clap";
             packageId = "clap 4.2.7";
             features = [ "derive" "env" ];
@@ -8019,8 +8013,8 @@ rec {
             packageId = "data-encoding";
           }
           {
-            name = "fastcdc";
-            packageId = "fastcdc";
+            name = "futures";
+            packageId = "futures";
           }
           {
             name = "lazy_static";

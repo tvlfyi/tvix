@@ -1,4 +1,4 @@
-use super::utils::{gen_blob_service, gen_chunk_service, gen_directory_service};
+use super::utils::{gen_blob_service, gen_directory_service};
 use crate::blobservice::BlobService;
 use crate::directoryservice::DirectoryService;
 use crate::import::import_path;
@@ -21,7 +21,6 @@ fn symlink() {
 
     let root_node = import_path(
         &mut gen_blob_service(),
-        &mut gen_chunk_service(),
         &mut gen_directory_service(),
         tmpdir.path().join("doesntmatter"),
     )
@@ -46,7 +45,6 @@ fn single_file() {
 
     let root_node = import_path(
         &mut blob_service,
-        &mut gen_chunk_service(),
         &mut gen_directory_service(),
         tmpdir.path().join("root"),
     )
@@ -64,13 +62,8 @@ fn single_file() {
 
     // ensure the blob has been uploaded
     assert!(blob_service
-        .stat(&proto::StatBlobRequest {
-            digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
-            include_chunks: false,
-            ..Default::default()
-        })
-        .unwrap()
-        .is_some());
+        .has(&HELLOWORLD_BLOB_DIGEST.to_vec().try_into().unwrap())
+        .unwrap());
 }
 
 #[test]
@@ -89,13 +82,8 @@ fn complicated() {
     let mut blob_service = gen_blob_service();
     let mut directory_service = gen_directory_service();
 
-    let root_node = import_path(
-        &mut blob_service,
-        &mut gen_chunk_service(),
-        &mut directory_service,
-        tmpdir.path(),
-    )
-    .expect("must succeed");
+    let root_node = import_path(&mut blob_service, &mut directory_service, tmpdir.path())
+        .expect("must succeed");
 
     // ensure root_node matched expectations
     assert_eq!(
@@ -124,11 +112,6 @@ fn complicated() {
 
     // ensure EMPTY_BLOB_CONTENTS has been uploaded
     assert!(blob_service
-        .stat(&proto::StatBlobRequest {
-            digest: EMPTY_BLOB_DIGEST.to_vec(),
-            include_chunks: false,
-            include_bao: false
-        })
-        .unwrap()
-        .is_some());
+        .has(&EMPTY_BLOB_DIGEST.to_vec().try_into().unwrap())
+        .unwrap());
 }

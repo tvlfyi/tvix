@@ -8,7 +8,6 @@ use nix_compat::nixhash::NixHashWithMode;
 use std::path::PathBuf;
 use tracing_subscriber::prelude::*;
 use tvix_store::blobservice::SledBlobService;
-use tvix_store::chunkservice::SledChunkService;
 use tvix_store::directoryservice::SledDirectoryService;
 use tvix_store::import::import_path;
 use tvix_store::nar::NARCalculationService;
@@ -87,7 +86,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // initialize stores
     let mut blob_service = SledBlobService::new("blobs.sled".into())?;
-    let mut chunk_service = SledChunkService::new("chunks.sled".into())?;
     let mut directory_service = SledDirectoryService::new("directories.sled".into())?;
     let path_info_service = SledPathInfoService::new("pathinfo.sled".into())?;
 
@@ -102,15 +100,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let nar_calculation_service = NonCachingNARCalculationService::new(
                 blob_service.clone(),
-                chunk_service.clone(),
                 directory_service.clone(),
             );
 
             #[allow(unused_mut)]
             let mut router = server
-                .add_service(BlobServiceServer::new(GRPCBlobServiceWrapper::new(
+                .add_service(BlobServiceServer::new(GRPCBlobServiceWrapper::from(
                     blob_service,
-                    chunk_service,
                 )))
                 .add_service(DirectoryServiceServer::new(
                     GRPCDirectoryServiceWrapper::from(directory_service),
@@ -135,17 +131,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Import { paths } => {
             let nar_calculation_service = NonCachingNARCalculationService::new(
                 blob_service.clone(),
-                chunk_service.clone(),
                 directory_service.clone(),
             );
 
             for path in paths {
-                let root_node = import_path(
-                    &mut blob_service,
-                    &mut chunk_service,
-                    &mut directory_service,
-                    &path,
-                )?;
+                let root_node = import_path(&mut blob_service, &mut directory_service, &path)?;
 
                 let nar_hash = NixHashWithMode::Recursive(NixHash::new(
                     HashAlgo::Sha256,
