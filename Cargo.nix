@@ -5952,9 +5952,9 @@ rec {
       };
       "smol_str" = rec {
         crateName = "smol_str";
-        version = "0.1.24";
+        version = "0.2.0";
         edition = "2018";
-        sha256 = "1j891lgnflvnzgbs7fhwd6sxrrx47ii5mj0yy3f2f9mbrdbwimps";
+        sha256 = "1779hpx5ipbcvkdj5zw8zqk3ynn160qvls1gkcr54hwsprmjw8bl";
         authors = [
           "Aleksey Kladov <aleksey.kladov@gmail.com>"
         ];
@@ -5977,9 +5977,9 @@ rec {
           "arbitrary" = [ "dep:arbitrary" ];
           "default" = [ "std" ];
           "serde" = [ "dep:serde" ];
-          "std" = [ "serde/std" ];
+          "std" = [ "serde?/std" ];
         };
-        resolvedDefaultFeatures = [ "default" "serde" "std" ];
+        resolvedDefaultFeatures = [ "default" "std" ];
       };
       "socket2" = rec {
         crateName = "socket2";

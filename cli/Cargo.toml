@@ -13,7 +13,7 @@ tvix-eval = { path = "../eval" }
 rustyline = "10.0.0"
 clap = { version = "4.0", features = ["derive", "env"] }
 dirs = "4.0.0"
-smol_str = "0.1"
+smol_str = "0.2.0"
 ssri = "7.0.0"
 data-encoding = "2.3.3"
 thiserror = "1.0.38"
