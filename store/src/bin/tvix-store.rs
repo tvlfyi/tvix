@@ -1,16 +1,9 @@
 use clap::Subcommand;
 use data_encoding::BASE64;
-use nix_compat::derivation::Derivation;
-use nix_compat::derivation::Output;
-use nix_compat::nixhash::HashAlgo;
-use nix_compat::nixhash::NixHash;
-use nix_compat::nixhash::NixHashWithMode;
 use std::path::PathBuf;
 use tracing_subscriber::prelude::*;
 use tvix_store::blobservice::SledBlobService;
 use tvix_store::directoryservice::SledDirectoryService;
-use tvix_store::import::ingest_path;
-use tvix_store::nar::NARCalculationService;
 use tvix_store::nar::NonCachingNARCalculationService;
 use tvix_store::pathinfoservice::SledPathInfoService;
 use tvix_store::proto::blob_service_server::BlobServiceServer;
@@ -19,6 +12,7 @@ use tvix_store::proto::path_info_service_server::PathInfoServiceServer;
 use tvix_store::proto::GRPCBlobServiceWrapper;
 use tvix_store::proto::GRPCDirectoryServiceWrapper;
 use tvix_store::proto::GRPCPathInfoServiceWrapper;
+use tvix_store::TvixStoreIO;
 
 #[cfg(feature = "reflection")]
 use tvix_store::proto::FILE_DESCRIPTOR_SET;
@@ -85,8 +79,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::subscriber::set_global_default(subscriber).expect("Unable to set global subscriber");
 
     // initialize stores
-    let mut blob_service = SledBlobService::new("blobs.sled".into())?;
-    let mut directory_service = SledDirectoryService::new("directories.sled".into())?;
+    let blob_service = SledBlobService::new("blobs.sled".into())?;
+    let directory_service = SledDirectoryService::new("directories.sled".into())?;
     let path_info_service = SledPathInfoService::new("pathinfo.sled".into())?;
 
     match cli.command {
@@ -134,37 +128,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 directory_service.clone(),
             );
 
+            let mut io = TvixStoreIO::new(
+                blob_service,
+                directory_service,
+                path_info_service,
+                nar_calculation_service,
+            );
+
             for path in paths {
-                let root_node = ingest_path(&mut blob_service, &mut directory_service, &path)?;
+                let path_info = io
+                    .import_path_with_pathinfo(&path)
+                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
 
-                let nar_hash = NixHashWithMode::Recursive(NixHash::new(
-                    HashAlgo::Sha256,
-                    nar_calculation_service
-                        .calculate_nar(&root_node)?
-                        .1
-                        .to_vec(),
-                ));
-
-                let mut drv = Derivation::default();
-                drv.outputs.insert(
-                    "out".to_string(),
-                    Output {
-                        path: "".to_string(),
-                        hash_with_mode: Some(nar_hash),
-                    },
-                );
-                drv.calculate_output_paths(
-                    path.file_name()
-                        .expect("path must not be ..")
-                        .to_str()
-                        .expect("path must be valid unicode"),
-                    // Note the derivation_or_fod_hash argument is *unused* for FODs, so it doesn't matter what we pass here.
-                    &NixHash::new(HashAlgo::Sha256, vec![]),
-                )?;
-
-                println!("{}", drv.outputs.get("out").unwrap().path);
-
-                match root_node {
+                match path_info.node.unwrap().node.unwrap() {
                     tvix_store::proto::node::Node::Directory(directory_node) => {
                         info!(
                             path = ?path,

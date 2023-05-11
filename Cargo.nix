@@ -8033,6 +8033,10 @@ rec {
             packageId = "rayon";
           }
           {
+            name = "serde_json";
+            packageId = "serde_json";
+          }
+          {
             name = "sha2";
             packageId = "sha2 0.10.6";
           }
@@ -8040,6 +8044,10 @@ rec {
             name = "sled";
             packageId = "sled";
             features = [ "compression" ];
+          }
+          {
+            name = "smol_str";
+            packageId = "smol_str";
           }
           {
             name = "thiserror";
@@ -8080,6 +8088,10 @@ rec {
             name = "tracing-subscriber";
             packageId = "tracing-subscriber";
             features = [ "json" ];
+          }
+          {
+            name = "tvix-eval";
+            packageId = "tvix-eval";
           }
           {
             name = "walkdir";
