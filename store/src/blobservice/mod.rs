@@ -2,9 +2,11 @@ use std::io;
 
 use crate::Error;
 
+mod grpc;
 mod memory;
 mod sled;
 
+pub use self::grpc::GRPCBlobService;
 pub use self::memory::MemoryBlobService;
 pub use self::sled::SledBlobService;
 
