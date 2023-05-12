@@ -901,7 +901,7 @@ mod pure_builtins {
     async fn builtin_trace(co: GenCo, message: Value, value: Value) -> Result<Value, ErrorKind> {
         // TODO(grfn): `trace` should be pluggable and capturable, probably via a method on
         // the VM
-        println!("trace: {} :: {}", message, message.type_of());
+        eprintln!("trace: {} :: {}", message, message.type_of());
         Ok(value)
     }
 
