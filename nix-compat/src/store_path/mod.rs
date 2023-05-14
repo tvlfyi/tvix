@@ -44,14 +44,15 @@ impl From<NameError> for Error {
 
 /// Represents a path in the Nix store (a direct child of [STORE_DIR]).
 ///
-/// It starts with a digest (20 bytes), [crate::nixbase32]-encoded,
-/// followed by a `-`, and ends with a `name`, which is a string, consisting only of ASCCI
-/// alphanumeric characters, or one of the following characters: `-`, `_`, `.`,
-/// `+`, `?`, `=`.
-///
+/// It consists of a digest (20 bytes), and a name, which is a string.
+/// The name may only contain ASCII alphanumeric, or one of the following
+/// characters: `-`, `_`, `.`, `+`, `?`, `=`.
 /// The name is usually used to describe the pname and version of a package.
-/// Derivations paths can also be represented as store paths, they end
-/// with .drv.
+/// Derivation paths can also be represented as store paths, their names just
+/// end with the `.drv` prefix.
+///
+/// A [StorePath] does not encode any additional subpath "inside" the store
+/// path.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StorePath {
     pub digest: [u8; DIGEST_SIZE],
@@ -59,6 +60,8 @@ pub struct StorePath {
 }
 
 impl StorePath {
+    /// Construct a [StorePath] by passing the `$digest-$name` string
+    /// that comes after [STORE_DIR_WITH_SLASH].
     pub fn from_string(s: &str) -> Result<StorePath, Error> {
         // the whole string needs to be at least:
         //
@@ -87,7 +90,8 @@ impl StorePath {
     }
 
     /// Construct a [StorePath] from an absolute store path string.
-    /// That is a string starting with the store prefix (/nix/store)
+    /// This is equivalent to calling [StorePath::from_string], but stripping
+    /// the [STORE_DIR_WITH_SLASH] prefix before.
     pub fn from_absolute_path(s: &str) -> Result<StorePath, Error> {
         match s.strip_prefix(STORE_DIR_WITH_SLASH) {
             Some(s_stripped) => Self::from_string(s_stripped),
@@ -96,9 +100,10 @@ impl StorePath {
     }
 
     /// Converts the [StorePath] to an absolute store path string.
-    /// That is a string starting with the store prefix (/nix/store)
+    /// That is just the string representation, prefixed with the store prefix
+    /// ([STORE_DIR_WITH_SLASH]),
     pub fn to_absolute_path(&self) -> String {
-        format!("{}/{}", STORE_DIR, self)
+        format!("{}{}", STORE_DIR_WITH_SLASH, self)
     }
 
     /// Checks a given &str to match the restrictions for store path names.
@@ -123,6 +128,9 @@ impl StorePath {
 }
 
 impl fmt::Display for StorePath {
+    /// The string representation of a store path starts with a digest (20
+    /// bytes), [crate::nixbase32]-encoded, followed by a `-`,
+    /// and ends with the name.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}-{}", nixbase32::encode(&self.digest), self.name)
     }
