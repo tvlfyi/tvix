@@ -2640,6 +2640,7 @@ dependencies = [
  "ssri",
  "thiserror",
  "tvix-eval",
+ "tvix-store",
  "wu-manber",
 ]
 

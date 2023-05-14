@@ -7770,6 +7770,10 @@ rec {
             packageId = "tvix-eval";
           }
           {
+            name = "tvix-store";
+            packageId = "tvix-store";
+          }
+          {
             name = "wu-manber";
             packageId = "wu-manber";
           }

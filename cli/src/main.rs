@@ -14,6 +14,9 @@ use known_paths::KnownPaths;
 use rustyline::{error::ReadlineError, Editor};
 use tvix_eval::observer::{DisassemblingObserver, TracingObserver};
 use tvix_eval::{Builtin, Value};
+use tvix_store::blobservice::MemoryBlobService;
+use tvix_store::directoryservice::MemoryDirectoryService;
+use tvix_store::pathinfoservice::MemoryPathInfoService;
 
 #[derive(Parser)]
 struct Args {
@@ -63,9 +66,23 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
     let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
 
     eval.strict = args.strict;
+
+    let blob_service = MemoryBlobService::default();
+    let directory_service = MemoryDirectoryService::default();
+    let path_info_service = MemoryPathInfoService::default();
+    let nar_calculation_service = tvix_store::nar::NonCachingNARCalculationService::new(
+        blob_service.clone(),
+        directory_service.clone(),
+    );
+
     eval.io_handle = Box::new(tvix_io::TvixIO::new(
         known_paths.clone(),
-        nix_compat::NixCompatIO::new(),
+        tvix_store::TvixStoreIO::new(
+            blob_service,
+            directory_service,
+            path_info_service,
+            nar_calculation_service,
+        ),
     ));
 
     // bundle fetchurl.nix (used in nixpkgs) by resolving <nix> to
