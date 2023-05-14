@@ -161,13 +161,13 @@ mod tests {
     #[test]
     fn invalid_hash_length() {
         StorePath::from_string("00bgd045z0d4icpbc2yy-net-tools-1.60_p20170221182432")
-            .expect_err("No error raised.");
+            .expect_err("must fail");
     }
 
     #[test]
     fn invalid_encoding_hash() {
         StorePath::from_string("00bgd045z0d4icpbc2yyz4gx48aku4la-net-tools-1.60_p20170221182432")
-            .expect_err("No error raised.");
+            .expect_err("must fail");
     }
 
     #[test]
@@ -175,13 +175,13 @@ mod tests {
         StorePath::from_string(
             "00bgd045z0d4icpbc2yyz4gx48aku4la-net-tools-1.60_p20170221182432/bin/arp",
         )
-        .expect_err("No error raised.");
+        .expect_err("must fail");
     }
 
     #[test]
     fn no_dash_between_hash_and_name() {
         StorePath::from_string("00bgd045z0d4icpbc2yyz4gx48ak44lanet-tools-1.60_p20170221182432")
-            .expect_err("No error raised.");
+            .expect_err("must fail");
     }
 
     #[test]
