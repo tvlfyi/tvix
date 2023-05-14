@@ -2,11 +2,13 @@ use crate::{proto, Error};
 mod grpc;
 mod memory;
 mod sled;
+mod traverse;
 mod utils;
 
 pub use self::grpc::GRPCDirectoryService;
 pub use self::memory::MemoryDirectoryService;
 pub use self::sled::SledDirectoryService;
+pub use self::traverse::traverse_to;
 pub use self::utils::DirectoryTraverser;
 
 /// The base trait all Directory services need to implement.
