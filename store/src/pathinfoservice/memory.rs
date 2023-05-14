@@ -1,36 +1,22 @@
+use super::PathInfoService;
+use crate::{proto, Error};
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
 };
 
-use crate::{proto, Error};
-use nix_compat::store_path::DIGEST_SIZE;
-
-use super::PathInfoService;
-
 #[derive(Default)]
 pub struct MemoryPathInfoService {
-    db: Arc<RwLock<HashMap<Vec<u8>, proto::PathInfo>>>,
+    db: Arc<RwLock<HashMap<[u8; 20], proto::PathInfo>>>,
 }
 
 impl PathInfoService for MemoryPathInfoService {
-    fn get(
-        &self,
-        by_what: proto::get_path_info_request::ByWhat,
-    ) -> Result<Option<proto::PathInfo>, Error> {
-        match by_what {
-            proto::get_path_info_request::ByWhat::ByOutputHash(digest) => {
-                if digest.len() != DIGEST_SIZE {
-                    return Err(Error::InvalidRequest("invalid digest length".to_string()));
-                }
+    fn get(&self, digest: [u8; 20]) -> Result<Option<proto::PathInfo>, Error> {
+        let db = self.db.read().unwrap();
 
-                let db = self.db.read().unwrap();
-
-                match db.get(&digest) {
-                    None => Ok(None),
-                    Some(path_info) => Ok(Some(path_info.clone())),
-                }
-            }
+        match db.get(&digest) {
+            None => Ok(None),
+            Some(path_info) => Ok(Some(path_info.clone())),
         }
     }
 
@@ -46,7 +32,7 @@ impl PathInfoService for MemoryPathInfoService {
             // This overwrites existing PathInfo objects.
             Ok(nix_path) => {
                 let mut db = self.db.write().unwrap();
-                db.insert(nix_path.digest.to_vec(), path_info.clone());
+                db.insert(nix_path.digest, path_info.clone());
 
                 Ok(path_info)
             }

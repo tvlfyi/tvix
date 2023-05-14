@@ -28,10 +28,7 @@ impl GRPCPathInfoService {
 }
 
 impl PathInfoService for GRPCPathInfoService {
-    fn get(
-        &self,
-        by_what: proto::get_path_info_request::ByWhat,
-    ) -> Result<Option<proto::PathInfo>, crate::Error> {
+    fn get(&self, digest: [u8; 20]) -> Result<Option<proto::PathInfo>, crate::Error> {
         // Get a new handle to the gRPC client.
         let mut grpc_client = self.grpc_client.clone();
 
@@ -39,7 +36,9 @@ impl PathInfoService for GRPCPathInfoService {
             self.tokio_handle.spawn(async move {
                 let path_info = grpc_client
                     .get(proto::GetPathInfoRequest {
-                        by_what: Some(by_what),
+                        by_what: Some(proto::get_path_info_request::ByWhat::ByOutputHash(
+                            digest.to_vec(),
+                        )),
                     })
                     .await?
                     .into_inner();

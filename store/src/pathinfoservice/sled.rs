@@ -1,10 +1,8 @@
+use super::PathInfoService;
 use crate::{proto, Error};
-use nix_compat::store_path::DIGEST_SIZE;
 use prost::Message;
 use std::path::PathBuf;
 use tracing::warn;
-
-use super::PathInfoService;
 
 /// SledPathInfoService stores PathInfo in a [sled](https://github.com/spacejam/sled).
 ///
@@ -31,36 +29,25 @@ impl SledPathInfoService {
 }
 
 impl PathInfoService for SledPathInfoService {
-    fn get(
-        &self,
-        by_what: proto::get_path_info_request::ByWhat,
-    ) -> Result<Option<proto::PathInfo>, Error> {
-        match by_what {
-            proto::get_path_info_request::ByWhat::ByOutputHash(digest) => {
-                if digest.len() != DIGEST_SIZE {
-                    return Err(Error::InvalidRequest("invalid digest length".to_string()));
+    fn get(&self, digest: [u8; 20]) -> Result<Option<proto::PathInfo>, Error> {
+        match self.db.get(digest) {
+            Ok(None) => Ok(None),
+            Ok(Some(data)) => match proto::PathInfo::decode(&*data) {
+                Ok(path_info) => Ok(Some(path_info)),
+                Err(e) => {
+                    warn!("failed to decode stored PathInfo: {}", e);
+                    Err(Error::StorageError(format!(
+                        "failed to decode stored PathInfo: {}",
+                        e
+                    )))
                 }
-
-                match self.db.get(digest) {
-                    Ok(None) => Ok(None),
-                    Ok(Some(data)) => match proto::PathInfo::decode(&*data) {
-                        Ok(path_info) => Ok(Some(path_info)),
-                        Err(e) => {
-                            warn!("failed to decode stored PathInfo: {}", e);
-                            Err(Error::StorageError(format!(
-                                "failed to decode stored PathInfo: {}",
-                                e
-                            )))
-                        }
-                    },
-                    Err(e) => {
-                        warn!("failed to retrieve PathInfo: {}", e);
-                        Err(Error::StorageError(format!(
-                            "failed to retrieve PathInfo: {}",
-                            e
-                        )))
-                    }
-                }
+            },
+            Err(e) => {
+                warn!("failed to retrieve PathInfo: {}", e);
+                Err(Error::StorageError(format!(
+                    "failed to retrieve PathInfo: {}",
+                    e
+                )))
             }
         }
     }

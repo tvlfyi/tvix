@@ -31,14 +31,19 @@ impl<
     ) -> Result<Response<proto::PathInfo>> {
         match request.into_inner().by_what {
             None => Err(Status::unimplemented("by_what needs to be specified")),
-            Some(by_what) => match self.path_info_service.get(by_what) {
-                Ok(None) => Err(Status::not_found("PathInfo not found")),
-                Ok(Some(path_info)) => Ok(Response::new(path_info)),
-                Err(e) => {
-                    warn!("failed to retrieve PathInfo: {}", e);
-                    Err(e.into())
+            Some(proto::get_path_info_request::ByWhat::ByOutputHash(digest)) => {
+                let digest: [u8; 20] = digest
+                    .try_into()
+                    .map_err(|_e| Status::invalid_argument("invalid digest length"))?;
+                match self.path_info_service.get(digest) {
+                    Ok(None) => Err(Status::not_found("PathInfo not found")),
+                    Ok(Some(path_info)) => Ok(Response::new(path_info)),
+                    Err(e) => {
+                        warn!("failed to retrieve PathInfo: {}", e);
+                        Err(e.into())
+                    }
                 }
-            },
+            }
         }
     }
 
