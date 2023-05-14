@@ -40,7 +40,7 @@ impl EvalIO for NixCompatIO {
     }
 
     // Pass path imports through to `nix-store --add`
-    fn import_path(&self, path: &Path) -> Result<PathBuf, ErrorKind> {
+    fn import_path(&mut self, path: &Path) -> Result<PathBuf, ErrorKind> {
         let path = path.to_owned();
         if let Some(path) = self.import_cache.borrow().get(&path) {
             return Ok(path.to_path_buf());
@@ -58,7 +58,7 @@ impl EvalIO for NixCompatIO {
     }
 
     // Pass the rest of the functions through to `Self::underlying`
-    fn path_exists(&self, path: PathBuf) -> Result<bool, ErrorKind> {
+    fn path_exists(&mut self, path: PathBuf) -> Result<bool, ErrorKind> {
         if path.starts_with("/__corepkgs__") {
             return Ok(true);
         }
@@ -66,7 +66,7 @@ impl EvalIO for NixCompatIO {
         self.underlying.path_exists(path)
     }
 
-    fn read_to_string(&self, path: PathBuf) -> Result<String, ErrorKind> {
+    fn read_to_string(&mut self, path: PathBuf) -> Result<String, ErrorKind> {
         // Bundled version of corepkgs/fetchurl.nix. This workaround
         // is similar to what cppnix does for passing the path
         // through.
@@ -80,7 +80,7 @@ impl EvalIO for NixCompatIO {
         self.underlying.read_to_string(path)
     }
 
-    fn read_dir(&self, path: PathBuf) -> Result<Vec<(SmolStr, FileType)>, ErrorKind> {
+    fn read_dir(&mut self, path: PathBuf) -> Result<Vec<(SmolStr, FileType)>, ErrorKind> {
         self.underlying.read_dir(path)
     }
 }

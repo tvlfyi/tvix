@@ -834,7 +834,7 @@ impl<'o> VM<'o> {
                     Value::UnresolvedPath(path) => {
                         let resolved = self
                             .nix_search_path
-                            .resolve(&*self.io_handle, *path)
+                            .resolve(&mut *self.io_handle, *path)
                             .with_span(&frame, self)?;
                         self.stack.push(resolved.into());
                     }
