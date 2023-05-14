@@ -1,5 +1,5 @@
 use crate::nixbase32::{self, Nixbase32DecodeError};
-use std::fmt;
+use std::{fmt, path::PathBuf};
 use thiserror::Error;
 
 mod utils;
@@ -99,6 +99,36 @@ impl StorePath {
         }
     }
 
+    /// Decompose a string into a [StorePath] and a [PathBuf] containing the
+    /// rest of the path, or an error.
+    pub fn from_absolute_path_full(s: &str) -> Result<(StorePath, PathBuf), Error> {
+        // strip [STORE_DIR_WITH_SLASH] from s
+        match s.strip_prefix(STORE_DIR_WITH_SLASH) {
+            None => Err(Error::MissingStoreDir()),
+            Some(rest) => {
+                // put rest in a PathBuf
+                let mut p = PathBuf::new();
+                p.push(rest);
+
+                let mut it = p.components();
+
+                // The first component of the rest must be parse-able as a [StorePath]
+                if let Some(s) = it.next() {
+                    // convert first component to string
+                    if let Some(s) = s.as_os_str().to_str() {
+                        let store_path = StorePath::from_string(s)?;
+                        let rest_buf: PathBuf = it.collect();
+                        Ok((store_path, rest_buf))
+                    } else {
+                        Err(Error::InvalidName(NameError::InvalidName("".to_string())))
+                    }
+                } else {
+                    Err(Error::InvalidName(NameError::InvalidName("".to_string())))
+                }
+            }
+        }
+    }
+
     /// Converts the [StorePath] to an absolute store path string.
     /// That is just the string representation, prefixed with the store prefix
     /// ([STORE_DIR_WITH_SLASH]),
@@ -138,10 +168,13 @@ impl fmt::Display for StorePath {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use crate::nixbase32;
     use crate::store_path::{DIGEST_SIZE, ENCODED_DIGEST_SIZE};
+    use test_case::test_case;
 
-    use super::{Error, StorePath};
+    use super::{Error, NameError, StorePath};
 
     #[test]
     fn encoded_digest_size() {
@@ -216,6 +249,46 @@ mod tests {
         assert_eq!(
             Error::MissingStoreDir(),
             StorePath::from_absolute_path("foobar-123").expect_err("must fail")
+        );
+    }
+
+    #[test_case(
+        "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432",
+        (StorePath::from_string("00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432").unwrap(), PathBuf::new())
+    ; "without prefix")]
+    #[test_case(
+        "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432/",
+        (StorePath::from_string("00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432").unwrap(), PathBuf::new())
+    ; "without prefix, but trailing slash")]
+    #[test_case(
+        "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432/bin/arp",
+        (StorePath::from_string("00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432").unwrap(), PathBuf::from("bin/arp"))
+    ; "with prefix")]
+    #[test_case(
+        "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432/bin/arp/",
+        (StorePath::from_string("00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432").unwrap(), PathBuf::from("bin/arp/"))
+    ; "with prefix and trailing slash")]
+    fn from_absolute_path_full(s: &str, expected: (StorePath, PathBuf)) {
+        let actual = StorePath::from_absolute_path_full(s).expect("must succeed");
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn from_absolute_path_errors() {
+        assert_eq!(
+            Error::InvalidName(NameError::InvalidName("".to_string())),
+            StorePath::from_absolute_path_full("/nix/store/").expect_err("must fail")
+        );
+        assert_eq!(
+            Error::InvalidName(NameError::InvalidName("".to_string())),
+            StorePath::from_absolute_path_full("/nix/store/foo").expect_err("must fail")
+        );
+        assert_eq!(
+            Error::MissingStoreDir(),
+            StorePath::from_absolute_path_full(
+                "00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432"
+            )
+            .expect_err("must fail")
         );
     }
 }
