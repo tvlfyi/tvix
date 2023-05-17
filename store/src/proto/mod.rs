@@ -53,7 +53,7 @@ pub enum ValidatePathInfoError {
     NoNodePresent(),
 
     /// Invalid node name encountered.
-    #[error("Failed to parse {0} as NixPath: {1}")]
+    #[error("Failed to parse {0} as StorePath: {1}")]
     InvalidNodeName(String, store_path::Error),
 
     /// The digest the (root) node refers to has invalid length.
