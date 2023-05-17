@@ -1,7 +1,7 @@
 use super::utils::{gen_blob_service, gen_directory_service};
 use crate::blobservice::BlobService;
 use crate::directoryservice::DirectoryService;
-use crate::import::import_path;
+use crate::import::ingest_path;
 use crate::proto;
 use crate::tests::fixtures::DIRECTORY_COMPLICATED;
 use crate::tests::fixtures::*;
@@ -19,7 +19,7 @@ fn symlink() {
     )
     .unwrap();
 
-    let root_node = import_path(
+    let root_node = ingest_path(
         &mut gen_blob_service(),
         &mut gen_directory_service(),
         tmpdir.path().join("doesntmatter"),
@@ -43,7 +43,7 @@ fn single_file() {
 
     let mut blob_service = gen_blob_service();
 
-    let root_node = import_path(
+    let root_node = ingest_path(
         &mut blob_service,
         &mut gen_directory_service(),
         tmpdir.path().join("root"),
@@ -82,7 +82,7 @@ fn complicated() {
     let mut blob_service = gen_blob_service();
     let mut directory_service = gen_directory_service();
 
-    let root_node = import_path(&mut blob_service, &mut directory_service, tmpdir.path())
+    let root_node = ingest_path(&mut blob_service, &mut directory_service, tmpdir.path())
         .expect("must succeed");
 
     // ensure root_node matched expectations

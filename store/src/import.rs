@@ -136,14 +136,15 @@ fn process_entry<BS: BlobService, DP: DirectoryPutter>(
     todo!("handle other types")
 }
 
-/// Imports the contents at a given Path into the tvix store.
+/// Ingests the contents at the given path into the tvix store,
+/// interacting with a [BlobService] and [DirectoryService].
+/// It returns the root node or an error.
 ///
-/// It doesn't register the contents at a Path in the store itself, that's up
-/// to the PathInfoService.
-//
-// returns the root node, or an error.
+/// It's not interacting with a [PathInfoService], it's up to the caller to
+/// possibly register it somewhere (and potentially rename it based on some
+/// naming scheme.
 #[instrument(skip(blob_service, directory_service), fields(path=?p))]
-pub fn import_path<BS: BlobService, DS: DirectoryService, P: AsRef<Path> + Debug>(
+pub fn ingest_path<BS: BlobService, DS: DirectoryService, P: AsRef<Path> + Debug>(
     blob_service: &mut BS,
     directory_service: &mut DS,
     p: P,

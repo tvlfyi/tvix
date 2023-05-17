@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use tracing_subscriber::prelude::*;
 use tvix_store::blobservice::SledBlobService;
 use tvix_store::directoryservice::SledDirectoryService;
-use tvix_store::import::import_path;
+use tvix_store::import::ingest_path;
 use tvix_store::nar::NARCalculationService;
 use tvix_store::nar::NonCachingNARCalculationService;
 use tvix_store::pathinfoservice::SledPathInfoService;
@@ -135,7 +135,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
 
             for path in paths {
-                let root_node = import_path(&mut blob_service, &mut directory_service, &path)?;
+                let root_node = ingest_path(&mut blob_service, &mut directory_service, &path)?;
 
                 let nar_hash = NixHashWithMode::Recursive(NixHash::new(
                     HashAlgo::Sha256,
