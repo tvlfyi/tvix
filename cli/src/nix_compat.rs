@@ -9,10 +9,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
-use std::rc::Rc;
 use std::{io, path::PathBuf};
 
-use crate::known_paths::KnownPaths;
 use smol_str::SmolStr;
 use tvix_eval::{ErrorKind, EvalIO, FileType, StdIO};
 
@@ -22,10 +20,6 @@ pub struct NixCompatIO {
     /// Most IO requests are tunneled through to [`tvix_eval::StdIO`]
     /// instead.
     underlying: StdIO,
-
-    /// Ingested paths must be reported to this known paths tracker
-    /// for accurate build reference scanning.
-    known_paths: Rc<RefCell<KnownPaths>>,
 
     /// Cache paths for identical files being imported to the store.
     // TODO(tazjin): This could be done better by having a thunk cache
@@ -86,11 +80,10 @@ impl EvalIO for NixCompatIO {
 }
 
 impl NixCompatIO {
-    pub fn new(known_paths: Rc<RefCell<KnownPaths>>) -> Self {
+    pub fn new() -> Self {
         NixCompatIO {
             underlying: StdIO,
             import_cache: RefCell::new(HashMap::new()),
-            known_paths,
         }
     }
 
@@ -117,8 +110,6 @@ impl NixCompatIO {
         let out_path_str = String::from_utf8(out.stdout)
             .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
         let out_path_trimmed = out_path_str.trim();
-
-        self.known_paths.borrow_mut().plain(out_path_trimmed);
 
         let mut out_path = PathBuf::new();
         out_path.push(out_path_trimmed);

@@ -3,6 +3,7 @@ mod errors;
 mod known_paths;
 mod nix_compat;
 mod refscan;
+mod tvix_io;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -62,7 +63,10 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
     let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
 
     eval.strict = args.strict;
-    eval.io_handle = Box::new(nix_compat::NixCompatIO::new(known_paths.clone()));
+    eval.io_handle = Box::new(tvix_io::TvixIO::new(
+        known_paths.clone(),
+        nix_compat::NixCompatIO::new(),
+    ));
 
     // bundle fetchurl.nix (used in nixpkgs) by resolving <nix> to
     // `/__corepkgs__`, which has special handling in [`nix_compat`].
