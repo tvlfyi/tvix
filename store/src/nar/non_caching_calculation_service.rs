@@ -36,7 +36,7 @@ impl<BS: BlobService, DS: DirectoryService> NARCalculationService
         self.nar_renderer.write_nar(&mut cw, root_node)?;
 
         Ok(proto::CalculateNarResponse {
-            nar_size: cw.count() as u32,
+            nar_size: cw.count() as u64,
             nar_sha256: cw.into_inner().finalize().to_vec(),
         })
     }

@@ -48,7 +48,7 @@ message NARInfo {
     };
 
     // This size of the NAR file, in bytes.
-    uint32 nar_size = 1;
+    uint64 nar_size = 1;
 
     // The sha256 of the NAR file representation.
     bytes nar_sha256 = 2;
