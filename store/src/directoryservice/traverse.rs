@@ -1,6 +1,5 @@
 use super::DirectoryService;
-use crate::Error;
-use std::os::unix::prelude::OsStrExt;
+use crate::{proto::NamedNode, Error};
 use tracing::{instrument, warn};
 
 /// This traverses from a (root) node to the given (sub)path, returning the Node
@@ -33,9 +32,6 @@ pub fn traverse_to<DS: DirectoryService>(
             Ok(Some(node))
         }
         Some(first_component) => {
-            // convert first_component to bytes, which are later used for comparison.
-            let first_component_bytes: &[u8] = first_component.as_os_str().as_bytes();
-
             match node {
                 crate::proto::node::Node::File(_) | crate::proto::node::Node::Symlink(_) => {
                     // There's still some path left, but the current node is no directory.
@@ -54,25 +50,18 @@ pub fn traverse_to<DS: DirectoryService>(
                         None => {
                             let digest_b64 = data_encoding::BASE64.encode(&digest);
                             warn!("directory {} does not exist", digest_b64);
-                            return Err(Error::StorageError(format!(
+
+                            Err(Error::StorageError(format!(
                                 "directory {} does not exist",
                                 digest_b64
-                            )));
+                            )))
                         }
                         Some(directory) => {
                             // look for first_component in the [Directory].
                             // FUTUREWORK: as the nodes() iterator returns in a sorted fashion, we
                             // could stop as soon as e.name is larger than the search string.
-                            let child_node = directory.nodes().find(|n| match n {
-                                crate::proto::node::Node::Directory(e) => {
-                                    &e.name.to_string().into_bytes() == first_component_bytes
-                                }
-                                crate::proto::node::Node::File(e) => {
-                                    &e.name.to_string().into_bytes() == first_component_bytes
-                                }
-                                crate::proto::node::Node::Symlink(e) => {
-                                    &e.name.to_string().into_bytes() == first_component_bytes
-                                }
+                            let child_node = directory.nodes().find(|n| {
+                                n.get_name() == first_component.as_os_str().to_str().unwrap()
                             });
 
                             match child_node {
