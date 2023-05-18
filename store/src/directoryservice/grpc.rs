@@ -434,6 +434,14 @@ mod tests {
                 .put(DIRECTORY_B.clone())
                 .expect_err("must fail");
 
+            // Putting DIRECTORY_B in a put_multiple will succeed, but the close
+            // will always fail.
+            {
+                let mut handle = directory_service.put_multiple_start();
+                handle.put(DIRECTORY_B.clone()).expect("must succeed");
+                handle.close().expect_err("must fail");
+            }
+
             // Uploading A and then B should succeed, and closing should return the digest of B.
             let mut handle = directory_service.put_multiple_start();
             handle.put(DIRECTORY_A.clone()).expect("must succeed");
@@ -458,36 +466,49 @@ mod tests {
                     .expect("must succeed")
             );
 
-            // Uploading B and then A should fail during close (if we're a
-            // fast client)
-            let mut handle = directory_service.put_multiple_start();
-            handle.put(DIRECTORY_B.clone()).expect("must succeed");
-            handle.put(DIRECTORY_A.clone()).expect("must succeed");
-            handle.close().expect_err("must fail");
+            // Uploading B and then A should fail, because B refers to A, which
+            // hasn't been uploaded yet.
+            // However, the client can burst, so we might not have received the
+            // error back from the server.
+            {
+                let mut handle = directory_service.put_multiple_start();
+                // sending out B will always be fine
+                handle.put(DIRECTORY_B.clone()).expect("must succeed");
 
-            // Below test is a bit timing sensitive. We send B (which refers to
-            // A, so should fail), and wait sufficiently enough for the server
-            // to close us the stream,
-            // and then assert that uploading anything else via the handle will fail.
-
-            let mut handle = directory_service.put_multiple_start();
-            handle.put(DIRECTORY_B.clone()).expect("must succeed");
-
-            let mut is_closed = false;
-            for _try in 1..20 {
-                if handle.is_closed() {
-                    is_closed = true;
-                    break;
+                // whether we will be able to put A as well depends on whether we
+                // already received the error about B.
+                if handle.put(DIRECTORY_A.clone()).is_ok() {
+                    // If we didn't, and this was Ok(_), …
+                    // a subsequent close MUST fail (because it waits for the
+                    // server)
+                    handle.close().expect_err("must fail");
                 }
-                std::thread::sleep(time::Duration::from_millis(200))
             }
 
-            assert!(
-                is_closed,
-                "expected channel to eventually close, but never happened"
-            );
+            // Now we do the same test as before, send B, then A, but wait
+            // sufficiently enough for the server to have s
+            // to close us the stream,
+            // and then assert that uploading anything else via the handle will fail.
+            {
+                let mut handle = directory_service.put_multiple_start();
+                handle.put(DIRECTORY_B.clone()).expect("must succeed");
 
-            handle.put(DIRECTORY_A.clone()).expect_err("must fail");
+                let mut is_closed = false;
+                for _try in 1..1000 {
+                    if handle.is_closed() {
+                        is_closed = true;
+                        break;
+                    }
+                    std::thread::sleep(time::Duration::from_millis(10))
+                }
+
+                assert!(
+                    is_closed,
+                    "expected channel to eventually close, but never happened"
+                );
+
+                handle.put(DIRECTORY_A.clone()).expect_err("must fail");
+            }
         });
 
         tester_runtime.block_on(task)?;
