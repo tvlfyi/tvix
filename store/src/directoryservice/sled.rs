@@ -1,6 +1,5 @@
 use crate::proto::Directory;
-use crate::{proto, Error};
-use data_encoding::BASE64;
+use crate::{proto, B3Digest, Error};
 use prost::Message;
 use std::path::PathBuf;
 use tracing::{instrument, warn};
@@ -32,9 +31,9 @@ impl SledDirectoryService {
 impl DirectoryService for SledDirectoryService {
     type DirectoriesIterator = DirectoryTraverser<Self>;
 
-    #[instrument(name = "SledDirectoryService::get", skip(self, digest), fields(directory.digest = BASE64.encode(digest)))]
-    fn get(&self, digest: &[u8; 32]) -> Result<Option<proto::Directory>, Error> {
-        match self.db.get(digest) {
+    #[instrument(name = "SledDirectoryService::get", skip(self, digest), fields(directory.digest = %digest))]
+    fn get(&self, digest: &B3Digest) -> Result<Option<proto::Directory>, Error> {
+        match self.db.get(digest.to_vec()) {
             // The directory was not found, return
             Ok(None) => Ok(None),
 
@@ -44,11 +43,10 @@ impl DirectoryService for SledDirectoryService {
                     // Validate the retrieved Directory indeed has the
                     // digest we expect it to have, to detect corruptions.
                     let actual_digest = directory.digest();
-                    if actual_digest.as_slice() != digest {
+                    if actual_digest != *digest {
                         return Err(Error::StorageError(format!(
                             "requested directory with digest {}, but got {}",
-                            BASE64.encode(digest),
-                            BASE64.encode(&actual_digest)
+                            digest, actual_digest
                         )));
                     }
 
@@ -57,15 +55,14 @@ impl DirectoryService for SledDirectoryService {
                         warn!("directory failed validation: {}", e.to_string());
                         return Err(Error::StorageError(format!(
                             "directory {} failed validation: {}",
-                            BASE64.encode(&actual_digest),
-                            e,
+                            actual_digest, e,
                         )));
                     }
 
                     Ok(Some(directory))
                 }
                 Err(e) => {
-                    warn!("unable to parse directory {}: {}", BASE64.encode(digest), e);
+                    warn!("unable to parse directory {}: {}", digest, e);
                     Err(Error::StorageError(e.to_string()))
                 }
             },
@@ -74,28 +71,27 @@ impl DirectoryService for SledDirectoryService {
         }
     }
 
-    #[instrument(name = "SledDirectoryService::put", skip(self, directory), fields(directory.digest = BASE64.encode(&directory.digest())))]
-    fn put(&self, directory: proto::Directory) -> Result<[u8; 32], Error> {
+    #[instrument(name = "SledDirectoryService::put", skip(self, directory), fields(directory.digest = %directory.digest()))]
+    fn put(&self, directory: proto::Directory) -> Result<B3Digest, Error> {
         let digest = directory.digest();
 
         // validate the directory itself.
         if let Err(e) = directory.validate() {
             return Err(Error::InvalidRequest(format!(
                 "directory {} failed validation: {}",
-                BASE64.encode(&digest),
-                e,
+                digest, e,
             )));
         }
         // store it
-        let result = self.db.insert(digest, directory.encode_to_vec());
+        let result = self.db.insert(digest.to_vec(), directory.encode_to_vec());
         if let Err(e) = result {
             return Err(Error::StorageError(e.to_string()));
         }
         Ok(digest)
     }
 
-    #[instrument(skip_all, fields(directory.digest = BASE64.encode(root_directory_digest)))]
-    fn get_recursive(&self, root_directory_digest: &[u8; 32]) -> Self::DirectoriesIterator {
+    #[instrument(skip_all, fields(directory.digest = %root_directory_digest))]
+    fn get_recursive(&self, root_directory_digest: &B3Digest) -> Self::DirectoriesIterator {
         DirectoryTraverser::with(self.clone(), root_directory_digest)
     }
 

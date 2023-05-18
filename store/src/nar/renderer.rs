@@ -4,6 +4,7 @@ use crate::{
     blobservice::BlobService,
     directoryservice::DirectoryService,
     proto::{self, NamedNode},
+    B3Digest,
 };
 use data_encoding::BASE64;
 use nix_compat::nar;
@@ -82,16 +83,12 @@ impl<BS: BlobService, DS: DirectoryService> NARRenderer<BS, DS> {
                     .map_err(RenderError::NARWriterError)?;
             }
             proto::node::Node::Directory(proto_directory_node) => {
-                let digest: [u8; 32] =
-                    proto_directory_node
-                        .digest
-                        .to_owned()
-                        .try_into()
-                        .map_err(|_e| {
-                            RenderError::StoreError(crate::Error::StorageError(
-                                "invalid digest len in directory node".to_string(),
-                            ))
-                        })?;
+                let digest =
+                    B3Digest::from_vec(proto_directory_node.digest.to_vec()).map_err(|_e| {
+                        RenderError::StoreError(crate::Error::StorageError(
+                            "invalid digest len in directory node".to_string(),
+                        ))
+                    })?;
 
                 // look it up with the directory service
                 let resp = self
@@ -103,7 +100,7 @@ impl<BS: BlobService, DS: DirectoryService> NARRenderer<BS, DS> {
                     // if it's None, that's an error!
                     None => {
                         return Err(RenderError::DirectoryNotFound(
-                            digest.to_vec(),
+                            digest,
                             proto_directory_node.name.to_owned(),
                         ))
                     }

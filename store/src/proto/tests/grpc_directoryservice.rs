@@ -76,7 +76,7 @@ async fn put_get() {
         .into_inner();
 
     // the sent root_digest should match the calculated digest
-    assert_eq!(put_resp.root_digest, DIRECTORY_A.digest());
+    assert_eq!(put_resp.root_digest, DIRECTORY_A.digest().to_vec());
 
     // get it back
     let items = get_directories(

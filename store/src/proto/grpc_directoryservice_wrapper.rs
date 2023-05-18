@@ -1,6 +1,5 @@
-use crate::directoryservice::DirectoryService;
 use crate::proto;
-use data_encoding::BASE64;
+use crate::{directoryservice::DirectoryService, B3Digest};
 use std::collections::HashMap;
 use tokio::{sync::mpsc::channel, task};
 use tokio_stream::wrappers::ReceiverStream;
@@ -41,12 +40,8 @@ impl<DS: DirectoryService + Send + Sync + Clone + 'static>
             match &req_inner.by_what {
                 None => return Err(Status::invalid_argument("by_what needs to be specified")),
                 Some(proto::get_directory_request::ByWhat::Digest(digest)) => {
-                    let digest: [u8; 32] = digest
-                        .as_slice()
-                        .try_into()
+                    let digest = B3Digest::from_vec(digest.to_vec())
                         .map_err(|_e| Status::invalid_argument("invalid digest length"))?;
-
-                    let digest_b64: String = BASE64.encode(&digest);
 
                     task::spawn(async move {
                         if !req_inner.recursive {
@@ -55,7 +50,7 @@ impl<DS: DirectoryService + Send + Sync + Clone + 'static>
                                     Ok(Some(directory)) => Ok(directory),
                                     Ok(None) => Err(Status::not_found(format!(
                                         "directory {} not found",
-                                        digest_b64
+                                        digest
                                     ))),
                                     Err(e) => Err(e.into()),
                                 };
@@ -97,8 +92,8 @@ impl<DS: DirectoryService + Send + Sync + Clone + 'static>
         // This keeps track of the seen directory keys, and their size.
         // This is used to validate the size field of a reference to a previously sent directory.
         // We don't need to keep the contents around, they're stored in the DB.
-        let mut seen_directories_sizes: HashMap<[u8; 32], u32> = HashMap::new();
-        let mut last_directory_dgst: Option<[u8; 32]> = None;
+        let mut seen_directories_sizes: HashMap<B3Digest, u32> = HashMap::new();
+        let mut last_directory_dgst: Option<B3Digest> = None;
 
         // Consume directories, and insert them into the store.
         // Reject directory messages that refer to Directories not sent in the same stream.
@@ -107,7 +102,7 @@ impl<DS: DirectoryService + Send + Sync + Clone + 'static>
             if let Err(e) = directory.validate() {
                 return Err(Status::invalid_argument(format!(
                     "directory {} failed validation: {}",
-                    BASE64.encode(&directory.digest()),
+                    directory.digest(),
                     e,
                 )));
             }
@@ -116,10 +111,7 @@ impl<DS: DirectoryService + Send + Sync + Clone + 'static>
             // to ensure it has been seen already in this stream, and that the size
             // matches what we recorded.
             for child_directory in &directory.directories {
-                let child_directory_digest: [u8; 32] = child_directory
-                    .digest
-                    .clone()
-                    .try_into()
+                let child_directory_digest = B3Digest::from_vec(child_directory.digest.to_vec())
                     .map_err(|_e| Status::internal("invalid child directory digest len"))?;
 
                 match seen_directories_sizes.get(&child_directory_digest) {
@@ -127,8 +119,8 @@ impl<DS: DirectoryService + Send + Sync + Clone + 'static>
                         return Err(Status::invalid_argument(format!(
                             "child directory '{}' ({}) in directory '{}' not seen yet",
                             child_directory.name,
-                            BASE64.encode(&child_directory_digest),
-                            BASE64.encode(&directory.digest()),
+                            &child_directory_digest,
+                            &directory.digest(),
                         )));
                     }
                     Some(seen_child_directory_size) => {
@@ -136,11 +128,11 @@ impl<DS: DirectoryService + Send + Sync + Clone + 'static>
                             return Err(Status::invalid_argument(format!(
                                     "child directory '{}' ({}) in directory '{}' referred with wrong size, expected {}, actual {}",
                                     child_directory.name,
-                                    BASE64.encode(&child_directory_digest),
-                                    BASE64.encode(&directory.digest()),
+                                    &child_directory_digest,
+                                    &directory.digest(),
                                     seen_child_directory_size,
                                     child_directory.size,
-                                )));
+                            )));
                         }
                     }
                 }
@@ -154,8 +146,8 @@ impl<DS: DirectoryService + Send + Sync + Clone + 'static>
             // reachable from that (root) node.
 
             let dgst = directory.digest();
-            seen_directories_sizes.insert(dgst, directory.size());
-            last_directory_dgst = Some(dgst);
+            seen_directories_sizes.insert(dgst.clone(), directory.size());
+            last_directory_dgst = Some(dgst.clone());
 
             // check if the directory already exists in the database. We can skip
             // inserting if it's already there, as that'd be a no-op.

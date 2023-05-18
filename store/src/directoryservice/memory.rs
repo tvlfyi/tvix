@@ -1,5 +1,4 @@
-use crate::{proto, Error};
-use data_encoding::BASE64;
+use crate::{proto, B3Digest, Error};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use tracing::{instrument, warn};
@@ -9,17 +8,17 @@ use super::{DirectoryService, DirectoryTraverser};
 
 #[derive(Clone, Default)]
 pub struct MemoryDirectoryService {
-    db: Arc<RwLock<HashMap<[u8; 32], proto::Directory>>>,
+    db: Arc<RwLock<HashMap<B3Digest, proto::Directory>>>,
 }
 
 impl DirectoryService for MemoryDirectoryService {
     type DirectoriesIterator = DirectoryTraverser<Self>;
 
-    #[instrument(skip(self, digest), fields(directory.digest = BASE64.encode(digest)))]
-    fn get(&self, digest: &[u8; 32]) -> Result<Option<proto::Directory>, Error> {
+    #[instrument(skip(self, digest), fields(directory.digest = %digest))]
+    fn get(&self, digest: &B3Digest) -> Result<Option<proto::Directory>, Error> {
         let db = self.db.read()?;
 
-        match db.get(digest) {
+        match db.get(&digest) {
             // The directory was not found, return
             None => Ok(None),
 
@@ -28,11 +27,10 @@ impl DirectoryService for MemoryDirectoryService {
                 // Validate the retrieved Directory indeed has the
                 // digest we expect it to have, to detect corruptions.
                 let actual_digest = directory.digest();
-                if actual_digest.as_slice() != digest {
+                if actual_digest != *digest {
                     return Err(Error::StorageError(format!(
                         "requested directory with digest {}, but got {}",
-                        BASE64.encode(digest),
-                        BASE64.encode(&actual_digest)
+                        digest, actual_digest
                     )));
                 }
 
@@ -41,8 +39,7 @@ impl DirectoryService for MemoryDirectoryService {
                     warn!("directory failed validation: {}", e.to_string());
                     return Err(Error::StorageError(format!(
                         "directory {} failed validation: {}",
-                        BASE64.encode(&actual_digest),
-                        e,
+                        actual_digest, e,
                     )));
                 }
 
@@ -51,28 +48,27 @@ impl DirectoryService for MemoryDirectoryService {
         }
     }
 
-    #[instrument(skip(self, directory), fields(directory.digest = BASE64.encode(&directory.digest())))]
-    fn put(&self, directory: proto::Directory) -> Result<[u8; 32], Error> {
+    #[instrument(skip(self, directory), fields(directory.digest = %directory.digest()))]
+    fn put(&self, directory: proto::Directory) -> Result<B3Digest, Error> {
         let digest = directory.digest();
 
         // validate the directory itself.
         if let Err(e) = directory.validate() {
             return Err(Error::InvalidRequest(format!(
                 "directory {} failed validation: {}",
-                BASE64.encode(&digest),
-                e,
+                digest, e,
             )));
         }
 
         // store it
         let mut db = self.db.write()?;
-        db.insert(digest, directory);
+        db.insert(digest.clone(), directory);
 
         Ok(digest)
     }
 
-    #[instrument(skip_all, fields(directory.digest = BASE64.encode(root_directory_digest)))]
-    fn get_recursive(&self, root_directory_digest: &[u8; 32]) -> Self::DirectoriesIterator {
+    #[instrument(skip_all, fields(directory.digest = %root_directory_digest))]
+    fn get_recursive(&self, root_directory_digest: &B3Digest) -> Self::DirectoriesIterator {
         DirectoryTraverser::with(self.clone(), root_directory_digest)
     }
 

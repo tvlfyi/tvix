@@ -26,18 +26,12 @@ impl<BS: BlobService, DS: DirectoryService> NonCachingNARCalculationService<BS, 
 impl<BS: BlobService, DS: DirectoryService> NARCalculationService
     for NonCachingNARCalculationService<BS, DS>
 {
-    fn calculate_nar(
-        &self,
-        root_node: &proto::node::Node,
-    ) -> Result<proto::CalculateNarResponse, RenderError> {
+    fn calculate_nar(&self, root_node: &proto::node::Node) -> Result<(u64, [u8; 32]), RenderError> {
         let h = Sha256::new();
         let mut cw = CountWrite::from(h);
 
         self.nar_renderer.write_nar(&mut cw, root_node)?;
 
-        Ok(proto::CalculateNarResponse {
-            nar_size: cw.count() as u64,
-            nar_sha256: cw.into_inner().finalize().to_vec(),
-        })
+        Ok((cw.count(), cw.into_inner().finalize().into()))
     }
 }

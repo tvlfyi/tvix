@@ -1,5 +1,5 @@
 use super::DirectoryService;
-use crate::{proto::NamedNode, Error};
+use crate::{proto::NamedNode, B3Digest, Error};
 use tracing::{instrument, warn};
 
 /// This traverses from a (root) node to the given (sub)path, returning the Node
@@ -39,21 +39,18 @@ pub fn traverse_to<DS: DirectoryService>(
                     Ok(None)
                 }
                 crate::proto::node::Node::Directory(directory_node) => {
-                    // fetch the linked node from the directory_service
-                    let digest: [u8; 32] = directory_node
-                        .digest
-                        .try_into()
+                    let digest = B3Digest::from_vec(directory_node.digest)
                         .map_err(|_e| Error::StorageError("invalid digest length".to_string()))?;
 
+                    // fetch the linked node from the directory_service
                     match directory_service.get(&digest)? {
                         // If we didn't get the directory node that's linked, that's a store inconsistency, bail out!
                         None => {
-                            let digest_b64 = data_encoding::BASE64.encode(&digest);
-                            warn!("directory {} does not exist", digest_b64);
+                            warn!("directory {} does not exist", digest);
 
                             Err(Error::StorageError(format!(
                                 "directory {} does not exist",
-                                digest_b64
+                                digest
                             )))
                         }
                         Some(directory) => {

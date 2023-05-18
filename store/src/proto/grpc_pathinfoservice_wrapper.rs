@@ -70,7 +70,10 @@ impl<
         match request.into_inner().node {
             None => Err(Status::invalid_argument("no root node sent")),
             Some(root_node) => match self.nar_calculation_service.calculate_nar(&root_node) {
-                Ok(resp) => Ok(Response::new(resp)),
+                Ok((nar_size, nar_sha256)) => Ok(Response::new(proto::CalculateNarResponse {
+                    nar_size,
+                    nar_sha256: nar_sha256.to_vec(),
+                })),
                 Err(e) => Err(e.into()),
             },
         }

@@ -1,4 +1,4 @@
-use crate::{proto, Error};
+use crate::{proto, B3Digest, Error};
 mod grpc;
 mod memory;
 mod sled;
@@ -20,16 +20,16 @@ pub trait DirectoryService {
 
     /// Get looks up a single Directory message by its digest.
     /// In case the directory is not found, Ok(None) is returned.
-    fn get(&self, digest: &[u8; 32]) -> Result<Option<proto::Directory>, Error>;
+    fn get(&self, digest: &B3Digest) -> Result<Option<proto::Directory>, Error>;
     /// Get uploads a single Directory message, and returns the calculated
     /// digest, or an error.
-    fn put(&self, directory: proto::Directory) -> Result<[u8; 32], Error>;
+    fn put(&self, directory: proto::Directory) -> Result<B3Digest, Error>;
 
     /// Looks up a closure of [proto::Directory].
     /// Ideally this would be a `impl Iterator<Item = Result<proto::Directory, Error>>`,
     /// and we'd be able to add a default implementation for it here, but
     /// we can't have that yet.
-    fn get_recursive(&self, root_directory_digest: &[u8; 32]) -> Self::DirectoriesIterator;
+    fn get_recursive(&self, root_directory_digest: &B3Digest) -> Self::DirectoriesIterator;
 
     /// Allows persisting a closure of [proto::Directory], which is a graph of
     /// connected Directory messages.
@@ -50,5 +50,5 @@ pub trait DirectoryPutter {
     fn put(&mut self, directory: proto::Directory) -> Result<(), Error>;
 
     /// Close the stream, and wait for any errors.
-    fn close(&mut self) -> Result<[u8; 32], Error>;
+    fn close(&mut self) -> Result<B3Digest, Error>;
 }

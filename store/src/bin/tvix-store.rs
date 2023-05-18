@@ -141,7 +141,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     HashAlgo::Sha256,
                     nar_calculation_service
                         .calculate_nar(&root_node)?
-                        .nar_sha256,
+                        .1
+                        .to_vec(),
                 ));
 
                 let mut drv = Derivation::default();
