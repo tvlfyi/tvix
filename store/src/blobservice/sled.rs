@@ -86,13 +86,13 @@ impl io::Write for SledBlobWriter {
 impl BlobWriter for SledBlobWriter {
     fn close(self) -> Result<[u8; 32], Error> {
         let digest = self.hasher.finalize();
-        self.db.insert(digest.as_bytes(), self.buf).map_err(|e| {
-            Error::StorageError(format!("unable to insert blob: {}", e.to_string()))
-        })?;
+        self.db
+            .insert(digest.as_bytes(), self.buf)
+            .map_err(|e| Error::StorageError(format!("unable to insert blob: {}", e)))?;
 
-        Ok(digest
+        digest
             .to_owned()
             .try_into()
-            .map_err(|_| Error::StorageError("invalid digest length in response".to_string()))?)
+            .map_err(|_| Error::StorageError("invalid digest length in response".to_string()))
     }
 }
