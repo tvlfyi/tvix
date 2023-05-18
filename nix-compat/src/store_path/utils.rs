@@ -122,7 +122,7 @@ pub fn build_output_path(
     build_store_path_from_fingerprint_parts(
         &(String::from("output:") + output_name),
         drv_hash,
-        &output_path_name,
+        output_path_name,
     )
 }
 
@@ -142,7 +142,7 @@ fn build_store_path_from_fingerprint_parts(
     let fingerprint =
         String::from(ty) + ":" + &hash.to_nix_hash_string() + ":" + STORE_DIR + ":" + name;
     let digest = {
-        let hasher = Sha256::new_with_prefix(&fingerprint);
+        let hasher = Sha256::new_with_prefix(fingerprint);
         hasher.finalize()
     };
     let compressed = compress_hash::<20>(&digest);
