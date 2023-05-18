@@ -67,7 +67,7 @@ async fn put_read_stat() {
     // Stat for the digest of A.
     // We currently don't ask for more granular chunking data, as we don't
     // expose it yet.
-    let resp = service
+    let _resp = service
         .stat(tonic::Request::new(StatBlobRequest {
             digest: BLOB_A_DIGEST.to_vec(),
             ..Default::default()
