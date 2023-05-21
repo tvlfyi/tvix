@@ -11,9 +11,10 @@
 use crate::KnownPaths;
 use smol_str::SmolStr;
 use std::cell::RefCell;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use tvix_eval::{ErrorKind, EvalIO, FileType};
+use tvix_eval::{EvalIO, FileType};
 
 pub(crate) struct TvixIO<T: EvalIO> {
     /// Ingested paths must be reported to this known paths tracker
@@ -38,7 +39,7 @@ impl<T: EvalIO> EvalIO for TvixIO<T> {
         self.actual.store_dir()
     }
 
-    fn import_path(&mut self, path: &Path) -> Result<PathBuf, ErrorKind> {
+    fn import_path(&mut self, path: &Path) -> Result<PathBuf, io::Error> {
         let imported_path = self.actual.import_path(path)?;
         self.known_paths
             .borrow_mut()
@@ -47,7 +48,7 @@ impl<T: EvalIO> EvalIO for TvixIO<T> {
         Ok(imported_path)
     }
 
-    fn path_exists(&mut self, path: PathBuf) -> Result<bool, ErrorKind> {
+    fn path_exists(&mut self, path: PathBuf) -> Result<bool, io::Error> {
         if path.starts_with("/__corepkgs__") {
             return Ok(true);
         }
@@ -55,7 +56,7 @@ impl<T: EvalIO> EvalIO for TvixIO<T> {
         self.actual.path_exists(path)
     }
 
-    fn read_to_string(&mut self, path: PathBuf) -> Result<String, ErrorKind> {
+    fn read_to_string(&mut self, path: PathBuf) -> Result<String, io::Error> {
         // Bundled version of corepkgs/fetchurl.nix. The counterpart
         // of this happens in `main`, where the `nix_path` of the
         // evaluation has `nix=/__corepkgs__` added to it.
@@ -72,7 +73,7 @@ impl<T: EvalIO> EvalIO for TvixIO<T> {
         self.actual.read_to_string(path)
     }
 
-    fn read_dir(&mut self, path: PathBuf) -> Result<Vec<(SmolStr, FileType)>, ErrorKind> {
+    fn read_dir(&mut self, path: PathBuf) -> Result<Vec<(SmolStr, FileType)>, io::Error> {
         self.actual.read_dir(path)
     }
 }

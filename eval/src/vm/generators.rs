@@ -406,15 +406,27 @@ impl<'o> VM<'o> {
                         }
 
                         VMRequest::PathImport(path) => {
-                            let imported =
-                                self.io_handle.import_path(&path).with_span(&span, self)?;
+                            let imported = self
+                                .io_handle
+                                .import_path(&path)
+                                .map_err(|e| ErrorKind::IO {
+                                    path: Some(path),
+                                    error: e.into(),
+                                })
+                                .with_span(&span, self)?;
 
                             message = VMResponse::Path(imported);
                         }
 
                         VMRequest::ReadToString(path) => {
-                            let content =
-                                self.io_handle.read_to_string(path).with_span(&span, self)?;
+                            let content = self
+                                .io_handle
+                                .read_to_string(path.clone())
+                                .map_err(|e| ErrorKind::IO {
+                                    path: Some(path),
+                                    error: e.into(),
+                                })
+                                .with_span(&span, self)?;
 
                             message = VMResponse::Value(Value::String(content.into()))
                         }
@@ -422,7 +434,11 @@ impl<'o> VM<'o> {
                         VMRequest::PathExists(path) => {
                             let exists = self
                                 .io_handle
-                                .path_exists(path)
+                                .path_exists(path.clone())
+                                .map_err(|e| ErrorKind::IO {
+                                    path: Some(path),
+                                    error: e.into(),
+                                })
                                 .map(Value::Bool)
                                 .with_span(&span, self)?;
 
@@ -430,7 +446,14 @@ impl<'o> VM<'o> {
                         }
 
                         VMRequest::ReadDir(path) => {
-                            let dir = self.io_handle.read_dir(path).with_span(&span, self)?;
+                            let dir = self
+                                .io_handle
+                                .read_dir(path.clone())
+                                .map_err(|e| ErrorKind::IO {
+                                    path: Some(path),
+                                    error: e.into(),
+                                })
+                                .with_span(&span, self)?;
                             message = VMResponse::Directory(dir);
                         }
 

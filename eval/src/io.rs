@@ -15,12 +15,11 @@
 //! In the context of Nix builds, callers also use this interface to determine
 //! how store paths are opened and so on.
 
-use crate::errors::ErrorKind;
 use smol_str::SmolStr;
-use std::path::{Path, PathBuf};
-
-#[cfg(feature = "impure")]
-use std::rc::Rc;
+use std::{
+    io,
+    path::{Path, PathBuf},
+};
 
 /// Types of files as represented by `builtins.readDir` in Nix.
 #[derive(Debug)]
@@ -34,14 +33,14 @@ pub enum FileType {
 /// Defines how filesystem interaction occurs inside of tvix-eval.
 pub trait EvalIO {
     /// Verify whether the file at the specified path exists.
-    fn path_exists(&mut self, path: PathBuf) -> Result<bool, ErrorKind>;
+    fn path_exists(&mut self, path: PathBuf) -> Result<bool, io::Error>;
 
     /// Read the file at the specified path to a string.
-    fn read_to_string(&mut self, path: PathBuf) -> Result<String, ErrorKind>;
+    fn read_to_string(&mut self, path: PathBuf) -> Result<String, io::Error>;
 
     /// Read the directory at the specified path and return the names
     /// of its entries associated with their [`FileType`].
-    fn read_dir(&mut self, path: PathBuf) -> Result<Vec<(SmolStr, FileType)>, ErrorKind>;
+    fn read_dir(&mut self, path: PathBuf) -> Result<Vec<(SmolStr, FileType)>, io::Error>;
 
     /// Import the given path. What this means depends on the
     /// implementation, for example for a `std::io`-based
@@ -50,7 +49,7 @@ pub trait EvalIO {
     ///
     /// This is primarily used in the context of things like coercing
     /// a local path to a string, or builtins like `path`.
-    fn import_path(&mut self, path: &Path) -> Result<PathBuf, ErrorKind>;
+    fn import_path(&mut self, path: &Path) -> Result<PathBuf, io::Error>;
 
     /// Returns the root of the store directory, if such a thing
     /// exists in the evaluation context.
@@ -66,37 +65,20 @@ pub struct StdIO;
 
 #[cfg(feature = "impure")]
 impl EvalIO for StdIO {
-    fn path_exists(&mut self, path: PathBuf) -> Result<bool, ErrorKind> {
-        path.try_exists().map_err(|e| ErrorKind::IO {
-            path: Some(path),
-            error: Rc::new(e),
-        })
+    fn path_exists(&mut self, path: PathBuf) -> Result<bool, io::Error> {
+        path.try_exists()
     }
 
-    fn read_to_string(&mut self, path: PathBuf) -> Result<String, ErrorKind> {
-        std::fs::read_to_string(&path).map_err(|e| ErrorKind::IO {
-            path: Some(path),
-            error: Rc::new(e),
-        })
+    fn read_to_string(&mut self, path: PathBuf) -> Result<String, io::Error> {
+        std::fs::read_to_string(&path)
     }
 
-    fn read_dir(&mut self, path: PathBuf) -> Result<Vec<(SmolStr, FileType)>, ErrorKind> {
+    fn read_dir(&mut self, path: PathBuf) -> Result<Vec<(SmolStr, FileType)>, io::Error> {
         let mut result = vec![];
 
-        let mk_err = |err| ErrorKind::IO {
-            path: Some(path.clone()),
-            error: Rc::new(err),
-        };
-
-        for entry in path.read_dir().map_err(mk_err)? {
-            let entry = entry.map_err(mk_err)?;
-            let file_type = entry
-                .metadata()
-                .map_err(|err| ErrorKind::IO {
-                    path: Some(entry.path()),
-                    error: Rc::new(err),
-                })?
-                .file_type();
+        for entry in path.read_dir()? {
+            let entry = entry?;
+            let file_type = entry.metadata()?.file_type();
 
             let val = if file_type.is_dir() {
                 FileType::Directory
@@ -116,7 +98,7 @@ impl EvalIO for StdIO {
 
     // this is a no-op for `std::io`, as the user can already refer to
     // the path directly
-    fn import_path(&mut self, path: &Path) -> Result<PathBuf, ErrorKind> {
+    fn import_path(&mut self, path: &Path) -> Result<PathBuf, io::Error> {
         Ok(path.to_path_buf())
     }
 }
@@ -126,26 +108,30 @@ impl EvalIO for StdIO {
 pub struct DummyIO;
 
 impl EvalIO for DummyIO {
-    fn path_exists(&mut self, _: PathBuf) -> Result<bool, ErrorKind> {
-        Err(ErrorKind::NotImplemented(
+    fn path_exists(&mut self, _: PathBuf) -> Result<bool, io::Error> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
             "I/O methods are not implemented in DummyIO",
         ))
     }
 
-    fn read_to_string(&mut self, _: PathBuf) -> Result<String, ErrorKind> {
-        Err(ErrorKind::NotImplemented(
+    fn read_to_string(&mut self, _: PathBuf) -> Result<String, io::Error> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
             "I/O methods are not implemented in DummyIO",
         ))
     }
 
-    fn read_dir(&mut self, _: PathBuf) -> Result<Vec<(SmolStr, FileType)>, ErrorKind> {
-        Err(ErrorKind::NotImplemented(
+    fn read_dir(&mut self, _: PathBuf) -> Result<Vec<(SmolStr, FileType)>, io::Error> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
             "I/O methods are not implemented in DummyIO",
         ))
     }
 
-    fn import_path(&mut self, _: &Path) -> Result<PathBuf, ErrorKind> {
-        Err(ErrorKind::NotImplemented(
+    fn import_path(&mut self, _: &Path) -> Result<PathBuf, io::Error> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
             "I/O methods are not implemented in DummyIO",
         ))
     }
