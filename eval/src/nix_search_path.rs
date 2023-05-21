@@ -85,7 +85,7 @@ impl NixSearchPathEntry {
             }
         };
 
-        if io.path_exists(path.clone()).map_err(|e| ErrorKind::IO {
+        if io.path_exists(&path).map_err(|e| ErrorKind::IO {
             path: Some(path.clone()),
             error: e.into(),
         })? {

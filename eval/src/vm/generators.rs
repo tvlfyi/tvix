@@ -421,7 +421,7 @@ impl<'o> VM<'o> {
                         VMRequest::ReadToString(path) => {
                             let content = self
                                 .io_handle
-                                .read_to_string(path.clone())
+                                .read_to_string(&path)
                                 .map_err(|e| ErrorKind::IO {
                                     path: Some(path),
                                     error: e.into(),
@@ -434,7 +434,7 @@ impl<'o> VM<'o> {
                         VMRequest::PathExists(path) => {
                             let exists = self
                                 .io_handle
-                                .path_exists(path.clone())
+                                .path_exists(&path)
                                 .map_err(|e| ErrorKind::IO {
                                     path: Some(path),
                                     error: e.into(),
@@ -448,7 +448,7 @@ impl<'o> VM<'o> {
                         VMRequest::ReadDir(path) => {
                             let dir = self
                                 .io_handle
-                                .read_dir(path.clone())
+                                .read_dir(&path)
                                 .map_err(|e| ErrorKind::IO {
                                     path: Some(path),
                                     error: e.into(),
