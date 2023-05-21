@@ -48,7 +48,12 @@ fn canonicalise(path: PathBuf) -> Result<PathBuf, ErrorKind> {
         path
     } else {
         // TODO(tazjin): probably panics in wasm?
-        std::env::current_dir()?.join(path)
+        std::env::current_dir()
+            .map_err(|e| ErrorKind::IO {
+                path: Some(path.clone()),
+                error: e.into(),
+            })?
+            .join(path)
     }
     .clean();
 
@@ -80,7 +85,10 @@ impl NixSearchPathEntry {
             }
         };
 
-        if io.path_exists(path.clone())? {
+        if io.path_exists(path.clone()).map_err(|e| ErrorKind::IO {
+            path: Some(path.clone()),
+            error: e.into(),
+        })? {
             Ok(Some(path))
         } else {
             Ok(None)
