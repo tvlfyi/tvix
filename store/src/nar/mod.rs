@@ -2,9 +2,11 @@ use crate::{proto, B3Digest};
 use data_encoding::BASE64;
 use thiserror::Error;
 
+mod grpc_nar_calculation_service;
 mod non_caching_calculation_service;
 mod renderer;
 
+pub use grpc_nar_calculation_service::GRPCNARCalculationService;
 pub use non_caching_calculation_service::NonCachingNARCalculationService;
 pub use renderer::NARRenderer;
 
