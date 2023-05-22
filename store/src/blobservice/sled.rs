@@ -1,11 +1,9 @@
+use super::{BlobService, BlobWriter};
+use crate::{B3Digest, Error};
 use std::{
     io::{self, Cursor},
     path::PathBuf,
 };
-
-use super::{BlobService, BlobWriter};
-use crate::Error;
-use data_encoding::BASE64;
 use tracing::instrument;
 
 #[derive(Clone)]
@@ -33,24 +31,24 @@ impl BlobService for SledBlobService {
     type BlobReader = Cursor<Vec<u8>>;
     type BlobWriter = SledBlobWriter;
 
-    #[instrument(name = "SledBlobService::has", skip(self), fields(blob.digest=BASE64.encode(digest)))]
-    fn has(&self, digest: &[u8; 32]) -> Result<bool, Error> {
-        match self.db.contains_key(digest) {
+    #[instrument(skip(self), fields(blob.digest=%digest))]
+    fn has(&self, digest: &B3Digest) -> Result<bool, Error> {
+        match self.db.contains_key(digest.to_vec()) {
             Ok(has) => Ok(has),
             Err(e) => Err(Error::StorageError(e.to_string())),
         }
     }
 
-    #[instrument(name = "SledBlobService::open_read", skip(self), fields(blob.digest=BASE64.encode(digest)))]
-    fn open_read(&self, digest: &[u8; 32]) -> Result<Option<Self::BlobReader>, Error> {
-        match self.db.get(digest) {
+    #[instrument(skip(self), fields(blob.digest=%digest))]
+    fn open_read(&self, digest: &B3Digest) -> Result<Option<Self::BlobReader>, Error> {
+        match self.db.get(digest.to_vec()) {
             Ok(None) => Ok(None),
             Ok(Some(data)) => Ok(Some(Cursor::new(data[..].to_vec()))),
             Err(e) => Err(Error::StorageError(e.to_string())),
         }
     }
 
-    #[instrument(name = "SledBlobService::open_write", skip(self))]
+    #[instrument(skip(self))]
     fn open_write(&self) -> Result<Self::BlobWriter, Error> {
         Ok(SledBlobWriter::new(self.db.clone()))
     }
@@ -84,15 +82,13 @@ impl io::Write for SledBlobWriter {
 }
 
 impl BlobWriter for SledBlobWriter {
-    fn close(self) -> Result<[u8; 32], Error> {
+    fn close(self) -> Result<B3Digest, Error> {
         let digest = self.hasher.finalize();
         self.db
             .insert(digest.as_bytes(), self.buf)
             .map_err(|e| Error::StorageError(format!("unable to insert blob: {}", e)))?;
 
-        digest
-            .to_owned()
-            .try_into()
-            .map_err(|_| Error::StorageError("invalid digest length in response".to_string()))
+        // We know self.hasher is doing blake3 hashing, so this won't fail.
+        Ok(B3Digest::from_vec(digest.as_bytes().to_vec()).unwrap())
     }
 }

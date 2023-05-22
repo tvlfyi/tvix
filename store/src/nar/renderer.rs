@@ -1,15 +1,13 @@
-use std::io::{self, BufReader};
-
+use super::RenderError;
 use crate::{
     blobservice::BlobService,
     directoryservice::DirectoryService,
     proto::{self, NamedNode},
     B3Digest,
 };
-use data_encoding::BASE64;
 use nix_compat::nar;
-
-use super::RenderError;
+use std::io::{self, BufReader};
+use tracing::warn;
 
 /// A NAR renderer, using a blob_service, chunk_service and directory_service
 /// to render a NAR to a writer.
@@ -58,19 +56,26 @@ impl<BS: BlobService, DS: DirectoryService> NARRenderer<BS, DS> {
                     .map_err(RenderError::NARWriterError)?;
             }
             proto::node::Node::File(proto_file_node) => {
-                let digest: [u8; 32] =
-                    proto_file_node.digest.to_owned().try_into().map_err(|_e| {
-                        RenderError::StoreError(crate::Error::StorageError(
-                            "invalid digest len in file node".to_string(),
-                        ))
-                    })?;
+                let digest = B3Digest::from_vec(proto_file_node.digest.clone()).map_err(|_e| {
+                    warn!(
+                        file_node = ?proto_file_node,
+                        "invalid digest length in file node",
+                    );
 
-                // TODO: handle error
-                let mut blob_reader = match self.blob_service.open_read(&digest).unwrap() {
+                    RenderError::StoreError(crate::Error::StorageError(
+                        "invalid digest len in file node".to_string(),
+                    ))
+                })?;
+
+                let mut blob_reader = match self
+                    .blob_service
+                    .open_read(&digest)
+                    .map_err(|e| RenderError::StoreError(e))?
+                {
                     Some(blob_reader) => Ok(BufReader::new(blob_reader)),
                     None => Err(RenderError::NARWriterError(io::Error::new(
                         io::ErrorKind::NotFound,
-                        format!("blob with digest {} not found", BASE64.encode(&digest)),
+                        format!("blob with digest {} not found", &digest),
                     ))),
                 }?;
 

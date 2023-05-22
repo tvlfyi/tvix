@@ -1,6 +1,6 @@
 use std::io;
 
-use crate::Error;
+use crate::{B3Digest, Error};
 
 mod grpc;
 mod memory;
@@ -19,10 +19,10 @@ pub trait BlobService {
     type BlobWriter: BlobWriter + Send;
 
     /// Check if the service has the blob, by its content hash.
-    fn has(&self, digest: &[u8; 32]) -> Result<bool, Error>;
+    fn has(&self, digest: &B3Digest) -> Result<bool, Error>;
 
     /// Request a blob from the store, by its content hash. Returns a Option<BlobReader>.
-    fn open_read(&self, digest: &[u8; 32]) -> Result<Option<Self::BlobReader>, Error>;
+    fn open_read(&self, digest: &B3Digest) -> Result<Option<Self::BlobReader>, Error>;
 
     /// Insert a new blob into the store. Returns a [BlobWriter], which
     /// implements [io::Write] and a [BlobWriter::close].
@@ -37,5 +37,5 @@ pub trait BlobWriter: io::Write {
     /// contents written.
     ///
     /// This consumes self, so it's not possible to close twice.
-    fn close(self) -> Result<[u8; 32], Error>;
+    fn close(self) -> Result<B3Digest, Error>;
 }

@@ -61,9 +61,7 @@ fn single_file() {
     );
 
     // ensure the blob has been uploaded
-    assert!(blob_service
-        .has(&HELLOWORLD_BLOB_DIGEST.to_vec().try_into().unwrap())
-        .unwrap());
+    assert!(blob_service.has(&HELLOWORLD_BLOB_DIGEST).unwrap());
 }
 
 #[test]
@@ -111,7 +109,5 @@ fn complicated() {
         .is_some());
 
     // ensure EMPTY_BLOB_CONTENTS has been uploaded
-    assert!(blob_service
-        .has(&EMPTY_BLOB_DIGEST.to_vec().try_into().unwrap())
-        .unwrap());
+    assert!(blob_service.has(&EMPTY_BLOB_DIGEST).unwrap());
 }

@@ -69,7 +69,7 @@ fn single_file_wrong_blob_size() {
         &mut writer,
     )
     .unwrap();
-    assert_eq!(HELLOWORLD_BLOB_DIGEST.to_vec(), writer.close().unwrap());
+    assert_eq!(HELLOWORLD_BLOB_DIGEST.clone(), writer.close().unwrap());
 
     let renderer = NARRenderer::new(blob_service, gen_directory_service());
 
@@ -131,7 +131,7 @@ fn single_file() {
         &mut writer,
     )
     .unwrap();
-    assert_eq!(HELLOWORLD_BLOB_DIGEST.to_vec(), writer.close().unwrap());
+    assert_eq!(HELLOWORLD_BLOB_DIGEST.clone(), writer.close().unwrap());
 
     let renderer = NARRenderer::new(blob_service, gen_directory_service());
     let mut buf: Vec<u8> = vec![];
@@ -164,7 +164,7 @@ fn test_complicated() {
         &mut writer,
     )
     .unwrap();
-    assert_eq!(EMPTY_BLOB_DIGEST.to_vec(), writer.close().unwrap());
+    assert_eq!(EMPTY_BLOB_DIGEST.clone(), writer.close().unwrap());
 
     directory_service.put(DIRECTORY_WITH_KEEP.clone()).unwrap();
     directory_service
