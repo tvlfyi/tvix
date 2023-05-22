@@ -22,7 +22,29 @@ pub struct GRPCBlobService {
     grpc_client: proto::blob_service_client::BlobServiceClient<Channel>,
 }
 
-// TODO: provide some contstructors
+impl GRPCBlobService {
+    /// construct a [GRPCBlobService] from a [proto::blob_service_client::BlobServiceClient<Channel>],
+    /// and a [tokio::runtime::Handle].
+    pub fn new(
+        grpc_client: proto::blob_service_client::BlobServiceClient<Channel>,
+        tokio_handle: tokio::runtime::Handle,
+    ) -> Self {
+        Self {
+            tokio_handle,
+            grpc_client,
+        }
+    }
+    /// construct a [GRPCBlobService] from a [proto::blob_service_client::BlobServiceClient<Channel>].
+    /// panics if called outside the context of a tokio runtime.
+    pub fn from_client(
+        grpc_client: proto::blob_service_client::BlobServiceClient<Channel>,
+    ) -> Self {
+        Self {
+            tokio_handle: tokio::runtime::Handle::current(),
+            grpc_client,
+        }
+    }
+}
 
 impl BlobService for GRPCBlobService {
     type BlobReader = Box<dyn io::Read + Send>;
