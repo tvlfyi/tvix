@@ -32,6 +32,17 @@ impl GRPCDirectoryService {
             grpc_client,
         }
     }
+
+    /// construct a [GRPCDirectoryService] from a [proto::blob_service_client::BlobServiceClient<Channel>].
+    /// panics if called outside the context of a tokio runtime.
+    pub fn from_client(
+        grpc_client: proto::directory_service_client::DirectoryServiceClient<Channel>,
+    ) -> Self {
+        Self {
+            tokio_handle: tokio::runtime::Handle::current(),
+            grpc_client,
+        }
+    }
 }
 
 impl DirectoryService for GRPCDirectoryService {
