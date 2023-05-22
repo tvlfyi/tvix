@@ -25,6 +25,17 @@ impl GRPCPathInfoService {
             grpc_client,
         }
     }
+
+    /// construct a [GRPCDirectoryService] from a [proto::path_info_service_client::PathInfoServiceClient<Channel>].
+    /// panics if called outside the context of a tokio runtime.
+    pub fn from_client(
+        grpc_client: proto::path_info_service_client::PathInfoServiceClient<Channel>,
+    ) -> Self {
+        Self {
+            tokio_handle: tokio::runtime::Handle::current(),
+            grpc_client,
+        }
+    }
 }
 
 impl PathInfoService for GRPCPathInfoService {
