@@ -18,7 +18,7 @@ impl DirectoryService for MemoryDirectoryService {
     fn get(&self, digest: &B3Digest) -> Result<Option<proto::Directory>, Error> {
         let db = self.db.read()?;
 
-        match db.get(&digest) {
+        match db.get(digest) {
             // The directory was not found, return
             None => Ok(None),
 
