@@ -8,6 +8,7 @@ use tracing::warn;
 ///
 /// The PathInfo messages are stored as encoded protos, and keyed by their output hash,
 /// as that's currently the only request type available.
+#[derive(Clone)]
 pub struct SledPathInfoService {
     db: sled::Db,
 }
