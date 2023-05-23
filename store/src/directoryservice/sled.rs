@@ -31,7 +31,7 @@ impl SledDirectoryService {
 impl DirectoryService for SledDirectoryService {
     type DirectoriesIterator = DirectoryTraverser<Self>;
 
-    #[instrument(name = "SledDirectoryService::get", skip(self, digest), fields(directory.digest = %digest))]
+    #[instrument(skip(self, digest), fields(directory.digest = %digest))]
     fn get(&self, digest: &B3Digest) -> Result<Option<proto::Directory>, Error> {
         match self.db.get(digest.to_vec()) {
             // The directory was not found, return
@@ -71,7 +71,7 @@ impl DirectoryService for SledDirectoryService {
         }
     }
 
-    #[instrument(name = "SledDirectoryService::put", skip(self, directory), fields(directory.digest = %directory.digest()))]
+    #[instrument(skip(self, directory), fields(directory.digest = %directory.digest()))]
     fn put(&self, directory: proto::Directory) -> Result<B3Digest, Error> {
         let digest = directory.digest();
 
