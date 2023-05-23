@@ -70,7 +70,7 @@ impl<BS: BlobService, DS: DirectoryService> NARRenderer<BS, DS> {
                 let mut blob_reader = match self
                     .blob_service
                     .open_read(&digest)
-                    .map_err(|e| RenderError::StoreError(e))?
+                    .map_err(RenderError::StoreError)?
                 {
                     Some(blob_reader) => Ok(BufReader::new(blob_reader)),
                     None => Err(RenderError::NARWriterError(io::Error::new(
