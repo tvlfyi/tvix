@@ -20,7 +20,7 @@ impl B3Digest {
         if value.len() != 32 {
             Err(Error::InvalidDigestLen(value.len()))
         } else {
-            Ok(Self(Vec::from(value)))
+            Ok(Self(value))
         }
     }
 
