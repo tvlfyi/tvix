@@ -43,6 +43,10 @@ struct Args {
     #[clap(long)]
     compile_only: bool,
 
+    /// Don't print warnings.
+    #[clap(long)]
+    no_warnings: bool,
+
     /// A colon-separated list of directories to use to resolve `<...>`-style paths
     #[clap(long, short = 'I', env = "NIX_PATH")]
     nix_search_path: Option<String>,
@@ -126,8 +130,10 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
         error.fancy_format_stderr(&source_map);
     }
 
-    for warning in &result.warnings {
-        warning.fancy_format_stderr(&source_map);
+    if !args.no_warnings {
+        for warning in &result.warnings {
+            warning.fancy_format_stderr(&source_map);
+        }
     }
 
     if let Some(value) = result.value.as_ref() {
