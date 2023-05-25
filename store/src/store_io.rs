@@ -96,7 +96,7 @@ impl<BS: BlobService, DS: DirectoryService, PS: PathInfoService, NCS: NARCalcula
             }
         };
 
-        directoryservice::traverse_to(&mut self.directory_service, root_node, sub_path)
+        directoryservice::traverse_to(&self.directory_service, root_node, sub_path)
     }
 
     /// Imports a given path on the filesystem into the store, and returns the
@@ -110,9 +110,8 @@ impl<BS: BlobService, DS: DirectoryService, PS: PathInfoService, NCS: NARCalcula
         path: &std::path::Path,
     ) -> Result<crate::proto::PathInfo, io::Error> {
         // Call [import::ingest_path], which will walk over the given path and return a root_node.
-        let root_node =
-            import::ingest_path(&mut self.blob_service, &mut self.directory_service, path)
-                .expect("error during import_path");
+        let root_node = import::ingest_path(&self.blob_service, &self.directory_service, path)
+            .expect("error during import_path");
 
         // Render the NAR
         let (nar_size, nar_sha256) = self

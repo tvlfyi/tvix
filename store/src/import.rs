@@ -56,7 +56,7 @@ impl From<super::Error> for Error {
 // It assumes the caller adds returned nodes to the directories it assembles.
 #[instrument(skip_all, fields(entry.file_type=?&entry.file_type(),entry.path=?entry.path()))]
 fn process_entry<BS: BlobService, DP: DirectoryPutter>(
-    blob_service: &mut BS,
+    blob_service: &BS,
     directory_putter: &mut DP,
     entry: &walkdir::DirEntry,
     maybe_directory: Option<proto::Directory>,
@@ -145,8 +145,8 @@ fn process_entry<BS: BlobService, DP: DirectoryPutter>(
 /// naming scheme.
 #[instrument(skip(blob_service, directory_service), fields(path=?p))]
 pub fn ingest_path<BS: BlobService, DS: DirectoryService, P: AsRef<Path> + Debug>(
-    blob_service: &mut BS,
-    directory_service: &mut DS,
+    blob_service: &BS,
+    directory_service: &DS,
     p: P,
 ) -> Result<proto::node::Node, Error> {
     // Probe if the path points to a symlink. If it does, we process it manually,
