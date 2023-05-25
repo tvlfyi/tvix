@@ -1,5 +1,4 @@
 use super::utils::{gen_blob_service, gen_directory_service};
-use crate::blobservice::BlobService;
 use crate::directoryservice::DirectoryService;
 use crate::import::ingest_path;
 use crate::proto;

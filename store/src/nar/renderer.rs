@@ -11,14 +11,13 @@ use tracing::warn;
 
 /// A NAR renderer, using a blob_service, chunk_service and directory_service
 /// to render a NAR to a writer.
-#[derive(Clone)]
-pub struct NARRenderer<BS: BlobService, DS: DirectoryService> {
-    blob_service: BS,
+pub struct NARRenderer<DS: DirectoryService> {
+    blob_service: Box<dyn BlobService>,
     directory_service: DS,
 }
 
-impl<BS: BlobService, DS: DirectoryService> NARRenderer<BS, DS> {
-    pub fn new(blob_service: BS, directory_service: DS) -> Self {
+impl<DS: DirectoryService> NARRenderer<DS> {
+    pub fn new(blob_service: Box<dyn BlobService>, directory_service: DS) -> Self {
         Self {
             blob_service,
             directory_service,

@@ -1,5 +1,6 @@
-use crate::{blobservice::BlobService, directoryservice::DirectoryService};
-use crate::{blobservice::BlobWriter, directoryservice::DirectoryPutter, proto};
+use crate::blobservice::BlobService;
+use crate::directoryservice::DirectoryService;
+use crate::{directoryservice::DirectoryPutter, proto};
 use std::{
     collections::HashMap,
     fmt::Debug,
@@ -55,8 +56,8 @@ impl From<super::Error> for Error {
 //
 // It assumes the caller adds returned nodes to the directories it assembles.
 #[instrument(skip_all, fields(entry.file_type=?&entry.file_type(),entry.path=?entry.path()))]
-fn process_entry<BS: BlobService, DP: DirectoryPutter>(
-    blob_service: &BS,
+fn process_entry<DP: DirectoryPutter>(
+    blob_service: &Box<dyn BlobService>,
     directory_putter: &mut DP,
     entry: &walkdir::DirEntry,
     maybe_directory: Option<proto::Directory>,
@@ -144,8 +145,8 @@ fn process_entry<BS: BlobService, DP: DirectoryPutter>(
 /// possibly register it somewhere (and potentially rename it based on some
 /// naming scheme.
 #[instrument(skip(blob_service, directory_service), fields(path=?p))]
-pub fn ingest_path<BS: BlobService, DS: DirectoryService, P: AsRef<Path> + Debug>(
-    blob_service: &BS,
+pub fn ingest_path<DS: DirectoryService, P: AsRef<Path> + Debug>(
+    blob_service: &Box<dyn BlobService>,
     directory_service: &DS,
     p: P,
 ) -> Result<proto::node::Node, Error> {

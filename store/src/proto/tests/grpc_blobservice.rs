@@ -1,12 +1,10 @@
-use crate::blobservice::BlobService;
 use crate::proto::blob_service_server::BlobService as GRPCBlobService;
 use crate::proto::{BlobChunk, GRPCBlobServiceWrapper, ReadBlobRequest, StatBlobRequest};
 use crate::tests::fixtures::{BLOB_A, BLOB_A_DIGEST};
 use crate::tests::utils::gen_blob_service;
 use tokio_stream::StreamExt;
 
-fn gen_grpc_blob_service(
-) -> GRPCBlobServiceWrapper<impl BlobService + Send + Sync + Clone + 'static> {
+fn gen_grpc_blob_service() -> GRPCBlobServiceWrapper {
     let blob_service = gen_blob_service();
     GRPCBlobServiceWrapper::from(blob_service)
 }

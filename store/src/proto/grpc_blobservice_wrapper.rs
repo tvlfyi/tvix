@@ -1,7 +1,5 @@
 use crate::{
-    blobservice::{BlobService, BlobWriter},
-    proto::sync_read_into_async_read::SyncReadIntoAsyncRead,
-    B3Digest,
+    blobservice::BlobService, proto::sync_read_into_async_read::SyncReadIntoAsyncRead, B3Digest,
 };
 use std::{collections::VecDeque, io, pin::Pin};
 use tokio::task;
@@ -10,12 +8,12 @@ use tokio_util::io::ReaderStream;
 use tonic::{async_trait, Request, Response, Status, Streaming};
 use tracing::{instrument, warn};
 
-pub struct GRPCBlobServiceWrapper<BS: BlobService> {
-    blob_service: BS,
+pub struct GRPCBlobServiceWrapper {
+    blob_service: Box<dyn BlobService>,
 }
 
-impl<BS: BlobService> From<BS> for GRPCBlobServiceWrapper<BS> {
-    fn from(value: BS) -> Self {
+impl From<Box<dyn BlobService + 'static>> for GRPCBlobServiceWrapper {
+    fn from(value: Box<dyn BlobService>) -> Self {
         Self {
             blob_service: value,
         }
@@ -23,9 +21,7 @@ impl<BS: BlobService> From<BS> for GRPCBlobServiceWrapper<BS> {
 }
 
 #[async_trait]
-impl<BS: BlobService + Send + Sync + Clone + 'static> super::blob_service_server::BlobService
-    for GRPCBlobServiceWrapper<BS>
-{
+impl super::blob_service_server::BlobService for GRPCBlobServiceWrapper {
     // https://github.com/tokio-rs/tokio/issues/2723#issuecomment-1534723933
     type ReadStream =
         Pin<Box<dyn futures::Stream<Item = Result<super::BlobChunk, Status>> + Send + 'static>>;

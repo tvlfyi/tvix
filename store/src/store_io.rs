@@ -29,24 +29,19 @@ use crate::{
 /// This is to both cover cases of syntactically valid store paths, that exist
 /// on the filesystem (still managed by Nix), as well as being able to read
 /// files outside store paths.
-pub struct TvixStoreIO<
-    BS: BlobService,
-    DS: DirectoryService,
-    PS: PathInfoService,
-    NCS: NARCalculationService,
-> {
-    blob_service: BS,
+pub struct TvixStoreIO<DS: DirectoryService, PS: PathInfoService, NCS: NARCalculationService> {
+    blob_service: Box<dyn BlobService>,
     directory_service: DS,
     path_info_service: PS,
     nar_calculation_service: NCS,
     std_io: StdIO,
 }
 
-impl<BS: BlobService, DS: DirectoryService, PS: PathInfoService, NCS: NARCalculationService>
-    TvixStoreIO<BS, DS, PS, NCS>
+impl<DS: DirectoryService, PS: PathInfoService, NCS: NARCalculationService>
+    TvixStoreIO<DS, PS, NCS>
 {
     pub fn new(
-        blob_service: BS,
+        blob_service: Box<dyn BlobService>,
         directory_service: DS,
         path_info_service: PS,
         nar_calculation_service: NCS,
@@ -183,8 +178,8 @@ fn calculate_nar_based_store_path(nar_sha256_digest: &[u8; 32], name: &str) -> S
     build_regular_ca_path(name, &nar_hash_with_mode, Vec::<String>::new(), false).unwrap()
 }
 
-impl<BS: BlobService, DS: DirectoryService, PS: PathInfoService, NCS: NARCalculationService> EvalIO
-    for TvixStoreIO<BS, DS, PS, NCS>
+impl<DS: DirectoryService, PS: PathInfoService, NCS: NARCalculationService> EvalIO
+    for TvixStoreIO<DS, PS, NCS>
 {
     #[instrument(skip(self), ret, err)]
     fn path_exists(&self, path: &Path) -> Result<bool, io::Error> {

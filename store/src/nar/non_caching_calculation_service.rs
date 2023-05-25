@@ -10,22 +10,19 @@ use super::{NARCalculationService, RenderError};
 
 /// A NAR calculation service which simply renders the whole NAR whenever
 /// we ask for the calculation.
-#[derive(Clone)]
-pub struct NonCachingNARCalculationService<BS: BlobService, DS: DirectoryService> {
-    nar_renderer: NARRenderer<BS, DS>,
+pub struct NonCachingNARCalculationService<DS: DirectoryService> {
+    nar_renderer: NARRenderer<DS>,
 }
 
-impl<BS: BlobService, DS: DirectoryService> NonCachingNARCalculationService<BS, DS> {
-    pub fn new(blob_service: BS, directory_service: DS) -> Self {
+impl<DS: DirectoryService> NonCachingNARCalculationService<DS> {
+    pub fn new(blob_service: Box<dyn BlobService>, directory_service: DS) -> Self {
         Self {
             nar_renderer: NARRenderer::new(blob_service, directory_service),
         }
     }
 }
 
-impl<BS: BlobService, DS: DirectoryService> NARCalculationService
-    for NonCachingNARCalculationService<BS, DS>
-{
+impl<DS: DirectoryService> NARCalculationService for NonCachingNARCalculationService<DS> {
     fn calculate_nar(&self, root_node: &proto::node::Node) -> Result<(u64, [u8; 32]), RenderError> {
         let h = Sha256::new();
         let mut cw = CountWrite::from(h);

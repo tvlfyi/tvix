@@ -6,6 +6,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing_subscriber::prelude::*;
+use tvix_store::blobservice::BlobService;
 use tvix_store::blobservice::GRPCBlobService;
 use tvix_store::blobservice::SledBlobService;
 use tvix_store::directoryservice::GRPCDirectoryService;
@@ -112,14 +113,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut server = Server::builder();
 
             let nar_calculation_service = NonCachingNARCalculationService::new(
-                blob_service.clone(),
+                Box::new(blob_service.clone()),
                 directory_service.clone(),
             );
 
             #[allow(unused_mut)]
             let mut router = server
                 .add_service(BlobServiceServer::new(GRPCBlobServiceWrapper::from(
-                    blob_service,
+                    Box::new(blob_service) as Box<dyn BlobService>,
                 )))
                 .add_service(DirectoryServiceServer::new(
                     GRPCDirectoryServiceWrapper::from(directory_service),
@@ -156,7 +157,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 GRPCNARCalculationService::from_client(path_info_service_client);
 
             let io = Arc::new(TvixStoreIO::new(
-                blob_service,
+                Box::new(blob_service),
                 directory_service,
                 path_info_service,
                 nar_calculation_service,

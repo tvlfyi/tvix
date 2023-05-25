@@ -1,5 +1,3 @@
-use crate::blobservice::BlobService;
-use crate::blobservice::BlobWriter;
 use crate::directoryservice::DirectoryService;
 use crate::nar::NARRenderer;
 use crate::proto::DirectoryNode;
