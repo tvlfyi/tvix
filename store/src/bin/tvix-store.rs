@@ -1,5 +1,6 @@
 use clap::Subcommand;
 use data_encoding::BASE64;
+use std::io;
 use std::path::PathBuf;
 use tracing_subscriber::prelude::*;
 use tvix_store::blobservice::SledBlobService;
@@ -60,7 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(if cli.json {
             Some(
                 tracing_subscriber::fmt::Layer::new()
-                    .with_writer(std::io::stdout.with_max_level(level))
+                    .with_writer(io::stdout.with_max_level(level))
                     .json(),
             )
         } else {
@@ -69,7 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(if !cli.json {
             Some(
                 tracing_subscriber::fmt::Layer::new()
-                    .with_writer(std::io::stdout.with_max_level(level))
+                    .with_writer(io::stdout.with_max_level(level))
                     .pretty(),
             )
         } else {
@@ -140,7 +141,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 let path_info = tokio::task::spawn_blocking(move || {
                     io.import_path_with_pathinfo(&path_move)
-                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+                        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
                 })
                 .await??;
 
