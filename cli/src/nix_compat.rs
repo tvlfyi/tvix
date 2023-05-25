@@ -8,6 +8,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
+use std::sync::RwLock;
 use std::{io, path::PathBuf};
 
 use smol_str::SmolStr;
@@ -24,7 +25,7 @@ pub struct NixCompatIO {
     // TODO(tazjin): This could be done better by having a thunk cache
     // for these calls on the eval side, but that is a little more
     // complex.
-    import_cache: HashMap<PathBuf, PathBuf>,
+    import_cache: RwLock<HashMap<PathBuf, PathBuf>>,
 }
 
 impl EvalIO for NixCompatIO {
@@ -35,13 +36,21 @@ impl EvalIO for NixCompatIO {
     // Pass path imports through to `nix-store --add`
     fn import_path(&mut self, path: &Path) -> Result<PathBuf, io::Error> {
         let path = path.to_owned();
-        if let Some(path) = self.import_cache.get(&path) {
+        if let Some(path) = self
+            .import_cache
+            .read()
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?
+            .get(&path)
+        {
             return Ok(path.to_path_buf());
         }
 
         let store_path = self.add_to_store(&path)?;
 
-        self.import_cache.insert(path, store_path.clone());
+        self.import_cache
+            .write()
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?
+            .insert(path, store_path.clone());
 
         Ok(store_path)
     }
@@ -78,7 +87,7 @@ impl NixCompatIO {
     pub fn new() -> Self {
         NixCompatIO {
             underlying: StdIO,
-            import_cache: HashMap::new(),
+            import_cache: RwLock::new(HashMap::new()),
         }
     }
 
