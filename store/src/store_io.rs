@@ -183,12 +183,8 @@ fn calculate_nar_based_store_path(nar_sha256_digest: &[u8; 32], name: &str) -> S
     build_regular_ca_path(name, &nar_hash_with_mode, Vec::<String>::new(), false).unwrap()
 }
 
-impl<
-        BS: BlobService + Clone,
-        DS: DirectoryService + Clone,
-        PS: PathInfoService,
-        NCS: NARCalculationService,
-    > EvalIO for TvixStoreIO<BS, DS, PS, NCS>
+impl<BS: BlobService, DS: DirectoryService, PS: PathInfoService, NCS: NARCalculationService> EvalIO
+    for TvixStoreIO<BS, DS, PS, NCS>
 {
     #[instrument(skip(self), ret, err)]
     fn path_exists(&self, path: &Path) -> Result<bool, io::Error> {
