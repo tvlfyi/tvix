@@ -33,14 +33,14 @@ pub enum FileType {
 /// Defines how filesystem interaction occurs inside of tvix-eval.
 pub trait EvalIO {
     /// Verify whether the file at the specified path exists.
-    fn path_exists(&mut self, path: &Path) -> Result<bool, io::Error>;
+    fn path_exists(&self, path: &Path) -> Result<bool, io::Error>;
 
     /// Read the file at the specified path to a string.
-    fn read_to_string(&mut self, path: &Path) -> Result<String, io::Error>;
+    fn read_to_string(&self, path: &Path) -> Result<String, io::Error>;
 
     /// Read the directory at the specified path and return the names
     /// of its entries associated with their [`FileType`].
-    fn read_dir(&mut self, path: &Path) -> Result<Vec<(SmolStr, FileType)>, io::Error>;
+    fn read_dir(&self, path: &Path) -> Result<Vec<(SmolStr, FileType)>, io::Error>;
 
     /// Import the given path. What this means depends on the
     /// implementation, for example for a `std::io`-based
@@ -49,7 +49,7 @@ pub trait EvalIO {
     ///
     /// This is primarily used in the context of things like coercing
     /// a local path to a string, or builtins like `path`.
-    fn import_path(&mut self, path: &Path) -> Result<PathBuf, io::Error>;
+    fn import_path(&self, path: &Path) -> Result<PathBuf, io::Error>;
 
     /// Returns the root of the store directory, if such a thing
     /// exists in the evaluation context.
@@ -65,15 +65,15 @@ pub struct StdIO;
 
 #[cfg(feature = "impure")]
 impl EvalIO for StdIO {
-    fn path_exists(&mut self, path: &Path) -> Result<bool, io::Error> {
+    fn path_exists(&self, path: &Path) -> Result<bool, io::Error> {
         path.try_exists()
     }
 
-    fn read_to_string(&mut self, path: &Path) -> Result<String, io::Error> {
+    fn read_to_string(&self, path: &Path) -> Result<String, io::Error> {
         std::fs::read_to_string(&path)
     }
 
-    fn read_dir(&mut self, path: &Path) -> Result<Vec<(SmolStr, FileType)>, io::Error> {
+    fn read_dir(&self, path: &Path) -> Result<Vec<(SmolStr, FileType)>, io::Error> {
         let mut result = vec![];
 
         for entry in path.read_dir()? {
@@ -98,7 +98,7 @@ impl EvalIO for StdIO {
 
     // this is a no-op for `std::io`, as the user can already refer to
     // the path directly
-    fn import_path(&mut self, path: &Path) -> Result<PathBuf, io::Error> {
+    fn import_path(&self, path: &Path) -> Result<PathBuf, io::Error> {
         Ok(path.to_path_buf())
     }
 }
@@ -108,28 +108,28 @@ impl EvalIO for StdIO {
 pub struct DummyIO;
 
 impl EvalIO for DummyIO {
-    fn path_exists(&mut self, _: &Path) -> Result<bool, io::Error> {
+    fn path_exists(&self, _: &Path) -> Result<bool, io::Error> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
             "I/O methods are not implemented in DummyIO",
         ))
     }
 
-    fn read_to_string(&mut self, _: &Path) -> Result<String, io::Error> {
+    fn read_to_string(&self, _: &Path) -> Result<String, io::Error> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
             "I/O methods are not implemented in DummyIO",
         ))
     }
 
-    fn read_dir(&mut self, _: &Path) -> Result<Vec<(SmolStr, FileType)>, io::Error> {
+    fn read_dir(&self, _: &Path) -> Result<Vec<(SmolStr, FileType)>, io::Error> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
             "I/O methods are not implemented in DummyIO",
         ))
     }
 
-    fn import_path(&mut self, _: &Path) -> Result<PathBuf, io::Error> {
+    fn import_path(&self, _: &Path) -> Result<PathBuf, io::Error> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
             "I/O methods are not implemented in DummyIO",

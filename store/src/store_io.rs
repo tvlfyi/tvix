@@ -65,7 +65,7 @@ impl<BS: BlobService, DS: DirectoryService, PS: PathInfoService, NCS: NARCalcula
     /// return the [crate::proto::node::Node] specified by `sub_path`.
     #[instrument(skip(self), ret, err)]
     fn store_path_to_root_node(
-        &mut self,
+        &self,
         store_path: &StorePath,
         sub_path: &Path,
     ) -> Result<Option<crate::proto::node::Node>, crate::Error> {
@@ -106,7 +106,7 @@ impl<BS: BlobService, DS: DirectoryService, PS: PathInfoService, NCS: NARCalcula
     /// care about the [PathInfo].
     #[instrument(skip(self), ret, err)]
     pub fn import_path_with_pathinfo(
-        &mut self,
+        &self,
         path: &std::path::Path,
     ) -> Result<crate::proto::PathInfo, io::Error> {
         // Call [import::ingest_path], which will walk over the given path and return a root_node.
@@ -191,7 +191,7 @@ impl<
     > EvalIO for TvixStoreIO<BS, DS, PS, NCS>
 {
     #[instrument(skip(self), ret, err)]
-    fn path_exists(&mut self, path: &Path) -> Result<bool, io::Error> {
+    fn path_exists(&self, path: &Path) -> Result<bool, io::Error> {
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
         {
@@ -212,7 +212,7 @@ impl<
     }
 
     #[instrument(skip(self), ret, err)]
-    fn read_to_string(&mut self, path: &Path) -> Result<String, io::Error> {
+    fn read_to_string(&self, path: &Path) -> Result<String, io::Error> {
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
         {
@@ -275,7 +275,7 @@ impl<
     }
 
     #[instrument(skip(self), ret, err)]
-    fn read_dir(&mut self, path: &Path) -> Result<Vec<(SmolStr, FileType)>, io::Error> {
+    fn read_dir(&self, path: &Path) -> Result<Vec<(SmolStr, FileType)>, io::Error> {
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
         {
@@ -344,7 +344,7 @@ impl<
     }
 
     #[instrument(skip(self), ret, err)]
-    fn import_path(&mut self, path: &std::path::Path) -> Result<PathBuf, std::io::Error> {
+    fn import_path(&self, path: &std::path::Path) -> Result<PathBuf, std::io::Error> {
         let path_info = self.import_path_with_pathinfo(path)?;
 
         // from the [PathInfo], extract the store path (as string).
