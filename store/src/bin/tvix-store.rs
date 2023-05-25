@@ -2,6 +2,7 @@ use clap::Subcommand;
 use data_encoding::BASE64;
 use std::io;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tracing_subscriber::prelude::*;
 use tvix_store::blobservice::SledBlobService;
 use tvix_store::directoryservice::SledDirectoryService;
@@ -129,18 +130,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 directory_service.clone(),
             );
 
+            let io = Arc::new(TvixStoreIO::new(
+                blob_service,
+                directory_service,
+                path_info_service,
+                nar_calculation_service,
+            ));
+
             for path in paths {
                 let path_move = path.clone();
-
-                let mut io = TvixStoreIO::new(
-                    blob_service.clone(),
-                    directory_service.clone(),
-                    path_info_service.clone(),
-                    nar_calculation_service.clone(),
-                );
-
+                let io_move = io.clone();
                 let path_info = tokio::task::spawn_blocking(move || {
-                    io.import_path_with_pathinfo(&path_move)
+                    io_move
+                        .import_path_with_pathinfo(&path_move)
                         .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
                 })
                 .await??;
