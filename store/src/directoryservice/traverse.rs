@@ -11,7 +11,7 @@ use tracing::{instrument, warn};
 /// clearly distinguish it from the BFS traversers.
 #[instrument(skip(directory_service))]
 pub fn traverse_to<DS: DirectoryService>(
-    directory_service: &mut DS,
+    directory_service: &DS,
     node: crate::proto::node::Node,
     path: &std::path::Path,
 ) -> Result<Option<crate::proto::node::Node>, Error> {
