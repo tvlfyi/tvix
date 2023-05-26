@@ -17,7 +17,7 @@ use crate::vm::generators::{self, GenCo};
 use crate::warnings::WarningKind;
 use crate::{
     errors::ErrorKind,
-    value::{CoercionKind, NixAttrs, NixList, NixString, SharedThunkSet, Value},
+    value::{CoercionKind, NixAttrs, NixList, NixString, SharedThunkSet, Thunk, Value},
 };
 
 use self::versions::{VersionPart, VersionPartsIter};
@@ -307,6 +307,9 @@ mod pure_builtins {
         let mut nul = nul;
         let list = list.to_list()?;
         for val in list {
+            // Every call of `op` is forced immediately, but `nul` is not, see
+            // https://github.com/NixOS/nix/blob/940e9eb8/src/libexpr/primops.cc#L3069-L3070C36
+            // and our tests for foldl'.
             nul = generators::request_call_with(&co, op.clone(), [nul, val]).await;
             nul = generators::request_force(&co, nul).await;
         }
@@ -397,9 +400,15 @@ mod pure_builtins {
     ) -> Result<Value, ErrorKind> {
         let mut out = imbl::Vector::<Value>::new();
         let len = length.as_int()?;
+        // the best span we can get…
+        let span = generators::request_span(&co).await;
 
         for i in 0..len {
-            let val = generators::request_call_with(&co, generator.clone(), [i.into()]).await;
+            let val = Value::Thunk(Thunk::new_suspended_call(
+                generator.clone(),
+                i.into(),
+                span.clone(),
+            ));
             out.push_back(val);
         }
 
@@ -551,8 +560,11 @@ mod pure_builtins {
     async fn builtin_map(co: GenCo, f: Value, list: Value) -> Result<Value, ErrorKind> {
         let mut out = imbl::Vector::<Value>::new();
 
+        // the best span we can get…
+        let span = generators::request_span(&co).await;
+
         for val in list.to_list()? {
-            let result = generators::request_call_with(&co, f.clone(), [val]).await;
+            let result = Value::Thunk(Thunk::new_suspended_call(f.clone(), val, span.clone()));
             out.push_back(result)
         }
 
@@ -564,9 +576,17 @@ mod pure_builtins {
         let attrs = attrs.to_attrs()?;
         let mut out = imbl::OrdMap::new();
 
+        // the best span we can get…
+        let span = generators::request_span(&co).await;
+
         for (key, value) in attrs.into_iter() {
-            let result =
-                generators::request_call_with(&co, f.clone(), [key.clone().into(), value]).await;
+            let result = Value::Thunk(Thunk::new_suspended_call(
+                f.clone(),
+                key.clone().into(),
+                span.clone(),
+            ));
+            let result = Value::Thunk(Thunk::new_suspended_call(result, value, span.clone()));
+
             out.insert(key, result);
         }
 

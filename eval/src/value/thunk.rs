@@ -27,6 +27,7 @@ use std::{
 
 use crate::{
     errors::ErrorKind,
+    opcode::OpCode,
     spans::LightSpan,
     upvalues::Upvalues,
     value::Closure,
@@ -122,6 +123,36 @@ impl Thunk {
         Thunk(Rc::new(RefCell::new(ThunkRepr::Native(SuspendedNative(
             native,
         )))))
+    }
+
+    /// Helper function to create a [`Thunk`] that calls a function given as the
+    /// [`Value`] `callee` with the argument `arg` when it is forced. This is
+    /// particularly useful in builtin implementations if the result of calling
+    /// a function does not need to be forced immediately, because e.g. it is
+    /// stored in an attribute set.
+    pub fn new_suspended_call(callee: Value, arg: Value, light_span: LightSpan) -> Self {
+        let mut lambda = Lambda::default();
+        let span = light_span.span();
+
+        let arg_idx = lambda.chunk().push_constant(arg);
+        let f_idx = lambda.chunk().push_constant(callee);
+
+        // This is basically a recreation of compile_apply():
+        // We need to push the argument onto the stack and then the function.
+        // The function (not the argument) needs to be forced before calling.
+        lambda.chunk.push_op(OpCode::OpConstant(arg_idx), span);
+        lambda.chunk().push_op(OpCode::OpConstant(f_idx), span);
+        lambda.chunk.push_op(OpCode::OpForce, span);
+        lambda.chunk.push_op(OpCode::OpCall, span);
+
+        // Inform the VM that the chunk has ended
+        lambda.chunk.push_op(OpCode::OpReturn, span);
+
+        Thunk(Rc::new(RefCell::new(ThunkRepr::Suspended {
+            upvalues: Rc::new(Upvalues::with_capacity(0)),
+            lambda: Rc::new(lambda),
+            light_span,
+        })))
     }
 
     fn prepare_blackhole(&self, forced_at: LightSpan) -> ThunkRepr {
