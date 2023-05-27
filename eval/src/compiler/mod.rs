@@ -257,7 +257,9 @@ impl Compiler<'_> {
                 self.thunk(slot, binop, move |c, s| c.compile_binop(s, binop))
             }
 
-            ast::Expr::HasAttr(has_attr) => self.compile_has_attr(slot, has_attr),
+            ast::Expr::HasAttr(has_attr) => {
+                self.thunk(slot, has_attr, move |c, s| c.compile_has_attr(s, has_attr))
+            }
 
             ast::Expr::List(list) => self.thunk(slot, list, move |c, s| c.compile_list(s, list)),
 
