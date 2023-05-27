@@ -251,7 +251,7 @@ impl Compiler<'_> {
             ast::Expr::Path(path) => self.compile_path(slot, path),
             ast::Expr::Str(s) => self.compile_str(slot, s),
 
-            ast::Expr::UnaryOp(op) => self.compile_unary_op(slot, op),
+            ast::Expr::UnaryOp(op) => self.thunk(slot, op, move |c, s| c.compile_unary_op(s, op)),
 
             ast::Expr::BinOp(binop) => {
                 self.thunk(slot, binop, move |c, s| c.compile_binop(s, binop))
