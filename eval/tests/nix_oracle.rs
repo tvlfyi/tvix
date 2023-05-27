@@ -86,6 +86,12 @@ macro_rules! compare_strict_eval_tests {
     }
 }
 
+macro_rules! compare_lazy_eval_tests {
+    ($($tests:tt)*) => {
+        compare_eval_tests!(Strictness::Lazy, { $($tests)* });
+    }
+}
+
 compare_strict_eval_tests! {
     literal_int("1");
     add_ints("1 + 1");
@@ -99,4 +105,53 @@ compare_strict_eval_tests! {
         (let name = "bar"; in ./foo + "/${name}")
         (./. + ./.)
     ]"#);
+}
+
+// TODO(sterni): tvix_tests should gain support for something similar in the future,
+// but this requires messing with the path naming which would break compat with
+// C++ Nix's test suite
+compare_lazy_eval_tests! {
+    // Wrap every expression type supported by [Compiler::compile] in a list
+    // with lazy evaluation enabled, so we can check it being thunked or not
+    // against C++ Nix.
+    unthunked_literals_in_list("[ https://tvl.fyi 1 1.2 ]");
+    unthunked_path_in_list("[ ./nix_oracle.rs ]");
+    unthunked_string_literal_in_list("[ \":thonking:\" ]");
+    thunked_unary_ops_in_list("[ (!true) (-1) ]");
+    thunked_bin_ops_in_list(r#"
+      let
+        # Necessary to fool the optimiser for && and ||
+        true' = true;
+        false' = false;
+      in
+      [
+        (true' && false')
+        (true' || false')
+        (false -> true)
+        (40 + 2)
+        (43 - 1)
+        (21 * 2)
+        (126 / 3)
+        ({ } // { bar = null; })
+        (12 == 13)
+        (3 < 2)
+        (4 > 2)
+        (23 >= 42)
+        (33 <= 22)
+        ([ ] ++ [ ])
+        (42 != null)
+      ]
+    "#);
+    thunked_has_attrs_in_list("[ ({ } ? foo) ]");
+    thunked_list_in_list("[ [ 1 2 3 ] ]");
+    thunked_attr_set_in_list("[ { foo = null; } ]");
+    thunked_select_in_list("[ ({ foo = null; }.bar) ]");
+    thunked_assert_in_list("[ (assert false; 12) ]");
+    thunked_if_in_list("[ (if false then 13 else 12) ]");
+    thunked_let_in_list("[ (let foo = 12; in foo) ]");
+    thunked_with_in_list("[ (with { foo = 13; }; fooo) ]");
+    unthunked_identifier_in_list("let foo = 12; in [ foo ]");
+    thunked_lambda_in_list("[ (x: x) ]");
+    thunked_function_application_in_list("[ (builtins.add 1 2) ]");
+    thunked_legacy_let_in_list("[ (let { foo = 12; body = foo; }) ]");
 }
