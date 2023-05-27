@@ -295,7 +295,9 @@ impl Compiler<'_> {
             // their value on the stack.
             ast::Expr::Paren(paren) => self.compile(slot, paren.expr().unwrap()),
 
-            ast::Expr::LegacyLet(legacy_let) => self.compile_legacy_let(slot, legacy_let),
+            ast::Expr::LegacyLet(legacy_let) => self.thunk(slot, legacy_let, move |c, s| {
+                c.compile_legacy_let(s, legacy_let)
+            }),
 
             ast::Expr::Root(_) => unreachable!("there cannot be more than one root"),
             ast::Expr::Error(_) => unreachable!("compile is only called on validated trees"),
