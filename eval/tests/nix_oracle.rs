@@ -11,11 +11,23 @@ fn nix_binary_path() -> PathBuf {
         .into()
 }
 
-fn nix_eval(expr: &str) -> String {
+#[derive(Clone, Copy)]
+enum Strictness {
+    Lazy,
+    Strict,
+}
+
+fn nix_eval(expr: &str, strictness: Strictness) -> String {
     let store_dir = TempDir::new("store-dir").unwrap();
 
+    let mut args = match strictness {
+        Strictness::Lazy => vec![],
+        Strictness::Strict => vec!["--strict"],
+    };
+    args.extend_from_slice(&["--eval", "-E"]);
+
     let output = Command::new(nix_binary_path())
-        .args(["--eval", "--strict", "-E"])
+        .args(&args[..])
         .arg(format!("({expr})"))
         .env(
             "NIX_REMOTE",
@@ -38,10 +50,10 @@ fn nix_eval(expr: &str) -> String {
 /// `NIX_INSTANTIATE_BINARY_PATH` env var to resolve the `nix-instantiate` binary) and tvix, and
 /// assert that the result is identical
 #[track_caller]
-fn compare_eval(expr: &str) {
-    let nix_result = nix_eval(expr);
+fn compare_eval(expr: &str, strictness: Strictness) {
+    let nix_result = nix_eval(expr, strictness);
     let mut eval = tvix_eval::Evaluation::new(expr, None);
-    eval.strict = true;
+    eval.strict = matches!(strictness, Strictness::Strict);
     eval.io_handle = Box::new(tvix_eval::StdIO);
 
     let tvix_result = eval
@@ -56,19 +68,25 @@ fn compare_eval(expr: &str) {
 /// Generate a suite of tests which call [`compare_eval`] on expressions, checking that nix and tvix
 /// return identical results.
 macro_rules! compare_eval_tests {
-    () => {};
-    ($(#[$meta:meta])* $test_name: ident($expr: expr); $($rest:tt)*) => {
+    ($strictness:expr, {}) => {};
+    ($strictness:expr, {$(#[$meta:meta])* $test_name: ident($expr: expr); $($rest:tt)*}) => {
         #[test]
         $(#[$meta])*
         fn $test_name() {
-            compare_eval($expr);
+            compare_eval($expr, $strictness);
         }
 
-        compare_eval_tests!($($rest)*);
+        compare_eval_tests!($strictness, { $($rest)* });
     }
 }
 
-compare_eval_tests! {
+macro_rules! compare_strict_eval_tests {
+    ($($tests:tt)*) => {
+        compare_eval_tests!(Strictness::Lazy, { $($tests)* });
+    }
+}
+
+compare_strict_eval_tests! {
     literal_int("1");
     add_ints("1 + 1");
     add_lists("[1 2] ++ [3 4]");
