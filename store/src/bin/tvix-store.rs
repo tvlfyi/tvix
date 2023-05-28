@@ -25,6 +25,7 @@ use tvix_store::proto::GRPCBlobServiceWrapper;
 use tvix_store::proto::GRPCDirectoryServiceWrapper;
 use tvix_store::proto::GRPCPathInfoServiceWrapper;
 use tvix_store::TvixStoreIO;
+use tvix_store::FUSE;
 
 #[cfg(feature = "reflection")]
 use tvix_store::proto::FILE_DESCRIPTOR_SET;
@@ -58,6 +59,12 @@ enum Commands {
     Import {
         #[clap(value_name = "PATH")]
         paths: Vec<PathBuf>,
+    },
+    /// Mounts a tvix-store at the given mountpoint
+    #[cfg(feature = "fuse")]
+    Mount {
+        #[clap(value_name = "PATH")]
+        dest: PathBuf,
     },
 }
 
@@ -171,6 +178,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .collect::<Vec<tokio::task::JoinHandle<Result<(), io::Error>>>>();
 
             try_join_all(tasks).await?;
+        }
+        #[cfg(feature = "fuse")]
+        Commands::Mount { dest } => {
+            let blob_service = GRPCBlobService::from_client(
+                BlobServiceClient::connect("http://[::1]:8000").await?,
+            );
+            let directory_service = GRPCDirectoryService::from_client(
+                DirectoryServiceClient::connect("http://[::1]:8000").await?,
+            );
+            let path_info_service_client =
+                PathInfoServiceClient::connect("http://[::1]:8000").await?;
+            let path_info_service =
+                GRPCPathInfoService::from_client(path_info_service_client.clone());
+
+            tokio::task::spawn_blocking(move || {
+                let f = FUSE::new(path_info_service, directory_service, blob_service);
+                fuser::mount2(f, &dest, &[])
+            })
+            .await??
         }
     };
     Ok(())
