@@ -2047,6 +2047,82 @@ rec {
         ];
 
       };
+      "fuser" = rec {
+        crateName = "fuser";
+        version = "0.12.0";
+        edition = "2018";
+        sha256 = "1xxalmhjhq54yqribnskdblj7lf24n80455vm3mwdk6f1qd6j42r";
+        authors = [
+          "Christopher Berner <christopherberner@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "libc";
+            packageId = "libc";
+          }
+          {
+            name = "log";
+            packageId = "log";
+          }
+          {
+            name = "memchr";
+            packageId = "memchr";
+          }
+          {
+            name = "page_size";
+            packageId = "page_size";
+          }
+          {
+            name = "smallvec";
+            packageId = "smallvec";
+          }
+          {
+            name = "users";
+            packageId = "users";
+          }
+          {
+            name = "zerocopy";
+            packageId = "zerocopy";
+          }
+        ];
+        buildDependencies = [
+          {
+            name = "pkg-config";
+            packageId = "pkg-config";
+            optional = true;
+          }
+        ];
+        features = {
+          "abi-7-10" = [ "abi-7-9" ];
+          "abi-7-11" = [ "abi-7-10" ];
+          "abi-7-12" = [ "abi-7-11" ];
+          "abi-7-13" = [ "abi-7-12" ];
+          "abi-7-14" = [ "abi-7-13" ];
+          "abi-7-15" = [ "abi-7-14" ];
+          "abi-7-16" = [ "abi-7-15" ];
+          "abi-7-17" = [ "abi-7-16" ];
+          "abi-7-18" = [ "abi-7-17" ];
+          "abi-7-19" = [ "abi-7-18" ];
+          "abi-7-20" = [ "abi-7-19" ];
+          "abi-7-21" = [ "abi-7-20" ];
+          "abi-7-22" = [ "abi-7-21" ];
+          "abi-7-23" = [ "abi-7-22" ];
+          "abi-7-24" = [ "abi-7-23" ];
+          "abi-7-25" = [ "abi-7-24" ];
+          "abi-7-26" = [ "abi-7-25" ];
+          "abi-7-27" = [ "abi-7-26" ];
+          "abi-7-28" = [ "abi-7-27" ];
+          "abi-7-29" = [ "abi-7-28" ];
+          "abi-7-30" = [ "abi-7-29" ];
+          "abi-7-31" = [ "abi-7-30" ];
+          "default" = [ "libfuse" ];
+          "libfuse" = [ "pkg-config" ];
+          "pkg-config" = [ "dep:pkg-config" ];
+          "serde" = [ "dep:serde" ];
+          "serializable" = [ "serde" ];
+        };
+        resolvedDefaultFeatures = [ "default" "libfuse" "pkg-config" ];
+      };
       "futures" = rec {
         crateName = "futures";
         version = "0.3.28";
@@ -3408,9 +3484,9 @@ rec {
       };
       "libc" = rec {
         crateName = "libc";
-        version = "0.2.143";
+        version = "0.2.144";
         edition = "2015";
-        sha256 = "0940zabsl3gm2jr03mg2ign4rnakdd4rp5hfhjzddic57s4hghpd";
+        sha256 = "1qfzrwhncsradwvdzd8vsj4mc31fh0rb5rvny3884rwa48fcq01b";
         authors = [
           "The Rust Project Developers"
         ];
@@ -3952,6 +4028,32 @@ rec {
         ];
 
       };
+      "page_size" = rec {
+        crateName = "page_size";
+        version = "0.4.2";
+        edition = "2015";
+        sha256 = "1kgdv7f626jy4i2pq8czp4ppady4g4kqfa5ik4dah7mzzd4fbggf";
+        authors = [
+          "Philip Woods <elzairthesorcerer@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "libc";
+            packageId = "libc";
+            target = { target, features }: (target."unix" or false);
+          }
+          {
+            name = "winapi";
+            packageId = "winapi";
+            target = { target, features }: (target."windows" or false);
+            features = [ "sysinfoapi" ];
+          }
+        ];
+        features = {
+          "no_std" = [ "spin" ];
+          "spin" = [ "dep:spin" ];
+        };
+      };
       "parking_lot" = rec {
         crateName = "parking_lot";
         version = "0.11.2";
@@ -4134,6 +4236,16 @@ rec {
         sha256 = "117ir7vslsl2z1a7qzhws4pd01cg2d3338c47swjyvqv2n60v1wb";
         authors = [
           "Josef Brandl <mail@josefbrandl.de>"
+        ];
+
+      };
+      "pkg-config" = rec {
+        crateName = "pkg-config";
+        version = "0.3.27";
+        edition = "2015";
+        sha256 = "0r39ryh1magcq4cz5g9x88jllsnxnhcqr753islvyk4jp9h2h1r6";
+        authors = [
+          "Alex Crichton <alex@alexcrichton.com>"
         ];
 
       };
@@ -8017,12 +8129,22 @@ rec {
             packageId = "data-encoding";
           }
           {
+            name = "fuser";
+            packageId = "fuser";
+            optional = true;
+          }
+          {
             name = "futures";
             packageId = "futures";
           }
           {
             name = "lazy_static";
             packageId = "lazy_static";
+          }
+          {
+            name = "libc";
+            packageId = "libc";
+            optional = true;
           }
           {
             name = "nix-compat";
@@ -8127,11 +8249,12 @@ rec {
           }
         ];
         features = {
-          "default" = [ "reflection" ];
+          "default" = [ "fuse" "reflection" ];
+          "fuse" = [ "dep:fuser" "dep:libc" ];
           "reflection" = [ "tonic-reflection" ];
           "tonic-reflection" = [ "dep:tonic-reflection" ];
         };
-        resolvedDefaultFeatures = [ "default" "reflection" "tonic-reflection" ];
+        resolvedDefaultFeatures = [ "default" "fuse" "reflection" "tonic-reflection" ];
       };
       "typenum" = rec {
         crateName = "typenum";
@@ -8204,6 +8327,33 @@ rec {
         ];
         features = { };
         resolvedDefaultFeatures = [ "default" ];
+      };
+      "users" = rec {
+        crateName = "users";
+        version = "0.11.0";
+        edition = "2015";
+        sha256 = "0cmhafhhka2yya66yrprlv33kg7rm1xh1pyalbjp6yr6dxnhzk14";
+        authors = [
+          "Benjamin Sago <ogham@bsago.me>"
+        ];
+        dependencies = [
+          {
+            name = "libc";
+            packageId = "libc";
+          }
+          {
+            name = "log";
+            packageId = "log";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
+        ];
+        features = {
+          "default" = [ "cache" "mock" "logging" ];
+          "log" = [ "dep:log" ];
+          "logging" = [ "log" ];
+        };
+        resolvedDefaultFeatures = [ "cache" "default" "log" "logging" "mock" ];
       };
       "utf8parse" = rec {
         crateName = "utf8parse";
@@ -8969,7 +9119,7 @@ rec {
         features = {
           "debug" = [ "impl-debug" ];
         };
-        resolvedDefaultFeatures = [ "basetsd" "consoleapi" "errhandlingapi" "fileapi" "handleapi" "knownfolders" "minwinbase" "minwindef" "ntsecapi" "ntstatus" "objbase" "processenv" "processthreadsapi" "profileapi" "shellapi" "shlobj" "std" "stringapiset" "synchapi" "winbase" "wincon" "winerror" "winnt" "winuser" "ws2ipdef" "ws2tcpip" ];
+        resolvedDefaultFeatures = [ "basetsd" "consoleapi" "errhandlingapi" "fileapi" "handleapi" "knownfolders" "minwinbase" "minwindef" "ntsecapi" "ntstatus" "objbase" "processenv" "processthreadsapi" "profileapi" "shellapi" "shlobj" "std" "stringapiset" "synchapi" "sysinfoapi" "winbase" "wincon" "winerror" "winnt" "winuser" "ws2ipdef" "ws2tcpip" ];
       };
       "winapi-i686-pc-windows-gnu" = rec {
         crateName = "winapi-i686-pc-windows-gnu";
@@ -9881,6 +10031,55 @@ rec {
         sha256 = "1v4qljgzh73knr7291cgwrf56zrvhmpn837n5n5pypzq1kciq109";
         authors = [
           "Sergio Benitez <sb@sergio.bz>"
+        ];
+
+      };
+      "zerocopy" = rec {
+        crateName = "zerocopy";
+        version = "0.6.1";
+        edition = "2018";
+        sha256 = "0dpj4nd9v56wy93ahjkp95znjzj91waqvidqch8gxwdwq661hbrk";
+        authors = [
+          "Joshua Liebow-Feeser <joshlf@google.com>"
+        ];
+        dependencies = [
+          {
+            name = "byteorder";
+            packageId = "byteorder";
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "zerocopy-derive";
+            packageId = "zerocopy-derive";
+          }
+        ];
+        features = {
+          "simd-nightly" = [ "simd" ];
+        };
+      };
+      "zerocopy-derive" = rec {
+        crateName = "zerocopy-derive";
+        version = "0.3.2";
+        edition = "2018";
+        sha256 = "18qr7dqlj89v1xl1g58l2xd6jidv0sbccscgl131gpppba0yc1b5";
+        procMacro = true;
+        authors = [
+          "Joshua Liebow-Feeser <joshlf@google.com>"
+        ];
+        dependencies = [
+          {
+            name = "proc-macro2";
+            packageId = "proc-macro2 1.0.56";
+          }
+          {
+            name = "quote";
+            packageId = "quote 1.0.26";
+          }
+          {
+            name = "syn";
+            packageId = "syn 1.0.109";
+            features = [ "visit" ];
+          }
         ];
 
       };
