@@ -284,11 +284,9 @@ impl Compiler<'_> {
 
             ast::Expr::Ident(ident) => self.compile_ident(slot, ident),
             ast::Expr::With(with) => self.thunk(slot, with, |c, s| c.compile_with(s, with)),
-            ast::Expr::Lambda(lambda) => {
-                self.compile_lambda_or_thunk(false, slot, lambda, |c, s| {
-                    c.compile_lambda(s, lambda)
-                })
-            }
+            ast::Expr::Lambda(lambda) => self.thunk(slot, lambda, move |c, s| {
+                c.compile_lambda_or_thunk(false, s, lambda, |c, s| c.compile_lambda(s, lambda))
+            }),
             ast::Expr::Apply(apply) => {
                 self.thunk(slot, apply, move |c, s| c.compile_apply(s, apply))
             }
