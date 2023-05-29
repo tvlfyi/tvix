@@ -53,7 +53,7 @@ impl From<NameError> for Error {
 ///
 /// A [StorePath] does not encode any additional subpath "inside" the store
 /// path.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StorePath {
     pub digest: [u8; DIGEST_SIZE],
     pub name: String,
