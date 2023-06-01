@@ -108,11 +108,6 @@ pub enum ErrorKind {
     /// An error occurred when parsing an integer
     ParseIntError(ParseIntError),
 
-    /// A negative integer was used as a value representing length.
-    NegativeLength {
-        length: i64,
-    },
-
     // Errors specific to nested attribute sets and merges thereof.
     /// Nested attributes can not be merged with an inherited value.
     UnmergeableInherit {
@@ -394,14 +389,6 @@ to a missing value in the attribute set(s) included via `with`."#,
 
             ErrorKind::ParseIntError(err) => {
                 write!(f, "invalid integer: {}", err)
-            }
-
-            ErrorKind::NegativeLength { length } => {
-                write!(
-                    f,
-                    "cannot use a negative integer, {}, for a value representing length",
-                    length
-                )
             }
 
             ErrorKind::UnmergeableInherit { name } => {
@@ -765,7 +752,6 @@ impl Error {
             | ErrorKind::NotCoercibleToString { .. }
             | ErrorKind::NotAnAbsolutePath(_)
             | ErrorKind::ParseIntError(_)
-            | ErrorKind::NegativeLength { .. }
             | ErrorKind::UnmergeableInherit { .. }
             | ErrorKind::UnmergeableValue
             | ErrorKind::ImportParseError { .. }
@@ -808,7 +794,6 @@ impl Error {
             ErrorKind::IndexOutOfBounds { .. } => "E019",
             ErrorKind::NotAnAbsolutePath(_) => "E020",
             ErrorKind::ParseIntError(_) => "E021",
-            ErrorKind::NegativeLength { .. } => "E022",
             ErrorKind::TailEmptyList { .. } => "E023",
             ErrorKind::UnmergeableInherit { .. } => "E024",
             ErrorKind::UnmergeableValue => "E025",

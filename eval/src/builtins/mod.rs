@@ -869,12 +869,11 @@ mod pure_builtins {
             return Ok(Value::String("".into()));
         }
 
-        if len < 0 {
-            return Err(ErrorKind::NegativeLength { length: len });
-        }
-
-        let len = len as usize;
-        let end = cmp::min(beg + len, x.as_str().len());
+        let end = if len < 0 {
+            x.as_str().len() as usize
+        } else {
+            cmp::min(beg + (len as usize), x.as_str().len())
+        };
 
         Ok(Value::String(x.as_str()[beg..end].into()))
     }
