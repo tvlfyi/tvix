@@ -16,7 +16,7 @@ pub const STORE_PATH_LEN: usize = "/nix/store/00000000000000000000000000000000".
 /// of store paths to scan for.
 pub struct ReferenceScanner<P: Ord + AsRef<[u8]>> {
     candidates: Vec<P>,
-    searcher: TwoByteWM,
+    searcher: Option<TwoByteWM>,
     matches: Vec<usize>,
 }
 
@@ -24,7 +24,11 @@ impl<P: Clone + Ord + AsRef<[u8]>> ReferenceScanner<P> {
     /// Construct a new `ReferenceScanner` that knows how to scan for the given
     /// candidate store paths.
     pub fn new(candidates: Vec<P>) -> Self {
-        let searcher = TwoByteWM::new(&candidates);
+        let searcher = if candidates.is_empty() {
+            None
+        } else {
+            Some(TwoByteWM::new(&candidates))
+        };
 
         ReferenceScanner {
             searcher,
@@ -40,8 +44,10 @@ impl<P: Clone + Ord + AsRef<[u8]>> ReferenceScanner<P> {
             return;
         }
 
-        for m in self.searcher.find(&haystack) {
-            self.matches.push(m.pat_idx);
+        if let Some(searcher) = &self.searcher {
+            for m in searcher.find(&haystack) {
+                self.matches.push(m.pat_idx);
+            }
         }
     }
 
@@ -60,6 +66,17 @@ mod tests {
 
     // The actual derivation of `nixpkgs.hello`.
     const HELLO_DRV: &'static str = r#"Derive([("out","/nix/store/33l4p0pn0mybmqzaxfkpppyh7vx1c74p-hello-2.12.1","","")],[("/nix/store/6z1jfnqqgyqr221zgbpm30v91yfj3r45-bash-5.1-p16.drv",["out"]),("/nix/store/ap9g09fxbicj836zm88d56dn3ff4clxl-stdenv-linux.drv",["out"]),("/nix/store/pf80kikyxr63wrw56k00i1kw6ba76qik-hello-2.12.1.tar.gz.drv",["out"])],["/nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh"],"x86_64-linux","/nix/store/4xw8n979xpivdc46a9ndcvyhwgif00hz-bash-5.1-p16/bin/bash",["-e","/nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh"],[("buildInputs",""),("builder","/nix/store/4xw8n979xpivdc46a9ndcvyhwgif00hz-bash-5.1-p16/bin/bash"),("cmakeFlags",""),("configureFlags",""),("depsBuildBuild",""),("depsBuildBuildPropagated",""),("depsBuildTarget",""),("depsBuildTargetPropagated",""),("depsHostHost",""),("depsHostHostPropagated",""),("depsTargetTarget",""),("depsTargetTargetPropagated",""),("doCheck","1"),("doInstallCheck",""),("mesonFlags",""),("name","hello-2.12.1"),("nativeBuildInputs",""),("out","/nix/store/33l4p0pn0mybmqzaxfkpppyh7vx1c74p-hello-2.12.1"),("outputs","out"),("patches",""),("pname","hello"),("propagatedBuildInputs",""),("propagatedNativeBuildInputs",""),("src","/nix/store/pa10z4ngm0g83kx9mssrqzz30s84vq7k-hello-2.12.1.tar.gz"),("stdenv","/nix/store/cp65c8nk29qq5cl1wyy5qyw103cwmax7-stdenv-linux"),("strictDeps",""),("system","x86_64-linux"),("version","2.12.1")])"#;
+
+    #[test]
+    fn test_no_patterns() {
+        let mut scanner: ReferenceScanner<String> = ReferenceScanner::new(vec![]);
+
+        scanner.scan_str(HELLO_DRV);
+
+        let result = scanner.finalise();
+
+        assert_eq!(result.len(), 0);
+    }
 
     #[test]
     fn test_single_match() {
