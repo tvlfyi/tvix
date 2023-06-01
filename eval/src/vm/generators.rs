@@ -650,7 +650,7 @@ pub(crate) async fn emit_warning(co: &GenCo, warning: EvalWarning) {
 }
 
 /// Emit a runtime warning with the span of the current generator.
-pub(crate) async fn emit_warning_kind(co: &GenCo, kind: WarningKind) {
+pub async fn emit_warning_kind(co: &GenCo, kind: WarningKind) {
     match co.yield_(VMRequest::EmitWarningKind(kind)).await {
         VMResponse::Empty => {}
         msg => panic!(

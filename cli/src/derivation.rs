@@ -5,8 +5,8 @@ use std::cell::RefCell;
 use std::collections::{btree_map, BTreeSet};
 use std::rc::Rc;
 use tvix_eval::builtin_macros::builtins;
-use tvix_eval::generators::{self, GenCo};
-use tvix_eval::{AddContext, CoercionKind, ErrorKind, NixAttrs, NixList, Value};
+use tvix_eval::generators::{self, emit_warning_kind, GenCo};
+use tvix_eval::{AddContext, CoercionKind, ErrorKind, NixAttrs, NixList, Value, WarningKind};
 
 use crate::errors::Error;
 use crate::known_paths::{KnownPaths, PathKind, PathName};
@@ -327,7 +327,7 @@ mod derivation_builtins {
                 .insert(output.to_string(), String::new())
                 .is_some()
             {
-                return Err(Error::ShadowedOutput(output.to_string()).into());
+                emit_warning_kind(&co, WarningKind::ShadowedOutput(output.to_string())).await;
             }
         }
 

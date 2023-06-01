@@ -11,8 +11,6 @@ pub enum Error {
     ConflictingOutputTypes,
     #[error("the environment variable '{0}' has already been set in this derivation")]
     DuplicateEnvVar(String),
-    #[error("the environment variable '{0}' shadows the name of an output")]
-    ShadowedOutput(String),
     #[error("invalid derivation parameters: {0}")]
     InvalidDerivation(DerivationError),
     #[error("invalid output hash: {0}")]

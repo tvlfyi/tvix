@@ -17,6 +17,7 @@ pub enum WarningKind {
     DeadCode,
     EmptyInherit,
     EmptyLet,
+    ShadowedOutput(String),
 
     /// Tvix internal warning for features triggered by users that are
     /// not actually implemented yet, but do not cause runtime failures.
@@ -100,6 +101,11 @@ impl EvalWarning {
 
             WarningKind::EmptyLet => "this `let`-expression contains no bindings".to_string(),
 
+            WarningKind::ShadowedOutput(ref out) => format!(
+                "this derivation's environment shadows the output name {}",
+                out
+            ),
+
             WarningKind::NotImplemented(what) => {
                 format!("feature not yet implemented in tvix: {}", what)
             }
@@ -120,6 +126,7 @@ impl EvalWarning {
             WarningKind::DeadCode => "W008",
             WarningKind::EmptyInherit => "W009",
             WarningKind::EmptyLet => "W010",
+            WarningKind::ShadowedOutput(_) => "W011",
 
             WarningKind::NotImplemented(_) => "W999",
         }
