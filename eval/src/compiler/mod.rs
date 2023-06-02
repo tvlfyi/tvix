@@ -920,7 +920,6 @@ impl Compiler<'_> {
         // the bindings to first declare them, then populate them, and
         // then finalise any necessary recursion into the scope.
         let mut entries: Vec<(LocalIdx, ast::PatEntry)> = vec![];
-        let mut indices: Vec<LocalIdx> = vec![];
         let mut arguments = HashMap::default();
 
         for entry in pattern.pat_entries() {
@@ -928,14 +927,13 @@ impl Compiler<'_> {
             let idx = self.declare_local(&ident, ident.to_string());
             let has_default = entry.default().is_some();
             entries.push((idx, entry));
-            indices.push(idx);
             arguments.insert(ident.into(), has_default);
         }
 
         // For each of the bindings, push the set on the stack and
         // attempt to select from it.
         let stack_idx = self.scope().stack_index(set_idx);
-        for (idx, entry) in entries.into_iter() {
+        for (idx, entry) in (&entries).into_iter() {
             self.push_op(OpCode::OpGetLocal(stack_idx), pattern);
             self.emit_literal_ident(&entry.ident().unwrap());
 
@@ -954,9 +952,9 @@ impl Compiler<'_> {
                 // Thunk the default expression, but only if it is something
                 // other than an identifier.
                 if let ast::Expr::Ident(_) = &default_expr {
-                    self.compile(idx, default_expr);
+                    self.compile(*idx, default_expr);
                 } else {
-                    self.thunk(idx, &self.span_for(&default_expr), move |c, s| {
+                    self.thunk(*idx, &self.span_for(&default_expr), move |c, s| {
                         c.compile(s, default_expr)
                     });
                 }
@@ -966,12 +964,12 @@ impl Compiler<'_> {
                 self.push_op(OpCode::OpAttrsSelect, &entry.ident().unwrap());
             }
 
-            self.scope_mut().mark_initialised(idx);
+            self.scope_mut().mark_initialised(*idx);
         }
 
-        for idx in indices {
-            if self.scope()[idx].needs_finaliser {
-                let stack_idx = self.scope().stack_index(idx);
+        for (idx, _) in (&entries).into_iter() {
+            if self.scope()[*idx].needs_finaliser {
+                let stack_idx = self.scope().stack_index(*idx);
                 self.push_op(OpCode::OpFinalise(stack_idx), pattern);
             }
         }
