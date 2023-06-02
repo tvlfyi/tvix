@@ -638,6 +638,19 @@ impl<'o> VM<'o> {
                     }
                 }
 
+                OpCode::OpAssertAttrs => {
+                    let val = self.stack_peek(0);
+                    if !val.is_attrs() {
+                        return frame.error(
+                            self,
+                            ErrorKind::TypeError {
+                                expected: "set",
+                                actual: val.type_of(),
+                            },
+                        );
+                    }
+                }
+
                 OpCode::OpAttrs(Count(count)) => self.run_attrset(&frame, count)?,
 
                 OpCode::OpAttrsUpdate => {

@@ -129,6 +129,7 @@ pub enum OpCode {
 
     // Type assertion operators
     OpAssertBool,
+    OpAssertAttrs,
 
     /// Access local identifiers with statically known positions.
     OpGetLocal(StackIdx),

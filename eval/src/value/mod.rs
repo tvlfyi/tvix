@@ -542,6 +542,7 @@ impl Value {
     gen_is!(is_path, Value::Path(_));
     gen_is!(is_number, Value::Integer(_) | Value::Float(_));
     gen_is!(is_bool, Value::Bool(_));
+    gen_is!(is_attrs, Value::Attrs(_));
 
     // TODO(amjoseph): de-asyncify this (when called directly by the VM)
     /// Compare `self` against other using (fallible) Nix ordering semantics.

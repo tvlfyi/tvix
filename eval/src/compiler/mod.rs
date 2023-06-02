@@ -910,6 +910,7 @@ impl Compiler<'_> {
         // the stack.
         self.scope_mut().mark_initialised(set_idx);
         self.emit_force(pattern);
+        self.push_op(OpCode::OpAssertAttrs, pattern);
 
         let ellipsis = pattern.ellipsis_token().is_some();
         if !ellipsis {
