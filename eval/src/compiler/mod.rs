@@ -950,15 +950,8 @@ impl Compiler<'_> {
 
                 self.patch_jump(jump_to_default);
 
-                // Thunk the default expression, but only if it is something
-                // other than an identifier.
-                if let ast::Expr::Ident(_) = &default_expr {
-                    self.compile(*idx, default_expr);
-                } else {
-                    self.thunk(*idx, &self.span_for(&default_expr), move |c, s| {
-                        c.compile(s, default_expr)
-                    });
-                }
+                // Does not need to thunked since compile() already does so when necessary
+                self.compile(*idx, default_expr);
 
                 self.patch_jump(jump_over_default);
             } else {

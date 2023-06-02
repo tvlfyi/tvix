@@ -154,4 +154,9 @@ compare_lazy_eval_tests! {
     thunked_lambda_in_list("[ (x: x) ]");
     thunked_function_application_in_list("[ (builtins.add 1 2) ]");
     thunked_legacy_let_in_list("[ (let { foo = 12; body = foo; }) ]");
+
+    unthunked_formals_fallback_literal("({ foo ? 12 }: [ foo ]) { }");
+    unthunked_formals_fallback_string_literal("({ foo ? \"wiggly\" }: [ foo ]) { }");
+    thunked_formals_fallback_application("({ foo ? builtins.add 1 2 }: [ foo ]) { }");
+    thunked_formals_fallback_name_resolution_literal("({ foo ? bar, bar ? 12 }: [ foo ]) { }");
 }
