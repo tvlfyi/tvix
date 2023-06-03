@@ -85,6 +85,7 @@ pub enum OpCode {
     OpJumpIfTrue(JumpOffset),
     OpJumpIfFalse(JumpOffset),
     OpJumpIfNotFound(JumpOffset),
+    OpJumpIfNoFinaliseRequest(JumpOffset),
 
     // Attribute sets
     /// Construct an attribute set from the given number of key-value pairs on the top of the stack

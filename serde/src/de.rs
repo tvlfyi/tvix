@@ -108,7 +108,8 @@ impl<'de> de::Deserializer<'de> for NixDeserializer {
             | Value::Blueprint(_)
             | Value::DeferredUpvalue(_)
             | Value::UnresolvedPath(_)
-            | Value::Json(_) => Err(Error::Unserializable {
+            | Value::Json(_)
+            | Value::FinaliseRequest(_) => Err(Error::Unserializable {
                 value_type: self.value.type_of(),
             }),
         }

@@ -574,6 +574,18 @@ impl<'o> VM<'o> {
                     }
                 }
 
+                OpCode::OpJumpIfNoFinaliseRequest(JumpOffset(offset)) => {
+                    debug_assert!(offset != 0);
+                    match self.stack_peek(0) {
+                        Value::FinaliseRequest(finalise) => {
+                            if !finalise {
+                                frame.ip += offset;
+                            }
+                        },
+                        val => panic!("Tvix bug: OpJumIfNoFinaliseRequest: expected FinaliseRequest, but got {}", val.type_of()),
+                    }
+                }
+
                 OpCode::OpPop => {
                     self.stack.pop();
                 }
@@ -733,19 +745,11 @@ impl<'o> VM<'o> {
                     return Ok(false);
                 }
 
-                OpCode::OpFinalise(StackIdx(idx)) => {
-                    match &self.stack[frame.stack_offset + idx] {
-                        Value::Closure(_) => panic!("attempted to finalise a closure"),
-                        Value::Thunk(thunk) => thunk.finalise(&self.stack[frame.stack_offset..]),
-
-                        // In functions with "formals" attributes, it is
-                        // possible for `OpFinalise` to be called on a
-                        // non-capturing value, in which case it is a no-op.
-                        //
-                        // TODO: detect this in some phase and skip the finalise; fail here
-                        _ => { /* TODO: panic here again to catch bugs */ }
-                    }
-                }
+                OpCode::OpFinalise(StackIdx(idx)) => match &self.stack[frame.stack_offset + idx] {
+                    Value::Closure(_) => panic!("attempted to finalise a closure"),
+                    Value::Thunk(thunk) => thunk.finalise(&self.stack[frame.stack_offset..]),
+                    _ => panic!("attempted to finalise a non-thunk"),
+                },
 
                 OpCode::OpCoerceToString => {
                     let value = self.stack_pop();

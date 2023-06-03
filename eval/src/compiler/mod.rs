@@ -80,6 +80,47 @@ impl LambdaCtx {
     }
 }
 
+/// When compiling functions with an argument attribute set destructuring pattern,
+/// we need to do multiple passes over the declared formal arguments when setting
+/// up their local bindings (similarly to `let … in` expressions and recursive
+/// attribute sets. For this purpose, this struct is used to represent the two
+/// kinds of formal arguments:
+///
+/// - `TrackedFormal::NoDefault` is always required and causes an evaluation error
+///   if the corresponding attribute is missing in a function call.
+/// - `TrackedFormal::WithDefault` may be missing in the passed attribute set—
+///   in which case a `default_expr` will be evaluated and placed in the formal
+///   argument's local variable slot.
+enum TrackedFormal {
+    NoDefault {
+        local_idx: LocalIdx,
+        pattern_entry: ast::PatEntry,
+    },
+    WithDefault {
+        local_idx: LocalIdx,
+        /// Extra phantom local used for coordinating runtime dispatching not observable to
+        /// the language user. Detailed description in `compile_param_pattern()`.
+        finalise_request_idx: LocalIdx,
+        default_expr: ast::Expr,
+        pattern_entry: ast::PatEntry,
+    },
+}
+
+impl TrackedFormal {
+    fn pattern_entry(&self) -> &ast::PatEntry {
+        match self {
+            TrackedFormal::NoDefault { pattern_entry, .. } => pattern_entry,
+            TrackedFormal::WithDefault { pattern_entry, .. } => pattern_entry,
+        }
+    }
+    fn local_idx(&self) -> LocalIdx {
+        match self {
+            TrackedFormal::NoDefault { local_idx, .. } => *local_idx,
+            TrackedFormal::WithDefault { local_idx, .. } => *local_idx,
+        }
+    }
+}
+
 /// The map of globally available functions and other values that
 /// should implicitly be resolvable in the global scope.
 pub(crate) type GlobalsMap = HashMap<&'static str, Value>;
@@ -894,10 +935,19 @@ impl Compiler<'_> {
     ///    in <body>
     /// ```
     ///
-    /// The only tricky bit being that bindings have to fail if too
-    /// many arguments are provided. This is done by emitting a
-    /// special instruction that checks the set of keys from a
-    /// constant containing the expected keys.
+    /// However, there are two properties of pattern function arguments that can
+    /// not be compiled by desugaring in this way:
+    ///
+    /// 1. Bindings have to fail if too many arguments are provided. This is
+    ///    done by emitting a special instruction that checks the set of keys
+    ///    from a constant containing the expected keys.
+    /// 2. Formal arguments with a default expression are (as an optimization and
+    ///    because it is simpler) not wrapped in another thunk, instead compiled
+    ///    and accessed separately. This means that the default expression may
+    ///    never make it into the local's stack slot if the argument is provided
+    ///    by the caller. We need to take this into account and skip any
+    ///    operations specific to the expression like thunk finalisation in such
+    ///    cases.
     fn compile_param_pattern(&mut self, pattern: &ast::Pattern) -> Formals {
         let span = self.span_for(pattern);
         let set_idx = match pattern.pat_bind() {
@@ -905,10 +955,10 @@ impl Compiler<'_> {
             None => self.scope_mut().declare_phantom(span, true),
         };
 
-        // At call time, the attribute set is already at the top of
-        // the stack.
+        // At call time, the attribute set is already at the top of the stack.
         self.scope_mut().mark_initialised(set_idx);
         self.emit_force(pattern);
+        // Evaluation fails on a type error, even if the argument(s) are unused.
         self.push_op(OpCode::OpAssertAttrs, pattern);
 
         let ellipsis = pattern.ellipsis_token().is_some();
@@ -919,51 +969,131 @@ impl Compiler<'_> {
         // Similar to `let ... in ...`, we now do multiple passes over
         // the bindings to first declare them, then populate them, and
         // then finalise any necessary recursion into the scope.
-        let mut entries: Vec<(LocalIdx, ast::PatEntry)> = vec![];
+        let mut entries: Vec<TrackedFormal> = vec![];
         let mut arguments = HashMap::default();
 
         for entry in pattern.pat_entries() {
             let ident = entry.ident().unwrap();
             let idx = self.declare_local(&ident, ident.to_string());
-            let has_default = entry.default().is_some();
-            entries.push((idx, entry));
-            arguments.insert(ident.into(), has_default);
+
+            arguments.insert(ident.into(), entry.default().is_some());
+
+            if let Some(default_expr) = entry.default() {
+                entries.push(TrackedFormal::WithDefault {
+                    local_idx: idx,
+                    // This phantom is used to track at runtime (!) whether we need to
+                    // finalise the local's stack slot or not. The relevant instructions are
+                    // emitted in the second pass where the mechanism is explained as well.
+                    finalise_request_idx: {
+                        let span = self.span_for(&default_expr);
+                        self.scope_mut().declare_phantom(span, false)
+                    },
+                    default_expr,
+                    pattern_entry: entry,
+                });
+            } else {
+                entries.push(TrackedFormal::NoDefault {
+                    local_idx: idx,
+                    pattern_entry: entry,
+                });
+            }
         }
 
         // For each of the bindings, push the set on the stack and
         // attempt to select from it.
         let stack_idx = self.scope().stack_index(set_idx);
-        for (idx, entry) in (&entries).into_iter() {
+        for tracked_formal in (&entries).into_iter() {
             self.push_op(OpCode::OpGetLocal(stack_idx), pattern);
-            self.emit_literal_ident(&entry.ident().unwrap());
+            self.emit_literal_ident(&tracked_formal.pattern_entry().ident().unwrap());
+
+            let idx = tracked_formal.local_idx();
 
             // Use the same mechanism as `compile_select_or` if a
             // default value was provided, or simply select otherwise.
-            if let Some(default_expr) = entry.default() {
-                self.push_op(OpCode::OpAttrsTrySelect, &entry.ident().unwrap());
+            match tracked_formal {
+                TrackedFormal::WithDefault {
+                    default_expr,
+                    pattern_entry,
+                    ..
+                } => {
+                    // The tricky bit about compiling a formal argument with a default value
+                    // is that the default may be a thunk that may depend on the value of
+                    // other formal arguments, i.e. may need to be finalised. This
+                    // finalisation can only happen if we are actually using the default
+                    // value—otherwise OpFinalise will crash on an already finalised (or
+                    // non-thunk) value.
+                    //
+                    // Thus we use an additional local to track whether we wound up
+                    // defaulting or not. `FinaliseRequest(false)` indicates that we should
+                    // not finalise, as we did not default.
+                    //
+                    // We are being wasteful with VM stack space in case of default
+                    // expressions that don't end up needing to be finalised. Unfortunately
+                    // we only know better after compiling the default expression, so
+                    // avoiding unnecessary locals would mean we'd need to modify the chunk
+                    // after the fact.
+                    self.push_op(OpCode::OpAttrsTrySelect, &pattern_entry.ident().unwrap());
+                    let jump_to_default =
+                        self.push_op(OpCode::OpJumpIfNotFound(JumpOffset(0)), default_expr);
 
-                let jump_to_default =
-                    self.push_op(OpCode::OpJumpIfNotFound(JumpOffset(0)), &default_expr);
+                    self.emit_constant(Value::FinaliseRequest(false), default_expr);
 
-                let jump_over_default = self.push_op(OpCode::OpJump(JumpOffset(0)), &default_expr);
+                    let jump_over_default =
+                        self.push_op(OpCode::OpJump(JumpOffset(0)), default_expr);
 
-                self.patch_jump(jump_to_default);
+                    self.patch_jump(jump_to_default);
 
-                // Does not need to thunked since compile() already does so when necessary
-                self.compile(*idx, default_expr);
+                    // Does not need to thunked since compile() already does so when necessary
+                    self.compile(idx, default_expr.clone());
 
-                self.patch_jump(jump_over_default);
-            } else {
-                self.push_op(OpCode::OpAttrsSelect, &entry.ident().unwrap());
+                    self.emit_constant(Value::FinaliseRequest(true), default_expr);
+
+                    self.patch_jump(jump_over_default);
+                }
+                TrackedFormal::NoDefault { pattern_entry, .. } => {
+                    self.push_op(OpCode::OpAttrsSelect, &pattern_entry.ident().unwrap());
+                }
             }
 
-            self.scope_mut().mark_initialised(*idx);
+            self.scope_mut().mark_initialised(idx);
+            if let TrackedFormal::WithDefault {
+                finalise_request_idx,
+                ..
+            } = tracked_formal
+            {
+                self.scope_mut().mark_initialised(*finalise_request_idx);
+            }
         }
 
-        for (idx, _) in (&entries).into_iter() {
-            if self.scope()[*idx].needs_finaliser {
-                let stack_idx = self.scope().stack_index(*idx);
-                self.push_op(OpCode::OpFinalise(stack_idx), pattern);
+        for tracked_formal in (&entries).into_iter() {
+            if self.scope()[tracked_formal.local_idx()].needs_finaliser {
+                let stack_idx = self.scope().stack_index(tracked_formal.local_idx());
+                match tracked_formal {
+                    TrackedFormal::NoDefault { .. } =>
+                        panic!("Tvix bug: local for pattern formal needs finaliser, but has no default expr"),
+                    TrackedFormal::WithDefault { finalise_request_idx, .. } => {
+                        let finalise_request_stack_idx = self.scope().stack_index(*finalise_request_idx);
+
+                        // TODO(sterni): better spans
+                        self.push_op(
+                            OpCode::OpGetLocal(finalise_request_stack_idx),
+                            pattern
+                        );
+                        let jump_over_finalise =
+                            self.push_op(
+                                OpCode::OpJumpIfNoFinaliseRequest(
+                                    JumpOffset(0)),
+                                pattern
+                            );
+                        self.push_op(
+                            OpCode::OpFinalise(stack_idx),
+                            pattern,
+                        );
+                        self.patch_jump(jump_over_finalise);
+                        // Get rid of finaliser request value on the stack
+                        self.push_op(OpCode::OpPop, pattern);
+                    }
+                }
             }
         }
 
@@ -1196,7 +1326,8 @@ impl Compiler<'_> {
             OpCode::OpJump(n)
             | OpCode::OpJumpIfFalse(n)
             | OpCode::OpJumpIfTrue(n)
-            | OpCode::OpJumpIfNotFound(n) => {
+            | OpCode::OpJumpIfNotFound(n)
+            | OpCode::OpJumpIfNoFinaliseRequest(n) => {
                 *n = offset;
             }
 

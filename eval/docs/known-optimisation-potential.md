@@ -128,3 +128,13 @@ optimisations, but note the most important ones here.
   very least [immutable data structures](https://docs.rs/im/latest/im/) that can
   be copied more efficiently than the stock structures we are using at the
   moment.
+
+* Skip finalising unfinalised thunks or non-thunks instead of crashing [easy]
+
+  Currently `OpFinalise` crashes the VM if it is called on values that don't
+  need to be finalised. This helps catching miscompilations where `OpFinalise`
+  operates on the wrong `StackIdx`. In the case of function argument patterns,
+  however, this means extra VM stack and instruction overhead for dynamically
+  determining if finalisation is necessary or not. This wouldn't be necessary
+  if `OpFinalise` would just noop on any values that don't need to be finalised
+  (anymore).
