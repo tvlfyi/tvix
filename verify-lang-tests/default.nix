@@ -55,6 +55,7 @@ let
     "eval-okay-sort.nix" = [ nix ];
     "eval-okay-compare-lists.nix" = [ nix ];
     "eval-okay-value-pointer-compare.nix" = [ nix ];
+    "eval-okay-builtins-genericClosure-pointer-equality.nix" = [ nix ];
     # getAttrPos gains support for functionArgs-returned sets after 2.3
     "eval-okay-getattrpos-functionargs.nix" = [ nix ];
     # groupBy appeared (long) after 2.3
