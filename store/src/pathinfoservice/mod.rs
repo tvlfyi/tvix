@@ -17,4 +17,6 @@ pub trait PathInfoService {
     /// Store a PathInfo message. Implementations MUST call validate and reject
     /// invalid messages.
     fn put(&self, path_info: proto::PathInfo) -> Result<proto::PathInfo, Error>;
+
+    // TODO: add default impl for nar calculation here, and override from GRPC client!
 }

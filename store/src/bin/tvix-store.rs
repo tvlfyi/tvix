@@ -11,8 +11,6 @@ use tvix_store::blobservice::GRPCBlobService;
 use tvix_store::blobservice::SledBlobService;
 use tvix_store::directoryservice::GRPCDirectoryService;
 use tvix_store::directoryservice::SledDirectoryService;
-use tvix_store::nar::GRPCNARCalculationService;
-use tvix_store::nar::NonCachingNARCalculationService;
 use tvix_store::pathinfoservice::GRPCPathInfoService;
 use tvix_store::pathinfoservice::SledPathInfoService;
 use tvix_store::proto::blob_service_client::BlobServiceClient;
@@ -102,6 +100,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Daemon { listen_address } => {
             // initialize stores
             let blob_service = SledBlobService::new("blobs.sled".into())?;
+            let boxed_blob_service: Box<dyn BlobService> = Box::new(blob_service.clone());
+            let boxed_blob_service2: Box<dyn BlobService> = Box::new(blob_service);
             let directory_service = SledDirectoryService::new("directories.sled".into())?;
             let path_info_service = SledPathInfoService::new("pathinfo.sled".into())?;
 
@@ -112,22 +112,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let mut server = Server::builder();
 
-            let nar_calculation_service = NonCachingNARCalculationService::new(
-                Box::new(blob_service.clone()),
-                directory_service.clone(),
-            );
-
             #[allow(unused_mut)]
             let mut router = server
                 .add_service(BlobServiceServer::new(GRPCBlobServiceWrapper::from(
-                    Box::new(blob_service) as Box<dyn BlobService>,
+                    boxed_blob_service,
                 )))
                 .add_service(DirectoryServiceServer::new(
-                    GRPCDirectoryServiceWrapper::from(directory_service),
+                    GRPCDirectoryServiceWrapper::from(directory_service.clone()),
                 ))
                 .add_service(PathInfoServiceServer::new(GRPCPathInfoServiceWrapper::new(
                     path_info_service,
-                    nar_calculation_service,
+                    boxed_blob_service2,
+                    directory_service,
                 )));
 
             #[cfg(feature = "reflection")]
@@ -153,14 +149,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 PathInfoServiceClient::connect("http://[::1]:8000").await?;
             let path_info_service =
                 GRPCPathInfoService::from_client(path_info_service_client.clone());
-            let nar_calculation_service =
-                GRPCNARCalculationService::from_client(path_info_service_client);
 
             let io = Arc::new(TvixStoreIO::new(
                 Box::new(blob_service),
                 directory_service,
                 path_info_service,
-                nar_calculation_service,
             ));
 
             let tasks = paths

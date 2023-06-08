@@ -73,20 +73,11 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
 
     let blob_service = MemoryBlobService::default();
     let directory_service = MemoryDirectoryService::default();
-    let path_info_service = MemoryPathInfoService::default();
-    let nar_calculation_service = tvix_store::nar::NonCachingNARCalculationService::new(
-        Box::new(blob_service.clone()),
-        directory_service.clone(),
-    );
+    let path_info_service = MemoryPathInfoService::default(); // TODO: update to pass in blob and directory svc
 
     eval.io_handle = Box::new(tvix_io::TvixIO::new(
         known_paths.clone(),
-        tvix_store::TvixStoreIO::new(
-            Box::new(blob_service),
-            directory_service,
-            path_info_service,
-            nar_calculation_service,
-        ),
+        tvix_store::TvixStoreIO::new(Box::new(blob_service), directory_service, path_info_service),
     ));
 
     // bundle fetchurl.nix (used in nixpkgs) by resolving <nix> to

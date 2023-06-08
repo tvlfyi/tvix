@@ -1,14 +1,10 @@
-use crate::{proto, B3Digest};
+use crate::B3Digest;
 use data_encoding::BASE64;
 use thiserror::Error;
 
-mod grpc_nar_calculation_service;
-mod non_caching_calculation_service;
 mod renderer;
-
-pub use grpc_nar_calculation_service::GRPCNARCalculationService;
-pub use non_caching_calculation_service::NonCachingNARCalculationService;
-pub use renderer::NARRenderer;
+pub use renderer::calculate_size_and_sha256;
+pub use renderer::writer_nar;
 
 /// Errors that can encounter while rendering NARs.
 #[derive(Debug, Error)]
@@ -27,9 +23,4 @@ pub enum RenderError {
 
     #[error("failure using the NAR writer: {0}")]
     NARWriterError(std::io::Error),
-}
-
-/// The base trait for something calculating NARs, and returning their size and sha256.
-pub trait NARCalculationService {
-    fn calculate_nar(&self, root_node: &proto::node::Node) -> Result<(u64, [u8; 32]), RenderError>;
 }

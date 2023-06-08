@@ -1,4 +1,3 @@
-use crate::nar::NonCachingNARCalculationService;
 use crate::proto::get_path_info_request::ByWhat::ByOutputHash;
 use crate::proto::node::Node::Symlink;
 use crate::proto::path_info_service_server::PathInfoService as GRPCPathInfoService;
@@ -17,7 +16,8 @@ use tonic::Request;
 fn gen_grpc_service() -> impl GRPCPathInfoService {
     GRPCPathInfoServiceWrapper::new(
         gen_pathinfo_service(),
-        NonCachingNARCalculationService::new(gen_blob_service(), gen_directory_service()),
+        gen_blob_service(),
+        gen_directory_service(),
     )
 }
 

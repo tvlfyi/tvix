@@ -1,19 +1,27 @@
-use crate::nar::RenderError;
+use crate::blobservice::BlobService;
+use crate::directoryservice::DirectoryService;
+use crate::nar::{calculate_size_and_sha256, RenderError};
+use crate::pathinfoservice::PathInfoService;
 use crate::proto;
-use crate::{nar::NARCalculationService, pathinfoservice::PathInfoService};
 use tonic::{async_trait, Request, Response, Result, Status};
 use tracing::{instrument, warn};
 
-pub struct GRPCPathInfoServiceWrapper<PS: PathInfoService, NS: NARCalculationService> {
+pub struct GRPCPathInfoServiceWrapper<PS: PathInfoService, DS: DirectoryService> {
     path_info_service: PS,
-    nar_calculation_service: NS,
+    blob_service: Box<dyn BlobService>,
+    directory_service: DS,
 }
 
-impl<PS: PathInfoService, NS: NARCalculationService> GRPCPathInfoServiceWrapper<PS, NS> {
-    pub fn new(path_info_service: PS, nar_calculation_service: NS) -> Self {
+impl<PS: PathInfoService, DS: DirectoryService> GRPCPathInfoServiceWrapper<PS, DS> {
+    pub fn new(
+        path_info_service: PS,
+        blob_service: Box<dyn BlobService>,
+        directory_service: DS,
+    ) -> Self {
         Self {
             path_info_service,
-            nar_calculation_service,
+            blob_service,
+            directory_service,
         }
     }
 }
@@ -21,8 +29,8 @@ impl<PS: PathInfoService, NS: NARCalculationService> GRPCPathInfoServiceWrapper<
 #[async_trait]
 impl<
         PS: PathInfoService + Send + Sync + 'static,
-        NS: NARCalculationService + Send + Sync + 'static,
-    > proto::path_info_service_server::PathInfoService for GRPCPathInfoServiceWrapper<PS, NS>
+        DS: DirectoryService + Send + Sync + Clone + 'static,
+    > proto::path_info_service_server::PathInfoService for GRPCPathInfoServiceWrapper<PS, DS>
 {
     #[instrument(skip(self))]
     async fn get(
@@ -69,13 +77,19 @@ impl<
     ) -> Result<Response<proto::CalculateNarResponse>> {
         match request.into_inner().node {
             None => Err(Status::invalid_argument("no root node sent")),
-            Some(root_node) => match self.nar_calculation_service.calculate_nar(&root_node) {
-                Ok((nar_size, nar_sha256)) => Ok(Response::new(proto::CalculateNarResponse {
+            Some(root_node) => {
+                let (nar_size, nar_sha256) = calculate_size_and_sha256(
+                    &root_node,
+                    &self.blob_service,
+                    self.directory_service.clone(),
+                )
+                .expect("error during nar calculation"); // TODO: handle error
+
+                Ok(Response::new(proto::CalculateNarResponse {
                     nar_size,
                     nar_sha256: nar_sha256.to_vec(),
-                })),
-                Err(e) => Err(e.into()),
-            },
+                }))
+            }
         }
     }
 }
