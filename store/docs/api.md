@@ -108,7 +108,7 @@ describe any file/directory/symlink inside a store path. Due to its content-
 addressed nature, it'll automatically deduplicate (re-)used (sub)directories,
 and allow substitution from any (untrusted) source.
 
-The thing that's now only missing is the metadata to map/"mounting" from the
+The thing that's now only missing is the metadata to map/"mount" from the
 content-addressed world to a physical path.
 
 ### PathInfo
