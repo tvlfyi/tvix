@@ -29,8 +29,7 @@ fn single_symlink() {
     assert_eq!(buf, NAR_CONTENTS_SYMLINK.to_vec());
 }
 
-/// Make sure the NARRenderer fails if the blob size in the proto node doesn't
-/// match what's in the store.
+/// Make sure the NARRenderer fails if a referred blob doesn't exist.
 #[test]
 fn single_file_missing_blob() {
     let renderer = NARRenderer::new(gen_blob_service(), gen_directory_service());
