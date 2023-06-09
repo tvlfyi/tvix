@@ -25,7 +25,7 @@ REPL-based gPRC client.
 You can use it to connect to a `tvix-store` and call the various RPC methods.
 
 ```shell
-$ cargo run &
+$ cargo run -- daemon &
 $ evans --host localhost --port 8000 -r repl
   ______
  |  ____|
