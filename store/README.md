@@ -11,7 +11,7 @@ level than that, which provides more deduplication possibilities, and more
 granular copying.
 
 However, enough information is preserved to still be able to render NAR and
-NARInfo (handled by `//tvix/nar-bridge`).
+NARInfo when needed.
 
 ## More Information
 Check the `protos/` subfolder for the definition of the exact RPC methods and
