@@ -9,6 +9,7 @@ use tracing_subscriber::prelude::*;
 use tvix_store::blobservice::BlobService;
 use tvix_store::blobservice::GRPCBlobService;
 use tvix_store::blobservice::SledBlobService;
+use tvix_store::directoryservice::DirectoryService;
 use tvix_store::directoryservice::GRPCDirectoryService;
 use tvix_store::directoryservice::SledDirectoryService;
 use tvix_store::pathinfoservice::GRPCPathInfoService;
@@ -103,10 +104,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let boxed_blob_service: Box<dyn BlobService> = Box::new(blob_service.clone());
             let boxed_blob_service2: Box<dyn BlobService> = Box::new(blob_service.clone());
             let directory_service = SledDirectoryService::new("directories.sled".into())?;
+            let boxed_directory_service = Box::new(directory_service.clone());
+            let boxed_directory_service2: Box<dyn DirectoryService> = Box::new(directory_service);
             let path_info_service = SledPathInfoService::new(
                 "pathinfo.sled".into(),
                 boxed_blob_service,
-                directory_service.clone(),
+                boxed_directory_service,
             )?;
 
             let listen_address = listen_address
@@ -122,7 +125,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     boxed_blob_service2,
                 )))
                 .add_service(DirectoryServiceServer::new(
-                    GRPCDirectoryServiceWrapper::from(directory_service),
+                    GRPCDirectoryServiceWrapper::from(boxed_directory_service2),
                 ))
                 .add_service(PathInfoServiceServer::new(
                     GRPCPathInfoServiceWrapper::from(path_info_service),
@@ -154,7 +157,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let io = Arc::new(TvixStoreIO::new(
                 Box::new(blob_service),
-                directory_service,
+                Box::new(directory_service),
                 path_info_service,
             ));
 

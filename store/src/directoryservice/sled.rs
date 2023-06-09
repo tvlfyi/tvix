@@ -1,3 +1,4 @@
+use crate::directoryservice::DirectoryPutter;
 use crate::proto::Directory;
 use crate::{proto, B3Digest, Error};
 use prost::Message;
@@ -29,8 +30,6 @@ impl SledDirectoryService {
 }
 
 impl DirectoryService for SledDirectoryService {
-    type DirectoriesIterator = DirectoryTraverser<Self>;
-
     #[instrument(skip(self, digest), fields(directory.digest = %digest))]
     fn get(&self, digest: &B3Digest) -> Result<Option<proto::Directory>, Error> {
         match self.db.get(digest.to_vec()) {
@@ -91,17 +90,22 @@ impl DirectoryService for SledDirectoryService {
     }
 
     #[instrument(skip_all, fields(directory.digest = %root_directory_digest))]
-    fn get_recursive(&self, root_directory_digest: &B3Digest) -> Self::DirectoriesIterator {
-        DirectoryTraverser::with(self.clone(), root_directory_digest)
+    fn get_recursive(
+        &self,
+        root_directory_digest: &B3Digest,
+    ) -> Box<(dyn Iterator<Item = Result<proto::Directory, Error>> + std::marker::Send + 'static)>
+    {
+        Box::new(DirectoryTraverser::with(
+            self.clone(),
+            root_directory_digest,
+        ))
     }
 
-    type DirectoryPutter = SimplePutter<Self>;
-
     #[instrument(skip_all)]
-    fn put_multiple_start(&self) -> Self::DirectoryPutter
+    fn put_multiple_start(&self) -> Box<(dyn DirectoryPutter + 'static)>
     where
         Self: Clone,
     {
-        SimplePutter::new(self.clone())
+        Box::new(SimplePutter::new(self.clone()))
     }
 }

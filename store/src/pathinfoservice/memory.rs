@@ -8,15 +8,18 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-pub struct MemoryPathInfoService<DS: DirectoryService> {
+pub struct MemoryPathInfoService {
     db: Arc<RwLock<HashMap<[u8; 20], proto::PathInfo>>>,
 
     blob_service: Box<dyn BlobService>,
-    directory_service: DS,
+    directory_service: Box<dyn DirectoryService>,
 }
 
-impl<DS: DirectoryService> MemoryPathInfoService<DS> {
-    pub fn new(blob_service: Box<dyn BlobService>, directory_service: DS) -> Self {
+impl MemoryPathInfoService {
+    pub fn new(
+        blob_service: Box<dyn BlobService>,
+        directory_service: Box<dyn DirectoryService>,
+    ) -> Self {
         Self {
             db: Default::default(),
             blob_service,
@@ -25,7 +28,7 @@ impl<DS: DirectoryService> MemoryPathInfoService<DS> {
     }
 }
 
-impl<DS: DirectoryService + Clone> PathInfoService for MemoryPathInfoService<DS> {
+impl PathInfoService for MemoryPathInfoService {
     fn get(&self, digest: [u8; 20]) -> Result<Option<proto::PathInfo>, Error> {
         let db = self.db.read().unwrap();
 
@@ -55,11 +58,7 @@ impl<DS: DirectoryService + Clone> PathInfoService for MemoryPathInfoService<DS>
     }
 
     fn calculate_nar(&self, root_node: &proto::node::Node) -> Result<(u64, [u8; 32]), Error> {
-        calculate_size_and_sha256(
-            root_node,
-            &self.blob_service,
-            self.directory_service.clone(),
-        )
-        .map_err(|e| Error::StorageError(e.to_string()))
+        calculate_size_and_sha256(root_node, &self.blob_service, &self.directory_service)
+            .map_err(|e| Error::StorageError(e.to_string()))
     }
 }

@@ -10,8 +10,8 @@ use tracing::{instrument, warn};
 /// TODO: the name of this function (and mod) is a bit bad, because it doesn't
 /// clearly distinguish it from the BFS traversers.
 #[instrument(skip(directory_service))]
-pub fn traverse_to<DS: DirectoryService>(
-    directory_service: &DS,
+pub fn traverse_to(
+    directory_service: &Box<dyn DirectoryService>,
     node: crate::proto::node::Node,
     path: &std::path::Path,
 ) -> Result<Option<crate::proto::node::Node>, Error> {
@@ -82,13 +82,9 @@ pub fn traverse_to<DS: DirectoryService>(
 mod tests {
     use std::path::PathBuf;
 
-    use crate::{
-        directoryservice::DirectoryPutter,
-        directoryservice::DirectoryService,
-        tests::{
-            fixtures::{DIRECTORY_COMPLICATED, DIRECTORY_WITH_KEEP},
-            utils::gen_directory_service,
-        },
+    use crate::tests::{
+        fixtures::{DIRECTORY_COMPLICATED, DIRECTORY_WITH_KEEP},
+        utils::gen_directory_service,
     };
 
     use super::traverse_to;

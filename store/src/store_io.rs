@@ -29,17 +29,17 @@ use crate::{
 /// This is to both cover cases of syntactically valid store paths, that exist
 /// on the filesystem (still managed by Nix), as well as being able to read
 /// files outside store paths.
-pub struct TvixStoreIO<DS: DirectoryService, PS: PathInfoService> {
+pub struct TvixStoreIO<PS: PathInfoService> {
     blob_service: Box<dyn BlobService>,
-    directory_service: DS,
+    directory_service: Box<dyn DirectoryService>,
     path_info_service: PS,
     std_io: StdIO,
 }
 
-impl<DS: DirectoryService + Clone, PS: PathInfoService> TvixStoreIO<DS, PS> {
+impl<PS: PathInfoService> TvixStoreIO<PS> {
     pub fn new(
         blob_service: Box<dyn BlobService>,
-        directory_service: DS,
+        directory_service: Box<dyn DirectoryService>,
         path_info_service: PS,
     ) -> Self {
         Self {
@@ -104,12 +104,9 @@ impl<DS: DirectoryService + Clone, PS: PathInfoService> TvixStoreIO<DS, PS> {
             .expect("error during import_path");
 
         // Render the NAR
-        let (nar_size, nar_sha256) = calculate_size_and_sha256(
-            &root_node,
-            &self.blob_service,
-            self.directory_service.clone(),
-        )
-        .expect("error during nar calculation"); // TODO: handle error
+        let (nar_size, nar_sha256) =
+            calculate_size_and_sha256(&root_node, &self.blob_service, &self.directory_service)
+                .expect("error during nar calculation"); // TODO: handle error
 
         // For given NAR sha256 digest and name, return the new [StorePath] this would have.
         let nar_hash_with_mode =
@@ -175,7 +172,7 @@ fn calculate_nar_based_store_path(nar_sha256_digest: &[u8; 32], name: &str) -> S
     build_regular_ca_path(name, &nar_hash_with_mode, Vec::<String>::new(), false).unwrap()
 }
 
-impl<DS: DirectoryService + Clone, PS: PathInfoService> EvalIO for TvixStoreIO<DS, PS> {
+impl<PS: PathInfoService> EvalIO for TvixStoreIO<PS> {
     #[instrument(skip(self), ret, err)]
     fn path_exists(&self, path: &Path) -> Result<bool, io::Error> {
         if let Ok((store_path, sub_path)) =

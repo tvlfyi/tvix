@@ -1,27 +1,26 @@
 use crate::proto;
 use crate::{directoryservice::DirectoryService, B3Digest};
 use std::collections::HashMap;
+use std::sync::Arc;
 use tokio::{sync::mpsc::channel, task};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{async_trait, Request, Response, Status, Streaming};
 use tracing::{debug, instrument, warn};
 
-pub struct GRPCDirectoryServiceWrapper<C: DirectoryService> {
-    directory_service: C,
+pub struct GRPCDirectoryServiceWrapper {
+    directory_service: Arc<Box<dyn DirectoryService>>,
 }
 
-impl<DS: DirectoryService> From<DS> for GRPCDirectoryServiceWrapper<DS> {
-    fn from(value: DS) -> Self {
+impl From<Box<dyn DirectoryService>> for GRPCDirectoryServiceWrapper {
+    fn from(value: Box<dyn DirectoryService>) -> Self {
         Self {
-            directory_service: value,
+            directory_service: Arc::new(value),
         }
     }
 }
 
 #[async_trait]
-impl<DS: DirectoryService + Send + Sync + Clone + 'static>
-    proto::directory_service_server::DirectoryService for GRPCDirectoryServiceWrapper<DS>
-{
+impl proto::directory_service_server::DirectoryService for GRPCDirectoryServiceWrapper {
     type GetStream = ReceiverStream<tonic::Result<proto::Directory, Status>>;
 
     #[instrument(skip(self))]

@@ -14,10 +14,7 @@ pub use self::utils::DirectoryTraverser;
 /// The base trait all Directory services need to implement.
 /// This is a simple get and put of [crate::proto::Directory], returning their
 /// digest.
-pub trait DirectoryService {
-    type DirectoriesIterator: Iterator<Item = Result<proto::Directory, Error>> + Send;
-    type DirectoryPutter: DirectoryPutter;
-
+pub trait DirectoryService: Send + Sync {
     /// Get looks up a single Directory message by its digest.
     /// In case the directory is not found, Ok(None) is returned.
     fn get(&self, digest: &B3Digest) -> Result<Option<proto::Directory>, Error>;
@@ -29,11 +26,14 @@ pub trait DirectoryService {
     /// Ideally this would be a `impl Iterator<Item = Result<proto::Directory, Error>>`,
     /// and we'd be able to add a default implementation for it here, but
     /// we can't have that yet.
-    fn get_recursive(&self, root_directory_digest: &B3Digest) -> Self::DirectoriesIterator;
+    fn get_recursive(
+        &self,
+        root_directory_digest: &B3Digest,
+    ) -> Box<dyn Iterator<Item = Result<proto::Directory, Error>> + Send>;
 
     /// Allows persisting a closure of [proto::Directory], which is a graph of
     /// connected Directory messages.
-    fn put_multiple_start(&self) -> Self::DirectoryPutter;
+    fn put_multiple_start(&self) -> Box<dyn DirectoryPutter>;
 }
 
 /// Provides a handle to put a closure of connected [proto::Directory] elements.
@@ -51,4 +51,8 @@ pub trait DirectoryPutter {
 
     /// Close the stream, and wait for any errors.
     fn close(&mut self) -> Result<B3Digest, Error>;
+
+    /// Return whether the stream is closed or not.
+    /// Used from some [DirectoryService] implementations only.
+    fn is_closed(&self) -> bool;
 }

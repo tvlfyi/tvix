@@ -56,9 +56,9 @@ impl From<super::Error> for Error {
 //
 // It assumes the caller adds returned nodes to the directories it assembles.
 #[instrument(skip_all, fields(entry.file_type=?&entry.file_type(),entry.path=?entry.path()))]
-fn process_entry<DP: DirectoryPutter>(
+fn process_entry(
     blob_service: &Box<dyn BlobService>,
-    directory_putter: &mut DP,
+    directory_putter: &mut Box<dyn DirectoryPutter>,
     entry: &walkdir::DirEntry,
     maybe_directory: Option<proto::Directory>,
 ) -> Result<proto::node::Node, Error> {
@@ -145,9 +145,9 @@ fn process_entry<DP: DirectoryPutter>(
 /// possibly register it somewhere (and potentially rename it based on some
 /// naming scheme.
 #[instrument(skip(blob_service, directory_service), fields(path=?p))]
-pub fn ingest_path<DS: DirectoryService, P: AsRef<Path> + Debug>(
+pub fn ingest_path<P: AsRef<Path> + Debug>(
     blob_service: &Box<dyn BlobService>,
-    directory_service: &DS,
+    directory_service: &Box<dyn DirectoryService>,
     p: P,
 ) -> Result<proto::node::Node, Error> {
     // Probe if the path points to a symlink. If it does, we process it manually,
@@ -174,6 +174,7 @@ pub fn ingest_path<DS: DirectoryService, P: AsRef<Path> + Debug>(
 
     let mut directories: HashMap<PathBuf, proto::Directory> = HashMap::default();
 
+    // TODO: pass this one instead?
     let mut directory_putter = directory_service.put_multiple_start();
 
     for entry in WalkDir::new(p)

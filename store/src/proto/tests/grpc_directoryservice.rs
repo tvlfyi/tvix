@@ -1,4 +1,3 @@
-use crate::directoryservice::DirectoryService;
 use crate::proto::directory_service_server::DirectoryService as GRPCDirectoryService;
 use crate::proto::get_directory_request::ByWhat;
 use crate::proto::{Directory, DirectoryNode, SymlinkNode};
@@ -8,8 +7,7 @@ use crate::tests::utils::gen_directory_service;
 use tokio_stream::StreamExt;
 use tonic::Status;
 
-fn gen_grpc_service(
-) -> GRPCDirectoryServiceWrapper<impl DirectoryService + Send + Sync + Clone + 'static> {
+fn gen_grpc_service() -> GRPCDirectoryServiceWrapper {
     let directory_service = gen_directory_service();
     GRPCDirectoryServiceWrapper::from(directory_service)
 }

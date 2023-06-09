@@ -11,18 +11,18 @@ use tracing::warn;
 ///
 /// The PathInfo messages are stored as encoded protos, and keyed by their output hash,
 /// as that's currently the only request type available.
-pub struct SledPathInfoService<DS: DirectoryService> {
+pub struct SledPathInfoService {
     db: sled::Db,
 
     blob_service: Box<dyn BlobService>,
-    directory_service: DS,
+    directory_service: Box<dyn DirectoryService>,
 }
 
-impl<DS: DirectoryService> SledPathInfoService<DS> {
+impl SledPathInfoService {
     pub fn new(
         p: PathBuf,
         blob_service: Box<dyn BlobService>,
-        directory_service: DS,
+        directory_service: Box<dyn DirectoryService>,
     ) -> Result<Self, sled::Error> {
         let config = sled::Config::default().use_compression(true).path(p);
         let db = config.open()?;
@@ -36,7 +36,7 @@ impl<DS: DirectoryService> SledPathInfoService<DS> {
 
     pub fn new_temporary(
         blob_service: Box<dyn BlobService>,
-        directory_service: DS,
+        directory_service: Box<dyn DirectoryService>,
     ) -> Result<Self, sled::Error> {
         let config = sled::Config::default().temporary(true);
         let db = config.open()?;
@@ -49,7 +49,7 @@ impl<DS: DirectoryService> SledPathInfoService<DS> {
     }
 }
 
-impl<DS: DirectoryService + Clone> PathInfoService for SledPathInfoService<DS> {
+impl PathInfoService for SledPathInfoService {
     fn get(&self, digest: [u8; 20]) -> Result<Option<proto::PathInfo>, Error> {
         match self.db.get(digest) {
             Ok(None) => Ok(None),
@@ -95,11 +95,7 @@ impl<DS: DirectoryService + Clone> PathInfoService for SledPathInfoService<DS> {
     }
 
     fn calculate_nar(&self, root_node: &proto::node::Node) -> Result<(u64, [u8; 32]), Error> {
-        calculate_size_and_sha256(
-            root_node,
-            &self.blob_service,
-            self.directory_service.clone(),
-        )
-        .map_err(|e| Error::StorageError(e.to_string()))
+        calculate_size_and_sha256(root_node, &self.blob_service, &self.directory_service)
+            .map_err(|e| Error::StorageError(e.to_string()))
     }
 }

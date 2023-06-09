@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 use tracing::{instrument, warn};
 
 use super::utils::SimplePutter;
-use super::{DirectoryService, DirectoryTraverser};
+use super::{DirectoryPutter, DirectoryService, DirectoryTraverser};
 
 #[derive(Clone, Default)]
 pub struct MemoryDirectoryService {
@@ -12,8 +12,6 @@ pub struct MemoryDirectoryService {
 }
 
 impl DirectoryService for MemoryDirectoryService {
-    type DirectoriesIterator = DirectoryTraverser<Self>;
-
     #[instrument(skip(self, digest), fields(directory.digest = %digest))]
     fn get(&self, digest: &B3Digest) -> Result<Option<proto::Directory>, Error> {
         let db = self.db.read()?;
@@ -68,17 +66,21 @@ impl DirectoryService for MemoryDirectoryService {
     }
 
     #[instrument(skip_all, fields(directory.digest = %root_directory_digest))]
-    fn get_recursive(&self, root_directory_digest: &B3Digest) -> Self::DirectoriesIterator {
-        DirectoryTraverser::with(self.clone(), root_directory_digest)
+    fn get_recursive(
+        &self,
+        root_directory_digest: &B3Digest,
+    ) -> Box<dyn Iterator<Item = Result<proto::Directory, Error>> + Send> {
+        Box::new(DirectoryTraverser::with(
+            self.clone(),
+            root_directory_digest,
+        ))
     }
 
-    type DirectoryPutter = SimplePutter<Self>;
-
     #[instrument(skip_all)]
-    fn put_multiple_start(&self) -> Self::DirectoryPutter
+    fn put_multiple_start(&self) -> Box<(dyn DirectoryPutter + 'static)>
     where
         Self: Clone,
     {
-        SimplePutter::new(self.clone())
+        Box::new(SimplePutter::new(self.clone()))
     }
 }

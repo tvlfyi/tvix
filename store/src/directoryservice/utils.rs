@@ -107,12 +107,14 @@ impl<DS: DirectoryService> Iterator for DirectoryTraverser<DS> {
 pub struct SimplePutter<DS: DirectoryService> {
     directory_service: DS,
     last_directory_digest: Option<B3Digest>,
+    closed: bool,
 }
 
 impl<DS: DirectoryService> SimplePutter<DS> {
     pub fn new(directory_service: DS) -> Self {
         Self {
             directory_service,
+            closed: false,
             last_directory_digest: None,
         }
     }
@@ -120,6 +122,10 @@ impl<DS: DirectoryService> SimplePutter<DS> {
 
 impl<DS: DirectoryService> DirectoryPutter for SimplePutter<DS> {
     fn put(&mut self, directory: proto::Directory) -> Result<(), Error> {
+        if self.closed {
+            return Err(Error::StorageError("already closed".to_string()));
+        }
+
         let digest = self.directory_service.put(directory)?;
 
         // track the last directory digest
@@ -130,11 +136,22 @@ impl<DS: DirectoryService> DirectoryPutter for SimplePutter<DS> {
 
     /// We need to be mutable here, as that's the signature of the trait.
     fn close(&mut self) -> Result<B3Digest, Error> {
+        if self.closed {
+            return Err(Error::StorageError("already closed".to_string()));
+        }
+
         match &self.last_directory_digest {
-            Some(last_digest) => Ok(last_digest.clone()),
+            Some(last_digest) => {
+                self.closed = true;
+                Ok(last_digest.clone())
+            }
             None => Err(Error::InvalidRequest(
                 "no directories sent, can't show root digest".to_string(),
             )),
         }
+    }
+
+    fn is_closed(&self) -> bool {
+        self.closed
     }
 }
