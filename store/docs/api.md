@@ -4,6 +4,8 @@ tvix-store API
 This document outlines the design of the API exposed by tvix-store, as
 well as other implementations of this store protocol.
 
+This document is meant to be read side-by-side with [castore.md](./castore.md) which describes the data model in more detail.
+
 The store API has four main consumers:
 
 1. The evaluator (or more correctly, the CLI/coordinator, in the Tvix
@@ -41,7 +43,7 @@ Contents inside a tvix-store can be grouped into three different message types:
  * Directories
  * PathInfo (see further down)
 
-(check `castore.md` for more detailled field descriptions)
+(check `castore.md` for more detailed field descriptions)
 
 ### Blobs
 A blob object contains the literal file contents of regular (or executable)
@@ -51,7 +53,7 @@ files.
 A directory object describes the direct children of a directory.
 
 It contains:
- - name of child regular (or executable) files, and their [blake3][blake3] hash.
+ - name of child (regular or executable) files, and their [blake3][blake3] hash.
  - name of child symlinks, and their target (as string)
  - name of child directories, and their [blake3][blake3] hash (forming a Merkle DAG)
 
@@ -148,16 +150,16 @@ whole reference graphs of them.
 
 
 ### PathInfoService
-The PathInfo service provides lookups from an output path hash to a `PathInfo`
+The PathInfo service provides lookups from a store path hash to a `PathInfo`
 message.
 
 ## Example flows
 
-Below there are some common usecases of tvix-store, and how the different
+Below there are some common use cases of tvix-store, and how the different
 services are used.
 
 ###  Upload files and directories
-This needed for `builtins.path` or `src = ./path` in Nix expressions (A), as
+This is needed for `builtins.path` or `src = ./path` in Nix expressions (A), as
 well as for uploading build artifacts to a store (B).
 
 The path specified needs to be (recursively, BFS-style) traversed.
@@ -192,9 +194,10 @@ This is the case when `nixpkgs` is located in the store, or IFD in general.
 The store client asks the `PathInfoService` for the `PathInfo` of the output
 path in the request, and looks at the root node.
 
-If something other than the root path is requested, the root_node Directory is
-inspected and potentially a chain of `Directory` objects requested from
-*DirectoryService*. [^n+1query]
+If something other than the root of the store path is requested, like for
+example `maintainers/maintainer-list.nix`, the root_node Directory is inspected
+and potentially a chain of `Directory` objects requested from
+*DirectoryService*. [^n+1query].
 
 When the desired file is reached, the *BlobService* can be used to read the
 contents of this file, and return it back to the evaluator.
@@ -211,7 +214,7 @@ This is useful for people running a Tvix-only system, or running builds on a
 
 In a system with Nix installed, we can't simply manually "extract" things to
 `/nix/store`, as Nix assumes to own all writes to this location.
-In these usecases, we're probably better off exposing a tvix-store as a local
+In these use cases, we're probably better off exposing a tvix-store as a local
 binary cache (that's what nar-bridge does).
 
 Assuming we are in an environment where we control `/nix/store` exclusively, a
@@ -227,7 +230,7 @@ In both cases, the API interactions are similar.
    are downloaded and placed in their corresponding location and all symlinks
    are created accordingly.
  * If this is a FUSE filesystem, we can decide to only request a subset,
-   similar to the "Reading files from the store from the evaluator" usecase,
+   similar to the "Reading files from the store from the evaluator" use case,
    even though it might make sense to keep all Directory objects around.
    (See the caveat in "Trust model" though!)
 
