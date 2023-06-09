@@ -100,16 +100,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match cli.command {
         Commands::Daemon { listen_address } => {
             // initialize stores
-            let blob_service = SledBlobService::new("blobs.sled".into())?;
-            let boxed_blob_service: Box<dyn BlobService> = Box::new(blob_service.clone());
-            let boxed_blob_service2: Box<dyn BlobService> = Box::new(blob_service.clone());
-            let directory_service = SledDirectoryService::new("directories.sled".into())?;
-            let boxed_directory_service = Box::new(directory_service.clone());
-            let boxed_directory_service2: Box<dyn DirectoryService> = Box::new(directory_service);
+            let blob_service: Arc<dyn BlobService> =
+                Arc::new(SledBlobService::new("blobs.sled".into())?);
+            let directory_service: Arc<dyn DirectoryService> =
+                Arc::new(SledDirectoryService::new("directories.sled".into())?);
             let path_info_service = SledPathInfoService::new(
                 "pathinfo.sled".into(),
-                boxed_blob_service,
-                boxed_directory_service,
+                blob_service.clone(),
+                directory_service.clone(),
             )?;
 
             let listen_address = listen_address
@@ -122,10 +120,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             #[allow(unused_mut)]
             let mut router = server
                 .add_service(BlobServiceServer::new(GRPCBlobServiceWrapper::from(
-                    boxed_blob_service2,
+                    blob_service,
                 )))
                 .add_service(DirectoryServiceServer::new(
-                    GRPCDirectoryServiceWrapper::from(boxed_directory_service2),
+                    GRPCDirectoryServiceWrapper::from(directory_service),
                 ))
                 .add_service(PathInfoServiceServer::new(
                     GRPCPathInfoServiceWrapper::from(path_info_service),
@@ -156,8 +154,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 GRPCPathInfoService::from_client(path_info_service_client.clone());
 
             let io = Arc::new(TvixStoreIO::new(
-                Box::new(blob_service),
-                Box::new(directory_service),
+                Arc::new(blob_service),
+                Arc::new(directory_service),
                 path_info_service,
             ));
 

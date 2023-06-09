@@ -8,13 +8,13 @@ use tonic::{async_trait, Request, Response, Status, Streaming};
 use tracing::{debug, instrument, warn};
 
 pub struct GRPCDirectoryServiceWrapper {
-    directory_service: Arc<Box<dyn DirectoryService>>,
+    directory_service: Arc<dyn DirectoryService>,
 }
 
-impl From<Box<dyn DirectoryService>> for GRPCDirectoryServiceWrapper {
-    fn from(value: Box<dyn DirectoryService>) -> Self {
+impl From<Arc<dyn DirectoryService>> for GRPCDirectoryServiceWrapper {
+    fn from(value: Arc<dyn DirectoryService>) -> Self {
         Self {
-            directory_service: Arc::new(value),
+            directory_service: value,
         }
     }
 }

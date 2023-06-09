@@ -1,7 +1,7 @@
 use crate::{
     blobservice::BlobService, proto::sync_read_into_async_read::SyncReadIntoAsyncRead, B3Digest,
 };
-use std::{collections::VecDeque, io, pin::Pin};
+use std::{collections::VecDeque, io, pin::Pin, sync::Arc};
 use tokio::task;
 use tokio_stream::StreamExt;
 use tokio_util::io::ReaderStream;
@@ -9,11 +9,11 @@ use tonic::{async_trait, Request, Response, Status, Streaming};
 use tracing::{instrument, warn};
 
 pub struct GRPCBlobServiceWrapper {
-    blob_service: Box<dyn BlobService>,
+    blob_service: Arc<dyn BlobService>,
 }
 
-impl From<Box<dyn BlobService + 'static>> for GRPCBlobServiceWrapper {
-    fn from(value: Box<dyn BlobService>) -> Self {
+impl From<Arc<dyn BlobService>> for GRPCBlobServiceWrapper {
+    fn from(value: Arc<dyn BlobService>) -> Self {
         Self {
             blob_service: value,
         }

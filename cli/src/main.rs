@@ -7,6 +7,7 @@ mod tvix_io;
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::{fs, path::PathBuf};
 
 use clap::Parser;
@@ -71,20 +72,14 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
 
     eval.strict = args.strict;
 
-    let blob_service = MemoryBlobService::default();
-    let directory_service = MemoryDirectoryService::default();
-    let path_info_service = MemoryPathInfoService::new(
-        Box::new(blob_service.clone()),
-        Box::new(directory_service.clone()),
-    );
+    let blob_service = Arc::new(MemoryBlobService::default());
+    let directory_service = Arc::new(MemoryDirectoryService::default());
+    let path_info_service =
+        MemoryPathInfoService::new(blob_service.clone(), directory_service.clone());
 
     eval.io_handle = Box::new(tvix_io::TvixIO::new(
         known_paths.clone(),
-        tvix_store::TvixStoreIO::new(
-            Box::new(blob_service),
-            Box::new(directory_service),
-            path_info_service,
-        ),
+        tvix_store::TvixStoreIO::new(blob_service, directory_service, path_info_service),
     ));
 
     // bundle fetchurl.nix (used in nixpkgs) by resolving <nix> to

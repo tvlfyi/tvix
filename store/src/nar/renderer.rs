@@ -8,15 +8,18 @@ use crate::{
 use count_write::CountWrite;
 use nix_compat::nar;
 use sha2::{Digest, Sha256};
-use std::io::{self, BufReader};
+use std::{
+    io::{self, BufReader},
+    sync::Arc,
+};
 use tracing::warn;
 
 /// Invoke [render_nar], and return the size and sha256 digest of the produced
 /// NAR output.
 pub fn calculate_size_and_sha256(
     root_node: &proto::node::Node,
-    blob_service: &Box<dyn BlobService>,
-    directory_service: &Box<dyn DirectoryService>,
+    blob_service: Arc<dyn BlobService>,
+    directory_service: Arc<dyn DirectoryService>,
 ) -> Result<(u64, [u8; 32]), RenderError> {
     let h = Sha256::new();
     let mut cw = CountWrite::from(h);
@@ -33,8 +36,8 @@ pub fn calculate_size_and_sha256(
 pub fn write_nar<W: std::io::Write>(
     w: &mut W,
     proto_root_node: &proto::node::Node,
-    blob_service: &Box<dyn BlobService>,
-    directory_service: &Box<dyn DirectoryService>,
+    blob_service: Arc<dyn BlobService>,
+    directory_service: Arc<dyn DirectoryService>,
 ) -> Result<(), RenderError> {
     // Initialize NAR writer
     let nar_root_node = nar::writer::open(w).map_err(RenderError::NARWriterError)?;
@@ -52,8 +55,8 @@ pub fn write_nar<W: std::io::Write>(
 fn walk_node(
     nar_node: nar::writer::Node,
     proto_node: &proto::node::Node,
-    blob_service: &Box<dyn BlobService>,
-    directory_service: &Box<dyn DirectoryService>,
+    blob_service: Arc<dyn BlobService>,
+    directory_service: Arc<dyn DirectoryService>,
 ) -> Result<(), RenderError> {
     match proto_node {
         proto::node::Node::Symlink(proto_symlink_node) => {
@@ -127,7 +130,7 @@ fn walk_node(
                         walk_node(
                             child_node,
                             &proto_node,
-                            blob_service,
+                            blob_service.clone(),
                             directory_service.clone(),
                         )?;
                     }

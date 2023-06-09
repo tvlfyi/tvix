@@ -1,5 +1,6 @@
 use super::DirectoryService;
 use crate::{proto::NamedNode, B3Digest, Error};
+use std::sync::Arc;
 use tracing::{instrument, warn};
 
 /// This traverses from a (root) node to the given (sub)path, returning the Node
@@ -11,7 +12,7 @@ use tracing::{instrument, warn};
 /// clearly distinguish it from the BFS traversers.
 #[instrument(skip(directory_service))]
 pub fn traverse_to(
-    directory_service: &Box<dyn DirectoryService>,
+    directory_service: Arc<dyn DirectoryService>,
     node: crate::proto::node::Node,
     path: &std::path::Path,
 ) -> Result<Option<crate::proto::node::Node>, Error> {
@@ -91,7 +92,7 @@ mod tests {
 
     #[test]
     fn test_traverse_to() {
-        let mut directory_service = gen_directory_service();
+        let directory_service = gen_directory_service();
 
         let mut handle = directory_service.put_multiple_start();
         handle
@@ -121,7 +122,7 @@ mod tests {
         // traversal to an empty subpath should return the root node.
         {
             let resp = traverse_to(
-                &mut directory_service,
+                directory_service.clone(),
                 node_directory_complicated.clone(),
                 &PathBuf::from(""),
             )
@@ -133,7 +134,7 @@ mod tests {
         // traversal to `keep` should return the node for DIRECTORY_WITH_KEEP
         {
             let resp = traverse_to(
-                &mut directory_service,
+                directory_service.clone(),
                 node_directory_complicated.clone(),
                 &PathBuf::from("keep"),
             )
@@ -145,7 +146,7 @@ mod tests {
         // traversal to `keep/.keep` should return the node for the .keep file
         {
             let resp = traverse_to(
-                &mut directory_service,
+                directory_service.clone(),
                 node_directory_complicated.clone(),
                 &PathBuf::from("keep/.keep"),
             )
@@ -157,7 +158,7 @@ mod tests {
         // traversal to `keep/.keep` should return the node for the .keep file
         {
             let resp = traverse_to(
-                &mut directory_service,
+                directory_service.clone(),
                 node_directory_complicated.clone(),
                 &PathBuf::from("/keep/.keep"),
             )
@@ -169,7 +170,7 @@ mod tests {
         // traversal to `void` should return None (doesn't exist)
         {
             let resp = traverse_to(
-                &mut directory_service,
+                directory_service.clone(),
                 node_directory_complicated.clone(),
                 &PathBuf::from("void"),
             )
@@ -181,7 +182,7 @@ mod tests {
         // traversal to `void` should return None (doesn't exist)
         {
             let resp = traverse_to(
-                &mut directory_service,
+                directory_service.clone(),
                 node_directory_complicated.clone(),
                 &PathBuf::from("//v/oid"),
             )
@@ -194,7 +195,7 @@ mod tests {
         // reached, as keep/.keep already is a file)
         {
             let resp = traverse_to(
-                &mut directory_service,
+                directory_service.clone(),
                 node_directory_complicated.clone(),
                 &PathBuf::from("keep/.keep/foo"),
             )
@@ -206,7 +207,7 @@ mod tests {
         // traversal to a subpath of '/' should return the root node.
         {
             let resp = traverse_to(
-                &mut directory_service,
+                directory_service.clone(),
                 node_directory_complicated.clone(),
                 &PathBuf::from("/"),
             )

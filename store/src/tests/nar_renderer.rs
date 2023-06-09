@@ -19,8 +19,8 @@ fn single_symlink() {
             target: "/nix/store/somewhereelse".to_string(),
         }),
         // don't put anything in the stores, as we don't actually do any requests.
-        &gen_blob_service(),
-        &gen_directory_service(),
+        gen_blob_service(),
+        gen_directory_service(),
     )
     .expect("must succeed");
 
@@ -41,8 +41,8 @@ fn single_file_missing_blob() {
             executable: false,
         }),
         // the blobservice is empty intentionally, to provoke the error.
-        &gen_blob_service(),
-        &gen_directory_service(),
+        gen_blob_service(),
+        gen_directory_service(),
     )
     .expect_err("must fail");
 
@@ -81,8 +81,8 @@ fn single_file_wrong_blob_size() {
                 size: 42, // <- note the wrong size here!
                 executable: false,
             }),
-            &blob_service,
-            &gen_directory_service(),
+            blob_service.clone(),
+            gen_directory_service(),
         )
         .expect_err("must fail");
 
@@ -106,8 +106,8 @@ fn single_file_wrong_blob_size() {
                 size: 2, // <- note the wrong size here!
                 executable: false,
             }),
-            &blob_service,
-            &gen_directory_service(),
+            blob_service,
+            gen_directory_service(),
         )
         .expect_err("must fail");
 
@@ -143,8 +143,8 @@ fn single_file() {
             size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
             executable: false,
         }),
-        &blob_service,
-        &gen_directory_service(),
+        blob_service,
+        gen_directory_service(),
     )
     .expect("must succeed");
 
@@ -180,8 +180,8 @@ fn test_complicated() {
             digest: DIRECTORY_COMPLICATED.digest().to_vec(),
             size: DIRECTORY_COMPLICATED.size(),
         }),
-        &blob_service,
-        &directory_service,
+        blob_service.clone(),
+        directory_service.clone(),
     )
     .expect("must succeed");
 
@@ -194,8 +194,8 @@ fn test_complicated() {
             digest: DIRECTORY_COMPLICATED.digest().to_vec(),
             size: DIRECTORY_COMPLICATED.size(),
         }),
-        &blob_service,
-        &directory_service,
+        blob_service,
+        directory_service,
     )
     .expect("must succeed");
 

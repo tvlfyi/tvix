@@ -1,6 +1,7 @@
 use crate::blobservice::BlobService;
 use crate::directoryservice::DirectoryService;
 use crate::{directoryservice::DirectoryPutter, proto};
+use std::sync::Arc;
 use std::{
     collections::HashMap,
     fmt::Debug,
@@ -57,7 +58,7 @@ impl From<super::Error> for Error {
 // It assumes the caller adds returned nodes to the directories it assembles.
 #[instrument(skip_all, fields(entry.file_type=?&entry.file_type(),entry.path=?entry.path()))]
 fn process_entry(
-    blob_service: &Box<dyn BlobService>,
+    blob_service: Arc<dyn BlobService>,
     directory_putter: &mut Box<dyn DirectoryPutter>,
     entry: &walkdir::DirEntry,
     maybe_directory: Option<proto::Directory>,
@@ -146,8 +147,8 @@ fn process_entry(
 /// naming scheme.
 #[instrument(skip(blob_service, directory_service), fields(path=?p))]
 pub fn ingest_path<P: AsRef<Path> + Debug>(
-    blob_service: &Box<dyn BlobService>,
-    directory_service: &Box<dyn DirectoryService>,
+    blob_service: Arc<dyn BlobService>,
+    directory_service: Arc<dyn DirectoryService>,
     p: P,
 ) -> Result<proto::node::Node, Error> {
     // Probe if the path points to a symlink. If it does, we process it manually,
@@ -199,7 +200,12 @@ pub fn ingest_path<P: AsRef<Path> + Debug>(
             }
         };
 
-        let node = process_entry(blob_service, &mut directory_putter, &entry, maybe_directory)?;
+        let node = process_entry(
+            blob_service.clone(),
+            &mut directory_putter,
+            &entry,
+            maybe_directory,
+        )?;
 
         if entry.depth() == 0 {
             return Ok(node);

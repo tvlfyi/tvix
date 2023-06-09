@@ -11,14 +11,14 @@ use std::{
 pub struct MemoryPathInfoService {
     db: Arc<RwLock<HashMap<[u8; 20], proto::PathInfo>>>,
 
-    blob_service: Box<dyn BlobService>,
-    directory_service: Box<dyn DirectoryService>,
+    blob_service: Arc<dyn BlobService>,
+    directory_service: Arc<dyn DirectoryService>,
 }
 
 impl MemoryPathInfoService {
     pub fn new(
-        blob_service: Box<dyn BlobService>,
-        directory_service: Box<dyn DirectoryService>,
+        blob_service: Arc<dyn BlobService>,
+        directory_service: Arc<dyn DirectoryService>,
     ) -> Self {
         Self {
             db: Default::default(),
@@ -58,7 +58,11 @@ impl PathInfoService for MemoryPathInfoService {
     }
 
     fn calculate_nar(&self, root_node: &proto::node::Node) -> Result<(u64, [u8; 32]), Error> {
-        calculate_size_and_sha256(root_node, &self.blob_service, &self.directory_service)
-            .map_err(|e| Error::StorageError(e.to_string()))
+        calculate_size_and_sha256(
+            root_node,
+            self.blob_service.clone(),
+            self.directory_service.clone(),
+        )
+        .map_err(|e| Error::StorageError(e.to_string()))
     }
 }

@@ -8,7 +8,7 @@ use nix_compat::{
     store_path::{build_regular_ca_path, StorePath},
 };
 use smol_str::SmolStr;
-use std::{io, path::Path, path::PathBuf};
+use std::{io, path::Path, path::PathBuf, sync::Arc};
 use tracing::{error, instrument, warn};
 use tvix_eval::{EvalIO, FileType, StdIO};
 
@@ -30,16 +30,16 @@ use crate::{
 /// on the filesystem (still managed by Nix), as well as being able to read
 /// files outside store paths.
 pub struct TvixStoreIO<PS: PathInfoService> {
-    blob_service: Box<dyn BlobService>,
-    directory_service: Box<dyn DirectoryService>,
+    blob_service: Arc<dyn BlobService>,
+    directory_service: Arc<dyn DirectoryService>,
     path_info_service: PS,
     std_io: StdIO,
 }
 
 impl<PS: PathInfoService> TvixStoreIO<PS> {
     pub fn new(
-        blob_service: Box<dyn BlobService>,
-        directory_service: Box<dyn DirectoryService>,
+        blob_service: Arc<dyn BlobService>,
+        directory_service: Arc<dyn DirectoryService>,
         path_info_service: PS,
     ) -> Self {
         Self {
@@ -86,7 +86,7 @@ impl<PS: PathInfoService> TvixStoreIO<PS> {
             }
         };
 
-        directoryservice::traverse_to(&self.directory_service, root_node, sub_path)
+        directoryservice::traverse_to(self.directory_service.clone(), root_node, sub_path)
     }
 
     /// Imports a given path on the filesystem into the store, and returns the
@@ -100,13 +100,20 @@ impl<PS: PathInfoService> TvixStoreIO<PS> {
         path: &std::path::Path,
     ) -> Result<crate::proto::PathInfo, io::Error> {
         // Call [import::ingest_path], which will walk over the given path and return a root_node.
-        let root_node = import::ingest_path(&self.blob_service, &self.directory_service, path)
-            .expect("error during import_path");
+        let root_node = import::ingest_path(
+            self.blob_service.clone(),
+            self.directory_service.clone(),
+            path,
+        )
+        .expect("error during import_path");
 
         // Render the NAR
-        let (nar_size, nar_sha256) =
-            calculate_size_and_sha256(&root_node, &self.blob_service, &self.directory_service)
-                .expect("error during nar calculation"); // TODO: handle error
+        let (nar_size, nar_sha256) = calculate_size_and_sha256(
+            &root_node,
+            self.blob_service.clone(),
+            self.directory_service.clone(),
+        )
+        .expect("error during nar calculation"); // TODO: handle error
 
         // For given NAR sha256 digest and name, return the new [StorePath] this would have.
         let nar_hash_with_mode =

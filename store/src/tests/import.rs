@@ -18,8 +18,8 @@ fn symlink() {
     .unwrap();
 
     let root_node = ingest_path(
-        &mut gen_blob_service(),
-        &mut gen_directory_service(),
+        gen_blob_service(),
+        gen_directory_service(),
         tmpdir.path().join("doesntmatter"),
     )
     .expect("must succeed");
@@ -39,11 +39,11 @@ fn single_file() {
 
     std::fs::write(tmpdir.path().join("root"), HELLOWORLD_BLOB_CONTENTS).unwrap();
 
-    let mut blob_service = gen_blob_service();
+    let blob_service = gen_blob_service();
 
     let root_node = ingest_path(
-        &mut blob_service,
-        &mut gen_directory_service(),
+        blob_service.clone(),
+        gen_directory_service(),
         tmpdir.path().join("root"),
     )
     .expect("must succeed");
@@ -75,11 +75,15 @@ fn complicated() {
     // File ``keep/.keep`
     std::fs::write(tmpdir.path().join("keep").join(".keep"), vec![]).unwrap();
 
-    let mut blob_service = gen_blob_service();
-    let mut directory_service = gen_directory_service();
+    let blob_service = gen_blob_service();
+    let directory_service = gen_directory_service();
 
-    let root_node = ingest_path(&mut blob_service, &mut directory_service, tmpdir.path())
-        .expect("must succeed");
+    let root_node = ingest_path(
+        blob_service.clone(),
+        directory_service.clone(),
+        tmpdir.path(),
+    )
+    .expect("must succeed");
 
     // ensure root_node matched expectations
     assert_eq!(

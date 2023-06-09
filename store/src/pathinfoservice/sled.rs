@@ -4,7 +4,7 @@ use crate::{
     proto, Error,
 };
 use prost::Message;
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 use tracing::warn;
 
 /// SledPathInfoService stores PathInfo in a [sled](https://github.com/spacejam/sled).
@@ -14,15 +14,15 @@ use tracing::warn;
 pub struct SledPathInfoService {
     db: sled::Db,
 
-    blob_service: Box<dyn BlobService>,
-    directory_service: Box<dyn DirectoryService>,
+    blob_service: Arc<dyn BlobService>,
+    directory_service: Arc<dyn DirectoryService>,
 }
 
 impl SledPathInfoService {
     pub fn new(
         p: PathBuf,
-        blob_service: Box<dyn BlobService>,
-        directory_service: Box<dyn DirectoryService>,
+        blob_service: Arc<dyn BlobService>,
+        directory_service: Arc<dyn DirectoryService>,
     ) -> Result<Self, sled::Error> {
         let config = sled::Config::default().use_compression(true).path(p);
         let db = config.open()?;
@@ -35,8 +35,8 @@ impl SledPathInfoService {
     }
 
     pub fn new_temporary(
-        blob_service: Box<dyn BlobService>,
-        directory_service: Box<dyn DirectoryService>,
+        blob_service: Arc<dyn BlobService>,
+        directory_service: Arc<dyn DirectoryService>,
     ) -> Result<Self, sled::Error> {
         let config = sled::Config::default().temporary(true);
         let db = config.open()?;
@@ -95,7 +95,11 @@ impl PathInfoService for SledPathInfoService {
     }
 
     fn calculate_nar(&self, root_node: &proto::node::Node) -> Result<(u64, [u8; 32]), Error> {
-        calculate_size_and_sha256(root_node, &self.blob_service, &self.directory_service)
-            .map_err(|e| Error::StorageError(e.to_string()))
+        calculate_size_and_sha256(
+            root_node,
+            self.blob_service.clone(),
+            self.directory_service.clone(),
+        )
+        .map_err(|e| Error::StorageError(e.to_string()))
     }
 }
