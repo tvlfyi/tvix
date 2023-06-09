@@ -12,6 +12,21 @@ pub struct MemoryDirectoryService {
 }
 
 impl DirectoryService for MemoryDirectoryService {
+    /// Constructs a [MemoryDirectoryService] from the passed [url::Url]:
+    /// - scheme has to be `memory://`
+    /// - there may not be a host.
+    /// - there may not be a path.
+    fn from_url(url: &url::Url) -> Result<Self, Error> {
+        if url.scheme() != "memory" {
+            return Err(crate::Error::StorageError("invalid scheme".to_string()));
+        }
+
+        if url.has_host() || !url.path().is_empty() {
+            return Err(crate::Error::StorageError("invalid url".to_string()));
+        }
+
+        Ok(Self::default())
+    }
     #[instrument(skip(self, digest), fields(directory.digest = %digest))]
     fn get(&self, digest: &B3Digest) -> Result<Option<proto::Directory>, Error> {
         let db = self.db.read()?;
@@ -82,5 +97,51 @@ impl DirectoryService for MemoryDirectoryService {
         Self: Clone,
     {
         Box::new(SimplePutter::new(self.clone()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DirectoryService;
+    use super::MemoryDirectoryService;
+
+    /// This uses a wrong scheme.
+    #[test]
+    fn test_invalid_scheme() {
+        let url = url::Url::parse("http://foo.example/test").expect("must parse");
+
+        assert!(MemoryDirectoryService::from_url(&url).is_err());
+    }
+
+    /// This correctly sets the scheme, and doesn't set a path.
+    #[test]
+    fn test_valid_scheme() {
+        let url = url::Url::parse("memory://").expect("must parse");
+
+        assert!(MemoryDirectoryService::from_url(&url).is_ok());
+    }
+
+    /// This sets the host to `foo`
+    #[test]
+    fn test_invalid_host() {
+        let url = url::Url::parse("memory://foo").expect("must parse");
+
+        assert!(MemoryDirectoryService::from_url(&url).is_err());
+    }
+
+    /// This has the path "/", which is invalid.
+    #[test]
+    fn test_invalid_has_path() {
+        let url = url::Url::parse("memory:///").expect("must parse");
+
+        assert!(MemoryDirectoryService::from_url(&url).is_err());
+    }
+
+    /// This has the path "/foo", which is invalid.
+    #[test]
+    fn test_invalid_path2() {
+        let url = url::Url::parse("memory:///foo").expect("must parse");
+
+        assert!(MemoryDirectoryService::from_url(&url).is_err());
     }
 }

@@ -1,10 +1,13 @@
 use crate::{proto, B3Digest, Error};
+
+mod from_addr;
 mod grpc;
 mod memory;
 mod sled;
 mod traverse;
 mod utils;
 
+pub use self::from_addr::from_addr;
 pub use self::grpc::GRPCDirectoryService;
 pub use self::memory::MemoryDirectoryService;
 pub use self::sled::SledDirectoryService;
@@ -15,6 +18,11 @@ pub use self::utils::DirectoryTraverser;
 /// This is a simple get and put of [crate::proto::Directory], returning their
 /// digest.
 pub trait DirectoryService: Send + Sync {
+    /// Create a new instance by passing in a connection URL.
+    fn from_url(url: &url::Url) -> Result<Self, Error>
+    where
+        Self: Sized;
+
     /// Get looks up a single Directory message by its digest.
     /// In case the directory is not found, Ok(None) is returned.
     fn get(&self, digest: &B3Digest) -> Result<Option<proto::Directory>, Error>;

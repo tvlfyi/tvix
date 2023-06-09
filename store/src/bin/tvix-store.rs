@@ -7,14 +7,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tracing_subscriber::prelude::*;
 use tvix_store::blobservice;
-use tvix_store::directoryservice::DirectoryService;
-use tvix_store::directoryservice::GRPCDirectoryService;
-use tvix_store::directoryservice::SledDirectoryService;
+use tvix_store::directoryservice;
 use tvix_store::pathinfoservice::GRPCPathInfoService;
 use tvix_store::pathinfoservice::PathInfoService;
 use tvix_store::pathinfoservice::SledPathInfoService;
 use tvix_store::proto::blob_service_server::BlobServiceServer;
-use tvix_store::proto::directory_service_client::DirectoryServiceClient;
 use tvix_store::proto::directory_service_server::DirectoryServiceServer;
 use tvix_store::proto::node::Node;
 use tvix_store::proto::path_info_service_client::PathInfoServiceClient;
@@ -55,6 +52,13 @@ enum Commands {
 
         #[arg(long, env, default_value = "sled:///var/lib/tvix-store/blobs.sled")]
         blob_service_addr: String,
+
+        #[arg(
+            long,
+            env,
+            default_value = "sled:///var/lib/tvix-store/directories.sled"
+        )]
+        directory_service_addr: String,
     },
     /// Imports a list of paths into the store (not using the daemon)
     Import {
@@ -63,6 +67,9 @@ enum Commands {
 
         #[arg(long, env, default_value = "grpc+http://[::1]:8000")]
         blob_service_addr: String,
+
+        #[arg(long, env, default_value = "grpc+http://[::1]:8000")]
+        directory_service_addr: String,
     },
     /// Mounts a tvix-store at the given mountpoint
     #[cfg(feature = "fuse")]
@@ -72,6 +79,9 @@ enum Commands {
 
         #[arg(long, env, default_value = "grpc+http://[::1]:8000")]
         blob_service_addr: String,
+
+        #[arg(long, env, default_value = "grpc+http://[::1]:8000")]
+        directory_service_addr: String,
     },
 }
 
@@ -108,11 +118,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Daemon {
             listen_address,
             blob_service_addr,
+            directory_service_addr,
         } => {
             // initialize stores
             let blob_service = blobservice::from_addr(&blob_service_addr).await?;
-            let directory_service: Arc<dyn DirectoryService> =
-                Arc::new(SledDirectoryService::new("directories.sled".into())?);
+            let directory_service = directoryservice::from_addr(&directory_service_addr)?;
             let path_info_service: Arc<dyn PathInfoService> = Arc::new(SledPathInfoService::new(
                 "pathinfo.sled".into(),
                 blob_service.clone(),
@@ -153,12 +163,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Import {
             paths,
             blob_service_addr,
+            directory_service_addr,
         } => {
             let blob_service = blobservice::from_addr(&blob_service_addr).await?;
-
-            let directory_service = GRPCDirectoryService::from_client(
-                DirectoryServiceClient::connect("http://[::1]:8000").await?,
-            );
+            let directory_service = directoryservice::from_addr(&directory_service_addr)?;
             let path_info_service_client =
                 PathInfoServiceClient::connect("http://[::1]:8000").await?;
             let path_info_service =
@@ -166,7 +174,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let io = Arc::new(TvixStoreIO::new(
                 blob_service,
-                Arc::new(directory_service),
+                directory_service,
                 Arc::new(path_info_service),
             ));
 
@@ -191,23 +199,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Mount {
             dest,
             blob_service_addr,
+            directory_service_addr,
         } => {
             let blob_service = blobservice::from_addr(&blob_service_addr).await?;
-
-            let directory_service = GRPCDirectoryService::from_client(
-                DirectoryServiceClient::connect("http://[::1]:8000").await?,
-            );
+            let directory_service = directoryservice::from_addr(&directory_service_addr)?;
             let path_info_service_client =
                 PathInfoServiceClient::connect("http://[::1]:8000").await?;
             let path_info_service =
                 GRPCPathInfoService::from_client(path_info_service_client.clone());
 
             tokio::task::spawn_blocking(move || {
-                let f = FUSE::new(
-                    blob_service,
-                    Arc::new(directory_service),
-                    Arc::new(path_info_service),
-                );
+                let f = FUSE::new(blob_service, directory_service, Arc::new(path_info_service));
                 fuser::mount2(f, &dest, &[])
             })
             .await??
