@@ -12,6 +12,9 @@ pub fn gen_directory_service() -> impl DirectoryService + Send + Sync + Clone + 
     MemoryDirectoryService::default()
 }
 
-pub fn gen_pathinfo_service() -> impl PathInfoService {
-    MemoryPathInfoService::default()
+pub fn gen_pathinfo_service<DS: DirectoryService + Clone>(
+    blob_service: Box<dyn BlobService>,
+    directory_service: DS,
+) -> impl PathInfoService {
+    MemoryPathInfoService::new(blob_service, directory_service)
 }

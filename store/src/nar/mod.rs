@@ -4,7 +4,7 @@ use thiserror::Error;
 
 mod renderer;
 pub use renderer::calculate_size_and_sha256;
-pub use renderer::writer_nar;
+pub use renderer::write_nar;
 
 /// Errors that can encounter while rendering NARs.
 #[derive(Debug, Error)]

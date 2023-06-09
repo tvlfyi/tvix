@@ -21,7 +21,7 @@ pub fn calculate_size_and_sha256<DS: DirectoryService + Clone>(
     let h = Sha256::new();
     let mut cw = CountWrite::from(h);
 
-    writer_nar(&mut cw, root_node, blob_service, directory_service)?;
+    write_nar(&mut cw, root_node, blob_service, directory_service)?;
 
     Ok((cw.count(), cw.into_inner().finalize().into()))
 }
@@ -30,7 +30,7 @@ pub fn calculate_size_and_sha256<DS: DirectoryService + Clone>(
 /// and uses the passed blob_service and directory_service to
 /// perform the necessary lookups as it traverses the structure.
 /// The contents in NAR serialization are writen to the passed [std::io::Write].
-pub fn writer_nar<W: std::io::Write, DS: DirectoryService + Clone>(
+pub fn write_nar<W: std::io::Write, DS: DirectoryService + Clone>(
     w: &mut W,
     proto_root_node: &proto::node::Node,
     blob_service: &Box<dyn BlobService>,

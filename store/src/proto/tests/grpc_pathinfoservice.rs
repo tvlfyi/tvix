@@ -5,7 +5,9 @@ use crate::proto::GRPCPathInfoServiceWrapper;
 use crate::proto::PathInfo;
 use crate::proto::{GetPathInfoRequest, Node, SymlinkNode};
 use crate::tests::fixtures::DUMMY_OUTPUT_HASH;
-use crate::tests::utils::{gen_blob_service, gen_directory_service, gen_pathinfo_service};
+use crate::tests::utils::gen_blob_service;
+use crate::tests::utils::gen_directory_service;
+use crate::tests::utils::gen_pathinfo_service;
 use tonic::Request;
 
 /// generates a GRPCPathInfoService out of blob, directory and pathinfo services.
@@ -14,11 +16,9 @@ use tonic::Request;
 /// It uses the NonCachingNARCalculationService NARCalculationService to
 /// calculate NARs.
 fn gen_grpc_service() -> impl GRPCPathInfoService {
-    GRPCPathInfoServiceWrapper::new(
-        gen_pathinfo_service(),
-        gen_blob_service(),
-        gen_directory_service(),
-    )
+    let blob_service = gen_blob_service();
+    let directory_service = gen_directory_service();
+    GRPCPathInfoServiceWrapper::from(gen_pathinfo_service(blob_service, directory_service))
 }
 
 /// Trying to get a non-existent PathInfo should return a not found error.

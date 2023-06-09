@@ -1,6 +1,6 @@
 use crate::directoryservice::DirectoryService;
 use crate::nar::calculate_size_and_sha256;
-use crate::nar::writer_nar;
+use crate::nar::write_nar;
 use crate::proto::DirectoryNode;
 use crate::proto::FileNode;
 use crate::proto::SymlinkNode;
@@ -13,7 +13,7 @@ use std::io;
 fn single_symlink() {
     let mut buf: Vec<u8> = vec![];
 
-    writer_nar(
+    write_nar(
         &mut buf,
         &crate::proto::node::Node::Symlink(SymlinkNode {
             name: "doesntmatter".to_string(),
@@ -33,7 +33,7 @@ fn single_symlink() {
 fn single_file_missing_blob() {
     let mut buf: Vec<u8> = vec![];
 
-    let e = writer_nar(
+    let e = write_nar(
         &mut buf,
         &crate::proto::node::Node::File(FileNode {
             name: "doesntmatter".to_string(),
@@ -74,7 +74,7 @@ fn single_file_wrong_blob_size() {
     {
         let mut buf: Vec<u8> = vec![];
 
-        let e = writer_nar(
+        let e = write_nar(
             &mut buf,
             &crate::proto::node::Node::File(FileNode {
                 name: "doesntmatter".to_string(),
@@ -99,7 +99,7 @@ fn single_file_wrong_blob_size() {
     {
         let mut buf: Vec<u8> = vec![];
 
-        let e = writer_nar(
+        let e = write_nar(
             &mut buf,
             &crate::proto::node::Node::File(FileNode {
                 name: "doesntmatter".to_string(),
@@ -136,7 +136,7 @@ fn single_file() {
 
     let mut buf: Vec<u8> = vec![];
 
-    writer_nar(
+    write_nar(
         &mut buf,
         &crate::proto::node::Node::File(FileNode {
             name: "doesntmatter".to_string(),
@@ -174,7 +174,7 @@ fn test_complicated() {
 
     let mut buf: Vec<u8> = vec![];
 
-    writer_nar(
+    write_nar(
         &mut buf,
         &crate::proto::node::Node::Directory(DirectoryNode {
             name: "doesntmatter".to_string(),

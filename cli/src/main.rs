@@ -73,7 +73,8 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
 
     let blob_service = MemoryBlobService::default();
     let directory_service = MemoryDirectoryService::default();
-    let path_info_service = MemoryPathInfoService::default(); // TODO: update to pass in blob and directory svc
+    let path_info_service =
+        MemoryPathInfoService::new(Box::new(blob_service.clone()), directory_service.clone());
 
     eval.io_handle = Box::new(tvix_io::TvixIO::new(
         known_paths.clone(),

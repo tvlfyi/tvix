@@ -78,4 +78,36 @@ impl PathInfoService for GRPCPathInfoService {
             .block_on(task)?
             .map_err(|e| crate::Error::StorageError(e.to_string()))
     }
+
+    fn calculate_nar(
+        &self,
+        root_node: &proto::node::Node,
+    ) -> Result<(u64, [u8; 32]), crate::Error> {
+        // Get a new handle to the gRPC client.
+        let mut grpc_client = self.grpc_client.clone();
+        let root_node = root_node.clone();
+
+        let task: tokio::task::JoinHandle<Result<_, Status>> =
+            self.tokio_handle.spawn(async move {
+                let path_info = grpc_client
+                    .calculate_nar(proto::Node {
+                        node: Some(root_node),
+                    })
+                    .await?
+                    .into_inner();
+                Ok(path_info)
+            });
+
+        let resp = self
+            .tokio_handle
+            .block_on(task)?
+            .map_err(|e| crate::Error::StorageError(e.to_string()))?;
+
+        let nar_sha256: [u8; 32] = resp
+            .nar_sha256
+            .try_into()
+            .map_err(|_e| crate::Error::StorageError("invalid digest length".to_string()))?;
+
+        Ok((resp.nar_size, nar_sha256))
+    }
 }

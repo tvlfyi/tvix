@@ -101,9 +101,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // initialize stores
             let blob_service = SledBlobService::new("blobs.sled".into())?;
             let boxed_blob_service: Box<dyn BlobService> = Box::new(blob_service.clone());
-            let boxed_blob_service2: Box<dyn BlobService> = Box::new(blob_service);
+            let boxed_blob_service2: Box<dyn BlobService> = Box::new(blob_service.clone());
             let directory_service = SledDirectoryService::new("directories.sled".into())?;
-            let path_info_service = SledPathInfoService::new("pathinfo.sled".into())?;
+            let path_info_service = SledPathInfoService::new(
+                "pathinfo.sled".into(),
+                boxed_blob_service,
+                directory_service.clone(),
+            )?;
 
             let listen_address = listen_address
                 .unwrap_or_else(|| "[::]:8000".to_string())
@@ -115,16 +119,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             #[allow(unused_mut)]
             let mut router = server
                 .add_service(BlobServiceServer::new(GRPCBlobServiceWrapper::from(
-                    boxed_blob_service,
+                    boxed_blob_service2,
                 )))
                 .add_service(DirectoryServiceServer::new(
-                    GRPCDirectoryServiceWrapper::from(directory_service.clone()),
+                    GRPCDirectoryServiceWrapper::from(directory_service),
                 ))
-                .add_service(PathInfoServiceServer::new(GRPCPathInfoServiceWrapper::new(
-                    path_info_service,
-                    boxed_blob_service2,
-                    directory_service,
-                )));
+                .add_service(PathInfoServiceServer::new(
+                    GRPCPathInfoServiceWrapper::from(path_info_service),
+                ));
 
             #[cfg(feature = "reflection")]
             {

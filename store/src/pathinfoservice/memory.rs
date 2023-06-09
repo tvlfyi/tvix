@@ -1,16 +1,31 @@
 use super::PathInfoService;
-use crate::{proto, Error};
+use crate::{
+    blobservice::BlobService, directoryservice::DirectoryService, nar::calculate_size_and_sha256,
+    proto, Error,
+};
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
 };
 
-#[derive(Default)]
-pub struct MemoryPathInfoService {
+pub struct MemoryPathInfoService<DS: DirectoryService> {
     db: Arc<RwLock<HashMap<[u8; 20], proto::PathInfo>>>,
+
+    blob_service: Box<dyn BlobService>,
+    directory_service: DS,
 }
 
-impl PathInfoService for MemoryPathInfoService {
+impl<DS: DirectoryService> MemoryPathInfoService<DS> {
+    pub fn new(blob_service: Box<dyn BlobService>, directory_service: DS) -> Self {
+        Self {
+            db: Default::default(),
+            blob_service,
+            directory_service,
+        }
+    }
+}
+
+impl<DS: DirectoryService + Clone> PathInfoService for MemoryPathInfoService<DS> {
     fn get(&self, digest: [u8; 20]) -> Result<Option<proto::PathInfo>, Error> {
         let db = self.db.read().unwrap();
 
@@ -37,5 +52,14 @@ impl PathInfoService for MemoryPathInfoService {
                 Ok(path_info)
             }
         }
+    }
+
+    fn calculate_nar(&self, root_node: &proto::node::Node) -> Result<(u64, [u8; 32]), Error> {
+        calculate_size_and_sha256(
+            root_node,
+            &self.blob_service,
+            self.directory_service.clone(),
+        )
+        .map_err(|e| Error::StorageError(e.to_string()))
     }
 }

@@ -1,5 +1,8 @@
 use super::PathInfoService;
-use crate::{proto, Error};
+use crate::{
+    blobservice::BlobService, directoryservice::DirectoryService, nar::calculate_size_and_sha256,
+    proto, Error,
+};
 use prost::Message;
 use std::path::PathBuf;
 use tracing::warn;
@@ -8,28 +11,45 @@ use tracing::warn;
 ///
 /// The PathInfo messages are stored as encoded protos, and keyed by their output hash,
 /// as that's currently the only request type available.
-#[derive(Clone)]
-pub struct SledPathInfoService {
+pub struct SledPathInfoService<DS: DirectoryService> {
     db: sled::Db,
+
+    blob_service: Box<dyn BlobService>,
+    directory_service: DS,
 }
 
-impl SledPathInfoService {
-    pub fn new(p: PathBuf) -> Result<Self, sled::Error> {
+impl<DS: DirectoryService> SledPathInfoService<DS> {
+    pub fn new(
+        p: PathBuf,
+        blob_service: Box<dyn BlobService>,
+        directory_service: DS,
+    ) -> Result<Self, sled::Error> {
         let config = sled::Config::default().use_compression(true).path(p);
         let db = config.open()?;
 
-        Ok(Self { db })
+        Ok(Self {
+            db,
+            blob_service,
+            directory_service,
+        })
     }
 
-    pub fn new_temporary() -> Result<Self, sled::Error> {
+    pub fn new_temporary(
+        blob_service: Box<dyn BlobService>,
+        directory_service: DS,
+    ) -> Result<Self, sled::Error> {
         let config = sled::Config::default().temporary(true);
         let db = config.open()?;
 
-        Ok(Self { db })
+        Ok(Self {
+            db,
+            blob_service,
+            directory_service,
+        })
     }
 }
 
-impl PathInfoService for SledPathInfoService {
+impl<DS: DirectoryService + Clone> PathInfoService for SledPathInfoService<DS> {
     fn get(&self, digest: [u8; 20]) -> Result<Option<proto::PathInfo>, Error> {
         match self.db.get(digest) {
             Ok(None) => Ok(None),
@@ -72,5 +92,14 @@ impl PathInfoService for SledPathInfoService {
                 }
             },
         }
+    }
+
+    fn calculate_nar(&self, root_node: &proto::node::Node) -> Result<(u64, [u8; 32]), Error> {
+        calculate_size_and_sha256(
+            root_node,
+            &self.blob_service,
+            self.directory_service.clone(),
+        )
+        .map_err(|e| Error::StorageError(e.to_string()))
     }
 }

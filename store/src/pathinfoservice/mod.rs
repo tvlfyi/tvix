@@ -18,5 +18,8 @@ pub trait PathInfoService {
     /// invalid messages.
     fn put(&self, path_info: proto::PathInfo) -> Result<proto::PathInfo, Error>;
 
-    // TODO: add default impl for nar calculation here, and override from GRPC client!
+    /// Return the nar size and nar sha256 digest for a given root node.
+    /// This can be used to calculate NAR-based output paths,
+    /// and implementations are encouraged to cache it.
+    fn calculate_nar(&self, root_node: &proto::node::Node) -> Result<(u64, [u8; 32]), Error>;
 }
