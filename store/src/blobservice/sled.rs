@@ -112,7 +112,7 @@ impl BlobWriter for SledBlobWriter {
             let digest = B3Digest::from_vec(hasher.finalize().as_bytes().to_vec()).unwrap();
 
             // Only insert if the blob doesn't already exist.
-            if !self.db.contains_key(&digest.to_vec()).map_err(|e| {
+            if !self.db.contains_key(digest.to_vec()).map_err(|e| {
                 Error::StorageError(format!("Unable to check if we have blob {}: {}", digest, e))
             })? {
                 // put buf in there. This will move buf out.
