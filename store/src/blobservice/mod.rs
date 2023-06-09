@@ -2,10 +2,12 @@ use std::io;
 
 use crate::{B3Digest, Error};
 
+mod from_addr;
 mod grpc;
 mod memory;
 mod sled;
 
+pub use self::from_addr::from_addr;
 pub use self::grpc::GRPCBlobService;
 pub use self::memory::MemoryBlobService;
 pub use self::sled::SledBlobService;
@@ -16,6 +18,11 @@ pub use self::sled::SledBlobService;
 /// Blob, which will return something implmenting io::Write, and providing a
 /// close funtion, to finalize a blob and get its digest.
 pub trait BlobService: Send + Sync {
+    /// Create a new instance by passing in a connection URL.
+    fn from_url(url: &url::Url) -> Result<Self, Error>
+    where
+        Self: Sized;
+
     /// Check if the service has the blob, by its content hash.
     fn has(&self, digest: &B3Digest) -> Result<bool, Error>;
 
