@@ -50,6 +50,42 @@ impl SledPathInfoService {
 }
 
 impl PathInfoService for SledPathInfoService {
+    /// Constructs a [SledBlobService] from the passed [url::Url]:
+    /// - scheme has to be `sled://`
+    /// - there may not be a host.
+    /// - a path to the sled needs to be provided (which may not be `/`).
+    fn from_url(
+        url: &url::Url,
+        blob_service: Arc<dyn BlobService>,
+        directory_service: Arc<dyn DirectoryService>,
+    ) -> Result<Self, Error> {
+        if url.scheme() != "sled" {
+            return Err(crate::Error::StorageError("invalid scheme".to_string()));
+        }
+
+        if url.has_host() {
+            return Err(crate::Error::StorageError(format!(
+                "invalid host: {}",
+                url.host().unwrap()
+            )));
+        }
+
+        // TODO: expose compression and other parameters as URL parameters, drop new and new_temporary?
+        if url.path().is_empty() {
+            Self::new_temporary(blob_service, directory_service)
+                .map_err(|e| Error::StorageError(e.to_string()))
+        } else {
+            if url.path() == "/" {
+                Err(crate::Error::StorageError(
+                    "cowardly refusing to open / with sled".to_string(),
+                ))
+            } else {
+                Self::new(url.path().into(), blob_service, directory_service)
+                    .map_err(|e| Error::StorageError(e.to_string()))
+            }
+        }
+    }
+
     fn get(&self, digest: [u8; 20]) -> Result<Option<proto::PathInfo>, Error> {
         match self.db.get(digest) {
             Ok(None) => Ok(None),
@@ -101,5 +137,103 @@ impl PathInfoService for SledPathInfoService {
             self.directory_service.clone(),
         )
         .map_err(|e| Error::StorageError(e.to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tempfile::TempDir;
+
+    use crate::tests::utils::gen_blob_service;
+    use crate::tests::utils::gen_directory_service;
+
+    use super::PathInfoService;
+    use super::SledPathInfoService;
+
+    /// This uses a wrong scheme.
+    #[test]
+    fn test_invalid_scheme() {
+        let url = url::Url::parse("http://foo.example/test").expect("must parse");
+
+        assert!(
+            SledPathInfoService::from_url(&url, gen_blob_service(), gen_directory_service())
+                .is_err()
+        );
+    }
+
+    /// This uses the correct scheme, and doesn't specify a path (temporary sled).
+    #[test]
+    fn test_valid_scheme_temporary() {
+        let url = url::Url::parse("sled://").expect("must parse");
+
+        assert!(
+            SledPathInfoService::from_url(&url, gen_blob_service(), gen_directory_service())
+                .is_ok()
+        );
+    }
+
+    /// This sets the path to a location that doesn't exist, which should fail (as sled doesn't mkdir -p)
+    #[test]
+    fn test_nonexistent_path() {
+        let tmpdir = TempDir::new().unwrap();
+
+        let mut url = url::Url::parse("sled://foo.example").expect("must parse");
+        url.set_path(tmpdir.path().join("foo").join("bar").to_str().unwrap());
+
+        assert!(
+            SledPathInfoService::from_url(&url, gen_blob_service(), gen_directory_service())
+                .is_err()
+        );
+    }
+
+    /// This uses the correct scheme, and specifies / as path (which should fail
+    // for obvious reasons)
+    #[test]
+    fn test_invalid_path_root() {
+        let url = url::Url::parse("sled:///").expect("must parse");
+
+        assert!(
+            SledPathInfoService::from_url(&url, gen_blob_service(), gen_directory_service())
+                .is_err()
+        );
+    }
+
+    /// This uses the correct scheme, and sets a tempdir as location.
+    #[test]
+    fn test_valid_scheme_path() {
+        let tmpdir = TempDir::new().unwrap();
+
+        let mut url = url::Url::parse("sled://").expect("must parse");
+        url.set_path(tmpdir.path().to_str().unwrap());
+
+        assert!(
+            SledPathInfoService::from_url(&url, gen_blob_service(), gen_directory_service())
+                .is_ok()
+        );
+    }
+
+    /// This sets a host, rather than a path, which should fail.
+    #[test]
+    fn test_invalid_host() {
+        let url = url::Url::parse("sled://foo.example").expect("must parse");
+
+        assert!(
+            SledPathInfoService::from_url(&url, gen_blob_service(), gen_directory_service())
+                .is_err()
+        );
+    }
+
+    /// This sets a host AND a valid path, which should fail
+    #[test]
+    fn test_invalid_host_and_path() {
+        let tmpdir = TempDir::new().unwrap();
+
+        let mut url = url::Url::parse("sled://foo.example").expect("must parse");
+        url.set_path(tmpdir.path().to_str().unwrap());
+
+        assert!(
+            SledPathInfoService::from_url(&url, gen_blob_service(), gen_directory_service())
+                .is_err()
+        );
     }
 }

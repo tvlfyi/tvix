@@ -29,6 +29,26 @@ impl MemoryPathInfoService {
 }
 
 impl PathInfoService for MemoryPathInfoService {
+    /// Constructs a [MemoryPathInfoService] from the passed [url::Url]:
+    /// - scheme has to be `memory://`
+    /// - there may not be a host.
+    /// - there may not be a path.
+    fn from_url(
+        url: &url::Url,
+        blob_service: Arc<dyn BlobService>,
+        directory_service: Arc<dyn DirectoryService>,
+    ) -> Result<Self, Error> {
+        if url.scheme() != "memory" {
+            return Err(crate::Error::StorageError("invalid scheme".to_string()));
+        }
+
+        if url.has_host() || !url.path().is_empty() {
+            return Err(crate::Error::StorageError("invalid url".to_string()));
+        }
+
+        Ok(Self::new(blob_service, directory_service))
+    }
+
     fn get(&self, digest: [u8; 20]) -> Result<Option<proto::PathInfo>, Error> {
         let db = self.db.read().unwrap();
 
@@ -64,5 +84,69 @@ impl PathInfoService for MemoryPathInfoService {
             self.directory_service.clone(),
         )
         .map_err(|e| Error::StorageError(e.to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::tests::utils::gen_blob_service;
+    use crate::tests::utils::gen_directory_service;
+
+    use super::MemoryPathInfoService;
+    use super::PathInfoService;
+
+    /// This uses a wrong scheme.
+    #[test]
+    fn test_invalid_scheme() {
+        let url = url::Url::parse("http://foo.example/test").expect("must parse");
+
+        assert!(
+            MemoryPathInfoService::from_url(&url, gen_blob_service(), gen_directory_service())
+                .is_err()
+        );
+    }
+
+    /// This correctly sets the scheme, and doesn't set a path.
+    #[test]
+    fn test_valid_scheme() {
+        let url = url::Url::parse("memory://").expect("must parse");
+
+        assert!(
+            MemoryPathInfoService::from_url(&url, gen_blob_service(), gen_directory_service())
+                .is_ok()
+        );
+    }
+
+    /// This sets the host to `foo`
+    #[test]
+    fn test_invalid_host() {
+        let url = url::Url::parse("memory://foo").expect("must parse");
+
+        assert!(
+            MemoryPathInfoService::from_url(&url, gen_blob_service(), gen_directory_service())
+                .is_err()
+        );
+    }
+
+    /// This has the path "/", which is invalid.
+    #[test]
+    fn test_invalid_has_path() {
+        let url = url::Url::parse("memory:///").expect("must parse");
+
+        assert!(
+            MemoryPathInfoService::from_url(&url, gen_blob_service(), gen_directory_service())
+                .is_err()
+        );
+    }
+
+    /// This has the path "/foo", which is invalid.
+    #[test]
+    fn test_invalid_path2() {
+        let url = url::Url::parse("memory:///foo").expect("must parse");
+
+        assert!(
+            MemoryPathInfoService::from_url(&url, gen_blob_service(), gen_directory_service())
+                .is_err()
+        );
     }
 }
