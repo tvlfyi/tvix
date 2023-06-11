@@ -190,7 +190,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 GRPCPathInfoService::from_client(path_info_service_client.clone());
 
             tokio::task::spawn_blocking(move || {
-                let f = FUSE::new(path_info_service, directory_service, blob_service);
+                let f = FUSE::new(
+                    Arc::new(blob_service),
+                    Arc::new(directory_service),
+                    path_info_service,
+                );
                 fuser::mount2(f, &dest, &[])
             })
             .await??

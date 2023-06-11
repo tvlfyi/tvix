@@ -1,24 +1,26 @@
 use crate::{
     blobservice::BlobService, directoryservice::DirectoryService, pathinfoservice::PathInfoService,
 };
+use std::sync::Arc;
 
-pub struct FUSE<BS: BlobService, DS: DirectoryService, PS: PathInfoService> {
-    blob_service: BS,
-    directory_service: DS,
+pub struct FUSE<PS: PathInfoService> {
+    blob_service: Arc<dyn BlobService>,
+    directory_service: Arc<dyn DirectoryService>,
     path_info_service: PS,
 }
 
-impl<BS: BlobService, DS: DirectoryService, PS: PathInfoService> FUSE<BS, DS, PS> {
-    pub fn new(path_info_service: PS, directory_service: DS, blob_service: BS) -> Self {
+impl<PS: PathInfoService> FUSE<PS> {
+    pub fn new(
+        blob_service: Arc<dyn BlobService>,
+        directory_service: Arc<dyn DirectoryService>,
+        path_info_service: PS,
+    ) -> Self {
         Self {
             blob_service,
-            path_info_service,
             directory_service,
+            path_info_service,
         }
     }
 }
 
-impl<BS: BlobService, DS: DirectoryService, PS: PathInfoService> fuser::Filesystem
-    for FUSE<BS, DS, PS>
-{
-}
+impl<PS: PathInfoService> fuser::Filesystem for FUSE<PS> {}
