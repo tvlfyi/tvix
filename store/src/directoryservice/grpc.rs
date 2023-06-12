@@ -21,18 +21,6 @@ pub struct GRPCDirectoryService {
 }
 
 impl GRPCDirectoryService {
-    /// Construct a new [GRPCDirectoryService], by passing a handle to the
-    /// tokio runtime, and a gRPC client.
-    pub fn new(
-        tokio_handle: tokio::runtime::Handle,
-        grpc_client: proto::directory_service_client::DirectoryServiceClient<Channel>,
-    ) -> Self {
-        Self {
-            tokio_handle,
-            grpc_client,
-        }
-    }
-
     /// construct a [GRPCDirectoryService] from a [proto::blob_service_client::BlobServiceClient<Channel>].
     /// panics if called outside the context of a tokio runtime.
     pub fn from_client(
@@ -413,8 +401,7 @@ mod tests {
             let grpc_client = proto::directory_service_client::DirectoryServiceClient::new(channel);
 
             // create the GrpcDirectoryService, using the tester_runtime.
-            let directory_service =
-                super::GRPCDirectoryService::new(tokio::runtime::Handle::current(), grpc_client);
+            let directory_service = super::GRPCDirectoryService::from_client(grpc_client);
 
             // try to get DIRECTORY_A should return Ok(None)
             assert_eq!(
