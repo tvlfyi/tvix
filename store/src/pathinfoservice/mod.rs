@@ -10,7 +10,7 @@ pub use self::sled::SledPathInfoService;
 
 /// The base trait all PathInfo services need to implement.
 /// This is a simple get and put of [proto::Directory], returning their digest.
-pub trait PathInfoService {
+pub trait PathInfoService: Send + Sync {
     /// Retrieve a PathInfo message by the output digest.
     fn get(&self, digest: [u8; 20]) -> Result<Option<proto::PathInfo>, Error>;
 

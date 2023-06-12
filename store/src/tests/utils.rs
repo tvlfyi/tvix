@@ -17,6 +17,6 @@ pub fn gen_directory_service() -> Arc<dyn DirectoryService> {
 pub fn gen_pathinfo_service(
     blob_service: Arc<dyn BlobService>,
     directory_service: Arc<dyn DirectoryService>,
-) -> impl PathInfoService {
-    MemoryPathInfoService::new(blob_service, directory_service)
+) -> Arc<dyn PathInfoService> {
+    Arc::new(MemoryPathInfoService::new(blob_service, directory_service))
 }

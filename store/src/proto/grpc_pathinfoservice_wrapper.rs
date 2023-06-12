@@ -1,15 +1,16 @@
 use crate::nar::RenderError;
 use crate::pathinfoservice::PathInfoService;
 use crate::proto;
+use std::sync::Arc;
 use tonic::{async_trait, Request, Response, Result, Status};
 use tracing::{instrument, warn};
 
-pub struct GRPCPathInfoServiceWrapper<PS: PathInfoService> {
-    path_info_service: PS,
+pub struct GRPCPathInfoServiceWrapper {
+    path_info_service: Arc<dyn PathInfoService>,
 }
 
-impl<PS: PathInfoService> From<PS> for GRPCPathInfoServiceWrapper<PS> {
-    fn from(value: PS) -> Self {
+impl From<Arc<dyn PathInfoService>> for GRPCPathInfoServiceWrapper {
+    fn from(value: Arc<dyn PathInfoService>) -> Self {
         Self {
             path_info_service: value,
         }
@@ -17,9 +18,7 @@ impl<PS: PathInfoService> From<PS> for GRPCPathInfoServiceWrapper<PS> {
 }
 
 #[async_trait]
-impl<PS: PathInfoService + Send + Sync + 'static> proto::path_info_service_server::PathInfoService
-    for GRPCPathInfoServiceWrapper<PS>
-{
+impl proto::path_info_service_server::PathInfoService for GRPCPathInfoServiceWrapper {
     #[instrument(skip(self))]
     async fn get(
         &self,

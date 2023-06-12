@@ -3,17 +3,17 @@ use crate::{
 };
 use std::sync::Arc;
 
-pub struct FUSE<PS: PathInfoService> {
+pub struct FUSE {
     blob_service: Arc<dyn BlobService>,
     directory_service: Arc<dyn DirectoryService>,
-    path_info_service: PS,
+    path_info_service: Arc<dyn PathInfoService>,
 }
 
-impl<PS: PathInfoService> FUSE<PS> {
+impl FUSE {
     pub fn new(
         blob_service: Arc<dyn BlobService>,
         directory_service: Arc<dyn DirectoryService>,
-        path_info_service: PS,
+        path_info_service: Arc<dyn PathInfoService>,
     ) -> Self {
         Self {
             blob_service,
@@ -23,4 +23,4 @@ impl<PS: PathInfoService> FUSE<PS> {
     }
 }
 
-impl<PS: PathInfoService> fuser::Filesystem for FUSE<PS> {}
+impl fuser::Filesystem for FUSE {}

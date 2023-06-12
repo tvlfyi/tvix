@@ -29,18 +29,18 @@ use crate::{
 /// This is to both cover cases of syntactically valid store paths, that exist
 /// on the filesystem (still managed by Nix), as well as being able to read
 /// files outside store paths.
-pub struct TvixStoreIO<PS: PathInfoService> {
+pub struct TvixStoreIO {
     blob_service: Arc<dyn BlobService>,
     directory_service: Arc<dyn DirectoryService>,
-    path_info_service: PS,
+    path_info_service: Arc<dyn PathInfoService>,
     std_io: StdIO,
 }
 
-impl<PS: PathInfoService> TvixStoreIO<PS> {
+impl TvixStoreIO {
     pub fn new(
         blob_service: Arc<dyn BlobService>,
         directory_service: Arc<dyn DirectoryService>,
-        path_info_service: PS,
+        path_info_service: Arc<dyn PathInfoService>,
     ) -> Self {
         Self {
             blob_service,
@@ -179,7 +179,7 @@ fn calculate_nar_based_store_path(nar_sha256_digest: &[u8; 32], name: &str) -> S
     build_regular_ca_path(name, &nar_hash_with_mode, Vec::<String>::new(), false).unwrap()
 }
 
-impl<PS: PathInfoService> EvalIO for TvixStoreIO<PS> {
+impl EvalIO for TvixStoreIO {
     #[instrument(skip(self), ret, err)]
     fn path_exists(&self, path: &Path) -> Result<bool, io::Error> {
         if let Ok((store_path, sub_path)) =

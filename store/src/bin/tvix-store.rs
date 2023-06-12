@@ -13,6 +13,7 @@ use tvix_store::directoryservice::DirectoryService;
 use tvix_store::directoryservice::GRPCDirectoryService;
 use tvix_store::directoryservice::SledDirectoryService;
 use tvix_store::pathinfoservice::GRPCPathInfoService;
+use tvix_store::pathinfoservice::PathInfoService;
 use tvix_store::pathinfoservice::SledPathInfoService;
 use tvix_store::proto::blob_service_client::BlobServiceClient;
 use tvix_store::proto::blob_service_server::BlobServiceServer;
@@ -104,11 +105,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Arc::new(SledBlobService::new("blobs.sled".into())?);
             let directory_service: Arc<dyn DirectoryService> =
                 Arc::new(SledDirectoryService::new("directories.sled".into())?);
-            let path_info_service = SledPathInfoService::new(
+            let path_info_service: Arc<dyn PathInfoService> = Arc::new(SledPathInfoService::new(
                 "pathinfo.sled".into(),
                 blob_service.clone(),
                 directory_service.clone(),
-            )?;
+            )?);
 
             let listen_address = listen_address
                 .unwrap_or_else(|| "[::]:8000".to_string())
@@ -156,7 +157,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let io = Arc::new(TvixStoreIO::new(
                 Arc::new(blob_service),
                 Arc::new(directory_service),
-                path_info_service,
+                Arc::new(path_info_service),
             ));
 
             let tasks = paths
@@ -193,7 +194,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let f = FUSE::new(
                     Arc::new(blob_service),
                     Arc::new(directory_service),
-                    path_info_service,
+                    Arc::new(path_info_service),
                 );
                 fuser::mount2(f, &dest, &[])
             })

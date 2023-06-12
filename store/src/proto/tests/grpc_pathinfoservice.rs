@@ -8,6 +8,7 @@ use crate::tests::fixtures::DUMMY_OUTPUT_HASH;
 use crate::tests::utils::gen_blob_service;
 use crate::tests::utils::gen_directory_service;
 use crate::tests::utils::gen_pathinfo_service;
+use std::sync::Arc;
 use tonic::Request;
 
 /// generates a GRPCPathInfoService out of blob, directory and pathinfo services.
@@ -15,10 +16,13 @@ use tonic::Request;
 /// We only interact with it via the PathInfo GRPC interface.
 /// It uses the NonCachingNARCalculationService NARCalculationService to
 /// calculate NARs.
-fn gen_grpc_service() -> impl GRPCPathInfoService {
+fn gen_grpc_service() -> Arc<dyn GRPCPathInfoService> {
     let blob_service = gen_blob_service();
     let directory_service = gen_directory_service();
-    GRPCPathInfoServiceWrapper::from(gen_pathinfo_service(blob_service, directory_service))
+    Arc::new(GRPCPathInfoServiceWrapper::from(gen_pathinfo_service(
+        blob_service,
+        directory_service,
+    )))
 }
 
 /// Trying to get a non-existent PathInfo should return a not found error.

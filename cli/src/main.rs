@@ -74,8 +74,10 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
 
     let blob_service = Arc::new(MemoryBlobService::default());
     let directory_service = Arc::new(MemoryDirectoryService::default());
-    let path_info_service =
-        MemoryPathInfoService::new(blob_service.clone(), directory_service.clone());
+    let path_info_service = Arc::new(MemoryPathInfoService::new(
+        blob_service.clone(),
+        directory_service.clone(),
+    ));
 
     eval.io_handle = Box::new(tvix_io::TvixIO::new(
         known_paths.clone(),
