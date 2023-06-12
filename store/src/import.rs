@@ -114,7 +114,7 @@ fn process_entry(
         let mut file = File::open(entry_path.clone())
             .map_err(|e| Error::UnableToOpen(entry_path.clone(), e))?;
 
-        let mut writer = blob_service.open_write()?;
+        let mut writer = blob_service.open_write();
 
         if let Err(e) = io::copy(&mut file, &mut writer) {
             return Err(Error::UnableToRead(entry_path, e));

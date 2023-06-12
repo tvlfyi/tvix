@@ -121,9 +121,9 @@ impl BlobService for GRPCBlobService {
         }
     }
 
-    /// Returns a [Self::BlobWriter], that'll internally wrap each write in a
-    // [proto::BlobChunk] and which is passed to the
-    fn open_write(&self) -> Result<Box<dyn BlobWriter>, crate::Error> {
+    /// Returns a BlobWriter, that'll internally wrap each write in a
+    // [proto::BlobChunk], which is send to the gRPC server.
+    fn open_write(&self) -> Box<dyn BlobWriter> {
         let mut grpc_client = self.grpc_client.clone();
 
         // set up an mpsc channel passing around Bytes.
@@ -155,11 +155,11 @@ impl BlobService for GRPCBlobService {
         // … which is then turned into a [io::Write].
         let writer = SyncIoBridge::new(async_writer);
 
-        Ok(Box::new(GRPCBlobWriter {
+        Box::new(GRPCBlobWriter {
             tokio_handle: self.tokio_handle.clone(), // TODO: is the clone() ok here?
             task_and_writer: Some((task, writer)),
             digest: None,
-        }))
+        })
     }
 }
 

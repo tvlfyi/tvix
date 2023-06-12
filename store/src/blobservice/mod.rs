@@ -24,8 +24,7 @@ pub trait BlobService: Send + Sync {
 
     /// Insert a new blob into the store. Returns a [BlobWriter], which
     /// implements [io::Write] and a [BlobWriter::close].
-    /// TODO: is there any reason we want this to be a Result<>, and not just T?
-    fn open_write(&self) -> Result<Box<dyn BlobWriter>, Error>;
+    fn open_write(&self) -> Box<dyn BlobWriter>;
 }
 
 /// A [io::Write] that you need to close() afterwards, and get back the digest

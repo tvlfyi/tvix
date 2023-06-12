@@ -30,8 +30,8 @@ impl BlobService for MemoryBlobService {
     }
 
     #[instrument(skip(self))]
-    fn open_write(&self) -> Result<Box<dyn BlobWriter>, Error> {
-        Ok(Box::new(MemoryBlobWriter::new(self.db.clone())))
+    fn open_write(&self) -> Box<dyn BlobWriter> {
+        Box::new(MemoryBlobWriter::new(self.db.clone()))
     }
 }
 

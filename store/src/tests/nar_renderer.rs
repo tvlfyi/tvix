@@ -61,7 +61,7 @@ fn single_file_wrong_blob_size() {
     let blob_service = gen_blob_service();
 
     // insert blob into the store
-    let mut writer = blob_service.open_write().unwrap();
+    let mut writer = blob_service.open_write();
     io::copy(
         &mut io::Cursor::new(HELLOWORLD_BLOB_CONTENTS.to_vec()),
         &mut writer,
@@ -125,7 +125,7 @@ fn single_file() {
     let blob_service = gen_blob_service();
 
     // insert blob into the store
-    let mut writer = blob_service.open_write().unwrap();
+    let mut writer = blob_service.open_write();
     io::copy(
         &mut io::Cursor::new(HELLOWORLD_BLOB_CONTENTS.to_vec()),
         &mut writer,
@@ -158,7 +158,7 @@ fn test_complicated() {
 
     // put all data into the stores.
     // insert blob into the store
-    let mut writer = blob_service.open_write().unwrap();
+    let mut writer = blob_service.open_write();
     io::copy(
         &mut io::Cursor::new(EMPTY_BLOB_CONTENTS.to_vec()),
         &mut writer,

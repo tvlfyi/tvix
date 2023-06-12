@@ -161,10 +161,7 @@ impl super::blob_service_server::BlobService for GRPCBlobServiceWrapper {
         let data_reader = tokio_util::io::StreamReader::new(data_stream);
 
         // prepare a writer, which we'll use in the blocking task below.
-        let mut writer = self
-            .blob_service
-            .open_write()
-            .map_err(|e| Status::internal(format!("unable to open for write: {}", e)))?;
+        let mut writer = self.blob_service.open_write();
 
         let result = task::spawn_blocking(move || -> Result<super::PutBlobResponse, Status> {
             // construct a sync reader to the data

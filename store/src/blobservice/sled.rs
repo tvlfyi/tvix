@@ -46,8 +46,8 @@ impl BlobService for SledBlobService {
     }
 
     #[instrument(skip(self))]
-    fn open_write(&self) -> Result<Box<dyn BlobWriter>, Error> {
-        Ok(Box::new(SledBlobWriter::new(self.db.clone())))
+    fn open_write(&self) -> Box<dyn BlobWriter> {
+        Box::new(SledBlobWriter::new(self.db.clone()))
     }
 }
 
