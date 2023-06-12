@@ -14,18 +14,6 @@ pub struct GRPCPathInfoService {
 }
 
 impl GRPCPathInfoService {
-    /// Construct a new [GRPCPathInfoService], by passing a handle to the tokio
-    /// runtime, and a gRPC client.
-    pub fn new(
-        tokio_handle: tokio::runtime::Handle,
-        grpc_client: proto::path_info_service_client::PathInfoServiceClient<Channel>,
-    ) -> Self {
-        Self {
-            tokio_handle,
-            grpc_client,
-        }
-    }
-
     /// construct a [GRPCDirectoryService] from a [proto::path_info_service_client::PathInfoServiceClient<Channel>].
     /// panics if called outside the context of a tokio runtime.
     pub fn from_client(
