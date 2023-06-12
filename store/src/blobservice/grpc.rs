@@ -23,17 +23,6 @@ pub struct GRPCBlobService {
 }
 
 impl GRPCBlobService {
-    /// construct a [GRPCBlobService] from a [proto::blob_service_client::BlobServiceClient<Channel>],
-    /// and a [tokio::runtime::Handle].
-    pub fn new(
-        grpc_client: proto::blob_service_client::BlobServiceClient<Channel>,
-        tokio_handle: tokio::runtime::Handle,
-    ) -> Self {
-        Self {
-            tokio_handle,
-            grpc_client,
-        }
-    }
     /// construct a [GRPCBlobService] from a [proto::blob_service_client::BlobServiceClient<Channel>].
     /// panics if called outside the context of a tokio runtime.
     pub fn from_client(
@@ -156,7 +145,7 @@ impl BlobService for GRPCBlobService {
         let writer = SyncIoBridge::new(async_writer);
 
         Box::new(GRPCBlobWriter {
-            tokio_handle: self.tokio_handle.clone(), // TODO: is the clone() ok here?
+            tokio_handle: self.tokio_handle.clone(),
             task_and_writer: Some((task, writer)),
             digest: None,
         })
