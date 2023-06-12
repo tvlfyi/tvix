@@ -13,12 +13,13 @@ pub use self::sled::SledBlobService;
 /// The base trait all BlobService services need to implement.
 /// It provides functions to check whether a given blob exists,
 /// a way to get a [io::Read] to a blob, and a method to initiate writing a new
-/// Blob, which returns a [BlobWriter], that can be used
+/// Blob, which will return something implmenting io::Write, and providing a
+/// close funtion, to finalize a blob and get its digest.
 pub trait BlobService: Send + Sync {
     /// Check if the service has the blob, by its content hash.
     fn has(&self, digest: &B3Digest) -> Result<bool, Error>;
 
-    /// Request a blob from the store, by its content hash. Returns a Option<BlobReader>.
+    /// Request a blob from the store, by its content hash.
     fn open_read(&self, digest: &B3Digest) -> Result<Option<Box<dyn io::Read + Send>>, Error>;
 
     /// Insert a new blob into the store. Returns a [BlobWriter], which
