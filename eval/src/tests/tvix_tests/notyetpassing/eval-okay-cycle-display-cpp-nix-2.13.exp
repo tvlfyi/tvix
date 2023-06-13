@@ -1,0 +1,1 @@
+[ { car = 42; cdr = «repeated»; } [ «repeated» «repeated» «repeated» ] { val = 42; wal = «repeated»; xal = «repeated»; } { tail1 = «repeated»; tail2 = «repeated»; val = 42; } { tail1 = «repeated»; tail2 = «repeated»; val = 21; } ]

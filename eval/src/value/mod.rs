@@ -758,7 +758,8 @@ impl TotalDisplay for Value {
             Value::Path(p) => p.display().fmt(f),
             Value::Attrs(attrs) => attrs.total_fmt(f, set),
             Value::List(list) => list.total_fmt(f, set),
-            Value::Closure(_) => f.write_str("lambda"), // TODO: print position
+            // TODO: fancy REPL display with position
+            Value::Closure(_) => f.write_str("<LAMBDA>"),
             Value::Builtin(builtin) => builtin.fmt(f),
 
             // Nix prints floats with a maximum precision of 5 digits
