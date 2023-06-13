@@ -11,14 +11,16 @@
 
 pkgs.mkShell {
   name = "tvix-rust-dev-env";
-  packages = [
-    pkgs.buf-language-server
-    pkgs.cargo
-    pkgs.clippy
-    pkgs.rust-analyzer
-    pkgs.rustc
-    pkgs.rustfmt
-    pkgs.protobuf
-    pkgs.evans
+  packages = with pkgs; [
+    buf-language-server
+    cargo
+    clippy
+    evans
+    fuse
+    pkg-config
+    protobuf
+    rust-analyzer
+    rustc
+    rustfmt
   ];
 }
