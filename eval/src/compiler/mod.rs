@@ -341,18 +341,17 @@ impl Compiler<'_> {
         let path = if raw_path.starts_with('/') {
             Path::new(&raw_path).to_owned()
         } else if raw_path.starts_with('~') {
-            return self.thunk(slot, node, move |c, _| {
-                // We assume that home paths start with ~/ or fail to parse
-                // TODO: this should be checked using a parse-fail test.
-                debug_assert!(raw_path.len() > 2 && raw_path.starts_with("~/"));
+            // We assume that home paths start with ~/ or fail to parse
+            // TODO: this should be checked using a parse-fail test.
+            debug_assert!(raw_path.len() > 2 && raw_path.starts_with("~/"));
 
-                let home_relative_path = &raw_path[2..(raw_path.len())];
-                c.emit_constant(
-                    Value::UnresolvedPath(Box::new(home_relative_path.into())),
-                    node,
-                );
-                c.push_op(OpCode::OpResolveHomePath, node);
-            });
+            let home_relative_path = &raw_path[2..(raw_path.len())];
+            self.emit_constant(
+                Value::UnresolvedPath(Box::new(home_relative_path.into())),
+                node,
+            );
+            self.push_op(OpCode::OpResolveHomePath, node);
+            return;
         } else if raw_path.starts_with('<') {
             // TODO: decide what to do with findFile
             if raw_path.len() == 2 {

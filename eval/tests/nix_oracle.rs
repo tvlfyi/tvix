@@ -154,6 +154,9 @@ compare_lazy_eval_tests! {
     thunked_lambda_in_list("[ (x: x) ]");
     thunked_function_application_in_list("[ (builtins.add 1 2) ]");
     thunked_legacy_let_in_list("[ (let { foo = 12; body = foo; }) ]");
+    unthunked_relative_path("[ ./foo ]");
+    unthunked_home_relative_path("[ ~/foo ]");
+    unthunked_absolute_path("[ /foo ]");
 
     unthunked_formals_fallback_literal("({ foo ? 12 }: [ foo ]) { }");
     unthunked_formals_fallback_string_literal("({ foo ? \"wiggly\" }: [ foo ]) { }");
