@@ -36,6 +36,8 @@ let
           ]
       ) [ "nix_tests" "nix_tests/notyetpassing" "tvix_tests" "tvix_tests/notyetpassing" ];
 
+  latestNixIs215 = lib.versionOlder nix_latest.version "2.16";
+
   skippedLangTests = {
     # TODO(sterni): set up NIX_PATH in sandbox
     "eval-okay-search-path.nix" = true;
@@ -64,6 +66,16 @@ let
     "eval-okay-import-display.nix" = [ nix ];
     # Cycle detection and formatting changed sometime after Nix 2.3
     "eval-okay-cycle-display-cpp-nix-2.13.nix" = [ nix ];
+    # builtins.replaceStrings becomes lazier in Nix 2.16
+    "eval-okay-replacestrings.nix" = [ nix (assert latestNixIs215; nix_latest) ];
+    # builtins.readFileType is added in Nix 2.15
+    "eval-okay-readFileType.nix" = [ nix ];
+    # builtins.fromTOML gains support for timestamps in Nix 2.16
+    "eval-okay-fromTOML-timestamps.nix" = [ nix (assert latestNixIs215; nix_latest) ];
+
+    # TODO(sterni): support diffing working directory and home relative paths
+    # like C++ Nix test suite (using string replacement).
+    "eval-okay-path-antiquotation.nix" = true;
   };
 
   runCppNixLangTests = cpp-nix:
