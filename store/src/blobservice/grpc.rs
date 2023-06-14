@@ -423,7 +423,6 @@ mod tests {
         }
 
         let has = task::spawn_blocking(move || {
-            println!("client has?");
             client
                 .has(&fixtures::BLOB_A_DIGEST)
                 .expect("must not be err")
