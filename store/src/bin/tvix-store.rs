@@ -128,7 +128,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             path_info_service_addr,
         } => {
             // initialize stores
-            let blob_service = blobservice::from_addr(&blob_service_addr).await?;
+            let blob_service = blobservice::from_addr(&blob_service_addr)?;
             let directory_service = directoryservice::from_addr(&directory_service_addr)?;
             let path_info_service = pathinfoservice::from_addr(
                 &path_info_service_addr,
@@ -173,7 +173,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             directory_service_addr,
             path_info_service_addr,
         } => {
-            let blob_service = blobservice::from_addr(&blob_service_addr).await?;
+            let blob_service = blobservice::from_addr(&blob_service_addr)?;
             let directory_service = directoryservice::from_addr(&directory_service_addr)?;
             let path_info_service = pathinfoservice::from_addr(
                 &path_info_service_addr,
@@ -211,7 +211,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             directory_service_addr,
             path_info_service_addr,
         } => {
-            let blob_service = blobservice::from_addr(&blob_service_addr).await?;
+            let blob_service = blobservice::from_addr(&blob_service_addr)?;
             let directory_service = directoryservice::from_addr(&directory_service_addr)?;
             let path_info_service = pathinfoservice::from_addr(
                 &path_info_service_addr,
