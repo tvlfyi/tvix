@@ -55,4 +55,4 @@ parser is now maintained by Nix community members.
 
 [rnix-parser]: https://github.com/nix-community/rnix-parser
 [rip]: https://www.redox-os.org/news/open-source-mental-health/
-[tvixbolt]: https://tazj.in/blobs/tvixbolt/
+[tvixbolt]: https://tvixbolt.tvl.su/
