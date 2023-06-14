@@ -7,6 +7,9 @@ mod grpc;
 mod memory;
 mod sled;
 
+#[cfg(test)]
+mod tests;
+
 pub use self::from_addr::from_addr;
 pub use self::grpc::GRPCBlobService;
 pub use self::memory::MemoryBlobService;
