@@ -31,19 +31,53 @@ git clone https://code.tvl.fyi/depot.git:/tvix/eval.git tvix-eval
 cd tvix-eval && cargo build
 ```
 
-## Nix test suite
+## Tests
 
-C++ Nix implements a language test suite in the form of Nix source
-code files, and their expected output. The coverage of this test suite
-is not complete, but we intend to be compatible with it.
+Tvix currently has three language test suites for tvix-eval:
 
-We have ported the test suite to Tvix, but do not run it by default as
-we are not yet compatible with it.
+* `nix_tests` and `tvix_tests` are based on the same mechanism
+  borrowed from the C++ Nix implementation. They consist of
+  Nix files as well as expected output (if applicable).
+  The test cases are split into four categories:
+  `eval-okay` (evaluates successfully with the expected output),
+  `eval-fail` (fails to evaluate, no expected output),
+  `parse-okay` (expression parses successfully, no expected output)
+  and `parse-fail` (expression fails to parse, no expected output).
+  Tvix currently ignores the last two types of test cases, since
+  it doesn't implement its own parser.
 
-You can run the test suite by enabling the `nix_tests` feature in
-Cargo:
+  Both test suites have a `notyetpassing` directory. All test cases
+  in here test behavior that is not yet supported by Tvix. They are
+  considered to be expected failures, so you can't forget to move
+  them into the test suite proper when fixing the incompatibility.
 
-    cargo test --features nix_tests
+  Additionally, separate targets in the depot pipeline, under
+  `//tvix/verify-lang-tests`, check both test suites (including
+  `notyetpassing` directories) against
+  C++ Nix 2.3 and the default C++ Nix version in nixpkgs.
+  This way we can prevent accidentally introducing test cases
+  for behavior that C++ Nix doesn't exhibit.
+
+  * `nix_tests` has the test cases from C++ Nix's language test
+    suite and is sporadically updated by manually syncing the
+    directories. The `notyetpassing` directory shows how far
+    it is until we pass it completely.
+
+  * `tvix_tests` contains test cases written by the Tvix contributors.
+    Some more or less duplicate test cases contained in `nix_tests`,
+    but many cover relevant behavior that isn't by `nix_tests`.
+    Consequently, it'd be nice to eventually merge the two test
+    suites into a jointly maintained, common Nix language test suite.
+
+    It also has a `notyetpassing` directory for missing behavior
+    that is discovered while working on Tvix and isn't covered by the
+    `nix_tests` suite.
+
+* `nix_oracle` can evaluate Nix expressions in Tvix and compare the
+  result against C++ Nix (2.3) directly. Eventually it should gain
+  the ability to property test generated Nix expressions.
+  An additional feature is that it can evaluate expressions without
+  `--strict`, so thunking behavior can be verified more easily.
 
 ## rnix-parser
 
