@@ -44,8 +44,9 @@ Eelco Dolstra writes as to what changed:
 > change as a build.cc (i.e. daemon) change, but we don't really have a way to
 > express that...
 
-Probably `builtins.nixVersion` (which was added in version 1) should have been
-used instead.
+Maybe `builtins.nixVersion` (which was added in version 1) should have been
+used instead. In any case, the [only `langVersion` check][nixpkgs-langVersion-5]
+in nixpkgs verifies a lower bound of 5.
 
 ## 6
 
@@ -58,3 +59,4 @@ Nix version 6 added support for [comparing two lists][list-comparison].
 [float]: https://github.com/nixos/nix/commit/14ebde52893263930cdcde1406cc91cc5c42556f
 [langVersion-5]: https://github.com/nixos/nix/commit/8191992c83bf4387b03c5fdaba818dc2b520462d
 [list-comparison]: https://github.com/nixos/nix/commit/09471d2680292af48b2788108de56a8da755d661
+[nixpkgs-langVersion-5]: https://github.com/NixOS/nixpkgs/blob/d7ac3423d321b8b145ccdd1aed9dfdb280f5e391/pkgs/build-support/closure-info.nix#L11
