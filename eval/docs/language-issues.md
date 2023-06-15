@@ -16,7 +16,7 @@ maybe to get rid of the behavior in all implementations for good. Below is an
 
 * [Behaviour of nested attribute sets depends on definition order][i7111]
 * [Partially constructed attribute sets are observable during dynamic attr names construction][i7012]
-* [Nix parsers merges multiple attribute set literals for the same key incorrectly depending on definition order](i7115)
+* [Nix parsers merges multiple attribute set literals for the same key incorrectly depending on definition order][i7115]
 
 On the other hand, there is behavior that seems to violate one's expectation
 about the language at first, but has good enough reasons from an implementor's
@@ -38,7 +38,7 @@ Other behavior is just odd, surprising or underdocumented:
 
 * `builtins.foldl'` doesn't force the initial accumulator (but all other
   intermediate accumulator values), differing from e.g. Haskell, see
-  the [relevant PR discussion](p7158).
+  the [relevant PR discussion][p7158].
 
 [i7111]: https://github.com/NixOS/nix/issues/7111
 [i7012]: https://github.com/NixOS/nix/issues/7012
