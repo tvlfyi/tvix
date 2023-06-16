@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use std::collections::HashMap;
 
-use crate::de::from_str;
+use crate::de::{from_str, from_str_with_config};
 
 #[test]
 fn deserialize_none() {
@@ -197,4 +197,15 @@ fn deserialize_enum_all() {
     ];
 
     assert_eq!(result, expected);
+}
+
+#[test]
+fn deserialize_with_config() {
+    let result: String = from_str_with_config("builtins.testWithConfig", |eval| {
+        // Add a literal string builtin that just returns `"ok"`.
+        eval.src_builtins.push(("testWithConfig", "\"ok\""));
+    })
+    .expect("should deserialize");
+
+    assert_eq!(result, "ok");
 }
