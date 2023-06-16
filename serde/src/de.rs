@@ -2,6 +2,7 @@
 
 use serde::de::value::{MapDeserializer, SeqDeserializer};
 use serde::de::{self, EnumAccess, VariantAccess};
+pub use tvix_eval::Evaluation;
 use tvix_eval::Value;
 
 use crate::error::Error;
@@ -28,12 +29,26 @@ impl de::IntoDeserializer<'_, Error> for NixDeserializer {
     }
 }
 
+/// Evaluate the Nix code in `src` and attempt to deserialise the
+/// value it returns to `T`.
 pub fn from_str<'code, T>(src: &'code str) -> Result<T, Error>
 where
     T: serde::Deserialize<'code>,
 {
+    from_str_with_config(src, |_| /* no extra config */ ())
+}
+
+/// Evaluate the Nix code in `src`, with extra configuration for the
+/// `tvix_eval::Evaluation` provided by the given closure.
+pub fn from_str_with_config<'code, T, F>(src: &'code str, config: F) -> Result<T, Error>
+where
+    T: serde::Deserialize<'code>,
+    F: FnOnce(&mut Evaluation),
+{
     // First step is to evaluate the Nix code ...
-    let mut eval = tvix_eval::Evaluation::new(src, None);
+    let mut eval = Evaluation::new(src, None);
+    config(&mut eval);
+
     eval.strict = true;
     let source = eval.source_map();
     let result = eval.evaluate();
