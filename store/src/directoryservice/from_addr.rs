@@ -18,9 +18,8 @@ use super::{DirectoryService, GRPCDirectoryService, MemoryDirectoryService, Sled
 /// - `grpc+http://host:port`, `grpc+https://host:port`
 ///    Connects to a (remote) tvix-store gRPC service.
 pub fn from_addr(uri: &str) -> Result<Arc<dyn DirectoryService>, crate::Error> {
-    let url = Url::parse(uri).map_err(|e| {
-        crate::Error::StorageError(format!("unable to parse url: {}", e.to_string()))
-    })?;
+    let url = Url::parse(uri)
+        .map_err(|e| crate::Error::StorageError(format!("unable to parse url: {}", e)))?;
 
     Ok(if url.scheme() == "memory" {
         Arc::new(MemoryDirectoryService::from_url(&url)?)
