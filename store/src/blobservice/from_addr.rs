@@ -12,9 +12,8 @@ use super::{BlobService, GRPCBlobService, MemoryBlobService, SledBlobService};
 ///
 /// See their [from_url] methods for more details about their syntax.
 pub fn from_addr(uri: &str) -> Result<Arc<dyn BlobService>, crate::Error> {
-    let url = Url::parse(uri).map_err(|e| {
-        crate::Error::StorageError(format!("unable to parse url: {}", e.to_string()))
-    })?;
+    let url = Url::parse(uri)
+        .map_err(|e| crate::Error::StorageError(format!("unable to parse url: {}", e)))?;
 
     Ok(if url.scheme() == "memory" {
         Arc::new(MemoryBlobService::from_url(&url)?)

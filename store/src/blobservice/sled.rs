@@ -47,14 +47,12 @@ impl BlobService for SledBlobService {
         // TODO: expose compression and other parameters as URL parameters, drop new and new_temporary?
         if url.path().is_empty() {
             Self::new_temporary().map_err(|e| Error::StorageError(e.to_string()))
+        } else if url.path() == "/" {
+            Err(crate::Error::StorageError(
+                "cowardly refusing to open / with sled".to_string(),
+            ))
         } else {
-            if url.path() == "/" {
-                Err(crate::Error::StorageError(
-                    "cowardly refusing to open / with sled".to_string(),
-                ))
-            } else {
-                Self::new(url.path().into()).map_err(|e| Error::StorageError(e.to_string()))
-            }
+            Self::new(url.path().into()).map_err(|e| Error::StorageError(e.to_string()))
         }
     }
 
