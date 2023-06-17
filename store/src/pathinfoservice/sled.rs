@@ -74,15 +74,13 @@ impl PathInfoService for SledPathInfoService {
         if url.path().is_empty() {
             Self::new_temporary(blob_service, directory_service)
                 .map_err(|e| Error::StorageError(e.to_string()))
+        } else if url.path() == "/" {
+            Err(crate::Error::StorageError(
+                "cowardly refusing to open / with sled".to_string(),
+            ))
         } else {
-            if url.path() == "/" {
-                Err(crate::Error::StorageError(
-                    "cowardly refusing to open / with sled".to_string(),
-                ))
-            } else {
-                Self::new(url.path().into(), blob_service, directory_service)
-                    .map_err(|e| Error::StorageError(e.to_string()))
-            }
+            Self::new(url.path().into(), blob_service, directory_service)
+                .map_err(|e| Error::StorageError(e.to_string()))
         }
     }
 

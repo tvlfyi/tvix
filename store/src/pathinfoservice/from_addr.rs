@@ -27,9 +27,8 @@ pub fn from_addr(
     blob_service: Arc<dyn BlobService>,
     directory_service: Arc<dyn DirectoryService>,
 ) -> Result<Arc<dyn PathInfoService>, crate::Error> {
-    let url = Url::parse(uri).map_err(|e| {
-        crate::Error::StorageError(format!("unable to parse url: {}", e.to_string()))
-    })?;
+    let url = Url::parse(uri)
+        .map_err(|e| crate::Error::StorageError(format!("unable to parse url: {}", e)))?;
 
     Ok(if url.scheme() == "memory" {
         Arc::new(MemoryPathInfoService::from_url(
