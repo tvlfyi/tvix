@@ -22,7 +22,7 @@ pub struct GRPCDirectoryService {
 }
 
 impl GRPCDirectoryService {
-    /// construct a [GRPCDirectoryService] from a [proto::directory_service_client::DirectoryServiceClient<Channel>].
+    /// construct a [GRPCDirectoryService] from a [proto::directory_service_client::DirectoryServiceClient].
     /// panics if called outside the context of a tokio runtime.
     pub fn from_client(
         grpc_client: proto::directory_service_client::DirectoryServiceClient<Channel>,

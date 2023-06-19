@@ -50,7 +50,7 @@ impl SledPathInfoService {
 }
 
 impl PathInfoService for SledPathInfoService {
-    /// Constructs a [SledBlobService] from the passed [url::Url]:
+    /// Constructs a [SledPathInfoService] from the passed [url::Url]:
     /// - scheme has to be `sled://`
     /// - there may not be a host.
     /// - a path to the sled needs to be provided (which may not be `/`).

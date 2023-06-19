@@ -16,7 +16,7 @@ pub struct GRPCPathInfoService {
 }
 
 impl GRPCPathInfoService {
-    /// construct a [GRPCDirectoryService] from a [proto::path_info_service_client::PathInfoServiceClient<Channel>].
+    /// construct a [GRPCPathInfoService] from a [proto::path_info_service_client::PathInfoServiceClient].
     /// panics if called outside the context of a tokio runtime.
     pub fn from_client(
         grpc_client: proto::path_info_service_client::PathInfoServiceClient<Channel>,

@@ -14,7 +14,7 @@ use std::{
 };
 use tracing::warn;
 
-/// Invoke [render_nar], and return the size and sha256 digest of the produced
+/// Invoke [write_nar], and return the size and sha256 digest of the produced
 /// NAR output.
 pub fn calculate_size_and_sha256(
     root_node: &proto::node::Node,
