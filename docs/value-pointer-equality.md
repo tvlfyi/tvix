@@ -42,11 +42,14 @@ attribute set, but at the same position in two entirely different attribute sets
 also see that we are not comparing the functions themselves (e.g. their AST), but
 rather if they are the same individual value (i.e. pointer equal).
 
-So what is _actually_ going on?
+To figure out the _actual_ semantics, we'll first have a look at how value (pointer) equality
+works in C++ Nix, the only production ready Nix implementation currently available.
 
-## Nix (pointer) Equality in C++ Nix
+## Nix (Pointer) Equality in C++ Nix
 
 TIP: The summary presented here is up-to-date as of 2022-11-23 and was tested with Nix 2.3 and 2.11.
+
+### `EvalState::eqValues` and `ExprOpEq::eval`
 
 The function implementing equality in C++ Nix is `EvalState::eqValues` which starts with
 [the following bit of code][eqValues-pointer-eq]:
@@ -127,27 +130,15 @@ of course that we need to use a value that behaves differently depending on whet
 “normally” (think `builtins.seq`) or recursively (think `builtins.deepSeq`), so thunks will generally be
 evaluated before pointer equality can kick into effect.
 
-## Summary
-
-When comparing two Nix values, we must force both of them (non-recursively!), but are
-allowed to short-circuit the comparison based on pointer equality, i.e. if they are at
-the same exact value in memory, they are deemed equal immediately. This is completely
-independent of what type of value they are. If they are not pointer equal, they are
-(recursively) compared by value as expected.
-
-However, when evaluating the Nix expression `a == b`, we *must* invoke our implementation's
-value equality function in a way that `a` and `b` themselves can never be deemed pointer equal.
-Any values we encounter while recursing during the equality check must be compared by
-pointer as described above, though.
-
-## Other Comparisons
+### Other Comparisons
 
 The `!=` operator uses `EvalState::eqValues` internally as well, so it behaves exactly as `!(a == b)`.
 
-The `>`, `<`, `>=` and `<=` operators all desugar to [CompareValues][] eventually
-which generally looks at the value type before comparing. It does, however, rely on
-`EvalState::eqValues` for list comparisons, so it is possible to compare lists with
-e.g. functions in them, as long as they are equal by pointer:
+The `>`, `<`, `>=` and `<=` operators all desugar to [CompareValues][]
+eventually which generally looks at the value type before comparing. It does,
+however, rely on `EvalState::eqValues` for list comparisons
+([introduced in Nix 2.5][nix-2.5-changelog]), so it is possible to compare lists
+with e.g. functions in them, as long as they are equal by pointer:
 
 ```nix
 let
@@ -157,6 +148,7 @@ in
 [
   ([ f 2 ] > [ f 1 ]) # => true
   ([ f 2 ] > [ (x: x) 1]) # => error: cannot compare a function with a function
+  ([ f ] > [ f ]) # => false
 ]
 ```
 
@@ -169,6 +161,19 @@ let
 in
 builtins.elem f [ f 2 3 ] # => true
 ```
+
+## Summary
+
+When comparing two Nix values, we must force both of them (non-recursively!), but are
+allowed to short-circuit the comparison based on pointer equality, i.e. if they are at
+the same exact value in memory, they are deemed equal immediately. This is completely
+independent of what type of value they are. If they are not pointer equal, they are
+(recursively) compared by value as expected.
+
+However, when evaluating the Nix expression `a == b`, we *must* invoke our implementation's
+value equality function in a way that `a` and `b` themselves can never be deemed pointer equal.
+Any values we encounter while recursing during the equality check must be compared by
+pointer as described above, though.
 
 ## Stability of the Feature
 
@@ -200,3 +205,4 @@ its original introduction (maybe performance?).
 [ExprOpEq]: https://github.com/NixOS/nix/blob/05d0892443bbe92a6b6a1ee7b1d37ea05782d918/src/libexpr/eval.cc#L1856-L1861
 [outlived builderDefs]: https://github.com/NixOS/nixpkgs/issues/4210
 [CompareValues]: https://github.com/NixOS/nix/blob/master/src/libexpr/primops.cc#L536-L574
+[nix-2.5-changelog]: https://nixos.org/manual/nix/stable/release-notes/rl-2.5.html
