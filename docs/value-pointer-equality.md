@@ -47,7 +47,8 @@ works in C++ Nix, the only production ready Nix implementation currently availab
 
 ## Nix (Pointer) Equality in C++ Nix
 
-TIP: The summary presented here is up-to-date as of 2022-11-23 and was tested with Nix 2.3 and 2.11.
+TIP: The summary presented here is up-to-date as of 2023-06-20 and was tested
+with Nix 2.3, 2.11 and 2.15.
 
 ### `EvalState::eqValues` and `ExprOpEq::eval`
 
@@ -200,9 +201,9 @@ the history of this feature would still be prudent, especially the reason for
 its original introduction (maybe performance?).
 
 [puck-issue]: https://github.com/NixOS/nix/issues/3371
-[eqValues-pointer-eq]: https://github.com/NixOS/nix/blob/05d0892443bbe92a6b6a1ee7b1d37ea05782d918/src/libexpr/eval.cc#L2342-L2350
-[eqValues-function-eq]: https://github.com/NixOS/nix/blob/05d0892443bbe92a6b6a1ee7b1d37ea05782d918/src/libexpr/eval.cc#L2405-L2407
-[ExprOpEq]: https://github.com/NixOS/nix/blob/05d0892443bbe92a6b6a1ee7b1d37ea05782d918/src/libexpr/eval.cc#L1856-L1861
+[eqValues-pointer-eq]: https://github.com/NixOS/nix/blob/3c618c43c6044eda184df235c193877529e951cb/src/libexpr/eval.cc#L2401-L2404
+[eqValues-function-eq]: https://github.com/NixOS/nix/blob/3c618c43c6044eda184df235c193877529e951cb/src/libexpr/eval.cc#L2458-L2460
+[ExprOpEq]: https://github.com/NixOS/nix/blob/3c618c43c6044eda184df235c193877529e951cb/src/libexpr/eval.cc#L1822-L1827
 [outlived builderDefs]: https://github.com/NixOS/nixpkgs/issues/4210
-[CompareValues]: https://github.com/NixOS/nix/blob/master/src/libexpr/primops.cc#L536-L574
+[CompareValues]: https://github.com/NixOS/nix/blob/3c618c43c6044eda184df235c193877529e951cb/src/libexpr/primops.cc#L569-L610
 [nix-2.5-changelog]: https://nixos.org/manual/nix/stable/release-notes/rl-2.5.html
