@@ -24,6 +24,7 @@ async fn import_impl(
     source: SourceCode,
     mut args: Vec<Value>,
 ) -> Result<Value, ErrorKind> {
+    // TODO(sterni): canon_path()?
     let mut path = coerce_value_to_path(&co, args.pop().unwrap()).await?;
 
     if path.is_dir() {

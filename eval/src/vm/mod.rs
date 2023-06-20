@@ -14,7 +14,7 @@ mod macros;
 
 use codemap::Span;
 use serde_json::json;
-use std::{cmp::Ordering, collections::HashMap, ops::DerefMut, path::PathBuf, rc::Rc};
+use std::{cmp::Ordering, collections::HashMap, ops::DerefMut, path::Path, path::PathBuf, rc::Rc};
 
 use crate::{
     arithmetic_op,
@@ -218,6 +218,42 @@ impl Frame {
     }
 }
 
+#[derive(Default)]
+struct ImportCache(Box<HashMap<PathBuf, Value>>);
+
+/// The `ImportCache` holds the `Value` resulting from `import`ing a certain
+/// file, so that the same file doesn't need to be re-evaluated multiple times.
+/// Currently the real path of the imported file (determined using
+/// [`std::fs::canonicalize()`], not to be confused with our
+/// [`value::canon_path()`]) is used to identify the file, just like C++ Nix
+/// does.
+///
+/// Errors while determining the real path are currently just ignored, since we
+/// pass around some fake paths like `/__corepkgs__/fetchurl.nix`.
+///
+/// In the future, we could use something more sophisticated, like file hashes.
+/// However, a consideration is that the eval cache is observable via impurities
+/// like pointer equality and `builtins.trace`.
+impl ImportCache {
+    fn get(&self, path: PathBuf) -> Option<&Value> {
+        let path = match std::fs::canonicalize(path.as_path()).map_err(ErrorKind::from) {
+            Ok(path) => path,
+            Err(_) => path,
+        };
+        self.0.get(&path)
+    }
+
+    fn insert(&mut self, path: PathBuf, value: Value) -> Option<Value> {
+        self.0.insert(
+            match std::fs::canonicalize(path.as_path()).map_err(ErrorKind::from) {
+                Ok(path) => path,
+                Err(_) => path,
+            },
+            value,
+        )
+    }
+}
+
 struct VM<'o> {
     /// VM's frame stack, representing the execution contexts the VM is working
     /// through. Elements are usually pushed when functions are called, or
@@ -241,7 +277,7 @@ struct VM<'o> {
     /// Import cache, mapping absolute file paths to the value that
     /// they compile to. Note that this reuses thunks, too!
     // TODO: should probably be based on a file hash
-    pub import_cache: Box<HashMap<PathBuf, Value>>,
+    pub import_cache: ImportCache,
 
     /// Parsed Nix search path, which is used to resolve `<...>`
     /// references.
