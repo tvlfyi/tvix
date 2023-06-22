@@ -14,7 +14,7 @@ mod macros;
 
 use codemap::Span;
 use serde_json::json;
-use std::{cmp::Ordering, collections::HashMap, ops::DerefMut, path::Path, path::PathBuf, rc::Rc};
+use std::{cmp::Ordering, collections::HashMap, ops::DerefMut, path::PathBuf, rc::Rc};
 
 use crate::{
     arithmetic_op,
