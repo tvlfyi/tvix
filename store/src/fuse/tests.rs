@@ -15,6 +15,7 @@ use crate::tests::utils::{gen_blob_service, gen_directory_service, gen_pathinfo_
 use crate::{proto, FUSE};
 
 const BLOB_A_NAME: &str = "00000000000000000000000000000000-test";
+const BLOB_B_NAME: &str = "55555555555555555555555555555555-test";
 const SYMLINK_NAME: &str = "11111111111111111111111111111111-test";
 const SYMLINK_NAME2: &str = "44444444444444444444444444444444-test";
 const DIRECTORY_WITH_KEEP_NAME: &str = "22222222222222222222222222222222-test";
@@ -59,6 +60,32 @@ fn populate_blob_a(
                 name: BLOB_A_NAME.to_string(),
                 digest: fixtures::BLOB_A_DIGEST.to_vec(),
                 size: fixtures::BLOB_A.len() as u32,
+                executable: false,
+            })),
+        }),
+        ..Default::default()
+    };
+    path_info_service.put(path_info).expect("must succeed");
+}
+
+fn populate_blob_b(
+    blob_service: Arc<dyn BlobService>,
+    _directory_service: Arc<dyn DirectoryService>,
+    path_info_service: Arc<dyn PathInfoService>,
+) {
+    // Upload BLOB_B
+    let mut bw = blob_service.open_write();
+    std::io::copy(&mut Cursor::new(fixtures::BLOB_B.to_vec()), &mut bw)
+        .expect("must succeed uploading");
+    bw.close().expect("must succeed closing");
+
+    // Create a PathInfo for it
+    let path_info = PathInfo {
+        node: Some(proto::Node {
+            node: Some(proto::node::Node::File(FileNode {
+                name: BLOB_B_NAME.to_string(),
+                digest: fixtures::BLOB_B_DIGEST.to_vec(),
+                size: fixtures::BLOB_B.len() as u32,
                 executable: false,
             })),
         }),
@@ -297,6 +324,38 @@ fn read_file_at_root() {
     // ensure size and contents match
     assert_eq!(fixtures::BLOB_A.len(), data.len());
     assert_eq!(fixtures::BLOB_A.to_vec(), data);
+
+    fuser_session.join()
+}
+
+/// Ensure we can read a large file at the root
+#[test]
+fn read_large_file_at_root() {
+    // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
+    if !std::path::Path::new("/dev/fuse").exists() {
+        eprintln!("skipping test");
+        return;
+    }
+    let tmpdir = TempDir::new().unwrap();
+
+    let fuser_session = setup_and_mount(tmpdir.path(), populate_blob_b).expect("must succeed");
+
+    let p = tmpdir.path().join(BLOB_B_NAME);
+    {
+        // peek at the file metadata
+        let metadata = fs::metadata(&p).expect("must succeed");
+
+        assert!(metadata.is_file());
+        assert!(metadata.permissions().readonly());
+        assert_eq!(fixtures::BLOB_B.len() as u64, metadata.len());
+    }
+
+    // read the file contents
+    let data = fs::read(p).expect("must succeed");
+
+    // ensure size and contents match
+    assert_eq!(fixtures::BLOB_B.len(), data.len());
+    assert_eq!(fixtures::BLOB_B.to_vec(), data);
 
     fuser_session.join()
 }
