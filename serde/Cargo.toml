@@ -6,3 +6,6 @@ edition = "2021"
 [dependencies]
 tvix-eval = { path = "../eval" }
 serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+genawaiter = { version = "0.99.1", default_features = false }

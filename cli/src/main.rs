@@ -14,7 +14,7 @@ use clap::Parser;
 use known_paths::KnownPaths;
 use rustyline::{error::ReadlineError, Editor};
 use tvix_eval::observer::{DisassemblingObserver, TracingObserver};
-use tvix_eval::{Builtin, Value};
+use tvix_eval::Value;
 use tvix_store::blobservice::MemoryBlobService;
 use tvix_store::directoryservice::MemoryDirectoryService;
 use tvix_store::pathinfoservice::MemoryPathInfoService;

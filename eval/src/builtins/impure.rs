@@ -7,6 +7,7 @@ use std::{
 };
 
 use crate::{
+    self as tvix_eval,
     errors::ErrorKind,
     io::FileType,
     value::NixAttrs,

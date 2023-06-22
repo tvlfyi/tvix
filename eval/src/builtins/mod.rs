@@ -16,6 +16,7 @@ use crate::value::PointerEquality;
 use crate::vm::generators::{self, GenCo};
 use crate::warnings::WarningKind;
 use crate::{
+    self as tvix_eval,
     errors::ErrorKind,
     value::{CoercionKind, NixAttrs, NixList, NixString, SharedThunkSet, Thunk, Value},
 };

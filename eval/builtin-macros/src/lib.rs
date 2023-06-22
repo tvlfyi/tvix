@@ -116,10 +116,8 @@ fn parse_module_args(args: TokenStream) -> Option<Type> {
 ///
 /// # Examples
 /// ```ignore
+/// # use tvix_eval;
 /// # use tvix_eval_builtin_macros::builtins;
-/// # mod value {
-/// #     pub use tvix_eval::Builtin;
-/// # }
 ///
 /// #[builtins]
 /// mod builtins {
@@ -270,7 +268,7 @@ pub fn builtins(args: TokenStream, item: TokenStream) -> TokenStream {
 
                     if arg.strict {
                         f.block = Box::new(parse_quote_spanned! {arg.span=> {
-                            let #ident: #ty = generators::request_force(&co, values.pop()
+                            let #ident: #ty = tvix_eval::generators::request_force(&co, values.pop()
                               .expect("Tvix bug: builtin called with incorrect number of arguments")).await;
 
                             #block
@@ -295,20 +293,20 @@ pub fn builtins(args: TokenStream, item: TokenStream) -> TokenStream {
                 if captures_state {
                     builtins.push(quote_spanned! { builtin_attr.span() => {
                         let inner_state = state.clone();
-                        crate::Builtin::new(
+                        tvix_eval::Builtin::new(
                             #name,
                             #docstring,
                             #arg_count,
-                            move |values| Gen::new(|co| generators::pin_generator(#fn_name(inner_state.clone(), co, values))),
+                            move |values| Gen::new(|co| tvix_eval::generators::pin_generator(#fn_name(inner_state.clone(), co, values))),
                         )
                     }});
                 } else {
                     builtins.push(quote_spanned! { builtin_attr.span() => {
-                        crate::Builtin::new(
+                        tvix_eval::Builtin::new(
                             #name,
                             #docstring,
                             #arg_count,
-                            |values| Gen::new(|co| generators::pin_generator(#fn_name(co, values))),
+                            |values| Gen::new(|co| tvix_eval::generators::pin_generator(#fn_name(co, values))),
                         )
                     }});
                 }

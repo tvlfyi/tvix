@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use std::collections::HashMap;
+use tvix_eval::builtin_macros::builtins;
 
 use crate::de::{from_str, from_str_with_config};
 
@@ -208,4 +209,37 @@ fn deserialize_with_config() {
     .expect("should deserialize");
 
     assert_eq!(result, "ok");
+}
+
+#[builtins]
+mod test_builtins {
+    use genawaiter::rc::Gen;
+    use tvix_eval::generators::GenCo;
+    use tvix_eval::{ErrorKind, NixString, Value};
+
+    #[builtin("prependHello")]
+    pub async fn builtin_prepend_hello(co: GenCo, x: Value) -> Result<Value, ErrorKind> {
+        match x {
+            Value::String(s) => {
+                let new_string = NixString::from(format!("hello {}", s.as_str()));
+                Ok(Value::String(new_string))
+            }
+            _ => Err(ErrorKind::TypeError {
+                expected: "string",
+                actual: "not string",
+            }),
+        }
+    }
+}
+
+#[test]
+fn deserialize_with_extra_builtin() {
+    let code = "builtins.prependHello \"world\"";
+
+    let result: String = from_str_with_config(code, |eval| {
+        eval.builtins.append(&mut test_builtins::builtins());
+    })
+    .expect("should deserialize");
+
+    assert_eq!(result, "hello world");
 }

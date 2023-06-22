@@ -10,6 +10,7 @@ mod one_offs;
 mod mock_builtins {
     //! Builtins which are required by language tests, but should not
     //! actually exist in //tvix/eval.
+    use crate as tvix_eval;
     use crate::generators::GenCo;
     use crate::*;
     use genawaiter::rc::Gen;
