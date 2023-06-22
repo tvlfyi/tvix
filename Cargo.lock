@@ -2755,7 +2755,6 @@ dependencies = [
 name = "tvix-serde"
 version = "0.1.0"
 dependencies = [
- "genawaiter",
  "serde",
  "tvix-eval",
 ]

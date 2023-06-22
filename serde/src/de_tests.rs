@@ -213,8 +213,7 @@ fn deserialize_with_config() {
 
 #[builtins]
 mod test_builtins {
-    use genawaiter::rc::Gen;
-    use tvix_eval::generators::GenCo;
+    use tvix_eval::generators::{Gen, GenCo};
     use tvix_eval::{ErrorKind, NixString, Value};
 
     #[builtin("prependHello")]

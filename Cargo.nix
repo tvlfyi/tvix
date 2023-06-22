@@ -8169,13 +8169,6 @@ rec {
             packageId = "tvix-eval";
           }
         ];
-        devDependencies = [
-          {
-            name = "genawaiter";
-            packageId = "genawaiter";
-            usesDefaultFeatures = false;
-          }
-        ];
 
       };
       "tvix-store" = rec {
