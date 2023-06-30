@@ -1,5 +1,5 @@
-///! This module contains all the data structures used to track information
-///! about inodes, which present tvix-store nodes in a filesystem.
+//! This module contains all the data structures used to track information
+//! about inodes, which present tvix-store nodes in a filesystem.
 use crate::{proto, B3Digest};
 
 #[derive(Clone, Debug)]
