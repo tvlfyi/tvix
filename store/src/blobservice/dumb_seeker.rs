@@ -80,7 +80,17 @@ impl<R: io::Read> io::Seek for DumbSeeker<R> {
                 Err(e) => return Err(e),
             }
         }
-        debug_assert_eq!(bytes_to_skip, bytes_skipped);
+
+        // This will fail when seeking past the end of self.r
+        if bytes_to_skip != bytes_skipped {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                format!(
+                    "tried to skip {} bytes, but only was able to skip {} until reaching EOF",
+                    bytes_to_skip, bytes_skipped
+                ),
+            ));
+        }
 
         self.pos = absolute_offset;
 
