@@ -218,7 +218,7 @@ impl fuser::Filesystem for FUSE {
                     reply.error(libc::ENOENT);
                 }
                 Ok(Some((ino, inode_data))) => {
-                    warn!(inode_data=?&inode_data, ino=ino, "Some");
+                    debug!(inode_data=?&inode_data, ino=ino, "Some");
                     reply_with_entry(reply, &gen_file_attr(&inode_data, ino));
                 }
             }
