@@ -108,7 +108,7 @@ impl io::Write for SledBlobWriter {
             )),
             Some((ref mut buf, ref mut hasher)) => {
                 let bytes_written = buf.write(b)?;
-                hasher.write(&buf[..bytes_written])
+                hasher.write(&b[..bytes_written])
             }
         }
     }
