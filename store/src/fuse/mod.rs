@@ -18,7 +18,7 @@ use crate::{
 };
 use fuser::{FileAttr, ReplyAttr, Request};
 use nix_compat::store_path::StorePath;
-use std::io::{self, Read};
+use std::io::Read;
 use std::sync::Arc;
 use std::{collections::HashMap, time::Duration};
 use tracing::{debug, info_span, warn};
@@ -69,11 +69,6 @@ pub struct FUSE {
 
     /// This keeps track of inodes and data alongside them.
     inode_tracker: InodeTracker,
-
-    /// This holds all open file handles
-    file_handles: HashMap<u64, Box<dyn io::Read + Send>>,
-
-    next_file_handle: u64,
 }
 
 impl FUSE {
@@ -89,9 +84,6 @@ impl FUSE {
 
             store_paths: HashMap::default(),
             inode_tracker: Default::default(),
-
-            file_handles: Default::default(),
-            next_file_handle: 1,
         }
     }
 
@@ -364,10 +356,21 @@ impl fuser::Filesystem for FUSE {
         }
     }
 
-    #[tracing::instrument(skip_all, fields(rq.inode = ino))]
-    fn open(&mut self, _req: &Request<'_>, ino: u64, _flags: i32, reply: fuser::ReplyOpen) {
-        // get a new file handle
-        let fh = self.next_file_handle;
+    /// TODO: implement open + close?
+
+    #[tracing::instrument(skip_all, fields(rq.inode = ino, rq.offset = offset, rq.size = size))]
+    fn read(
+        &mut self,
+        _req: &Request<'_>,
+        ino: u64,
+        _fh: u64,
+        offset: i64,
+        size: u32,
+        _flags: i32,
+        _lock_owner: Option<u64>,
+        reply: fuser::ReplyData,
+    ) {
+        debug!("read");
 
         if ino == fuser::FUSE_ROOT_ID {
             reply.error(libc::ENOSYS);
@@ -394,68 +397,23 @@ impl fuser::Filesystem for FUSE {
                         reply.error(libc::EIO);
                     }
                     Ok(Some(blob_reader)) => {
-                        self.file_handles.insert(fh, blob_reader);
-                        reply.opened(fh, 0);
+                        let data: std::io::Result<Vec<u8>> = blob_reader
+                            .bytes()
+                            // TODO: this is obviously terrible. blobreader should implement seek.
+                            .skip(offset.try_into().unwrap())
+                            .take(size.try_into().unwrap())
+                            .collect();
 
-                        // TODO: this will overflow after 2**64 operations,
-                        // which is fine for now.
-                        // See https://cl.tvl.fyi/c/depot/+/8834/comment/a6684ce0_d72469d1
-                        // for the discussion on alternatives.
-                        self.next_file_handle += 1;
+                        match data {
+                            Ok(data) => {
+                                // respond with the requested data
+                                reply.data(&data);
+                            }
+                            Err(e) => reply.error(e.raw_os_error().unwrap()),
+                        }
                     }
                 }
             }
-        }
-    }
-
-    #[tracing::instrument(skip_all, fields(rq.inode = ino, fh = fh))]
-    fn release(
-        &mut self,
-        _req: &Request<'_>,
-        ino: u64,
-        fh: u64,
-        _flags: i32,
-        _lock_owner: Option<u64>,
-        _flush: bool,
-        reply: fuser::ReplyEmpty,
-    ) {
-        // remove and get ownership on the blob reader
-        let blob_reader = self.file_handles.remove(&fh).unwrap();
-        // drop it, which will close it.
-        drop(blob_reader);
-
-        reply.ok();
-    }
-
-    #[tracing::instrument(skip_all, fields(rq.inode = ino, rq.offset = offset, rq.size = size))]
-    fn read(
-        &mut self,
-        _req: &Request<'_>,
-        ino: u64,
-        fh: u64,
-        offset: i64,
-        size: u32,
-        _flags: i32,
-        _lock_owner: Option<u64>,
-        reply: fuser::ReplyData,
-    ) {
-        debug!("read");
-
-        let blob_reader = self.file_handles.get_mut(&fh).unwrap();
-
-        let data: std::io::Result<Vec<u8>> = blob_reader
-            .bytes()
-            // TODO: this is obviously terrible. blobreader should implement seek.
-            .skip(offset.try_into().unwrap())
-            .take(size.try_into().unwrap())
-            .collect();
-
-        match data {
-            Ok(data) => {
-                // respond with the requested data
-                reply.data(&data);
-            }
-            Err(e) => reply.error(e.raw_os_error().unwrap()),
         }
     }
 
