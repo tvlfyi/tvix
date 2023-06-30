@@ -1,4 +1,4 @@
-use super::{BlobService, BlobWriter};
+use super::{BlobReader, BlobService, BlobWriter};
 use crate::{B3Digest, Error};
 use std::{
     io::{self, Cursor},
@@ -65,7 +65,7 @@ impl BlobService for SledBlobService {
     }
 
     #[instrument(skip(self), fields(blob.digest=%digest))]
-    fn open_read(&self, digest: &B3Digest) -> Result<Option<Box<dyn io::Read + Send>>, Error> {
+    fn open_read(&self, digest: &B3Digest) -> Result<Option<Box<dyn BlobReader>>, Error> {
         match self.db.get(digest.to_vec()) {
             Ok(None) => Ok(None),
             Ok(Some(data)) => Ok(Some(Box::new(Cursor::new(data[..].to_vec())))),

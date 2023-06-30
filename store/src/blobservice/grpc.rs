@@ -1,4 +1,4 @@
-use super::{BlobService, BlobWriter};
+use super::{dumb_seeker::DumbSeeker, BlobReader, BlobService, BlobWriter};
 use crate::{proto, B3Digest};
 use futures::sink::{SinkExt, SinkMapErr};
 use std::{collections::VecDeque, io};
@@ -114,10 +114,7 @@ impl BlobService for GRPCBlobService {
 
     // On success, this returns a Ok(Some(io::Read)), which can be used to read
     // the contents of the Blob, identified by the digest.
-    fn open_read(
-        &self,
-        digest: &B3Digest,
-    ) -> Result<Option<Box<dyn io::Read + Send>>, crate::Error> {
+    fn open_read(&self, digest: &B3Digest) -> Result<Option<Box<dyn BlobReader>>, crate::Error> {
         // Get a new handle to the gRPC client, and copy the digest.
         let mut grpc_client = self.grpc_client.clone();
         let digest = digest.clone();
@@ -155,7 +152,7 @@ impl BlobService for GRPCBlobService {
 
                 // Use SyncIoBridge to turn it into a sync Read.
                 let sync_reader = tokio_util::io::SyncIoBridge::new(data_reader);
-                Ok(Some(Box::new(sync_reader)))
+                Ok(Some(Box::new(DumbSeeker::new(sync_reader))))
             }
             Err(e) if e.code() == Code::NotFound => Ok(None),
             Err(e) => Err(crate::Error::StorageError(e.to_string())),

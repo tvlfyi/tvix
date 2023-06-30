@@ -5,7 +5,7 @@ use std::{
 };
 use tracing::{instrument, warn};
 
-use super::{BlobService, BlobWriter};
+use super::{BlobReader, BlobService, BlobWriter};
 use crate::{B3Digest, Error};
 
 #[derive(Clone, Default)]
@@ -36,7 +36,7 @@ impl BlobService for MemoryBlobService {
         Ok(db.contains_key(digest))
     }
 
-    fn open_read(&self, digest: &B3Digest) -> Result<Option<Box<dyn io::Read + Send>>, Error> {
+    fn open_read(&self, digest: &B3Digest) -> Result<Option<Box<dyn BlobReader>>, Error> {
         let db = self.db.read().unwrap();
 
         match db.get(digest).map(|x| Cursor::new(x.clone())) {

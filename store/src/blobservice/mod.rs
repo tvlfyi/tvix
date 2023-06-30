@@ -2,6 +2,7 @@ use std::io;
 
 use crate::{B3Digest, Error};
 
+mod dumb_seeker;
 mod from_addr;
 mod grpc;
 mod memory;
@@ -30,7 +31,7 @@ pub trait BlobService: Send + Sync {
     fn has(&self, digest: &B3Digest) -> Result<bool, Error>;
 
     /// Request a blob from the store, by its content hash.
-    fn open_read(&self, digest: &B3Digest) -> Result<Option<Box<dyn io::Read + Send>>, Error>;
+    fn open_read(&self, digest: &B3Digest) -> Result<Option<Box<dyn BlobReader>>, Error>;
 
     /// Insert a new blob into the store. Returns a [BlobWriter], which
     /// implements [io::Write] and a [BlobWriter::close].
@@ -46,3 +47,9 @@ pub trait BlobWriter: io::Write + Send + Sync + 'static {
     /// Closing a already-closed BlobWriter is a no-op.
     fn close(&mut self) -> Result<B3Digest, Error>;
 }
+
+/// A [io::Read] that also allows seeking.
+pub trait BlobReader: io::Read + io::Seek + Send + 'static {}
+
+/// A Cursor<Vec<u8>> can be used as a BlobReader.
+impl BlobReader for io::Cursor<Vec<u8>> {}
