@@ -54,7 +54,7 @@ impl BlobService for MemoryBlobService {
 pub struct MemoryBlobWriter {
     db: Arc<RwLock<HashMap<B3Digest, Vec<u8>>>>,
 
-    /// Contains the Vec and hasher, or None if already closed
+    /// Contains the buffer Vec and hasher, or None if already closed
     writers: Option<(Vec<u8>, blake3::Hasher)>,
 
     /// The digest that has been returned, if we successfully closed.

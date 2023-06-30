@@ -82,7 +82,7 @@ impl BlobService for SledBlobService {
 pub struct SledBlobWriter {
     db: sled::Db,
 
-    /// Contains the Vec and hasher, or None if already closed
+    /// Contains the buffer Vec and hasher, or None if already closed
     writers: Option<(Vec<u8>, blake3::Hasher)>,
 
     /// The digest that has been returned, if we successfully closed.
