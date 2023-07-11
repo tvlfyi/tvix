@@ -193,7 +193,7 @@ fn is_valid_nix_identifier(s: &str) -> bool {
 ///
 /// Note that this does not add the outer pair of surrounding quotes.
 fn nix_escape_string(input: &str) -> Cow<str> {
-    let mut iter = input.chars().enumerate().peekable();
+    let mut iter = input.char_indices().peekable();
 
     while let Some((i, c)) = iter.next() {
         if let Some(esc) = nix_escape_char(c, iter.peek().map(|(_, c)| c)) {
@@ -201,6 +201,10 @@ fn nix_escape_string(input: &str) -> Cow<str> {
             escaped.push_str(&input[..i]);
             escaped.push_str(esc);
 
+            // In theory we calculate how many bytes it takes to represent `esc`
+            // in UTF-8 and use that for the offset. It is, however, safe to
+            // assume that to be 1, as all characters that can be escaped in a
+            // Nix string are ASCII.
             let mut inner_iter = input[i + 1..].chars().peekable();
             while let Some(c) = inner_iter.next() {
                 match nix_escape_char(c, inner_iter.peek()) {
