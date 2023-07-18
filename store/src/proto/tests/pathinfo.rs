@@ -66,7 +66,7 @@ fn validate_no_node(
     },
     Err(ValidatePathInfoError::InvalidNodeName(
         "invalid".to_string(),
-        store_path::Error::InvalidName(store_path::NameError::InvalidName("".to_string()))
+        store_path::Error::InvalidLength()
     ));
     "invalid node name"
 )]
@@ -111,7 +111,7 @@ fn validate_directory(
     },
     Err(ValidatePathInfoError::InvalidNodeName(
         "invalid".to_string(),
-        store_path::Error::InvalidName(store_path::NameError::InvalidName("".to_string()))
+        store_path::Error::InvalidLength()
     ));
     "invalid node name"
 )]
@@ -141,7 +141,7 @@ fn validate_file(t_file_node: proto::FileNode, t_result: Result<StorePath, Valid
     },
     Err(ValidatePathInfoError::InvalidNodeName(
         "invalid".to_string(),
-        store_path::Error::InvalidName(store_path::NameError::InvalidName("".to_string()))
+        store_path::Error::InvalidLength()
     ));
     "invalid node name"
 )]

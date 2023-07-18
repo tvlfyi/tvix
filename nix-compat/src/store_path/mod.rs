@@ -23,23 +23,12 @@ pub enum Error {
     MissingDash(),
     #[error("Hash encoding is invalid: {0}")]
     InvalidHashEncoding(Nixbase32DecodeError),
-    #[error("{0}")]
-    InvalidName(NameError),
-    #[error("Tried to parse an absolute path which was missing the store dir prefix.")]
-    MissingStoreDir(),
-}
-
-/// Errors that can occur during the validation of name characters.
-#[derive(Debug, PartialEq, Eq, Error)]
-pub enum NameError {
+    #[error("Invalid length")]
+    InvalidLength(),
     #[error("Invalid name: {0}")]
     InvalidName(String),
-}
-
-impl From<NameError> for Error {
-    fn from(e: NameError) -> Self {
-        Self::InvalidName(e)
-    }
+    #[error("Tried to parse an absolute path which was missing the store dir prefix.")]
+    MissingStoreDir(),
 }
 
 /// Represents a path in the Nix store (a direct child of [STORE_DIR]).
@@ -69,7 +58,7 @@ impl StorePath {
         // - 1 dash
         // - 1 character for the name
         if s.len() < ENCODED_DIGEST_SIZE + 2 {
-            Err(NameError::InvalidName("".to_string()))?;
+            Err(Error::InvalidLength())?
         }
 
         let digest = match nixbase32::decode(s[..ENCODED_DIGEST_SIZE].as_bytes()) {
@@ -120,10 +109,10 @@ impl StorePath {
                         let rest_buf: PathBuf = it.collect();
                         Ok((store_path, rest_buf))
                     } else {
-                        Err(Error::InvalidName(NameError::InvalidName("".to_string())))
+                        Err(Error::InvalidName("".to_string()))
                     }
                 } else {
-                    Err(Error::InvalidName(NameError::InvalidName("".to_string())))
+                    Err(Error::InvalidName("".to_string()))
                 }
             }
         }
@@ -137,7 +126,7 @@ impl StorePath {
     }
 
     /// Checks a given &str to match the restrictions for store path names.
-    pub fn validate_name(s: &str) -> Result<(), NameError> {
+    pub fn validate_name(s: &str) -> Result<(), Error> {
         for c in s.chars() {
             if c.is_ascii_alphanumeric()
                 || c == '-'
@@ -150,7 +139,7 @@ impl StorePath {
                 continue;
             }
 
-            return Err(NameError::InvalidName(s.to_string()));
+            return Err(Error::InvalidName(s.to_string()));
         }
 
         Ok(())
@@ -174,7 +163,7 @@ mod tests {
     use crate::store_path::{DIGEST_SIZE, ENCODED_DIGEST_SIZE};
     use test_case::test_case;
 
-    use super::{Error, NameError, StorePath};
+    use super::{Error, StorePath};
 
     #[test]
     fn encoded_digest_size() {
@@ -276,11 +265,11 @@ mod tests {
     #[test]
     fn from_absolute_path_errors() {
         assert_eq!(
-            Error::InvalidName(NameError::InvalidName("".to_string())),
+            Error::InvalidName("".into()),
             StorePath::from_absolute_path_full("/nix/store/").expect_err("must fail")
         );
         assert_eq!(
-            Error::InvalidName(NameError::InvalidName("".to_string())),
+            Error::InvalidLength(),
             StorePath::from_absolute_path_full("/nix/store/foo").expect_err("must fail")
         );
         assert_eq!(

@@ -212,7 +212,7 @@ impl Derivation {
                 build_output_path(derivation_or_fod_hash, output_name, &path_name).map_err(|e| {
                     DerivationError::InvalidOutputDerivationPath(
                         output_name.to_string(),
-                        store_path::BuildStorePathError::InvalidName(e),
+                        store_path::BuildStorePathError::InvalidStorePath(e),
                     )
                 })?
             };

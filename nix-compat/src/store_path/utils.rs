@@ -1,18 +1,17 @@
+use super::{Error, STORE_DIR};
 use crate::nixbase32;
 use crate::nixhash::{HashAlgo, NixHash, NixHashWithMode};
 use crate::store_path::StorePath;
 use sha2::{Digest, Sha256};
-use thiserror::Error;
-
-use super::{NameError, STORE_DIR};
+use thiserror;
 
 /// Errors that can occur when creating a content-addressed store path.
 ///
-/// This wraps the main [Error] which is just about invalid store path names.
-#[derive(Debug, PartialEq, Eq, Error)]
+/// This wraps the main [Error]..
+#[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum BuildStorePathError {
-    #[error("{0}")]
-    InvalidName(NameError),
+    #[error("Invalid Store Path: {0}")]
+    InvalidStorePath(Error),
     /// This error occurs when we have references outside the SHA-256 +
     /// Recursive case. The restriction comes from upstream Nix. It may be
     /// lifted at some point but there isn't a pressing need to anticipate that.
@@ -46,7 +45,7 @@ pub fn build_text_path<S: AsRef<str>, I: IntoIterator<Item = S>, C: AsRef<[u8]>>
     name: &str,
     content: C,
     references: I,
-) -> Result<StorePath, NameError> {
+) -> Result<StorePath, Error> {
     build_store_path_from_fingerprint_parts(
         &make_type("text", references, false),
         // the nix_hash_string representation of the sha256 digest of some contents
@@ -79,7 +78,7 @@ pub fn build_regular_ca_path<S: AsRef<str>, I: IntoIterator<Item = S>>(
             hash,
             name,
         )
-        .map_err(BuildStorePathError::InvalidName),
+        .map_err(BuildStorePathError::InvalidStorePath),
         _ => {
             if references.into_iter().next().is_some() {
                 return Err(BuildStorePathError::InvalidReference());
@@ -105,7 +104,7 @@ pub fn build_regular_ca_path<S: AsRef<str>, I: IntoIterator<Item = S>>(
                 },
                 name,
             )
-            .map_err(BuildStorePathError::InvalidName)
+            .map_err(BuildStorePathError::InvalidStorePath)
         }
     }
 }
@@ -118,7 +117,7 @@ pub fn build_output_path(
     drv_hash: &NixHash,
     output_name: &str,
     output_path_name: &str,
-) -> Result<StorePath, NameError> {
+) -> Result<StorePath, Error> {
     build_store_path_from_fingerprint_parts(
         &(String::from("output:") + output_name),
         drv_hash,
@@ -138,7 +137,7 @@ fn build_store_path_from_fingerprint_parts(
     ty: &str,
     hash: &NixHash,
     name: &str,
-) -> Result<StorePath, NameError> {
+) -> Result<StorePath, Error> {
     let fingerprint =
         String::from(ty) + ":" + &hash.to_nix_hash_string() + ":" + STORE_DIR + ":" + name;
     let digest = {
