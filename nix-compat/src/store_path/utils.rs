@@ -145,7 +145,7 @@ fn build_store_path_from_fingerprint_parts(
         hasher.finalize()
     };
     let compressed = compress_hash::<20>(&digest);
-    StorePath::validate_name(name)?;
+    super::validate_name(name.as_bytes())?;
     Ok(StorePath {
         digest: compressed,
         name: name.to_string(),

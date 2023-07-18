@@ -1,5 +1,5 @@
 use crate::derivation::{Derivation, DerivationError};
-use crate::store_path::StorePath;
+use crate::store_path::{self, StorePath};
 
 impl Derivation {
     /// validate ensures a Derivation struct is properly populated,
@@ -26,10 +26,10 @@ impl Derivation {
             // meaning.
             //
             // Other output names that don't match the name restrictions from
-            // [StorePath] will fail the [StorePath::validate_name] check.
+            // [StorePath] will fail the [store_path::validate_name] check.
             if output_name.is_empty()
                 || output_name == "drv"
-                || StorePath::validate_name(output_name).is_err()
+                || store_path::validate_name(output_name.as_bytes()).is_err()
             {
                 return Err(DerivationError::InvalidOutputName(output_name.to_string()));
             }
@@ -55,7 +55,7 @@ impl Derivation {
         // Validate all input_derivations
         for (input_derivation_path, output_names) in &self.input_derivations {
             // Validate input_derivation_path
-            if let Err(e) = StorePath::from_absolute_path(input_derivation_path) {
+            if let Err(e) = StorePath::from_absolute_path(input_derivation_path.as_bytes()) {
                 return Err(DerivationError::InvalidInputDerivationPath(
                     input_derivation_path.to_string(),
                     e,
@@ -86,7 +86,7 @@ impl Derivation {
                 // [StorePath] will fail the [StorePath::validate_name] check.
                 if output_name.is_empty()
                     || output_name == "drv"
-                    || StorePath::validate_name(output_name).is_err()
+                    || store_path::validate_name(output_name.as_bytes()).is_err()
                 {
                     return Err(DerivationError::InvalidInputDerivationOutputName(
                         input_derivation_path.to_string(),
@@ -98,7 +98,7 @@ impl Derivation {
 
         // Validate all input_sources
         for input_source in self.input_sources.iter() {
-            if let Err(e) = StorePath::from_absolute_path(input_source) {
+            if let Err(e) = StorePath::from_absolute_path(input_source.as_bytes()) {
                 return Err(DerivationError::InvalidInputSourcesPath(
                     input_source.to_string(),
                     e,

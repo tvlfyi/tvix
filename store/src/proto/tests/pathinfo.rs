@@ -1,6 +1,7 @@
 use crate::proto::{self, Node, PathInfo, ValidatePathInfoError};
 use lazy_static::lazy_static;
 use nix_compat::store_path::{self, StorePath};
+use std::str::FromStr;
 use test_case::test_case;
 
 lazy_static! {
@@ -46,7 +47,7 @@ fn validate_no_node(
         digest: DUMMY_DIGEST.to_vec(),
         size: 0,
     },
-    Ok(StorePath::from_string(DUMMY_NAME).expect("must succeed"));
+    Ok(StorePath::from_str(DUMMY_NAME).expect("must succeed"));
     "ok"
 )]
 #[test_case(
@@ -91,7 +92,7 @@ fn validate_directory(
         size: 0,
         executable: false,
     },
-    Ok(StorePath::from_string(DUMMY_NAME).expect("must succeed"));
+    Ok(StorePath::from_str(DUMMY_NAME).expect("must succeed"));
     "ok"
 )]
 #[test_case(
@@ -131,7 +132,7 @@ fn validate_file(t_file_node: proto::FileNode, t_result: Result<StorePath, Valid
         name: DUMMY_NAME.to_string(),
         ..Default::default()
     },
-    Ok(StorePath::from_string(DUMMY_NAME).expect("must succeed"));
+    Ok(StorePath::from_str(DUMMY_NAME).expect("must succeed"));
     "ok"
 )]
 #[test_case(

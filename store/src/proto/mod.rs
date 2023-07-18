@@ -1,5 +1,6 @@
 #![allow(clippy::derive_partial_eq_without_eq)]
 // https://github.com/hyperium/tonic/issues/1056
+use std::str::FromStr;
 use std::{collections::HashSet, iter::Peekable};
 use thiserror::Error;
 
@@ -97,7 +98,7 @@ fn parse_node_name_root<E>(
     name: &str,
     err: fn(String, store_path::Error) -> E,
 ) -> Result<StorePath, E> {
-    match StorePath::from_string(name) {
+    match StorePath::from_str(name) {
         Ok(np) => Ok(np),
         Err(e) => Err(err(name.to_string(), e)),
     }

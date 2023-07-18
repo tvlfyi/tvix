@@ -27,7 +27,7 @@ impl Output {
             }
         }
         if validate_output_paths {
-            if let Err(e) = StorePath::from_absolute_path(&self.path) {
+            if let Err(e) = StorePath::from_absolute_path(self.path.as_bytes()) {
                 return Err(OutputError::InvalidOutputPath(self.path.to_string(), e));
             }
         }

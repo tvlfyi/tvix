@@ -19,6 +19,7 @@ use crate::{
 use fuser::{FileAttr, ReplyAttr, Request};
 use nix_compat::store_path::StorePath;
 use std::io::Read;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::{collections::HashMap, time::Duration};
 use tracing::{debug, info_span, warn};
@@ -99,7 +100,7 @@ impl FUSE {
     ) -> Result<Option<(u64, Arc<InodeData>)>, Error> {
         // parse the name into a [StorePath].
         let store_path = if let Some(name) = name.to_str() {
-            match StorePath::from_string(name) {
+            match StorePath::from_str(name) {
                 Ok(store_path) => store_path,
                 Err(e) => {
                     debug!(e=?e, "unable to parse as store path");
