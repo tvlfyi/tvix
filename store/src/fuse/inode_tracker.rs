@@ -13,7 +13,7 @@ pub struct InodeTracker {
     blob_digest_to_inode: HashMap<B3Digest, u64>,
 
     // lookup table for symlinks by their target
-    symlink_target_to_inode: HashMap<String, u64>,
+    symlink_target_to_inode: HashMap<Vec<u8>, u64>,
 
     // lookup table for directories by their B3Digest.
     // Note the corresponding directory may not be present in data yet.
@@ -171,7 +171,7 @@ impl InodeTracker {
                 self.blob_digest_to_inode.insert(digest.clone(), ino);
             }
             InodeData::Symlink(ref target) => {
-                self.symlink_target_to_inode.insert(target.to_string(), ino);
+                self.symlink_target_to_inode.insert(target.to_vec(), ino);
             }
             InodeData::Directory(DirectoryInodeData::Sparse(ref digest, _size)) => {
                 self.directory_digest_to_inode.insert(digest.clone(), ino);
@@ -251,7 +251,7 @@ mod tests {
     #[test]
     fn put_symlink() {
         let mut inode_tracker = InodeTracker::default();
-        let f = InodeData::Symlink("target".to_string());
+        let f = InodeData::Symlink("target".into());
 
         // put it in
         let ino = inode_tracker.put(f.clone());
@@ -260,7 +260,7 @@ mod tests {
         let data = inode_tracker.get(ino).expect("must be some");
         match *data {
             InodeData::Symlink(ref target) => {
-                assert_eq!("target", target);
+                assert_eq!(b"target".to_vec(), *target);
             }
             InodeData::Regular(..) | InodeData::Directory(..) => panic!("wrong type"),
         }
@@ -269,10 +269,7 @@ mod tests {
         assert_eq!(ino, inode_tracker.put(f));
 
         // inserting another file should return a different ino
-        assert_ne!(
-            ino,
-            inode_tracker.put(InodeData::Symlink("target2".to_string()))
-        );
+        assert_ne!(ino, inode_tracker.put(InodeData::Symlink("target2".into())));
     }
 
     // TODO: put sparse directory

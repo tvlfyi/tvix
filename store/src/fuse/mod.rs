@@ -19,6 +19,7 @@ use crate::{
 use fuser::{FileAttr, ReplyAttr, Request};
 use nix_compat::store_path::StorePath;
 use std::io::{self, Read, Seek};
+use std::os::unix::ffi::OsStrExt;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::{collections::HashMap, time::Duration};
@@ -142,7 +143,7 @@ impl FUSE {
                     let root_node = path_info.node.unwrap().node.unwrap();
 
                     // The name must match what's passed in the lookup, otherwise we return nothing.
-                    if root_node.get_name() != store_path.to_string() {
+                    if root_node.get_name() != store_path.to_string().as_bytes() {
                         return Ok(None);
                     }
 
@@ -279,7 +280,9 @@ impl fuser::Filesystem for FUSE {
             let _enter = span.enter();
 
             // in the children, find the one with the desired name.
-            if let Some((child_ino, _)) = children.iter().find(|e| e.1.get_name() == name) {
+            if let Some((child_ino, _)) =
+                children.iter().find(|e| e.1.get_name() == name.as_bytes())
+            {
                 // lookup the child [InodeData] in [self.inode_tracker].
                 // We know the inodes for children have already been allocated.
                 let child_inode_data = self.inode_tracker.get(*child_ino).unwrap();
@@ -353,7 +356,7 @@ impl fuser::Filesystem for FUSE {
                         Node::File(_) => fuser::FileType::RegularFile,
                         Node::Symlink(_) => fuser::FileType::Symlink,
                     },
-                    child_node.get_name(),
+                    std::ffi::OsStr::from_bytes(child_node.get_name()),
                 );
                 if full {
                     break;
@@ -480,7 +483,7 @@ impl fuser::Filesystem for FUSE {
             InodeData::Directory(..) | InodeData::Regular(..) => {
                 reply.error(libc::EINVAL);
             }
-            InodeData::Symlink(ref target) => reply.data(target.as_bytes()),
+            InodeData::Symlink(ref target) => reply.data(target),
         }
     }
 }

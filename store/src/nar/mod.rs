@@ -12,14 +12,14 @@ pub enum RenderError {
     #[error("failure talking to a backing store client: {0}")]
     StoreError(crate::Error),
 
-    #[error("unable to find directory {}, referred from {}", .0, .1)]
-    DirectoryNotFound(B3Digest, String),
+    #[error("unable to find directory {}, referred from {:?}", .0, .1)]
+    DirectoryNotFound(B3Digest, Vec<u8>),
 
-    #[error("unable to find blob {}, referred from {}", BASE64.encode(.0), .1)]
-    BlobNotFound([u8; 32], String),
+    #[error("unable to find blob {}, referred from {:?}", BASE64.encode(.0), .1)]
+    BlobNotFound([u8; 32], Vec<u8>),
 
-    #[error("unexpected size in metadata for blob {}, referred from {} returned, expected {}, got {}", BASE64.encode(.0), .1, .2, .3)]
-    UnexpectedBlobMeta([u8; 32], String, u32, u32),
+    #[error("unexpected size in metadata for blob {}, referred from {:?} returned, expected {}, got {}", BASE64.encode(.0), .1, .2, .3)]
+    UnexpectedBlobMeta([u8; 32], Vec<u8>, u32, u32),
 
     #[error("failure using the NAR writer: {0}")]
     NARWriterError(std::io::Error),

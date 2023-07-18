@@ -6,6 +6,9 @@ use crate::tests::fixtures::*;
 use tempfile::TempDir;
 
 #[cfg(target_family = "unix")]
+use std::os::unix::ffi::OsStrExt;
+
+#[cfg(target_family = "unix")]
 #[test]
 fn symlink() {
     let tmpdir = TempDir::new().unwrap();
@@ -26,8 +29,8 @@ fn symlink() {
 
     assert_eq!(
         crate::proto::node::Node::Symlink(proto::SymlinkNode {
-            name: "doesntmatter".to_string(),
-            target: "/nix/store/somewhereelse".to_string(),
+            name: "doesntmatter".into(),
+            target: "/nix/store/somewhereelse".into(),
         }),
         root_node,
     )
@@ -50,7 +53,7 @@ fn single_file() {
 
     assert_eq!(
         crate::proto::node::Node::File(proto::FileNode {
-            name: "root".to_string(),
+            name: "root".into(),
             digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
             size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
             executable: false,
@@ -62,6 +65,7 @@ fn single_file() {
     assert!(blob_service.has(&HELLOWORLD_BLOB_DIGEST).unwrap());
 }
 
+#[cfg(target_family = "unix")]
 #[test]
 fn complicated() {
     let tmpdir = TempDir::new().unwrap();
@@ -88,12 +92,7 @@ fn complicated() {
     // ensure root_node matched expectations
     assert_eq!(
         crate::proto::node::Node::Directory(proto::DirectoryNode {
-            name: tmpdir
-                .path()
-                .file_name()
-                .unwrap()
-                .to_string_lossy()
-                .to_string(),
+            name: tmpdir.path().file_name().unwrap().as_bytes().to_vec(),
             digest: DIRECTORY_COMPLICATED.digest().to_vec(),
             size: DIRECTORY_COMPLICATED.size(),
         }),

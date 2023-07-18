@@ -234,7 +234,7 @@ fn print_node(node: &Node, path: &Path) {
         Node::Directory(directory_node) => {
             info!(
                 path = ?path,
-                name = directory_node.name,
+                name = ?directory_node.name,
                 digest = BASE64.encode(&directory_node.digest),
                 "import successful",
             )
@@ -242,7 +242,7 @@ fn print_node(node: &Node, path: &Path) {
         Node::File(file_node) => {
             info!(
                 path = ?path,
-                name = file_node.name,
+                name = ?file_node.name,
                 digest = BASE64.encode(&file_node.digest),
                 "import successful"
             )
@@ -250,8 +250,8 @@ fn print_node(node: &Node, path: &Path) {
         Node::Symlink(symlink_node) => {
             info!(
                 path = ?path,
-                name = symlink_node.name,
-                target = symlink_node.target,
+                name = ?symlink_node.name,
+                target = ?symlink_node.target,
                 "import successful"
             )
         }

@@ -25,7 +25,7 @@ message Directory {
 // A DirectoryNode represents a directory in a Directory.
 message DirectoryNode {
     // The (base)name of the directory
-    string name = 1;
+    bytes name = 1;
     // The blake3 hash of a Directory message, serialized in protobuf canonical form.
     bytes digest = 2;
     // Number of child elements in the Directory referred to by `digest`.
@@ -44,7 +44,7 @@ message DirectoryNode {
 // A FileNode represents a regular or executable file in a Directory.
 message FileNode {
     // The (base)name of the file
-    string name = 1;
+    bytes name = 1;
     // The blake3 digest of the file contents
     bytes digest = 2;
     // The file content size
@@ -56,7 +56,7 @@ message FileNode {
 // A SymlinkNode represents a symbolic link in a Directory.
 message SymlinkNode {
     // The (base)name of the symlink
-    string name = 1;
+    bytes name = 1;
     // The target of the symlink.
-    string target = 2;
+    bytes target = 2;
 }

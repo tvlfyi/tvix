@@ -1,7 +1,7 @@
-use crate::proto::node::Node;
 use crate::proto::Directory;
 use crate::proto::DirectoryNode;
 use crate::proto::FileNode;
+use crate::proto::NamedNode;
 use crate::proto::SymlinkNode;
 
 #[test]
@@ -9,68 +9,66 @@ fn iterator() {
     let d = Directory {
         directories: vec![
             DirectoryNode {
-                name: "c".to_string(),
+                name: "c".into(),
                 ..DirectoryNode::default()
             },
             DirectoryNode {
-                name: "d".to_string(),
+                name: "d".into(),
                 ..DirectoryNode::default()
             },
             DirectoryNode {
-                name: "h".to_string(),
+                name: "h".into(),
                 ..DirectoryNode::default()
             },
             DirectoryNode {
-                name: "l".to_string(),
+                name: "l".into(),
                 ..DirectoryNode::default()
             },
         ],
         files: vec![
             FileNode {
-                name: "b".to_string(),
+                name: "b".into(),
                 ..FileNode::default()
             },
             FileNode {
-                name: "e".to_string(),
+                name: "e".into(),
                 ..FileNode::default()
             },
             FileNode {
-                name: "g".to_string(),
+                name: "g".into(),
                 ..FileNode::default()
             },
             FileNode {
-                name: "j".to_string(),
+                name: "j".into(),
                 ..FileNode::default()
             },
         ],
         symlinks: vec![
             SymlinkNode {
-                name: "a".to_string(),
+                name: "a".into(),
                 ..SymlinkNode::default()
             },
             SymlinkNode {
-                name: "f".to_string(),
+                name: "f".into(),
                 ..SymlinkNode::default()
             },
             SymlinkNode {
-                name: "i".to_string(),
+                name: "i".into(),
                 ..SymlinkNode::default()
             },
             SymlinkNode {
-                name: "k".to_string(),
+                name: "k".into(),
                 ..SymlinkNode::default()
             },
         ],
     };
 
+    // We keep this strings here and convert to string to make the comparison
+    // less messy.
     let mut node_names: Vec<String> = vec![];
 
     for node in d.nodes() {
-        match node {
-            Node::Directory(n) => node_names.push(n.name),
-            Node::File(n) => node_names.push(n.name),
-            Node::Symlink(n) => node_names.push(n.name),
-        };
+        node_names.push(String::from_utf8(node.get_name().to_vec()).unwrap());
     }
 
     assert_eq!(

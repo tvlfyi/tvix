@@ -9,7 +9,6 @@
 //! calculation will not work.
 
 use crate::KnownPaths;
-use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -73,7 +72,7 @@ impl<T: EvalIO> EvalIO for TvixIO<T> {
         self.actual.read_to_string(path)
     }
 
-    fn read_dir(&self, path: &Path) -> Result<Vec<(SmolStr, FileType)>, io::Error> {
+    fn read_dir(&self, path: &Path) -> Result<Vec<(Vec<u8>, FileType)>, io::Error> {
         self.actual.read_dir(path)
     }
 }

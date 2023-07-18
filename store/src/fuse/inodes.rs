@@ -5,7 +5,7 @@ use crate::{proto, B3Digest};
 #[derive(Clone, Debug)]
 pub enum InodeData {
     Regular(B3Digest, u32, bool),  // digest, size, executable
-    Symlink(String),               // target
+    Symlink(Vec<u8>),              // target
     Directory(DirectoryInodeData), // either [DirectoryInodeData:Sparse] or [DirectoryInodeData:Populated]
 }
 

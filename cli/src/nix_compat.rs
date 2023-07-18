@@ -11,7 +11,6 @@ use std::process::Command;
 use std::sync::RwLock;
 use std::{io, path::PathBuf};
 
-use smol_str::SmolStr;
 use tvix_eval::{EvalIO, FileType, StdIO};
 
 /// Compatibility implementation of [`EvalIO`] that uses C++ Nix to
@@ -78,7 +77,7 @@ impl EvalIO for NixCompatIO {
         self.underlying.read_to_string(path)
     }
 
-    fn read_dir(&self, path: &Path) -> Result<Vec<(SmolStr, FileType)>, io::Error> {
+    fn read_dir(&self, path: &Path) -> Result<Vec<(Vec<u8>, FileType)>, io::Error> {
         self.underlying.read_dir(path)
     }
 }

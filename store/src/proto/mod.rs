@@ -1,6 +1,5 @@
 #![allow(clippy::derive_partial_eq_without_eq)]
 // https://github.com/hyperium/tonic/issues/1056
-use std::str::FromStr;
 use std::{collections::HashSet, iter::Peekable};
 use thiserror::Error;
 
@@ -35,14 +34,14 @@ mod tests;
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum ValidateDirectoryError {
     /// Elements are not in sorted order
-    #[error("{0} is not sorted")]
-    WrongSorting(String),
+    #[error("{0:?} is not sorted")]
+    WrongSorting(Vec<u8>),
     /// Multiple elements with the same name encountered
-    #[error("{0} is a duplicate name")]
-    DuplicateName(String),
+    #[error("{0:?} is a duplicate name")]
+    DuplicateName(Vec<u8>),
     /// Invalid name encountered
-    #[error("Invalid name in {0}")]
-    InvalidName(String),
+    #[error("Invalid name in {0:?}")]
+    InvalidName(Vec<u8>),
     /// Invalid digest length encountered
     #[error("Invalid Digest length: {0}")]
     InvalidDigestLen(usize),
@@ -56,8 +55,8 @@ pub enum ValidatePathInfoError {
     NoNodePresent(),
 
     /// Invalid node name encountered.
-    #[error("Failed to parse {0} as StorePath: {1}")]
-    InvalidNodeName(String, store_path::Error),
+    #[error("Failed to parse {0:?} as StorePath: {1}")]
+    InvalidNodeName(Vec<u8>, store_path::Error),
 
     /// The digest the (root) node refers to has invalid length.
     #[error("Invalid Digest length: {0}")]
@@ -73,10 +72,14 @@ pub enum ValidatePathInfoError {
 /// error that's generated from the supplied constructor.
 ///
 /// We disallow slashes, null bytes, '.', '..' and the empty string.
-fn validate_node_name<E>(name: &str, err: fn(String) -> E) -> Result<(), E> {
-    if name.is_empty() || name == ".." || name == "." || name.contains('\x00') || name.contains('/')
+fn validate_node_name<E>(name: &[u8], err: fn(Vec<u8>) -> E) -> Result<(), E> {
+    if name.is_empty()
+        || name == b".."
+        || name == b"."
+        || name.contains(&0x00)
+        || name.contains(&b'/')
     {
-        return Err(err(name.to_string()));
+        return Err(err(name.to_vec()));
     }
     Ok(())
 }
@@ -95,12 +98,12 @@ fn validate_digest<E>(digest: &Vec<u8>, err: fn(usize) -> E) -> Result<(), E> {
 /// On success, this returns the parsed [StorePath].
 /// On error, it returns an error generated from the supplied constructor.
 fn parse_node_name_root<E>(
-    name: &str,
-    err: fn(String, store_path::Error) -> E,
+    name: &[u8],
+    err: fn(Vec<u8>, store_path::Error) -> E,
 ) -> Result<StorePath, E> {
-    match StorePath::from_str(name) {
+    match StorePath::from_bytes(name) {
         Ok(np) => Ok(np),
-        Err(e) => Err(err(name.to_string(), e)),
+        Err(e) => Err(err(name.to_vec(), e)),
     }
 }
 
@@ -169,29 +172,29 @@ impl PathInfo {
 /// NamedNode is implemented for [FileNode], [DirectoryNode] and [SymlinkNode]
 /// and [node::Node], so we can ask all of them for the name easily.
 pub trait NamedNode {
-    fn get_name(&self) -> &str;
+    fn get_name(&self) -> &[u8];
 }
 
 impl NamedNode for &FileNode {
-    fn get_name(&self) -> &str {
-        self.name.as_str()
+    fn get_name(&self) -> &[u8] {
+        &self.name
     }
 }
 
 impl NamedNode for &DirectoryNode {
-    fn get_name(&self) -> &str {
-        self.name.as_str()
+    fn get_name(&self) -> &[u8] {
+        &self.name
     }
 }
 
 impl NamedNode for &SymlinkNode {
-    fn get_name(&self) -> &str {
-        self.name.as_str()
+    fn get_name(&self) -> &[u8] {
+        &self.name
     }
 }
 
 impl NamedNode for node::Node {
-    fn get_name(&self) -> &str {
+    fn get_name(&self) -> &[u8] {
         match self {
             node::Node::File(node_file) => &node_file.name,
             node::Node::Directory(node_directory) => &node_directory.name,
@@ -204,11 +207,11 @@ impl NamedNode for node::Node {
 /// If the passed name is larger than the previous one, the reference is updated.
 /// If it's not, an error is returned.
 fn update_if_lt_prev<'n>(
-    prev_name: &mut &'n str,
-    name: &'n str,
+    prev_name: &mut &'n [u8],
+    name: &'n [u8],
 ) -> Result<(), ValidateDirectoryError> {
     if *name < **prev_name {
-        return Err(ValidateDirectoryError::WrongSorting(name.to_string()));
+        return Err(ValidateDirectoryError::WrongSorting(name.to_vec()));
     }
     *prev_name = name;
     Ok(())
@@ -217,11 +220,11 @@ fn update_if_lt_prev<'n>(
 /// Inserts the given name into a HashSet if it's not already in there.
 /// If it is, an error is returned.
 fn insert_once<'n>(
-    seen_names: &mut HashSet<&'n str>,
-    name: &'n str,
+    seen_names: &mut HashSet<&'n [u8]>,
+    name: &'n [u8],
 ) -> Result<(), ValidateDirectoryError> {
     if seen_names.get(name).is_some() {
-        return Err(ValidateDirectoryError::DuplicateName(name.to_string()));
+        return Err(ValidateDirectoryError::DuplicateName(name.to_vec()));
     }
     seen_names.insert(name);
     Ok(())
@@ -258,11 +261,11 @@ impl Directory {
     /// - not properly sorted lists
     /// - duplicate names in the three lists
     pub fn validate(&self) -> Result<(), ValidateDirectoryError> {
-        let mut seen_names: HashSet<&str> = HashSet::new();
+        let mut seen_names: HashSet<&[u8]> = HashSet::new();
 
-        let mut last_directory_name: &str = "";
-        let mut last_file_name: &str = "";
-        let mut last_symlink_name: &str = "";
+        let mut last_directory_name: &[u8] = b"";
+        let mut last_file_name: &[u8] = b"";
+        let mut last_symlink_name: &[u8] = b"";
 
         // check directories
         for directory_node in &self.directories {
@@ -272,8 +275,8 @@ impl Directory {
                 ValidateDirectoryError::InvalidDigestLen,
             )?;
 
-            update_if_lt_prev(&mut last_directory_name, directory_node.name.as_str())?;
-            insert_once(&mut seen_names, directory_node.name.as_str())?;
+            update_if_lt_prev(&mut last_directory_name, &directory_node.name)?;
+            insert_once(&mut seen_names, &directory_node.name)?;
         }
 
         // check files
@@ -281,16 +284,16 @@ impl Directory {
             validate_node_name(&file_node.name, ValidateDirectoryError::InvalidName)?;
             validate_digest(&file_node.digest, ValidateDirectoryError::InvalidDigestLen)?;
 
-            update_if_lt_prev(&mut last_file_name, file_node.name.as_str())?;
-            insert_once(&mut seen_names, file_node.name.as_str())?;
+            update_if_lt_prev(&mut last_file_name, &file_node.name)?;
+            insert_once(&mut seen_names, &file_node.name)?;
         }
 
         // check symlinks
         for symlink_node in &self.symlinks {
             validate_node_name(&symlink_node.name, ValidateDirectoryError::InvalidName)?;
 
-            update_if_lt_prev(&mut last_symlink_name, symlink_node.name.as_str())?;
-            insert_once(&mut seen_names, symlink_node.name.as_str())?;
+            update_if_lt_prev(&mut last_symlink_name, &symlink_node.name)?;
+            insert_once(&mut seen_names, &symlink_node.name)?;
         }
 
         Ok(())

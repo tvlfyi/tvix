@@ -48,8 +48,8 @@ async fn put_get() {
     let path_info = PathInfo {
         node: Some(Node {
             node: Some(Symlink(SymlinkNode {
-                name: "00000000000000000000000000000000-foo".to_string(),
-                target: "doesntmatter".to_string(),
+                name: "00000000000000000000000000000000-foo".into(),
+                target: "doesntmatter".into(),
             })),
         }),
         ..Default::default()

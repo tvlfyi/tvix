@@ -190,8 +190,8 @@ async fn put_reject_failed_validation() {
     // construct a broken Directory message that fails validation
     let broken_directory = Directory {
         symlinks: vec![SymlinkNode {
-            name: "".to_string(),
-            target: "doesntmatter".to_string(),
+            name: "".into(),
+            target: "doesntmatter".into(),
         }],
         ..Default::default()
     };
@@ -214,7 +214,7 @@ async fn put_reject_wrong_size() {
     // Construct a directory referring to DIRECTORY_A, but with wrong size.
     let broken_parent_directory = Directory {
         directories: vec![DirectoryNode {
-            name: "foo".to_string(),
+            name: "foo".into(),
             digest: DIRECTORY_A.digest().to_vec(),
             size: 42,
         }],

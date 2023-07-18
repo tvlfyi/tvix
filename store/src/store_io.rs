@@ -7,7 +7,6 @@ use nix_compat::{
     nixhash::{HashAlgo, NixHash, NixHashWithMode},
     store_path::{build_regular_ca_path, StorePath},
 };
-use smol_str::SmolStr;
 use std::{io, path::Path, path::PathBuf, sync::Arc};
 use tracing::{error, instrument, warn};
 use tvix_eval::{EvalIO, FileType, StdIO};
@@ -130,7 +129,7 @@ impl TvixStoreIO {
 
         // assemble a new root_node with a name that is derived from the nar hash.
         let renamed_root_node = {
-            let name = output_path.to_string();
+            let name = output_path.to_string().into_bytes();
 
             match root_node {
                 crate::proto::node::Node::Directory(n) => {
@@ -265,7 +264,7 @@ impl EvalIO for TvixStoreIO {
     }
 
     #[instrument(skip(self), ret, err)]
-    fn read_dir(&self, path: &Path) -> Result<Vec<(SmolStr, FileType)>, io::Error> {
+    fn read_dir(&self, path: &Path) -> Result<Vec<(Vec<u8>, FileType)>, io::Error> {
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
         {
@@ -285,17 +284,17 @@ impl EvalIO for TvixStoreIO {
                             })?;
 
                         if let Some(directory) = self.directory_service.get(&digest)? {
-                            let mut children: Vec<(SmolStr, FileType)> = Vec::new();
+                            let mut children: Vec<(Vec<u8>, FileType)> = Vec::new();
                             for node in directory.nodes() {
                                 children.push(match node {
                                     crate::proto::node::Node::Directory(e) => {
-                                        (e.name.into(), FileType::Directory)
+                                        (e.name, FileType::Directory)
                                     }
                                     crate::proto::node::Node::File(e) => {
-                                        (e.name.into(), FileType::Regular)
+                                        (e.name, FileType::Regular)
                                     }
                                     crate::proto::node::Node::Symlink(e) => {
-                                        (e.name.into(), FileType::Symlink)
+                                        (e.name, FileType::Symlink)
                                     }
                                 })
                             }
@@ -338,11 +337,20 @@ impl EvalIO for TvixStoreIO {
         let path_info = self.import_path_with_pathinfo(path)?;
 
         // from the [PathInfo], extract the store path (as string).
-        let mut path = PathBuf::from(nix_compat::store_path::STORE_DIR_WITH_SLASH);
-        path.push(path_info.node.unwrap().node.unwrap().get_name());
+        Ok({
+            let mut path = PathBuf::from(nix_compat::store_path::STORE_DIR_WITH_SLASH);
 
-        // and return it
-        Ok(path)
+            let root_node_name = path_info.node.unwrap().node.unwrap().get_name().to_vec();
+
+            // This must be a string, otherwise it would have failed validation.
+            let root_node_name = String::from_utf8(root_node_name).unwrap();
+
+            // append to the PathBuf
+            path.push(root_node_name);
+
+            // and return it
+            path
+        })
     }
 
     #[instrument(skip(self), ret)]

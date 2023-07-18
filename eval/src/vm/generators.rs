@@ -10,7 +10,6 @@
 use core::pin::Pin;
 use genawaiter::rc::Co;
 pub use genawaiter::rc::Gen;
-use smol_str::SmolStr;
 use std::fmt::Display;
 use std::future::Future;
 
@@ -187,7 +186,7 @@ pub enum VMResponse {
     Path(PathBuf),
 
     /// VM response with the contents of a directory.
-    Directory(Vec<(SmolStr, FileType)>),
+    Directory(Vec<(Vec<u8>, FileType)>),
 
     /// VM response with a span to use at the current point.
     Span(LightSpan),
@@ -736,7 +735,7 @@ pub(crate) async fn request_path_exists(co: &GenCo, path: PathBuf) -> Value {
     }
 }
 
-pub(crate) async fn request_read_dir(co: &GenCo, path: PathBuf) -> Vec<(SmolStr, FileType)> {
+pub(crate) async fn request_read_dir(co: &GenCo, path: PathBuf) -> Vec<(Vec<u8>, FileType)> {
     match co.yield_(VMRequest::ReadDir(path)).await {
         VMResponse::Directory(dir) => dir,
         msg => panic!(

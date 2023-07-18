@@ -57,7 +57,7 @@ fn populate_blob_a(
     let path_info = PathInfo {
         node: Some(proto::Node {
             node: Some(proto::node::Node::File(FileNode {
-                name: BLOB_A_NAME.to_string(),
+                name: BLOB_A_NAME.into(),
                 digest: fixtures::BLOB_A_DIGEST.to_vec(),
                 size: fixtures::BLOB_A.len() as u32,
                 executable: false,
@@ -83,7 +83,7 @@ fn populate_blob_b(
     let path_info = PathInfo {
         node: Some(proto::Node {
             node: Some(proto::node::Node::File(FileNode {
-                name: BLOB_B_NAME.to_string(),
+                name: BLOB_B_NAME.into(),
                 digest: fixtures::BLOB_B_DIGEST.to_vec(),
                 size: fixtures::BLOB_B.len() as u32,
                 executable: false,
@@ -103,8 +103,8 @@ fn populate_symlink(
     let path_info = PathInfo {
         node: Some(proto::Node {
             node: Some(proto::node::Node::Symlink(proto::SymlinkNode {
-                name: SYMLINK_NAME.to_string(),
-                target: BLOB_A_NAME.to_string(),
+                name: SYMLINK_NAME.into(),
+                target: BLOB_A_NAME.into(),
             })),
         }),
         ..Default::default()
@@ -123,8 +123,8 @@ fn populate_symlink2(
     let path_info = PathInfo {
         node: Some(proto::Node {
             node: Some(proto::node::Node::Symlink(proto::SymlinkNode {
-                name: SYMLINK_NAME2.to_string(),
-                target: "/nix/store/somewhereelse".to_string(),
+                name: SYMLINK_NAME2.into(),
+                target: "/nix/store/somewhereelse".into(),
             })),
         }),
         ..Default::default()
@@ -153,7 +153,7 @@ fn populate_directory_with_keep(
     let path_info = PathInfo {
         node: Some(proto::Node {
             node: Some(proto::node::Node::Directory(DirectoryNode {
-                name: DIRECTORY_WITH_KEEP_NAME.to_string(),
+                name: DIRECTORY_WITH_KEEP_NAME.into(),
                 digest: fixtures::DIRECTORY_WITH_KEEP.digest().to_vec(),
                 size: fixtures::DIRECTORY_WITH_KEEP.size(),
             })),
@@ -174,7 +174,7 @@ fn populate_pathinfo_without_directory(
     let path_info = PathInfo {
         node: Some(proto::Node {
             node: Some(proto::node::Node::Directory(DirectoryNode {
-                name: DIRECTORY_WITH_KEEP_NAME.to_string(),
+                name: DIRECTORY_WITH_KEEP_NAME.into(),
                 digest: fixtures::DIRECTORY_WITH_KEEP.digest().to_vec(),
                 size: fixtures::DIRECTORY_WITH_KEEP.size(),
             })),
@@ -194,7 +194,7 @@ fn populate_blob_a_without_blob(
     let path_info = PathInfo {
         node: Some(proto::Node {
             node: Some(proto::node::Node::File(FileNode {
-                name: BLOB_A_NAME.to_string(),
+                name: BLOB_A_NAME.into(),
                 digest: fixtures::BLOB_A_DIGEST.to_vec(),
                 size: fixtures::BLOB_A.len() as u32,
                 executable: false,
@@ -231,7 +231,7 @@ fn populate_directory_complicated(
     let path_info = PathInfo {
         node: Some(proto::Node {
             node: Some(proto::node::Node::Directory(DirectoryNode {
-                name: DIRECTORY_COMPLICATED_NAME.to_string(),
+                name: DIRECTORY_COMPLICATED_NAME.into(),
                 digest: fixtures::DIRECTORY_COMPLICATED.digest().to_vec(),
                 size: fixtures::DIRECTORY_COMPLICATED.size(),
             })),

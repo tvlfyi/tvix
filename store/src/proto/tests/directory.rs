@@ -20,7 +20,7 @@ fn size() {
     {
         let d = Directory {
             directories: vec![DirectoryNode {
-                name: String::from("foo"),
+                name: "foo".into(),
                 digest: DUMMY_DIGEST.to_vec(),
                 size: 0,
             }],
@@ -31,7 +31,7 @@ fn size() {
     {
         let d = Directory {
             directories: vec![DirectoryNode {
-                name: String::from("foo"),
+                name: "foo".into(),
                 digest: DUMMY_DIGEST.to_vec(),
                 size: 4,
             }],
@@ -42,7 +42,7 @@ fn size() {
     {
         let d = Directory {
             files: vec![FileNode {
-                name: String::from("foo"),
+                name: "foo".into(),
                 digest: DUMMY_DIGEST.to_vec(),
                 size: 42,
                 executable: false,
@@ -54,8 +54,8 @@ fn size() {
     {
         let d = Directory {
             symlinks: vec![SymlinkNode {
-                name: String::from("foo"),
-                target: String::from("bar"),
+                name: "foo".into(),
+                target: "bar".into(),
             }],
             ..Default::default()
         };
@@ -89,7 +89,7 @@ fn validate_invalid_names() {
     {
         let d = Directory {
             directories: vec![DirectoryNode {
-                name: "".to_string(),
+                name: "".into(),
                 digest: DUMMY_DIGEST.to_vec(),
                 size: 42,
             }],
@@ -97,7 +97,7 @@ fn validate_invalid_names() {
         };
         match d.validate().expect_err("must fail") {
             ValidateDirectoryError::InvalidName(n) => {
-                assert_eq!(n, "")
+                assert_eq!(n, b"")
             }
             _ => panic!("unexpected error"),
         };
@@ -106,7 +106,7 @@ fn validate_invalid_names() {
     {
         let d = Directory {
             directories: vec![DirectoryNode {
-                name: ".".to_string(),
+                name: ".".into(),
                 digest: DUMMY_DIGEST.to_vec(),
                 size: 42,
             }],
@@ -114,7 +114,7 @@ fn validate_invalid_names() {
         };
         match d.validate().expect_err("must fail") {
             ValidateDirectoryError::InvalidName(n) => {
-                assert_eq!(n, ".")
+                assert_eq!(n, b".")
             }
             _ => panic!("unexpected error"),
         };
@@ -123,7 +123,7 @@ fn validate_invalid_names() {
     {
         let d = Directory {
             files: vec![FileNode {
-                name: "..".to_string(),
+                name: "..".into(),
                 digest: DUMMY_DIGEST.to_vec(),
                 size: 42,
                 executable: false,
@@ -132,7 +132,7 @@ fn validate_invalid_names() {
         };
         match d.validate().expect_err("must fail") {
             ValidateDirectoryError::InvalidName(n) => {
-                assert_eq!(n, "..")
+                assert_eq!(n, b"..")
             }
             _ => panic!("unexpected error"),
         };
@@ -141,14 +141,14 @@ fn validate_invalid_names() {
     {
         let d = Directory {
             symlinks: vec![SymlinkNode {
-                name: "\x00".to_string(),
-                target: "foo".to_string(),
+                name: "\x00".into(),
+                target: "foo".into(),
             }],
             ..Default::default()
         };
         match d.validate().expect_err("must fail") {
             ValidateDirectoryError::InvalidName(n) => {
-                assert_eq!(n, "\x00")
+                assert_eq!(n, b"\x00")
             }
             _ => panic!("unexpected error"),
         };
@@ -157,14 +157,14 @@ fn validate_invalid_names() {
     {
         let d = Directory {
             symlinks: vec![SymlinkNode {
-                name: "foo/bar".to_string(),
-                target: "foo".to_string(),
+                name: "foo/bar".into(),
+                target: "foo".into(),
             }],
             ..Default::default()
         };
         match d.validate().expect_err("must fail") {
             ValidateDirectoryError::InvalidName(n) => {
-                assert_eq!(n, "foo/bar")
+                assert_eq!(n, b"foo/bar")
             }
             _ => panic!("unexpected error"),
         };
@@ -175,7 +175,7 @@ fn validate_invalid_names() {
 fn validate_invalid_digest() {
     let d = Directory {
         directories: vec![DirectoryNode {
-            name: "foo".to_string(),
+            name: "foo".into(),
             digest: vec![0x00, 0x42], // invalid length
             size: 42,
         }],
@@ -196,12 +196,12 @@ fn validate_sorting() {
         let d = Directory {
             directories: vec![
                 DirectoryNode {
-                    name: "b".to_string(),
+                    name: "b".into(),
                     digest: DUMMY_DIGEST.to_vec(),
                     size: 42,
                 },
                 DirectoryNode {
-                    name: "a".to_string(),
+                    name: "a".into(),
                     digest: DUMMY_DIGEST.to_vec(),
                     size: 42,
                 },
@@ -210,7 +210,7 @@ fn validate_sorting() {
         };
         match d.validate().expect_err("must fail") {
             ValidateDirectoryError::WrongSorting(s) => {
-                assert_eq!(s, "a".to_string());
+                assert_eq!(s, b"a");
             }
             _ => panic!("unexpected error"),
         }
@@ -221,12 +221,12 @@ fn validate_sorting() {
         let d = Directory {
             directories: vec![
                 DirectoryNode {
-                    name: "a".to_string(),
+                    name: "a".into(),
                     digest: DUMMY_DIGEST.to_vec(),
                     size: 42,
                 },
                 DirectoryNode {
-                    name: "a".to_string(),
+                    name: "a".into(),
                     digest: DUMMY_DIGEST.to_vec(),
                     size: 42,
                 },
@@ -235,7 +235,7 @@ fn validate_sorting() {
         };
         match d.validate().expect_err("must fail") {
             ValidateDirectoryError::DuplicateName(s) => {
-                assert_eq!(s, "a".to_string());
+                assert_eq!(s, b"a");
             }
             _ => panic!("unexpected error"),
         }
@@ -246,12 +246,12 @@ fn validate_sorting() {
         let d = Directory {
             directories: vec![
                 DirectoryNode {
-                    name: "a".to_string(),
+                    name: "a".into(),
                     digest: DUMMY_DIGEST.to_vec(),
                     size: 42,
                 },
                 DirectoryNode {
-                    name: "b".to_string(),
+                    name: "b".into(),
                     digest: DUMMY_DIGEST.to_vec(),
                     size: 42,
                 },
@@ -267,19 +267,19 @@ fn validate_sorting() {
         let d = Directory {
             directories: vec![
                 DirectoryNode {
-                    name: "b".to_string(),
+                    name: "b".into(),
                     digest: DUMMY_DIGEST.to_vec(),
                     size: 42,
                 },
                 DirectoryNode {
-                    name: "c".to_string(),
+                    name: "c".into(),
                     digest: DUMMY_DIGEST.to_vec(),
                     size: 42,
                 },
             ],
             symlinks: vec![SymlinkNode {
-                name: "a".to_string(),
-                target: "foo".to_string(),
+                name: "a".into(),
+                target: "foo".into(),
             }],
             ..Default::default()
         };

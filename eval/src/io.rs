@@ -15,11 +15,13 @@
 //! In the context of Nix builds, callers also use this interface to determine
 //! how store paths are opened and so on.
 
-use smol_str::SmolStr;
 use std::{
     io,
     path::{Path, PathBuf},
 };
+
+#[cfg(target_family = "unix")]
+use std::os::unix::ffi::OsStringExt;
 
 /// Types of files as represented by `builtins.readDir` in Nix.
 #[derive(Debug)]
@@ -40,7 +42,7 @@ pub trait EvalIO {
 
     /// Read the directory at the specified path and return the names
     /// of its entries associated with their [`FileType`].
-    fn read_dir(&self, path: &Path) -> Result<Vec<(SmolStr, FileType)>, io::Error>;
+    fn read_dir(&self, path: &Path) -> Result<Vec<(Vec<u8>, FileType)>, io::Error>;
 
     /// Import the given path. What this means depends on the
     /// implementation, for example for a `std::io`-based
@@ -63,6 +65,7 @@ pub trait EvalIO {
 #[cfg(feature = "impure")]
 pub struct StdIO;
 
+// TODO: we might want to make this whole impl to be target_family = "unix".
 #[cfg(feature = "impure")]
 impl EvalIO for StdIO {
     fn path_exists(&self, path: &Path) -> Result<bool, io::Error> {
@@ -73,7 +76,7 @@ impl EvalIO for StdIO {
         std::fs::read_to_string(&path)
     }
 
-    fn read_dir(&self, path: &Path) -> Result<Vec<(SmolStr, FileType)>, io::Error> {
+    fn read_dir(&self, path: &Path) -> Result<Vec<(Vec<u8>, FileType)>, io::Error> {
         let mut result = vec![];
 
         for entry in path.read_dir()? {
@@ -90,7 +93,7 @@ impl EvalIO for StdIO {
                 FileType::Unknown
             };
 
-            result.push((SmolStr::new(entry.file_name().to_string_lossy()), val));
+            result.push((entry.file_name().into_vec(), val))
         }
 
         Ok(result)
@@ -122,7 +125,7 @@ impl EvalIO for DummyIO {
         ))
     }
 
-    fn read_dir(&self, _: &Path) -> Result<Vec<(SmolStr, FileType)>, io::Error> {
+    fn read_dir(&self, _: &Path) -> Result<Vec<(Vec<u8>, FileType)>, io::Error> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
             "I/O methods are not implemented in DummyIO",

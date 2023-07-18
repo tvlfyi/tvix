@@ -1,6 +1,7 @@
 use crate::blobservice::BlobService;
 use crate::directoryservice::DirectoryService;
 use crate::{directoryservice::DirectoryPutter, proto};
+use std::os::unix::ffi::OsStrExt;
 use std::sync::Arc;
 use std::{
     collections::HashMap,
@@ -79,11 +80,7 @@ fn process_entry(
             .map_err(|e| Error::UploadDirectoryError(entry.path().to_path_buf(), e))?;
 
         return Ok(proto::node::Node::Directory(proto::DirectoryNode {
-            name: entry
-                .file_name()
-                .to_str()
-                .map(|s| Ok(s.to_owned()))
-                .unwrap_or(Err(Error::InvalidEncoding(entry.path().to_path_buf())))?,
+            name: entry.file_name().as_bytes().to_vec(),
             digest: directory_digest.to_vec(),
             size: directory_size,
         }));
@@ -94,15 +91,8 @@ fn process_entry(
             .map_err(|e| Error::UnableToStat(entry_path.clone(), e))?;
 
         return Ok(proto::node::Node::Symlink(proto::SymlinkNode {
-            name: entry
-                .file_name()
-                .to_str()
-                .map(|s| Ok(s.to_owned()))
-                .unwrap_or(Err(Error::InvalidEncoding(entry.path().to_path_buf())))?,
-            target: target
-                .to_str()
-                .map(|s| Ok(s.to_owned()))
-                .unwrap_or(Err(Error::InvalidEncoding(entry.path().to_path_buf())))?,
+            name: entry.file_name().as_bytes().to_vec(),
+            target: target.as_os_str().as_bytes().to_vec(),
         }));
     }
 
@@ -123,11 +113,7 @@ fn process_entry(
         let digest = writer.close()?;
 
         return Ok(proto::node::Node::File(proto::FileNode {
-            name: entry
-                .file_name()
-                .to_str()
-                .map(|s| Ok(s.to_owned()))
-                .unwrap_or(Err(Error::InvalidEncoding(entry.path().to_path_buf())))?,
+            name: entry.file_name().as_bytes().to_vec(),
             digest: digest.to_vec(),
             size: metadata.len() as u32,
             // If it's executable by the user, it'll become executable.
@@ -163,13 +149,9 @@ pub fn ingest_path<P: AsRef<Path> + Debug>(
                 .as_ref()
                 .file_name()
                 .unwrap_or_default()
-                .to_str()
-                .map(|s| Ok(s.to_owned()))
-                .unwrap_or(Err(Error::InvalidEncoding(p.as_ref().to_path_buf())))?,
-            target: target
-                .to_str()
-                .map(|s| Ok(s.to_owned()))
-                .unwrap_or(Err(Error::InvalidEncoding(p.as_ref().to_path_buf())))?,
+                .as_bytes()
+                .to_vec(),
+            target: target.as_os_str().as_bytes().to_vec(),
         }));
     }
 

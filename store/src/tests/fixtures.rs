@@ -33,7 +33,7 @@ lazy_static! {
     pub static ref DIRECTORY_WITH_KEEP: proto::Directory = proto::Directory {
         directories: vec![],
         files: vec![FileNode {
-            name: ".keep".to_string(),
+            name: b".keep".to_vec(),
             digest: EMPTY_BLOB_DIGEST.to_vec(),
             size: 0,
             executable: false,
@@ -42,25 +42,25 @@ lazy_static! {
     };
     pub static ref DIRECTORY_COMPLICATED: proto::Directory = proto::Directory {
         directories: vec![DirectoryNode {
-            name: "keep".to_string(),
+            name: b"keep".to_vec(),
             digest: DIRECTORY_WITH_KEEP.digest().to_vec(),
             size: DIRECTORY_WITH_KEEP.size(),
         }],
         files: vec![FileNode {
-            name: ".keep".to_string(),
+            name: b".keep".to_vec(),
             digest: EMPTY_BLOB_DIGEST.to_vec(),
             size: 0,
             executable: false,
         }],
         symlinks: vec![SymlinkNode {
-            name: "aa".to_string(),
-            target: "/nix/store/somewhereelse".to_string(),
+            name: b"aa".to_vec(),
+            target: b"/nix/store/somewhereelse".to_vec(),
         }],
     };
     pub static ref DIRECTORY_A: Directory = Directory::default();
     pub static ref DIRECTORY_B: Directory = Directory {
         directories: vec![DirectoryNode {
-            name: "a".to_string(),
+            name: b"a".to_vec(),
             digest: DIRECTORY_A.digest().to_vec(),
             size: DIRECTORY_A.size(),
         }],
@@ -69,12 +69,12 @@ lazy_static! {
     pub static ref DIRECTORY_C: Directory = Directory {
         directories: vec![
             DirectoryNode {
-                name: "a".to_string(),
+                name: b"a".to_vec(),
                 digest: DIRECTORY_A.digest().to_vec(),
                 size: DIRECTORY_A.size(),
             },
             DirectoryNode {
-                name: "a'".to_string(),
+                name: b"a'".to_vec(),
                 digest: DIRECTORY_A.digest().to_vec(),
                 size: DIRECTORY_A.size(),
             }

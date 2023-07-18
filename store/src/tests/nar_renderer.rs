@@ -15,8 +15,8 @@ fn single_symlink() {
     write_nar(
         &mut buf,
         &crate::proto::node::Node::Symlink(SymlinkNode {
-            name: "doesntmatter".to_string(),
-            target: "/nix/store/somewhereelse".to_string(),
+            name: "doesntmatter".into(),
+            target: "/nix/store/somewhereelse".into(),
         }),
         // don't put anything in the stores, as we don't actually do any requests.
         gen_blob_service(),
@@ -35,7 +35,7 @@ fn single_file_missing_blob() {
     let e = write_nar(
         &mut buf,
         &crate::proto::node::Node::File(FileNode {
-            name: "doesntmatter".to_string(),
+            name: "doesntmatter".into(),
             digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
             size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
             executable: false,
@@ -76,7 +76,7 @@ fn single_file_wrong_blob_size() {
         let e = write_nar(
             &mut buf,
             &crate::proto::node::Node::File(FileNode {
-                name: "doesntmatter".to_string(),
+                name: "doesntmatter".into(),
                 digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
                 size: 42, // <- note the wrong size here!
                 executable: false,
@@ -101,7 +101,7 @@ fn single_file_wrong_blob_size() {
         let e = write_nar(
             &mut buf,
             &crate::proto::node::Node::File(FileNode {
-                name: "doesntmatter".to_string(),
+                name: "doesntmatter".into(),
                 digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
                 size: 2, // <- note the wrong size here!
                 executable: false,
@@ -138,7 +138,7 @@ fn single_file() {
     write_nar(
         &mut buf,
         &crate::proto::node::Node::File(FileNode {
-            name: "doesntmatter".to_string(),
+            name: "doesntmatter".into(),
             digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
             size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
             executable: false,
@@ -176,7 +176,7 @@ fn test_complicated() {
     write_nar(
         &mut buf,
         &crate::proto::node::Node::Directory(DirectoryNode {
-            name: "doesntmatter".to_string(),
+            name: "doesntmatter".into(),
             digest: DIRECTORY_COMPLICATED.digest().to_vec(),
             size: DIRECTORY_COMPLICATED.size(),
         }),
@@ -190,7 +190,7 @@ fn test_complicated() {
     // ensure calculate_nar does return the correct sha256 digest and sum.
     let (nar_size, nar_digest) = calculate_size_and_sha256(
         &crate::proto::node::Node::Directory(DirectoryNode {
-            name: "doesntmatter".to_string(),
+            name: "doesntmatter".into(),
             digest: DIRECTORY_COMPLICATED.digest().to_vec(),
             size: DIRECTORY_COMPLICATED.size(),
         }),

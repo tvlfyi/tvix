@@ -116,7 +116,7 @@ impl proto::directory_service_server::DirectoryService for GRPCDirectoryServiceW
                 match seen_directories_sizes.get(&child_directory_digest) {
                     None => {
                         return Err(Status::invalid_argument(format!(
-                            "child directory '{}' ({}) in directory '{}' not seen yet",
+                            "child directory '{:?}' ({}) in directory '{}' not seen yet",
                             child_directory.name,
                             &child_directory_digest,
                             &directory.digest(),
@@ -125,7 +125,7 @@ impl proto::directory_service_server::DirectoryService for GRPCDirectoryServiceW
                     Some(seen_child_directory_size) => {
                         if seen_child_directory_size != &child_directory.size {
                             return Err(Status::invalid_argument(format!(
-                                    "child directory '{}' ({}) in directory '{}' referred with wrong size, expected {}, actual {}",
+                                    "child directory '{:?}' ({}) in directory '{}' referred with wrong size, expected {}, actual {}",
                                     child_directory.name,
                                     &child_directory_digest,
                                     &directory.digest(),

@@ -67,21 +67,21 @@ impl<'a, 'w> Node<'a, 'w> {
     }
 
     /// Make this node a symlink.
-    pub fn symlink(mut self, target: &str) -> io::Result<()> {
+    pub fn symlink(mut self, target: &[u8]) -> io::Result<()> {
         debug_assert!(
             target.len() <= wire::MAX_TARGET_LEN,
             "target.len() > {}",
             wire::MAX_TARGET_LEN
         );
         debug_assert!(
-            !target.contains('\0'),
+            !target.contains(&b'\0'),
             "invalid target characters: {target:?}"
         );
         debug_assert!(!target.is_empty(), "empty target");
 
         self.write(&wire::TOK_SYM)?;
         self.write(&target.len().to_le_bytes())?;
-        self.write(target.as_bytes())?;
+        self.write(target)?;
         self.pad(target.len() as u64)?;
         self.write(&wire::TOK_PAR)?;
         Ok(())
@@ -136,11 +136,11 @@ impl<'a, 'w> Node<'a, 'w> {
 }
 
 #[cfg(debug_assertions)]
-type Name = String;
+type Name = Vec<u8>;
 #[cfg(not(debug_assertions))]
 type Name = ();
 
-fn into_name(_name: &str) -> Name {
+fn into_name(_name: &[u8]) -> Name {
     #[cfg(debug_assertions)]
     _name.to_owned()
 }
@@ -163,17 +163,18 @@ impl<'a, 'w> Directory<'a, 'w> {
     ///
     /// The entry is simply another [`Node`], which can then be filled like the
     /// root of a NAR (including, of course, by nesting directories).
-    pub fn entry(&mut self, name: &str) -> io::Result<Node<'_, 'w>> {
+    pub fn entry(&mut self, name: &[u8]) -> io::Result<Node<'_, 'w>> {
         debug_assert!(
             name.len() <= wire::MAX_NAME_LEN,
             "name.len() > {}",
             wire::MAX_NAME_LEN
         );
-        debug_assert!(!["", ".", ".."].contains(&name), "invalid name: {name:?}");
-        debug_assert!(
-            !name.contains(['/', '\0']),
-            "invalid name characters: {name:?}"
-        );
+        debug_assert!(name != b"", "name may not be empty");
+        debug_assert!(name != b".", "invalid name: {name:?}");
+        debug_assert!(name != b"..", "invalid name: {name:?}");
+
+        debug_assert!(!name.contains(&b'/'), "invalid name characters: {name:?}");
+        debug_assert!(!name.contains(&b'\0'), "invalid name characters: {name:?}");
 
         match self.prev_name {
             None => {
@@ -187,7 +188,7 @@ impl<'a, 'w> Directory<'a, 'w> {
                         "misordered names: {_prev_name:?} >= {name:?}"
                     );
                     _prev_name.clear();
-                    _prev_name.push_str(name);
+                    _prev_name.append(&mut name.to_vec());
                 }
                 self.node.write(&wire::TOK_PAR)?;
             }
@@ -195,7 +196,7 @@ impl<'a, 'w> Directory<'a, 'w> {
 
         self.node.write(&wire::TOK_ENT)?;
         self.node.write(&name.len().to_le_bytes())?;
-        self.node.write(name.as_bytes())?;
+        self.node.write(name)?;
         self.node.pad(name.len() as u64)?;
         self.node.write(&wire::TOK_NOD)?;
 
