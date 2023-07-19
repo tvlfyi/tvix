@@ -72,7 +72,7 @@ impl<T: EvalIO> EvalIO for TvixIO<T> {
         self.actual.read_to_string(path)
     }
 
-    fn read_dir(&self, path: &Path) -> Result<Vec<(Vec<u8>, FileType)>, io::Error> {
+    fn read_dir(&self, path: &Path) -> Result<Vec<(bytes::Bytes, FileType)>, io::Error> {
         self.actual.read_dir(path)
     }
 }

@@ -18,7 +18,7 @@ fn size() {
         let d = Directory {
             directories: vec![DirectoryNode {
                 name: "foo".into(),
-                digest: DUMMY_DIGEST.to_vec(),
+                digest: DUMMY_DIGEST.to_vec().into(),
                 size: 0,
             }],
             ..Default::default()
@@ -29,7 +29,7 @@ fn size() {
         let d = Directory {
             directories: vec![DirectoryNode {
                 name: "foo".into(),
-                digest: DUMMY_DIGEST.to_vec(),
+                digest: DUMMY_DIGEST.to_vec().into(),
                 size: 4,
             }],
             ..Default::default()
@@ -40,7 +40,7 @@ fn size() {
         let d = Directory {
             files: vec![FileNode {
                 name: "foo".into(),
-                digest: DUMMY_DIGEST.to_vec(),
+                digest: DUMMY_DIGEST.to_vec().into(),
                 size: 42,
                 executable: false,
             }],
@@ -88,7 +88,7 @@ fn validate_invalid_names() {
         let d = Directory {
             directories: vec![DirectoryNode {
                 name: "".into(),
-                digest: DUMMY_DIGEST.to_vec(),
+                digest: DUMMY_DIGEST.to_vec().into(),
                 size: 42,
             }],
             ..Default::default()
@@ -105,7 +105,7 @@ fn validate_invalid_names() {
         let d = Directory {
             directories: vec![DirectoryNode {
                 name: ".".into(),
-                digest: DUMMY_DIGEST.to_vec(),
+                digest: DUMMY_DIGEST.to_vec().into(),
                 size: 42,
             }],
             ..Default::default()
@@ -122,7 +122,7 @@ fn validate_invalid_names() {
         let d = Directory {
             files: vec![FileNode {
                 name: "..".into(),
-                digest: DUMMY_DIGEST.to_vec(),
+                digest: DUMMY_DIGEST.to_vec().into(),
                 size: 42,
                 executable: false,
             }],
@@ -174,7 +174,7 @@ fn validate_invalid_digest() {
     let d = Directory {
         directories: vec![DirectoryNode {
             name: "foo".into(),
-            digest: vec![0x00, 0x42], // invalid length
+            digest: vec![0x00, 0x42].into(), // invalid length
             size: 42,
         }],
         ..Default::default()
@@ -195,12 +195,12 @@ fn validate_sorting() {
             directories: vec![
                 DirectoryNode {
                     name: "b".into(),
-                    digest: DUMMY_DIGEST.to_vec(),
+                    digest: DUMMY_DIGEST.to_vec().into(),
                     size: 42,
                 },
                 DirectoryNode {
                     name: "a".into(),
-                    digest: DUMMY_DIGEST.to_vec(),
+                    digest: DUMMY_DIGEST.to_vec().into(),
                     size: 42,
                 },
             ],
@@ -220,12 +220,12 @@ fn validate_sorting() {
             directories: vec![
                 DirectoryNode {
                     name: "a".into(),
-                    digest: DUMMY_DIGEST.to_vec(),
+                    digest: DUMMY_DIGEST.to_vec().into(),
                     size: 42,
                 },
                 DirectoryNode {
                     name: "a".into(),
-                    digest: DUMMY_DIGEST.to_vec(),
+                    digest: DUMMY_DIGEST.to_vec().into(),
                     size: 42,
                 },
             ],
@@ -245,12 +245,12 @@ fn validate_sorting() {
             directories: vec![
                 DirectoryNode {
                     name: "a".into(),
-                    digest: DUMMY_DIGEST.to_vec(),
+                    digest: DUMMY_DIGEST.to_vec().into(),
                     size: 42,
                 },
                 DirectoryNode {
                     name: "b".into(),
-                    digest: DUMMY_DIGEST.to_vec(),
+                    digest: DUMMY_DIGEST.to_vec().into(),
                     size: 42,
                 },
             ],
@@ -266,12 +266,12 @@ fn validate_sorting() {
             directories: vec![
                 DirectoryNode {
                     name: "b".into(),
-                    digest: DUMMY_DIGEST.to_vec(),
+                    digest: DUMMY_DIGEST.to_vec().into(),
                     size: 42,
                 },
                 DirectoryNode {
                     name: "c".into(),
-                    digest: DUMMY_DIGEST.to_vec(),
+                    digest: DUMMY_DIGEST.to_vec().into(),
                     size: 42,
                 },
             ],

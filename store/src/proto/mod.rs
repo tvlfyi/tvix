@@ -86,7 +86,7 @@ fn validate_node_name<E>(name: &[u8], err: fn(Vec<u8>) -> E) -> Result<(), E> {
 
 /// Checks a digest for validity.
 /// Digests are 32 bytes long, as we store blake3 digests.
-fn validate_digest<E>(digest: &Vec<u8>, err: fn(usize) -> E) -> Result<(), E> {
+fn validate_digest<E>(digest: &bytes::Bytes, err: fn(usize) -> E) -> Result<(), E> {
     if digest.len() != 32 {
         return Err(err(digest.len()));
     }

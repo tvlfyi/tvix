@@ -16,7 +16,7 @@ async fn not_found_read() {
 
     let resp = service
         .read(tonic::Request::new(ReadBlobRequest {
-            digest: BLOB_A_DIGEST.to_vec(),
+            digest: BLOB_A_DIGEST.clone().into(),
         }))
         .await;
 
@@ -36,7 +36,7 @@ async fn not_found_stat() {
 
     let resp = service
         .stat(tonic::Request::new(StatBlobRequest {
-            digest: BLOB_A_DIGEST.to_vec(),
+            digest: BLOB_A_DIGEST.clone().into(),
             ..Default::default()
         }))
         .await
@@ -54,7 +54,7 @@ async fn put_read_stat() {
     // Send blob A.
     let put_resp = service
         .put(tonic_mock::streaming_request(vec![BlobChunk {
-            data: BLOB_A.clone(),
+            data: BLOB_A.clone().into(),
         }]))
         .await
         .expect("must succeed")
@@ -67,7 +67,7 @@ async fn put_read_stat() {
     // expose it yet.
     let _resp = service
         .stat(tonic::Request::new(StatBlobRequest {
-            digest: BLOB_A_DIGEST.to_vec(),
+            digest: BLOB_A_DIGEST.clone().into(),
             ..Default::default()
         }))
         .await
@@ -77,7 +77,7 @@ async fn put_read_stat() {
     // Read the blob. It should return the same data.
     let resp = service
         .read(tonic::Request::new(ReadBlobRequest {
-            digest: BLOB_A_DIGEST.to_vec(),
+            digest: BLOB_A_DIGEST.clone().into(),
         }))
         .await;
 
@@ -90,7 +90,7 @@ async fn put_read_stat() {
         .expect("must be some")
         .expect("must succeed");
 
-    assert_eq!(BLOB_A.to_vec(), item.data);
+    assert_eq!(BLOB_A.clone(), item.data);
 
     // … and no more elements
     assert!(rx.next().await.is_none());

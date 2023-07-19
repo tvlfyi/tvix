@@ -32,7 +32,7 @@ async fn not_found() {
 
     let resp = service
         .get(Request::new(GetPathInfoRequest {
-            by_what: Some(ByOutputHash(DUMMY_OUTPUT_HASH.to_vec())),
+            by_what: Some(ByOutputHash(DUMMY_OUTPUT_HASH.clone())),
         }))
         .await;
 
@@ -62,7 +62,7 @@ async fn put_get() {
 
     let resp = service
         .get(Request::new(GetPathInfoRequest {
-            by_what: Some(ByOutputHash(DUMMY_OUTPUT_HASH.to_vec())),
+            by_what: Some(ByOutputHash(DUMMY_OUTPUT_HASH.clone())),
         }))
         .await;
 

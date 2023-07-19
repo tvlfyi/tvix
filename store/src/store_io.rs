@@ -129,7 +129,7 @@ impl TvixStoreIO {
 
         // assemble a new root_node with a name that is derived from the nar hash.
         let renamed_root_node = {
-            let name = output_path.to_string().into_bytes();
+            let name = output_path.to_string().into_bytes().into();
 
             match root_node {
                 crate::proto::node::Node::Directory(n) => {
@@ -153,7 +153,7 @@ impl TvixStoreIO {
             references: vec![],
             narinfo: Some(crate::proto::NarInfo {
                 nar_size,
-                nar_sha256: nar_sha256.to_vec(),
+                nar_sha256: nar_sha256.to_vec().into(),
                 signatures: vec![],
                 reference_names: vec![],
                 // TODO: narinfo for talosctl.src contains `CA: fixed:r:sha256:1x13j5hy75221bf6kz7cpgld9vgic6bqx07w5xjs4pxnksj6lxb6`
@@ -264,7 +264,7 @@ impl EvalIO for TvixStoreIO {
     }
 
     #[instrument(skip(self), ret, err)]
-    fn read_dir(&self, path: &Path) -> Result<Vec<(Vec<u8>, FileType)>, io::Error> {
+    fn read_dir(&self, path: &Path) -> Result<Vec<(bytes::Bytes, FileType)>, io::Error> {
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
         {
@@ -283,7 +283,7 @@ impl EvalIO for TvixStoreIO {
                         })?;
 
                         if let Some(directory) = self.directory_service.get(&digest)? {
-                            let mut children: Vec<(Vec<u8>, FileType)> = Vec::new();
+                            let mut children: Vec<(bytes::Bytes, FileType)> = Vec::new();
                             for node in directory.nodes() {
                                 children.push(match node {
                                     crate::proto::node::Node::Directory(e) => {

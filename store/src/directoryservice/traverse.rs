@@ -108,7 +108,7 @@ mod tests {
         let node_directory_complicated =
             crate::proto::node::Node::Directory(crate::proto::DirectoryNode {
                 name: "doesntmatter".into(),
-                digest: DIRECTORY_COMPLICATED.digest().to_vec(),
+                digest: DIRECTORY_COMPLICATED.digest().into(),
                 size: DIRECTORY_COMPLICATED.size(),
             });
 

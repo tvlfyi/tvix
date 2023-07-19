@@ -38,8 +38,10 @@ mod impure_builtins {
         let dir = generators::request_read_dir(&co, path).await;
         let res = dir.into_iter().map(|(name, ftype)| {
             (
-                // TODO: propagate Vec<u8> into NixString.
-                NixString::from(String::from_utf8(name).expect("parsing file name as string")),
+                // TODO: propagate Vec<u8> or bytes::Bytes into NixString.
+                NixString::from(
+                    String::from_utf8(name.to_vec()).expect("parsing file name as string"),
+                ),
                 Value::String(
                     match ftype {
                         FileType::Directory => "directory",

@@ -58,7 +58,7 @@ fn populate_blob_a(
         node: Some(proto::Node {
             node: Some(proto::node::Node::File(FileNode {
                 name: BLOB_A_NAME.into(),
-                digest: fixtures::BLOB_A_DIGEST.to_vec(),
+                digest: fixtures::BLOB_A_DIGEST.clone().into(),
                 size: fixtures::BLOB_A.len() as u32,
                 executable: false,
             })),
@@ -84,7 +84,7 @@ fn populate_blob_b(
         node: Some(proto::Node {
             node: Some(proto::node::Node::File(FileNode {
                 name: BLOB_B_NAME.into(),
-                digest: fixtures::BLOB_B_DIGEST.to_vec(),
+                digest: fixtures::BLOB_B_DIGEST.clone().into(),
                 size: fixtures::BLOB_B.len() as u32,
                 executable: false,
             })),
@@ -154,7 +154,7 @@ fn populate_directory_with_keep(
         node: Some(proto::Node {
             node: Some(proto::node::Node::Directory(DirectoryNode {
                 name: DIRECTORY_WITH_KEEP_NAME.into(),
-                digest: fixtures::DIRECTORY_WITH_KEEP.digest().to_vec(),
+                digest: fixtures::DIRECTORY_WITH_KEEP.digest().into(),
                 size: fixtures::DIRECTORY_WITH_KEEP.size(),
             })),
         }),
@@ -175,7 +175,7 @@ fn populate_pathinfo_without_directory(
         node: Some(proto::Node {
             node: Some(proto::node::Node::Directory(DirectoryNode {
                 name: DIRECTORY_WITH_KEEP_NAME.into(),
-                digest: fixtures::DIRECTORY_WITH_KEEP.digest().to_vec(),
+                digest: fixtures::DIRECTORY_WITH_KEEP.digest().into(),
                 size: fixtures::DIRECTORY_WITH_KEEP.size(),
             })),
         }),
@@ -195,7 +195,7 @@ fn populate_blob_a_without_blob(
         node: Some(proto::Node {
             node: Some(proto::node::Node::File(FileNode {
                 name: BLOB_A_NAME.into(),
-                digest: fixtures::BLOB_A_DIGEST.to_vec(),
+                digest: fixtures::BLOB_A_DIGEST.clone().into(),
                 size: fixtures::BLOB_A.len() as u32,
                 executable: false,
             })),
@@ -232,7 +232,7 @@ fn populate_directory_complicated(
         node: Some(proto::Node {
             node: Some(proto::node::Node::Directory(DirectoryNode {
                 name: DIRECTORY_COMPLICATED_NAME.into(),
-                digest: fixtures::DIRECTORY_COMPLICATED.digest().to_vec(),
+                digest: fixtures::DIRECTORY_COMPLICATED.digest().into(),
                 size: fixtures::DIRECTORY_COMPLICATED.size(),
             })),
         }),

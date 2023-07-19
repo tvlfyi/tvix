@@ -13,13 +13,13 @@ pub enum RenderError {
     StoreError(crate::Error),
 
     #[error("unable to find directory {}, referred from {:?}", .0, .1)]
-    DirectoryNotFound(B3Digest, Vec<u8>),
+    DirectoryNotFound(B3Digest, bytes::Bytes),
 
     #[error("unable to find blob {}, referred from {:?}", BASE64.encode(.0), .1)]
-    BlobNotFound([u8; 32], Vec<u8>),
+    BlobNotFound([u8; 32], bytes::Bytes),
 
     #[error("unexpected size in metadata for blob {}, referred from {:?} returned, expected {}, got {}", BASE64.encode(.0), .1, .2, .3)]
-    UnexpectedBlobMeta([u8; 32], Vec<u8>, u32, u32),
+    UnexpectedBlobMeta([u8; 32], bytes::Bytes, u32, u32),
 
     #[error("failure using the NAR writer: {0}")]
     NARWriterError(std::io::Error),

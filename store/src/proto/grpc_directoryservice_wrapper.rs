@@ -176,7 +176,7 @@ impl proto::directory_service_server::DirectoryService for GRPCDirectoryServiceW
         match last_directory_dgst {
             None => Err(Status::invalid_argument("no directories received")),
             Some(last_directory_dgst) => Ok(Response::new(proto::PutDirectoryResponse {
-                root_digest: last_directory_dgst.to_vec(),
+                root_digest: last_directory_dgst.into(),
             })),
         }
     }

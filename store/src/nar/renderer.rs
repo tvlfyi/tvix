@@ -115,7 +115,7 @@ fn walk_node(
                 None => {
                     return Err(RenderError::DirectoryNotFound(
                         digest,
-                        proto_directory_node.name.to_owned(),
+                        proto_directory_node.name.clone(),
                     ))
                 }
                 Some(proto_directory) => {

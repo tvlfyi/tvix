@@ -42,7 +42,7 @@ pub trait EvalIO {
 
     /// Read the directory at the specified path and return the names
     /// of its entries associated with their [`FileType`].
-    fn read_dir(&self, path: &Path) -> Result<Vec<(Vec<u8>, FileType)>, io::Error>;
+    fn read_dir(&self, path: &Path) -> Result<Vec<(bytes::Bytes, FileType)>, io::Error>;
 
     /// Import the given path. What this means depends on the
     /// implementation, for example for a `std::io`-based
@@ -76,7 +76,7 @@ impl EvalIO for StdIO {
         std::fs::read_to_string(&path)
     }
 
-    fn read_dir(&self, path: &Path) -> Result<Vec<(Vec<u8>, FileType)>, io::Error> {
+    fn read_dir(&self, path: &Path) -> Result<Vec<(bytes::Bytes, FileType)>, io::Error> {
         let mut result = vec![];
 
         for entry in path.read_dir()? {
@@ -93,7 +93,7 @@ impl EvalIO for StdIO {
                 FileType::Unknown
             };
 
-            result.push((entry.file_name().into_vec(), val))
+            result.push((entry.file_name().into_vec().into(), val))
         }
 
         Ok(result)
@@ -125,7 +125,7 @@ impl EvalIO for DummyIO {
         ))
     }
 
-    fn read_dir(&self, _: &Path) -> Result<Vec<(Vec<u8>, FileType)>, io::Error> {
+    fn read_dir(&self, _: &Path) -> Result<Vec<(bytes::Bytes, FileType)>, io::Error> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
             "I/O methods are not implemented in DummyIO",

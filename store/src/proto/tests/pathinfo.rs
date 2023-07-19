@@ -1,20 +1,28 @@
 use crate::proto::{self, Node, PathInfo, ValidatePathInfoError};
+use crate::B3Digest;
+use bytes::Bytes;
 use lazy_static::lazy_static;
 use nix_compat::store_path::{self, StorePath};
 use std::str::FromStr;
 use test_case::test_case;
 
 lazy_static! {
-    static ref DUMMY_DIGEST: Vec<u8> = vec![
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00,
-    ];
-    static ref DUMMY_DIGEST_2: Vec<u8> = vec![
-        0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00,
-    ];
+    static ref DUMMY_DIGEST: B3Digest = {
+        let u: &[u8; 32] = &[
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+        ];
+        u.into()
+    };
+    static ref DUMMY_DIGEST_2: B3Digest = {
+        let u: &[u8; 32] = &[
+            0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+        ];
+        u.into()
+    };
 }
 
 const DUMMY_NAME: &str = "00000000000000000000000000000000-dummy";
@@ -44,7 +52,7 @@ fn validate_no_node(
 #[test_case(
     proto::DirectoryNode {
         name: DUMMY_NAME.into(),
-        digest: DUMMY_DIGEST.to_vec(),
+        digest: DUMMY_DIGEST.clone().into(),
         size: 0,
     },
     Ok(StorePath::from_str(DUMMY_NAME).expect("must succeed"));
@@ -53,7 +61,7 @@ fn validate_no_node(
 #[test_case(
     proto::DirectoryNode {
         name: DUMMY_NAME.into(),
-        digest: vec![],
+        digest: Bytes::new(),
         size: 0,
     },
     Err(ValidatePathInfoError::InvalidDigestLen(0));
@@ -62,7 +70,7 @@ fn validate_no_node(
 #[test_case(
     proto::DirectoryNode {
         name: "invalid".into(),
-        digest: DUMMY_DIGEST.to_vec(),
+        digest: DUMMY_DIGEST.clone().into(),
         size: 0,
     },
     Err(ValidatePathInfoError::InvalidNodeName(
@@ -88,7 +96,7 @@ fn validate_directory(
 #[test_case(
     proto::FileNode {
         name: DUMMY_NAME.into(),
-        digest: DUMMY_DIGEST.to_vec(),
+        digest: DUMMY_DIGEST.clone().into(),
         size: 0,
         executable: false,
     },
@@ -98,7 +106,7 @@ fn validate_directory(
 #[test_case(
     proto::FileNode {
         name: DUMMY_NAME.into(),
-        digest: vec![],
+        digest: Bytes::new(),
         ..Default::default()
     },
     Err(ValidatePathInfoError::InvalidDigestLen(0));
@@ -107,7 +115,7 @@ fn validate_directory(
 #[test_case(
     proto::FileNode {
         name: "invalid".into(),
-        digest: DUMMY_DIGEST.to_vec(),
+        digest: DUMMY_DIGEST.clone().into(),
         ..Default::default()
     },
     Err(ValidatePathInfoError::InvalidNodeName(
@@ -167,11 +175,11 @@ fn validate_references() {
         node: Some(Node {
             node: Some(proto::node::Node::Directory(proto::DirectoryNode {
                 name: DUMMY_NAME.into(),
-                digest: DUMMY_DIGEST.to_vec(),
+                digest: DUMMY_DIGEST.clone().into(),
                 size: 0,
             })),
         }),
-        references: vec![DUMMY_DIGEST_2.to_vec()],
+        references: vec![DUMMY_DIGEST_2.clone().into()],
         narinfo: None,
     };
     assert!(path_info.validate().is_ok());
@@ -180,7 +188,7 @@ fn validate_references() {
     let path_info_with_narinfo_missing_refs = PathInfo {
         narinfo: Some(proto::NarInfo {
             nar_size: 0,
-            nar_sha256: DUMMY_DIGEST.to_vec(),
+            nar_sha256: DUMMY_DIGEST.clone().into(),
             signatures: vec![],
             reference_names: vec![],
         }),
@@ -198,7 +206,7 @@ fn validate_references() {
     let path_info_with_narinfo = PathInfo {
         narinfo: Some(proto::NarInfo {
             nar_size: 0,
-            nar_sha256: DUMMY_DIGEST.to_vec(),
+            nar_sha256: DUMMY_DIGEST.clone().into(),
             signatures: vec![],
             reference_names: vec![format!("/nix/store/{}", DUMMY_NAME)],
         }),

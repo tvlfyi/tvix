@@ -133,9 +133,7 @@ impl super::blob_service_server::BlobService for GRPCBlobServiceWrapper {
                     x: Result<bytes::Bytes, io::Error>,
                 ) -> Result<super::BlobChunk, Status> {
                     match x {
-                        Ok(bytes) => Ok(super::BlobChunk {
-                            data: bytes.to_vec(),
-                        }),
+                        Ok(bytes) => Ok(super::BlobChunk { data: bytes }),
                         Err(e) => Err(Status::from(e)),
                     }
                 }
@@ -156,7 +154,7 @@ impl super::blob_service_server::BlobService for GRPCBlobServiceWrapper {
         let req_inner = request.into_inner();
 
         let data_stream = req_inner.map(|x| {
-            x.map(|x| VecDeque::from(x.data))
+            x.map(|x| VecDeque::from(x.data.to_vec()))
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))
         });
 
@@ -182,7 +180,9 @@ impl super::blob_service_server::BlobService for GRPCBlobServiceWrapper {
                 })?
                 .to_vec();
 
-            Ok(super::PutBlobResponse { digest })
+            Ok(super::PutBlobResponse {
+                digest: digest.into(),
+            })
         })
         .await
         .map_err(|_| Status::internal("failed to wait for task"))??;

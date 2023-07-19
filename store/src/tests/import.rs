@@ -54,7 +54,7 @@ fn single_file() {
     assert_eq!(
         crate::proto::node::Node::File(proto::FileNode {
             name: "root".into(),
-            digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
+            digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
             size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
             executable: false,
         }),
@@ -92,8 +92,14 @@ fn complicated() {
     // ensure root_node matched expectations
     assert_eq!(
         crate::proto::node::Node::Directory(proto::DirectoryNode {
-            name: tmpdir.path().file_name().unwrap().as_bytes().to_vec(),
-            digest: DIRECTORY_COMPLICATED.digest().to_vec(),
+            name: tmpdir
+                .path()
+                .file_name()
+                .unwrap()
+                .as_bytes()
+                .to_owned()
+                .into(),
+            digest: DIRECTORY_COMPLICATED.digest().into(),
             size: DIRECTORY_COMPLICATED.size(),
         }),
         root_node,

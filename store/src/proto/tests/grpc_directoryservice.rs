@@ -42,7 +42,7 @@ async fn not_found() {
 
     let resp = service
         .get(tonic::Request::new(GetDirectoryRequest {
-            by_what: Some(ByWhat::Digest(DIRECTORY_A.digest().to_vec())),
+            by_what: Some(ByWhat::Digest(DIRECTORY_A.digest().into())),
             ..Default::default()
         }))
         .await;
@@ -80,7 +80,7 @@ async fn put_get() {
     let items = get_directories(
         &service,
         GetDirectoryRequest {
-            by_what: Some(ByWhat::Digest(DIRECTORY_A.digest().to_vec())),
+            by_what: Some(ByWhat::Digest(DIRECTORY_A.digest().into())),
             ..Default::default()
         },
     )
@@ -122,7 +122,7 @@ async fn put_get_multiple() {
         &service,
         GetDirectoryRequest {
             recursive: false,
-            by_what: Some(ByWhat::Digest(DIRECTORY_B.digest().to_vec())),
+            by_what: Some(ByWhat::Digest(DIRECTORY_B.digest().into())),
         },
     )
     .await
@@ -136,7 +136,7 @@ async fn put_get_multiple() {
         &service,
         GetDirectoryRequest {
             recursive: true,
-            by_what: Some(ByWhat::Digest(DIRECTORY_B.digest().to_vec())),
+            by_what: Some(ByWhat::Digest(DIRECTORY_B.digest().into())),
         },
     )
     .await
@@ -172,7 +172,7 @@ async fn put_get_dedup() {
         &service,
         GetDirectoryRequest {
             recursive: true,
-            by_what: Some(ByWhat::Digest(DIRECTORY_C.digest().to_vec())),
+            by_what: Some(ByWhat::Digest(DIRECTORY_C.digest().into())),
         },
     )
     .await
@@ -215,7 +215,7 @@ async fn put_reject_wrong_size() {
     let broken_parent_directory = Directory {
         directories: vec![DirectoryNode {
             name: "foo".into(),
-            digest: DIRECTORY_A.digest().to_vec(),
+            digest: DIRECTORY_A.digest().into(),
             size: 42,
         }],
         ..Default::default()

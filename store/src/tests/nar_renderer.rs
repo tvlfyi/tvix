@@ -36,7 +36,7 @@ fn single_file_missing_blob() {
         &mut buf,
         &crate::proto::node::Node::File(FileNode {
             name: "doesntmatter".into(),
-            digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
+            digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
             size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
             executable: false,
         }),
@@ -77,7 +77,7 @@ fn single_file_wrong_blob_size() {
             &mut buf,
             &crate::proto::node::Node::File(FileNode {
                 name: "doesntmatter".into(),
-                digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
+                digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
                 size: 42, // <- note the wrong size here!
                 executable: false,
             }),
@@ -102,7 +102,7 @@ fn single_file_wrong_blob_size() {
             &mut buf,
             &crate::proto::node::Node::File(FileNode {
                 name: "doesntmatter".into(),
-                digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
+                digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
                 size: 2, // <- note the wrong size here!
                 executable: false,
             }),
@@ -127,7 +127,7 @@ fn single_file() {
     // insert blob into the store
     let mut writer = blob_service.open_write();
     io::copy(
-        &mut io::Cursor::new(HELLOWORLD_BLOB_CONTENTS.to_vec()),
+        &mut io::Cursor::new(HELLOWORLD_BLOB_CONTENTS.clone()),
         &mut writer,
     )
     .unwrap();
@@ -139,7 +139,7 @@ fn single_file() {
         &mut buf,
         &crate::proto::node::Node::File(FileNode {
             name: "doesntmatter".into(),
-            digest: HELLOWORLD_BLOB_DIGEST.to_vec(),
+            digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
             size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
             executable: false,
         }),
@@ -160,7 +160,7 @@ fn test_complicated() {
     // insert blob into the store
     let mut writer = blob_service.open_write();
     io::copy(
-        &mut io::Cursor::new(EMPTY_BLOB_CONTENTS.to_vec()),
+        &mut io::Cursor::new(EMPTY_BLOB_CONTENTS.clone()),
         &mut writer,
     )
     .unwrap();
@@ -177,7 +177,7 @@ fn test_complicated() {
         &mut buf,
         &crate::proto::node::Node::Directory(DirectoryNode {
             name: "doesntmatter".into(),
-            digest: DIRECTORY_COMPLICATED.digest().to_vec(),
+            digest: DIRECTORY_COMPLICATED.digest().clone().into(),
             size: DIRECTORY_COMPLICATED.size(),
         }),
         blob_service.clone(),
@@ -191,7 +191,7 @@ fn test_complicated() {
     let (nar_size, nar_digest) = calculate_size_and_sha256(
         &crate::proto::node::Node::Directory(DirectoryNode {
             name: "doesntmatter".into(),
-            digest: DIRECTORY_COMPLICATED.digest().to_vec(),
+            digest: DIRECTORY_COMPLICATED.digest().clone().into(),
             size: DIRECTORY_COMPLICATED.size(),
         }),
         blob_service,

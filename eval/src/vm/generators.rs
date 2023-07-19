@@ -186,7 +186,7 @@ pub enum VMResponse {
     Path(PathBuf),
 
     /// VM response with the contents of a directory.
-    Directory(Vec<(Vec<u8>, FileType)>),
+    Directory(Vec<(bytes::Bytes, FileType)>),
 
     /// VM response with a span to use at the current point.
     Span(LightSpan),
@@ -735,7 +735,7 @@ pub(crate) async fn request_path_exists(co: &GenCo, path: PathBuf) -> Value {
     }
 }
 
-pub(crate) async fn request_read_dir(co: &GenCo, path: PathBuf) -> Vec<(Vec<u8>, FileType)> {
+pub(crate) async fn request_read_dir(co: &GenCo, path: PathBuf) -> Vec<(bytes::Bytes, FileType)> {
     match co.yield_(VMRequest::ReadDir(path)).await {
         VMResponse::Directory(dir) => dir,
         msg => panic!(

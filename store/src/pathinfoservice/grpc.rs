@@ -97,7 +97,7 @@ impl PathInfoService for GRPCPathInfoService {
                 let path_info = grpc_client
                     .get(proto::GetPathInfoRequest {
                         by_what: Some(proto::get_path_info_request::ByWhat::ByOutputHash(
-                            digest.to_vec(),
+                            digest.to_vec().into(),
                         )),
                     })
                     .await?
@@ -154,6 +154,7 @@ impl PathInfoService for GRPCPathInfoService {
 
         let nar_sha256: [u8; 32] = resp
             .nar_sha256
+            .to_vec()
             .try_into()
             .map_err(|_e| crate::Error::StorageError("invalid digest length".to_string()))?;
 

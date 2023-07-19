@@ -77,7 +77,7 @@ impl EvalIO for NixCompatIO {
         self.underlying.read_to_string(path)
     }
 
-    fn read_dir(&self, path: &Path) -> Result<Vec<(Vec<u8>, FileType)>, io::Error> {
+    fn read_dir(&self, path: &Path) -> Result<Vec<(bytes::Bytes, FileType)>, io::Error> {
         self.underlying.read_dir(path)
     }
 }

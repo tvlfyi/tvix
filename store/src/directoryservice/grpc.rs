@@ -91,13 +91,12 @@ impl DirectoryService for GRPCDirectoryService {
     fn get(&self, digest: &B3Digest) -> Result<Option<crate::proto::Directory>, crate::Error> {
         // Get a new handle to the gRPC client, and copy the digest.
         let mut grpc_client = self.grpc_client.clone();
-
-        let digest_as_vec = digest.to_vec();
+        let digest_cpy = digest.clone();
         let task = self.tokio_handle.spawn(async move {
             let mut s = grpc_client
                 .get(proto::GetDirectoryRequest {
                     recursive: false,
-                    by_what: Some(ByWhat::Digest(digest_as_vec)),
+                    by_what: Some(ByWhat::Digest(digest_cpy.into())),
                 })
                 .await?
                 .into_inner();
@@ -160,13 +159,15 @@ impl DirectoryService for GRPCDirectoryService {
     ) -> Box<dyn Iterator<Item = Result<proto::Directory, Error>> + Send> {
         let mut grpc_client = self.grpc_client.clone();
 
-        let root_directory_digest_as_vec = root_directory_digest.to_vec();
+        // clone so we can move it
+        let root_directory_digest_cpy = root_directory_digest.clone();
+
         let task: tokio::task::JoinHandle<Result<Streaming<proto::Directory>, Status>> =
             self.tokio_handle.spawn(async move {
                 let s = grpc_client
                     .get(proto::GetDirectoryRequest {
                         recursive: true,
-                        by_what: Some(ByWhat::Digest(root_directory_digest_as_vec)),
+                        by_what: Some(ByWhat::Digest(root_directory_digest_cpy.into())),
                     })
                     .await?
                     .into_inner();

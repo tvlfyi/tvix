@@ -66,8 +66,6 @@ fn process_entry(
 ) -> Result<proto::node::Node, Error> {
     let file_type = entry.file_type();
 
-    let entry_path: PathBuf = entry.path().to_path_buf();
-
     if file_type.is_dir() {
         let directory = maybe_directory
             .expect("tvix bug: must be called with some directory in the case of directory");
@@ -80,41 +78,45 @@ fn process_entry(
             .map_err(|e| Error::UploadDirectoryError(entry.path().to_path_buf(), e))?;
 
         return Ok(proto::node::Node::Directory(proto::DirectoryNode {
-            name: entry.file_name().as_bytes().to_vec(),
-            digest: directory_digest.to_vec(),
+            name: entry.file_name().as_bytes().to_owned().into(),
+            digest: directory_digest.into(),
             size: directory_size,
         }));
     }
 
     if file_type.is_symlink() {
-        let target = std::fs::read_link(&entry_path)
-            .map_err(|e| Error::UnableToStat(entry_path.clone(), e))?;
+        let target: bytes::Bytes = std::fs::read_link(entry.path())
+            .map_err(|e| Error::UnableToStat(entry.path().to_path_buf(), e))?
+            .as_os_str()
+            .as_bytes()
+            .to_owned()
+            .into();
 
         return Ok(proto::node::Node::Symlink(proto::SymlinkNode {
-            name: entry.file_name().as_bytes().to_vec(),
-            target: target.as_os_str().as_bytes().to_vec(),
+            name: entry.file_name().as_bytes().to_owned().into(),
+            target,
         }));
     }
 
     if file_type.is_file() {
         let metadata = entry
             .metadata()
-            .map_err(|e| Error::UnableToStat(entry_path.clone(), e.into()))?;
+            .map_err(|e| Error::UnableToStat(entry.path().to_path_buf(), e.into()))?;
 
-        let mut file = File::open(entry_path.clone())
-            .map_err(|e| Error::UnableToOpen(entry_path.clone(), e))?;
+        let mut file = File::open(entry.path())
+            .map_err(|e| Error::UnableToOpen(entry.path().to_path_buf(), e))?;
 
         let mut writer = blob_service.open_write();
 
         if let Err(e) = io::copy(&mut file, &mut writer) {
-            return Err(Error::UnableToRead(entry_path, e));
+            return Err(Error::UnableToRead(entry.path().to_path_buf(), e));
         };
 
         let digest = writer.close()?;
 
         return Ok(proto::node::Node::File(proto::FileNode {
-            name: entry.file_name().as_bytes().to_vec(),
-            digest: digest.to_vec(),
+            name: entry.file_name().as_bytes().to_vec().into(),
+            digest: digest.into(),
             size: metadata.len() as u32,
             // If it's executable by the user, it'll become executable.
             // This matches nix's dump() function behaviour.
@@ -150,8 +152,9 @@ pub fn ingest_path<P: AsRef<Path> + Debug>(
                 .file_name()
                 .unwrap_or_default()
                 .as_bytes()
-                .to_vec(),
-            target: target.as_os_str().as_bytes().to_vec(),
+                .to_owned()
+                .into(),
+            target: target.as_os_str().as_bytes().to_vec().into(),
         }));
     }
 

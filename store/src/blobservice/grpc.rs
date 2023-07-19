@@ -98,7 +98,7 @@ impl BlobService for GRPCBlobService {
             self.tokio_handle.spawn(async move {
                 Ok(grpc_client
                     .stat(proto::StatBlobRequest {
-                        digest: digest.to_vec(),
+                        digest: digest.into(),
                         ..Default::default()
                     })
                     .await?
@@ -126,7 +126,7 @@ impl BlobService for GRPCBlobService {
             self.tokio_handle.spawn(async move {
                 let stream = grpc_client
                     .read(proto::ReadBlobRequest {
-                        digest: digest.to_vec(),
+                        digest: digest.into(),
                     })
                     .await?
                     .into_inner();

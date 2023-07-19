@@ -7932,6 +7932,10 @@ rec {
           else ./cli;
         dependencies = [
           {
+            name = "bytes";
+            packageId = "bytes";
+          }
+          {
             name = "clap";
             packageId = "clap 4.2.7";
             features = [ "derive" "env" ];
@@ -7991,6 +7995,10 @@ rec {
           else ./eval;
         libName = "tvix_eval";
         dependencies = [
+          {
+            name = "bytes";
+            packageId = "bytes";
+          }
           {
             name = "codemap";
             packageId = "codemap";

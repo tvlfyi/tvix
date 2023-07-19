@@ -13,7 +13,7 @@ pub struct InodeTracker {
     blob_digest_to_inode: HashMap<B3Digest, u64>,
 
     // lookup table for symlinks by their target
-    symlink_target_to_inode: HashMap<Vec<u8>, u64>,
+    symlink_target_to_inode: HashMap<bytes::Bytes, u64>,
 
     // lookup table for directories by their B3Digest.
     // Note the corresponding directory may not be present in data yet.
@@ -171,7 +171,7 @@ impl InodeTracker {
                 self.blob_digest_to_inode.insert(digest.clone(), ino);
             }
             InodeData::Symlink(ref target) => {
-                self.symlink_target_to_inode.insert(target.to_vec(), ino);
+                self.symlink_target_to_inode.insert(target.clone(), ino);
             }
             InodeData::Directory(DirectoryInodeData::Sparse(ref digest, _size)) => {
                 self.directory_digest_to_inode.insert(digest.clone(), ino);
