@@ -28,8 +28,8 @@ pub enum Error {
     InvalidHashEncoding(Nixbase32DecodeError),
     #[error("Invalid length")]
     InvalidLength(),
-    #[error("Invalid name: {0:?}")]
-    InvalidName(Vec<u8>),
+    #[error("Invalid name: {:?}, character at position {} ('{}') is invalid", .0, .1, .0[1])]
+    InvalidName(Vec<u8>, usize),
     #[error("Tried to parse an absolute path which was missing the store dir prefix.")]
     MissingStoreDir(),
 }
@@ -139,7 +139,7 @@ impl StorePath {
 /// Checks a given &[u8] to match the restrictions for store path names, and
 /// returns the name as string if successful.
 pub(crate) fn validate_name(s: &[u8]) -> Result<String, Error> {
-    for c in s {
+    for (i, c) in s.iter().enumerate() {
         if c.is_ascii_alphanumeric()
             || *c == b'-'
             || *c == b'_'
@@ -151,7 +151,7 @@ pub(crate) fn validate_name(s: &[u8]) -> Result<String, Error> {
             continue;
         }
 
-        return Err(Error::InvalidName(s.to_vec()));
+        return Err(Error::InvalidName(s.to_vec(), i));
     }
 
     Ok(String::from_utf8(s.to_vec()).unwrap())
