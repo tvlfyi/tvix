@@ -38,8 +38,10 @@ impl proto::directory_service_server::DirectoryService for GRPCDirectoryServiceW
             // look at the digest in the request and put it in the top of the queue.
             match &req_inner.by_what {
                 None => return Err(Status::invalid_argument("by_what needs to be specified")),
-                Some(proto::get_directory_request::ByWhat::Digest(digest)) => {
-                    let digest = B3Digest::from_vec(digest.to_vec())
+                Some(proto::get_directory_request::ByWhat::Digest(ref digest)) => {
+                    let digest: B3Digest = digest
+                        .clone()
+                        .try_into()
                         .map_err(|_e| Status::invalid_argument("invalid digest length"))?;
 
                     task::spawn(async move {
@@ -91,6 +93,8 @@ impl proto::directory_service_server::DirectoryService for GRPCDirectoryServiceW
         // This keeps track of the seen directory keys, and their size.
         // This is used to validate the size field of a reference to a previously sent directory.
         // We don't need to keep the contents around, they're stored in the DB.
+        // https://github.com/rust-lang/rust-clippy/issues/5812
+        #[allow(clippy::mutable_key_type)]
         let mut seen_directories_sizes: HashMap<B3Digest, u32> = HashMap::new();
         let mut last_directory_dgst: Option<B3Digest> = None;
 
@@ -110,7 +114,10 @@ impl proto::directory_service_server::DirectoryService for GRPCDirectoryServiceW
             // to ensure it has been seen already in this stream, and that the size
             // matches what we recorded.
             for child_directory in &directory.directories {
-                let child_directory_digest = B3Digest::from_vec(child_directory.digest.to_vec())
+                let child_directory_digest: B3Digest = child_directory
+                    .digest
+                    .clone()
+                    .try_into()
                     .map_err(|_e| Status::internal("invalid child directory digest len"))?;
 
                 match seen_directories_sizes.get(&child_directory_digest) {

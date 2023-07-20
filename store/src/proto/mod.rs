@@ -247,12 +247,11 @@ impl Directory {
     pub fn digest(&self) -> B3Digest {
         let mut hasher = blake3::Hasher::new();
 
-        let vec = hasher
+        hasher
             .update(&self.encode_to_vec())
             .finalize()
             .as_bytes()
-            .to_vec();
-        B3Digest::from_vec(vec).unwrap()
+            .into()
     }
 
     /// validate checks the directory for invalid data, such as:

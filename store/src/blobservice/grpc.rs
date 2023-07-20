@@ -143,7 +143,7 @@ impl BlobService for GRPCBlobService {
             Ok(stream) => {
                 // map the stream of proto::BlobChunk to bytes.
                 let data_stream = stream.map(|x| {
-                    x.map(|x| VecDeque::from(x.data))
+                    x.map(|x| VecDeque::from(x.data.to_vec()))
                         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))
                 });
 
@@ -169,8 +169,7 @@ impl BlobService for GRPCBlobService {
 
         // bytes arriving on the RX side are wrapped inside a
         // [proto::BlobChunk], and a [ReceiverStream] is constructed.
-        let blobchunk_stream =
-            ReceiverStream::new(rx).map(|x| proto::BlobChunk { data: x.to_vec() });
+        let blobchunk_stream = ReceiverStream::new(rx).map(|x| proto::BlobChunk { data: x.into() });
 
         // That receiver stream is used as a stream in the gRPC BlobService.put rpc call.
         let task: tokio::task::JoinHandle<Result<_, Status>> = self
@@ -250,7 +249,7 @@ impl BlobWriter for GRPCBlobWriter {
             match self.tokio_handle.block_on(task)? {
                 Ok(resp) => {
                     // return the digest from the response, and store it in self.digest for subsequent closes.
-                    let digest = B3Digest::from_vec(resp.digest).map_err(|_| {
+                    let digest: B3Digest = resp.digest.try_into().map_err(|_| {
                         crate::Error::StorageError(
                             "invalid root digest length in response".to_string(),
                         )

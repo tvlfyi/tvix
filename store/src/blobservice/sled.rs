@@ -136,8 +136,7 @@ impl BlobWriter for SledBlobWriter {
         } else {
             let (buf, hasher) = self.writers.take().unwrap();
 
-            // We know self.hasher is doing blake3 hashing, so this won't fail.
-            let digest = B3Digest::from_vec(hasher.finalize().as_bytes().to_vec()).unwrap();
+            let digest: B3Digest = hasher.finalize().as_bytes().into();
 
             // Only insert if the blob doesn't already exist.
             if !self.db.contains_key(digest.to_vec()).map_err(|e| {

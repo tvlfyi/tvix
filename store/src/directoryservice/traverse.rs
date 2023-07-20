@@ -1,5 +1,5 @@
 use super::DirectoryService;
-use crate::{proto::NamedNode, B3Digest, Error};
+use crate::{proto::NamedNode, Error};
 use std::{os::unix::ffi::OsStrExt, sync::Arc};
 use tracing::{instrument, warn};
 
@@ -40,7 +40,9 @@ pub fn traverse_to(
                     Ok(None)
                 }
                 crate::proto::node::Node::Directory(directory_node) => {
-                    let digest = B3Digest::from_vec(directory_node.digest)
+                    let digest = directory_node
+                        .digest
+                        .try_into()
                         .map_err(|_e| Error::StorageError("invalid digest length".to_string()))?;
 
                     // fetch the linked node from the directory_service

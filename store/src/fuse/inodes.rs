@@ -38,7 +38,7 @@ impl From<&proto::SymlinkNode> for InodeData {
 impl From<&proto::FileNode> for InodeData {
     fn from(value: &proto::FileNode) -> Self {
         InodeData::Regular(
-            B3Digest::from_vec(value.digest.clone()).unwrap(),
+            value.digest.clone().try_into().unwrap(),
             value.size,
             value.executable,
         )
@@ -49,7 +49,7 @@ impl From<&proto::FileNode> for InodeData {
 impl From<&proto::DirectoryNode> for InodeData {
     fn from(value: &proto::DirectoryNode) -> Self {
         InodeData::Directory(DirectoryInodeData::Sparse(
-            B3Digest::from_vec(value.digest.clone()).unwrap(),
+            value.digest.clone().try_into().unwrap(),
             value.size,
         ))
     }

@@ -142,12 +142,13 @@ impl DirectoryService for GRPCDirectoryService {
             .spawn(async move { grpc_client.put(tokio_stream::iter(vec![directory])).await });
 
         match self.tokio_handle.block_on(task)? {
-            Ok(put_directory_resp) => Ok(B3Digest::from_vec(
-                put_directory_resp.into_inner().root_digest,
-            )
-            .map_err(|_| {
-                Error::StorageError("invalid root digest length in response".to_string())
-            })?),
+            Ok(put_directory_resp) => Ok(put_directory_resp
+                .into_inner()
+                .root_digest
+                .try_into()
+                .map_err(|_| {
+                    Error::StorageError("invalid root digest length in response".to_string())
+                })?),
             Err(e) => Err(crate::Error::StorageError(e.to_string())),
         }
     }
@@ -265,7 +266,7 @@ impl Iterator for StreamIterator {
                     for child_directory in &directory.directories {
                         // We ran validate() above, so we know these digests must be correct.
                         let child_directory_digest =
-                            B3Digest::from_vec(child_directory.digest.clone()).unwrap();
+                            child_directory.digest.clone().try_into().unwrap();
 
                         self.expected_directory_digests
                             .insert(child_directory_digest);
@@ -355,7 +356,7 @@ impl DirectoryPutter for GRPCPutter {
                     .map_err(|e| Error::StorageError(e.to_string()))?
                     .root_digest;
 
-                B3Digest::from_vec(root_digest).map_err(|_| {
+                root_digest.try_into().map_err(|_| {
                     Error::StorageError("invalid root digest length in response".to_string())
                 })
             }

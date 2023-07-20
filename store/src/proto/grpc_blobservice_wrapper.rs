@@ -1,6 +1,4 @@
-use crate::{
-    blobservice::BlobService, proto::sync_read_into_async_read::SyncReadIntoAsyncRead, B3Digest,
-};
+use crate::{blobservice::BlobService, proto::sync_read_into_async_read::SyncReadIntoAsyncRead};
 use std::{
     collections::VecDeque,
     io,
@@ -96,7 +94,9 @@ impl super::blob_service_server::BlobService for GRPCBlobServiceWrapper {
         request: Request<super::StatBlobRequest>,
     ) -> Result<Response<super::BlobMeta>, Status> {
         let rq = request.into_inner();
-        let req_digest = B3Digest::from_vec(rq.digest)
+        let req_digest = rq
+            .digest
+            .try_into()
             .map_err(|_e| Status::invalid_argument("invalid digest length"))?;
 
         if rq.include_chunks || rq.include_bao {
@@ -117,7 +117,9 @@ impl super::blob_service_server::BlobService for GRPCBlobServiceWrapper {
     ) -> Result<Response<Self::ReadStream>, Status> {
         let rq = request.into_inner();
 
-        let req_digest = B3Digest::from_vec(rq.digest)
+        let req_digest = rq
+            .digest
+            .try_into()
             .map_err(|_e| Status::invalid_argument("invalid digest length"))?;
 
         match self.blob_service.open_read(&req_digest) {

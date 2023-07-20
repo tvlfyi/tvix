@@ -216,8 +216,8 @@ impl EvalIO for TvixStoreIO {
                         ))
                     }
                     crate::proto::node::Node::File(file_node) => {
-                        let digest =
-                            B3Digest::from_vec(file_node.digest.clone()).map_err(|_e| {
+                        let digest: B3Digest =
+                            file_node.digest.clone().try_into().map_err(|_e| {
                                 error!(
                                     file_node = ?file_node,
                                     "invalid digest"
@@ -272,16 +272,15 @@ impl EvalIO for TvixStoreIO {
                 match node {
                     crate::proto::node::Node::Directory(directory_node) => {
                         // fetch the Directory itself.
-                        let digest =
-                            B3Digest::from_vec(directory_node.digest.clone()).map_err(|_e| {
-                                io::Error::new(
-                                    io::ErrorKind::InvalidData,
-                                    format!(
-                                        "invalid digest length in directory node: {:?}",
-                                        directory_node
-                                    ),
-                                )
-                            })?;
+                        let digest = directory_node.digest.clone().try_into().map_err(|_e| {
+                            io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                format!(
+                                    "invalid digest length in directory node: {:?}",
+                                    directory_node
+                                ),
+                            )
+                        })?;
 
                         if let Some(directory) = self.directory_service.get(&digest)? {
                             let mut children: Vec<(Vec<u8>, FileType)> = Vec::new();

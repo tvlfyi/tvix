@@ -108,7 +108,7 @@ impl BlobWriter for MemoryBlobWriter {
             let (buf, hasher) = self.writers.take().unwrap();
 
             // We know self.hasher is doing blake3 hashing, so this won't fail.
-            let digest = B3Digest::from_vec(hasher.finalize().as_bytes().to_vec()).unwrap();
+            let digest: B3Digest = hasher.finalize().as_bytes().into();
 
             // Only insert if the blob doesn't already exist.
             let db = self.db.read()?;

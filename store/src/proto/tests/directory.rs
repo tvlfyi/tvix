@@ -1,7 +1,4 @@
-use crate::{
-    proto::{Directory, DirectoryNode, FileNode, SymlinkNode, ValidateDirectoryError},
-    B3Digest,
-};
+use crate::proto::{Directory, DirectoryNode, FileNode, SymlinkNode, ValidateDirectoryError};
 use lazy_static::lazy_static;
 
 lazy_static! {
@@ -69,11 +66,12 @@ fn digest() {
 
     assert_eq!(
         d.digest(),
-        B3Digest::from_vec(vec![
+        vec![
             0xaf, 0x13, 0x49, 0xb9, 0xf5, 0xf9, 0xa1, 0xa6, 0xa0, 0x40, 0x4d, 0xea, 0x36, 0xdc,
             0xc9, 0x49, 0x9b, 0xcb, 0x25, 0xc9, 0xad, 0xc1, 0x12, 0xb7, 0xcc, 0x9a, 0x93, 0xca,
             0xe4, 0x1f, 0x32, 0x62
-        ])
+        ]
+        .try_into()
         .unwrap()
     )
 }

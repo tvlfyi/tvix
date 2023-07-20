@@ -3,7 +3,6 @@ use crate::{
     blobservice::BlobService,
     directoryservice::DirectoryService,
     proto::{self, NamedNode},
-    B3Digest,
 };
 use count_write::CountWrite;
 use nix_compat::nar;
@@ -65,7 +64,7 @@ fn walk_node(
                 .map_err(RenderError::NARWriterError)?;
         }
         proto::node::Node::File(proto_file_node) => {
-            let digest = B3Digest::from_vec(proto_file_node.digest.clone()).map_err(|_e| {
+            let digest = proto_file_node.digest.clone().try_into().map_err(|_e| {
                 warn!(
                     file_node = ?proto_file_node,
                     "invalid digest length in file node",
@@ -96,8 +95,11 @@ fn walk_node(
                 .map_err(RenderError::NARWriterError)?;
         }
         proto::node::Node::Directory(proto_directory_node) => {
-            let digest =
-                B3Digest::from_vec(proto_directory_node.digest.to_vec()).map_err(|_e| {
+            let digest = proto_directory_node
+                .digest
+                .clone()
+                .try_into()
+                .map_err(|_e| {
                     RenderError::StoreError(crate::Error::StorageError(
                         "invalid digest len in directory node".to_string(),
                     ))

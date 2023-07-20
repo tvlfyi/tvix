@@ -35,7 +35,7 @@ impl<DS: DirectoryService> DirectoryTraverser<DS> {
     fn enqueue_child_directories(&mut self, directory: &proto::Directory) {
         for child_directory_node in &directory.directories {
             // TODO: propagate error
-            let child_digest = B3Digest::from_vec(child_directory_node.digest.clone()).unwrap();
+            let child_digest: B3Digest = child_directory_node.digest.clone().try_into().unwrap();
 
             if self.worklist_directory_digests.contains(&child_digest)
                 || self.sent_directory_digests.contains(&child_digest)
