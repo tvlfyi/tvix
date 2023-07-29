@@ -51,6 +51,18 @@ pub struct StorePath {
     pub name: String,
 }
 
+impl PartialOrd for StorePath {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.digest.partial_cmp(&other.digest)
+    }
+}
+
+impl Ord for StorePath {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.digest.cmp(&other.digest)
+    }
+}
+
 impl FromStr for StorePath {
     type Err = Error;
 
