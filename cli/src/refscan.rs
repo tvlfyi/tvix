@@ -4,8 +4,8 @@
 //! This is used for determining build references (see
 //! //tvix/eval/docs/build-references.md for more details).
 //!
-//! The scanner itself is an Aho-Corasick automaton, using the `aho-corasick`
-//! crate.
+//! The scanner itself is using the Wu-Manber string-matching algorithm, using
+//! our fork of the `wu-mamber` crate.
 
 use std::collections::BTreeSet;
 use wu_manber::TwoByteWM;
