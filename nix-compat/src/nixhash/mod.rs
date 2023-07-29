@@ -284,7 +284,7 @@ mod tests {
     fn from_str(digest: &[u8], algo: HashAlgo) {
         let expected_hash = NixHash {
             digest: digest.to_vec(),
-            algo: algo.clone(),
+            algo: algo,
         };
         // parse SRI
         {
