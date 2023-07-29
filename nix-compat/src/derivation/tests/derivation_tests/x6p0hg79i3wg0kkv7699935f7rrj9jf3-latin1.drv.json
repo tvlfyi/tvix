@@ -1,0 +1,21 @@
+{
+  "/nix/store/x6p0hg79i3wg0kkv7699935f7rrj9jf3-latin1.drv": {
+    "outputs": {
+      "out": {
+        "path": "/nix/store/x1f6jfq9qgb6i8jrmpifkn9c64fg4hcm-latin1"
+      }
+    },
+    "inputSrcs": [],
+    "inputDrvs": {},
+    "system": ":",
+    "builder": ":",
+    "args": [],
+    "env": {
+      "builder": ":",
+      "chars": "ÅÄÖ",
+      "name": "latin1",
+      "out": "/nix/store/x1f6jfq9qgb6i8jrmpifkn9c64fg4hcm-latin1",
+      "system": ":"
+    }
+  }
+}

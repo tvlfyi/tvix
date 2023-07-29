@@ -283,7 +283,7 @@ mod derivation_builtins {
             // Most of these are also added to the builder's environment in "raw" form.
             if drv
                 .environment
-                .insert(name.as_str().to_string(), val_str)
+                .insert(name.as_str().to_string(), val_str.into())
                 .is_some()
             {
                 return Err(Error::DuplicateEnvVar(name.as_str().to_string()).into());
@@ -312,7 +312,7 @@ mod derivation_builtins {
             } else {
                 let mut refscan = state.reference_scanner();
                 drv.arguments.iter().for_each(|s| refscan.scan_str(s));
-                drv.environment.values().for_each(|s| refscan.scan_str(s));
+                drv.environment.values().for_each(|s| refscan.scan_bytes(s));
                 refscan.scan_str(&drv.builder);
                 refscan.finalise()
             }
@@ -324,7 +324,7 @@ mod derivation_builtins {
         for output in drv.outputs.keys() {
             if drv
                 .environment
-                .insert(output.to_string(), String::new())
+                .insert(output.to_string(), String::new().into())
                 .is_some()
             {
                 emit_warning_kind(&co, WarningKind::ShadowedOutput(output.to_string())).await;

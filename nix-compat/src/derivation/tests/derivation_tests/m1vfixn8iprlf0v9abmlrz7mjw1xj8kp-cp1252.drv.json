@@ -1,0 +1,21 @@
+{
+  "/nix/store/m1vfixn8iprlf0v9abmlrz7mjw1xj8kp-cp1252.drv": {
+    "outputs": {
+      "out": {
+        "path": "/nix/store/drr2mjp9fp9vvzsf5f9p0a80j33dxy7m-cp1252"
+      }
+    },
+    "inputSrcs": [],
+    "inputDrvs": {},
+    "system": ":",
+    "builder": ":",
+    "args": [],
+    "env": {
+      "builder": ":",
+      "chars": "ÅÄÖ",
+      "name": "cp1252",
+      "out": "/nix/store/drr2mjp9fp9vvzsf5f9p0a80j33dxy7m-cp1252",
+      "system": ":"
+    }
+  }
+}

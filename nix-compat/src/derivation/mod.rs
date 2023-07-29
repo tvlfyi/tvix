@@ -1,13 +1,14 @@
 use crate::store_path::{
     self, build_output_path, build_regular_ca_path, build_text_path, StorePath,
 };
+use bstr::BString;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
 mod errors;
+mod escape;
 mod output;
-mod string_escape;
 mod validate;
 mod write;
 
@@ -27,7 +28,7 @@ pub struct Derivation {
     pub builder: String,
 
     #[serde(rename = "env")]
-    pub environment: BTreeMap<String, String>,
+    pub environment: BTreeMap<String, BString>,
 
     #[serde(rename = "inputDrvs")]
     pub input_derivations: BTreeMap<String, BTreeSet<String>>,
@@ -41,12 +42,12 @@ pub struct Derivation {
 }
 
 impl Derivation {
-    /// write the Derivation to the given [std::fmt::Write], in ATerm format.
+    /// write the Derivation to the given [std::io::Write], in ATerm format.
     ///
     /// The only errors returns are these when writing to the passed writer.
-    pub fn serialize(&self, writer: &mut impl std::fmt::Write) -> Result<(), std::fmt::Error> {
-        writer.write_str(write::DERIVATION_PREFIX)?;
-        writer.write_char(write::PAREN_OPEN)?;
+    pub fn serialize(&self, writer: &mut impl std::io::Write) -> Result<(), std::io::Error> {
+        write::write_str(writer, write::DERIVATION_PREFIX)?;
+        write::write_char(writer, write::PAREN_OPEN)?;
 
         write::write_outputs(writer, &self.outputs)?;
         write::write_input_derivations(writer, &self.input_derivations)?;
@@ -56,14 +57,14 @@ impl Derivation {
         write::write_arguments(writer, &self.arguments)?;
         write::write_enviroment(writer, &self.environment)?;
 
-        writer.write_char(write::PAREN_CLOSE)?;
+        write::write_char(writer, write::PAREN_CLOSE)?;
 
         Ok(())
     }
 
-    /// return the ATerm serialization as a string.
-    pub fn to_aterm_string(&self) -> String {
-        let mut buffer = String::new();
+    /// return the ATerm serialization.
+    pub fn to_aterm_bytes(&self) -> Vec<u8> {
+        let mut buffer: Vec<u8> = Vec::new();
 
         // invoke serialize and write to the buffer.
         // Note we only propagate errors writing to the writer in serialize,
@@ -93,7 +94,7 @@ impl Derivation {
             inputs
         };
 
-        build_text_path(name, self.to_aterm_string(), references)
+        build_text_path(name, self.to_aterm_bytes(), references)
             .map_err(|_e| DerivationError::InvalidOutputName(name.to_string()))
     }
 
@@ -165,7 +166,7 @@ impl Derivation {
 
             // write the ATerm of that to the hash function
             let mut hasher = Sha256::new();
-            hasher.update(replaced_derivation.to_aterm_string());
+            hasher.update(replaced_derivation.to_aterm_bytes());
 
             hasher.finalize().to_vec()
         });
@@ -218,8 +219,10 @@ impl Derivation {
             };
 
             output.path = abs_store_path.to_absolute_path();
-            self.environment
-                .insert(output_name.to_string(), abs_store_path.to_absolute_path());
+            self.environment.insert(
+                output_name.to_string(),
+                abs_store_path.to_absolute_path().into(),
+            );
         }
 
         Ok(())

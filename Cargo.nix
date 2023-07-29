@@ -829,6 +829,43 @@ rec {
         ];
 
       };
+      "bstr" = rec {
+        crateName = "bstr";
+        version = "1.6.0";
+        edition = "2021";
+        sha256 = "01bvsr3x9n75klbwxym0zf939vzim0plsmy786p0zzzvrj6i9637";
+        authors = [
+          "Andrew Gallant <jamslam@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "memchr";
+            packageId = "memchr";
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "regex-automata";
+            packageId = "regex-automata";
+            optional = true;
+            usesDefaultFeatures = false;
+            features = [ "dfa-search" ];
+          }
+          {
+            name = "serde";
+            packageId = "serde";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
+        ];
+        features = {
+          "alloc" = [ "serde?/alloc" ];
+          "default" = [ "std" "unicode" ];
+          "serde" = [ "dep:serde" ];
+          "std" = [ "alloc" "memchr/std" "serde?/std" ];
+          "unicode" = [ "dep:regex-automata" ];
+        };
+        resolvedDefaultFeatures = [ "alloc" "default" "serde" "std" "unicode" ];
+      };
       "bumpalo" = rec {
         crateName = "bumpalo";
         version = "3.12.1";
@@ -3856,6 +3893,11 @@ rec {
             packageId = "anyhow";
           }
           {
+            name = "bstr";
+            packageId = "bstr";
+            features = [ "alloc" "unicode" "serde" ];
+          }
+          {
             name = "data-encoding";
             packageId = "data-encoding";
           }
@@ -5336,6 +5378,46 @@ rec {
           "use_std" = [ "std" ];
         };
         resolvedDefaultFeatures = [ "aho-corasick" "default" "memchr" "perf" "perf-cache" "perf-dfa" "perf-inline" "perf-literal" "std" "unicode" "unicode-age" "unicode-bool" "unicode-case" "unicode-gencat" "unicode-perl" "unicode-script" "unicode-segment" ];
+      };
+      "regex-automata" = rec {
+        crateName = "regex-automata";
+        version = "0.3.4";
+        edition = "2021";
+        sha256 = "156jmvsbzd9arih42ninzkfgv7g93g6i2fdxc5gki53m1ccxddmp";
+        authors = [
+          "The Rust Project Developers"
+          "Andrew Gallant <jamslam@gmail.com>"
+        ];
+        features = {
+          "default" = [ "std" "syntax" "perf" "unicode" "meta" "nfa" "dfa" "hybrid" ];
+          "dfa" = [ "dfa-build" "dfa-search" "dfa-onepass" ];
+          "dfa-build" = [ "nfa-thompson" "dfa-search" ];
+          "dfa-onepass" = [ "nfa-thompson" ];
+          "hybrid" = [ "alloc" "nfa-thompson" ];
+          "internal-instrument" = [ "internal-instrument-pikevm" ];
+          "internal-instrument-pikevm" = [ "logging" "std" ];
+          "logging" = [ "dep:log" "aho-corasick?/logging" ];
+          "meta" = [ "syntax" "nfa-pikevm" ];
+          "nfa" = [ "nfa-thompson" "nfa-pikevm" "nfa-backtrack" ];
+          "nfa-backtrack" = [ "nfa-thompson" ];
+          "nfa-pikevm" = [ "nfa-thompson" ];
+          "nfa-thompson" = [ "alloc" ];
+          "perf" = [ "perf-inline" "perf-literal" ];
+          "perf-literal" = [ "perf-literal-substring" "perf-literal-multisubstring" ];
+          "perf-literal-multisubstring" = [ "std" "dep:aho-corasick" ];
+          "perf-literal-substring" = [ "aho-corasick?/perf-literal" "dep:memchr" ];
+          "std" = [ "regex-syntax?/std" "memchr?/std" "aho-corasick?/std" "alloc" ];
+          "syntax" = [ "dep:regex-syntax" "alloc" ];
+          "unicode" = [ "unicode-age" "unicode-bool" "unicode-case" "unicode-gencat" "unicode-perl" "unicode-script" "unicode-segment" "unicode-word-boundary" "regex-syntax?/unicode" ];
+          "unicode-age" = [ "regex-syntax?/unicode-age" ];
+          "unicode-bool" = [ "regex-syntax?/unicode-bool" ];
+          "unicode-case" = [ "regex-syntax?/unicode-case" ];
+          "unicode-gencat" = [ "regex-syntax?/unicode-gencat" ];
+          "unicode-perl" = [ "regex-syntax?/unicode-perl" ];
+          "unicode-script" = [ "regex-syntax?/unicode-script" ];
+          "unicode-segment" = [ "regex-syntax?/unicode-segment" ];
+        };
+        resolvedDefaultFeatures = [ "dfa-search" ];
       };
       "regex-syntax 0.6.29" = rec {
         crateName = "regex-syntax";

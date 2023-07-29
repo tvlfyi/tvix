@@ -37,7 +37,21 @@ impl<P: Clone + Ord + AsRef<[u8]>> ReferenceScanner<P> {
         }
     }
 
-    /// Scan the given string for all non-overlapping matches and collect them
+    /// If the given &[u8] is also a valid UTF-8 string, scan for all non-
+    /// overlapping matches and collect them in the scanner.
+    /// TODO: ideally, wu-manber would just work with &[u8] directly.
+    pub fn scan_bytes(&mut self, haystack: &[u8]) {
+        if haystack.len() < STORE_PATH_LEN {
+            return;
+        }
+
+        match std::str::from_utf8(haystack) {
+            Ok(s) => self.scan_str(s),
+            Err(_) => {}
+        }
+    }
+
+    /// Scan the given str for all non-overlapping matches and collect them
     /// in the scanner.
     pub fn scan_str(&mut self, haystack: &str) {
         if haystack.len() < STORE_PATH_LEN {
