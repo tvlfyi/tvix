@@ -37,29 +37,15 @@ impl<P: Clone + Ord + AsRef<[u8]>> ReferenceScanner<P> {
         }
     }
 
-    /// If the given &[u8] is also a valid UTF-8 string, scan for all non-
-    /// overlapping matches and collect them in the scanner.
-    /// TODO: ideally, wu-manber would just work with &[u8] directly.
-    pub fn scan_bytes(&mut self, haystack: &[u8]) {
-        if haystack.len() < STORE_PATH_LEN {
-            return;
-        }
-
-        match std::str::from_utf8(haystack) {
-            Ok(s) => self.scan_str(s),
-            Err(_) => {}
-        }
-    }
-
     /// Scan the given str for all non-overlapping matches and collect them
     /// in the scanner.
-    pub fn scan_str(&mut self, haystack: &str) {
-        if haystack.len() < STORE_PATH_LEN {
+    pub fn scan<S: AsRef<[u8]>>(&mut self, haystack: S) {
+        if haystack.as_ref().len() < STORE_PATH_LEN {
             return;
         }
 
         if let Some(searcher) = &self.searcher {
-            for m in searcher.find(&haystack) {
+            for m in searcher.find(haystack) {
                 self.matches.push(m.pat_idx);
             }
         }
@@ -85,7 +71,7 @@ mod tests {
     fn test_no_patterns() {
         let mut scanner: ReferenceScanner<String> = ReferenceScanner::new(vec![]);
 
-        scanner.scan_str(HELLO_DRV);
+        scanner.scan(HELLO_DRV);
 
         let result = scanner.finalise();
 
@@ -97,7 +83,7 @@ mod tests {
         let mut scanner = ReferenceScanner::new(vec![
             "/nix/store/4xw8n979xpivdc46a9ndcvyhwgif00hz-bash-5.1-p16".to_string(),
         ]);
-        scanner.scan_str(HELLO_DRV);
+        scanner.scan(HELLO_DRV);
 
         let result = scanner.finalise();
 
@@ -117,7 +103,7 @@ mod tests {
         ];
 
         let mut scanner = ReferenceScanner::new(candidates.clone());
-        scanner.scan_str(HELLO_DRV);
+        scanner.scan(HELLO_DRV);
 
         let result = scanner.finalise();
         assert_eq!(result.len(), 3);

@@ -311,9 +311,9 @@ mod derivation_builtins {
                 Default::default()
             } else {
                 let mut refscan = state.reference_scanner();
-                drv.arguments.iter().for_each(|s| refscan.scan_str(s));
-                drv.environment.values().for_each(|s| refscan.scan_bytes(s));
-                refscan.scan_str(&drv.builder);
+                drv.arguments.iter().for_each(|s| refscan.scan(s));
+                drv.environment.values().for_each(|s| refscan.scan(s));
+                refscan.scan(&drv.builder);
                 refscan.finalise()
             }
         };
@@ -400,7 +400,7 @@ mod derivation_builtins {
             .context("evaluating the `content` parameter of builtins.toFile")?;
 
         let mut refscan = state.borrow().reference_scanner();
-        refscan.scan_str(content.as_str());
+        refscan.scan(content.as_str());
         let refs = {
             let paths = state.borrow();
             refscan
