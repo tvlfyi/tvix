@@ -5,6 +5,7 @@ use bstr::BString;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
+use std::io;
 
 mod errors;
 mod escape;
@@ -45,8 +46,8 @@ impl Derivation {
     /// write the Derivation to the given [std::io::Write], in ATerm format.
     ///
     /// The only errors returns are these when writing to the passed writer.
-    pub fn serialize(&self, writer: &mut impl std::io::Write) -> Result<(), std::io::Error> {
-        write::write_str(writer, write::DERIVATION_PREFIX)?;
+    pub fn serialize(&self, writer: &mut impl std::io::Write) -> Result<(), io::Error> {
+        io::copy(&mut io::Cursor::new(write::DERIVATION_PREFIX), writer)?;
         write::write_char(writer, write::PAREN_OPEN)?;
 
         write::write_outputs(writer, &self.outputs)?;

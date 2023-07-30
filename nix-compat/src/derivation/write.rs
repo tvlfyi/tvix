@@ -26,38 +26,36 @@ pub(crate) fn write_char(writer: &mut impl Write, c: char) -> io::Result<()> {
     Ok(())
 }
 
-// Writes a string to the writer (as unicode)
-pub(crate) fn write_str(writer: &mut impl Write, s: &str) -> io::Result<()> {
-    io::copy(&mut Cursor::new(s.as_bytes()), writer)?;
+// Write a string `s` as a quoted field to the writer.
+// The `escape` argument controls whether escaping will be skipped.
+// This is the case if `s` is known to only contain characters that need no
+// escaping.
+pub(crate) fn write_field<S: AsRef<[u8]>>(
+    writer: &mut impl Write,
+    s: S,
+    escape: bool,
+) -> io::Result<()> {
+    write_char(writer, QUOTE)?;
+
+    if !escape {
+        io::copy(&mut Cursor::new(s), writer)?;
+    } else {
+        io::copy(&mut Cursor::new(escape_bstr(s.as_ref())), writer)?;
+    }
+
+    write_char(writer, QUOTE)?;
+
     Ok(())
 }
 
-fn write_array_elements(
-    writer: &mut impl Write,
-    quote: bool,
-    open: &str,
-    closing: &str,
-    elements: &[BString],
-) -> Result<(), io::Error> {
-    write_str(writer, open)?;
-
+fn write_array_elements(writer: &mut impl Write, elements: &[BString]) -> Result<(), io::Error> {
     for (index, element) in elements.iter().enumerate() {
         if index > 0 {
             write_char(writer, COMMA)?;
         }
 
-        if quote {
-            write_char(writer, QUOTE)?;
-        }
-
-        io::copy(&mut Cursor::new(element), writer)?;
-
-        if quote {
-            write_char(writer, QUOTE)?;
-        }
+        write_field(writer, element, true)?;
     }
-
-    write_str(writer, closing)?;
 
     Ok(())
 }
@@ -94,13 +92,11 @@ pub fn write_outputs(
         elements.push(e2.into());
         elements.push(e3.into());
 
-        write_array_elements(
-            writer,
-            true,
-            &PAREN_OPEN.to_string(),
-            &PAREN_CLOSE.to_string(),
-            &elements,
-        )?
+        write_char(writer, PAREN_OPEN)?;
+
+        write_array_elements(writer, &elements)?;
+
+        write_char(writer, PAREN_CLOSE)?;
     }
     write_char(writer, BRACKET_CLOSE)?;
 
@@ -121,21 +117,18 @@ pub fn write_input_derivations(
         }
 
         write_char(writer, PAREN_OPEN)?;
-        write_char(writer, QUOTE)?;
-        write_str(writer, input_derivation_path.as_str())?;
-        write_char(writer, QUOTE)?;
+        write_field(writer, input_derivation_path.as_str(), false)?;
         write_char(writer, COMMA)?;
 
+        write_char(writer, BRACKET_OPEN)?;
         write_array_elements(
             writer,
-            true,
-            &BRACKET_OPEN.to_string(),
-            &BRACKET_CLOSE.to_string(),
             &input_derivation
                 .iter()
                 .map(|s| s.as_bytes().to_vec().into())
                 .collect::<Vec<BString>>(),
         )?;
+        write_char(writer, BRACKET_CLOSE)?;
 
         write_char(writer, PAREN_CLOSE)?;
     }
@@ -151,43 +144,42 @@ pub fn write_input_sources(
 ) -> Result<(), io::Error> {
     write_char(writer, COMMA)?;
 
+    write_char(writer, BRACKET_OPEN)?;
     write_array_elements(
         writer,
-        true,
-        &BRACKET_OPEN.to_string(),
-        &BRACKET_CLOSE.to_string(),
         &input_sources
             .iter()
             .map(|s| s.as_bytes().to_vec().into())
             .collect::<Vec<BString>>(),
     )?;
+    write_char(writer, BRACKET_CLOSE)?;
 
     Ok(())
 }
 
 pub fn write_system(writer: &mut impl Write, platform: &str) -> Result<(), Error> {
     write_char(writer, COMMA)?;
-    io::copy(&mut Cursor::new(escape_bstr(platform.as_bytes())), writer)?;
+    write_field(writer, platform, true)?;
     Ok(())
 }
 
 pub fn write_builder(writer: &mut impl Write, builder: &str) -> Result<(), Error> {
     write_char(writer, COMMA)?;
-    io::copy(&mut Cursor::new(escape_bstr(builder.as_bytes())), writer)?;
+    write_field(writer, builder, true)?;
     Ok(())
 }
 pub fn write_arguments(writer: &mut impl Write, arguments: &[String]) -> Result<(), io::Error> {
     write_char(writer, COMMA)?;
+
+    write_char(writer, BRACKET_OPEN)?;
     write_array_elements(
         writer,
-        true,
-        &BRACKET_OPEN.to_string(),
-        &BRACKET_CLOSE.to_string(),
         &arguments
             .iter()
             .map(|s| s.as_bytes().to_vec().into())
             .collect::<Vec<BString>>(),
     )?;
+    write_char(writer, BRACKET_CLOSE)?;
 
     Ok(())
 }
@@ -204,13 +196,11 @@ pub fn write_enviroment(
             write_char(writer, COMMA)?;
         }
 
-        write_array_elements(
-            writer,
-            false,
-            &PAREN_OPEN.to_string(),
-            &PAREN_CLOSE.to_string(),
-            &[escape_bstr(k.as_bytes()), escape_bstr(v)],
-        )?;
+        write_char(writer, PAREN_OPEN)?;
+        write_field(writer, k, false)?;
+        write_char(writer, COMMA)?;
+        write_field(writer, v, true)?;
+        write_char(writer, PAREN_CLOSE)?;
     }
 
     write_char(writer, BRACKET_CLOSE)?;
