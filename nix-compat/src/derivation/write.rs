@@ -107,7 +107,6 @@ pub fn write_input_derivations(
     writer: &mut impl Write,
     input_derivations: &BTreeMap<String, BTreeSet<String>>,
 ) -> Result<(), io::Error> {
-    write_char(writer, COMMA)?;
     write_char(writer, BRACKET_OPEN)?;
 
     for (ii, (input_derivation_path, input_derivation)) in input_derivations.into_iter().enumerate()
@@ -142,8 +141,6 @@ pub fn write_input_sources(
     writer: &mut impl Write,
     input_sources: &BTreeSet<String>,
 ) -> Result<(), io::Error> {
-    write_char(writer, COMMA)?;
-
     write_char(writer, BRACKET_OPEN)?;
     write_array_elements(
         writer,
@@ -158,19 +155,16 @@ pub fn write_input_sources(
 }
 
 pub fn write_system(writer: &mut impl Write, platform: &str) -> Result<(), Error> {
-    write_char(writer, COMMA)?;
     write_field(writer, platform, true)?;
     Ok(())
 }
 
 pub fn write_builder(writer: &mut impl Write, builder: &str) -> Result<(), Error> {
-    write_char(writer, COMMA)?;
     write_field(writer, builder, true)?;
     Ok(())
 }
-pub fn write_arguments(writer: &mut impl Write, arguments: &[String]) -> Result<(), io::Error> {
-    write_char(writer, COMMA)?;
 
+pub fn write_arguments(writer: &mut impl Write, arguments: &[String]) -> Result<(), io::Error> {
     write_char(writer, BRACKET_OPEN)?;
     write_array_elements(
         writer,
@@ -188,7 +182,6 @@ pub fn write_enviroment(
     writer: &mut impl Write,
     environment: &BTreeMap<String, BString>,
 ) -> Result<(), io::Error> {
-    write_char(writer, COMMA)?;
     write_char(writer, BRACKET_OPEN)?;
 
     for (i, (k, v)) in environment.into_iter().enumerate() {
