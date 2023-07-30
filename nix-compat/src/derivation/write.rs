@@ -48,7 +48,10 @@ pub(crate) fn write_field<S: AsRef<[u8]>>(
     Ok(())
 }
 
-fn write_array_elements(writer: &mut impl Write, elements: &[BString]) -> Result<(), io::Error> {
+fn write_array_elements<S: AsRef<[u8]>>(
+    writer: &mut impl Write,
+    elements: &[S],
+) -> Result<(), io::Error> {
     for (index, element) in elements.iter().enumerate() {
         if index > 0 {
             write_char(writer, COMMA)?;
@@ -70,29 +73,26 @@ pub fn write_outputs(
             write_char(writer, COMMA)?;
         }
 
-        let mut elements: Vec<BString> = vec![
-            output_name.as_bytes().to_vec().into(),
-            output.path.as_bytes().to_vec().into(),
-        ];
+        write_char(writer, PAREN_OPEN)?;
+
+        let mut elements: Vec<&str> = vec![output_name, &output.path];
 
         let (e2, e3) = match &output.hash_with_mode {
             Some(hash) => match hash {
                 crate::nixhash::NixHashWithMode::Flat(h) => (
-                    h.algo.to_string().as_bytes().to_vec(),
-                    data_encoding::HEXLOWER.encode(&h.digest).as_bytes().into(),
+                    h.algo.to_string(),
+                    data_encoding::HEXLOWER.encode(&h.digest),
                 ),
                 crate::nixhash::NixHashWithMode::Recursive(h) => (
-                    format!("r:{}", h.algo).as_bytes().to_vec(),
-                    data_encoding::HEXLOWER.encode(&h.digest).as_bytes().into(),
+                    format!("r:{}", h.algo),
+                    data_encoding::HEXLOWER.encode(&h.digest),
                 ),
             },
-            None => (vec![], vec![]),
+            None => ("".to_string(), "".to_string()),
         };
 
-        elements.push(e2.into());
-        elements.push(e3.into());
-
-        write_char(writer, PAREN_OPEN)?;
+        elements.push(&e2);
+        elements.push(&e3);
 
         write_array_elements(writer, &elements)?;
 
