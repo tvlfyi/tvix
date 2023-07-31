@@ -196,6 +196,9 @@ fn derivation_or_fod_hash(drv_path: &str, expected_nix_hash_string: &str) {
     assert_eq!(expected_nix_hash_string, actual.to_nix_hash_string());
 }
 
+/// This reads a Derivation (in A-Term), trims out all fields containing
+/// calculated output paths, then triggers the output path calculation and
+/// compares the struct to match what was originally read in.
 #[test_case("bar","0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv"; "fixed_sha256")]
 #[test_case("foo", "4wvvbi4jwn0prsdxb7vs673qa5h9gr7x-foo.drv"; "simple-sha256")]
 #[test_case("bar", "ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv"; "fixed-sha1")]
@@ -203,12 +206,17 @@ fn derivation_or_fod_hash(drv_path: &str, expected_nix_hash_string: &str) {
 #[test_case("has-multi-out", "h32dahq0bx5rp1krcdx3a53asj21jvhk-has-multi-out.drv"; "multiple-outputs")]
 #[test_case("structured-attrs", "9lj1lkjm2ag622mh4h9rpy6j607an8g2-structured-attrs.drv"; "structured-attrs")]
 #[test_case("unicode", "52a9id8hx688hvlnz4d1n25ml1jdykz0-unicode.drv"; "unicode")]
+#[test_case("cp1252", "m1vfixn8iprlf0v9abmlrz7mjw1xj8kp-cp1252.drv"; "cp1252")]
+#[test_case("latin1", "x6p0hg79i3wg0kkv7699935f7rrj9jf3-latin1.drv"; "latin1")]
 fn output_paths(name: &str, drv_path: &str) {
-    // read in the fixture
-    let json_bytes = read_file(&format!("{}/ok/{}.json", RESOURCES_PATHS, drv_path));
-    let expected_derivation: Derivation =
-        serde_json::from_slice(&json_bytes).expect("must deserialize");
+    // read in the derivation
+    let expected_derivation = Derivation::from_aterm_bytes(
+        read_file(&format!("{}/ok/{}", RESOURCES_PATHS, drv_path)).as_ref(),
+    )
+    .expect("must succeed");
 
+    // create a version with trimmed output paths, simulating we constructed
+    // the struct.
     let mut derivation = derivation_with_trimmed_output_paths(&expected_derivation);
 
     // calculate the derivation_or_fod_hash of derivation
