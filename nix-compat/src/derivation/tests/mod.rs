@@ -24,7 +24,7 @@ fn read_file(path: &str) -> BString {
 }
 
 #[test_resources("src/derivation/tests/derivation_tests/*.drv")]
-fn check_serizaliation(path_to_drv_file: &str) {
+fn check_serialization(path_to_drv_file: &str) {
     // skip JSON files known to fail parsing
     if path_to_drv_file.ends_with("cp1252.drv") || path_to_drv_file.ends_with("latin1.drv") {
         return;
