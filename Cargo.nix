@@ -1636,7 +1636,7 @@ rec {
           "stable" = [ "csv_output" "html_reports" "async_futures" "async_smol" "async_tokio" "async_std" ];
           "tokio" = [ "dep:tokio" ];
         };
-        resolvedDefaultFeatures = [ "cargo_bench_support" "default" "plotters" "rayon" ];
+        resolvedDefaultFeatures = [ "cargo_bench_support" "default" "html_reports" "plotters" "rayon" ];
       };
       "criterion-plot" = rec {
         crateName = "criterion-plot";
@@ -4230,6 +4230,11 @@ rec {
           }
         ];
         devDependencies = [
+          {
+            name = "criterion";
+            packageId = "criterion";
+            features = [ "html_reports" ];
+          }
           {
             name = "futures";
             packageId = "futures";

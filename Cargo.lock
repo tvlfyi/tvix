@@ -1430,6 +1430,7 @@ name = "nix-compat"
 version = "0.1.0"
 dependencies = [
  "bstr",
+ "criterion",
  "data-encoding",
  "futures",
  "futures-util",

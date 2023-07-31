@@ -24,9 +24,14 @@ futures = { version = "0.3.28", default-features = false, features = ["executor"
 lazy_static = "1.4.0"
 serde_json = "1.0"
 test-case = "2.2.2"
+criterion = { version = "0.4", features = ["html_reports"] }
 
 [dev-dependencies.test-generator]
 # This fork of test-generator adds support for cargo workspaces, see
 # also https://github.com/frehberg/test-generator/pull/14
 git = "https://github.com/JamesGuthrie/test-generator.git"
 rev = "82e799979980962aec1aa324ec6e0e4cad781f41"
+
+[[bench]]
+name = "derivation_parse_aterm"
+harness = false
