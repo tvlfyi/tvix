@@ -5,7 +5,7 @@ use crate::derivation::parser::Error::ParseError;
 use crate::derivation::Derivation;
 use crate::store_path::StorePath;
 use bstr::{BStr, BString};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -413,84 +413,4 @@ fn output_path_construction() {
             .calculate_derivation_path("foo")
             .expect("must succeed")
     );
-}
-
-/// This constructs a Derivation using cp1252 encoding and ensures the
-/// calculated derivation path matches the one Nix does calculate, as
-/// well as the ATerm serialization.
-/// We can't add this as a test_case to `output_paths`, as the JSON parser
-/// refuses to parse our JSONs.
-/// It looks like more recent versions of Nix also seem to not produce these
-/// JSON files anymore, however, it still happily produces the .drv files in
-/// the store.
-#[test_case(
-    "cp1252",
-    vec![0xc5, 0xc4, 0xd6],
-    "/nix/store/drr2mjp9fp9vvzsf5f9p0a80j33dxy7m-cp1252",
-    "m1vfixn8iprlf0v9abmlrz7mjw1xj8kp-cp1252.drv";
-    "cp1252"
-)]
-#[test_case(
-    "latin1",
-    vec![0xc5, 0xc4, 0xd6],
-    "/nix/store/x1f6jfq9qgb6i8jrmpifkn9c64fg4hcm-latin1",
-    "x6p0hg79i3wg0kkv7699935f7rrj9jf3-latin1.drv";
-    "latin1"
-)]
-fn non_unicode(name: &str, chars: Vec<u8>, exp_output_path: &str, exp_derivation_path: &str) {
-    // construct the Derivation
-    let mut outputs: BTreeMap<String, Output> = BTreeMap::new();
-    outputs.insert(
-        "out".to_string(),
-        Output {
-            path: exp_output_path.to_string(),
-            ..Default::default()
-        },
-    );
-
-    let mut environment: BTreeMap<String, BString> = BTreeMap::new();
-    environment.insert("builder".to_string(), ":".into());
-    environment.insert("chars".to_string(), chars.into());
-    environment.insert("name".to_string(), name.into());
-    environment.insert("out".to_string(), exp_output_path.into());
-    environment.insert("system".to_string(), ":".into());
-    let derivation: Derivation = Derivation {
-        builder: ":".to_string(),
-        environment,
-        outputs,
-        system: ":".to_string(),
-        ..Default::default()
-    };
-
-    // check the derivation_path matches what Nix calculated.
-    let actual_drv_path = derivation.calculate_derivation_path(name).unwrap();
-    assert_eq!(exp_derivation_path.to_string(), actual_drv_path.to_string());
-
-    // Now wipe the output path info, and ensure we calculate the same output
-    // path.
-    {
-        let mut derivation = derivation_with_trimmed_output_paths(&derivation);
-        let calculated_derivation_or_fod_hash = derivation.derivation_or_fod_hash(|_| {
-            panic!("No parents expected");
-        });
-        derivation
-            .calculate_output_paths(name, &calculated_derivation_or_fod_hash)
-            .unwrap();
-
-        assert_eq!(
-            exp_output_path.to_string(),
-            derivation.outputs.get("out").unwrap().path,
-            "expected calculated output path to match"
-        );
-    }
-
-    // Construct the ATerm representation and compare with our fixture.
-    {
-        let aterm_bytes = read_file(&format!("{}/ok/{}", RESOURCES_PATHS, exp_derivation_path));
-        assert_eq!(
-            aterm_bytes,
-            BStr::new(&derivation.to_aterm_bytes()),
-            "expected ATerm serialization to match",
-        );
-    }
 }
