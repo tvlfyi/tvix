@@ -6,9 +6,12 @@
 use crate::derivation::escape::escape_bstr;
 use crate::derivation::output::Output;
 use bstr::BString;
-use std::collections::BTreeSet;
-use std::io::Cursor;
-use std::{collections::BTreeMap, io, io::Error, io::Write};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    io,
+    io::Error,
+    io::Write,
+};
 
 pub const DERIVATION_PREFIX: &str = "Derive";
 pub const PAREN_OPEN: char = '(';
@@ -22,8 +25,7 @@ pub const QUOTE: char = '"';
 pub(crate) fn write_char(writer: &mut impl Write, c: char) -> io::Result<()> {
     let mut buf = [0; 4];
     let b = c.encode_utf8(&mut buf).as_bytes();
-    io::copy(&mut Cursor::new(b), writer)?;
-    Ok(())
+    writer.write_all(b)
 }
 
 // Write a string `s` as a quoted field to the writer.
@@ -38,9 +40,9 @@ pub(crate) fn write_field<S: AsRef<[u8]>>(
     write_char(writer, QUOTE)?;
 
     if !escape {
-        io::copy(&mut Cursor::new(s), writer)?;
+        writer.write_all(s.as_ref())?;
     } else {
-        io::copy(&mut Cursor::new(escape_bstr(s.as_ref())), writer)?;
+        writer.write_all(&escape_bstr(s.as_ref()))?;
     }
 
     write_char(writer, QUOTE)?;

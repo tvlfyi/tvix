@@ -47,7 +47,7 @@ impl Derivation {
     ///
     /// The only errors returns are these when writing to the passed writer.
     pub fn serialize(&self, writer: &mut impl std::io::Write) -> Result<(), io::Error> {
-        io::copy(&mut io::Cursor::new(write::DERIVATION_PREFIX), writer)?;
+        writer.write_all(write::DERIVATION_PREFIX.as_bytes())?;
         write::write_char(writer, write::PAREN_OPEN)?;
 
         write::write_outputs(writer, &self.outputs)?;
