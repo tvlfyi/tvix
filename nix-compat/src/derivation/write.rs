@@ -126,8 +126,8 @@ pub fn write_input_derivations(
             writer,
             &input_derivation
                 .iter()
-                .map(|s| s.as_bytes().to_vec().into())
-                .collect::<Vec<BString>>(),
+                .map(String::as_bytes)
+                .collect::<Vec<_>>(),
         )?;
         write_char(writer, BRACKET_CLOSE)?;
 
@@ -146,10 +146,7 @@ pub fn write_input_sources(
     write_char(writer, BRACKET_OPEN)?;
     write_array_elements(
         writer,
-        &input_sources
-            .iter()
-            .map(|s| s.as_bytes().to_vec().into())
-            .collect::<Vec<BString>>(),
+        &input_sources.iter().map(String::from).collect::<Vec<_>>(),
     )?;
     write_char(writer, BRACKET_CLOSE)?;
 
