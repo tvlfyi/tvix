@@ -16,11 +16,11 @@ const RESOURCES_PATHS: &str = "src/derivation/tests/derivation_tests";
 fn read_file(path: &str) -> BString {
     let path = Path::new(path);
     let mut file = File::open(path).unwrap();
-    let mut data = Vec::new();
+    let mut file_contents = Vec::new();
 
-    file.read_to_end(&mut data).unwrap();
+    file.read_to_end(&mut file_contents).unwrap();
 
-    data.into()
+    file_contents.into()
 }
 
 #[test_resources("src/derivation/tests/derivation_tests/*.drv")]
@@ -29,9 +29,9 @@ fn check_serizaliation(path_to_drv_file: &str) {
     if path_to_drv_file.ends_with("cp1252.drv") || path_to_drv_file.ends_with("latin1.drv") {
         return;
     }
-    let data = read_file(&format!("{}.json", path_to_drv_file));
+    let json_bytes = read_file(&format!("{}.json", path_to_drv_file));
     let derivation: Derivation =
-        serde_json::from_slice(&data).expect("JSON was not well-formatted");
+        serde_json::from_slice(&json_bytes).expect("JSON was not well-formatted");
 
     let mut serialized_derivation = Vec::new();
     derivation.serialize(&mut serialized_derivation).unwrap();
@@ -47,9 +47,9 @@ fn validate(path_to_drv_file: &str) {
     if path_to_drv_file.ends_with("cp1252.drv") || path_to_drv_file.ends_with("latin1.drv") {
         return;
     }
-    let data = read_file(&format!("{}.json", path_to_drv_file));
+    let json_bytes = read_file(&format!("{}.json", path_to_drv_file));
     let derivation: Derivation =
-        serde_json::from_slice(&data).expect("JSON was not well-formatted");
+        serde_json::from_slice(&json_bytes).expect("JSON was not well-formatted");
 
     derivation
         .validate(true)
@@ -62,9 +62,9 @@ fn check_to_aterm_bytes(path_to_drv_file: &str) {
     if path_to_drv_file.ends_with("cp1252.drv") || path_to_drv_file.ends_with("latin1.drv") {
         return;
     }
-    let data = read_file(&format!("{}.json", path_to_drv_file));
+    let json_bytes = read_file(&format!("{}.json", path_to_drv_file));
     let derivation: Derivation =
-        serde_json::from_slice(&data).expect("JSON was not well-formatted");
+        serde_json::from_slice(&json_bytes).expect("JSON was not well-formatted");
 
     let expected = read_file(path_to_drv_file);
 
@@ -79,9 +79,9 @@ fn check_to_aterm_bytes(path_to_drv_file: &str) {
 #[test_case("structured-attrs", "9lj1lkjm2ag622mh4h9rpy6j607an8g2-structured-attrs.drv"; "structured-attrs")]
 #[test_case("unicode", "52a9id8hx688hvlnz4d1n25ml1jdykz0-unicode.drv"; "unicode")]
 fn derivation_path(name: &str, expected_path: &str) {
-    let data = read_file(&format!("{}/{}.json", RESOURCES_PATHS, expected_path));
+    let json_bytes = read_file(&format!("{}/{}.json", RESOURCES_PATHS, expected_path));
     let derivation: Derivation =
-        serde_json::from_slice(&data).expect("JSON was not well-formatted");
+        serde_json::from_slice(&json_bytes).expect("JSON was not well-formatted");
 
     assert_eq!(
         derivation.calculate_derivation_path(name).unwrap(),
@@ -119,8 +119,8 @@ fn derivation_with_trimmed_output_paths(derivation: &Derivation) -> Derivation {
 #[test_case("ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv", "sha256:c79aebd0ce3269393d4a1fde2cbd1d975d879b40f0bf40a48f550edc107fd5df";"fixed-sha1")]
 fn derivation_or_fod_hash(drv_path: &str, expected_nix_hash_string: &str) {
     // read in the fixture
-    let data = read_file(&format!("{}/{}.json", RESOURCES_PATHS, drv_path));
-    let drv: Derivation = serde_json::from_slice(&data).expect("must deserialize");
+    let json_bytes = read_file(&format!("{}/{}.json", RESOURCES_PATHS, drv_path));
+    let drv: Derivation = serde_json::from_slice(&json_bytes).expect("must deserialize");
 
     let actual = drv.derivation_or_fod_hash(|_| panic!("must not be called"));
 
@@ -136,8 +136,9 @@ fn derivation_or_fod_hash(drv_path: &str, expected_nix_hash_string: &str) {
 #[test_case("unicode", "52a9id8hx688hvlnz4d1n25ml1jdykz0-unicode.drv"; "unicode")]
 fn output_paths(name: &str, drv_path: &str) {
     // read in the fixture
-    let data = read_file(&format!("{}/{}.json", RESOURCES_PATHS, drv_path));
-    let expected_derivation: Derivation = serde_json::from_slice(&data).expect("must deserialize");
+    let json_bytes = read_file(&format!("{}/{}.json", RESOURCES_PATHS, drv_path));
+    let expected_derivation: Derivation =
+        serde_json::from_slice(&json_bytes).expect("must deserialize");
 
     let mut derivation = derivation_with_trimmed_output_paths(&expected_derivation);
 
@@ -156,7 +157,7 @@ fn output_paths(name: &str, drv_path: &str) {
             // drv_name, and calculating its drv replacement (on the non-stripped version)
             // In a real-world scenario you would have already done this during construction.
 
-            let data = read_file(&format!(
+            let json_bytes = read_file(&format!(
                 "{}/{}.json",
                 RESOURCES_PATHS,
                 Path::new(parent_drv_path)
@@ -165,7 +166,7 @@ fn output_paths(name: &str, drv_path: &str) {
                     .to_string_lossy()
             ));
 
-            let drv: Derivation = serde_json::from_slice(&data).expect("must deserialize");
+            let drv: Derivation = serde_json::from_slice(&json_bytes).expect("must deserialize");
 
             // calculate derivation_or_fod_hash for each parent.
             // This may not trigger subsequent requests, as both parents are FOD.
@@ -257,11 +258,12 @@ fn output_path_construction() {
     assert!(bar_calc_result.is_ok());
 
     // ensure it matches our bar fixture
-    let bar_data = read_file(&format!(
+    let bar_json_bytes = read_file(&format!(
         "{}/{}.json",
         RESOURCES_PATHS, "0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv"
     ));
-    let bar_drv_expected: Derivation = serde_json::from_slice(&bar_data).expect("must deserialize");
+    let bar_drv_expected: Derivation =
+        serde_json::from_slice(&bar_json_bytes).expect("must deserialize");
     assert_eq!(bar_drv_expected, bar_drv);
 
     // now construct foo, which requires bar_drv
@@ -317,11 +319,12 @@ fn output_path_construction() {
     assert!(foo_calc_result.is_ok());
 
     // ensure it matches our foo fixture
-    let foo_data = read_file(&format!(
+    let foo_json_bytes = read_file(&format!(
         "{}/{}.json",
         RESOURCES_PATHS, "4wvvbi4jwn0prsdxb7vs673qa5h9gr7x-foo.drv",
     ));
-    let foo_drv_expected: Derivation = serde_json::from_slice(&foo_data).expect("must deserialize");
+    let foo_drv_expected: Derivation =
+        serde_json::from_slice(&foo_json_bytes).expect("must deserialize");
     assert_eq!(foo_drv_expected, foo_drv);
 
     assert_eq!(
@@ -403,9 +406,9 @@ fn non_unicode(name: &str, chars: Vec<u8>, exp_output_path: &str, exp_derivation
 
     // Construct the ATerm representation and compare with our fixture.
     {
-        let data = read_file(&format!("{}/{}", RESOURCES_PATHS, exp_derivation_path));
+        let aterm_bytes = read_file(&format!("{}/{}", RESOURCES_PATHS, exp_derivation_path));
         assert_eq!(
-            data,
+            aterm_bytes,
             BStr::new(&derivation.to_aterm_bytes()),
             "expected ATerm serialization to match",
         );
