@@ -47,30 +47,32 @@ impl Derivation {
     ///
     /// The only errors returns are these when writing to the passed writer.
     pub fn serialize(&self, writer: &mut impl std::io::Write) -> Result<(), io::Error> {
+        use write::*;
+
         writer.write_all(write::DERIVATION_PREFIX.as_bytes())?;
-        write::write_char(writer, write::PAREN_OPEN)?;
+        write_char(writer, write::PAREN_OPEN)?;
 
-        write::write_outputs(writer, &self.outputs)?;
-        write::write_char(writer, write::COMMA)?;
+        write_outputs(writer, &self.outputs)?;
+        write_char(writer, COMMA)?;
 
-        write::write_input_derivations(writer, &self.input_derivations)?;
-        write::write_char(writer, write::COMMA)?;
+        write_input_derivations(writer, &self.input_derivations)?;
+        write_char(writer, COMMA)?;
 
-        write::write_input_sources(writer, &self.input_sources)?;
-        write::write_char(writer, write::COMMA)?;
+        write_input_sources(writer, &self.input_sources)?;
+        write_char(writer, COMMA)?;
 
-        write::write_system(writer, &self.system)?;
-        write::write_char(writer, write::COMMA)?;
+        write_system(writer, &self.system)?;
+        write_char(writer, COMMA)?;
 
-        write::write_builder(writer, &self.builder)?;
-        write::write_char(writer, write::COMMA)?;
+        write_builder(writer, &self.builder)?;
+        write_char(writer, COMMA)?;
 
-        write::write_arguments(writer, &self.arguments)?;
-        write::write_char(writer, write::COMMA)?;
+        write_arguments(writer, &self.arguments)?;
+        write_char(writer, COMMA)?;
 
-        write::write_enviroment(writer, &self.environment)?;
+        write_enviroment(writer, &self.environment)?;
 
-        write::write_char(writer, write::PAREN_CLOSE)?;
+        write_char(writer, PAREN_CLOSE)?;
 
         Ok(())
     }
