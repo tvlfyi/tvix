@@ -3895,6 +3895,19 @@ rec {
         ];
 
       };
+      "minimal-lexical" = rec {
+        crateName = "minimal-lexical";
+        version = "0.2.1";
+        edition = "2018";
+        sha256 = "16ppc5g84aijpri4jzv14rvcnslvlpphbszc7zzp6vfkddf4qdb8";
+        authors = [
+          "Alex Huszagh <ahuszagh@gmail.com>"
+        ];
+        features = {
+          "default" = [ "std" ];
+        };
+        resolvedDefaultFeatures = [ "std" ];
+      };
       "miniz_oxide" = rec {
         crateName = "miniz_oxide";
         version = "0.7.1";
@@ -4191,6 +4204,14 @@ rec {
             features = [ "io" ];
           }
           {
+            name = "glob";
+            packageId = "glob";
+          }
+          {
+            name = "nom";
+            packageId = "nom";
+          }
+          {
             name = "serde";
             packageId = "serde";
             features = [ "derive" ];
@@ -4237,6 +4258,32 @@ rec {
           "futures-util" = [ "dep:futures-util" ];
         };
         resolvedDefaultFeatures = [ "async" "futures-util" ];
+      };
+      "nom" = rec {
+        crateName = "nom";
+        version = "7.1.3";
+        edition = "2018";
+        sha256 = "0jha9901wxam390jcf5pfa0qqfrgh8li787jx2ip0yk5b8y9hwyj";
+        authors = [
+          "contact@geoffroycouprie.com"
+        ];
+        dependencies = [
+          {
+            name = "memchr";
+            packageId = "memchr";
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "minimal-lexical";
+            packageId = "minimal-lexical";
+            usesDefaultFeatures = false;
+          }
+        ];
+        features = {
+          "default" = [ "std" ];
+          "std" = [ "alloc" "memchr/std" "minimal-lexical/std" ];
+        };
+        resolvedDefaultFeatures = [ "alloc" "default" "std" ];
       };
       "nom8" = rec {
         crateName = "nom8";

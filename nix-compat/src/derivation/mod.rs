@@ -8,8 +8,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 
 mod errors;
-mod escape;
 mod output;
+mod parse_error;
+mod parser;
 mod validate;
 mod write;
 
@@ -87,6 +88,12 @@ impl Derivation {
         self.serialize(&mut buffer).unwrap();
 
         buffer
+    }
+
+    /// Parse an Derivation in ATerm serialization, and validate it passes our
+    /// set of validations.
+    pub fn from_aterm_bytes(b: &[u8]) -> Result<Derivation, parser::Error<&[u8]>> {
+        parser::parse(b)
     }
 
     /// Returns the drv path of a [Derivation] struct.

@@ -3,7 +3,7 @@
 //!
 //! [ATerm]: http://program-transformation.org/Tools/ATermFormat.html
 
-use crate::derivation::escape::escape_bytes;
+use crate::aterm::escape_bytes;
 use crate::derivation::output::Output;
 use bstr::BString;
 use std::{

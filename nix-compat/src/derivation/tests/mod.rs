@@ -1,4 +1,7 @@
+use super::parse_error::ErrorKind;
 use crate::derivation::output::Output;
+use crate::derivation::parse_error::NomError;
+use crate::derivation::parser::Error::ParseError;
 use crate::derivation::Derivation;
 use crate::store_path::StorePath;
 use bstr::{BStr, BString};
@@ -68,6 +71,73 @@ fn check_to_aterm_bytes(path_to_drv_file: &str) {
     let expected = read_file(path_to_drv_file);
 
     assert_eq!(expected, BStr::new(&derivation.to_aterm_bytes()));
+}
+
+/// Reads in derivations in ATerm representation, parses with that parser,
+/// then compares the structs with the ones obtained by parsing the JSON
+/// representations.
+#[test_resources("src/derivation/tests/derivation_tests/ok/*.drv")]
+fn from_aterm_bytes(path_to_drv_file: &str) {
+    // Read in ATerm representation.
+    let aterm_bytes = read_file(path_to_drv_file);
+    let parsed_drv = Derivation::from_aterm_bytes(&aterm_bytes).expect("must succeed");
+
+    // For where we're able to load JSON fixtures, parse them and compare the structs.
+    // For where we're not, compare the bytes manually.
+    if path_to_drv_file.ends_with("cp1252.drv") || path_to_drv_file.ends_with("latin1.drv") {
+        assert_eq!(
+            &[0xc5, 0xc4, 0xd6][..],
+            parsed_drv.environment.get("chars").unwrap(),
+            "expected bytes to match",
+        );
+    } else {
+        let json_bytes = read_file(&format!("{}.json", path_to_drv_file));
+        let fixture_derivation: Derivation =
+            serde_json::from_slice(&json_bytes).expect("JSON was not well-formatted");
+
+        assert_eq!(fixture_derivation, parsed_drv);
+    }
+
+    // Finally, write the ATerm serialization to another buffer, ensuring it's
+    // stable (and we compare all fields we couldn't compare in the non-utf8
+    // derivations)
+
+    assert_eq!(
+        &aterm_bytes,
+        &parsed_drv.to_aterm_bytes(),
+        "expected serialized ATerm to match initial input"
+    );
+}
+
+#[test]
+fn from_aterm_bytes_duplicate_map_key() {
+    let buf: Vec<u8> = read_file(&format!("{}/{}", RESOURCES_PATHS, "duplicate.drv")).into();
+
+    let err = Derivation::from_aterm_bytes(&buf).expect_err("must fail");
+
+    match err {
+        ParseError(NomError { input: _, code }) => {
+            assert_eq!(code, ErrorKind::DuplicateMapKey("name".to_string()));
+        }
+        _ => {
+            panic!("unexpected error");
+        }
+    }
+}
+
+/// Read in a derivation in ATerm, but add some garbage at the end.
+/// Ensure the parser detects and fails in this case.
+#[test]
+fn from_aterm_bytes_trailer() {
+    let mut buf: Vec<u8> = read_file(&format!(
+        "{}/ok/{}",
+        RESOURCES_PATHS, "0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv"
+    ))
+    .into();
+
+    buf.push(0x00);
+
+    Derivation::from_aterm_bytes(&buf).expect_err("must fail");
 }
 
 #[test_case("bar","0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv"; "fixed_sha256")]

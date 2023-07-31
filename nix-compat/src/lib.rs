@@ -1,3 +1,4 @@
+pub(crate) mod aterm;
 pub mod derivation;
 pub mod nar;
 pub mod nixbase32;

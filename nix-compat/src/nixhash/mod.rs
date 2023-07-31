@@ -81,7 +81,7 @@ pub fn from_algo_and_digest(algo: HashAlgo, digest: &[u8]) -> Result<NixHash> {
 }
 
 /// Errors related to NixHash construction.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Eq, PartialEq, thiserror::Error)]
 pub enum Error {
     #[error("invalid hash algo: {0}")]
     InvalidAlgo(String),
