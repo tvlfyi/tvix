@@ -3,7 +3,7 @@
 //!
 //! [ATerm]: http://program-transformation.org/Tools/ATermFormat.html
 
-use crate::derivation::escape::escape_bstr;
+use crate::derivation::escape::escape_bytes;
 use crate::derivation::output::Output;
 use bstr::BString;
 use std::{
@@ -42,7 +42,7 @@ pub(crate) fn write_field<S: AsRef<[u8]>>(
     if !escape {
         writer.write_all(s.as_ref())?;
     } else {
-        writer.write_all(&escape_bstr(s.as_ref()))?;
+        writer.write_all(&escape_bytes(s.as_ref()))?;
     }
 
     write_char(writer, QUOTE)?;
