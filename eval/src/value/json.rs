@@ -8,8 +8,8 @@ use crate::generators::{self, GenCo};
 use crate::ErrorKind;
 
 use serde_json::value::to_value;
-use serde_json::Value as Json;
-use serde_json::{Map, Number}; // name clash with *our* `Value`
+use serde_json::Value as Json; // name clash with *our* `Value`
+use serde_json::{Map, Number};
 
 impl Value {
     pub(crate) async fn to_json(self, co: &GenCo) -> Result<Json, ErrorKind> {
