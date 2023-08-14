@@ -1,7 +1,6 @@
 mod derivation;
 mod errors;
 mod known_paths;
-mod nix_compat;
 mod refscan;
 mod tvix_io;
 
