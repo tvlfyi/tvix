@@ -177,7 +177,7 @@ impl<W: Write> TracingObserver<W> {
                 break;
             }
 
-            self.write_value(&val);
+            self.write_value(val);
         }
 
         let _ = writeln!(&mut self.writer, "]");
