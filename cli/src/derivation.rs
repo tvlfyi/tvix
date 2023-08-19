@@ -430,7 +430,6 @@ pub use derivation_builtins::builtins as derivation_builtins;
 #[cfg(test)]
 mod tests {
     use nix_compat::store_path::hash_placeholder;
-    use tvix_eval::observer::NoOpObserver;
 
     // TODO: These tests are commented out because we do not have
     // scaffolding to drive generators during testing at the moment.
