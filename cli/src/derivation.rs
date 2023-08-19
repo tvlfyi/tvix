@@ -128,12 +128,8 @@ fn populate_output_configuration(
 
                 // construct the NixHashWithMode.
                 out.hash_with_mode = match hash_mode.as_deref() {
-                    None | Some("flat") => Some(nixhash::NixHashWithMode::Flat(
-                        nixhash::NixHash::new(output_hash.algo, output_hash.digest),
-                    )),
-                    Some("recursive") => Some(nixhash::NixHashWithMode::Recursive(
-                        nixhash::NixHash::new(output_hash.algo, output_hash.digest),
-                    )),
+                    None | Some("flat") => Some(nixhash::NixHashWithMode::Flat(output_hash)),
+                    Some("recursive") => Some(nixhash::NixHashWithMode::Recursive(output_hash)),
                     Some(other) => {
                         return Err(Error::InvalidOutputHashMode(other.to_string()).into())
                     }
