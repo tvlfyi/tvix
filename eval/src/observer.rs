@@ -156,7 +156,10 @@ impl<W: Write> TracingObserver<W> {
             // the type of (and avoid recursing).
             Value::List(l) => write!(&mut self.writer, "list[{}] ", l.len()),
             Value::Attrs(a) => write!(&mut self.writer, "attrs[{}] ", a.len()),
-            Value::Thunk(t) if t.is_evaluated() => Ok(self.write_value(&t.value())),
+            Value::Thunk(t) if t.is_evaluated() => {
+                self.write_value(&t.value());
+                Ok(())
+            }
 
             // For other value types, defer to the standard value printer.
             _ => write!(&mut self.writer, "{} ", val),
