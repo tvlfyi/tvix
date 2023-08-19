@@ -169,7 +169,7 @@ impl BlobService for GRPCBlobService {
 
         // bytes arriving on the RX side are wrapped inside a
         // [proto::BlobChunk], and a [ReceiverStream] is constructed.
-        let blobchunk_stream = ReceiverStream::new(rx).map(|x| proto::BlobChunk { data: x.into() });
+        let blobchunk_stream = ReceiverStream::new(rx).map(|x| proto::BlobChunk { data: x });
 
         // That receiver stream is used as a stream in the gRPC BlobService.put rpc call.
         let task: tokio::task::JoinHandle<Result<_, Status>> = self

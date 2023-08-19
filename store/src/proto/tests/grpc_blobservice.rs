@@ -54,7 +54,7 @@ async fn put_read_stat() {
     // Send blob A.
     let put_resp = service
         .put(tonic_mock::streaming_request(vec![BlobChunk {
-            data: BLOB_A.clone().into(),
+            data: BLOB_A.clone(),
         }]))
         .await
         .expect("must succeed")

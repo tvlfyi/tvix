@@ -24,12 +24,9 @@ fn gen_sled_blob_service() -> impl BlobService {
 #[test_case(gen_memory_blob_service(); "memory")]
 #[test_case(gen_sled_blob_service(); "sled")]
 fn has_nonexistent_false(blob_service: impl BlobService) {
-    assert_eq!(
-        blob_service
-            .has(&fixtures::BLOB_A_DIGEST)
-            .expect("must not fail"),
-        false
-    );
+    assert!(!blob_service
+        .has(&fixtures::BLOB_A_DIGEST)
+        .expect("must not fail"));
 }
 
 /// Trying to read a non-existing blob should return a None instead of a reader.
@@ -62,9 +59,8 @@ fn put_has_get(blob_service: impl BlobService, blob_contents: &[u8], blob_digest
 
     assert_eq!(*blob_digest, digest, "returned digest must be correct");
 
-    assert_eq!(
+    assert!(
         blob_service.has(blob_digest).expect("must not fail"),
-        true,
         "blob service should now have the blob"
     );
 
@@ -116,9 +112,7 @@ fn put_seek(blob_service: impl BlobService) {
         pos += buf.len() as u64;
     }
     // seek by 0 bytes, using SeekFrom::Start.
-    let p = r
-        .seek(io::SeekFrom::Start(pos as u64))
-        .expect("must not fail");
+    let p = r.seek(io::SeekFrom::Start(pos)).expect("must not fail");
     assert_eq!(pos, p);
 
     // read the next 10 bytes, they must match the data in the fixture.
@@ -136,9 +130,7 @@ fn put_seek(blob_service: impl BlobService) {
     }
 
     // seek by 5 bytes, using SeekFrom::Start.
-    let p = r
-        .seek(io::SeekFrom::Start(pos as u64 + 5))
-        .expect("must not fail");
+    let p = r.seek(io::SeekFrom::Start(pos + 5)).expect("must not fail");
     pos += 5;
     assert_eq!(pos, p);
 

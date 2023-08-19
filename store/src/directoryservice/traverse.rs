@@ -142,7 +142,7 @@ mod tests {
             )
             .expect("must succeed");
 
-            assert_eq!(Some(node_directory_with_keep.clone()), resp);
+            assert_eq!(Some(node_directory_with_keep), resp);
         }
 
         // traversal to `keep/.keep` should return the node for the .keep file
@@ -166,7 +166,7 @@ mod tests {
             )
             .expect("must succeed");
 
-            assert_eq!(Some(node_file_keep.clone()), resp);
+            assert_eq!(Some(node_file_keep), resp);
         }
 
         // traversal to `void` should return None (doesn't exist)
@@ -215,7 +215,7 @@ mod tests {
             )
             .expect("must succeed");
 
-            assert_eq!(Some(node_directory_complicated.clone()), resp);
+            assert_eq!(Some(node_directory_complicated), resp);
         }
     }
 }

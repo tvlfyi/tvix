@@ -444,7 +444,7 @@ fn read_stat_directory() {
     let p = tmpdir.path().join(DIRECTORY_WITH_KEEP_NAME);
 
     // peek at the metadata of the directory
-    let metadata = fs::metadata(&p).expect("must succeed");
+    let metadata = fs::metadata(p).expect("must succeed");
     assert!(metadata.is_dir());
     assert!(metadata.permissions().readonly());
 
@@ -667,8 +667,8 @@ fn compare_inodes_directories() {
 
     // peek at metadata.
     assert_eq!(
-        fs::metadata(&p_dir_with_keep).expect("must succeed").ino(),
-        fs::metadata(&p_sibling_dir).expect("must succeed").ino()
+        fs::metadata(p_dir_with_keep).expect("must succeed").ino(),
+        fs::metadata(p_sibling_dir).expect("must succeed").ino()
     );
 
     fuser_session.join()
@@ -697,8 +697,8 @@ fn compare_inodes_files() {
 
     // peek at metadata.
     assert_eq!(
-        fs::metadata(&p_keep1).expect("must succeed").ino(),
-        fs::metadata(&p_keep2).expect("must succeed").ino()
+        fs::metadata(p_keep1).expect("must succeed").ino(),
+        fs::metadata(p_keep2).expect("must succeed").ino()
     );
 
     fuser_session.join()
@@ -726,8 +726,8 @@ fn compare_inodes_symlinks() {
 
     // peek at metadata.
     assert_eq!(
-        fs::symlink_metadata(&p1).expect("must succeed").ino(),
-        fs::symlink_metadata(&p2).expect("must succeed").ino()
+        fs::symlink_metadata(p1).expect("must succeed").ino(),
+        fs::symlink_metadata(p2).expect("must succeed").ino()
     );
 
     fuser_session.join()
@@ -786,7 +786,7 @@ fn disallow_writes() {
     let fuser_session = setup_and_mount(tmpdir.path(), |_, _, _| {}).expect("must succeed");
 
     let p = tmpdir.path().join(BLOB_A_NAME);
-    let e = std::fs::File::create(&p).expect_err("must fail");
+    let e = std::fs::File::create(p).expect_err("must fail");
 
     assert_eq!(std::io::ErrorKind::Unsupported, e.kind());
 
@@ -815,7 +815,6 @@ fn missing_directory() {
         // It fails when trying to pull the first entry, because we don't implement opendir separately
         fs::read_dir(&p)
             .unwrap()
-            .into_iter()
             .next()
             .expect("must be some")
             .expect_err("must be err");

@@ -283,7 +283,7 @@ mod tests {
         let dir: InodeData = fixtures::DIRECTORY_WITH_KEEP.clone().into();
 
         // put it in
-        let dir_ino = inode_tracker.put(dir.clone());
+        let dir_ino = inode_tracker.put(dir);
 
         // a get should return the right data
         let data = inode_tracker.get(dir_ino).expect("must be some");
@@ -316,7 +316,7 @@ mod tests {
                     InodeData::Regular(ref digest, size, executable) => {
                         assert_eq!(&fixtures::EMPTY_BLOB_DIGEST.clone(), digest);
                         assert_eq!(0, size);
-                        assert_eq!(false, executable);
+                        assert!(!executable);
                     }
                     InodeData::Symlink(_) | InodeData::Directory(..) => panic!("wrong type"),
                 }
@@ -335,7 +335,7 @@ mod tests {
         let dir_complicated: InodeData = fixtures::DIRECTORY_COMPLICATED.clone().into();
 
         // put it in
-        let dir_complicated_ino = inode_tracker.put(dir_complicated.clone());
+        let dir_complicated_ino = inode_tracker.put(dir_complicated);
 
         // a get should return the right data
         let dir_data = inode_tracker
@@ -360,7 +360,7 @@ mod tests {
                 // check the first child (.keep)
                 {
                     let (child_ino, child_node) = &children[0];
-                    assert!(!seen_inodes.contains(&child_ino));
+                    assert!(!seen_inodes.contains(child_ino));
                     assert_eq!(
                         &proto::node::Node::File(fixtures::DIRECTORY_COMPLICATED.files[0].clone()),
                         child_node
@@ -371,7 +371,7 @@ mod tests {
                 // check the second child (aa)
                 {
                     let (child_ino, child_node) = &children[1];
-                    assert!(!seen_inodes.contains(&child_ino));
+                    assert!(!seen_inodes.contains(child_ino));
                     assert_eq!(
                         &proto::node::Node::Symlink(
                             fixtures::DIRECTORY_COMPLICATED.symlinks[0].clone()
@@ -384,7 +384,7 @@ mod tests {
                 // check the third child (keep)
                 {
                     let (child_ino, child_node) = &children[2];
-                    assert!(!seen_inodes.contains(&child_ino));
+                    assert!(!seen_inodes.contains(child_ino));
                     assert_eq!(
                         &proto::node::Node::Directory(
                             fixtures::DIRECTORY_COMPLICATED.directories[0].clone()

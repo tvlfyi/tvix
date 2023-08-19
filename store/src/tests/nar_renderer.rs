@@ -177,7 +177,7 @@ fn test_complicated() {
         &mut buf,
         &crate::proto::node::Node::Directory(DirectoryNode {
             name: "doesntmatter".into(),
-            digest: DIRECTORY_COMPLICATED.digest().clone().into(),
+            digest: DIRECTORY_COMPLICATED.digest().into(),
             size: DIRECTORY_COMPLICATED.size(),
         }),
         blob_service.clone(),
@@ -191,7 +191,7 @@ fn test_complicated() {
     let (nar_size, nar_digest) = calculate_size_and_sha256(
         &crate::proto::node::Node::Directory(DirectoryNode {
             name: "doesntmatter".into(),
-            digest: DIRECTORY_COMPLICATED.digest().clone().into(),
+            digest: DIRECTORY_COMPLICATED.digest().into(),
             size: DIRECTORY_COMPLICATED.size(),
         }),
         blob_service,
