@@ -89,7 +89,7 @@ pub fn from_str(s: &str, algo_str: Option<&str>) -> Result<NixHash, Error> {
         None => None,
     };
 
-    // peek at the beginning of the string. Let's detect the SRI path first.
+    // Peek at the beginning of the string to detect SRI hashes.
     if s.starts_with("sha1-")
         || s.starts_with("sha256-")
         || s.starts_with("sha512-")
@@ -108,7 +108,7 @@ pub fn from_str(s: &str, algo_str: Option<&str>) -> Result<NixHash, Error> {
         return Ok(parsed_nixhash);
     }
 
-    // Now, peek at the beginning again to see if it's a Nix Hash
+    // Peek at the beginning again to see if it's a Nix Hash
     if s.starts_with("sha1:")
         || s.starts_with("sha256:")
         || s.starts_with("sha512:")
@@ -127,7 +127,7 @@ pub fn from_str(s: &str, algo_str: Option<&str>) -> Result<NixHash, Error> {
         return Ok(parsed_nixhash);
     }
 
-    // In all other cases, we assume a bare digest, so there MUST be an externally-passed algo.
+    // Neither of these, assume a bare digest, so there MUST be an externally-passed algo.
     match algo {
         // Fail if there isn't.
         None => Err(Error::MissingInlineHashAlgo(s.to_string())),
@@ -197,7 +197,9 @@ pub fn from_sri_str(s: &str) -> Result<NixHash, Error> {
     }
 }
 
-/// decode a plain digest depending on the hash algo specified externally.
+/// Decode a plain digest depending on the hash algo specified externally.
+/// hexlower, nixbase32 and base64 encodings are supported - the encoding is
+/// inferred from the input length.
 fn decode_digest(s: &str, algo: HashAlgo) -> Result<NixHash, Error> {
     // for the chosen hash algo, calculate the expected (decoded) digest length
     // (as bytes)
