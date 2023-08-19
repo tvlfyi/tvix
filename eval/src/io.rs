@@ -73,7 +73,7 @@ impl EvalIO for StdIO {
     }
 
     fn read_to_string(&self, path: &Path) -> Result<String, io::Error> {
-        std::fs::read_to_string(&path)
+        std::fs::read_to_string(path)
     }
 
     fn read_dir(&self, path: &Path) -> Result<Vec<(bytes::Bytes, FileType)>, io::Error> {
