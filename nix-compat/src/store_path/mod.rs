@@ -102,8 +102,8 @@ impl StorePath {
     }
 
     /// Construct a [StorePath] from an absolute store path string.
-    /// This is equivalent to calling [StorePath::from_string], but stripping
-    /// the [STORE_DIR_WITH_SLASH] prefix before.
+    /// This is equivalent to calling [StorePath::from_bytes], but stripping the
+    /// [STORE_DIR_WITH_SLASH] prefix before.
     pub fn from_absolute_path(s: &[u8]) -> Result<StorePath, Error> {
         match s.strip_prefix(STORE_DIR_WITH_SLASH.as_bytes()) {
             Some(s_stripped) => Self::from_bytes(s_stripped),
