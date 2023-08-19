@@ -1,7 +1,11 @@
 use crate::nixbase32;
 use crate::nixhash::{HashAlgo, NixHash};
+use serde::de::Unexpected;
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::{Map, Value};
+
+use super::algos::SUPPORTED_ALGOS;
 
 pub enum NixHashMode {
     Flat,
@@ -45,6 +49,90 @@ impl NixHashWithMode {
     pub fn to_nix_hash_string(&self) -> String {
         String::from(self.mode().prefix()) + &self.digest().to_nix_hash_string()
     }
+
+    /// This takes a serde_json::Map and turns it into this structure. This is necessary to do such
+    /// shenigans because we have external consumers, like the Derivation parser, who would like to
+    /// know whether we have a invalid or a missing NixHashWithMode structure in another structure,
+    /// e.g. Output.
+    /// This means we have this combinatorial situation:
+    /// - no hash, no hashAlgo: no NixHashWithMode so we return Ok(None).
+    /// - present hash, missing hashAlgo: invalid, we will return missing_field
+    /// - missing hash, present hashAlgo: same
+    /// - present hash, present hashAlgo: either we return ourselves or a type/value validation
+    /// error.
+    /// This function is for internal consumption regarding those needs until we have a better
+    /// solution. Now this is said, let's explain how this works.
+    ///
+    /// We want to map the serde data model into a NixHashWithMode.
+    ///
+    /// The serde data model has a `hash` field (containing a digest in nixbase32),
+    /// and a `hashAlgo` field, containing the stringified hash algo.
+    /// In case the hash is recursive, hashAlgo also has a `r:` prefix.
+    ///
+    /// This is to match how `nix show-derivation` command shows them in JSON
+    /// representation.
+    pub(crate) fn from_map<'de, D>(map: &Map<String, Value>) -> Result<Option<Self>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // If we don't have hash neither hashAlgo, let's just return None.
+        if !map.contains_key("hash") && !map.contains_key("hashAlgo") {
+            return Ok(None);
+        }
+
+        let digest: Vec<u8> = {
+            if let Some(v) = map.get("hash") {
+                if let Some(s) = v.as_str() {
+                    data_encoding::HEXLOWER
+                        .decode(s.as_bytes())
+                        .map_err(|e| serde::de::Error::custom(e.to_string()))?
+                } else {
+                    return Err(serde::de::Error::invalid_type(
+                        Unexpected::Other(&v.to_string()),
+                        &"a string",
+                    ));
+                }
+            } else {
+                return Err(serde::de::Error::missing_field(
+                    "couldn't extract `hash` key but `hashAlgo` key present",
+                ));
+            }
+        };
+
+        if let Some(v) = map.get("hashAlgo") {
+            if let Some(s) = v.as_str() {
+                match s.strip_prefix("r:") {
+                    Some(rest) => Ok(Some(Self::Recursive(NixHash::new(
+                        HashAlgo::try_from(rest).map_err(|e| {
+                            serde::de::Error::invalid_value(
+                                Unexpected::Other(&e.to_string()),
+                                &format!("one of {}", SUPPORTED_ALGOS.join(",")).as_str(),
+                            )
+                        })?,
+                        digest,
+                    )))),
+                    None => Ok(Some(Self::Flat(NixHash::new(
+                        HashAlgo::try_from(s).map_err(|e| {
+                            serde::de::Error::invalid_value(
+                                Unexpected::Other(&e.to_string()),
+                                &format!("one of {}", SUPPORTED_ALGOS.join(",")).as_str(),
+                            )
+                        })?,
+                        digest,
+                    )))),
+                }
+            } else {
+                Err(serde::de::Error::invalid_type(
+                    Unexpected::Other(&v.to_string()),
+                    &"a string",
+                ))
+            }
+        } else {
+            Err(serde::de::Error::missing_field(
+                "couldn't extract `hashAlgo` key, but `hash` key present",
+            ))
+        }
+    }
 }
 
 impl Serialize for NixHashWithMode {
@@ -69,68 +157,15 @@ impl Serialize for NixHashWithMode {
 }
 
 impl<'de> Deserialize<'de> for NixHashWithMode {
-    /// map the serde data model into a NixHashWithMode.
-    ///
-    /// The serde data model has a `hash` field (containing a digest in nixbase32),
-    /// and a `hashAlgo` field, containing the stringified hash algo.
-    /// In case the hash is recursive, hashAlgo also has a `r:` prefix.
-    ///
-    /// This is to match how `nix show-derivation` command shows them in JSON
-    /// representation.
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        // TODO: don't use serde_json here?
-        // TODO: serde seems to simply set `hash_with_mode` to None if hash
-        // and hashAlgo fail, but that should be a proper deserialization error
-        // that should be propagated to the user!
+        let value = Self::from_map::<D>(&Map::deserialize(deserializer)?)?;
 
-        let json = serde_json::Value::deserialize(deserializer)?;
-        match json.as_object() {
-            None => Err(serde::de::Error::custom("couldn't parse as map"))?,
-            Some(map) => {
-                let digest: Vec<u8> = {
-                    if let Some(v) = map.get("hash") {
-                        if let Some(s) = v.as_str() {
-                            data_encoding::HEXLOWER
-                                .decode(s.as_bytes())
-                                .map_err(|e| serde::de::Error::custom(e.to_string()))?
-                        } else {
-                            return Err(serde::de::Error::custom(
-                                "couldn't parse 'hash' as string",
-                            ));
-                        }
-                    } else {
-                        return Err(serde::de::Error::custom("couldn't extract 'hash' key"));
-                    }
-                };
-
-                if let Some(v) = map.get("hashAlgo") {
-                    if let Some(s) = v.as_str() {
-                        match s.strip_prefix("r:") {
-                            Some(rest) => Ok(NixHashWithMode::Recursive(NixHash::new(
-                                HashAlgo::try_from(rest).map_err(|e| {
-                                    serde::de::Error::custom(format!("unable to parse algo: {}", e))
-                                })?,
-                                digest,
-                            ))),
-                            None => Ok(NixHashWithMode::Flat(NixHash::new(
-                                HashAlgo::try_from(s).map_err(|e| {
-                                    serde::de::Error::custom(format!("unable to parse algo: {}", e))
-                                })?,
-                                digest,
-                            ))),
-                        }
-                    } else {
-                        Err(serde::de::Error::custom(
-                            "couldn't parse 'hashAlgo' as string",
-                        ))
-                    }
-                } else {
-                    Err(serde::de::Error::custom("couldn't extract 'hashAlgo' key"))
-                }
-            }
+        match value {
+            None => Err(serde::de::Error::custom("couldn't parse as map")),
+            Some(v) => Ok(v),
         }
     }
 }
