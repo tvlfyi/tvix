@@ -751,7 +751,7 @@ fn total_fmt_float<F: std::fmt::Write>(num: f64, mut f: F) -> std::fmt::Result {
         }
     }
 
-    write!(f, "{}", format!("{}", String::from_utf8_lossy(s)))
+    write!(f, "{}", String::from_utf8_lossy(s))
 }
 
 impl TotalDisplay for Value {
