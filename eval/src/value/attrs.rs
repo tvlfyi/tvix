@@ -30,8 +30,9 @@ lazy_static! {
 #[cfg(test)]
 mod tests;
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Default)]
 pub(super) enum AttrsRep {
+    #[default]
     Empty,
 
     Im(OrdMap<NixString, Value>),
@@ -43,12 +44,6 @@ pub(super) enum AttrsRep {
         name: Value,
         value: Value,
     },
-}
-
-impl Default for AttrsRep {
-    fn default() -> Self {
-        AttrsRep::Empty
-    }
 }
 
 impl AttrsRep {
