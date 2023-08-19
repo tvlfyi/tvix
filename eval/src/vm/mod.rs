@@ -219,7 +219,7 @@ impl Frame {
 }
 
 #[derive(Default)]
-struct ImportCache(Box<HashMap<PathBuf, Value>>);
+struct ImportCache(HashMap<PathBuf, Value>);
 
 /// The `ImportCache` holds the `Value` resulting from `import`ing a certain
 /// file, so that the same file doesn't need to be re-evaluated multiple times.
