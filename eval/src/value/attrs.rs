@@ -379,19 +379,19 @@ impl NixAttrs {
     /// attribute to a string.
     pub(crate) async fn try_to_string(&self, co: &GenCo, kind: CoercionKind) -> Option<NixString> {
         if let Some(to_string) = self.select("__toString") {
-            let callable = generators::request_force(&co, to_string.clone()).await;
+            let callable = generators::request_force(co, to_string.clone()).await;
 
             // Leave the attribute set on the stack as an argument
             // to the function call.
-            generators::request_stack_push(&co, Value::Attrs(Box::new(self.clone()))).await;
+            generators::request_stack_push(co, Value::Attrs(Box::new(self.clone()))).await;
 
             // Call the callable ...
-            let result = generators::request_call(&co, callable).await;
+            let result = generators::request_call(co, callable).await;
 
             // Recurse on the result, as attribute set coercion
             // actually works recursively, e.g. you can even return
             // /another/ set with a __toString attr.
-            let s = generators::request_string_coerce(&co, result, kind).await;
+            let s = generators::request_string_coerce(co, result, kind).await;
 
             return Some(s);
         }

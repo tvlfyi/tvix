@@ -41,7 +41,7 @@ impl Value {
                 // Attribute sets with a callable `__toString` attribute
                 // serialise to the string-coerced version of the result of
                 // calling that.
-                if let Some(s) = attrs.try_to_string(&co, CoercionKind::Weak).await {
+                if let Some(s) = attrs.try_to_string(co, CoercionKind::Weak).await {
                     return Ok(Json::String(s.as_str().to_string()));
                 }
 
