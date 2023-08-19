@@ -64,7 +64,7 @@ impl Display for Error {
                 )?;
 
                 for err in errors {
-                    writeln!(f, "{}", err.fancy_format_str(&source))?;
+                    writeln!(f, "{}", err.fancy_format_str(source))?;
                 }
 
                 Ok(())

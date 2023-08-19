@@ -304,8 +304,7 @@ impl<'de> de::Deserializer<'de> for NixDeserializer {
         V: de::Visitor<'de>,
     {
         if let Value::List(list) = self.value {
-            let mut seq =
-                SeqDeserializer::new(list.into_iter().map(|value| NixDeserializer::new(value)));
+            let mut seq = SeqDeserializer::new(list.into_iter().map(NixDeserializer::new));
             let result = visitor.visit_seq(&mut seq)?;
             seq.end()?;
             return Ok(result);

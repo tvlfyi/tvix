@@ -161,24 +161,24 @@ fn deserialize_enum_all() {
     #[derive(Debug, Deserialize, PartialEq)]
     #[serde(rename_all = "snake_case")]
     enum TestEnum {
-        UnitVariant,
-        TupleVariant(String, String),
-        StructVariant { name: String, age: usize },
+        Unit,
+        Tuple(String, String),
+        Struct { name: String, age: usize },
     }
 
     let result: Vec<TestEnum> = from_str(
         r#"
       let
-        mkTuple = country: drink: { tuple_variant = [ country drink ]; };
+        mkTuple = country: drink: { tuple = [ country drink ]; };
       in
       [
         (mkTuple "UK" "cask ale")
 
-        "unit_variant"
+        "unit"
 
         {
-          struct_variant.name = "Slartibartfast";
-          struct_variant.age = 42;
+          struct.name = "Slartibartfast";
+          struct.age = 42;
         }
 
         (mkTuple "Russia" "квас")
@@ -188,13 +188,13 @@ fn deserialize_enum_all() {
     .expect("should deserialize");
 
     let expected = vec![
-        TestEnum::TupleVariant("UK".into(), "cask ale".into()),
-        TestEnum::UnitVariant,
-        TestEnum::StructVariant {
+        TestEnum::Tuple("UK".into(), "cask ale".into()),
+        TestEnum::Unit,
+        TestEnum::Struct {
             name: "Slartibartfast".into(),
             age: 42,
         },
-        TestEnum::TupleVariant("Russia".into(), "квас".into()),
+        TestEnum::Tuple("Russia".into(), "квас".into()),
     ];
 
     assert_eq!(result, expected);
