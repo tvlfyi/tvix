@@ -8,8 +8,8 @@ pub fn main_args(args: Vec<String>) -> clap::error::Result<NixResult> {
         .try_get_matches_from(args.iter())?;
     if let Some(add) = matches.subcommand_matches("--add") {
         let file = add.get_one::<String>("FILE").expect("--add needs a file");
-        let file_contents =
-            std::fs::read_to_string(file).expect(&format!("file {} does not exist", file));
+        let file_contents = std::fs::read_to_string(file)
+            .unwrap_or_else(|_| panic!("file {} does not exist", file));
         Ok(NixResult::FileAddedToStore {
             content: file_contents,
         })
@@ -47,7 +47,7 @@ mod integration_tests {
         let out = std::process::Command::new(cmd)
             .args(args)
             .output()
-            .expect(&format!("could not run {}", cmd));
+            .unwrap_or_else(|_| panic!("could not run {}", cmd));
         match out.status.code().expect("no status code!") {
             0 => NixOutput::Ok {
                 stdout: String::from_utf8_lossy(&out.stdout).trim_end().to_string(),
@@ -66,7 +66,7 @@ mod integration_tests {
             err @ NixOutput::Err { .. } => panic!("nix-store --add failed: {:#?}", err),
             NixOutput::Ok { stdout, .. } => NixResult::FileAddedToStore {
                 content: std::fs::read_to_string(&stdout)
-                    .expect(&format!("cannot open {} as store file", stdout)),
+                    .unwrap_or_else(|_| panic!("cannot open {} as store file", stdout)),
             },
         }
     }
