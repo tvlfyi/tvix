@@ -111,8 +111,7 @@ pub fn write_input_derivations(
 ) -> Result<(), io::Error> {
     write_char(writer, BRACKET_OPEN)?;
 
-    for (ii, (input_derivation_path, input_derivation)) in input_derivations.into_iter().enumerate()
-    {
+    for (ii, (input_derivation_path, input_derivation)) in input_derivations.iter().enumerate() {
         if ii > 0 {
             write_char(writer, COMMA)?;
         }
@@ -183,7 +182,7 @@ pub fn write_enviroment(
 ) -> Result<(), io::Error> {
     write_char(writer, BRACKET_OPEN)?;
 
-    for (i, (k, v)) in environment.into_iter().enumerate() {
+    for (i, (k, v)) in environment.iter().enumerate() {
         if i > 0 {
             write_char(writer, COMMA)?;
         }
