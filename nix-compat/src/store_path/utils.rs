@@ -7,7 +7,7 @@ use thiserror;
 
 /// Errors that can occur when creating a content-addressed store path.
 ///
-/// This wraps the main [Error]..
+/// This wraps the main [crate::store_path::Error]..
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum BuildStorePathError {
     #[error("Invalid Store Path: {0}")]

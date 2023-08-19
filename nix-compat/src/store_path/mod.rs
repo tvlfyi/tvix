@@ -1,6 +1,6 @@
 use crate::nixbase32::{self, Nixbase32DecodeError};
 use std::{fmt, path::PathBuf, str::FromStr};
-use thiserror::Error;
+use thiserror;
 
 #[cfg(target_family = "unix")]
 use std::os::unix::ffi::OsStringExt;
@@ -20,7 +20,7 @@ pub const STORE_DIR: &str = "/nix/store";
 pub const STORE_DIR_WITH_SLASH: &str = "/nix/store/";
 
 /// Errors that can occur when parsing a literal store path
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum Error {
     #[error("Dash is missing between hash and name")]
     MissingDash(),
