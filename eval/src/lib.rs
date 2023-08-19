@@ -145,7 +145,7 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
     /// Initialise an `Evaluation` for the given Nix source code snippet, and
     /// an optional code location.
     pub fn new(code: &'code str, location: Option<PathBuf>) -> Self {
-        let source_map = SourceCode::new();
+        let source_map = SourceCode::default();
 
         let location_str = location
             .as_ref()

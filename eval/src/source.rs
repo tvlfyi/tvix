@@ -19,11 +19,6 @@ use codemap::{CodeMap, Span};
 pub struct SourceCode(Rc<RefCell<CodeMap>>);
 
 impl SourceCode {
-    /// Create a new SourceCode instance.
-    pub fn new() -> Self {
-        SourceCode(Rc::new(RefCell::new(CodeMap::new())))
-    }
-
     /// Access a read-only reference to the codemap.
     pub fn codemap(&self) -> Ref<CodeMap> {
         self.0.borrow()
@@ -59,5 +54,12 @@ impl SourceCode {
     /// is in.
     pub fn get_file(&self, span: Span) -> Arc<codemap::File> {
         self.codemap().look_up_span(span).file
+    }
+}
+
+impl Default for SourceCode {
+    /// Create a new SourceCode instance.
+    fn default() -> Self {
+        Self(Rc::new(RefCell::new(CodeMap::new())))
     }
 }
