@@ -871,7 +871,7 @@ mod pure_builtins {
         }
 
         let end = if len < 0 {
-            x.as_str().len() as usize
+            x.as_str().len()
         } else {
             cmp::min(beg + (len as usize), x.as_str().len())
         };
