@@ -114,9 +114,12 @@ impl TvixStoreIO {
         )
         .expect("error during nar calculation"); // TODO: handle error
 
-        // For given NAR sha256 digest and name, return the new [StorePath] this would have.
-        let nar_hash_with_mode =
-            NixHashWithMode::Recursive(NixHash::new(HashAlgo::Sha256, nar_sha256.to_vec()));
+        // We populate the struct directly, as we know the sha256 digest has the
+        // right size.
+        let nar_hash_with_mode = NixHashWithMode::Recursive(NixHash {
+            algo: HashAlgo::Sha256,
+            digest: nar_sha256.to_vec(),
+        });
 
         let name = path
             .file_name()
@@ -172,8 +175,12 @@ impl TvixStoreIO {
 /// For given NAR sha256 digest and name, return the new [StorePath] this would have.
 #[instrument(skip(nar_sha256_digest), ret, fields(nar_sha256_digest=BASE64.encode(nar_sha256_digest)))]
 fn calculate_nar_based_store_path(nar_sha256_digest: &[u8; 32], name: &str) -> StorePath {
-    let nar_hash_with_mode =
-        NixHashWithMode::Recursive(NixHash::new(HashAlgo::Sha256, nar_sha256_digest.to_vec()));
+    // We populate the struct directly, as we know the sha256 digest has the
+    // right size.
+    let nar_hash_with_mode = NixHashWithMode::Recursive(NixHash {
+        algo: HashAlgo::Sha256,
+        digest: nar_sha256_digest.to_vec(),
+    });
 
     build_regular_ca_path(name, &nar_hash_with_mode, Vec::<String>::new(), false).unwrap()
 }

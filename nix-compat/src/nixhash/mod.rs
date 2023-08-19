@@ -1,6 +1,6 @@
 use crate::nixbase32;
 use data_encoding::{BASE64, BASE64_NOPAD, HEXLOWER};
-use thiserror::Error;
+use thiserror;
 
 mod algos;
 mod with_mode;
@@ -18,11 +18,6 @@ pub struct NixHash {
 }
 
 impl NixHash {
-    /// Constructs a new [NixHash] by specifying [HashAlgo] and digest.
-    pub fn new(algo: HashAlgo, digest: Vec<u8>) -> Self {
-        Self { algo, digest }
-    }
-
     /// Formats a [NixHash] in the Nix default hash format,
     /// which is the algo, followed by a colon, then the lower hex encoded digest.
     pub fn to_nix_hash_string(&self) -> String {
@@ -30,8 +25,23 @@ impl NixHash {
     }
 }
 
+impl TryFrom<(HashAlgo, Vec<u8>)> for NixHash {
+    type Error = Error;
+
+    /// Constructs a new [NixHash] by specifying [HashAlgo] and digest.
+    // It can fail if the passed digest length doesn't match what's expected for
+    // the passed algo.
+    fn try_from(value: (HashAlgo, Vec<u8>)) -> Result<Self, Self::Error> {
+        let (algo, digest) = value;
+        if digest.len() != hash_algo_length(&algo) {
+            return Err(Error::InvalidEncodedDigestLength(digest.len(), algo));
+        }
+        Ok(Self { algo, digest })
+    }
+}
+
 /// Errors related to NixHash construction.
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("invalid hash algo: {0}")]
     InvalidAlgo(String),

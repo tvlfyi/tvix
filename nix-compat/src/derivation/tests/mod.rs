@@ -1,6 +1,5 @@
 use crate::derivation::output::Output;
 use crate::derivation::Derivation;
-use crate::nixhash::NixHash;
 use crate::store_path::StorePath;
 use bstr::{BStr, BString};
 use std::collections::{BTreeMap, BTreeSet};
@@ -238,15 +237,19 @@ fn output_path_construction() {
         "out".to_string(),
         Output {
             path: "".to_string(), // will be calculated
-            hash_with_mode: Some(crate::nixhash::NixHashWithMode::Recursive(NixHash {
-                digest: data_encoding::HEXLOWER
-                    .decode(
-                        "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba"
-                            .as_bytes(),
-                    )
+            hash_with_mode: Some(crate::nixhash::NixHashWithMode::Recursive(
+                (
+                    crate::nixhash::HashAlgo::Sha256,
+                    data_encoding::HEXLOWER
+                        .decode(
+                            "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba"
+                                .as_bytes(),
+                        )
+                        .unwrap(),
+                )
+                    .try_into()
                     .unwrap(),
-                algo: crate::nixhash::HashAlgo::Sha256,
-            })),
+            )),
         },
     );
 

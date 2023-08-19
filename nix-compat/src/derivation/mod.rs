@@ -185,7 +185,13 @@ impl Derivation {
 
             hasher.finalize().to_vec()
         });
-        NixHash::new(crate::nixhash::HashAlgo::Sha256, digest.to_vec())
+
+        // We populate the struct directly, as we know the sha256 digest has the
+        // right size.
+        NixHash {
+            algo: crate::nixhash::HashAlgo::Sha256,
+            digest: digest.to_vec(),
+        }
     }
 
     /// This calculates all output paths of a Derivation and updates the struct.

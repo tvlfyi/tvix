@@ -54,7 +54,13 @@ pub fn build_text_path<S: AsRef<str>, I: IntoIterator<Item = S>, C: AsRef<[u8]>>
                 let hasher = Sha256::new_with_prefix(content);
                 hasher.finalize()
             };
-            NixHash::new(crate::nixhash::HashAlgo::Sha256, content_digest.to_vec())
+
+            // We populate the struct directly, as we know the sha256 digest has the
+            // right size.
+            NixHash {
+                algo: crate::nixhash::HashAlgo::Sha256,
+                digest: content_digest.to_vec(),
+            }
         },
         name,
     )
@@ -100,7 +106,13 @@ pub fn build_regular_ca_path<S: AsRef<str>, I: IntoIterator<Item = S>>(
                         hasher.update(":");
                         hasher.finalize()
                     };
-                    NixHash::new(crate::nixhash::HashAlgo::Sha256, content_digest.to_vec())
+
+                    // We don't use [NixHash::from_algo_and_digest], as we know [Sha256] has
+                    // the right digest size.
+                    NixHash {
+                        algo: crate::nixhash::HashAlgo::Sha256,
+                        digest: content_digest.to_vec(),
+                    }
                 },
                 name,
             )

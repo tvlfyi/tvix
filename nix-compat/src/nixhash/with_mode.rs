@@ -1,5 +1,5 @@
 use crate::nixbase32;
-use crate::nixhash::{HashAlgo, NixHash};
+use crate::nixhash::{self, HashAlgo, NixHash};
 use serde::de::Unexpected;
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -102,24 +102,42 @@ impl NixHashWithMode {
         if let Some(v) = map.get("hashAlgo") {
             if let Some(s) = v.as_str() {
                 match s.strip_prefix("r:") {
-                    Some(rest) => Ok(Some(Self::Recursive(NixHash::new(
-                        HashAlgo::try_from(rest).map_err(|e| {
-                            serde::de::Error::invalid_value(
-                                Unexpected::Other(&e.to_string()),
-                                &format!("one of {}", SUPPORTED_ALGOS.join(",")).as_str(),
-                            )
-                        })?,
-                        digest,
-                    )))),
-                    None => Ok(Some(Self::Flat(NixHash::new(
-                        HashAlgo::try_from(s).map_err(|e| {
-                            serde::de::Error::invalid_value(
-                                Unexpected::Other(&e.to_string()),
-                                &format!("one of {}", SUPPORTED_ALGOS.join(",")).as_str(),
-                            )
-                        })?,
-                        digest,
-                    )))),
+                    Some(rest) => Ok(Some(Self::Recursive(
+                        (
+                            HashAlgo::try_from(rest).map_err(|e| {
+                                serde::de::Error::invalid_value(
+                                    Unexpected::Other(&e.to_string()),
+                                    &format!("one of {}", SUPPORTED_ALGOS.join(",")).as_str(),
+                                )
+                            })?,
+                            digest,
+                        )
+                            .try_into()
+                            .map_err(|e: nixhash::Error| {
+                                serde::de::Error::invalid_value(
+                                    Unexpected::Other(&e.to_string()),
+                                    &"a digest with right length",
+                                )
+                            })?,
+                    ))),
+                    None => Ok(Some(Self::Flat(
+                        (
+                            HashAlgo::try_from(s).map_err(|e| {
+                                serde::de::Error::invalid_value(
+                                    Unexpected::Other(&e.to_string()),
+                                    &format!("one of {}", SUPPORTED_ALGOS.join(",")).as_str(),
+                                )
+                            })?,
+                            digest,
+                        )
+                            .try_into()
+                            .map_err(|e: nixhash::Error| {
+                                serde::de::Error::invalid_value(
+                                    Unexpected::Other(&e.to_string()),
+                                    &"a digest with right length",
+                                )
+                            })?,
+                    ))),
                 }
             } else {
                 Err(serde::de::Error::invalid_type(
