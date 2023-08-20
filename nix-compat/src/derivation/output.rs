@@ -22,11 +22,11 @@ impl<'de> Deserialize<'de> for Output {
             path: fields
                 .get("path")
                 .ok_or(serde::de::Error::missing_field(
-                    &"`path` is missing but required for outputs",
+                    "`path` is missing but required for outputs",
                 ))?
                 .as_str()
                 .ok_or(serde::de::Error::invalid_type(
-                    serde::de::Unexpected::Other(&"certainly not a string"),
+                    serde::de::Unexpected::Other("certainly not a string"),
                     &"a string",
                 ))?
                 .to_owned(),
@@ -67,7 +67,7 @@ fn deserialize_valid_input_addressed_output() {
     {
       "path": "/nix/store/blablabla"
     }"#;
-    let output: Output = serde_json::from_str(&json_bytes).expect("must parse");
+    let output: Output = serde_json::from_str(json_bytes).expect("must parse");
 
     assert!(!output.is_fixed());
 }
@@ -82,7 +82,7 @@ fn deserialize_valid_fixed_output() {
         "hash": "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba",
         "hashAlgo": "r:sha256"
     }"#;
-    let output: Output = serde_json::from_str(&json_bytes).expect("must parse");
+    let output: Output = serde_json::from_str(json_bytes).expect("must parse");
 
     assert!(output.is_fixed());
 }
@@ -97,7 +97,7 @@ fn deserialize_with_error_invalid_hash_encoding_fixed_output() {
         "hash": "IAMNOTVALIDNIXBASE32",
         "hashAlgo": "r:sha256"
     }"#;
-    let output: Result<Output, _> = serde_json::from_str(&json_bytes);
+    let output: Result<Output, _> = serde_json::from_str(json_bytes);
 
     assert!(output.is_err());
 }
@@ -112,7 +112,7 @@ fn deserialize_with_error_invalid_hash_algo_fixed_output() {
         "hash": "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba",
         "hashAlgo": "r:sha1024"
     }"#;
-    let output: Result<Output, _> = serde_json::from_str(&json_bytes);
+    let output: Result<Output, _> = serde_json::from_str(json_bytes);
 
     assert!(output.is_err());
 }
@@ -126,7 +126,7 @@ fn deserialize_with_error_missing_hash_algo_fixed_output() {
         "path": "/nix/store/blablablabla",
         "hash": "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba",
     }"#;
-    let output: Result<Output, _> = serde_json::from_str(&json_bytes);
+    let output: Result<Output, _> = serde_json::from_str(json_bytes);
 
     assert!(output.is_err());
 }
@@ -140,7 +140,7 @@ fn deserialize_with_error_missing_hash_fixed_output() {
         "path": "/nix/store/blablablabla",
         "hashAlgo": "r:sha1024"
     }"#;
-    let output: Result<Output, _> = serde_json::from_str(&json_bytes);
+    let output: Result<Output, _> = serde_json::from_str(json_bytes);
 
     assert!(output.is_err());
 }
