@@ -138,3 +138,22 @@ optimisations, but note the most important ones here.
   determining if finalisation is necessary or not. This wouldn't be necessary
   if `OpFinalise` would just noop on any values that don't need to be finalised
   (anymore).
+
+* Phantom binding for from expression of inherits [easy]
+
+  The from expression of an inherit is reevaluated for each inherit. This can
+  be demonstrated using the following Nix expression which, counter-intuitively,
+  will print “plonk” twice.
+
+  ```nix
+  let
+    inherit (builtins.trace "plonk" { a = null; b = null; }) a b;
+  in
+  builtins.seq a (builtins.seq b null)
+  ```
+
+  In most Nix code, the from expression is just an identifier, so it is not
+  terribly inefficient, but in some cases a more expensive expression may
+  be used. We should create a phantom binding for the from expression that
+  is reused in the inherits, so only a single thunk is created for the from
+  expression.
