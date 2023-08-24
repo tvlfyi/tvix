@@ -723,7 +723,7 @@ mod pure_builtins {
                 let from = elem.0.to_str()?;
                 let to = elem.1.to_str()?;
 
-                if i + from.len() >= string.len() {
+                if i + from.len() > string.len() {
                     continue;
                 }
 
