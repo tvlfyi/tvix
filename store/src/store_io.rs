@@ -131,26 +131,12 @@ impl TvixStoreIO {
             build_regular_ca_path(name, &nar_hash_with_mode, Vec::<String>::new(), false).unwrap();
 
         // assemble a new root_node with a name that is derived from the nar hash.
-        let renamed_root_node = {
-            let name = output_path.to_string().into_bytes().into();
-
-            match root_node {
-                crate::proto::node::Node::Directory(n) => {
-                    crate::proto::node::Node::Directory(crate::proto::DirectoryNode { name, ..n })
-                }
-                crate::proto::node::Node::File(n) => {
-                    crate::proto::node::Node::File(crate::proto::FileNode { name, ..n })
-                }
-                crate::proto::node::Node::Symlink(n) => {
-                    crate::proto::node::Node::Symlink(crate::proto::SymlinkNode { name, ..n })
-                }
-            }
-        };
+        let root_node = root_node.rename(output_path.to_string().into_bytes().into());
 
         // assemble the [crate::proto::PathInfo] object.
         let path_info = crate::proto::PathInfo {
             node: Some(crate::proto::Node {
-                node: Some(renamed_root_node),
+                node: Some(root_node),
             }),
             // There's no reference scanning on path contents ingested like this.
             references: vec![],

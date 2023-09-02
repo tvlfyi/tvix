@@ -203,6 +203,17 @@ impl NamedNode for node::Node {
     }
 }
 
+impl node::Node {
+    /// Returns the node with a new name.
+    pub fn rename(self, name: bytes::Bytes) -> Self {
+        match self {
+            node::Node::Directory(n) => node::Node::Directory(DirectoryNode { name, ..n }),
+            node::Node::File(n) => node::Node::File(FileNode { name, ..n }),
+            node::Node::Symlink(n) => node::Node::Symlink(SymlinkNode { name, ..n }),
+        }
+    }
+}
+
 /// Accepts a name, and a mutable reference to the previous name.
 /// If the passed name is larger than the previous one, the reference is updated.
 /// If it's not, an error is returned.
