@@ -31,15 +31,11 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PathInfoServiceClient interface {
-	// Return a PathInfo message, identified by the decoded nixbase32 part
-	// of a Nix output path.
-	//
-	// To substitute /nix/store/xm35nga2g20mz5sm5l6n8v3bdm86yj83-
-	// cowsay-3.04 the bytes in the request would be
-	// nixbase32dec("xm35nga2g20mz5sm5l6n8v3bdm86yj83").
+	// Return a PathInfo message matching the criteria specified in the
+	// GetPathInfoRequest message.
 	Get(ctx context.Context, in *GetPathInfoRequest, opts ...grpc.CallOption) (*PathInfo, error)
-	// Put uploads a PathInfo object to the remote end. It MUST not return
-	// until the PathInfo object has been written on the the remote end.
+	// Upload a PathInfo object to the remote end. It MUST not return until the
+	// PathInfo object has been written on the the remote end.
 	//
 	// The remote end MAY check if a potential DirectoryNode has already been
 	// uploaded.
@@ -105,15 +101,11 @@ func (c *pathInfoServiceClient) CalculateNAR(ctx context.Context, in *Node, opts
 // All implementations must embed UnimplementedPathInfoServiceServer
 // for forward compatibility
 type PathInfoServiceServer interface {
-	// Return a PathInfo message, identified by the decoded nixbase32 part
-	// of a Nix output path.
-	//
-	// To substitute /nix/store/xm35nga2g20mz5sm5l6n8v3bdm86yj83-
-	// cowsay-3.04 the bytes in the request would be
-	// nixbase32dec("xm35nga2g20mz5sm5l6n8v3bdm86yj83").
+	// Return a PathInfo message matching the criteria specified in the
+	// GetPathInfoRequest message.
 	Get(context.Context, *GetPathInfoRequest) (*PathInfo, error)
-	// Put uploads a PathInfo object to the remote end. It MUST not return
-	// until the PathInfo object has been written on the the remote end.
+	// Upload a PathInfo object to the remote end. It MUST not return until the
+	// PathInfo object has been written on the the remote end.
 	//
 	// The remote end MAY check if a potential DirectoryNode has already been
 	// uploaded.

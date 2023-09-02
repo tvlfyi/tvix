@@ -9,16 +9,12 @@ import "tvix/store/protos/pathinfo.proto";
 option go_package = "code.tvl.fyi/tvix/store/protos;storev1";
 
 service PathInfoService {
-    // Return a PathInfo message, identified by the decoded nixbase32 part
-    // of a Nix output path.
-    //
-    // To substitute /nix/store/xm35nga2g20mz5sm5l6n8v3bdm86yj83-
-    // cowsay-3.04 the bytes in the request would be
-    // nixbase32dec("xm35nga2g20mz5sm5l6n8v3bdm86yj83").
+    // Return a PathInfo message matching the criteria specified in the
+    // GetPathInfoRequest message.
     rpc Get(GetPathInfoRequest) returns (PathInfo);
 
-    // Put uploads a PathInfo object to the remote end. It MUST not return
-    // until the PathInfo object has been written on the the remote end.
+    // Upload a PathInfo object to the remote end. It MUST not return until the
+    // PathInfo object has been written on the the remote end.
     //
     // The remote end MAY check if a potential DirectoryNode has already been
     // uploaded.
@@ -47,8 +43,7 @@ service PathInfoService {
     rpc CalculateNAR(Node) returns (CalculateNARResponse);
 }
 
-// GetPathInfoRequest describes the lookup parameters that can be used to
-// lookup a PathInfo objects.
+// The parameters that can be used to lookup a (single) PathInfo object.
 // Currently, only a lookup by output hash is supported.
 message GetPathInfoRequest {
     oneof by_what {

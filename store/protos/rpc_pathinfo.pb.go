@@ -23,8 +23,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// GetPathInfoRequest describes the lookup parameters that can be used to
-// lookup a PathInfo objects.
+// The parameters that can be used to lookup a (single) PathInfo object.
 // Currently, only a lookup by output hash is supported.
 type GetPathInfoRequest struct {
 	state         protoimpl.MessageState
