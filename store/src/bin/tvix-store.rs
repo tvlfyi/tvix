@@ -60,7 +60,7 @@ enum Commands {
         #[arg(long, env, default_value = "sled:///var/lib/tvix-store/pathinfo.sled")]
         path_info_service_addr: String,
     },
-    /// Imports a list of paths into the store (not using the daemon)
+    /// Imports a list of paths into the store.
     Import {
         #[clap(value_name = "PATH")]
         paths: Vec<PathBuf>,
