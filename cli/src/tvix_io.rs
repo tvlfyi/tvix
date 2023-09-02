@@ -15,6 +15,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use tvix_eval::{EvalIO, FileType};
 
+// TODO: Merge this together with TvixStoreIO?
 pub(crate) struct TvixIO<T: EvalIO> {
     /// Ingested paths must be reported to this known paths tracker
     /// for accurate build reference scanning.

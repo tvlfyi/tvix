@@ -1,13 +1,14 @@
 use clap::Subcommand;
 use data_encoding::BASE64;
 use futures::future::try_join_all;
+use nix_compat::store_path;
 use std::io;
 use std::path::Path;
 use std::path::PathBuf;
-use std::sync::Arc;
 use tracing_subscriber::prelude::*;
 use tvix_store::blobservice;
 use tvix_store::directoryservice;
+use tvix_store::import;
 use tvix_store::pathinfoservice;
 use tvix_store::proto::blob_service_server::BlobServiceServer;
 use tvix_store::proto::directory_service_server::DirectoryServiceServer;
@@ -16,7 +17,8 @@ use tvix_store::proto::path_info_service_server::PathInfoServiceServer;
 use tvix_store::proto::GRPCBlobServiceWrapper;
 use tvix_store::proto::GRPCDirectoryServiceWrapper;
 use tvix_store::proto::GRPCPathInfoServiceWrapper;
-use tvix_store::TvixStoreIO;
+use tvix_store::proto::NarInfo;
+use tvix_store::proto::PathInfo;
 use tvix_store::FUSE;
 
 #[cfg(feature = "reflection")]
@@ -173,6 +175,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             directory_service_addr,
             path_info_service_addr,
         } => {
+            // FUTUREWORK: allow flat for single files?
             let blob_service = blobservice::from_addr(&blob_service_addr)?;
             let directory_service = directoryservice::from_addr(&directory_service_addr)?;
             let path_info_service = pathinfoservice::from_addr(
@@ -181,20 +184,60 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 directory_service.clone(),
             )?;
 
-            let io = Arc::new(TvixStoreIO::new(
-                blob_service,
-                directory_service,
-                path_info_service,
-            ));
-
             let tasks = paths
-                .iter()
+                .into_iter()
                 .map(|path| {
-                    let io_move = io.clone();
-                    let path = path.clone();
+                    let blob_service = blob_service.clone();
+                    let directory_service = directory_service.clone();
+                    let path_info_service = path_info_service.clone();
+
                     let task: tokio::task::JoinHandle<Result<(), io::Error>> =
                         tokio::task::spawn_blocking(move || {
-                            let path_info = io_move.import_path_with_pathinfo(&path)?;
+                            // Ingest the path into blob and directory service.
+                            let root_node = import::ingest_path(
+                                blob_service.clone(),
+                                directory_service.clone(),
+                                &path,
+                            )
+                            .expect("failed to ingest path");
+
+                            // Ask the PathInfoService for the NAR size and sha256
+                            let (nar_size, nar_sha256) =
+                                path_info_service.calculate_nar(&root_node)?;
+
+                            // TODO: make a path_to_name helper function?
+                            let name = path
+                                .file_name()
+                                .expect("path must not be ..")
+                                .to_str()
+                                .expect("path must be valid unicode");
+
+                            let output_path =
+                                store_path::build_nar_based_store_path(&nar_sha256, name);
+
+                            // assemble a new root_node with a name that is derived from the nar hash.
+                            let root_node =
+                                root_node.rename(output_path.to_string().into_bytes().into());
+
+                            // assemble the [crate::proto::PathInfo] object.
+                            let path_info = PathInfo {
+                                node: Some(tvix_store::proto::Node {
+                                    node: Some(root_node),
+                                }),
+                                // There's no reference scanning on path contents ingested like this.
+                                references: vec![],
+                                narinfo: Some(NarInfo {
+                                    nar_size,
+                                    nar_sha256: nar_sha256.to_vec().into(),
+                                    signatures: vec![],
+                                    reference_names: vec![],
+                                }),
+                            };
+
+                            // put into [PathInfoService], and return the PathInfo that we get back
+                            // from there (it might contain additional signatures).
+                            let path_info = path_info_service.put(path_info)?;
+
                             print_node(&path_info.node.unwrap().node.unwrap(), &path);
                             Ok(())
                         });

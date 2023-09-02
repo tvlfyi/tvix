@@ -1,23 +1,17 @@
-//! This module provides an implementation of EvalIO.
-//!
-//! It can be used by the tvix evalutator to talk to a tvix store.
+//! This module provides an implementation of EvalIO talking to tvix-store.
 
-use data_encoding::BASE64;
-use nix_compat::{
-    nixhash::{HashAlgo, NixHash, NixHashWithMode},
-    store_path::{build_regular_ca_path, StorePath},
-};
+use nix_compat::store_path::{self, StorePath};
 use std::{io, path::Path, path::PathBuf, sync::Arc};
 use tracing::{error, instrument, warn};
 use tvix_eval::{EvalIO, FileType, StdIO};
 
-use crate::{
+use tvix_store::{
     blobservice::BlobService,
     directoryservice::{self, DirectoryService},
     import,
     nar::calculate_size_and_sha256,
     pathinfoservice::PathInfoService,
-    proto::NamedNode,
+    proto::{node::Node, NamedNode, NarInfo, PathInfo},
     B3Digest,
 };
 
@@ -50,14 +44,15 @@ impl TvixStoreIO {
     }
 
     /// for a given [StorePath] and additional [Path] inside the store path,
-    /// look up the [PathInfo], and if it exists, traverse the directory structure to
-    /// return the [crate::proto::node::Node] specified by `sub_path`.
+    /// look up the [PathInfo], and if it exists, and then use
+    /// [directoryservice::traverse_to] to return the
+    /// [Node] specified by `sub_path`.
     #[instrument(skip(self), ret, err)]
     fn store_path_to_root_node(
         &self,
         store_path: &StorePath,
         sub_path: &Path,
-    ) -> Result<Option<crate::proto::node::Node>, crate::Error> {
+    ) -> Result<Option<Node>, io::Error> {
         let path_info = {
             match self.path_info_service.get(store_path.digest)? {
                 // If there's no PathInfo found, early exit
@@ -85,19 +80,20 @@ impl TvixStoreIO {
             }
         };
 
-        directoryservice::traverse_to(self.directory_service.clone(), root_node, sub_path)
+        Ok(directoryservice::traverse_to(
+            self.directory_service.clone(),
+            root_node,
+            sub_path,
+        )?)
     }
 
     /// Imports a given path on the filesystem into the store, and returns the
-    /// [crate::proto::PathInfo] describing the path, that was sent to
+    /// [PathInfo] describing the path, that was sent to
     /// [PathInfoService].
     /// While not part of the [EvalIO], it's still useful for clients who
     /// care about the [PathInfo].
     #[instrument(skip(self), ret, err)]
-    pub fn import_path_with_pathinfo(
-        &self,
-        path: &std::path::Path,
-    ) -> Result<crate::proto::PathInfo, io::Error> {
+    pub fn import_path_with_pathinfo(&self, path: &std::path::Path) -> Result<PathInfo, io::Error> {
         // Call [import::ingest_path], which will walk over the given path and return a root_node.
         let root_node = import::ingest_path(
             self.blob_service.clone(),
@@ -114,33 +110,26 @@ impl TvixStoreIO {
         )
         .expect("error during nar calculation"); // TODO: handle error
 
-        // We populate the struct directly, as we know the sha256 digest has the
-        // right size.
-        let nar_hash_with_mode = NixHashWithMode::Recursive(NixHash {
-            algo: HashAlgo::Sha256,
-            digest: nar_sha256.to_vec(),
-        });
-
+        // TODO: make a path_to_name helper function?
         let name = path
             .file_name()
             .expect("path must not be ..")
             .to_str()
             .expect("path must be valid unicode");
 
-        let output_path =
-            build_regular_ca_path(name, &nar_hash_with_mode, Vec::<String>::new(), false).unwrap();
+        let output_path = store_path::build_nar_based_store_path(&nar_sha256, name);
 
         // assemble a new root_node with a name that is derived from the nar hash.
         let root_node = root_node.rename(output_path.to_string().into_bytes().into());
 
-        // assemble the [crate::proto::PathInfo] object.
-        let path_info = crate::proto::PathInfo {
-            node: Some(crate::proto::Node {
+        // assemble the [PathInfo] object.
+        let path_info = PathInfo {
+            node: Some(tvix_store::proto::Node {
                 node: Some(root_node),
             }),
             // There's no reference scanning on path contents ingested like this.
             references: vec![],
-            narinfo: Some(crate::proto::NarInfo {
+            narinfo: Some(NarInfo {
                 nar_size,
                 nar_sha256: nar_sha256.to_vec().into(),
                 signatures: vec![],
@@ -150,25 +139,12 @@ impl TvixStoreIO {
             }),
         };
 
-        // put into [PathInfoService], and return the PathInfo that we get back
-        // from there (it might contain additional signatures).
+        // put into [PathInfoService], and return the [PathInfo] that we get
+        // back from there (it might contain additional signatures).
         let path_info = self.path_info_service.put(path_info)?;
 
         Ok(path_info)
     }
-}
-
-/// For given NAR sha256 digest and name, return the new [StorePath] this would have.
-#[instrument(skip(nar_sha256_digest), ret, fields(nar_sha256_digest=BASE64.encode(nar_sha256_digest)))]
-fn calculate_nar_based_store_path(nar_sha256_digest: &[u8; 32], name: &str) -> StorePath {
-    // We populate the struct directly, as we know the sha256 digest has the
-    // right size.
-    let nar_hash_with_mode = NixHashWithMode::Recursive(NixHash {
-        algo: HashAlgo::Sha256,
-        digest: nar_sha256_digest.to_vec(),
-    });
-
-    build_regular_ca_path(name, &nar_hash_with_mode, Vec::<String>::new(), false).unwrap()
 }
 
 impl EvalIO for TvixStoreIO {
@@ -201,14 +177,14 @@ impl EvalIO for TvixStoreIO {
             if let Some(node) = self.store_path_to_root_node(&store_path, &sub_path)? {
                 // depending on the node type, treat read_to_string differently
                 match node {
-                    crate::proto::node::Node::Directory(_) => {
+                    Node::Directory(_) => {
                         // This would normally be a io::ErrorKind::IsADirectory (still unstable)
                         Err(io::Error::new(
                             io::ErrorKind::Unsupported,
-                            "tried to read directory at {path} to string",
+                            format!("tried to read directory at {:?} to string", path),
                         ))
                     }
-                    crate::proto::node::Node::File(file_node) => {
+                    Node::File(file_node) => {
                         let digest: B3Digest =
                             file_node.digest.clone().try_into().map_err(|_e| {
                                 error!(
@@ -240,7 +216,7 @@ impl EvalIO for TvixStoreIO {
 
                         io::read_to_string(reader)
                     }
-                    crate::proto::node::Node::Symlink(_symlink_node) => Err(io::Error::new(
+                    Node::Symlink(_symlink_node) => Err(io::Error::new(
                         io::ErrorKind::Unsupported,
                         "read_to_string for symlinks is unsupported",
                     ))?,
@@ -263,7 +239,7 @@ impl EvalIO for TvixStoreIO {
         {
             if let Some(node) = self.store_path_to_root_node(&store_path, &sub_path)? {
                 match node {
-                    crate::proto::node::Node::Directory(directory_node) => {
+                    Node::Directory(directory_node) => {
                         // fetch the Directory itself.
                         let digest = directory_node.digest.clone().try_into().map_err(|_e| {
                             io::Error::new(
@@ -279,15 +255,9 @@ impl EvalIO for TvixStoreIO {
                             let mut children: Vec<(bytes::Bytes, FileType)> = Vec::new();
                             for node in directory.nodes() {
                                 children.push(match node {
-                                    crate::proto::node::Node::Directory(e) => {
-                                        (e.name, FileType::Directory)
-                                    }
-                                    crate::proto::node::Node::File(e) => {
-                                        (e.name, FileType::Regular)
-                                    }
-                                    crate::proto::node::Node::Symlink(e) => {
-                                        (e.name, FileType::Symlink)
-                                    }
+                                    Node::Directory(e) => (e.name, FileType::Directory),
+                                    Node::File(e) => (e.name, FileType::Regular),
+                                    Node::Symlink(e) => (e.name, FileType::Symlink),
                                 })
                             }
                             Ok(children)
@@ -304,14 +274,14 @@ impl EvalIO for TvixStoreIO {
                             ))?
                         }
                     }
-                    crate::proto::node::Node::File(_file_node) => {
+                    Node::File(_file_node) => {
                         // This would normally be a io::ErrorKind::NotADirectory (still unstable)
                         Err(io::Error::new(
                             io::ErrorKind::Unsupported,
                             "tried to readdir path {:?}, which is a file",
                         ))?
                     }
-                    crate::proto::node::Node::Symlink(_symlink_node) => Err(io::Error::new(
+                    Node::Symlink(_symlink_node) => Err(io::Error::new(
                         io::ErrorKind::Unsupported,
                         "read_dir for symlinks is unsupported",
                     ))?,

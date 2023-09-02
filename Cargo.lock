@@ -2724,6 +2724,7 @@ dependencies = [
  "smol_str",
  "ssri",
  "thiserror",
+ "tracing",
  "tvix-eval",
  "tvix-store",
  "wu-manber",
@@ -2814,7 +2815,6 @@ dependencies = [
  "tower",
  "tracing",
  "tracing-subscriber",
- "tvix-eval",
  "url",
  "walkdir",
 ]

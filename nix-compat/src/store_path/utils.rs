@@ -121,6 +121,18 @@ pub fn build_regular_ca_path<S: AsRef<str>, I: IntoIterator<Item = S>>(
     }
 }
 
+/// For given NAR sha256 digest and name, return the new [StorePath] this would have.
+pub fn build_nar_based_store_path(nar_sha256_digest: &[u8; 32], name: &str) -> StorePath {
+    // We populate the struct directly, as we know the sha256 digest has the
+    // right size.
+    let nar_hash_with_mode = NixHashWithMode::Recursive(NixHash {
+        algo: HashAlgo::Sha256,
+        digest: nar_sha256_digest.to_vec(),
+    });
+
+    build_regular_ca_path(name, &nar_hash_with_mode, Vec::<String>::new(), false).unwrap()
+}
+
 /// This builds an input-addressed store path
 ///
 /// Input-addresed store paths are always derivation outputs, the "input" in question is the

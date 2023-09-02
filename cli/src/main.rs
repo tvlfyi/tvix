@@ -3,6 +3,7 @@ mod errors;
 mod known_paths;
 mod refscan;
 mod tvix_io;
+mod tvix_store_io;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -17,6 +18,7 @@ use tvix_eval::Value;
 use tvix_store::blobservice::MemoryBlobService;
 use tvix_store::directoryservice::MemoryDirectoryService;
 use tvix_store::pathinfoservice::MemoryPathInfoService;
+use tvix_store_io::TvixStoreIO;
 
 #[derive(Parser)]
 struct Args {
@@ -80,7 +82,7 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
 
     eval.io_handle = Box::new(tvix_io::TvixIO::new(
         known_paths.clone(),
-        tvix_store::TvixStoreIO::new(blob_service, directory_service, path_info_service),
+        TvixStoreIO::new(blob_service, directory_service, path_info_service),
     ));
 
     // bundle fetchurl.nix (used in nixpkgs) by resolving <nix> to

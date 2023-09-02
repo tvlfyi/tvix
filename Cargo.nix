@@ -8051,6 +8051,10 @@ rec {
             packageId = "thiserror";
           }
           {
+            name = "tracing";
+            packageId = "tracing";
+          }
+          {
             name = "tvix-eval";
             packageId = "tvix-eval";
           }
@@ -8391,10 +8395,6 @@ rec {
             name = "tracing-subscriber";
             packageId = "tracing-subscriber";
             features = [ "json" ];
-          }
-          {
-            name = "tvix-eval";
-            packageId = "tvix-eval";
           }
           {
             name = "url";
