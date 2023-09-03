@@ -9,6 +9,7 @@ use crate::tests::utils::gen_blob_service;
 use crate::tests::utils::gen_directory_service;
 use crate::tests::utils::gen_pathinfo_service;
 use std::sync::Arc;
+use tokio_stream::wrappers::ReceiverStream;
 use tonic::Request;
 
 /// generates a GRPCPathInfoService out of blob, directory and pathinfo services.
@@ -16,7 +17,8 @@ use tonic::Request;
 /// We only interact with it via the PathInfo GRPC interface.
 /// It uses the NonCachingNARCalculationService NARCalculationService to
 /// calculate NARs.
-fn gen_grpc_service() -> Arc<dyn GRPCPathInfoService> {
+fn gen_grpc_service(
+) -> Arc<dyn GRPCPathInfoService<ListStream = ReceiverStream<Result<PathInfo, tonic::Status>>>> {
     let blob_service = gen_blob_service();
     let directory_service = gen_directory_service();
     Arc::new(GRPCPathInfoServiceWrapper::from(gen_pathinfo_service(

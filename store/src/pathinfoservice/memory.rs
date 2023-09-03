@@ -85,6 +85,18 @@ impl PathInfoService for MemoryPathInfoService {
         )
         .map_err(|e| Error::StorageError(e.to_string()))
     }
+
+    fn list(&self) -> Box<dyn Iterator<Item = Result<proto::PathInfo, Error>> + Send + '_> {
+        let db = self.db.read().unwrap();
+
+        // Copy all elements into a list.
+        // This is a bit ugly, because we can't have db escape the lifetime
+        // of this function, but elements need to be returned owned anyways, and this in-
+        // memory impl is only for testing purposes anyways.
+        let items: Vec<_> = db.iter().map(|(_k, v)| Ok(v.clone())).collect();
+
+        Box::new(items.into_iter())
+    }
 }
 
 #[cfg(test)]

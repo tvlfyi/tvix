@@ -25,6 +25,7 @@ const (
 	PathInfoService_Get_FullMethodName          = "/tvix.store.v1.PathInfoService/Get"
 	PathInfoService_Put_FullMethodName          = "/tvix.store.v1.PathInfoService/Put"
 	PathInfoService_CalculateNAR_FullMethodName = "/tvix.store.v1.PathInfoService/CalculateNAR"
+	PathInfoService_List_FullMethodName         = "/tvix.store.v1.PathInfoService/List"
 )
 
 // PathInfoServiceClient is the client API for PathInfoService service.
@@ -60,6 +61,9 @@ type PathInfoServiceClient interface {
 	// It can also be used to calculate arbitrary NAR hashes of output paths,
 	// in case a legacy Nix Binary Cache frontend is provided.
 	CalculateNAR(ctx context.Context, in *Node, opts ...grpc.CallOption) (*CalculateNARResponse, error)
+	// Return a stream of PathInfo messages matching the criteria specified in
+	// ListPathInfoRequest.
+	List(ctx context.Context, in *ListPathInfoRequest, opts ...grpc.CallOption) (PathInfoService_ListClient, error)
 }
 
 type pathInfoServiceClient struct {
@@ -97,6 +101,38 @@ func (c *pathInfoServiceClient) CalculateNAR(ctx context.Context, in *Node, opts
 	return out, nil
 }
 
+func (c *pathInfoServiceClient) List(ctx context.Context, in *ListPathInfoRequest, opts ...grpc.CallOption) (PathInfoService_ListClient, error) {
+	stream, err := c.cc.NewStream(ctx, &PathInfoService_ServiceDesc.Streams[0], PathInfoService_List_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &pathInfoServiceListClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type PathInfoService_ListClient interface {
+	Recv() (*PathInfo, error)
+	grpc.ClientStream
+}
+
+type pathInfoServiceListClient struct {
+	grpc.ClientStream
+}
+
+func (x *pathInfoServiceListClient) Recv() (*PathInfo, error) {
+	m := new(PathInfo)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // PathInfoServiceServer is the server API for PathInfoService service.
 // All implementations must embed UnimplementedPathInfoServiceServer
 // for forward compatibility
@@ -130,6 +166,9 @@ type PathInfoServiceServer interface {
 	// It can also be used to calculate arbitrary NAR hashes of output paths,
 	// in case a legacy Nix Binary Cache frontend is provided.
 	CalculateNAR(context.Context, *Node) (*CalculateNARResponse, error)
+	// Return a stream of PathInfo messages matching the criteria specified in
+	// ListPathInfoRequest.
+	List(*ListPathInfoRequest, PathInfoService_ListServer) error
 	mustEmbedUnimplementedPathInfoServiceServer()
 }
 
@@ -145,6 +184,9 @@ func (UnimplementedPathInfoServiceServer) Put(context.Context, *PathInfo) (*Path
 }
 func (UnimplementedPathInfoServiceServer) CalculateNAR(context.Context, *Node) (*CalculateNARResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CalculateNAR not implemented")
+}
+func (UnimplementedPathInfoServiceServer) List(*ListPathInfoRequest, PathInfoService_ListServer) error {
+	return status.Errorf(codes.Unimplemented, "method List not implemented")
 }
 func (UnimplementedPathInfoServiceServer) mustEmbedUnimplementedPathInfoServiceServer() {}
 
@@ -213,6 +255,27 @@ func _PathInfoService_CalculateNAR_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PathInfoService_List_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ListPathInfoRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(PathInfoServiceServer).List(m, &pathInfoServiceListServer{stream})
+}
+
+type PathInfoService_ListServer interface {
+	Send(*PathInfo) error
+	grpc.ServerStream
+}
+
+type pathInfoServiceListServer struct {
+	grpc.ServerStream
+}
+
+func (x *pathInfoServiceListServer) Send(m *PathInfo) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // PathInfoService_ServiceDesc is the grpc.ServiceDesc for PathInfoService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -233,6 +296,12 @@ var PathInfoService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _PathInfoService_CalculateNAR_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "List",
+			Handler:       _PathInfoService_List_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "tvix/store/protos/rpc_pathinfo.proto",
 }

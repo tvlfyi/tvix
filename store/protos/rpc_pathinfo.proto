@@ -41,6 +41,10 @@ service PathInfoService {
     // It can also be used to calculate arbitrary NAR hashes of output paths,
     // in case a legacy Nix Binary Cache frontend is provided.
     rpc CalculateNAR(Node) returns (CalculateNARResponse);
+
+    // Return a stream of PathInfo messages matching the criteria specified in
+    // ListPathInfoRequest.
+    rpc List(ListPathInfoRequest) returns (stream PathInfo);
 }
 
 // The parameters that can be used to lookup a (single) PathInfo object.
@@ -54,6 +58,10 @@ message GetPathInfoRequest {
       bytes by_output_hash = 1;
     };
 }
+
+// The parameters that can be used to lookup (multiple) PathInfo objects.
+// Currently no filtering is possible, all objects are returned.
+message ListPathInfoRequest { }
 
 // CalculateNARResponse is the response returned by the CalculateNAR request.
 //

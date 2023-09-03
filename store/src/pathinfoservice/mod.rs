@@ -39,4 +39,8 @@ pub trait PathInfoService: Send + Sync {
     /// This can be used to calculate NAR-based output paths,
     /// and implementations are encouraged to cache it.
     fn calculate_nar(&self, root_node: &proto::node::Node) -> Result<(u64, [u8; 32]), Error>;
+
+    /// Iterate over all PathInfo objects in the store.
+    /// Implementations can decide to disallow listing.
+    fn list(&self) -> Box<dyn Iterator<Item = Result<proto::PathInfo, Error>> + Send + '_>;
 }

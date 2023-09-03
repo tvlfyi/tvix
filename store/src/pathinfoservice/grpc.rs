@@ -1,8 +1,12 @@
 use super::PathInfoService;
-use crate::{blobservice::BlobService, directoryservice::DirectoryService, proto};
+use crate::{
+    blobservice::BlobService,
+    directoryservice::DirectoryService,
+    proto::{self, ListPathInfoRequest},
+};
 use std::sync::Arc;
 use tokio::net::UnixStream;
-use tonic::{transport::Channel, Code, Status};
+use tonic::{transport::Channel, Code, Status, Streaming};
 
 /// Connects to a (remote) tvix-store PathInfoService over gRPC.
 #[derive(Clone)]
@@ -159,6 +163,62 @@ impl PathInfoService for GRPCPathInfoService {
             .map_err(|_e| crate::Error::StorageError("invalid digest length".to_string()))?;
 
         Ok((resp.nar_size, nar_sha256))
+    }
+
+    fn list(&self) -> Box<dyn Iterator<Item = Result<proto::PathInfo, crate::Error>> + Send> {
+        // Get a new handle to the gRPC client.
+        let mut grpc_client = self.grpc_client.clone();
+
+        let task: tokio::task::JoinHandle<Result<_, Status>> =
+            self.tokio_handle.spawn(async move {
+                let s = grpc_client
+                    .list(ListPathInfoRequest::default())
+                    .await?
+                    .into_inner();
+
+                Ok(s)
+            });
+
+        let stream = self.tokio_handle.block_on(task).unwrap().unwrap();
+
+        Box::new(StreamIterator::new(self.tokio_handle.clone(), stream))
+    }
+}
+
+pub struct StreamIterator {
+    tokio_handle: tokio::runtime::Handle,
+    stream: Streaming<proto::PathInfo>,
+}
+
+impl StreamIterator {
+    pub fn new(tokio_handle: tokio::runtime::Handle, stream: Streaming<proto::PathInfo>) -> Self {
+        Self {
+            tokio_handle,
+            stream,
+        }
+    }
+}
+
+impl Iterator for StreamIterator {
+    type Item = Result<proto::PathInfo, crate::Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.tokio_handle.block_on(self.stream.message()) {
+            Ok(o) => match o {
+                Some(pathinfo) => {
+                    // validate the pathinfo
+                    if let Err(e) = pathinfo.validate() {
+                        return Some(Err(crate::Error::StorageError(format!(
+                            "pathinfo {:?} failed validation: {}",
+                            pathinfo, e
+                        ))));
+                    }
+                    Some(Ok(pathinfo))
+                }
+                None => None,
+            },
+            Err(e) => Some(Err(crate::Error::StorageError(e.to_string()))),
+        }
     }
 }
 

@@ -136,6 +136,31 @@ impl PathInfoService for SledPathInfoService {
         )
         .map_err(|e| Error::StorageError(e.to_string()))
     }
+
+    fn list(&self) -> Box<dyn Iterator<Item = Result<proto::PathInfo, Error>> + Send> {
+        Box::new(self.db.iter().values().map(|v| match v {
+            Ok(data) => {
+                // we retrieved some bytes
+                match proto::PathInfo::decode(&*data) {
+                    Ok(path_info) => Ok(path_info),
+                    Err(e) => {
+                        warn!("failed to decode stored PathInfo: {}", e);
+                        Err(Error::StorageError(format!(
+                            "failed to decode stored PathInfo: {}",
+                            e
+                        )))
+                    }
+                }
+            }
+            Err(e) => {
+                warn!("failed to retrieve PathInfo: {}", e);
+                Err(Error::StorageError(format!(
+                    "failed to retrieve PathInfo: {}",
+                    e
+                )))
+            }
+        }))
+    }
 }
 
 #[cfg(test)]
