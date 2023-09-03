@@ -41,12 +41,12 @@ use self::inode_tracker::InodeTracker;
 /// This means, we need to have a stable mapping of inode numbers to the
 /// corresponding store nodes.
 ///
-/// We internally delegate all inode allocation and state keeping to a
-/// [InodeTracker], and store the currently "explored" store paths together with
+/// We internally delegate all inode allocation and state keeping to the
+/// inode tracker, and store the currently "explored" store paths together with
 /// root inode of the root.
 ///
 /// There's some places where inodes are allocated / data inserted into
-/// [self.inode_tracker], if not allocated before already:
+/// the inode tracker, if not allocated before already:
 ///  - Processing a `lookup` request, either in the mount root, or somewhere
 ///    deeper
 ///  - Processing a `readdir` request

@@ -46,9 +46,9 @@ pub trait DirectoryService: Send + Sync {
 
 /// Provides a handle to put a closure of connected [proto::Directory] elements.
 ///
-/// The consumer can periodically call [put], starting from the leaves. Once
-/// the root is reached, [close] can be called to retrieve the root digest (or
-/// an error).
+/// The consumer can periodically call [DirectoryPutter::put], starting from the
+/// leaves. Once the root is reached, [DirectoryPutter::close] can be called to
+/// retrieve the root digest (or an error).
 pub trait DirectoryPutter {
     /// Put a individual [proto::Directory] into the store.
     /// Error semantics and behaviour is up to the specific implementation of

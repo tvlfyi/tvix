@@ -130,9 +130,10 @@ fn process_entry(
 /// interacting with a [BlobService] and [DirectoryService].
 /// It returns the root node or an error.
 ///
-/// It's not interacting with a [PathInfoService], it's up to the caller to
-/// possibly register it somewhere (and potentially rename it based on some
-/// naming scheme.
+/// It's not interacting with a
+/// [PathInfoService](crate::pathinfoservice::PathInfoService), it's up to the
+/// caller to possibly register it somewhere (and potentially rename it based on
+/// some naming scheme.
 #[instrument(skip(blob_service, directory_service), fields(path=?p))]
 pub fn ingest_path<P: AsRef<Path> + Debug>(
     blob_service: Arc<dyn BlobService>,

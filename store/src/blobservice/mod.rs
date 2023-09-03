@@ -51,5 +51,5 @@ pub trait BlobWriter: io::Write + Send + Sync + 'static {
 /// A [io::Read] that also allows seeking.
 pub trait BlobReader: io::Read + io::Seek + Send + 'static {}
 
-/// A Cursor<Vec<u8>> can be used as a BlobReader.
+/// A [`io::Cursor<Vec<u8>>`] can be used as a BlobReader.
 impl BlobReader for io::Cursor<Vec<u8>> {}

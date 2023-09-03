@@ -10,7 +10,7 @@ use super::{BlobService, GRPCBlobService, MemoryBlobService, SledBlobService};
 /// - `sled://` ([SledBlobService])
 /// - `grpc+*://` ([GRPCBlobService])
 ///
-/// See their [from_url] methods for more details about their syntax.
+/// See their `from_url` methods for more details about their syntax.
 pub fn from_addr(uri: &str) -> Result<Arc<dyn BlobService>, crate::Error> {
     let url = Url::parse(uri)
         .map_err(|e| crate::Error::StorageError(format!("unable to parse url: {}", e)))?;
