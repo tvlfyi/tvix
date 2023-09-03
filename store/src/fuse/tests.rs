@@ -28,6 +28,17 @@ fn setup_and_mount<P: AsRef<Path>, F>(
 where
     F: Fn(Arc<dyn BlobService>, Arc<dyn DirectoryService>, Arc<dyn PathInfoService>),
 {
+    setup_and_mount_with_listing(mountpoint, setup_fn, false)
+}
+
+fn setup_and_mount_with_listing<P: AsRef<Path>, F>(
+    mountpoint: P,
+    setup_fn: F,
+    list_root: bool,
+) -> Result<fuser::BackgroundSession, std::io::Error>
+where
+    F: Fn(Arc<dyn BlobService>, Arc<dyn DirectoryService>, Arc<dyn PathInfoService>),
+{
     let blob_service = gen_blob_service();
     let directory_service = gen_directory_service();
     let path_info_service = gen_pathinfo_service(blob_service.clone(), directory_service.clone());
@@ -38,7 +49,12 @@ where
         path_info_service.clone(),
     );
 
-    let fs = FUSE::new(blob_service, directory_service, path_info_service);
+    let fs = FUSE::new(
+        blob_service,
+        directory_service,
+        path_info_service,
+        list_root,
+    );
     fuser::spawn_mount2(fs, mountpoint, &[])
 }
 
@@ -275,6 +291,34 @@ fn root() {
 
         let err = it.next().expect("must be some").expect_err("must be err");
         assert_eq!(std::io::ErrorKind::PermissionDenied, err.kind());
+    }
+
+    fuser_session.join()
+}
+
+/// Ensure listing the root is allowed if configured explicitly
+#[test]
+fn root_with_listing() {
+    // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
+    if !std::path::Path::new("/dev/fuse").exists() {
+        eprintln!("skipping test");
+        return;
+    }
+    let tmpdir = TempDir::new().unwrap();
+
+    let fuser_session =
+        setup_and_mount_with_listing(tmpdir.path(), populate_blob_a, true).expect("must succeed");
+
+    {
+        // read_dir succeeds, but getting the first element will fail.
+        let mut it = fs::read_dir(tmpdir).expect("must succeed");
+
+        let e = it.next().expect("must be some").expect("must succeed");
+
+        let metadata = e.metadata().expect("must succeed");
+        assert!(metadata.is_file());
+        assert!(metadata.permissions().readonly());
+        assert_eq!(fixtures::BLOB_A.len() as u64, metadata.len());
     }
 
     fuser_session.join()

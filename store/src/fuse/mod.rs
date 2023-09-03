@@ -66,6 +66,9 @@ pub struct FUSE {
     directory_service: Arc<dyn DirectoryService>,
     path_info_service: Arc<dyn PathInfoService>,
 
+    /// Whether to (try) listing elements in the root.
+    list_root: bool,
+
     /// This maps a given StorePath to the inode we allocated for the root inode.
     store_paths: HashMap<StorePath, u64>,
 
@@ -83,11 +86,14 @@ impl FUSE {
         blob_service: Arc<dyn BlobService>,
         directory_service: Arc<dyn DirectoryService>,
         path_info_service: Arc<dyn PathInfoService>,
+        list_root: bool,
     ) -> Self {
         Self {
             blob_service,
             directory_service,
             path_info_service,
+
+            list_root,
 
             store_paths: HashMap::default(),
             inode_tracker: Default::default(),
@@ -311,8 +317,55 @@ impl fuser::Filesystem for FUSE {
         debug!("readdir");
 
         if ino == fuser::FUSE_ROOT_ID {
-            reply.error(libc::EPERM); // same error code as ipfs/kubo
-            return;
+            if !self.list_root {
+                reply.error(libc::EPERM); // same error code as ipfs/kubo
+                return;
+            } else {
+                for (i, path_info) in self
+                    .path_info_service
+                    .list()
+                    .skip(offset as usize)
+                    .enumerate()
+                {
+                    let path_info = match path_info {
+                        Err(e) => {
+                            warn!("failed to retrieve pathinfo: {}", e);
+                            reply.error(libc::EPERM);
+                            return;
+                        }
+                        Ok(path_info) => path_info,
+                    };
+
+                    // We know the root node exists and the store_path can be parsed because clients MUST validate.
+                    let root_node = path_info.node.unwrap().node.unwrap();
+                    let store_path = StorePath::from_bytes(root_node.get_name()).unwrap();
+
+                    let ino = match self.store_paths.get(&store_path) {
+                        Some(ino) => *ino,
+                        None => {
+                            // insert the (sparse) inode data and register in
+                            // self.store_paths.
+                            let ino = self.inode_tracker.put((&root_node).into());
+                            self.store_paths.insert(store_path.clone(), ino);
+                            ino
+                        }
+                    };
+
+                    let ty = match root_node {
+                        Node::Directory(_) => fuser::FileType::Directory,
+                        Node::File(_) => fuser::FileType::RegularFile,
+                        Node::Symlink(_) => fuser::FileType::Symlink,
+                    };
+
+                    let full =
+                        reply.add(ino, offset + i as i64 + 1_i64, ty, store_path.to_string());
+                    if full {
+                        break;
+                    }
+                }
+                reply.ok();
+                return;
+            }
         }
 
         // lookup the inode data.

@@ -90,6 +90,10 @@ enum Commands {
 
         #[arg(long, env, default_value = "grpc+http://[::1]:8000")]
         path_info_service_addr: String,
+
+        /// Whether to list elements at the root of the mount point.
+        #[clap(long, short, action)]
+        list_root: bool,
     },
 }
 
@@ -250,6 +254,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             blob_service_addr,
             directory_service_addr,
             path_info_service_addr,
+            list_root,
         } => {
             let blob_service = blobservice::from_addr(&blob_service_addr)?;
             let directory_service = directoryservice::from_addr(&directory_service_addr)?;
@@ -260,7 +265,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             )?;
 
             tokio::task::spawn_blocking(move || {
-                let f = FUSE::new(blob_service, directory_service, path_info_service);
+                let f = FUSE::new(
+                    blob_service,
+                    directory_service,
+                    path_info_service,
+                    list_root,
+                );
                 fuser::mount2(f, &dest, &[])
             })
             .await??
