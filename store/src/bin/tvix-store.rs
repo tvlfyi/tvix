@@ -264,16 +264,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 directory_service.clone(),
             )?;
 
-            tokio::task::spawn_blocking(move || {
+            let mut fuse_session = tokio::task::spawn_blocking(move || {
                 let f = FUSE::new(
                     blob_service,
                     directory_service,
                     path_info_service,
                     list_root,
                 );
-                fuser::mount2(f, &dest, &[])
+
+                fuser::Session::new(f, &dest, &[])
             })
-            .await??
+            .await??;
+
+            // grab a handle to unmount the file system, and register a signal
+            // handler.
+            let mut fuse_unmounter = fuse_session.unmount_callable();
+            tokio::spawn(async move {
+                tokio::signal::ctrl_c().await.unwrap();
+                info!("interrupt received, unmounting…");
+                fuse_unmounter.unmount().unwrap();
+            });
+
+            // Start the fuse filesystem and wait for its completion, which
+            // happens when it's unmounted externally, or via the signal handler
+            // task.
+            tokio::task::spawn_blocking(move || -> io::Result<()> {
+                info!("mounting tvix-store on {:?}", fuse_session.mountpoint());
+                let res = fuse_session.run()?;
+                info!("unmount occured, terminating…");
+                Ok(res)
+            })
+            .await??;
         }
     };
     Ok(())
