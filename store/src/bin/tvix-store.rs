@@ -92,6 +92,8 @@ enum Commands {
         path_info_service_addr: String,
 
         /// Whether to list elements at the root of the mount point.
+        /// This is useful if your PathInfoService doesn't provide an
+        /// (exhaustive) listing.
         #[clap(long, short, action)]
         list_root: bool,
     },
