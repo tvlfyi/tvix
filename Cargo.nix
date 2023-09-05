@@ -8658,9 +8658,9 @@ rec {
       };
       "walkdir" = rec {
         crateName = "walkdir";
-        version = "2.3.3";
+        version = "2.4.0";
         edition = "2018";
-        sha256 = "16768hy32kcvghq7v4ci8llfjvdiwrwg6sj9nzcdiisnv9699prn";
+        sha256 = "1vjl9fmfc4v8k9ald23qrpcbyb8dl1ynyq8d516cm537r1yqa7fp";
         authors = [
           "Andrew Gallant <jamslam@gmail.com>"
         ];

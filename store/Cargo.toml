@@ -21,7 +21,7 @@ tokio = { version = "1.28.0", features = ["rt-multi-thread", "net"] }
 tonic = "0.8.2"
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.16", features = ["json"] }
-walkdir = "2.3.2"
+walkdir = "2.4.0"
 tokio-util = { version = "0.7.8", features = ["io", "io-util"] }
 tower = "0.4.13"
 futures = "0.3.28"

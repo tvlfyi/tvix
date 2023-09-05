@@ -6,7 +6,6 @@ use std::sync::Arc;
 use std::{
     collections::HashMap,
     fmt::Debug,
-    fs,
     fs::File,
     io,
     os::unix::prelude::PermissionsExt,
@@ -130,6 +129,9 @@ fn process_entry(
 /// interacting with a [BlobService] and [DirectoryService].
 /// It returns the root node or an error.
 ///
+/// It does not follow symlinks at the root, they will be ingested as actual
+/// symlinks.
+///
 /// It's not interacting with a
 /// [PathInfoService](crate::pathinfoservice::PathInfoService), it's up to the
 /// caller to possibly register it somewhere (and potentially rename it based on
@@ -140,25 +142,6 @@ pub fn ingest_path<P: AsRef<Path> + Debug>(
     directory_service: Arc<dyn DirectoryService>,
     p: P,
 ) -> Result<proto::node::Node, Error> {
-    // Probe if the path points to a symlink. If it does, we process it manually,
-    // due to https://github.com/BurntSushi/walkdir/issues/175.
-    let symlink_metadata = fs::symlink_metadata(p.as_ref())
-        .map_err(|e| Error::UnableToStat(p.as_ref().to_path_buf(), e))?;
-    if symlink_metadata.is_symlink() {
-        let target = std::fs::read_link(p.as_ref())
-            .map_err(|e| Error::UnableToStat(p.as_ref().to_path_buf(), e))?;
-        return Ok(proto::node::Node::Symlink(proto::SymlinkNode {
-            name: p
-                .as_ref()
-                .file_name()
-                .unwrap_or_default()
-                .as_bytes()
-                .to_owned()
-                .into(),
-            target: target.as_os_str().as_bytes().to_vec().into(),
-        }));
-    }
-
     let mut directories: HashMap<PathBuf, proto::Directory> = HashMap::default();
 
     // TODO: pass this one instead?
@@ -166,6 +149,7 @@ pub fn ingest_path<P: AsRef<Path> + Debug>(
 
     for entry in WalkDir::new(p)
         .follow_links(false)
+        .follow_root_links(false)
         .contents_first(true)
         .sort_by_file_name()
     {
