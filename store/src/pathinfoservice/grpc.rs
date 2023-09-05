@@ -5,7 +5,7 @@ use crate::{
     proto::{self, ListPathInfoRequest},
 };
 use std::sync::Arc;
-use tokio::net::UnixStream;
+use tokio::{net::UnixStream, task::JoinHandle};
 use tonic::{transport::Channel, Code, Status, Streaming};
 
 /// Connects to a (remote) tvix-store PathInfoService over gRPC.
@@ -96,7 +96,7 @@ impl PathInfoService for GRPCPathInfoService {
         // Get a new handle to the gRPC client.
         let mut grpc_client = self.grpc_client.clone();
 
-        let task: tokio::task::JoinHandle<Result<proto::PathInfo, Status>> =
+        let task: JoinHandle<Result<proto::PathInfo, Status>> =
             self.tokio_handle.spawn(async move {
                 let path_info = grpc_client
                     .get(proto::GetPathInfoRequest {
@@ -121,7 +121,7 @@ impl PathInfoService for GRPCPathInfoService {
         // Get a new handle to the gRPC client.
         let mut grpc_client = self.grpc_client.clone();
 
-        let task: tokio::task::JoinHandle<Result<proto::PathInfo, Status>> =
+        let task: JoinHandle<Result<proto::PathInfo, Status>> =
             self.tokio_handle.spawn(async move {
                 let path_info = grpc_client.put(path_info).await?.into_inner();
                 Ok(path_info)
@@ -140,16 +140,15 @@ impl PathInfoService for GRPCPathInfoService {
         let mut grpc_client = self.grpc_client.clone();
         let root_node = root_node.clone();
 
-        let task: tokio::task::JoinHandle<Result<_, Status>> =
-            self.tokio_handle.spawn(async move {
-                let path_info = grpc_client
-                    .calculate_nar(proto::Node {
-                        node: Some(root_node),
-                    })
-                    .await?
-                    .into_inner();
-                Ok(path_info)
-            });
+        let task: JoinHandle<Result<_, Status>> = self.tokio_handle.spawn(async move {
+            let path_info = grpc_client
+                .calculate_nar(proto::Node {
+                    node: Some(root_node),
+                })
+                .await?
+                .into_inner();
+            Ok(path_info)
+        });
 
         let resp = self
             .tokio_handle
@@ -169,15 +168,14 @@ impl PathInfoService for GRPCPathInfoService {
         // Get a new handle to the gRPC client.
         let mut grpc_client = self.grpc_client.clone();
 
-        let task: tokio::task::JoinHandle<Result<_, Status>> =
-            self.tokio_handle.spawn(async move {
-                let s = grpc_client
-                    .list(ListPathInfoRequest::default())
-                    .await?
-                    .into_inner();
+        let task: JoinHandle<Result<_, Status>> = self.tokio_handle.spawn(async move {
+            let s = grpc_client
+                .list(ListPathInfoRequest::default())
+                .await?
+                .into_inner();
 
-                Ok(s)
-            });
+            Ok(s)
+        });
 
         let stream = self.tokio_handle.block_on(task).unwrap().unwrap();
 

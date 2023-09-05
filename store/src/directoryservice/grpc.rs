@@ -5,6 +5,7 @@ use crate::proto::{self, get_directory_request::ByWhat};
 use crate::{B3Digest, Error};
 use tokio::net::UnixStream;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tonic::{transport::Channel, Status};
 use tonic::{Code, Streaming};
@@ -162,7 +163,7 @@ impl DirectoryService for GRPCDirectoryService {
         // clone so we can move it
         let root_directory_digest_cpy = root_directory_digest.clone();
 
-        let task: tokio::task::JoinHandle<Result<Streaming<proto::Directory>, Status>> =
+        let task: JoinHandle<Result<Streaming<proto::Directory>, Status>> =
             self.tokio_handle.spawn(async move {
                 let s = grpc_client
                     .get(proto::GetDirectoryRequest {
@@ -193,7 +194,7 @@ impl DirectoryService for GRPCDirectoryService {
 
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
 
-        let task: tokio::task::JoinHandle<Result<proto::PutDirectoryResponse, Status>> =
+        let task: JoinHandle<Result<proto::PutDirectoryResponse, Status>> =
             self.tokio_handle.spawn(async move {
                 let s = grpc_client
                     .put(UnboundedReceiverStream::new(rx))
@@ -303,7 +304,7 @@ pub struct GRPCPutter {
     /// The task will yield a [proto::PutDirectoryResponse] once the stream is closed.
     #[allow(clippy::type_complexity)] // lol
     rq: Option<(
-        tokio::task::JoinHandle<Result<proto::PutDirectoryResponse, Status>>,
+        JoinHandle<Result<proto::PutDirectoryResponse, Status>>,
         UnboundedSender<proto::Directory>,
     )>,
 }
@@ -312,7 +313,7 @@ impl GRPCPutter {
     pub fn new(
         tokio_handle: tokio::runtime::Handle,
         directory_sender: UnboundedSender<proto::Directory>,
-        task: tokio::task::JoinHandle<Result<proto::PutDirectoryResponse, Status>>,
+        task: JoinHandle<Result<proto::PutDirectoryResponse, Status>>,
     ) -> Self {
         Self {
             tokio_handle,

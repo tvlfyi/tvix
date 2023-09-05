@@ -94,16 +94,15 @@ impl BlobService for GRPCBlobService {
         let mut grpc_client = self.grpc_client.clone();
         let digest = digest.clone();
 
-        let task: tokio::task::JoinHandle<Result<_, Status>> =
-            self.tokio_handle.spawn(async move {
-                Ok(grpc_client
-                    .stat(proto::StatBlobRequest {
-                        digest: digest.into(),
-                        ..Default::default()
-                    })
-                    .await?
-                    .into_inner())
-            });
+        let task: JoinHandle<Result<_, Status>> = self.tokio_handle.spawn(async move {
+            Ok(grpc_client
+                .stat(proto::StatBlobRequest {
+                    digest: digest.into(),
+                    ..Default::default()
+                })
+                .await?
+                .into_inner())
+        });
 
         match self.tokio_handle.block_on(task)? {
             Ok(_blob_meta) => Ok(true),
@@ -122,7 +121,7 @@ impl BlobService for GRPCBlobService {
         // Construct the task that'll send out the request and return the stream
         // the gRPC client should use to send [proto::BlobChunk], or an error if
         // the blob doesn't exist.
-        let task: tokio::task::JoinHandle<Result<Streaming<proto::BlobChunk>, Status>> =
+        let task: JoinHandle<Result<Streaming<proto::BlobChunk>, Status>> =
             self.tokio_handle.spawn(async move {
                 let stream = grpc_client
                     .read(proto::ReadBlobRequest {
@@ -172,7 +171,7 @@ impl BlobService for GRPCBlobService {
         let blobchunk_stream = ReceiverStream::new(rx).map(|x| proto::BlobChunk { data: x });
 
         // That receiver stream is used as a stream in the gRPC BlobService.put rpc call.
-        let task: tokio::task::JoinHandle<Result<_, Status>> = self
+        let task: JoinHandle<Result<_, Status>> = self
             .tokio_handle
             .spawn(async move { Ok(grpc_client.put(blobchunk_stream).await?.into_inner()) });
 
