@@ -28,5 +28,5 @@ in
 pkgs.runCommand "tvix-website" { } ''
   mkdir $out
   cp ${landing} $out/index.html
-  cp ${./tvix-logo.webp} $out/tvix-logo.webp
+  cp ${depot.tvix.logo}/logo.webp $out/
 ''

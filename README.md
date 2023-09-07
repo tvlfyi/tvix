@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://tvix.dev/tvix-logo.webp">
+  <img src="https://tvix.dev/logo.webp">
 </div>
 
 -----------------

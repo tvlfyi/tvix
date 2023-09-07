@@ -1,4 +1,4 @@
-<img class="tvl-logo" src="./tvix-logo.webp"
+<img class="tvl-logo" src="./logo.webp"
      alt="A candy bar in different shades of blue that says 'Tvix by TVL' on it">
 
 ------------------
