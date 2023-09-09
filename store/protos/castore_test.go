@@ -29,7 +29,7 @@ func TestDirectorySize(t *testing.T) {
 	t.Run("containing single empty directory", func(t *testing.T) {
 		d := storev1pb.Directory{
 			Directories: []*storev1pb.DirectoryNode{{
-				Name:   "foo",
+				Name:   []byte([]byte("foo")),
 				Digest: dummyDigest,
 				Size:   0,
 			}},
@@ -43,7 +43,7 @@ func TestDirectorySize(t *testing.T) {
 	t.Run("containing single non-empty directory", func(t *testing.T) {
 		d := storev1pb.Directory{
 			Directories: []*storev1pb.DirectoryNode{{
-				Name:   "foo",
+				Name:   []byte("foo"),
 				Digest: dummyDigest,
 				Size:   4,
 			}},
@@ -58,7 +58,7 @@ func TestDirectorySize(t *testing.T) {
 		d := storev1pb.Directory{
 			Directories: []*storev1pb.DirectoryNode{},
 			Files: []*storev1pb.FileNode{{
-				Name:       "foo",
+				Name:       []byte("foo"),
 				Digest:     dummyDigest,
 				Size:       42,
 				Executable: false,
@@ -74,8 +74,8 @@ func TestDirectorySize(t *testing.T) {
 			Directories: []*storev1pb.DirectoryNode{},
 			Files:       []*storev1pb.FileNode{},
 			Symlinks: []*storev1pb.SymlinkNode{{
-				Name:   "foo",
-				Target: "bar",
+				Name:   []byte("foo"),
+				Target: []byte("bar"),
 			}},
 		}
 
@@ -114,7 +114,7 @@ func TestDirectoryValidate(t *testing.T) {
 		{
 			d := storev1pb.Directory{
 				Directories: []*storev1pb.DirectoryNode{{
-					Name:   "",
+					Name:   []byte{},
 					Digest: dummyDigest,
 					Size:   42,
 				}},
@@ -127,7 +127,7 @@ func TestDirectoryValidate(t *testing.T) {
 		{
 			d := storev1pb.Directory{
 				Directories: []*storev1pb.DirectoryNode{{
-					Name:   ".",
+					Name:   []byte("."),
 					Digest: dummyDigest,
 					Size:   42,
 				}},
@@ -141,7 +141,7 @@ func TestDirectoryValidate(t *testing.T) {
 			d := storev1pb.Directory{
 				Directories: []*storev1pb.DirectoryNode{},
 				Files: []*storev1pb.FileNode{{
-					Name:       "..",
+					Name:       []byte(".."),
 					Digest:     dummyDigest,
 					Size:       42,
 					Executable: false,
@@ -156,8 +156,8 @@ func TestDirectoryValidate(t *testing.T) {
 				Directories: []*storev1pb.DirectoryNode{},
 				Files:       []*storev1pb.FileNode{},
 				Symlinks: []*storev1pb.SymlinkNode{{
-					Name:   "\x00",
-					Target: "foo",
+					Name:   []byte("\x00"),
+					Target: []byte("foo"),
 				}},
 			}
 
@@ -168,8 +168,8 @@ func TestDirectoryValidate(t *testing.T) {
 				Directories: []*storev1pb.DirectoryNode{},
 				Files:       []*storev1pb.FileNode{},
 				Symlinks: []*storev1pb.SymlinkNode{{
-					Name:   "foo/bar",
-					Target: "foo",
+					Name:   []byte("foo/bar"),
+					Target: []byte("foo"),
 				}},
 			}
 
@@ -180,7 +180,7 @@ func TestDirectoryValidate(t *testing.T) {
 	t.Run("invalid digest", func(t *testing.T) {
 		d := storev1pb.Directory{
 			Directories: []*storev1pb.DirectoryNode{{
-				Name:   "foo",
+				Name:   []byte("foo"),
 				Digest: nil,
 				Size:   42,
 			}},
@@ -196,11 +196,11 @@ func TestDirectoryValidate(t *testing.T) {
 		{
 			d := storev1pb.Directory{
 				Directories: []*storev1pb.DirectoryNode{{
-					Name:   "b",
+					Name:   []byte("b"),
 					Digest: dummyDigest,
 					Size:   42,
 				}, {
-					Name:   "a",
+					Name:   []byte("a"),
 					Digest: dummyDigest,
 					Size:   42,
 				}},
@@ -214,12 +214,12 @@ func TestDirectoryValidate(t *testing.T) {
 		{
 			d := storev1pb.Directory{
 				Directories: []*storev1pb.DirectoryNode{{
-					Name:   "a",
+					Name:   []byte("a"),
 					Digest: dummyDigest,
 					Size:   42,
 				}},
 				Files: []*storev1pb.FileNode{{
-					Name:       "a",
+					Name:       []byte("a"),
 					Digest:     dummyDigest,
 					Size:       42,
 					Executable: false,
@@ -233,11 +233,11 @@ func TestDirectoryValidate(t *testing.T) {
 		{
 			d := storev1pb.Directory{
 				Directories: []*storev1pb.DirectoryNode{{
-					Name:   "a",
+					Name:   []byte("a"),
 					Digest: dummyDigest,
 					Size:   42,
 				}, {
-					Name:   "b",
+					Name:   []byte("b"),
 					Digest: dummyDigest,
 					Size:   42,
 				}},
@@ -251,18 +251,18 @@ func TestDirectoryValidate(t *testing.T) {
 		{
 			d := storev1pb.Directory{
 				Directories: []*storev1pb.DirectoryNode{{
-					Name:   "b",
+					Name:   []byte("b"),
 					Digest: dummyDigest,
 					Size:   42,
 				}, {
-					Name:   "c",
+					Name:   []byte("c"),
 					Digest: dummyDigest,
 					Size:   42,
 				}},
 				Files: []*storev1pb.FileNode{},
 				Symlinks: []*storev1pb.SymlinkNode{{
-					Name:   "a",
-					Target: "foo",
+					Name:   []byte("a"),
+					Target: []byte("foo"),
 				}},
 			}
 			assert.NoError(t, d.Validate(), "shouldn't error")

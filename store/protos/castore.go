@@ -1,9 +1,9 @@
 package storev1
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
-	"strings"
-
 	"google.golang.org/protobuf/proto"
 	"lukechampine.com/blake3"
 )
@@ -43,8 +43,8 @@ func (d *Directory) Digest() ([]byte, error) {
 // We disallow slashes, null bytes, '.', '..' and the empty string.
 // Depending on the context, a *Node message with an empty string as name is
 // allowed, but they don't occur inside a Directory message.
-func isValidName(n string) bool {
-	if n == "" || n == ".." || n == "." || strings.Contains(n, "\x00") || strings.Contains(n, "/") {
+func isValidName(n []byte) bool {
+	if len(n) == 0 || bytes.Equal(n, []byte("..")) || bytes.Equal(n, []byte{'.'}) || bytes.Contains(n, []byte{'\x00'}) || bytes.Contains(n, []byte{'/'}) {
 		return false
 	}
 	return true
@@ -62,14 +62,14 @@ func (d *Directory) Validate() error {
 
 	// We also track the last seen name in each of the three lists,
 	// to ensure nodes are sorted by their names.
-	var lastDirectoryName, lastFileName, lastSymlinkName string
+	var lastDirectoryName, lastFileName, lastSymlinkName []byte
 
 	// helper function to only insert in sorted order.
 	// used with the three lists above.
 	// Note this consumes a *pointer to* a string,  as it mutates it.
-	insertIfGt := func(lastName *string, name string) error {
+	insertIfGt := func(lastName *[]byte, name []byte) error {
 		// update if it's greater than the previous name
-		if name > *lastName {
+		if bytes.Compare(name, *lastName) == 1 {
 			*lastName = name
 			return nil
 		} else {
@@ -78,11 +78,12 @@ func (d *Directory) Validate() error {
 	}
 
 	// insertOnce inserts into seenNames if the key doesn't exist yet.
-	insertOnce := func(name string) error {
-		if _, found := seenNames[name]; found {
-			return fmt.Errorf("duplicate name: %v", name)
+	insertOnce := func(name []byte) error {
+		encoded := base64.StdEncoding.EncodeToString(name)
+		if _, found := seenNames[encoded]; found {
+			return fmt.Errorf("duplicate name: %v", string(name))
 		}
-		seenNames[name] = nil
+		seenNames[encoded] = nil
 		return nil
 	}
 
