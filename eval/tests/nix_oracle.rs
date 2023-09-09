@@ -82,7 +82,7 @@ macro_rules! compare_eval_tests {
 
 macro_rules! compare_strict_eval_tests {
     ($($tests:tt)*) => {
-        compare_eval_tests!(Strictness::Lazy, { $($tests)* });
+        compare_eval_tests!(Strictness::Strict, { $($tests)* });
     }
 }
 
