@@ -70,9 +70,9 @@ let
     "eval-okay-readFileType.nix" = [ nix ];
     # builtins.fromTOML gains support for timestamps in Nix 2.16
     "eval-okay-fromTOML-timestamps.nix" = [ nix ];
-    # identifier formatting seems to have changed in Nix 2.17
-    # TODO: figure out why, this is just to get the bump in cl/9125 working.
-    "eval-okay-identifier-formatting.nix" = [ nix_latest ];
+    # identifier formatting changed in Nix 2.17 due to cppnix commit
+    # b72bc4a972fe568744d98b89d63adcd504cb586c
+    "eval-okay-identifier-formatting.nix" = [ nix ];
 
     # TODO(sterni): support diffing working directory and home relative paths
     # like C++ Nix test suite (using string replacement).

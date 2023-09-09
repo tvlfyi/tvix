@@ -1,3 +1,6 @@
+# Note: the attribute values in this set aren't just dummies!  They
+# are booleans which indicate whether or not the corresponding
+# attrname is valid without quotification.
 {
   __internal = true;
   _internal = true;
@@ -15,7 +18,7 @@
   false = true;
   null = true;
   or = true;
-  "assert" = true; # -ish
+  "assert" = false;
   throw = true;
   abort = true;
 
@@ -27,4 +30,13 @@
   "'quoted'" = false;
   "_'12.5" = false;
   "😀" = false;
+
+  "if" = false;
+  "then" = false;
+  "else" = false;
+  "with" = false;
+  "let" = false;
+  "in" = false;
+  "rec" = false;
+  "inherit" = false;
 }

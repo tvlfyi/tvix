@@ -135,7 +135,7 @@ impl NixString {
             // A borrowed string is unchanged and can be returned as
             // is.
             Cow::Borrowed(_) => {
-                if is_valid_nix_identifier(&escaped) {
+                if is_valid_nix_identifier(&escaped) && !is_keyword(&escaped) {
                     escaped
                 } else {
                     Cow::Owned(format!("\"{}\"", escaped))
@@ -168,6 +168,17 @@ fn nix_escape_char(ch: char, next: Option<&char>) -> Option<&'static str> {
         ('\r', _) => Some("\\r"),
         ('$', Some('{')) => Some("\\$"),
         _ => None,
+    }
+}
+
+/// Return true if this string is a keyword -- character strings
+/// which lexically match the "identifier" production but are not
+/// parsed as identifiers.  See also cppnix commit
+/// b72bc4a972fe568744d98b89d63adcd504cb586c.
+fn is_keyword(s: &str) -> bool {
+    match s {
+        "if" | "then" | "else" | "assert" | "with" | "let" | "in" | "rec" | "inherit" => true,
+        _ => false,
     }
 }
 
