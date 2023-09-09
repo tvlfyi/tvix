@@ -21,7 +21,7 @@ use crate::{
     chunk::Chunk,
     cmp_op,
     compiler::GlobalsMap,
-    errors::{Error, ErrorKind, EvalResult},
+    errors::{CatchableErrorKind, Error, ErrorKind, EvalResult},
     io::EvalIO,
     nix_search_path::NixSearchPath,
     observer::RuntimeObserver,
@@ -925,7 +925,10 @@ impl<'o> VM<'o> {
                 }
 
                 OpCode::OpAssertFail => {
-                    frame.error(self, ErrorKind::AssertionFailed)?;
+                    frame.error(
+                        self,
+                        ErrorKind::CatchableErrorKind(CatchableErrorKind::AssertionFailed),
+                    )?;
                 }
 
                 // Data-carrying operands should never be executed,

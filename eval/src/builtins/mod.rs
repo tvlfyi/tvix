@@ -17,7 +17,7 @@ use crate::vm::generators::{self, GenCo};
 use crate::warnings::WarningKind;
 use crate::{
     self as tvix_eval,
-    errors::ErrorKind,
+    errors::{CatchableErrorKind, ErrorKind},
     value::{CoercionKind, NixAttrs, NixList, NixString, SharedThunkSet, Thunk, Value},
 };
 
@@ -893,7 +893,9 @@ mod pure_builtins {
 
     #[builtin("throw")]
     async fn builtin_throw(co: GenCo, message: Value) -> Result<Value, ErrorKind> {
-        Err(ErrorKind::Throw(message.to_str()?.to_string()))
+        Err(ErrorKind::CatchableErrorKind(CatchableErrorKind::Throw(
+            message.to_str()?.to_string(),
+        )))
     }
 
     #[builtin("toString")]

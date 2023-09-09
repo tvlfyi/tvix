@@ -27,7 +27,7 @@ use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
 use crate::chunk::Chunk;
-use crate::errors::{Error, ErrorKind, EvalResult};
+use crate::errors::{CatchableErrorKind, Error, ErrorKind, EvalResult};
 use crate::observer::CompilerObserver;
 use crate::opcode::{CodeIdx, ConstantIdx, Count, JumpOffset, OpCode, UpvalueIdx};
 use crate::spans::LightSpan;
@@ -398,7 +398,9 @@ impl Compiler<'_> {
             if raw_path.len() == 2 {
                 return self.emit_error(
                     node,
-                    ErrorKind::NixPathResolution("Empty <> path not allowed".into()),
+                    ErrorKind::CatchableErrorKind(CatchableErrorKind::NixPathResolution(
+                        "Empty <> path not allowed".into(),
+                    )),
                 );
             }
             let path = &raw_path[1..(raw_path.len() - 1)];
