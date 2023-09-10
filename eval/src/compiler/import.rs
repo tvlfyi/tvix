@@ -25,7 +25,10 @@ async fn import_impl(
     mut args: Vec<Value>,
 ) -> Result<Value, ErrorKind> {
     // TODO(sterni): canon_path()?
-    let mut path = coerce_value_to_path(&co, args.pop().unwrap()).await?;
+    let mut path = match coerce_value_to_path(&co, args.pop().unwrap()).await? {
+        Err(cek) => return Ok(Value::Catchable(cek)),
+        Ok(path) => path,
+    };
 
     if path.is_dir() {
         path.push("default.nix");
@@ -36,11 +39,8 @@ async fn import_impl(
     }
 
     // TODO(tazjin): make this return a string directly instead
-    let contents = generators::request_read_to_string(&co, path.clone())
-        .await
-        .to_str()?
-        .as_str()
-        .to_string();
+    let contents: Value = generators::request_read_to_string(&co, path.clone()).await;
+    let contents = contents.to_str()?.as_str().to_string();
 
     let parsed = rnix::ast::Root::parse(&contents);
     let errors = parsed.errors();

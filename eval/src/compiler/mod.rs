@@ -396,11 +396,11 @@ impl Compiler<'_> {
         } else if raw_path.starts_with('<') {
             // TODO: decide what to do with findFile
             if raw_path.len() == 2 {
-                return self.emit_error(
-                    node,
-                    ErrorKind::CatchableErrorKind(CatchableErrorKind::NixPathResolution(
+                return self.emit_constant(
+                    Value::Catchable(CatchableErrorKind::NixPathResolution(
                         "Empty <> path not allowed".into(),
                     )),
+                    node,
                 );
             }
             let path = &raw_path[1..(raw_path.len() - 1)];

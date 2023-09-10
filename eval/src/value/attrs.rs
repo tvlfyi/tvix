@@ -393,7 +393,7 @@ impl NixAttrs {
             // /another/ set with a __toString attr.
             let s = generators::request_string_coerce(co, result, kind).await;
 
-            return Some(s);
+            return Some(s.ok()?);
         }
 
         None

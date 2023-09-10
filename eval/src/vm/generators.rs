@@ -190,10 +190,6 @@ pub enum VMResponse {
 
     /// VM response with a span to use at the current point.
     Span(LightSpan),
-
-    /// Message returned by the VM when a catchable error is encountered during
-    /// the evaluation of `builtins.tryEval`.
-    ForceError,
 }
 
 impl Display for VMResponse {
@@ -204,7 +200,6 @@ impl Display for VMResponse {
             VMResponse::Path(p) => write!(f, "path({})", p.to_string_lossy()),
             VMResponse::Directory(d) => write!(f, "dir(len = {})", d.len()),
             VMResponse::Span(_) => write!(f, "span"),
-            VMResponse::ForceError => write!(f, "force_error"),
         }
     }
 }
@@ -539,20 +534,18 @@ pub async fn request_force(co: &GenCo, val: Value) -> Value {
     }
 }
 
-/// Force a value, but inform the caller (by returning `None`) if a catchable
-/// error occured.
-pub(crate) async fn request_try_force(co: &GenCo, val: Value) -> Option<Value> {
+/// Force a value
+pub(crate) async fn request_try_force(co: &GenCo, val: Value) -> Value {
     if let Value::Thunk(_) = val {
         match co.yield_(VMRequest::TryForce(val)).await {
-            VMResponse::Value(value) => Some(value),
-            VMResponse::ForceError => None,
+            VMResponse::Value(value) => value,
             msg => panic!(
                 "Tvix bug: VM responded with incorrect generator message: {}",
                 msg
             ),
         }
     } else {
-        Some(val)
+        val
     }
 }
 
@@ -592,13 +585,18 @@ where
     callable
 }
 
-pub async fn request_string_coerce(co: &GenCo, val: Value, kind: CoercionKind) -> NixString {
+pub async fn request_string_coerce(
+    co: &GenCo,
+    val: Value,
+    kind: CoercionKind,
+) -> Result<NixString, CatchableErrorKind> {
     match val {
-        Value::String(s) => s,
+        Value::String(s) => Ok(s),
         _ => match co.yield_(VMRequest::StringCoerce(val, kind)).await {
-            VMResponse::Value(value) => value
+            VMResponse::Value(Value::Catchable(c)) => Err(c),
+            VMResponse::Value(value) => Ok(value
                 .to_str()
-                .expect("coerce_to_string always returns a string"),
+                .expect("coerce_to_string always returns a string")),
             msg => panic!(
                 "Tvix bug: VM responded with incorrect generator message: {}",
                 msg

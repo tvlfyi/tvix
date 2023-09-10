@@ -48,7 +48,7 @@ use crate::vm::run_lambda;
 
 // Re-export the public interface used by other crates.
 pub use crate::compiler::{compile, prepare_globals, CompilationOutput};
-pub use crate::errors::{AddContext, Error, ErrorKind, EvalResult};
+pub use crate::errors::{AddContext, CatchableErrorKind, Error, ErrorKind, EvalResult};
 pub use crate::io::{DummyIO, EvalIO, FileType};
 pub use crate::pretty_ast::pretty_print_expr;
 pub use crate::source::SourceCode;

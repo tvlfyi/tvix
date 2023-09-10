@@ -40,18 +40,25 @@ pub const CURRENT_PLATFORM: &str = env!("TVIX_CURRENT_SYSTEM");
 /// builtin. This coercion can _never_ be performed in a Nix program
 /// without using builtins (i.e. the trick `path: /. + path` to
 /// convert from a string to a path wouldn't hit this code).
-pub async fn coerce_value_to_path(co: &GenCo, v: Value) -> Result<PathBuf, ErrorKind> {
+pub async fn coerce_value_to_path(
+    co: &GenCo,
+    v: Value,
+) -> Result<Result<PathBuf, CatchableErrorKind>, ErrorKind> {
     let value = generators::request_force(co, v).await;
     if let Value::Path(p) = value {
-        return Ok(*p);
+        return Ok(Ok(*p));
     }
 
-    let vs = generators::request_string_coerce(co, value, CoercionKind::Weak).await;
-    let path = PathBuf::from(vs.as_str());
-    if path.is_absolute() {
-        Ok(path)
-    } else {
-        Err(ErrorKind::NotAnAbsolutePath(path))
+    match generators::request_string_coerce(co, value, CoercionKind::Weak).await {
+        Ok(vs) => {
+            let path = PathBuf::from(vs.as_str());
+            if path.is_absolute() {
+                Ok(Ok(path))
+            } else {
+                Err(ErrorKind::NotAnAbsolutePath(path))
+            }
+        }
+        Err(cek) => Ok(Err(cek)),
     }
 }
 
@@ -218,8 +225,10 @@ mod pure_builtins {
             if i != 0 {
                 res.push_str(&separator);
             }
-            let s = generators::request_string_coerce(&co, val, CoercionKind::Weak).await;
-            res.push_str(s.as_str());
+            match generators::request_string_coerce(&co, val, CoercionKind::Weak).await {
+                Ok(s) => res.push_str(s.as_str()),
+                Err(c) => return Ok(Value::Catchable(c)),
+            }
         }
         Ok(res.into())
     }
@@ -313,6 +322,9 @@ mod pure_builtins {
             // and our tests for foldl'.
             nul = generators::request_call_with(&co, op.clone(), [nul, val]).await;
             nul = generators::request_force(&co, nul).await;
+            if let c @ Value::Catchable(_) = nul {
+                return Ok(c);
+            }
         }
 
         Ok(nul)
@@ -340,9 +352,13 @@ mod pure_builtins {
 
     #[builtin("toJSON")]
     async fn builtin_to_json(co: GenCo, val: Value) -> Result<Value, ErrorKind> {
-        let json_value = val.to_json(&co).await?;
-        let json_str = serde_json::to_string(&json_value)?;
-        Ok(json_str.into())
+        match val.to_json(&co).await? {
+            Err(cek) => Ok(Value::Catchable(cek)),
+            Ok(json_value) => {
+                let json_str = serde_json::to_string(&json_value)?;
+                Ok(json_str.into())
+            }
+        }
     }
 
     #[builtin("fromTOML")]
@@ -893,7 +909,7 @@ mod pure_builtins {
 
     #[builtin("throw")]
     async fn builtin_throw(co: GenCo, message: Value) -> Result<Value, ErrorKind> {
-        Err(ErrorKind::CatchableErrorKind(CatchableErrorKind::Throw(
+        Ok(Value::Catchable(CatchableErrorKind::Throw(
             message.to_str()?.to_string(),
         )))
     }
@@ -929,15 +945,20 @@ mod pure_builtins {
 
     #[builtin("toPath")]
     async fn builtin_to_path(co: GenCo, s: Value) -> Result<Value, ErrorKind> {
-        let path: Value = crate::value::canon_path(coerce_value_to_path(&co, s).await?).into();
-        Ok(path.coerce_to_string(co, CoercionKind::Weak).await?)
+        match coerce_value_to_path(&co, s).await? {
+            Err(cek) => return Ok(Value::Catchable(cek)),
+            Ok(path) => {
+                let path: Value = crate::value::canon_path(path).into();
+                Ok(path.coerce_to_string(co, CoercionKind::Weak).await?)
+            }
+        }
     }
 
     #[builtin("tryEval")]
     async fn builtin_try_eval(co: GenCo, #[lazy] e: Value) -> Result<Value, ErrorKind> {
         let res = match generators::request_try_force(&co, e).await {
-            Some(value) => [("value", value), ("success", true.into())],
-            None => [("value", false.into()), ("success", false.into())],
+            Value::Catchable(_) => [("value", false.into()), ("success", false.into())],
+            value => [("value", value), ("success", true.into())],
         };
 
         Ok(Value::attrs(NixAttrs::from_iter(res.into_iter())))

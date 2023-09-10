@@ -4,15 +4,18 @@
 /// as there is internal Nix logic that must happen within the
 /// serialisation methods.
 use super::{CoercionKind, Value};
+use crate::errors::{CatchableErrorKind, ErrorKind};
 use crate::generators::{self, GenCo};
-use crate::ErrorKind;
 
 use serde_json::value::to_value;
 use serde_json::Value as Json; // name clash with *our* `Value`
 use serde_json::{Map, Number};
 
 impl Value {
-    pub(crate) async fn to_json(self, co: &GenCo) -> Result<Json, ErrorKind> {
+    pub(crate) async fn to_json(
+        self,
+        co: &GenCo,
+    ) -> Result<Result<Json, CatchableErrorKind>, ErrorKind> {
         let self_forced = generators::request_force(co, self).await;
 
         let value = match self_forced {
@@ -42,14 +45,14 @@ impl Value {
                 // serialise to the string-coerced version of the result of
                 // calling that.
                 if let Some(s) = attrs.try_to_string(co, CoercionKind::Weak).await {
-                    return Ok(Json::String(s.as_str().to_string()));
+                    return Ok(Ok(Json::String(s.as_str().to_string())));
                 }
 
                 // Attribute sets with an `outPath` attribute
                 // serialise to a JSON serialisation of that inner
                 // value (regardless of what it is!).
                 if let Some(out_path) = attrs.select("outPath") {
-                    return Ok(generators::request_to_json(co, out_path.clone()).await);
+                    return Ok(Ok(generators::request_to_json(co, out_path.clone()).await));
                 }
 
                 let mut out = Map::with_capacity(attrs.len());
@@ -62,6 +65,8 @@ impl Value {
 
                 Json::Object(out)
             }
+
+            Value::Catchable(c) => return Ok(Err(c)),
 
             val @ Value::Closure(_)
             | val @ Value::Thunk(_)
@@ -76,12 +81,15 @@ impl Value {
             }
         };
 
-        Ok(value)
+        Ok(Ok(value))
     }
 
     /// Generator version of the above, which wraps responses in
     /// Value::Json.
     pub(crate) async fn to_json_generator(self, co: GenCo) -> Result<Value, ErrorKind> {
-        Ok(Value::Json(self.to_json(&co).await?))
+        match self.to_json(&co).await? {
+            Err(cek) => Ok(Value::Catchable(cek)),
+            Ok(json) => Ok(Value::Json(json)),
+        }
     }
 }

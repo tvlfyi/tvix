@@ -134,6 +134,10 @@ fn value_variant_to_xml<W: Write>(w: &mut EventWriter<W>, value: &Value) -> Resu
                 metadata: Some(Rc::new(value.clone())),
             })
         }
+
+        Value::Catchable(_) => {
+            panic!("tvix bug: value_to_xml() called on a value which had not been deep-forced")
+        }
     }?;
 
     Ok(())

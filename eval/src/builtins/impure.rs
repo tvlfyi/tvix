@@ -27,40 +27,47 @@ mod impure_builtins {
 
     #[builtin("pathExists")]
     async fn builtin_path_exists(co: GenCo, path: Value) -> Result<Value, ErrorKind> {
-        let path = coerce_value_to_path(&co, path).await?;
-        Ok(generators::request_path_exists(&co, path).await)
+        match coerce_value_to_path(&co, path).await? {
+            Err(cek) => Ok(Value::Catchable(cek)),
+            Ok(path) => Ok(generators::request_path_exists(&co, path).await),
+        }
     }
 
     #[builtin("readDir")]
     async fn builtin_read_dir(co: GenCo, path: Value) -> Result<Value, ErrorKind> {
-        let path = coerce_value_to_path(&co, path).await?;
+        match coerce_value_to_path(&co, path).await? {
+            Err(cek) => Ok(Value::Catchable(cek)),
+            Ok(path) => {
+                let dir = generators::request_read_dir(&co, path).await;
+                let res = dir.into_iter().map(|(name, ftype)| {
+                    (
+                        // TODO: propagate Vec<u8> or bytes::Bytes into NixString.
+                        NixString::from(
+                            String::from_utf8(name.to_vec()).expect("parsing file name as string"),
+                        ),
+                        Value::String(
+                            match ftype {
+                                FileType::Directory => "directory",
+                                FileType::Regular => "regular",
+                                FileType::Symlink => "symlink",
+                                FileType::Unknown => "unknown",
+                            }
+                            .into(),
+                        ),
+                    )
+                });
 
-        let dir = generators::request_read_dir(&co, path).await;
-        let res = dir.into_iter().map(|(name, ftype)| {
-            (
-                // TODO: propagate Vec<u8> or bytes::Bytes into NixString.
-                NixString::from(
-                    String::from_utf8(name.to_vec()).expect("parsing file name as string"),
-                ),
-                Value::String(
-                    match ftype {
-                        FileType::Directory => "directory",
-                        FileType::Regular => "regular",
-                        FileType::Symlink => "symlink",
-                        FileType::Unknown => "unknown",
-                    }
-                    .into(),
-                ),
-            )
-        });
-
-        Ok(Value::attrs(NixAttrs::from_iter(res)))
+                Ok(Value::attrs(NixAttrs::from_iter(res)))
+            }
+        }
     }
 
     #[builtin("readFile")]
     async fn builtin_read_file(co: GenCo, path: Value) -> Result<Value, ErrorKind> {
-        let path = coerce_value_to_path(&co, path).await?;
-        Ok(generators::request_read_to_string(&co, path).await)
+        match coerce_value_to_path(&co, path).await? {
+            Err(cek) => Ok(Value::Catchable(cek)),
+            Ok(path) => Ok(generators::request_read_to_string(&co, path).await),
+        }
     }
 }
 

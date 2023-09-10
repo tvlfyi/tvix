@@ -16,7 +16,28 @@ use crate::spans::ToSpan;
 use crate::value::{CoercionKind, NixString};
 use crate::{SourceCode, Value};
 
-/// "CatchableErrorKind" errors -- those which can be detected by `builtins.tryEval`.
+/// "CatchableErrorKind" errors -- those which can be detected by
+/// `builtins.tryEval`.
+///
+/// Note: this type is deliberately *not* incorporated as a variant
+/// of ErrorKind, because then Result<Value,ErrorKind> would have
+/// redundant representations for catchable errors, which would make
+/// it too easy to handle errors incorrectly:
+///
+///   - Ok(Value::Catchable(cek))
+///   - Err(ErrorKind::ThisVariantDoesNotExist(cek))
+///
+/// Because CatchableErrorKind is not a variant of ErrorKind, you
+/// will often see functions which return a type like:
+///
+///   Result<Result<T,CatchableErrorKind>,ErrorKind>
+///
+/// ... where T is any type other than Value.  This is unfortunate,
+/// because Rust's magic `?`-syntax does not work on nested Result
+/// values like this.
+///
+/// TODO(amjoseph): investigate result<T,Either<CatchableErrorKind,ErrorKind>>
+///
 #[derive(Clone, Debug)]
 pub enum CatchableErrorKind {
     Throw(String),
@@ -180,14 +201,6 @@ pub enum ErrorKind {
         context: String,
         underlying: Box<ErrorKind>,
     },
-
-    CatchableErrorKind(CatchableErrorKind),
-}
-
-impl From<CatchableErrorKind> for ErrorKind {
-    fn from(c: CatchableErrorKind) -> ErrorKind {
-        ErrorKind::CatchableErrorKind(c)
-    }
 }
 
 impl error::Error for Error {
@@ -243,17 +256,6 @@ impl From<io::Error> for ErrorKind {
     }
 }
 
-impl ErrorKind {
-    /// Returns `true` if this error can be caught by `builtins.tryEval`
-    pub fn is_catchable(&self) -> bool {
-        match self {
-            Self::CatchableErrorKind(_) => true,
-            Self::NativeError { err, .. } | Self::BytecodeError(err) => err.kind.is_catchable(),
-            _ => false,
-        }
-    }
-}
-
 impl From<serde_json::Error> for ErrorKind {
     fn from(err: serde_json::Error) -> Self {
         // Can't just put the `serde_json::Error` in the ErrorKind since it doesn't impl `Clone`
@@ -297,13 +299,7 @@ impl Error {
 impl Display for ErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
-            ErrorKind::CatchableErrorKind(CatchableErrorKind::Throw(msg)) => {
-                write!(f, "error thrown: {}", msg)
-            }
             ErrorKind::Abort(msg) => write!(f, "evaluation aborted: {}", msg),
-            ErrorKind::CatchableErrorKind(CatchableErrorKind::AssertionFailed) => {
-                write!(f, "assertion failed")
-            }
 
             ErrorKind::DivisionByZero => write!(f, "division by zero"),
 
@@ -340,8 +336,7 @@ impl Display for ErrorKind {
                 write!(f, "can not compare a {} with a {}", lhs, rhs)
             }
 
-            ErrorKind::CatchableErrorKind(CatchableErrorKind::NixPathResolution(err))
-            | ErrorKind::RelativePathResolution(err) => {
+            ErrorKind::RelativePathResolution(err) => {
                 write!(f, "could not resolve path: {}", err)
             }
 
@@ -741,15 +736,12 @@ impl Error {
         let label = match &self.kind {
             ErrorKind::DuplicateAttrsKey { .. } => "in this attribute set",
             ErrorKind::InvalidAttributeName(_) => "in this attribute set",
-            ErrorKind::CatchableErrorKind(CatchableErrorKind::NixPathResolution(_))
-            | ErrorKind::RelativePathResolution(_) => "in this path literal",
+            ErrorKind::RelativePathResolution(_) => "in this path literal",
             ErrorKind::UnexpectedArgument { .. } => "in this function call",
 
             // The spans for some errors don't have any more descriptive stuff
             // in them, or we don't utilise it yet.
-            ErrorKind::CatchableErrorKind(CatchableErrorKind::Throw(_))
-            | ErrorKind::Abort(_)
-            | ErrorKind::CatchableErrorKind(CatchableErrorKind::AssertionFailed)
+            ErrorKind::Abort(_)
             | ErrorKind::AttributeNotFound { .. }
             | ErrorKind::IndexOutOfBounds { .. }
             | ErrorKind::TailEmptyList
@@ -790,14 +782,11 @@ impl Error {
     /// used to refer users to documentation.
     fn code(&self) -> &'static str {
         match self.kind {
-            ErrorKind::CatchableErrorKind(CatchableErrorKind::Throw(_)) => "E001",
             ErrorKind::Abort(_) => "E002",
-            ErrorKind::CatchableErrorKind(CatchableErrorKind::AssertionFailed) => "E003",
             ErrorKind::InvalidAttributeName { .. } => "E004",
             ErrorKind::AttributeNotFound { .. } => "E005",
             ErrorKind::TypeError { .. } => "E006",
             ErrorKind::Incomparable { .. } => "E007",
-            ErrorKind::CatchableErrorKind(CatchableErrorKind::NixPathResolution(_)) => "E008",
             ErrorKind::DynamicKeyInScope(_) => "E009",
             ErrorKind::UnknownStaticVariable => "E010",
             ErrorKind::UnknownDynamicVariable(_) => "E011",

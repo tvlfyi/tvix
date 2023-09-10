@@ -6,7 +6,9 @@ use std::collections::{btree_map, BTreeSet};
 use std::rc::Rc;
 use tvix_eval::builtin_macros::builtins;
 use tvix_eval::generators::{self, emit_warning_kind, GenCo};
-use tvix_eval::{AddContext, CoercionKind, ErrorKind, NixAttrs, NixList, Value, WarningKind};
+use tvix_eval::{
+    AddContext, CatchableErrorKind, CoercionKind, ErrorKind, NixAttrs, NixList, Value, WarningKind,
+};
 
 use crate::errors::Error;
 use crate::known_paths::{KnownPaths, PathKind, PathName};
@@ -150,19 +152,22 @@ async fn handle_derivation_parameters(
     name: &str,
     value: &Value,
     val_str: &str,
-) -> Result<bool, ErrorKind> {
+) -> Result<Result<bool, CatchableErrorKind>, ErrorKind> {
     match name {
-        IGNORE_NULLS => return Ok(false),
+        IGNORE_NULLS => return Ok(Ok(false)),
 
         // Command line arguments to the builder.
         "args" => {
             let args = value.to_list()?;
             for arg in args {
-                drv.arguments.push(strong_coerce_to_string(co, arg).await?);
+                match strong_coerce_to_string(co, arg).await? {
+                    Err(cek) => return Ok(Err(cek)),
+                    Ok(s) => drv.arguments.push(s),
+                }
             }
 
             // The arguments do not appear in the environment.
-            return Ok(false);
+            return Ok(Ok(false));
         }
 
         // Explicitly specified drv outputs (instead of default [ "out" ])
@@ -185,14 +190,18 @@ async fn handle_derivation_parameters(
         _ => {}
     }
 
-    Ok(true)
+    Ok(Ok(true))
 }
 
-async fn strong_coerce_to_string(co: &GenCo, val: Value) -> Result<String, ErrorKind> {
+async fn strong_coerce_to_string(
+    co: &GenCo,
+    val: Value,
+) -> Result<Result<String, CatchableErrorKind>, ErrorKind> {
     let val = generators::request_force(co, val).await;
-    let val_str = generators::request_string_coerce(co, val, CoercionKind::Strong).await;
-
-    Ok(val_str.as_str().to_string())
+    match generators::request_string_coerce(co, val, CoercionKind::Strong).await {
+        Err(cek) => Ok(Err(cek)),
+        Ok(val_str) => Ok(Ok(val_str.as_str().to_string())),
+    }
 }
 
 #[builtins(state = "Rc<RefCell<KnownPaths>>")]
@@ -256,12 +265,15 @@ mod derivation_builtins {
             co: &GenCo,
             attrs: &NixAttrs,
             key: &str,
-        ) -> Result<Option<String>, ErrorKind> {
+        ) -> Result<Result<Option<String>, CatchableErrorKind>, ErrorKind> {
             if let Some(attr) = attrs.select(key) {
-                return Ok(Some(strong_coerce_to_string(co, attr.clone()).await?));
+                match strong_coerce_to_string(co, attr.clone()).await? {
+                    Err(cek) => return Ok(Err(cek)),
+                    Ok(str) => return Ok(Ok(Some(str))),
+                }
             }
 
-            Ok(None)
+            Ok(Ok(None))
         }
 
         for (name, value) in input.clone().into_iter_sorted() {
@@ -270,38 +282,60 @@ mod derivation_builtins {
                 continue;
             }
 
-            let val_str = strong_coerce_to_string(&co, value.clone()).await?;
+            match strong_coerce_to_string(&co, value.clone()).await? {
+                Err(cek) => return Ok(Value::Catchable(cek)),
+                Ok(val_str) => {
+                    // handle_derivation_parameters tells us whether the
+                    // argument should be added to the environment; continue
+                    // to the next one otherwise
+                    match handle_derivation_parameters(
+                        &mut drv,
+                        &co,
+                        name.as_str(),
+                        &value,
+                        &val_str,
+                    )
+                    .await?
+                    {
+                        Err(cek) => return Ok(Value::Catchable(cek)),
+                        Ok(false) => continue,
+                        _ => (),
+                    }
 
-            // handle_derivation_parameters tells us whether the
-            // argument should be added to the environment; continue
-            // to the next one otherwise
-            if !handle_derivation_parameters(&mut drv, &co, name.as_str(), &value, &val_str).await?
-            {
-                continue;
-            }
-
-            // Most of these are also added to the builder's environment in "raw" form.
-            if drv
-                .environment
-                .insert(name.as_str().to_string(), val_str.into())
-                .is_some()
-            {
-                return Err(Error::DuplicateEnvVar(name.as_str().to_string()).into());
+                    // Most of these are also added to the builder's environment in "raw" form.
+                    if drv
+                        .environment
+                        .insert(name.as_str().to_string(), val_str.into())
+                        .is_some()
+                    {
+                        return Err(Error::DuplicateEnvVar(name.as_str().to_string()).into());
+                    }
+                }
             }
         }
 
-        populate_output_configuration(
-            &mut drv,
-            select_string(&co, &input, "outputHash")
-                .await
-                .context("evaluating the `outputHash` parameter")?,
-            select_string(&co, &input, "outputHashAlgo")
-                .await
-                .context("evaluating the `outputHashAlgo` parameter")?,
-            select_string(&co, &input, "outputHashMode")
-                .await
-                .context("evaluating the `outputHashMode` parameter")?,
-        )?;
+        let output_hash = match select_string(&co, &input, "outputHash")
+            .await
+            .context("evaluating the `outputHash` parameter")?
+        {
+            Err(cek) => return Ok(Value::Catchable(cek)),
+            Ok(s) => s,
+        };
+        let output_hash_algo = match select_string(&co, &input, "outputHashAlgo")
+            .await
+            .context("evaluating the `outputHashAlgo` parameter")?
+        {
+            Err(cek) => return Ok(Value::Catchable(cek)),
+            Ok(s) => s,
+        };
+        let output_hash_mode = match select_string(&co, &input, "outputHashMode")
+            .await
+            .context("evaluating the `outputHashMode` parameter")?
+        {
+            Err(cek) => return Ok(Value::Catchable(cek)),
+            Ok(s) => s,
+        };
+        populate_output_configuration(&mut drv, output_hash, output_hash_algo, output_hash_mode)?;
 
         // Scan references in relevant attributes to detect any build-references.
         let references = {
