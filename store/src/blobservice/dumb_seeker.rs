@@ -1,5 +1,7 @@
 use std::io;
 
+use tracing::{debug, instrument};
+
 use super::BlobReader;
 
 /// This implements [io::Seek] for and [io::Read] by simply skipping over some
@@ -27,6 +29,7 @@ impl<R: io::Read> io::Read for DumbSeeker<R> {
 }
 
 impl<R: io::Read> io::Seek for DumbSeeker<R> {
+    #[instrument(skip(self))]
     fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
         let absolute_offset: u64 = match pos {
             io::SeekFrom::Start(start_offset) => {
@@ -58,10 +61,14 @@ impl<R: io::Read> io::Seek for DumbSeeker<R> {
             }
         };
 
+        debug!(absolute_offset=?absolute_offset, "seek");
+
         // we already know absolute_offset is larger than self.pos
         debug_assert!(
-            absolute_offset > self.pos,
-            "absolute_offset is larger than self.pos"
+            absolute_offset >= self.pos,
+            "absolute_offset {} is larger than self.pos {}",
+            absolute_offset,
+            self.pos
         );
 
         // calculate bytes to skip
