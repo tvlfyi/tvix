@@ -13,6 +13,7 @@ Tvix is developed as a GPLv3-licensed open-source project by
 There are several projects within Tvix, such as:
 
 * `//tvix/eval` - an implementation of the Nix programming language
+* `//tvix/store` - filesystem subtree storage/transfer in a content-addressed fashion
 * `//tvix/serde` - a Rust library for using the Nix language for config files
 * `//tvix/nix-compat` - a Rust library for compatibility with C++ Nix
   features like encodings and hashing schemes
