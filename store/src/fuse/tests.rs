@@ -1,8 +1,8 @@
-use std::fs;
 use std::io::Cursor;
 use std::os::unix::prelude::MetadataExt;
 use std::path::Path;
 use std::sync::Arc;
+use std::{fs, io};
 
 use tempfile::TempDir;
 
@@ -21,34 +21,25 @@ const SYMLINK_NAME2: &str = "44444444444444444444444444444444-test";
 const DIRECTORY_WITH_KEEP_NAME: &str = "22222222222222222222222222222222-test";
 const DIRECTORY_COMPLICATED_NAME: &str = "33333333333333333333333333333333-test";
 
-fn setup_and_mount<P: AsRef<Path>, F>(
-    mountpoint: P,
-    setup_fn: F,
-) -> Result<fuser::BackgroundSession, std::io::Error>
-where
-    F: Fn(Arc<dyn BlobService>, Arc<dyn DirectoryService>, Arc<dyn PathInfoService>),
-{
-    setup_and_mount_with_listing(mountpoint, setup_fn, false)
-}
-
-fn setup_and_mount_with_listing<P: AsRef<Path>, F>(
-    mountpoint: P,
-    setup_fn: F,
-    list_root: bool,
-) -> Result<fuser::BackgroundSession, std::io::Error>
-where
-    F: Fn(Arc<dyn BlobService>, Arc<dyn DirectoryService>, Arc<dyn PathInfoService>),
-{
+fn gen_svcs() -> (
+    Arc<dyn BlobService>,
+    Arc<dyn DirectoryService>,
+    Arc<dyn PathInfoService>,
+) {
     let blob_service = gen_blob_service();
     let directory_service = gen_directory_service();
     let path_info_service = gen_pathinfo_service(blob_service.clone(), directory_service.clone());
 
-    setup_fn(
-        blob_service.clone(),
-        directory_service.clone(),
-        path_info_service.clone(),
-    );
+    (blob_service, directory_service, path_info_service)
+}
 
+fn do_mount<P: AsRef<Path>>(
+    blob_service: Arc<dyn BlobService>,
+    directory_service: Arc<dyn DirectoryService>,
+    path_info_service: Arc<dyn PathInfoService>,
+    mountpoint: P,
+    list_root: bool,
+) -> io::Result<fuser::BackgroundSession> {
     let fs = FUSE::new(
         blob_service,
         directory_service,
@@ -58,16 +49,17 @@ where
     fuser::spawn_mount2(fs, mountpoint, &[])
 }
 
-fn populate_blob_a(
-    blob_service: Arc<dyn BlobService>,
-    _directory_service: Arc<dyn DirectoryService>,
-    path_info_service: Arc<dyn PathInfoService>,
+async fn populate_blob_a(
+    blob_service: &Arc<dyn BlobService>,
+    _directory_service: &Arc<dyn DirectoryService>,
+    path_info_service: &Arc<dyn PathInfoService>,
 ) {
     // Upload BLOB_A
-    let mut bw = blob_service.open_write();
-    std::io::copy(&mut Cursor::new(fixtures::BLOB_A.to_vec()), &mut bw)
+    let mut bw = blob_service.open_write().await;
+    tokio::io::copy(&mut Cursor::new(fixtures::BLOB_A.to_vec()), &mut bw)
+        .await
         .expect("must succeed uploading");
-    bw.close().expect("must succeed closing");
+    bw.close().await.expect("must succeed closing");
 
     // Create a PathInfo for it
     let path_info = PathInfo {
@@ -84,16 +76,17 @@ fn populate_blob_a(
     path_info_service.put(path_info).expect("must succeed");
 }
 
-fn populate_blob_b(
-    blob_service: Arc<dyn BlobService>,
-    _directory_service: Arc<dyn DirectoryService>,
-    path_info_service: Arc<dyn PathInfoService>,
+async fn populate_blob_b(
+    blob_service: &Arc<dyn BlobService>,
+    _directory_service: &Arc<dyn DirectoryService>,
+    path_info_service: &Arc<dyn PathInfoService>,
 ) {
     // Upload BLOB_B
-    let mut bw = blob_service.open_write();
-    std::io::copy(&mut Cursor::new(fixtures::BLOB_B.to_vec()), &mut bw)
+    let mut bw = blob_service.open_write().await;
+    tokio::io::copy(&mut Cursor::new(fixtures::BLOB_B.to_vec()), &mut bw)
+        .await
         .expect("must succeed uploading");
-    bw.close().expect("must succeed closing");
+    bw.close().await.expect("must succeed closing");
 
     // Create a PathInfo for it
     let path_info = PathInfo {
@@ -111,9 +104,9 @@ fn populate_blob_b(
 }
 
 fn populate_symlink(
-    _blob_service: Arc<dyn BlobService>,
-    _directory_service: Arc<dyn DirectoryService>,
-    path_info_service: Arc<dyn PathInfoService>,
+    _blob_service: &Arc<dyn BlobService>,
+    _directory_service: &Arc<dyn DirectoryService>,
+    path_info_service: &Arc<dyn PathInfoService>,
 ) {
     // Create a PathInfo for it
     let path_info = PathInfo {
@@ -131,9 +124,9 @@ fn populate_symlink(
 /// This writes a symlink pointing to /nix/store/somewhereelse,
 /// which is the same symlink target as "aa" inside DIRECTORY_COMPLICATED.
 fn populate_symlink2(
-    _blob_service: Arc<dyn BlobService>,
-    _directory_service: Arc<dyn DirectoryService>,
-    path_info_service: Arc<dyn PathInfoService>,
+    _blob_service: &Arc<dyn BlobService>,
+    _directory_service: &Arc<dyn DirectoryService>,
+    path_info_service: &Arc<dyn PathInfoService>,
 ) {
     // Create a PathInfo for it
     let path_info = PathInfo {
@@ -148,16 +141,16 @@ fn populate_symlink2(
     path_info_service.put(path_info).expect("must succeed");
 }
 
-fn populate_directory_with_keep(
-    blob_service: Arc<dyn BlobService>,
-    directory_service: Arc<dyn DirectoryService>,
-    path_info_service: Arc<dyn PathInfoService>,
+async fn populate_directory_with_keep(
+    blob_service: &Arc<dyn BlobService>,
+    directory_service: &Arc<dyn DirectoryService>,
+    path_info_service: &Arc<dyn PathInfoService>,
 ) {
     // upload empty blob
-    let mut bw = blob_service.open_write();
+    let mut bw = blob_service.open_write().await;
     assert_eq!(
         fixtures::EMPTY_BLOB_DIGEST.to_vec(),
-        bw.close().expect("must succeed closing").to_vec(),
+        bw.close().await.expect("must succeed closing").to_vec(),
     );
 
     // upload directory
@@ -182,9 +175,9 @@ fn populate_directory_with_keep(
 /// Insert [PathInfo] for DIRECTORY_WITH_KEEP, but don't provide the Directory
 /// itself.
 fn populate_pathinfo_without_directory(
-    _: Arc<dyn BlobService>,
-    _: Arc<dyn DirectoryService>,
-    path_info_service: Arc<dyn PathInfoService>,
+    _: &Arc<dyn BlobService>,
+    _: &Arc<dyn DirectoryService>,
+    path_info_service: &Arc<dyn PathInfoService>,
 ) {
     // upload pathinfo
     let path_info = PathInfo {
@@ -202,9 +195,9 @@ fn populate_pathinfo_without_directory(
 
 /// Insert , but don't provide the blob .keep is pointing to
 fn populate_blob_a_without_blob(
-    _: Arc<dyn BlobService>,
-    _: Arc<dyn DirectoryService>,
-    path_info_service: Arc<dyn PathInfoService>,
+    _: &Arc<dyn BlobService>,
+    _: &Arc<dyn DirectoryService>,
+    path_info_service: &Arc<dyn PathInfoService>,
 ) {
     // Create a PathInfo for blob A
     let path_info = PathInfo {
@@ -221,16 +214,16 @@ fn populate_blob_a_without_blob(
     path_info_service.put(path_info).expect("must succeed");
 }
 
-fn populate_directory_complicated(
-    blob_service: Arc<dyn BlobService>,
-    directory_service: Arc<dyn DirectoryService>,
-    path_info_service: Arc<dyn PathInfoService>,
+async fn populate_directory_complicated(
+    blob_service: &Arc<dyn BlobService>,
+    directory_service: &Arc<dyn DirectoryService>,
+    path_info_service: &Arc<dyn PathInfoService>,
 ) {
     // upload empty blob
-    let mut bw = blob_service.open_write();
+    let mut bw = blob_service.open_write().await;
     assert_eq!(
         fixtures::EMPTY_BLOB_DIGEST.to_vec(),
-        bw.close().expect("must succeed closing").to_vec(),
+        bw.close().await.expect("must succeed closing").to_vec(),
     );
 
     // upload inner directory
@@ -258,8 +251,8 @@ fn populate_directory_complicated(
 }
 
 /// Ensure mounting itself doesn't fail
-#[test]
-fn mount() {
+#[tokio::test]
+async fn mount() {
     // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
@@ -268,14 +261,22 @@ fn mount() {
 
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session = setup_and_mount(tmpdir.path(), |_, _, _| {}).expect("must succeed");
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        false,
+    )
+    .expect("must succeed");
 
     fuser_session.join()
 }
 
 /// Ensure listing the root isn't allowed
-#[test]
-fn root() {
+#[tokio::test]
+async fn root() {
     // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
@@ -283,7 +284,15 @@ fn root() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session = setup_and_mount(tmpdir.path(), |_, _, _| {}).expect("must succeed");
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        false,
+    )
+    .expect("must succeed");
 
     {
         // read_dir succeeds, but getting the first element will fail.
@@ -297,8 +306,8 @@ fn root() {
 }
 
 /// Ensure listing the root is allowed if configured explicitly
-#[test]
-fn root_with_listing() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn root_with_listing() {
     // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
@@ -306,8 +315,17 @@ fn root_with_listing() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session =
-        setup_and_mount_with_listing(tmpdir.path(), populate_blob_a, true).expect("must succeed");
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    populate_blob_a(&blob_service, &directory_service, &path_info_service).await;
+
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        true, /* allow listing */
+    )
+    .expect("must succeed");
 
     {
         // read_dir succeeds, but getting the first element will fail.
@@ -325,8 +343,8 @@ fn root_with_listing() {
 }
 
 /// Ensure we can stat a file at the root
-#[test]
-fn stat_file_at_root() {
+#[tokio::test]
+async fn stat_file_at_root() {
     // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
@@ -334,7 +352,17 @@ fn stat_file_at_root() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session = setup_and_mount(tmpdir.path(), populate_blob_a).expect("must succeed");
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    populate_blob_a(&blob_service, &directory_service, &path_info_service).await;
+
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        false,
+    )
+    .expect("must succeed");
 
     let p = tmpdir.path().join(BLOB_A_NAME);
 
@@ -349,8 +377,8 @@ fn stat_file_at_root() {
 }
 
 /// Ensure we can read a file at the root
-#[test]
-fn read_file_at_root() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn read_file_at_root() {
     // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
@@ -358,7 +386,17 @@ fn read_file_at_root() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session = setup_and_mount(tmpdir.path(), populate_blob_a).expect("must succeed");
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    populate_blob_a(&blob_service, &directory_service, &path_info_service).await;
+
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        false,
+    )
+    .expect("must succeed");
 
     let p = tmpdir.path().join(BLOB_A_NAME);
 
@@ -373,8 +411,8 @@ fn read_file_at_root() {
 }
 
 /// Ensure we can read a large file at the root
-#[test]
-fn read_large_file_at_root() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn read_large_file_at_root() {
     // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
@@ -382,7 +420,17 @@ fn read_large_file_at_root() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session = setup_and_mount(tmpdir.path(), populate_blob_b).expect("must succeed");
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    populate_blob_b(&blob_service, &directory_service, &path_info_service).await;
+
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        false,
+    )
+    .expect("must succeed");
 
     let p = tmpdir.path().join(BLOB_B_NAME);
     {
@@ -405,8 +453,8 @@ fn read_large_file_at_root() {
 }
 
 /// Read the target of a symlink
-#[test]
-fn symlink_readlink() {
+#[tokio::test]
+async fn symlink_readlink() {
     // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
@@ -414,7 +462,18 @@ fn symlink_readlink() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session = setup_and_mount(tmpdir.path(), populate_symlink).expect("must succeed");
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    populate_symlink(&blob_service, &directory_service, &path_info_service);
+
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        false,
+    )
+    .expect("must succeed");
+
     let p = tmpdir.path().join(SYMLINK_NAME);
 
     let target = fs::read_link(&p).expect("must succeed");
@@ -437,8 +496,8 @@ fn symlink_readlink() {
 }
 
 /// Read and stat a regular file through a symlink pointing to it.
-#[test]
-fn read_stat_through_symlink() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn read_stat_through_symlink() {
     // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
@@ -446,10 +505,17 @@ fn read_stat_through_symlink() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session = setup_and_mount(tmpdir.path(), |bs: Arc<_>, ds: Arc<_>, ps: Arc<_>| {
-        populate_blob_a(bs.clone(), ds.clone(), ps.clone());
-        populate_symlink(bs, ds, ps);
-    })
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    populate_blob_a(&blob_service, &directory_service, &path_info_service).await;
+    populate_symlink(&blob_service, &directory_service, &path_info_service);
+
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        false,
+    )
     .expect("must succeed");
 
     let p_symlink = tmpdir.path().join(SYMLINK_NAME);
@@ -473,8 +539,8 @@ fn read_stat_through_symlink() {
 }
 
 /// Read a directory in the root, and validate some attributes.
-#[test]
-fn read_stat_directory() {
+#[tokio::test]
+async fn read_stat_directory() {
     // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
@@ -482,8 +548,17 @@ fn read_stat_directory() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session =
-        setup_and_mount(tmpdir.path(), populate_directory_with_keep).expect("must succeed");
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    populate_directory_with_keep(&blob_service, &directory_service, &path_info_service).await;
+
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        false,
+    )
+    .expect("must succeed");
 
     let p = tmpdir.path().join(DIRECTORY_WITH_KEEP_NAME);
 
@@ -495,9 +570,9 @@ fn read_stat_directory() {
     fuser_session.join()
 }
 
-#[test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 /// Read a blob inside a directory. This ensures we successfully populate directory data.
-fn read_blob_inside_dir() {
+async fn read_blob_inside_dir() {
     // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
@@ -505,8 +580,17 @@ fn read_blob_inside_dir() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session =
-        setup_and_mount(tmpdir.path(), populate_directory_with_keep).expect("must succeed");
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    populate_directory_with_keep(&blob_service, &directory_service, &path_info_service).await;
+
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        false,
+    )
+    .expect("must succeed");
 
     let p = tmpdir.path().join(DIRECTORY_WITH_KEEP_NAME).join(".keep");
 
@@ -522,10 +606,10 @@ fn read_blob_inside_dir() {
     fuser_session.join()
 }
 
-#[test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 /// Read a blob inside a directory inside a directory. This ensures we properly
 /// populate directories as we traverse down the structure.
-fn read_blob_deep_inside_dir() {
+async fn read_blob_deep_inside_dir() {
     // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
@@ -533,8 +617,17 @@ fn read_blob_deep_inside_dir() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session =
-        setup_and_mount(tmpdir.path(), populate_directory_complicated).expect("must succeed");
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    populate_directory_complicated(&blob_service, &directory_service, &path_info_service).await;
+
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        false,
+    )
+    .expect("must succeed");
 
     let p = tmpdir
         .path()
@@ -555,8 +648,8 @@ fn read_blob_deep_inside_dir() {
 }
 
 /// Ensure readdir works.
-#[test]
-fn readdir() {
+#[tokio::test]
+async fn readdir() {
     // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
@@ -564,8 +657,17 @@ fn readdir() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session =
-        setup_and_mount(tmpdir.path(), populate_directory_complicated).expect("must succeed");
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    populate_directory_complicated(&blob_service, &directory_service, &path_info_service).await;
+
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        false,
+    )
+    .expect("must succeed");
 
     let p = tmpdir.path().join(DIRECTORY_COMPLICATED_NAME);
 
@@ -601,9 +703,9 @@ fn readdir() {
     fuser_session.join()
 }
 
-#[test]
+#[tokio::test]
 /// Do a readdir deeper inside a directory, without doing readdir or stat in the parent directory.
-fn readdir_deep() {
+async fn readdir_deep() {
     // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
@@ -611,8 +713,17 @@ fn readdir_deep() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session =
-        setup_and_mount(tmpdir.path(), populate_directory_complicated).expect("must succeed");
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    populate_directory_complicated(&blob_service, &directory_service, &path_info_service).await;
+
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        false,
+    )
+    .expect("must succeed");
 
     let p = tmpdir.path().join(DIRECTORY_COMPLICATED_NAME).join("keep");
 
@@ -636,8 +747,8 @@ fn readdir_deep() {
 }
 
 /// Check attributes match how they show up in /nix/store normally.
-#[test]
-fn check_attributes() {
+#[tokio::test]
+async fn check_attributes() {
     // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
@@ -645,11 +756,18 @@ fn check_attributes() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session = setup_and_mount(tmpdir.path(), |bs: Arc<_>, ds: Arc<_>, ps: Arc<_>| {
-        populate_blob_a(bs.clone(), ds.clone(), ps.clone());
-        populate_directory_with_keep(bs.clone(), ds.clone(), ps.clone());
-        populate_symlink(bs, ds, ps);
-    })
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    populate_blob_a(&blob_service, &directory_service, &path_info_service).await;
+    populate_directory_with_keep(&blob_service, &directory_service, &path_info_service).await;
+    populate_symlink(&blob_service, &directory_service, &path_info_service);
+
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        false,
+    )
     .expect("must succeed");
 
     let p_file = tmpdir.path().join(BLOB_A_NAME);
@@ -689,10 +807,10 @@ fn check_attributes() {
     fuser_session.join()
 }
 
-#[test]
+#[tokio::test]
 /// Ensure we allocate the same inodes for the same directory contents.
 /// $DIRECTORY_COMPLICATED_NAME/keep contains the same data as $DIRECTORY_WITH_KEEP.
-fn compare_inodes_directories() {
+async fn compare_inodes_directories() {
     // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
@@ -700,10 +818,17 @@ fn compare_inodes_directories() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session = setup_and_mount(tmpdir.path(), |bs: Arc<_>, ds: Arc<_>, ps: Arc<_>| {
-        populate_directory_with_keep(bs.clone(), ds.clone(), ps.clone());
-        populate_directory_complicated(bs, ds, ps);
-    })
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    populate_directory_with_keep(&blob_service, &directory_service, &path_info_service).await;
+    populate_directory_complicated(&blob_service, &directory_service, &path_info_service).await;
+
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        false,
+    )
     .expect("must succeed");
 
     let p_dir_with_keep = tmpdir.path().join(DIRECTORY_WITH_KEEP_NAME);
@@ -720,8 +845,8 @@ fn compare_inodes_directories() {
 
 /// Ensure we allocate the same inodes for the same directory contents.
 /// $DIRECTORY_COMPLICATED_NAME/keep/,keep contains the same data as $DIRECTORY_COMPLICATED_NAME/.keep
-#[test]
-fn compare_inodes_files() {
+#[tokio::test]
+async fn compare_inodes_files() {
     // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
@@ -729,8 +854,17 @@ fn compare_inodes_files() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session =
-        setup_and_mount(tmpdir.path(), populate_directory_complicated).expect("must succeed");
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    populate_directory_complicated(&blob_service, &directory_service, &path_info_service).await;
+
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        false,
+    )
+    .expect("must succeed");
 
     let p_keep1 = tmpdir.path().join(DIRECTORY_COMPLICATED_NAME).join(".keep");
     let p_keep2 = tmpdir
@@ -750,8 +884,8 @@ fn compare_inodes_files() {
 
 /// Ensure we allocate the same inode for symlinks pointing to the same targets.
 /// $DIRECTORY_COMPLICATED_NAME/aa points to the same target as SYMLINK_NAME2.
-#[test]
-fn compare_inodes_symlinks() {
+#[tokio::test]
+async fn compare_inodes_symlinks() {
     // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
@@ -759,10 +893,17 @@ fn compare_inodes_symlinks() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session = setup_and_mount(tmpdir.path(), |bs: Arc<_>, ds: Arc<_>, ps: Arc<_>| {
-        populate_directory_complicated(bs.clone(), ds.clone(), ps.clone());
-        populate_symlink2(bs, ds, ps);
-    })
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    populate_directory_complicated(&blob_service, &directory_service, &path_info_service).await;
+    populate_symlink2(&blob_service, &directory_service, &path_info_service);
+
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        false,
+    )
     .expect("must succeed");
 
     let p1 = tmpdir.path().join(DIRECTORY_COMPLICATED_NAME).join("aa");
@@ -778,8 +919,8 @@ fn compare_inodes_symlinks() {
 }
 
 /// Check we match paths exactly.
-#[test]
-fn read_wrong_paths_in_root() {
+#[tokio::test]
+async fn read_wrong_paths_in_root() {
     // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
@@ -787,7 +928,17 @@ fn read_wrong_paths_in_root() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session = setup_and_mount(tmpdir.path(), populate_blob_a).expect("must succeed");
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    populate_blob_a(&blob_service, &directory_service, &path_info_service).await;
+
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        false,
+    )
+    .expect("must succeed");
 
     // wrong name
     assert!(!tmpdir
@@ -817,8 +968,8 @@ fn read_wrong_paths_in_root() {
 }
 
 /// Make sure writes are not allowed
-#[test]
-fn disallow_writes() {
+#[tokio::test]
+async fn disallow_writes() {
     // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
@@ -827,7 +978,16 @@ fn disallow_writes() {
 
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session = setup_and_mount(tmpdir.path(), |_, _, _| {}).expect("must succeed");
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        false,
+    )
+    .expect("must succeed");
 
     let p = tmpdir.path().join(BLOB_A_NAME);
     let e = std::fs::File::create(p).expect_err("must fail");
@@ -837,17 +997,26 @@ fn disallow_writes() {
     fuser_session.join()
 }
 
-#[test]
+#[tokio::test]
 /// Ensure we get an IO error if the directory service does not have the Directory object.
-fn missing_directory() {
+async fn missing_directory() {
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
         return;
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session =
-        setup_and_mount(tmpdir.path(), populate_pathinfo_without_directory).expect("must succeed");
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    populate_pathinfo_without_directory(&blob_service, &directory_service, &path_info_service);
+
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        false,
+    )
+    .expect("must succeed");
 
     let p = tmpdir.path().join(DIRECTORY_WITH_KEEP_NAME);
 
@@ -871,17 +1040,26 @@ fn missing_directory() {
     fuser_session.join()
 }
 
-#[test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 /// Ensure we get an IO error if the blob service does not have the blob
-fn missing_blob() {
+async fn missing_blob() {
     if !std::path::Path::new("/dev/fuse").exists() {
         eprintln!("skipping test");
         return;
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let fuser_session =
-        setup_and_mount(tmpdir.path(), populate_blob_a_without_blob).expect("must succeed");
+    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    populate_blob_a_without_blob(&blob_service, &directory_service, &path_info_service);
+
+    let fuser_session = do_mount(
+        blob_service,
+        directory_service,
+        path_info_service,
+        tmpdir.path(),
+        false,
+    )
+    .expect("must succeed");
 
     let p = tmpdir.path().join(BLOB_A_NAME);
 

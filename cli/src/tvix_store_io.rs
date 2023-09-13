@@ -2,6 +2,7 @@
 
 use nix_compat::store_path::{self, StorePath};
 use std::{io, path::Path, path::PathBuf, sync::Arc};
+use tokio::io::AsyncReadExt;
 use tracing::{error, instrument, warn};
 use tvix_eval::{EvalIO, FileType, StdIO};
 
@@ -27,6 +28,7 @@ pub struct TvixStoreIO {
     directory_service: Arc<dyn DirectoryService>,
     path_info_service: Arc<dyn PathInfoService>,
     std_io: StdIO,
+    tokio_handle: tokio::runtime::Handle,
 }
 
 impl TvixStoreIO {
@@ -34,12 +36,14 @@ impl TvixStoreIO {
         blob_service: Arc<dyn BlobService>,
         directory_service: Arc<dyn DirectoryService>,
         path_info_service: Arc<dyn PathInfoService>,
+        tokio_handle: tokio::runtime::Handle,
     ) -> Self {
         Self {
             blob_service,
             directory_service,
             path_info_service,
             std_io: StdIO {},
+            tokio_handle,
         }
     }
 
@@ -85,65 +89,6 @@ impl TvixStoreIO {
             root_node,
             sub_path,
         )?)
-    }
-
-    /// Imports a given path on the filesystem into the store, and returns the
-    /// [PathInfo] describing the path, that was sent to
-    /// [PathInfoService].
-    /// While not part of the [EvalIO], it's still useful for clients who
-    /// care about the [PathInfo].
-    #[instrument(skip(self), ret, err)]
-    pub fn import_path_with_pathinfo(&self, path: &std::path::Path) -> Result<PathInfo, io::Error> {
-        // Call [import::ingest_path], which will walk over the given path and return a root_node.
-        let root_node = import::ingest_path(
-            self.blob_service.clone(),
-            self.directory_service.clone(),
-            path,
-        )
-        .expect("error during import_path");
-
-        // Render the NAR
-        let (nar_size, nar_sha256) = calculate_size_and_sha256(
-            &root_node,
-            self.blob_service.clone(),
-            self.directory_service.clone(),
-        )
-        .expect("error during nar calculation"); // TODO: handle error
-
-        // TODO: make a path_to_name helper function?
-        let name = path
-            .file_name()
-            .expect("path must not be ..")
-            .to_str()
-            .expect("path must be valid unicode");
-
-        let output_path = store_path::build_nar_based_store_path(&nar_sha256, name);
-
-        // assemble a new root_node with a name that is derived from the nar hash.
-        let root_node = root_node.rename(output_path.to_string().into_bytes().into());
-
-        // assemble the [PathInfo] object.
-        let path_info = PathInfo {
-            node: Some(tvix_store::proto::Node {
-                node: Some(root_node),
-            }),
-            // There's no reference scanning on path contents ingested like this.
-            references: vec![],
-            narinfo: Some(NarInfo {
-                nar_size,
-                nar_sha256: nar_sha256.to_vec().into(),
-                signatures: vec![],
-                reference_names: vec![],
-                // TODO: narinfo for talosctl.src contains `CA: fixed:r:sha256:1x13j5hy75221bf6kz7cpgld9vgic6bqx07w5xjs4pxnksj6lxb6`
-                // do we need this anywhere?
-            }),
-        };
-
-        // put into [PathInfoService], and return the [PathInfo] that we get
-        // back from there (it might contain additional signatures).
-        let path_info = self.path_info_service.put(path_info)?;
-
-        Ok(path_info)
     }
 }
 
@@ -197,24 +142,33 @@ impl EvalIO for TvixStoreIO {
                                 )
                             })?;
 
-                        let reader = {
-                            let resp = self.blob_service.open_read(&digest)?;
-                            match resp {
-                                Some(blob_reader) => blob_reader,
-                                None => {
-                                    error!(
-                                        blob.digest = %digest,
-                                        "blob not found",
-                                    );
-                                    Err(io::Error::new(
-                                        io::ErrorKind::NotFound,
-                                        format!("blob {} not found", &digest),
-                                    ))?
-                                }
-                            }
-                        };
+                        let blob_service = self.blob_service.clone();
 
-                        io::read_to_string(reader)
+                        let task = self.tokio_handle.spawn(async move {
+                            let mut reader = {
+                                let resp = blob_service.open_read(&digest).await?;
+                                match resp {
+                                    Some(blob_reader) => blob_reader,
+                                    None => {
+                                        error!(
+                                            blob.digest = %digest,
+                                            "blob not found",
+                                        );
+                                        Err(io::Error::new(
+                                            io::ErrorKind::NotFound,
+                                            format!("blob {} not found", &digest),
+                                        ))?
+                                    }
+                                }
+                            };
+
+                            let mut buf = String::new();
+
+                            reader.read_to_string(&mut buf).await?;
+                            Ok(buf)
+                        });
+
+                        self.tokio_handle.block_on(task).unwrap()
                     }
                     Node::Symlink(_symlink_node) => Err(io::Error::new(
                         io::ErrorKind::Unsupported,
@@ -296,7 +250,16 @@ impl EvalIO for TvixStoreIO {
 
     #[instrument(skip(self), ret, err)]
     fn import_path(&self, path: &std::path::Path) -> Result<PathBuf, std::io::Error> {
-        let path_info = self.import_path_with_pathinfo(path)?;
+        let p = path.to_owned();
+        let blob_service = self.blob_service.clone();
+        let directory_service = self.directory_service.clone();
+        let path_info_service = self.path_info_service.clone();
+
+        let task = self.tokio_handle.spawn(async move {
+            import_path_with_pathinfo(blob_service, directory_service, path_info_service, &p).await
+        });
+
+        let path_info = self.tokio_handle.block_on(task).unwrap()?;
 
         // from the [PathInfo], extract the store path (as string).
         Ok({
@@ -319,4 +282,64 @@ impl EvalIO for TvixStoreIO {
     fn store_dir(&self) -> Option<String> {
         Some("/nix/store".to_string())
     }
+}
+
+/// Imports a given path on the filesystem into the store, and returns the
+/// [PathInfo] describing the path, that was sent to
+/// [PathInfoService].
+#[instrument(skip(blob_service, directory_service, path_info_service), ret, err)]
+async fn import_path_with_pathinfo(
+    blob_service: Arc<dyn BlobService>,
+    directory_service: Arc<dyn DirectoryService>,
+    path_info_service: Arc<dyn PathInfoService>,
+    path: &std::path::Path,
+) -> Result<PathInfo, io::Error> {
+    // Call [import::ingest_path], which will walk over the given path and return a root_node.
+    let root_node = import::ingest_path(blob_service.clone(), directory_service.clone(), path)
+        .await
+        .expect("error during import_path");
+
+    // Render the NAR. This is blocking.
+    let calc_task = tokio::task::spawn_blocking(move || {
+        let (nar_size, nar_sha256) =
+            calculate_size_and_sha256(&root_node, blob_service.clone(), directory_service.clone())
+                .expect("error during nar calculation"); // TODO: handle error
+        (nar_size, nar_sha256, root_node)
+    });
+    let (nar_size, nar_sha256, root_node) = calc_task.await.unwrap();
+
+    // TODO: make a path_to_name helper function?
+    let name = path
+        .file_name()
+        .expect("path must not be ..")
+        .to_str()
+        .expect("path must be valid unicode");
+
+    let output_path = store_path::build_nar_based_store_path(&nar_sha256, name);
+
+    // assemble a new root_node with a name that is derived from the nar hash.
+    let root_node = root_node.rename(output_path.to_string().into_bytes().into());
+
+    // assemble the [PathInfo] object.
+    let path_info = PathInfo {
+        node: Some(tvix_store::proto::Node {
+            node: Some(root_node),
+        }),
+        // There's no reference scanning on path contents ingested like this.
+        references: vec![],
+        narinfo: Some(NarInfo {
+            nar_size,
+            nar_sha256: nar_sha256.to_vec().into(),
+            signatures: vec![],
+            reference_names: vec![],
+            // TODO: narinfo for talosctl.src contains `CA: fixed:r:sha256:1x13j5hy75221bf6kz7cpgld9vgic6bqx07w5xjs4pxnksj6lxb6`
+            // do we need this anywhere?
+        }),
+    };
+
+    // put into [PathInfoService], and return the [PathInfo] that we get
+    // back from there (it might contain additional signatures).
+    let path_info = path_info_service.put(path_info)?;
+
+    Ok(path_info)
 }

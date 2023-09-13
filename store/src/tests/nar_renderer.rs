@@ -28,22 +28,26 @@ fn single_symlink() {
 }
 
 /// Make sure the NARRenderer fails if a referred blob doesn't exist.
-#[test]
-fn single_file_missing_blob() {
+#[tokio::test]
+async fn single_file_missing_blob() {
     let mut buf: Vec<u8> = vec![];
 
-    let e = write_nar(
-        &mut buf,
-        &crate::proto::node::Node::File(FileNode {
-            name: "doesntmatter".into(),
-            digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
-            size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
-            executable: false,
-        }),
-        // the blobservice is empty intentionally, to provoke the error.
-        gen_blob_service(),
-        gen_directory_service(),
-    )
+    let e = tokio::task::spawn_blocking(move || {
+        write_nar(
+            &mut buf,
+            &crate::proto::node::Node::File(FileNode {
+                name: "doesntmatter".into(),
+                digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
+                size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
+                executable: false,
+            }),
+            // the blobservice is empty intentionally, to provoke the error.
+            gen_blob_service(),
+            gen_directory_service(),
+        )
+    })
+    .await
+    .unwrap()
     .expect_err("must fail");
 
     match e {
@@ -56,34 +60,43 @@ fn single_file_missing_blob() {
 
 /// Make sure the NAR Renderer fails if the returned blob meta has another size
 /// than specified in the proto node.
-#[test]
-fn single_file_wrong_blob_size() {
+#[tokio::test]
+async fn single_file_wrong_blob_size() {
     let blob_service = gen_blob_service();
 
     // insert blob into the store
-    let mut writer = blob_service.open_write();
-    io::copy(
+    let mut writer = blob_service.open_write().await;
+    tokio::io::copy(
         &mut io::Cursor::new(HELLOWORLD_BLOB_CONTENTS.to_vec()),
         &mut writer,
     )
+    .await
     .unwrap();
-    assert_eq!(HELLOWORLD_BLOB_DIGEST.clone(), writer.close().unwrap());
+    assert_eq!(
+        HELLOWORLD_BLOB_DIGEST.clone(),
+        writer.close().await.unwrap()
+    );
 
+    let bs = blob_service.clone();
     // Test with a root FileNode of a too big size
     {
         let mut buf: Vec<u8> = vec![];
 
-        let e = write_nar(
-            &mut buf,
-            &crate::proto::node::Node::File(FileNode {
-                name: "doesntmatter".into(),
-                digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
-                size: 42, // <- note the wrong size here!
-                executable: false,
-            }),
-            blob_service.clone(),
-            gen_directory_service(),
-        )
+        let e = tokio::task::spawn_blocking(move || {
+            write_nar(
+                &mut buf,
+                &crate::proto::node::Node::File(FileNode {
+                    name: "doesntmatter".into(),
+                    digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
+                    size: 42, // <- note the wrong size here!
+                    executable: false,
+                }),
+                bs,
+                gen_directory_service(),
+            )
+        })
+        .await
+        .unwrap()
         .expect_err("must fail");
 
         match e {
@@ -94,22 +107,27 @@ fn single_file_wrong_blob_size() {
         }
     }
 
+    let bs = blob_service.clone();
     // Test with a root FileNode of a too small size
     {
         let mut buf: Vec<u8> = vec![];
 
-        let e = write_nar(
-            &mut buf,
-            &crate::proto::node::Node::File(FileNode {
-                name: "doesntmatter".into(),
-                digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
-                size: 2, // <- note the wrong size here!
-                executable: false,
-            }),
-            blob_service,
-            gen_directory_service(),
-        )
-        .expect_err("must fail");
+        let e = tokio::task::spawn_blocking(move || {
+            write_nar(
+                &mut buf,
+                &crate::proto::node::Node::File(FileNode {
+                    name: "doesntmatter".into(),
+                    digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
+                    size: 2, // <- note the wrong size here!
+                    executable: false,
+                }),
+                bs,
+                gen_directory_service(),
+            )
+            .expect_err("must fail")
+        })
+        .await
+        .unwrap();
 
         match e {
             crate::nar::RenderError::NARWriterError(e) => {
@@ -120,51 +138,63 @@ fn single_file_wrong_blob_size() {
     }
 }
 
-#[test]
-fn single_file() {
+#[tokio::test]
+async fn single_file() {
     let blob_service = gen_blob_service();
 
     // insert blob into the store
-    let mut writer = blob_service.open_write();
-    io::copy(
+    let mut writer = blob_service.open_write().await;
+    tokio::io::copy(
         &mut io::Cursor::new(HELLOWORLD_BLOB_CONTENTS.clone()),
         &mut writer,
     )
+    .await
     .unwrap();
-    assert_eq!(HELLOWORLD_BLOB_DIGEST.clone(), writer.close().unwrap());
+
+    assert_eq!(
+        HELLOWORLD_BLOB_DIGEST.clone(),
+        writer.close().await.unwrap()
+    );
 
     let mut buf: Vec<u8> = vec![];
 
-    write_nar(
-        &mut buf,
-        &crate::proto::node::Node::File(FileNode {
-            name: "doesntmatter".into(),
-            digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
-            size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
-            executable: false,
-        }),
-        blob_service,
-        gen_directory_service(),
-    )
-    .expect("must succeed");
+    let buf = tokio::task::spawn_blocking(move || {
+        write_nar(
+            &mut buf,
+            &crate::proto::node::Node::File(FileNode {
+                name: "doesntmatter".into(),
+                digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
+                size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
+                executable: false,
+            }),
+            blob_service,
+            gen_directory_service(),
+        )
+        .expect("must succeed");
+
+        buf
+    })
+    .await
+    .unwrap();
 
     assert_eq!(buf, NAR_CONTENTS_HELLOWORLD.to_vec());
 }
 
-#[test]
-fn test_complicated() {
+#[tokio::test]
+async fn test_complicated() {
     let blob_service = gen_blob_service();
     let directory_service = gen_directory_service();
 
     // put all data into the stores.
     // insert blob into the store
-    let mut writer = blob_service.open_write();
-    io::copy(
+    let mut writer = blob_service.open_write().await;
+    tokio::io::copy(
         &mut io::Cursor::new(EMPTY_BLOB_CONTENTS.clone()),
         &mut writer,
     )
+    .await
     .unwrap();
-    assert_eq!(EMPTY_BLOB_DIGEST.clone(), writer.close().unwrap());
+    assert_eq!(EMPTY_BLOB_DIGEST.clone(), writer.close().await.unwrap());
 
     directory_service.put(DIRECTORY_WITH_KEEP.clone()).unwrap();
     directory_service
@@ -173,30 +203,44 @@ fn test_complicated() {
 
     let mut buf: Vec<u8> = vec![];
 
-    write_nar(
-        &mut buf,
-        &crate::proto::node::Node::Directory(DirectoryNode {
-            name: "doesntmatter".into(),
-            digest: DIRECTORY_COMPLICATED.digest().into(),
-            size: DIRECTORY_COMPLICATED.size(),
-        }),
-        blob_service.clone(),
-        directory_service.clone(),
-    )
-    .expect("must succeed");
+    let bs = blob_service.clone();
+    let ds = directory_service.clone();
+
+    let buf = tokio::task::spawn_blocking(move || {
+        write_nar(
+            &mut buf,
+            &crate::proto::node::Node::Directory(DirectoryNode {
+                name: "doesntmatter".into(),
+                digest: DIRECTORY_COMPLICATED.digest().into(),
+                size: DIRECTORY_COMPLICATED.size(),
+            }),
+            bs,
+            ds,
+        )
+        .expect("must succeed");
+        buf
+    })
+    .await
+    .unwrap();
 
     assert_eq!(buf, NAR_CONTENTS_COMPLICATED.to_vec());
 
     // ensure calculate_nar does return the correct sha256 digest and sum.
-    let (nar_size, nar_digest) = calculate_size_and_sha256(
-        &crate::proto::node::Node::Directory(DirectoryNode {
-            name: "doesntmatter".into(),
-            digest: DIRECTORY_COMPLICATED.digest().into(),
-            size: DIRECTORY_COMPLICATED.size(),
-        }),
-        blob_service,
-        directory_service,
-    )
+    let bs = blob_service.clone();
+    let ds = directory_service.clone();
+    let (nar_size, nar_digest) = tokio::task::spawn_blocking(move || {
+        calculate_size_and_sha256(
+            &crate::proto::node::Node::Directory(DirectoryNode {
+                name: "doesntmatter".into(),
+                digest: DIRECTORY_COMPLICATED.digest().into(),
+                size: DIRECTORY_COMPLICATED.size(),
+            }),
+            bs,
+            ds,
+        )
+    })
+    .await
+    .unwrap()
     .expect("must succeed");
 
     assert_eq!(NAR_CONTENTS_COMPLICATED.len() as u64, nar_size);

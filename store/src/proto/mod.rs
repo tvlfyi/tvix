@@ -12,8 +12,6 @@ mod grpc_blobservice_wrapper;
 mod grpc_directoryservice_wrapper;
 mod grpc_pathinfoservice_wrapper;
 
-mod sync_read_into_async_read;
-
 pub use grpc_blobservice_wrapper::GRPCBlobServiceWrapper;
 pub use grpc_directoryservice_wrapper::GRPCDirectoryServiceWrapper;
 pub use grpc_pathinfoservice_wrapper::GRPCPathInfoServiceWrapper;

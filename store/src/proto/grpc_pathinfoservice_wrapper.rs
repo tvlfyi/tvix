@@ -71,10 +71,12 @@ impl proto::path_info_service_server::PathInfoService for GRPCPathInfoServiceWra
         match request.into_inner().node {
             None => Err(Status::invalid_argument("no root node sent")),
             Some(root_node) => {
-                let (nar_size, nar_sha256) = self
-                    .path_info_service
-                    .calculate_nar(&root_node)
-                    .expect("error during nar calculation"); // TODO: handle error
+                let path_info_service = self.path_info_service.clone();
+                let (nar_size, nar_sha256) =
+                    task::spawn_blocking(move || path_info_service.calculate_nar(&root_node))
+                        .await
+                        .unwrap()
+                        .expect("error during nar calculation"); // TODO: handle error
 
                 Ok(Response::new(proto::CalculateNarResponse {
                     nar_size,

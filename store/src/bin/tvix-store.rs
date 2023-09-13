@@ -6,6 +6,7 @@ use nix_compat::store_path::StorePath;
 use std::io;
 use std::path::Path;
 use std::path::PathBuf;
+use tokio::task::JoinHandle;
 use tracing_subscriber::prelude::*;
 use tvix_store::blobservice;
 use tvix_store::directoryservice;
@@ -199,17 +200,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let directory_service = directory_service.clone();
                     let path_info_service = path_info_service.clone();
 
-                    let task = tokio::task::spawn_blocking(move || -> io::Result<()> {
+                    let task: JoinHandle<io::Result<()>> = tokio::task::spawn(async move {
                         // Ingest the path into blob and directory service.
                         let root_node = import::ingest_path(
                             blob_service.clone(),
                             directory_service.clone(),
                             &path,
                         )
+                        .await
                         .expect("failed to ingest path");
 
                         // Ask the PathInfoService for the NAR size and sha256
-                        let (nar_size, nar_sha256) = path_info_service.calculate_nar(&root_node)?;
+                        let root_node_copy = root_node.clone();
+                        let path_info_service_clone = path_info_service.clone();
+                        let (nar_size, nar_sha256) = tokio::task::spawn_blocking(move || {
+                            path_info_service_clone.calculate_nar(&root_node_copy)
+                        })
+                        .await
+                        .unwrap()?;
 
                         // TODO: make a path_to_name helper function?
                         let name = path
@@ -241,7 +249,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         // put into [PathInfoService], and return the PathInfo that we get back
                         // from there (it might contain additional signatures).
-                        let path_info = path_info_service.put(path_info)?;
+                        let path_info =
+                            tokio::task::spawn_blocking(move || path_info_service.put(path_info))
+                                .await
+                                .unwrap()?;
 
                         let node = path_info.node.unwrap().node.unwrap();
 
@@ -304,9 +315,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // task.
             tokio::task::spawn_blocking(move || -> io::Result<()> {
                 info!("mounting tvix-store on {:?}", fuse_session.mountpoint());
-                let res = fuse_session.run()?;
+                fuse_session.run()?;
                 info!("unmount occured, terminating…");
-                Ok(res)
+                Ok(())
             })
             .await??;
         }

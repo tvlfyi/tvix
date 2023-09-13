@@ -80,9 +80,16 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
         directory_service.clone(),
     ));
 
+    let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
+
     eval.io_handle = Box::new(tvix_io::TvixIO::new(
         known_paths.clone(),
-        TvixStoreIO::new(blob_service, directory_service, path_info_service),
+        TvixStoreIO::new(
+            blob_service,
+            directory_service,
+            path_info_service,
+            tokio_runtime.handle().clone(),
+        ),
     ));
 
     // bundle fetchurl.nix (used in nixpkgs) by resolving <nix> to

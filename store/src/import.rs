@@ -6,8 +6,6 @@ use std::sync::Arc;
 use std::{
     collections::HashMap,
     fmt::Debug,
-    fs::File,
-    io,
     os::unix::prelude::PermissionsExt,
     path::{Path, PathBuf},
 };
@@ -57,7 +55,7 @@ impl From<super::Error> for Error {
 //
 // It assumes the caller adds returned nodes to the directories it assembles.
 #[instrument(skip_all, fields(entry.file_type=?&entry.file_type(),entry.path=?entry.path()))]
-fn process_entry(
+async fn process_entry(
     blob_service: Arc<dyn BlobService>,
     directory_putter: &mut Box<dyn DirectoryPutter>,
     entry: &walkdir::DirEntry,
@@ -102,16 +100,17 @@ fn process_entry(
             .metadata()
             .map_err(|e| Error::UnableToStat(entry.path().to_path_buf(), e.into()))?;
 
-        let mut file = File::open(entry.path())
+        let mut file = tokio::fs::File::open(entry.path())
+            .await
             .map_err(|e| Error::UnableToOpen(entry.path().to_path_buf(), e))?;
 
-        let mut writer = blob_service.open_write();
+        let mut writer = blob_service.open_write().await;
 
-        if let Err(e) = io::copy(&mut file, &mut writer) {
+        if let Err(e) = tokio::io::copy(&mut file, &mut writer).await {
             return Err(Error::UnableToRead(entry.path().to_path_buf(), e));
         };
 
-        let digest = writer.close()?;
+        let digest = writer.close().await?;
 
         return Ok(proto::node::Node::File(proto::FileNode {
             name: entry.file_name().as_bytes().to_vec().into(),
@@ -137,7 +136,7 @@ fn process_entry(
 /// caller to possibly register it somewhere (and potentially rename it based on
 /// some naming scheme.
 #[instrument(skip(blob_service, directory_service), fields(path=?p))]
-pub fn ingest_path<P: AsRef<Path> + Debug>(
+pub async fn ingest_path<P: AsRef<Path> + Debug>(
     blob_service: Arc<dyn BlobService>,
     directory_service: Arc<dyn DirectoryService>,
     p: P,
@@ -175,7 +174,8 @@ pub fn ingest_path<P: AsRef<Path> + Debug>(
             &mut directory_putter,
             &entry,
             maybe_directory,
-        )?;
+        )
+        .await?;
 
         if entry.depth() == 0 {
             return Ok(node);

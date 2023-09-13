@@ -49,7 +49,7 @@ pub trait DirectoryService: Send + Sync {
 /// The consumer can periodically call [DirectoryPutter::put], starting from the
 /// leaves. Once the root is reached, [DirectoryPutter::close] can be called to
 /// retrieve the root digest (or an error).
-pub trait DirectoryPutter {
+pub trait DirectoryPutter: Send {
     /// Put a individual [proto::Directory] into the store.
     /// Error semantics and behaviour is up to the specific implementation of
     /// this trait.

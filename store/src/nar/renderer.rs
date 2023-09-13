@@ -7,10 +7,8 @@ use crate::{
 use count_write::CountWrite;
 use nix_compat::nar;
 use sha2::{Digest, Sha256};
-use std::{
-    io::{self, BufReader},
-    sync::Arc,
-};
+use std::{io, sync::Arc};
+use tokio::io::BufReader;
 use tracing::warn;
 
 /// Invoke [write_nar], and return the size and sha256 digest of the produced
@@ -75,8 +73,11 @@ fn walk_node(
                 ))
             })?;
 
-            let mut blob_reader = match blob_service
-                .open_read(&digest)
+            // HACK: blob_service is async, but this function isn't async yet..
+            let tokio_handle = tokio::runtime::Handle::current();
+
+            let blob_reader = match tokio_handle
+                .block_on(async { blob_service.open_read(&digest).await })
                 .map_err(RenderError::StoreError)?
             {
                 Some(blob_reader) => Ok(BufReader::new(blob_reader)),
@@ -90,7 +91,7 @@ fn walk_node(
                 .file(
                     proto_file_node.executable,
                     proto_file_node.size.into(),
-                    &mut blob_reader,
+                    &mut tokio_util::io::SyncIoBridge::new(blob_reader),
                 )
                 .map_err(RenderError::NARWriterError)?;
         }

@@ -9,8 +9,8 @@ use tempfile::TempDir;
 use std::os::unix::ffi::OsStrExt;
 
 #[cfg(target_family = "unix")]
-#[test]
-fn symlink() {
+#[tokio::test]
+async fn symlink() {
     let tmpdir = TempDir::new().unwrap();
 
     std::fs::create_dir_all(&tmpdir).unwrap();
@@ -25,6 +25,7 @@ fn symlink() {
         gen_directory_service(),
         tmpdir.path().join("doesntmatter"),
     )
+    .await
     .expect("must succeed");
 
     assert_eq!(
@@ -36,8 +37,8 @@ fn symlink() {
     )
 }
 
-#[test]
-fn single_file() {
+#[tokio::test]
+async fn single_file() {
     let tmpdir = TempDir::new().unwrap();
 
     std::fs::write(tmpdir.path().join("root"), HELLOWORLD_BLOB_CONTENTS).unwrap();
@@ -49,6 +50,7 @@ fn single_file() {
         gen_directory_service(),
         tmpdir.path().join("root"),
     )
+    .await
     .expect("must succeed");
 
     assert_eq!(
@@ -62,12 +64,12 @@ fn single_file() {
     );
 
     // ensure the blob has been uploaded
-    assert!(blob_service.has(&HELLOWORLD_BLOB_DIGEST).unwrap());
+    assert!(blob_service.has(&HELLOWORLD_BLOB_DIGEST).await.unwrap());
 }
 
 #[cfg(target_family = "unix")]
-#[test]
-fn complicated() {
+#[tokio::test]
+async fn complicated() {
     let tmpdir = TempDir::new().unwrap();
 
     // File ``.keep`
@@ -87,6 +89,7 @@ fn complicated() {
         directory_service.clone(),
         tmpdir.path(),
     )
+    .await
     .expect("must succeed");
 
     // ensure root_node matched expectations
@@ -116,5 +119,5 @@ fn complicated() {
         .is_some());
 
     // ensure EMPTY_BLOB_CONTENTS has been uploaded
-    assert!(blob_service.has(&EMPTY_BLOB_DIGEST).unwrap());
+    assert!(blob_service.has(&EMPTY_BLOB_DIGEST).await.unwrap());
 }

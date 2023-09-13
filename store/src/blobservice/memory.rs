@@ -1,9 +1,11 @@
-use std::io::{self, Cursor};
+use std::io::{self, Cursor, Write};
+use std::task::Poll;
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
 };
-use tracing::{instrument, warn};
+use tonic::async_trait;
+use tracing::instrument;
 
 use super::{BlobReader, BlobService, BlobWriter};
 use crate::{B3Digest, Error};
@@ -13,6 +15,7 @@ pub struct MemoryBlobService {
     db: Arc<RwLock<HashMap<B3Digest, Vec<u8>>>>,
 }
 
+#[async_trait]
 impl BlobService for MemoryBlobService {
     /// Constructs a [MemoryBlobService] from the passed [url::Url]:
     /// - scheme has to be `memory://`
@@ -31,12 +34,12 @@ impl BlobService for MemoryBlobService {
     }
 
     #[instrument(skip(self, digest), fields(blob.digest=%digest))]
-    fn has(&self, digest: &B3Digest) -> Result<bool, Error> {
+    async fn has(&self, digest: &B3Digest) -> Result<bool, Error> {
         let db = self.db.read().unwrap();
         Ok(db.contains_key(digest))
     }
 
-    fn open_read(&self, digest: &B3Digest) -> Result<Option<Box<dyn BlobReader>>, Error> {
+    async fn open_read(&self, digest: &B3Digest) -> Result<Option<Box<dyn BlobReader>>, Error> {
         let db = self.db.read().unwrap();
 
         match db.get(digest).map(|x| Cursor::new(x.clone())) {
@@ -46,7 +49,7 @@ impl BlobService for MemoryBlobService {
     }
 
     #[instrument(skip(self))]
-    fn open_write(&self) -> Box<dyn BlobWriter> {
+    async fn open_write(&self) -> Box<dyn BlobWriter> {
         Box::new(MemoryBlobWriter::new(self.db.clone()))
     }
 }
@@ -70,9 +73,13 @@ impl MemoryBlobWriter {
         }
     }
 }
-impl std::io::Write for MemoryBlobWriter {
-    fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
-        match &mut self.writers {
+impl tokio::io::AsyncWrite for MemoryBlobWriter {
+    fn poll_write(
+        mut self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+        b: &[u8],
+    ) -> std::task::Poll<Result<usize, io::Error>> {
+        Poll::Ready(match &mut self.writers {
             None => Err(io::Error::new(
                 io::ErrorKind::NotConnected,
                 "already closed",
@@ -81,22 +88,34 @@ impl std::io::Write for MemoryBlobWriter {
                 let bytes_written = buf.write(b)?;
                 hasher.write(&b[..bytes_written])
             }
-        }
+        })
     }
 
-    fn flush(&mut self) -> std::io::Result<()> {
-        match &mut self.writers {
+    fn poll_flush(
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), io::Error>> {
+        Poll::Ready(match self.writers {
             None => Err(io::Error::new(
                 io::ErrorKind::NotConnected,
                 "already closed",
             )),
             Some(_) => Ok(()),
-        }
+        })
+    }
+
+    fn poll_shutdown(
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), io::Error>> {
+        // shutdown is "instantaneous", we only write to memory.
+        Poll::Ready(Ok(()))
     }
 }
 
+#[async_trait]
 impl BlobWriter for MemoryBlobWriter {
-    fn close(&mut self) -> Result<B3Digest, Error> {
+    async fn close(&mut self) -> Result<B3Digest, Error> {
         if self.writers.is_none() {
             match &self.digest {
                 Some(digest) => Ok(digest.clone()),

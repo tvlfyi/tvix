@@ -1,9 +1,11 @@
 use super::{BlobReader, BlobService, BlobWriter};
 use crate::{B3Digest, Error};
 use std::{
-    io::{self, Cursor},
+    io::{self, Cursor, Write},
     path::PathBuf,
+    task::Poll,
 };
+use tonic::async_trait;
 use tracing::instrument;
 
 #[derive(Clone)]
@@ -27,6 +29,7 @@ impl SledBlobService {
     }
 }
 
+#[async_trait]
 impl BlobService for SledBlobService {
     /// Constructs a [SledBlobService] from the passed [url::Url]:
     /// - scheme has to be `sled://`
@@ -57,7 +60,7 @@ impl BlobService for SledBlobService {
     }
 
     #[instrument(skip(self), fields(blob.digest=%digest))]
-    fn has(&self, digest: &B3Digest) -> Result<bool, Error> {
+    async fn has(&self, digest: &B3Digest) -> Result<bool, Error> {
         match self.db.contains_key(digest.to_vec()) {
             Ok(has) => Ok(has),
             Err(e) => Err(Error::StorageError(e.to_string())),
@@ -65,7 +68,7 @@ impl BlobService for SledBlobService {
     }
 
     #[instrument(skip(self), fields(blob.digest=%digest))]
-    fn open_read(&self, digest: &B3Digest) -> Result<Option<Box<dyn BlobReader>>, Error> {
+    async fn open_read(&self, digest: &B3Digest) -> Result<Option<Box<dyn BlobReader>>, Error> {
         match self.db.get(digest.to_vec()) {
             Ok(None) => Ok(None),
             Ok(Some(data)) => Ok(Some(Box::new(Cursor::new(data[..].to_vec())))),
@@ -74,7 +77,7 @@ impl BlobService for SledBlobService {
     }
 
     #[instrument(skip(self))]
-    fn open_write(&self) -> Box<dyn BlobWriter> {
+    async fn open_write(&self) -> Box<dyn BlobWriter> {
         Box::new(SledBlobWriter::new(self.db.clone()))
     }
 }
@@ -99,9 +102,13 @@ impl SledBlobWriter {
     }
 }
 
-impl io::Write for SledBlobWriter {
-    fn write(&mut self, b: &[u8]) -> io::Result<usize> {
-        match &mut self.writers {
+impl tokio::io::AsyncWrite for SledBlobWriter {
+    fn poll_write(
+        mut self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+        b: &[u8],
+    ) -> std::task::Poll<Result<usize, io::Error>> {
+        Poll::Ready(match &mut self.writers {
             None => Err(io::Error::new(
                 io::ErrorKind::NotConnected,
                 "already closed",
@@ -110,22 +117,34 @@ impl io::Write for SledBlobWriter {
                 let bytes_written = buf.write(b)?;
                 hasher.write(&b[..bytes_written])
             }
-        }
+        })
     }
 
-    fn flush(&mut self) -> io::Result<()> {
-        match &mut self.writers {
+    fn poll_flush(
+        mut self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), io::Error>> {
+        Poll::Ready(match &mut self.writers {
             None => Err(io::Error::new(
                 io::ErrorKind::NotConnected,
                 "already closed",
             )),
             Some(_) => Ok(()),
-        }
+        })
+    }
+
+    fn poll_shutdown(
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), io::Error>> {
+        // shutdown is "instantaneous", we only write to a Vec<u8> as buffer.
+        Poll::Ready(Ok(()))
     }
 }
 
+#[async_trait]
 impl BlobWriter for SledBlobWriter {
-    fn close(&mut self) -> Result<B3Digest, Error> {
+    async fn close(&mut self) -> Result<B3Digest, Error> {
         if self.writers.is_none() {
             match &self.digest {
                 Some(digest) => Ok(digest.clone()),
