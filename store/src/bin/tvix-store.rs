@@ -2,6 +2,7 @@ use clap::Subcommand;
 use data_encoding::BASE64;
 use futures::future::try_join_all;
 use nix_compat::store_path;
+use nix_compat::store_path::StorePath;
 use std::io;
 use std::path::Path;
 use std::path::PathBuf;
@@ -17,6 +18,7 @@ use tvix_store::proto::path_info_service_server::PathInfoServiceServer;
 use tvix_store::proto::GRPCBlobServiceWrapper;
 use tvix_store::proto::GRPCDirectoryServiceWrapper;
 use tvix_store::proto::GRPCPathInfoServiceWrapper;
+use tvix_store::proto::NamedNode;
 use tvix_store::proto::NarInfo;
 use tvix_store::proto::PathInfo;
 use tvix_store::FUSE;
@@ -62,7 +64,7 @@ enum Commands {
         #[arg(long, env, default_value = "sled:///var/lib/tvix-store/pathinfo.sled")]
         path_info_service_addr: String,
     },
-    /// Imports a list of paths into the store.
+    /// Imports a list of paths into the store, print the store path for each of them.
     Import {
         #[clap(value_name = "PATH")]
         paths: Vec<PathBuf>,
@@ -241,7 +243,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         // from there (it might contain additional signatures).
                         let path_info = path_info_service.put(path_info)?;
 
-                        log_node(&path_info.node.unwrap().node.unwrap(), &path);
+                        let node = path_info.node.unwrap().node.unwrap();
+
+                        log_node(&node, &path);
+
+                        println!(
+                            "{}",
+                            StorePath::from_bytes(node.get_name())
+                                .unwrap()
+                                .to_absolute_path()
+                        );
 
                         Ok(())
                     });
