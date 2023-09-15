@@ -110,7 +110,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(if cli.json {
             Some(
                 tracing_subscriber::fmt::Layer::new()
-                    .with_writer(io::stdout.with_max_level(level))
+                    .with_writer(io::stderr.with_max_level(level))
                     .json(),
             )
         } else {
@@ -119,7 +119,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(if !cli.json {
             Some(
                 tracing_subscriber::fmt::Layer::new()
-                    .with_writer(io::stdout.with_max_level(level))
+                    .with_writer(io::stderr.with_max_level(level))
                     .pretty(),
             )
         } else {
@@ -241,7 +241,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         // from there (it might contain additional signatures).
                         let path_info = path_info_service.put(path_info)?;
 
-                        print_node(&path_info.node.unwrap().node.unwrap(), &path);
+                        log_node(&path_info.node.unwrap().node.unwrap(), &path);
+
                         Ok(())
                     });
                     task
@@ -302,7 +303,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn print_node(node: &Node, path: &Path) {
+fn log_node(node: &Node, path: &Path) {
     match node {
         Node::Directory(directory_node) => {
             info!(
