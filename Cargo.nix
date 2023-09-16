@@ -8859,11 +8859,12 @@ rec {
         ];
         features = {
           "default" = [ "fuse" "reflection" ];
-          "fuse" = [ "dep:libc" "dep:fuse-backend-rs" ];
+          "fs" = [ "dep:libc" "dep:fuse-backend-rs" ];
+          "fuse" = [ "fs" ];
           "reflection" = [ "tonic-reflection" ];
           "tonic-reflection" = [ "dep:tonic-reflection" ];
         };
-        resolvedDefaultFeatures = [ "default" "fuse" "reflection" "tonic-reflection" ];
+        resolvedDefaultFeatures = [ "default" "fs" "fuse" "reflection" "tonic-reflection" ];
       };
       "typenum" = rec {
         crateName = "typenum";

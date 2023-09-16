@@ -22,7 +22,12 @@ use tvix_store::proto::GRPCPathInfoServiceWrapper;
 use tvix_store::proto::NamedNode;
 use tvix_store::proto::NarInfo;
 use tvix_store::proto::PathInfo;
-use tvix_store::{FuseDaemon, FUSE};
+
+#[cfg(feature = "fs")]
+use tvix_store::fs::TvixStoreFs;
+
+#[cfg(feature = "fuse")]
+use tvix_store::fs::fuse::FuseDaemon;
 
 #[cfg(feature = "reflection")]
 use tvix_store::proto::FILE_DESCRIPTOR_SET;
@@ -302,7 +307,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             )?;
 
             let mut fuse_daemon = tokio::task::spawn_blocking(move || {
-                let f = FUSE::new(
+                let f = TvixStoreFs::new(
                     blob_service,
                     directory_service,
                     path_info_service,

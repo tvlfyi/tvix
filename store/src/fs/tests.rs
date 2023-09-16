@@ -8,11 +8,12 @@ use tempfile::TempDir;
 
 use crate::blobservice::BlobService;
 use crate::directoryservice::DirectoryService;
+use crate::fs::{fuse::FuseDaemon, TvixStoreFs};
 use crate::pathinfoservice::PathInfoService;
+use crate::proto;
 use crate::proto::{DirectoryNode, FileNode, PathInfo};
 use crate::tests::fixtures;
 use crate::tests::utils::{gen_blob_service, gen_directory_service, gen_pathinfo_service};
-use crate::{proto, FuseDaemon, FUSE};
 
 const BLOB_A_NAME: &str = "00000000000000000000000000000000-test";
 const BLOB_B_NAME: &str = "55555555555555555555555555555555-test";
@@ -41,7 +42,7 @@ fn do_mount<P: AsRef<Path>>(
     mountpoint: P,
     list_root: bool,
 ) -> io::Result<FuseDaemon> {
-    let fs = FUSE::new(
+    let fs = TvixStoreFs::new(
         blob_service,
         directory_service,
         path_info_service,

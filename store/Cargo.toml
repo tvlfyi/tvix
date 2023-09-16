@@ -58,5 +58,6 @@ tonic-mock = { git = "https://github.com/brainrake/tonic-mock", branch = "bump-d
 
 [features]
 default = ["fuse", "reflection"]
-fuse = ["dep:libc", "dep:fuse-backend-rs"]
+fs = ["dep:libc", "dep:fuse-backend-rs"]
+fuse = ["fs"]
 reflection = ["tonic-reflection"]

@@ -197,7 +197,7 @@ impl InodeTracker {
 
 #[cfg(test)]
 mod tests {
-    use crate::fuse::inodes::DirectoryInodeData;
+    use crate::fs::inodes::DirectoryInodeData;
     use crate::proto;
     use crate::tests::fixtures;
 
