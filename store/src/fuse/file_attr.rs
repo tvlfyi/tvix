@@ -1,20 +1,19 @@
-use std::time::SystemTime;
-
 use super::inodes::{DirectoryInodeData, InodeData};
-use fuser::FileAttr;
+use fuse_backend_rs::abi::fuse_abi::Attr;
 
-/// The [FileAttr] describing the root
-pub const ROOT_FILE_ATTR: FileAttr = FileAttr {
-    ino: fuser::FUSE_ROOT_ID,
+/// The [Attr] describing the root
+pub const ROOT_FILE_ATTR: Attr = Attr {
+    ino: fuse_backend_rs::api::filesystem::ROOT_ID,
     size: 0,
     blksize: 1024,
     blocks: 0,
-    atime: SystemTime::UNIX_EPOCH,
-    mtime: SystemTime::UNIX_EPOCH,
-    ctime: SystemTime::UNIX_EPOCH,
-    crtime: SystemTime::UNIX_EPOCH,
-    kind: fuser::FileType::Directory,
-    perm: 0o555,
+    mode: libc::S_IFDIR | 0o555,
+    atime: 0,
+    mtime: 0,
+    ctime: 0,
+    atimensec: 0,
+    mtimensec: 0,
+    ctimensec: 0,
     nlink: 0,
     uid: 0,
     gid: 0,
@@ -22,10 +21,12 @@ pub const ROOT_FILE_ATTR: FileAttr = FileAttr {
     flags: 0,
 };
 
-/// for given &Node and inode, construct a [FileAttr]
-pub fn gen_file_attr(inode_data: &InodeData, inode: u64) -> FileAttr {
-    FileAttr {
+/// for given &Node and inode, construct an [Attr]
+pub fn gen_file_attr(inode_data: &InodeData, inode: u64) -> Attr {
+    Attr {
         ino: inode,
+        // FUTUREWORK: play with this numbers, as it affects read sizes for client applications.
+        blocks: 1024,
         size: match inode_data {
             InodeData::Regular(_, size, _) => *size as u64,
             InodeData::Symlink(target) => target.len() as u64,
@@ -34,24 +35,12 @@ pub fn gen_file_attr(inode_data: &InodeData, inode: u64) -> FileAttr {
                 children.len() as u64
             }
         },
-        // FUTUREWORK: play with this numbers, as it affects read sizes for client applications.
-        blksize: 1024,
-        blocks: 0,
-        atime: SystemTime::UNIX_EPOCH,
-        mtime: SystemTime::UNIX_EPOCH,
-        ctime: SystemTime::UNIX_EPOCH,
-        crtime: SystemTime::UNIX_EPOCH,
-        kind: inode_data.into(),
-        perm: match inode_data {
-            InodeData::Regular(_, _, false) => 0o444, // no-executable files
-            InodeData::Regular(_, _, true) => 0o555,  // executable files
-            InodeData::Symlink(_) => 0o444,
-            InodeData::Directory(..) => 0o555,
+        mode: match inode_data {
+            InodeData::Regular(_, _, false) => libc::S_IFREG | 0o444, // no-executable files
+            InodeData::Regular(_, _, true) => libc::S_IFREG | 0o555,  // executable files
+            InodeData::Symlink(_) => libc::S_IFLNK | 0o444,
+            InodeData::Directory(_) => libc::S_IFDIR | 0o555,
         },
-        nlink: 0,
-        uid: 0,
-        gid: 0,
-        rdev: 0,
-        flags: 0,
+        ..Default::default()
     }
 }

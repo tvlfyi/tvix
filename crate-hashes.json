@@ -1,4 +1,5 @@
 {
+  "fuse-backend-rs 0.10.5 (git+https://github.com/cbrewster/fuse-backend-rs.git?branch=optional-allow_other#b553ce526a7267578ae5af4f4cbba717932518ac)": "0165g94bcwyg03yi4kbr6yw75p42kiz2vd1d7s8f3fj4injy49vx",
   "test-generator 0.3.0 (git+https://github.com/JamesGuthrie/test-generator.git?rev=82e799979980962aec1aa324ec6e0e4cad781f41#82e799979980962aec1aa324ec6e0e4cad781f41)": "08brp3qqa55hijc7xby3lam2cc84hvx1zzfqv6lj7smlczh8k32y",
   "tonic-mock 0.1.0 (git+https://github.com/brainrake/tonic-mock?branch=bump-dependencies#ec1a15510875de99d709d684190db5d9beab175e)": "0lwa03hpp0mxa6aa1zv5w68k61y4hccfm0q2ykyq392fwal8vb50",
   "wu-manber 0.1.0 (git+https://github.com/tvlfyi/wu-manber.git#0d5b22bea136659f7de60b102a7030e0daaa503d)": "1zhk83lbq99xzyjwphv2qrb8f8qgfqwa5bbbvyzm0z0bljsjv0pd"

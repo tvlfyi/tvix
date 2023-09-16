@@ -30,10 +30,14 @@ smol_str = "0.2.0"
 serde_json = "1.0"
 url = "2.4.0"
 pin-project-lite = "0.2.13"
+const-zero = "0.1.1"
+parking_lot = "0.12.1"
 
-[dependencies.fuser]
+[dependencies.fuse-backend-rs]
 optional = true
-version = "0.12.0"
+# TODO: Switch back to upstream version once https://github.com/cloud-hypervisor/fuse-backend-rs/pull/153 lands.
+git = "https://github.com/cbrewster/fuse-backend-rs.git"
+branch = "optional-allow_other"
 
 [dependencies.tonic-reflection]
 optional = true
@@ -54,5 +58,5 @@ tonic-mock = { git = "https://github.com/brainrake/tonic-mock", branch = "bump-d
 
 [features]
 default = ["fuse", "reflection"]
-fuse = ["dep:fuser", "dep:libc"]
+fuse = ["dep:libc", "dep:fuse-backend-rs"]
 reflection = ["tonic-reflection"]

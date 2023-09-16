@@ -66,13 +66,3 @@ impl From<proto::Directory> for InodeData {
         InodeData::Directory(DirectoryInodeData::Populated(digest, children))
     }
 }
-
-impl From<&InodeData> for fuser::FileType {
-    fn from(val: &InodeData) -> Self {
-        match val {
-            InodeData::Regular(..) => fuser::FileType::RegularFile,
-            InodeData::Symlink(_) => fuser::FileType::Symlink,
-            InodeData::Directory(..) => fuser::FileType::Directory,
-        }
-    }
-}
