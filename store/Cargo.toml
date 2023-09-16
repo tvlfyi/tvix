@@ -36,6 +36,35 @@ optional = true
 # TODO: Switch back to upstream version once https://github.com/cloud-hypervisor/fuse-backend-rs/pull/153 lands.
 git = "https://github.com/cbrewster/fuse-backend-rs.git"
 branch = "optional-allow_other"
+# Ideally this would only be enabled if virtiofs is enabled
+# Ex: virtiofs = [..., "fuse-backend-rs/?vhost-user-fs", ...]
+# However, crate2nix doesn't properly understand this syntax and doesn't
+# enable this feature properly.
+features = ["vhost-user-fs"]
+
+[dependencies.vhost]
+optional = true
+version = "0.6"
+
+[dependencies.vhost-user-backend]
+optional = true
+version = "0.8"
+
+[dependencies.virtio-queue]
+optional = true
+version = "0.7"
+
+[dependencies.vm-memory]
+optional = true
+version = "0.10"
+
+[dependencies.vmm-sys-util]
+optional = true
+version = "0.11"
+
+[dependencies.virtio-bindings]
+optional = true
+version = "0.2.1"
 
 [dependencies.tonic-reflection]
 optional = true
@@ -55,7 +84,8 @@ tempfile = "3.3.0"
 tonic-mock = { git = "https://github.com/brainrake/tonic-mock", branch = "bump-dependencies" }
 
 [features]
-default = ["fuse", "reflection"]
+default = ["fuse", "virtiofs", "reflection"]
 fs = ["dep:libc", "dep:fuse-backend-rs"]
+virtiofs = ["fs", "dep:vhost", "dep:vhost-user-backend", "dep:virtio-queue", "dep:vm-memory", "dep:vmm-sys-util", "dep:virtio-bindings"]
 fuse = ["fs"]
 reflection = ["tonic-reflection"]

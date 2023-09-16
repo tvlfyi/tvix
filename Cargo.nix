@@ -2222,6 +2222,17 @@ rec {
             packageId = "nix 0.24.3";
           }
           {
+            name = "vhost";
+            packageId = "vhost";
+            optional = true;
+            features = [ "vhost-user-slave" ];
+          }
+          {
+            name = "virtio-queue";
+            packageId = "virtio-queue";
+            optional = true;
+          }
+          {
             name = "vm-memory";
             packageId = "vm-memory";
             features = [ "backend-mmap" ];
@@ -2259,7 +2270,7 @@ rec {
           "virtiofs" = [ "virtio-queue" "caps" "vmm-sys-util" ];
           "vmm-sys-util" = [ "dep:vmm-sys-util" ];
         };
-        resolvedDefaultFeatures = [ "caps" "core-foundation-sys" "default" "fusedev" "vmm-sys-util" ];
+        resolvedDefaultFeatures = [ "caps" "core-foundation-sys" "default" "fusedev" "vhost" "vhost-user-fs" "virtio-queue" "virtiofs" "vmm-sys-util" ];
       };
       "futures" = rec {
         crateName = "futures";
@@ -8568,6 +8579,7 @@ rec {
             name = "fuse-backend-rs";
             packageId = "fuse-backend-rs";
             optional = true;
+            features = [ "vhost-user-fs" ];
           }
           {
             name = "futures";
@@ -8657,6 +8669,36 @@ rec {
             packageId = "url";
           }
           {
+            name = "vhost";
+            packageId = "vhost";
+            optional = true;
+          }
+          {
+            name = "vhost-user-backend";
+            packageId = "vhost-user-backend";
+            optional = true;
+          }
+          {
+            name = "virtio-bindings";
+            packageId = "virtio-bindings 0.2.1";
+            optional = true;
+          }
+          {
+            name = "virtio-queue";
+            packageId = "virtio-queue";
+            optional = true;
+          }
+          {
+            name = "vm-memory";
+            packageId = "vm-memory";
+            optional = true;
+          }
+          {
+            name = "vmm-sys-util";
+            packageId = "vmm-sys-util";
+            optional = true;
+          }
+          {
             name = "walkdir";
             packageId = "walkdir";
           }
@@ -8686,13 +8728,14 @@ rec {
           }
         ];
         features = {
-          "default" = [ "fuse" "reflection" ];
+          "default" = [ "fuse" "virtiofs" "reflection" ];
           "fs" = [ "dep:libc" "dep:fuse-backend-rs" ];
           "fuse" = [ "fs" ];
           "reflection" = [ "tonic-reflection" ];
           "tonic-reflection" = [ "dep:tonic-reflection" ];
+          "virtiofs" = [ "fs" "dep:vhost" "dep:vhost-user-backend" "dep:virtio-queue" "dep:vm-memory" "dep:vmm-sys-util" "dep:virtio-bindings" ];
         };
-        resolvedDefaultFeatures = [ "default" "fs" "fuse" "reflection" "tonic-reflection" ];
+        resolvedDefaultFeatures = [ "default" "fs" "fuse" "reflection" "tonic-reflection" "virtiofs" ];
       };
       "typenum" = rec {
         crateName = "typenum";
@@ -8868,6 +8911,156 @@ rec {
         ];
 
       };
+      "vhost" = rec {
+        crateName = "vhost";
+        version = "0.6.1";
+        edition = "2018";
+        sha256 = "0dczb95w5vcq852fzxsbc6zh7ll0p1mz7yrrchvv8xjjpy6rwxm6";
+        authors = [
+          "Liu Jiang <gerry@linux.alibaba.com>"
+        ];
+        dependencies = [
+          {
+            name = "bitflags";
+            packageId = "bitflags";
+          }
+          {
+            name = "libc";
+            packageId = "libc";
+          }
+          {
+            name = "vm-memory";
+            packageId = "vm-memory";
+          }
+          {
+            name = "vmm-sys-util";
+            packageId = "vmm-sys-util";
+          }
+        ];
+        devDependencies = [
+          {
+            name = "vm-memory";
+            packageId = "vm-memory";
+            features = [ "backend-mmap" ];
+          }
+        ];
+        features = {
+          "vhost-net" = [ "vhost-kern" ];
+          "vhost-user-master" = [ "vhost-user" ];
+          "vhost-user-slave" = [ "vhost-user" ];
+          "vhost-vdpa" = [ "vhost-kern" ];
+        };
+        resolvedDefaultFeatures = [ "default" "vhost-user" "vhost-user-slave" ];
+      };
+      "vhost-user-backend" = rec {
+        crateName = "vhost-user-backend";
+        version = "0.8.0";
+        edition = "2018";
+        sha256 = "00s33wy8cj2i8b4hlxn7wd8zm1fpaa5kjhzv77b3khsavf8pn8wz";
+        authors = [
+          "The Cloud Hypervisor Authors"
+        ];
+        dependencies = [
+          {
+            name = "libc";
+            packageId = "libc";
+          }
+          {
+            name = "log";
+            packageId = "log";
+          }
+          {
+            name = "vhost";
+            packageId = "vhost";
+            features = [ "vhost-user-slave" ];
+          }
+          {
+            name = "virtio-bindings";
+            packageId = "virtio-bindings 0.1.0";
+          }
+          {
+            name = "virtio-queue";
+            packageId = "virtio-queue";
+          }
+          {
+            name = "vm-memory";
+            packageId = "vm-memory";
+            features = [ "backend-mmap" "backend-atomic" ];
+          }
+          {
+            name = "vmm-sys-util";
+            packageId = "vmm-sys-util";
+          }
+        ];
+        devDependencies = [
+          {
+            name = "vhost";
+            packageId = "vhost";
+            features = [ "vhost-user-master" "vhost-user-slave" ];
+          }
+          {
+            name = "vm-memory";
+            packageId = "vm-memory";
+            features = [ "backend-mmap" "backend-atomic" "backend-bitmap" ];
+          }
+        ];
+
+      };
+      "virtio-bindings 0.1.0" = rec {
+        crateName = "virtio-bindings";
+        version = "0.1.0";
+        edition = "2018";
+        sha256 = "0sxxhhmz1r4s4q5pd2lykswcv9qk05fmpwc5xlb8aj45h8bi5x9z";
+        authors = [
+          "Sergio Lopez <slp@redhat.com>"
+        ];
+        features = { };
+      };
+      "virtio-bindings 0.2.1" = rec {
+        crateName = "virtio-bindings";
+        version = "0.2.1";
+        edition = "2021";
+        sha256 = "162vb9rlf3fyaj23h89h6z1snxzqpfn5nnr6x9q6954a15s7p3f1";
+        authors = [
+          "Sergio Lopez <slp@redhat.com>"
+        ];
+        features = { };
+      };
+      "virtio-queue" = rec {
+        crateName = "virtio-queue";
+        version = "0.7.1";
+        edition = "2021";
+        sha256 = "1gbppbapj7c0vyca88vl34cx4sp2cy9yg0v6bvyd5h11rhmixa1v";
+        authors = [
+          "The Chromium OS Authors"
+        ];
+        dependencies = [
+          {
+            name = "log";
+            packageId = "log";
+          }
+          {
+            name = "virtio-bindings";
+            packageId = "virtio-bindings 0.1.0";
+          }
+          {
+            name = "vm-memory";
+            packageId = "vm-memory";
+          }
+          {
+            name = "vmm-sys-util";
+            packageId = "vmm-sys-util";
+          }
+        ];
+        devDependencies = [
+          {
+            name = "vm-memory";
+            packageId = "vm-memory";
+            features = [ "backend-mmap" "backend-atomic" ];
+          }
+        ];
+        features = { };
+      };
       "vm-memory" = rec {
         crateName = "vm-memory";
         version = "0.10.0";
@@ -8877,6 +9070,11 @@ rec {
           "Liu Jiang <gerry@linux.alibaba.com>"
         ];
         dependencies = [
+          {
+            name = "arc-swap";
+            packageId = "arc-swap";
+            optional = true;
+          }
           {
             name = "libc";
             packageId = "libc";
@@ -8892,7 +9090,7 @@ rec {
           "arc-swap" = [ "dep:arc-swap" ];
           "backend-atomic" = [ "arc-swap" ];
         };
-        resolvedDefaultFeatures = [ "backend-mmap" "default" ];
+        resolvedDefaultFeatures = [ "arc-swap" "backend-atomic" "backend-mmap" "default" ];
       };
       "vmm-sys-util" = rec {
         crateName = "vmm-sys-util";

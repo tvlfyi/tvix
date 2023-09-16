@@ -29,6 +29,9 @@ use tvix_store::fs::TvixStoreFs;
 #[cfg(feature = "fuse")]
 use tvix_store::fs::fuse::FuseDaemon;
 
+#[cfg(feature = "virtiofs")]
+use tvix_store::fs::virtiofs::start_virtiofs_daemon;
+
 #[cfg(feature = "reflection")]
 use tvix_castore::proto::FILE_DESCRIPTOR_SET as CASTORE_FILE_DESCRIPTOR_SET;
 #[cfg(feature = "reflection")]
@@ -104,6 +107,28 @@ enum Commands {
         /// Number of FUSE threads to spawn.
         #[arg(long, env, default_value_t = default_threads())]
         threads: usize,
+
+        /// Whether to list elements at the root of the mount point.
+        /// This is useful if your PathInfoService doesn't provide an
+        /// (exhaustive) listing.
+        #[clap(long, short, action)]
+        list_root: bool,
+    },
+    /// Starts a tvix-store virtiofs daemon at the given socket path.
+    #[cfg(feature = "virtiofs")]
+    #[command(name = "virtiofs")]
+    VirtioFs {
+        #[clap(value_name = "PATH")]
+        socket: PathBuf,
+
+        #[arg(long, env, default_value = "grpc+http://[::1]:8000")]
+        blob_service_addr: String,
+
+        #[arg(long, env, default_value = "grpc+http://[::1]:8000")]
+        directory_service_addr: String,
+
+        #[arg(long, env, default_value = "grpc+http://[::1]:8000")]
+        path_info_service_addr: String,
 
         /// Whether to list elements at the root of the mount point.
         /// This is useful if your PathInfoService doesn't provide an
@@ -325,6 +350,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 fuse_daemon.unmount()?;
                 info!("unmount occured, terminating…");
                 Ok::<_, io::Error>(())
+            })
+            .await??;
+        }
+        #[cfg(feature = "virtiofs")]
+        Commands::VirtioFs {
+            socket,
+            blob_service_addr,
+            directory_service_addr,
+            path_info_service_addr,
+            list_root,
+        } => {
+            let blob_service = blobservice::from_addr(&blob_service_addr)?;
+            let directory_service = directoryservice::from_addr(&directory_service_addr)?;
+            let path_info_service = pathinfoservice::from_addr(
+                &path_info_service_addr,
+                blob_service.clone(),
+                directory_service.clone(),
+            )?;
+
+            tokio::task::spawn_blocking(move || {
+                let fs = TvixStoreFs::new(
+                    blob_service,
+                    directory_service,
+                    path_info_service,
+                    list_root,
+                );
+                info!("starting tvix-store virtiofs daemon on {:?}", &socket);
+
+                start_virtiofs_daemon(fs, socket)
             })
             .await??;
         }

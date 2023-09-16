@@ -5,6 +5,9 @@ mod inodes;
 #[cfg(feature = "fuse")]
 pub mod fuse;
 
+#[cfg(feature = "virtiofs")]
+pub mod virtiofs;
+
 #[cfg(test)]
 mod tests;
 

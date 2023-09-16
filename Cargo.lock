@@ -775,6 +775,8 @@ dependencies = [
  "log",
  "mio",
  "nix 0.24.3",
+ "vhost",
+ "virtio-queue",
  "vm-memory",
  "vmm-sys-util",
 ]
@@ -2865,6 +2867,12 @@ dependencies = [
  "tracing-subscriber",
  "tvix-castore",
  "url",
+ "vhost",
+ "vhost-user-backend",
+ "virtio-bindings 0.2.1",
+ "virtio-queue",
+ "vm-memory",
+ "vmm-sys-util",
  "walkdir",
 ]
 
@@ -2949,11 +2957,63 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
+name = "vhost"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6769e8dbf5276b4376439fbf36bb880d203bf614bf7ef444198edc24b5a9f35"
+dependencies = [
+ "bitflags",
+ "libc",
+ "vm-memory",
+ "vmm-sys-util",
+]
+
+[[package]]
+name = "vhost-user-backend"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f237b91db4ac339d639fb43398b52d785fa51e3c7760ac9425148863c1f4303"
+dependencies = [
+ "libc",
+ "log",
+ "vhost",
+ "virtio-bindings 0.1.0",
+ "virtio-queue",
+ "vm-memory",
+ "vmm-sys-util",
+]
+
+[[package]]
+name = "virtio-bindings"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ff512178285488516ed85f15b5d0113a7cdb89e9e8a760b269ae4f02b84bd6b"
+
+[[package]]
+name = "virtio-bindings"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c18d7b74098a946470ea265b5bacbbf877abc3373021388454de0d47735a5b98"
+
+[[package]]
+name = "virtio-queue"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ba81e2bcc21c0d2fc5e6683e79367e26ad219197423a498df801d79d5ba77bd"
+dependencies = [
+ "log",
+ "virtio-bindings 0.1.0",
+ "vm-memory",
+ "vmm-sys-util",
+]
+
+[[package]]
 name = "vm-memory"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "688a70366615b45575a424d9c665561c1b5ab2224d494f706b6a6812911a827c"
 dependencies = [
+ "arc-swap",
  "libc",
  "winapi",
 ]
