@@ -41,7 +41,7 @@ func New(r io.Reader) *Reader {
 func (r *Reader) Import(
 	ctx context.Context,
 	// callback function called with each regular file content
-	fileCb func(fileReader io.Reader) error,
+	blobCb func(fileReader io.Reader) error,
 	// callback function called with each finalized directory node
 	directoryCb func(directory *storev1pb.Directory) error,
 ) (*storev1pb.PathInfo, error) {
@@ -219,9 +219,9 @@ func (r *Reader) Import(
 				// wrap reader with a reader calculating the blake3 hash
 				fileReader := NewHasher(narReader, blake3.New(32, nil))
 
-				err := fileCb(fileReader)
+				err := blobCb(fileReader)
 				if err != nil {
-					return nil, fmt.Errorf("failure from fileCb: %w", err)
+					return nil, fmt.Errorf("failure from blobCb: %w", err)
 				}
 
 				// drive the file reader to the end, in case the CB function doesn't read
