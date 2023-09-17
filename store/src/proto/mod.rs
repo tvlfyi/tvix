@@ -1,5 +1,6 @@
 #![allow(clippy::derive_partial_eq_without_eq, non_snake_case)]
 // https://github.com/hyperium/tonic/issues/1056
+use data_encoding::BASE64;
 use std::{collections::HashSet, iter::Peekable};
 use thiserror::Error;
 
@@ -34,7 +35,7 @@ mod tests;
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum ValidateDirectoryError {
     /// Elements are not in sorted order
-    #[error("{0:?} is not sorted")]
+    #[error("{} is not sorted", std::str::from_utf8(.0).unwrap_or(&BASE64.encode(.0)))]
     WrongSorting(Vec<u8>),
     /// Multiple elements with the same name encountered
     #[error("{0:?} is a duplicate name")]
