@@ -39,7 +39,8 @@ func registerNarPut(s *Server) {
 		directoriesUploader := NewDirectoriesUploader(ctx, s.directoryServiceClient)
 		defer directoriesUploader.Done() //nolint:errcheck
 
-		rd := reader.New(bufio.NewReader(r.Body))
+		// buffer the body by 10MiB
+		rd := reader.New(bufio.NewReaderSize(r.Body, 10*1024*1024))
 		pathInfo, err := rd.Import(
 			ctx,
 			genBlobServiceWriteCb(ctx, s.blobServiceClient),
