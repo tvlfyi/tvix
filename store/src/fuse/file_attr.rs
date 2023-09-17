@@ -43,7 +43,8 @@ pub fn gen_file_attr(inode_data: &InodeData, inode: u64) -> FileAttr {
         crtime: SystemTime::UNIX_EPOCH,
         kind: inode_data.into(),
         perm: match inode_data {
-            InodeData::Regular(..) => 0o444,
+            InodeData::Regular(_, _, false) => 0o444, // no-executable files
+            InodeData::Regular(_, _, true) => 0o555,  // executable files
             InodeData::Symlink(_) => 0o444,
             InodeData::Directory(..) => 0o555,
         },

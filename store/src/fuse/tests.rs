@@ -16,6 +16,7 @@ use crate::{proto, FUSE};
 
 const BLOB_A_NAME: &str = "00000000000000000000000000000000-test";
 const BLOB_B_NAME: &str = "55555555555555555555555555555555-test";
+const HELLOWORLD_BLOB_NAME: &str = "66666666666666666666666666666666-test";
 const SYMLINK_NAME: &str = "11111111111111111111111111111111-test";
 const SYMLINK_NAME2: &str = "44444444444444444444444444444444-test";
 const DIRECTORY_WITH_KEEP_NAME: &str = "22222222222222222222222222222222-test";
@@ -96,6 +97,37 @@ async fn populate_blob_b(
                 digest: fixtures::BLOB_B_DIGEST.clone().into(),
                 size: fixtures::BLOB_B.len() as u32,
                 executable: false,
+            })),
+        }),
+        ..Default::default()
+    };
+    path_info_service.put(path_info).expect("must succeed");
+}
+
+/// adds a blob containing helloworld and marks it as executable
+async fn populate_helloworld_blob(
+    blob_service: &Arc<dyn BlobService>,
+    _directory_service: &Arc<dyn DirectoryService>,
+    path_info_service: &Arc<dyn PathInfoService>,
+) {
+    // Upload BLOB_B
+    let mut bw = blob_service.open_write().await;
+    tokio::io::copy(
+        &mut Cursor::new(fixtures::HELLOWORLD_BLOB_CONTENTS.to_vec()),
+        &mut bw,
+    )
+    .await
+    .expect("must succeed uploading");
+    bw.close().await.expect("must succeed closing");
+
+    // Create a PathInfo for it
+    let path_info = PathInfo {
+        node: Some(proto::Node {
+            node: Some(proto::node::Node::File(FileNode {
+                name: HELLOWORLD_BLOB_NAME.into(),
+                digest: fixtures::HELLOWORLD_BLOB_DIGEST.clone().into(),
+                size: fixtures::HELLOWORLD_BLOB_CONTENTS.len() as u32,
+                executable: true,
             })),
         }),
         ..Default::default()
@@ -760,6 +792,7 @@ async fn check_attributes() {
     populate_blob_a(&blob_service, &directory_service, &path_info_service).await;
     populate_directory_with_keep(&blob_service, &directory_service, &path_info_service).await;
     populate_symlink(&blob_service, &directory_service, &path_info_service);
+    populate_helloworld_blob(&blob_service, &directory_service, &path_info_service).await;
 
     let fuser_session = do_mount(
         blob_service,
@@ -773,14 +806,17 @@ async fn check_attributes() {
     let p_file = tmpdir.path().join(BLOB_A_NAME);
     let p_directory = tmpdir.path().join(DIRECTORY_WITH_KEEP_NAME);
     let p_symlink = tmpdir.path().join(SYMLINK_NAME);
+    let p_executable_file = tmpdir.path().join(HELLOWORLD_BLOB_NAME);
 
     // peek at metadata. We use symlink_metadata to ensure we don't traverse a symlink by accident.
     let metadata_file = fs::symlink_metadata(&p_file).expect("must succeed");
+    let metadata_executable_file = fs::symlink_metadata(&p_executable_file).expect("must succeed");
     let metadata_directory = fs::symlink_metadata(&p_directory).expect("must succeed");
     let metadata_symlink = fs::symlink_metadata(&p_symlink).expect("must succeed");
 
     // modes should match. We & with 0o777 to remove any higher bits.
     assert_eq!(0o444, metadata_file.mode() & 0o777);
+    assert_eq!(0o555, metadata_executable_file.mode() & 0o777);
     assert_eq!(0o555, metadata_directory.mode() & 0o777);
     assert_eq!(0o444, metadata_symlink.mode() & 0o777);
 
