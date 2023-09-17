@@ -1,4 +1,4 @@
-#![allow(clippy::derive_partial_eq_without_eq)]
+#![allow(clippy::derive_partial_eq_without_eq, non_snake_case)]
 // https://github.com/hyperium/tonic/issues/1056
 use std::{collections::HashSet, iter::Peekable};
 use thiserror::Error;
