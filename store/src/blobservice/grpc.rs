@@ -96,7 +96,6 @@ impl BlobService for GRPCBlobService {
         let resp = grpc_client
             .stat(proto::StatBlobRequest {
                 digest: digest.clone().into(),
-                ..Default::default()
             })
             .await;
 

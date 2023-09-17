@@ -100,10 +100,6 @@ impl super::blob_service_server::BlobService for GRPCBlobServiceWrapper {
             .try_into()
             .map_err(|_e| Status::invalid_argument("invalid digest length"))?;
 
-        if rq.include_chunks || rq.include_bao {
-            return Err(Status::internal("not implemented"));
-        }
-
         match self.blob_service.has(&req_digest).await {
             Ok(true) => Ok(Response::new(super::BlobMeta::default())),
             Ok(false) => Err(Status::not_found(format!("blob {} not found", &req_digest))),

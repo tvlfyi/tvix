@@ -31,12 +31,10 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type BlobServiceClient interface {
-	// Stat exposes metadata about a given blob,
+	// In the future, Stat will expose more metadata about a given blob,
 	// such as more granular chunking, baos.
-	// It implicitly allows checking for existence too, as asking this for a
-	// non-existing Blob will return a Status::not_found grpc error.
-	// If there's no more granular chunking available, the response will simply
-	// contain a single chunk.
+	// For now, it's only used to check for the existence of a blob, as asking
+	// this for a non-existing Blob will return a Status::not_found gRPC error.
 	Stat(ctx context.Context, in *StatBlobRequest, opts ...grpc.CallOption) (*BlobMeta, error)
 	// Read returns a stream of BlobChunk, which is just a stream of bytes with
 	// the digest specified in ReadBlobRequest.
@@ -138,12 +136,10 @@ func (x *blobServicePutClient) CloseAndRecv() (*PutBlobResponse, error) {
 // All implementations must embed UnimplementedBlobServiceServer
 // for forward compatibility
 type BlobServiceServer interface {
-	// Stat exposes metadata about a given blob,
+	// In the future, Stat will expose more metadata about a given blob,
 	// such as more granular chunking, baos.
-	// It implicitly allows checking for existence too, as asking this for a
-	// non-existing Blob will return a Status::not_found grpc error.
-	// If there's no more granular chunking available, the response will simply
-	// contain a single chunk.
+	// For now, it's only used to check for the existence of a blob, as asking
+	// this for a non-existing Blob will return a Status::not_found gRPC error.
 	Stat(context.Context, *StatBlobRequest) (*BlobMeta, error)
 	// Read returns a stream of BlobChunk, which is just a stream of bytes with
 	// the digest specified in ReadBlobRequest.
