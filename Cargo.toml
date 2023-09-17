@@ -16,6 +16,7 @@
 # extra steps or other auxiliary targets.
 
 [workspace]
+resolver = "2"
 
 members = [
   "cli",
