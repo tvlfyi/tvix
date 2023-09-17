@@ -190,15 +190,21 @@ func (r *Reader) Import(
 			// Check for valid path transitions, pop from stack if needed
 			// The nar reader already gives us some guarantees about ordering and illegal transitions,
 			// So we really only need to check if the top-of-stack path is a prefix of the path,
-			// and if it's not, pop from the stack.
+			// and if it's not, pop from the stack. We do this repeatedly until the top of the stack is
+			// the subdirectory the new entry is in, or we hit the root directory.
 
 			// We don't need to worry about the root node case, because we can only finish the root "/"
 			// If we're at the end of the NAR reader (covered by the EOF check)
-			if len(stack) > 0 && !strings.HasPrefix(hdr.Path, stack[len(stack)-1].path) {
-				err := popFromStack()
-				if err != nil {
-					return nil, fmt.Errorf("unable to pop from stack: %w", err)
+			for {
+				// We never want to pop the root directory until we're completely done.
+				if len(stack) > 1 && !strings.HasPrefix(hdr.Path, stack[len(stack)-1].path+"/") {
+					err := popFromStack()
+					if err != nil {
+						return nil, fmt.Errorf("unable to pop from stack: %w", err)
+					}
+					continue
 				}
+				break
 			}
 
 			if hdr.Type == nar.TypeSymlink {

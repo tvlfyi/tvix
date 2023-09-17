@@ -566,3 +566,31 @@ func TestCallbackErrors(t *testing.T) {
 		require.ErrorIs(t, err, targetErr)
 	})
 }
+
+// TestPopDirectories is a regression test that ensures we handle the directory
+// stack properly.
+//
+// This test case looks like:
+//
+// / (dir)
+// /test (dir)
+// /test/tested (file)
+// /tested (file)
+//
+// We used to have a bug where the second `tested` file would appear as if
+// it was in the `/test` dir because it has that dir as a string prefix.
+func TestPopDirectories(t *testing.T) {
+	f, err := os.Open("../../testdata/popdirectories.nar")
+	require.NoError(t, err)
+	defer f.Close()
+
+	r := reader.New(f)
+	_, err = r.Import(
+		context.Background(),
+		func(fileReader io.Reader) error { return nil },
+		func(directory *storev1pb.Directory) error {
+			return directory.Validate()
+		},
+	)
+	require.NoError(t, err)
+}
