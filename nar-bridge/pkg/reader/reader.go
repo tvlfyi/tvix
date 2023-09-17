@@ -195,16 +195,11 @@ func (r *Reader) Import(
 
 			// We don't need to worry about the root node case, because we can only finish the root "/"
 			// If we're at the end of the NAR reader (covered by the EOF check)
-			for {
-				// We never want to pop the root directory until we're completely done.
-				if len(stack) > 1 && !strings.HasPrefix(hdr.Path, stack[len(stack)-1].path+"/") {
-					err := popFromStack()
-					if err != nil {
-						return nil, fmt.Errorf("unable to pop from stack: %w", err)
-					}
-					continue
+			for len(stack) > 1 && !strings.HasPrefix(hdr.Path, stack[len(stack)-1].path+"/") {
+				err := popFromStack()
+				if err != nil {
+					return nil, fmt.Errorf("unable to pop from stack: %w", err)
 				}
-				break
 			}
 
 			if hdr.Type == nar.TypeSymlink {
