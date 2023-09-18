@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sync"
@@ -13,6 +14,7 @@ import (
 )
 
 type Server struct {
+	srv     *http.Server
 	handler chi.Router
 
 	directoryServiceClient storev1pb.DirectoryServiceClient
@@ -73,8 +75,14 @@ func New(
 	return s
 }
 
+func (s *Server) Shutdown(ctx context.Context) error {
+	return s.srv.Shutdown(ctx)
+}
+
+// ListenAndServer starts the webserver, and waits for it being closed or
+// shutdown, after which it'll return ErrServerClosed.
 func (s *Server) ListenAndServe(addr string) error {
-	srv := &http.Server{
+	s.srv = &http.Server{
 		Addr:         addr,
 		Handler:      s.handler,
 		ReadTimeout:  500 * time.Second,
@@ -82,5 +90,5 @@ func (s *Server) ListenAndServe(addr string) error {
 		IdleTimeout:  500 * time.Second,
 	}
 
-	return srv.ListenAndServe()
+	return s.srv.ListenAndServe()
 }

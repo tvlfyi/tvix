@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/alecthomas/kong"
 
@@ -33,25 +35,17 @@ func main() {
 	}
 	logrus.SetLevel(logLevel)
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-
-	go func() {
-		for range c {
-			log.Info("Received Signal, shutting down…")
-			os.Exit(1)
-		}
-	}()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
 
 	// connect to tvix-store
 	log.Debugf("Dialing to %v", cli.StoreAddr)
-	conn, err := grpc.Dial(cli.StoreAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.DialContext(ctx, cli.StoreAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
 	defer conn.Close()
 
-	log.Printf("Starting nar-bridge at %v", cli.ListenAddr)
 	s := server.New(
 		storev1pb.NewDirectoryServiceClient(conn),
 		storev1pb.NewBlobServiceClient(conn),
@@ -60,9 +54,21 @@ func main() {
 		30,
 	)
 
-	err = s.ListenAndServe(cli.ListenAddr)
-	if err != nil {
-		log.Error("Server failed: %w", err)
+	log.Printf("Starting nar-bridge at %v", cli.ListenAddr)
+	go s.ListenAndServe(cli.ListenAddr)
+
+	// listen for the interrupt signal.
+	<-ctx.Done()
+
+	// Restore default behaviour on the interrupt signal
+	stop()
+	log.Info("Received Signal, shutting down, press Ctl+C again to force.")
+
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if s.Shutdown(timeoutCtx); err != nil {
+		log.WithError(err).Warn("failed to shutdown")
 		os.Exit(1)
 	}
 }
