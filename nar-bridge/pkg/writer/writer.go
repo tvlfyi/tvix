@@ -54,18 +54,18 @@ func Export(
 		}
 
 		// if it's a regular file, retrieve and write the contents
-		contentReader, err := blobLookupFn(v.File.GetDigest())
+		blobReader, err := blobLookupFn(v.File.GetDigest())
 		if err != nil {
 			return fmt.Errorf("unable to lookup blob: %w", err)
 		}
-		defer contentReader.Close()
+		defer blobReader.Close()
 
-		_, err = io.Copy(narWriter, contentReader)
+		_, err = io.Copy(narWriter, blobReader)
 		if err != nil {
-			return fmt.Errorf("unable to copy contents from contentReader: %w", err)
+			return fmt.Errorf("unable to read from blobReader: %w", err)
 		}
 
-		err = contentReader.Close()
+		err = blobReader.Close()
 		if err != nil {
 			return fmt.Errorf("unable to close content reader: %w", err)
 		}
