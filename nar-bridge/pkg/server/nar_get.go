@@ -117,25 +117,34 @@ func renderNar(
 			})
 			if err != nil {
 				return nil, fmt.Errorf("unable to get blob: %w", err)
-
 			}
 
-			// TODO: spin up a goroutine producing this.
-			data := &bytes.Buffer{}
-			for {
-				chunk, err := resp.Recv()
-				if errors.Is(err, io.EOF) {
-					break
+			// set up a pipe, let a goroutine write, return the reader.
+			pR, pW := io.Pipe()
+
+			go func() {
+				for {
+					chunk, err := resp.Recv()
+					if errors.Is(err, io.EOF) {
+						break
+					}
+					if err != nil {
+						pW.CloseWithError(fmt.Errorf("receiving chunk: %w", err))
+						return
+					}
+
+					// write the received chunk to the writer part of the pipe
+					if _, err := io.Copy(pW, bytes.NewReader(chunk.GetData())); err != nil {
+						log.WithError(err).Error("writing chunk to pipe")
+						pW.CloseWithError(fmt.Errorf("writing chunk to pipe: %w", err))
+						return
+					}
 				}
-				if err != nil {
-					return nil, fmt.Errorf("read chunk: %w", err)
-				}
-				_, err = data.Write(chunk.GetData())
-				if err != nil {
-					return nil, fmt.Errorf("buffer chunk: %w", err)
-				}
-			}
-			return io.NopCloser(data), nil
+				pW.Close()
+
+			}()
+
+			return io.NopCloser(pR), nil
 		},
 	)
 	if err != nil {
