@@ -1,7 +1,7 @@
 module code.tvl.fyi/tvix/nar-bridge
 
 require (
-	code.tvl.fyi/tvix/store/protos v0.0.0-20230909121302-7b7aa6704a9d
+	code.tvl.fyi/tvix/store/protos v0.0.0-20230918103330-20a5285e3e82
 	github.com/alecthomas/kong v0.7.1
 	github.com/go-chi/chi v1.5.4
 	github.com/go-chi/chi/v5 v5.0.7

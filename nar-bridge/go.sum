@@ -1,6 +1,6 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
-code.tvl.fyi/tvix/store/protos v0.0.0-20230909121302-7b7aa6704a9d h1:Vnmh6ve4xVj7GPValMR+/bZC6IadLwa/phL6HUZ6DdA=
-code.tvl.fyi/tvix/store/protos v0.0.0-20230909121302-7b7aa6704a9d/go.mod h1:uOGlmwyEraDd9kzAWHdDeZdNgKrpOAmtWCdMeY+DVKs=
+code.tvl.fyi/tvix/store/protos v0.0.0-20230918103330-20a5285e3e82 h1:DffXv1J4znl2BT6bATBaR3lnb8P4cPr02fNOn9RuGYY=
+code.tvl.fyi/tvix/store/protos v0.0.0-20230918103330-20a5285e3e82/go.mod h1:uOGlmwyEraDd9kzAWHdDeZdNgKrpOAmtWCdMeY+DVKs=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/alecthomas/assert/v2 v2.1.0 h1:tbredtNcQnoSd3QBhQWI7QZ3XHOVkw1Moklp2ojoH/0=
 github.com/alecthomas/kong v0.7.1 h1:azoTh0IOfwlAX3qN9sHWTxACE2oV8Bg2gAwBsMwDQY4=
