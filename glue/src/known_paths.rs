@@ -93,7 +93,33 @@ impl KnownPaths {
                 match (path_kind, &mut entry.get_mut().kind) {
                     // These variant combinations require no "merging action".
                     (PathKind::Plain, PathKind::Plain) => (),
-                    (PathKind::Output { .. }, PathKind::Output { .. }) => (),
+
+                    (
+                        PathKind::Output {
+                            name: name1,
+                            derivation: drv1,
+                        },
+                        PathKind::Output {
+                            name: ref name2,
+                            derivation: ref drv2,
+                        },
+                    ) => {
+                        #[cfg(debug_assertions)]
+                        {
+                            if &name1 != name2 {
+                                panic!(
+                                    "inserted path {} with two different names: {} and {}",
+                                    path, name1, name2
+                                );
+                            }
+                            if &drv1 != drv2 {
+                                panic!(
+                                    "inserted path {} with two different derivations: {} and {}",
+                                    path, drv1, drv2
+                                );
+                            }
+                        }
+                    }
 
                     (
                         PathKind::Derivation { output_names: new },
