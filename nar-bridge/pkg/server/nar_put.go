@@ -60,7 +60,7 @@ func registerNarPut(s *Server) {
 			return
 		}
 
-		log.Infof("closing the stream")
+		log.Debug("closing the stream")
 
 		// Close the directories uploader
 		directoriesPutResponse, err := directoriesUploader.Done()

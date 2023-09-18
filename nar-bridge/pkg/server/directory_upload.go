@@ -44,7 +44,7 @@ func (du *DirectoriesUploader) Put(directory *storev1pb.Directory) error {
 	if err != nil {
 		return fmt.Errorf("error sending directory: %w", err)
 	}
-	log.WithField("digest", base64.StdEncoding.EncodeToString(directoryDgst)).Info("uploaded directory")
+	log.WithField("digest", base64.StdEncoding.EncodeToString(directoryDgst)).Debug("uploaded directory")
 
 	return nil
 }

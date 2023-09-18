@@ -64,7 +64,7 @@ func genBlobServiceWriteCb(ctx context.Context, blobServiceClient storev1pb.Blob
 		log.WithFields(log.Fields{
 			"blob_digest": base64.StdEncoding.EncodeToString(resp.GetDigest()),
 			"blob_size":   blobSize,
-		}).Info("uploaded blob")
+		}).Debug("uploaded blob")
 
 		return nil
 	}

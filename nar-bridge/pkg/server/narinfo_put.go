@@ -167,7 +167,7 @@ func registerNarinfoPut(s *Server) {
 			return
 		}
 
-		log.Infof("received new pathInfo: %v+", receivedPathInfo)
+		log.Debugf("received new pathInfo: %v+", receivedPathInfo)
 
 		// TODO: update the local temporary pathinfo with this?
 	})

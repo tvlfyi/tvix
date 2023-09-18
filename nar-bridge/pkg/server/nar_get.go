@@ -85,8 +85,7 @@ func renderNar(
 				return fmt.Errorf("unable to calculate directory digest: %w", err)
 			}
 
-			// TODO: debug level
-			log.WithField("directory", base64.StdEncoding.EncodeToString(directoryDgst)).Info("received directory node")
+			log.WithField("directory", base64.StdEncoding.EncodeToString(directoryDgst)).Debug("received directory node")
 
 			directories[hex.EncodeToString(directoryDgst)] = directory
 		}
@@ -98,8 +97,7 @@ func renderNar(
 		w,
 		pathInfo,
 		func(directoryDigest []byte) (*storev1pb.Directory, error) {
-			// TODO: debug level
-			log.WithField("directory", base64.StdEncoding.EncodeToString(directoryDigest)).Info("Get directory")
+			log.WithField("directory", base64.StdEncoding.EncodeToString(directoryDigest)).Debug("Get directory")
 			directoryRefStr := hex.EncodeToString(directoryDigest)
 			directory, found := directories[directoryRefStr]
 			if !found {
@@ -113,8 +111,7 @@ func renderNar(
 			return directory, nil
 		},
 		func(blobDigest []byte) (io.ReadCloser, error) {
-			// TODO: debug level
-			log.WithField("blob", base64.StdEncoding.EncodeToString(blobDigest)).Info("Get blob")
+			log.WithField("blob", base64.StdEncoding.EncodeToString(blobDigest)).Debug("Get blob")
 			resp, err := blobServiceClient.Read(ctx, &storev1pb.ReadBlobRequest{
 				Digest: blobDigest,
 			})
