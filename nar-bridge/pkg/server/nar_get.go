@@ -171,10 +171,10 @@ func registerNarGet(s *Server) {
 
 		err = renderNar(ctx, log, s.directoryServiceClient, s.blobServiceClient, &s.narHashToPathInfoMu, s.narHashToPathInfo, w, narHash, true)
 		if err != nil {
-			log.WithError(err).Info("unable to render nar")
 			if errors.Is(err, fs.ErrNotExist) {
 				w.WriteHeader(http.StatusNotFound)
 			} else {
+				log.WithError(err).Warn("unable to render nar")
 				w.WriteHeader(http.StatusInternalServerError)
 			}
 		}

@@ -135,10 +135,10 @@ func registerNarinfoGet(s *Server) {
 
 		err = renderNarinfo(ctx, log, s.pathInfoServiceClient, &s.narHashToPathInfoMu, s.narHashToPathInfo, outputHash, w, false)
 		if err != nil {
-			log.WithError(err).Info("unable to render narinfo")
 			if errors.Is(err, fs.ErrNotExist) {
 				w.WriteHeader(http.StatusNotFound)
 			} else {
+				log.WithError(err).Warn("unable to render narinfo")
 				w.WriteHeader(http.StatusInternalServerError)
 			}
 		}
