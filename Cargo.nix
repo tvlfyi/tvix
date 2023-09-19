@@ -7496,7 +7496,7 @@ rec {
           "time" = [ "tokio/time" ];
           "tokio-util" = [ "dep:tokio-util" ];
         };
-        resolvedDefaultFeatures = [ "default" "net" "time" ];
+        resolvedDefaultFeatures = [ "default" "fs" "net" "time" ];
       };
       "tokio-util" = rec {
         crateName = "tokio-util";
@@ -8704,6 +8704,10 @@ rec {
             packageId = "anyhow";
           }
           {
+            name = "async-stream";
+            packageId = "async-stream";
+          }
+          {
             name = "blake3";
             packageId = "blake3";
             features = [ "rayon" "std" ];
@@ -8796,6 +8800,7 @@ rec {
           {
             name = "tokio-stream";
             packageId = "tokio-stream";
+            features = [ "fs" ];
           }
           {
             name = "tokio-util";

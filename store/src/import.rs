@@ -72,6 +72,7 @@ async fn process_entry(
         // upload this directory
         directory_putter
             .put(directory)
+            .await
             .map_err(|e| Error::UploadDirectoryError(entry.path().to_path_buf(), e))?;
 
         return Ok(proto::node::Node::Directory(proto::DirectoryNode {

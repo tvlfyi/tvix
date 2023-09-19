@@ -3,8 +3,10 @@ use crate::{
     blobservice::BlobService, directoryservice::DirectoryService, nar::calculate_size_and_sha256,
     proto, Error,
 };
+use futures::{stream::iter, Stream};
 use prost::Message;
-use std::{path::PathBuf, sync::Arc};
+use std::{path::PathBuf, pin::Pin, sync::Arc};
+use tonic::async_trait;
 use tracing::warn;
 
 /// SledPathInfoService stores PathInfo in a [sled](https://github.com/spacejam/sled).
@@ -49,6 +51,7 @@ impl SledPathInfoService {
     }
 }
 
+#[async_trait]
 impl PathInfoService for SledPathInfoService {
     /// Constructs a [SledPathInfoService] from the passed [url::Url]:
     /// - scheme has to be `sled://`
@@ -84,7 +87,7 @@ impl PathInfoService for SledPathInfoService {
         }
     }
 
-    fn get(&self, digest: [u8; 20]) -> Result<Option<proto::PathInfo>, Error> {
+    async fn get(&self, digest: [u8; 20]) -> Result<Option<proto::PathInfo>, Error> {
         match self.db.get(digest) {
             Ok(None) => Ok(None),
             Ok(Some(data)) => match proto::PathInfo::decode(&*data) {
@@ -107,7 +110,7 @@ impl PathInfoService for SledPathInfoService {
         }
     }
 
-    fn put(&self, path_info: proto::PathInfo) -> Result<proto::PathInfo, Error> {
+    async fn put(&self, path_info: proto::PathInfo) -> Result<proto::PathInfo, Error> {
         // Call validate on the received PathInfo message.
         match path_info.validate() {
             Err(e) => Err(Error::InvalidRequest(format!(
@@ -128,17 +131,18 @@ impl PathInfoService for SledPathInfoService {
         }
     }
 
-    fn calculate_nar(&self, root_node: &proto::node::Node) -> Result<(u64, [u8; 32]), Error> {
+    async fn calculate_nar(&self, root_node: &proto::node::Node) -> Result<(u64, [u8; 32]), Error> {
         calculate_size_and_sha256(
             root_node,
             self.blob_service.clone(),
             self.directory_service.clone(),
         )
+        .await
         .map_err(|e| Error::StorageError(e.to_string()))
     }
 
-    fn list(&self) -> Box<dyn Iterator<Item = Result<proto::PathInfo, Error>> + Send> {
-        Box::new(self.db.iter().values().map(|v| match v {
+    fn list(&self) -> Pin<Box<dyn Stream<Item = Result<proto::PathInfo, Error>> + Send>> {
+        Box::pin(iter(self.db.iter().values().map(|v| match v {
             Ok(data) => {
                 // we retrieved some bytes
                 match proto::PathInfo::decode(&*data) {
@@ -159,7 +163,7 @@ impl PathInfoService for SledPathInfoService {
                     e
                 )))
             }
-        }))
+        })))
     }
 }
 

@@ -1,12 +1,15 @@
 use crate::directoryservice::DirectoryPutter;
 use crate::proto::Directory;
 use crate::{proto, B3Digest, Error};
+use futures::Stream;
 use prost::Message;
 use std::path::PathBuf;
+use std::pin::Pin;
+use tonic::async_trait;
 use tracing::{instrument, warn};
 
-use super::utils::SimplePutter;
-use super::{DirectoryService, DirectoryTraverser};
+use super::utils::{traverse_directory, SimplePutter};
+use super::DirectoryService;
 
 #[derive(Clone)]
 pub struct SledDirectoryService {
@@ -29,6 +32,7 @@ impl SledDirectoryService {
     }
 }
 
+#[async_trait]
 impl DirectoryService for SledDirectoryService {
     /// Constructs a [SledDirectoryService] from the passed [url::Url]:
     /// - scheme has to be `sled://`
@@ -59,7 +63,7 @@ impl DirectoryService for SledDirectoryService {
     }
 
     #[instrument(skip(self, digest), fields(directory.digest = %digest))]
-    fn get(&self, digest: &B3Digest) -> Result<Option<proto::Directory>, Error> {
+    async fn get(&self, digest: &B3Digest) -> Result<Option<proto::Directory>, Error> {
         match self.db.get(digest.to_vec()) {
             // The directory was not found, return
             Ok(None) => Ok(None),
@@ -99,7 +103,7 @@ impl DirectoryService for SledDirectoryService {
     }
 
     #[instrument(skip(self, directory), fields(directory.digest = %directory.digest()))]
-    fn put(&self, directory: proto::Directory) -> Result<B3Digest, Error> {
+    async fn put(&self, directory: proto::Directory) -> Result<B3Digest, Error> {
         let digest = directory.digest();
 
         // validate the directory itself.
@@ -121,12 +125,8 @@ impl DirectoryService for SledDirectoryService {
     fn get_recursive(
         &self,
         root_directory_digest: &B3Digest,
-    ) -> Box<(dyn Iterator<Item = Result<proto::Directory, Error>> + std::marker::Send + 'static)>
-    {
-        Box::new(DirectoryTraverser::with(
-            self.clone(),
-            root_directory_digest,
-        ))
+    ) -> Pin<Box<(dyn Stream<Item = Result<proto::Directory, Error>> + Send + 'static)>> {
+        traverse_directory(self.clone(), root_directory_digest)
     }
 
     #[instrument(skip_all)]

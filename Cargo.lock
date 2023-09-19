@@ -2924,6 +2924,7 @@ name = "tvix-store"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-stream",
  "blake3",
  "bytes",
  "clap 4.2.7",

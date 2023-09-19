@@ -229,11 +229,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         // Ask the PathInfoService for the NAR size and sha256
                         let root_node_copy = root_node.clone();
                         let path_info_service_clone = path_info_service.clone();
-                        let (nar_size, nar_sha256) = tokio::task::spawn_blocking(move || {
-                            path_info_service_clone.calculate_nar(&root_node_copy)
-                        })
-                        .await
-                        .unwrap()?;
+                        let (nar_size, nar_sha256) = path_info_service_clone
+                            .calculate_nar(&root_node_copy)
+                            .await?;
 
                         // TODO: make a path_to_name helper function?
                         let name = path
@@ -265,10 +263,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         // put into [PathInfoService], and return the PathInfo that we get back
                         // from there (it might contain additional signatures).
-                        let path_info =
-                            tokio::task::spawn_blocking(move || path_info_service.put(path_info))
-                                .await
-                                .unwrap()?;
+                        let path_info = path_info_service.put(path_info).await?;
 
                         let node = path_info.node.unwrap().node.unwrap();
 

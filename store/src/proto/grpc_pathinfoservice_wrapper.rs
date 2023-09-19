@@ -1,6 +1,7 @@
 use crate::nar::RenderError;
 use crate::pathinfoservice::PathInfoService;
 use crate::proto;
+use futures::StreamExt;
 use std::sync::Arc;
 use tokio::task;
 use tokio_stream::wrappers::ReceiverStream;
@@ -36,7 +37,7 @@ impl proto::path_info_service_server::PathInfoService for GRPCPathInfoServiceWra
                     .to_vec()
                     .try_into()
                     .map_err(|_e| Status::invalid_argument("invalid output digest length"))?;
-                match self.path_info_service.get(digest) {
+                match self.path_info_service.get(digest).await {
                     Ok(None) => Err(Status::not_found("PathInfo not found")),
                     Ok(Some(path_info)) => Ok(Response::new(path_info)),
                     Err(e) => {
@@ -54,7 +55,7 @@ impl proto::path_info_service_server::PathInfoService for GRPCPathInfoServiceWra
 
         // Store the PathInfo in the client. Clients MUST validate the data
         // they receive, so we don't validate additionally here.
-        match self.path_info_service.put(path_info) {
+        match self.path_info_service.put(path_info).await {
             Ok(path_info_new) => Ok(Response::new(path_info_new)),
             Err(e) => {
                 warn!("failed to insert PathInfo: {}", e);
@@ -72,11 +73,10 @@ impl proto::path_info_service_server::PathInfoService for GRPCPathInfoServiceWra
             None => Err(Status::invalid_argument("no root node sent")),
             Some(root_node) => {
                 let path_info_service = self.path_info_service.clone();
-                let (nar_size, nar_sha256) =
-                    task::spawn_blocking(move || path_info_service.calculate_nar(&root_node))
-                        .await
-                        .unwrap()
-                        .expect("error during nar calculation"); // TODO: handle error
+                let (nar_size, nar_sha256) = path_info_service
+                    .calculate_nar(&root_node)
+                    .await
+                    .expect("error during nar calculation"); // TODO: handle error
 
                 Ok(Response::new(proto::CalculateNarResponse {
                     nar_size,
@@ -96,7 +96,8 @@ impl proto::path_info_service_server::PathInfoService for GRPCPathInfoServiceWra
         let path_info_service = self.path_info_service.clone();
 
         let _task = task::spawn(async move {
-            for e in path_info_service.list() {
+            let mut stream = path_info_service.list();
+            while let Some(e) = stream.next().await {
                 let res = e.map_err(|e| Status::internal(e.to_string()));
                 if tx.send(res).await.is_err() {
                     debug!("receiver dropped");

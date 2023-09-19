@@ -111,10 +111,12 @@ async fn complicated() {
     // ensure DIRECTORY_WITH_KEEP and DIRECTORY_COMPLICATED have been uploaded
     assert!(directory_service
         .get(&DIRECTORY_WITH_KEEP.digest())
+        .await
         .unwrap()
         .is_some());
     assert!(directory_service
         .get(&DIRECTORY_COMPLICATED.digest())
+        .await
         .unwrap()
         .is_some());
 

@@ -37,7 +37,7 @@ use std::io::{
 mod wire;
 
 /// Convenience type alias for types implementing [`Write`].
-pub type Writer<'a> = dyn Write + 'a;
+pub type Writer<'a> = dyn Write + Send + 'a;
 
 /// Create a new NAR, writing the output to the specified writer.
 pub fn open<'a, 'w: 'a>(writer: &'a mut Writer<'w>) -> io::Result<Node<'a, 'w>> {

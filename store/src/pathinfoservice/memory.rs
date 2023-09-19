@@ -3,10 +3,13 @@ use crate::{
     blobservice::BlobService, directoryservice::DirectoryService, nar::calculate_size_and_sha256,
     proto, Error,
 };
+use futures::{stream::iter, Stream};
 use std::{
     collections::HashMap,
+    pin::Pin,
     sync::{Arc, RwLock},
 };
+use tonic::async_trait;
 
 pub struct MemoryPathInfoService {
     db: Arc<RwLock<HashMap<[u8; 20], proto::PathInfo>>>,
@@ -28,6 +31,7 @@ impl MemoryPathInfoService {
     }
 }
 
+#[async_trait]
 impl PathInfoService for MemoryPathInfoService {
     /// Constructs a [MemoryPathInfoService] from the passed [url::Url]:
     /// - scheme has to be `memory://`
@@ -49,7 +53,7 @@ impl PathInfoService for MemoryPathInfoService {
         Ok(Self::new(blob_service, directory_service))
     }
 
-    fn get(&self, digest: [u8; 20]) -> Result<Option<proto::PathInfo>, Error> {
+    async fn get(&self, digest: [u8; 20]) -> Result<Option<proto::PathInfo>, Error> {
         let db = self.db.read().unwrap();
 
         match db.get(&digest) {
@@ -58,7 +62,7 @@ impl PathInfoService for MemoryPathInfoService {
         }
     }
 
-    fn put(&self, path_info: proto::PathInfo) -> Result<proto::PathInfo, Error> {
+    async fn put(&self, path_info: proto::PathInfo) -> Result<proto::PathInfo, Error> {
         // Call validate on the received PathInfo message.
         match path_info.validate() {
             Err(e) => Err(Error::InvalidRequest(format!(
@@ -77,16 +81,17 @@ impl PathInfoService for MemoryPathInfoService {
         }
     }
 
-    fn calculate_nar(&self, root_node: &proto::node::Node) -> Result<(u64, [u8; 32]), Error> {
+    async fn calculate_nar(&self, root_node: &proto::node::Node) -> Result<(u64, [u8; 32]), Error> {
         calculate_size_and_sha256(
             root_node,
             self.blob_service.clone(),
             self.directory_service.clone(),
         )
+        .await
         .map_err(|e| Error::StorageError(e.to_string()))
     }
 
-    fn list(&self) -> Box<dyn Iterator<Item = Result<proto::PathInfo, Error>> + Send + '_> {
+    fn list(&self) -> Pin<Box<dyn Stream<Item = Result<proto::PathInfo, Error>> + Send>> {
         let db = self.db.read().unwrap();
 
         // Copy all elements into a list.
@@ -95,7 +100,7 @@ impl PathInfoService for MemoryPathInfoService {
         // memory impl is only for testing purposes anyways.
         let items: Vec<_> = db.iter().map(|(_k, v)| Ok(v.clone())).collect();
 
-        Box::new(items.into_iter())
+        Box::pin(iter(items))
     }
 }
 
