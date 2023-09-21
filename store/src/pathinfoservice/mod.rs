@@ -19,7 +19,6 @@ pub use self::memory::MemoryPathInfoService;
 pub use self::sled::SledPathInfoService;
 
 /// The base trait all PathInfo services need to implement.
-/// This is a simple get and put of [proto::Directory], returning their digest.
 #[async_trait]
 pub trait PathInfoService: Send + Sync {
     /// Create a new instance by passing in a connection URL, as well
