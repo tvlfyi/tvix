@@ -3,9 +3,9 @@
 
 syntax = "proto3";
 
-package tvix.store.v1;
+package tvix.castore.v1;
 
-option go_package = "code.tvl.fyi/tvix/store/protos;storev1";
+option go_package = "code.tvl.fyi/tvix/castore/protos;castorev1";
 
 // A Directory can contain Directory, File or Symlink nodes.
 // Each of these nodes have a name attribute, which is the basename in that directory
@@ -60,3 +60,13 @@ message SymlinkNode {
     // The target of the symlink.
     bytes target = 2;
 }
+
+// A Node is either a DirectoryNode, FileNode or SymlinkNode.
+message Node {
+    oneof node {
+        DirectoryNode directory = 1;
+        FileNode file = 2;
+        SymlinkNode symlink = 3;
+    }
+}
+

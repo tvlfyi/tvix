@@ -1,12 +1,12 @@
 use crate::nar::calculate_size_and_sha256;
 use crate::nar::write_nar;
-use crate::proto::DirectoryNode;
-use crate::proto::FileNode;
-use crate::proto::SymlinkNode;
 use crate::tests::fixtures::*;
 use crate::tests::utils::*;
 use sha2::{Digest, Sha256};
 use std::io;
+use tvix_castore::proto::DirectoryNode;
+use tvix_castore::proto::FileNode;
+use tvix_castore::proto::{self as castorepb, SymlinkNode};
 
 #[tokio::test]
 async fn single_symlink() {
@@ -14,7 +14,7 @@ async fn single_symlink() {
 
     let buf = write_nar(
         buf,
-        &crate::proto::node::Node::Symlink(SymlinkNode {
+        &castorepb::node::Node::Symlink(SymlinkNode {
             name: "doesntmatter".into(),
             target: "/nix/store/somewhereelse".into(),
         }),
@@ -35,7 +35,7 @@ async fn single_file_missing_blob() {
 
     let e = write_nar(
         buf,
-        &crate::proto::node::Node::File(FileNode {
+        &castorepb::node::Node::File(FileNode {
             name: "doesntmatter".into(),
             digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
             size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
@@ -82,7 +82,7 @@ async fn single_file_wrong_blob_size() {
 
         let e = write_nar(
             buf,
-            &crate::proto::node::Node::File(FileNode {
+            &castorepb::node::Node::File(FileNode {
                 name: "doesntmatter".into(),
                 digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
                 size: 42, // <- note the wrong size here!
@@ -109,7 +109,7 @@ async fn single_file_wrong_blob_size() {
 
         let e = write_nar(
             buf,
-            &crate::proto::node::Node::File(FileNode {
+            &castorepb::node::Node::File(FileNode {
                 name: "doesntmatter".into(),
                 digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
                 size: 2, // <- note the wrong size here!
@@ -152,7 +152,7 @@ async fn single_file() {
 
     let buf = write_nar(
         buf,
-        &crate::proto::node::Node::File(FileNode {
+        &castorepb::node::Node::File(FileNode {
             name: "doesntmatter".into(),
             digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
             size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
@@ -199,7 +199,7 @@ async fn test_complicated() {
 
     let buf = write_nar(
         buf,
-        &crate::proto::node::Node::Directory(DirectoryNode {
+        &castorepb::node::Node::Directory(DirectoryNode {
             name: "doesntmatter".into(),
             digest: DIRECTORY_COMPLICATED.digest().into(),
             size: DIRECTORY_COMPLICATED.size(),
@@ -216,7 +216,7 @@ async fn test_complicated() {
     let bs = blob_service.clone();
     let ds = directory_service.clone();
     let (nar_size, nar_digest) = calculate_size_and_sha256(
-        &crate::proto::node::Node::Directory(DirectoryNode {
+        &castorepb::node::Node::Directory(DirectoryNode {
             name: "doesntmatter".into(),
             digest: DIRECTORY_COMPLICATED.digest().into(),
             size: DIRECTORY_COMPLICATED.size(),

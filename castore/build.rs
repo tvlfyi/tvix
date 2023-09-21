@@ -7,7 +7,7 @@ fn main() -> Result<()> {
     #[cfg(feature = "reflection")]
     {
         let out_dir = std::path::PathBuf::from(std::env::var("OUT_DIR").unwrap());
-        let descriptor_path = out_dir.join("tvix.store.v1.bin");
+        let descriptor_path = out_dir.join("tvix.castore.v1.bin");
 
         builder = builder.file_descriptor_set_path(descriptor_path);
     };
@@ -15,7 +15,6 @@ fn main() -> Result<()> {
     // https://github.com/hyperium/tonic/issues/908
     let mut config = prost_build::Config::new();
     config.bytes(["."]);
-    config.extern_path(".tvix.castore.v1", "::tvix_castore::proto");
 
     builder
         .build_server(true)
@@ -23,8 +22,9 @@ fn main() -> Result<()> {
         .compile_with_config(
             config,
             &[
-                "tvix/store/protos/pathinfo.proto",
-                "tvix/store/protos/rpc_pathinfo.proto",
+                "tvix/castore/protos/castore.proto",
+                "tvix/castore/protos/rpc_blobstore.proto",
+                "tvix/castore/protos/rpc_directory.proto",
             ],
             // If we are in running `cargo build` manually, using `../..` works fine,
             // but in case we run inside a nix build, we need to instead point PROTO_ROOT

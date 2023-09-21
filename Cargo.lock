@@ -2731,6 +2731,37 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3528ecfd12c466c6f163363caf2d02a71161dd5e1cc6ae7b34207ea2d42d81ed"
 
 [[package]]
+name = "tvix-castore"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-stream",
+ "blake3",
+ "bytes",
+ "data-encoding",
+ "futures",
+ "lazy_static",
+ "pin-project-lite",
+ "prost",
+ "prost-build",
+ "sled",
+ "tempfile",
+ "test-case",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tonic",
+ "tonic-build",
+ "tonic-mock",
+ "tonic-reflection",
+ "tower",
+ "tracing",
+ "url",
+ "walkdir",
+]
+
+[[package]]
 name = "tvix-cli"
 version = "0.1.0"
 dependencies = [
@@ -2742,6 +2773,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "tvix-castore",
  "tvix-eval",
  "tvix-store",
  "wu-manber",
@@ -2832,6 +2864,7 @@ dependencies = [
  "tower",
  "tracing",
  "tracing-subscriber",
+ "tvix-castore",
  "url",
  "walkdir",
 ]

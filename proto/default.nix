@@ -1,9 +1,15 @@
-# Build protocol buffer definitions to ensure that protos are valid in
-# CI. Note that the output of this build target is not actually used
-# anywhere, it just functions as a CI check for now.
-{ pkgs, ... }:
+# Target containing just the proto files used in tvix
 
-pkgs.runCommand "tvix-cc-proto" { } ''
-  mkdir $out
-  ${pkgs.protobuf}/bin/protoc -I ${./.} evaluator.proto --cpp_out=$out
-''
+{ depot, lib, ... }:
+
+depot.nix.sparseTree {
+  name = "tvix-protos";
+  root = depot.path.origSrc;
+  paths = [
+    ../castore/protos/castore.proto
+    ../castore/protos/rpc_blobstore.proto
+    ../castore/protos/rpc_directory.proto
+    ../store/protos/pathinfo.proto
+    ../store/protos/rpc_pathinfo.proto
+  ];
+}

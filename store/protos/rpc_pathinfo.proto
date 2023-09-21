@@ -5,6 +5,7 @@ syntax = "proto3";
 package tvix.store.v1;
 
 import "tvix/store/protos/pathinfo.proto";
+import "tvix/castore/protos/castore.proto";
 
 option go_package = "code.tvl.fyi/tvix/store/protos;storev1";
 
@@ -40,7 +41,7 @@ service PathInfoService {
     //
     // It can also be used to calculate arbitrary NAR hashes of output paths,
     // in case a legacy Nix Binary Cache frontend is provided.
-    rpc CalculateNAR(Node) returns (CalculateNARResponse);
+    rpc CalculateNAR(tvix.castore.v1.Node) returns (CalculateNARResponse);
 
     // Return a stream of PathInfo messages matching the criteria specified in
     // ListPathInfoRequest.

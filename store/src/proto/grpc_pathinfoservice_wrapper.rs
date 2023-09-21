@@ -7,6 +7,7 @@ use tokio::task;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{async_trait, Request, Response, Result, Status};
 use tracing::{debug, instrument, warn};
+use tvix_castore::proto as castorepb;
 
 pub struct GRPCPathInfoServiceWrapper {
     path_info_service: Arc<dyn PathInfoService>,
@@ -67,7 +68,7 @@ impl proto::path_info_service_server::PathInfoService for GRPCPathInfoServiceWra
     #[instrument(skip(self))]
     async fn calculate_nar(
         &self,
-        request: Request<proto::Node>,
+        request: Request<castorepb::Node>,
     ) -> Result<Response<proto::CalculateNarResponse>> {
         match request.into_inner().node {
             None => Err(Status::invalid_argument("no root node sent")),

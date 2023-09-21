@@ -1,18 +1,8 @@
+use crate::pathinfoservice::{MemoryPathInfoService, PathInfoService};
 use std::sync::Arc;
+use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService};
 
-use crate::{
-    blobservice::{BlobService, MemoryBlobService},
-    directoryservice::{DirectoryService, MemoryDirectoryService},
-    pathinfoservice::{MemoryPathInfoService, PathInfoService},
-};
-
-pub fn gen_blob_service() -> Arc<dyn BlobService> {
-    Arc::new(MemoryBlobService::default())
-}
-
-pub fn gen_directory_service() -> Arc<dyn DirectoryService> {
-    Arc::new(MemoryDirectoryService::default())
-}
+pub use tvix_castore::utils::*;
 
 pub fn gen_pathinfo_service(
     blob_service: Arc<dyn BlobService>,

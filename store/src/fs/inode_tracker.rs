@@ -1,8 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::{proto, B3Digest};
-
 use super::inodes::{DirectoryInodeData, InodeData};
+use tvix_castore::proto as castorepb;
+use tvix_castore::B3Digest;
 
 /// InodeTracker keeps track of inodes, stores data being these inodes and deals
 /// with inode allocation.
@@ -139,21 +139,21 @@ impl InodeTracker {
     // Consume a list of children with zeroed inodes, and allocate (or fetch existing) inodes.
     fn allocate_inodes_for_children(
         &mut self,
-        children: Vec<(u64, proto::node::Node)>,
-    ) -> Vec<(u64, proto::node::Node)> {
+        children: Vec<(u64, castorepb::node::Node)>,
+    ) -> Vec<(u64, castorepb::node::Node)> {
         // allocate new inodes for all children
-        let mut children_new: Vec<(u64, proto::node::Node)> = Vec::new();
+        let mut children_new: Vec<(u64, castorepb::node::Node)> = Vec::new();
 
         for (child_ino, ref child_node) in children {
             debug_assert_eq!(0, child_ino, "expected child inode to be 0");
             let child_ino = match child_node {
-                proto::node::Node::Directory(directory_node) => {
+                castorepb::node::Node::Directory(directory_node) => {
                     // Try putting the sparse data in. If we already have a
                     // populated version, it'll not update it.
                     self.put(directory_node.into())
                 }
-                proto::node::Node::File(file_node) => self.put(file_node.into()),
-                proto::node::Node::Symlink(symlink_node) => self.put(symlink_node.into()),
+                castorepb::node::Node::File(file_node) => self.put(file_node.into()),
+                castorepb::node::Node::Symlink(symlink_node) => self.put(symlink_node.into()),
             };
 
             children_new.push((child_ino, child_node.clone()))
@@ -198,8 +198,8 @@ impl InodeTracker {
 #[cfg(test)]
 mod tests {
     use crate::fs::inodes::DirectoryInodeData;
-    use crate::proto;
     use crate::tests::fixtures;
+    use tvix_castore::proto as castorepb;
 
     use super::InodeData;
     use super::InodeTracker;
@@ -304,7 +304,7 @@ mod tests {
                 let (child_ino, child_node) = children.first().unwrap();
                 assert_ne!(dir_ino, *child_ino);
                 assert_eq!(
-                    &proto::node::Node::File(
+                    &castorepb::node::Node::File(
                         fixtures::DIRECTORY_WITH_KEEP.files.first().unwrap().clone()
                     ),
                     child_node
@@ -362,7 +362,9 @@ mod tests {
                     let (child_ino, child_node) = &children[0];
                     assert!(!seen_inodes.contains(child_ino));
                     assert_eq!(
-                        &proto::node::Node::File(fixtures::DIRECTORY_COMPLICATED.files[0].clone()),
+                        &castorepb::node::Node::File(
+                            fixtures::DIRECTORY_COMPLICATED.files[0].clone()
+                        ),
                         child_node
                     );
                     seen_inodes.push(*child_ino);
@@ -373,7 +375,7 @@ mod tests {
                     let (child_ino, child_node) = &children[1];
                     assert!(!seen_inodes.contains(child_ino));
                     assert_eq!(
-                        &proto::node::Node::Symlink(
+                        &castorepb::node::Node::Symlink(
                             fixtures::DIRECTORY_COMPLICATED.symlinks[0].clone()
                         ),
                         child_node
@@ -386,7 +388,7 @@ mod tests {
                     let (child_ino, child_node) = &children[2];
                     assert!(!seen_inodes.contains(child_ino));
                     assert_eq!(
-                        &proto::node::Node::Directory(
+                        &castorepb::node::Node::Directory(
                             fixtures::DIRECTORY_COMPLICATED.directories[0].clone()
                         ),
                         child_node
@@ -439,7 +441,7 @@ mod tests {
                 let (child_node_inode, child_node) = children.first().unwrap();
                 assert_ne!(dir_complicated_ino, *child_node_inode);
                 assert_eq!(
-                    &proto::node::Node::File(
+                    &castorepb::node::Node::File(
                         fixtures::DIRECTORY_WITH_KEEP.files.first().unwrap().clone()
                     ),
                     child_node

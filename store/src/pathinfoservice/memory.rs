@@ -1,8 +1,5 @@
 use super::PathInfoService;
-use crate::{
-    blobservice::BlobService, directoryservice::DirectoryService, nar::calculate_size_and_sha256,
-    proto, Error,
-};
+use crate::{nar::calculate_size_and_sha256, proto::PathInfo};
 use futures::{stream::iter, Stream};
 use std::{
     collections::HashMap,
@@ -10,9 +7,12 @@ use std::{
     sync::{Arc, RwLock},
 };
 use tonic::async_trait;
+use tvix_castore::proto as castorepb;
+use tvix_castore::Error;
+use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService};
 
 pub struct MemoryPathInfoService {
-    db: Arc<RwLock<HashMap<[u8; 20], proto::PathInfo>>>,
+    db: Arc<RwLock<HashMap<[u8; 20], PathInfo>>>,
 
     blob_service: Arc<dyn BlobService>,
     directory_service: Arc<dyn DirectoryService>,
@@ -43,17 +43,17 @@ impl PathInfoService for MemoryPathInfoService {
         directory_service: Arc<dyn DirectoryService>,
     ) -> Result<Self, Error> {
         if url.scheme() != "memory" {
-            return Err(crate::Error::StorageError("invalid scheme".to_string()));
+            return Err(Error::StorageError("invalid scheme".to_string()));
         }
 
         if url.has_host() || !url.path().is_empty() {
-            return Err(crate::Error::StorageError("invalid url".to_string()));
+            return Err(Error::StorageError("invalid url".to_string()));
         }
 
         Ok(Self::new(blob_service, directory_service))
     }
 
-    async fn get(&self, digest: [u8; 20]) -> Result<Option<proto::PathInfo>, Error> {
+    async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
         let db = self.db.read().unwrap();
 
         match db.get(&digest) {
@@ -62,7 +62,7 @@ impl PathInfoService for MemoryPathInfoService {
         }
     }
 
-    async fn put(&self, path_info: proto::PathInfo) -> Result<proto::PathInfo, Error> {
+    async fn put(&self, path_info: PathInfo) -> Result<PathInfo, Error> {
         // Call validate on the received PathInfo message.
         match path_info.validate() {
             Err(e) => Err(Error::InvalidRequest(format!(
@@ -81,7 +81,10 @@ impl PathInfoService for MemoryPathInfoService {
         }
     }
 
-    async fn calculate_nar(&self, root_node: &proto::node::Node) -> Result<(u64, [u8; 32]), Error> {
+    async fn calculate_nar(
+        &self,
+        root_node: &castorepb::node::Node,
+    ) -> Result<(u64, [u8; 32]), Error> {
         calculate_size_and_sha256(
             root_node,
             self.blob_service.clone(),
@@ -91,7 +94,7 @@ impl PathInfoService for MemoryPathInfoService {
         .map_err(|e| Error::StorageError(e.to_string()))
     }
 
-    fn list(&self) -> Pin<Box<dyn Stream<Item = Result<proto::PathInfo, Error>> + Send>> {
+    fn list(&self) -> Pin<Box<dyn Stream<Item = Result<PathInfo, Error>> + Send>> {
         let db = self.db.read().unwrap();
 
         // Copy all elements into a list.

@@ -1,31 +1,10 @@
-use crate::proto::{self, Node, PathInfo, ValidatePathInfoError};
-use crate::B3Digest;
+use crate::proto::{NarInfo, PathInfo, ValidatePathInfoError};
+use crate::tests::fixtures::*;
 use bytes::Bytes;
-use lazy_static::lazy_static;
 use nix_compat::store_path::{self, StorePath};
 use std::str::FromStr;
 use test_case::test_case;
-
-lazy_static! {
-    static ref DUMMY_DIGEST: B3Digest = {
-        let u: &[u8; 32] = &[
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-        ];
-        u.into()
-    };
-    static ref DUMMY_DIGEST_2: B3Digest = {
-        let u: &[u8; 32] = &[
-            0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-        ];
-        u.into()
-    };
-}
-
-const DUMMY_NAME: &str = "00000000000000000000000000000000-dummy";
+use tvix_castore::proto as castorepb;
 
 #[test_case(
     None,
@@ -33,12 +12,12 @@ const DUMMY_NAME: &str = "00000000000000000000000000000000-dummy";
     "No node"
 )]
 #[test_case(
-    Some(Node { node: None }),
+    Some(castorepb::Node { node: None }),
     Err(ValidatePathInfoError::NoNodePresent());
     "No node 2"
 )]
 fn validate_no_node(
-    t_node: Option<proto::Node>,
+    t_node: Option<castorepb::Node>,
     t_result: Result<StorePath, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
@@ -50,7 +29,7 @@ fn validate_no_node(
 }
 
 #[test_case(
-    proto::DirectoryNode {
+    castorepb::DirectoryNode {
         name: DUMMY_NAME.into(),
         digest: DUMMY_DIGEST.clone().into(),
         size: 0,
@@ -59,7 +38,7 @@ fn validate_no_node(
     "ok"
 )]
 #[test_case(
-    proto::DirectoryNode {
+    castorepb::DirectoryNode {
         name: DUMMY_NAME.into(),
         digest: Bytes::new(),
         size: 0,
@@ -68,7 +47,7 @@ fn validate_no_node(
     "invalid digest length"
 )]
 #[test_case(
-    proto::DirectoryNode {
+    castorepb::DirectoryNode {
         name: "invalid".into(),
         digest: DUMMY_DIGEST.clone().into(),
         size: 0,
@@ -80,13 +59,13 @@ fn validate_no_node(
     "invalid node name"
 )]
 fn validate_directory(
-    t_directory_node: proto::DirectoryNode,
+    t_directory_node: castorepb::DirectoryNode,
     t_result: Result<StorePath, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
     let p = PathInfo {
-        node: Some(Node {
-            node: Some(proto::node::Node::Directory(t_directory_node)),
+        node: Some(castorepb::Node {
+            node: Some(castorepb::node::Node::Directory(t_directory_node)),
         }),
         ..Default::default()
     };
@@ -94,7 +73,7 @@ fn validate_directory(
 }
 
 #[test_case(
-    proto::FileNode {
+    castorepb::FileNode {
         name: DUMMY_NAME.into(),
         digest: DUMMY_DIGEST.clone().into(),
         size: 0,
@@ -104,7 +83,7 @@ fn validate_directory(
     "ok"
 )]
 #[test_case(
-    proto::FileNode {
+    castorepb::FileNode {
         name: DUMMY_NAME.into(),
         digest: Bytes::new(),
         ..Default::default()
@@ -113,7 +92,7 @@ fn validate_directory(
     "invalid digest length"
 )]
 #[test_case(
-    proto::FileNode {
+    castorepb::FileNode {
         name: "invalid".into(),
         digest: DUMMY_DIGEST.clone().into(),
         ..Default::default()
@@ -124,11 +103,14 @@ fn validate_directory(
     ));
     "invalid node name"
 )]
-fn validate_file(t_file_node: proto::FileNode, t_result: Result<StorePath, ValidatePathInfoError>) {
+fn validate_file(
+    t_file_node: castorepb::FileNode,
+    t_result: Result<StorePath, ValidatePathInfoError>,
+) {
     // construct the PathInfo object
     let p = PathInfo {
-        node: Some(Node {
-            node: Some(proto::node::Node::File(t_file_node)),
+        node: Some(castorepb::Node {
+            node: Some(castorepb::node::Node::File(t_file_node)),
         }),
         ..Default::default()
     };
@@ -136,7 +118,7 @@ fn validate_file(t_file_node: proto::FileNode, t_result: Result<StorePath, Valid
 }
 
 #[test_case(
-    proto::SymlinkNode {
+    castorepb::SymlinkNode {
         name: DUMMY_NAME.into(),
         ..Default::default()
     },
@@ -144,7 +126,7 @@ fn validate_file(t_file_node: proto::FileNode, t_result: Result<StorePath, Valid
     "ok"
 )]
 #[test_case(
-    proto::SymlinkNode {
+    castorepb::SymlinkNode {
         name: "invalid".into(),
         ..Default::default()
     },
@@ -155,13 +137,13 @@ fn validate_file(t_file_node: proto::FileNode, t_result: Result<StorePath, Valid
     "invalid node name"
 )]
 fn validate_symlink(
-    t_symlink_node: proto::SymlinkNode,
+    t_symlink_node: castorepb::SymlinkNode,
     t_result: Result<StorePath, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
     let p = PathInfo {
-        node: Some(Node {
-            node: Some(proto::node::Node::Symlink(t_symlink_node)),
+        node: Some(castorepb::Node {
+            node: Some(castorepb::node::Node::Symlink(t_symlink_node)),
         }),
         ..Default::default()
     };
@@ -172,8 +154,8 @@ fn validate_symlink(
 fn validate_references() {
     // create a PathInfo without narinfo field.
     let path_info = PathInfo {
-        node: Some(Node {
-            node: Some(proto::node::Node::Directory(proto::DirectoryNode {
+        node: Some(castorepb::Node {
+            node: Some(castorepb::node::Node::Directory(castorepb::DirectoryNode {
                 name: DUMMY_NAME.into(),
                 digest: DUMMY_DIGEST.clone().into(),
                 size: 0,
@@ -186,7 +168,7 @@ fn validate_references() {
 
     // create a PathInfo with a narinfo field, but an inconsistent set of references
     let path_info_with_narinfo_missing_refs = PathInfo {
-        narinfo: Some(proto::NarInfo {
+        narinfo: Some(NarInfo {
             nar_size: 0,
             nar_sha256: DUMMY_DIGEST.clone().into(),
             signatures: vec![],
@@ -204,7 +186,7 @@ fn validate_references() {
 
     // create a pathinfo with the correct number of references, should suceed
     let path_info_with_narinfo = PathInfo {
-        narinfo: Some(proto::NarInfo {
+        narinfo: Some(NarInfo {
             nar_size: 0,
             nar_sha256: DUMMY_DIGEST.clone().into(),
             signatures: vec![],

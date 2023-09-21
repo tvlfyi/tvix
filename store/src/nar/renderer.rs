@@ -1,20 +1,21 @@
 use super::RenderError;
-use crate::{
-    blobservice::BlobService,
-    directoryservice::DirectoryService,
-    proto::{self, NamedNode},
-};
 use count_write::CountWrite;
 use nix_compat::nar;
 use sha2::{Digest, Sha256};
 use std::{io, sync::Arc};
 use tokio::{io::BufReader, task::spawn_blocking};
 use tracing::warn;
+use tvix_castore::{
+    blobservice::BlobService,
+    directoryservice::DirectoryService,
+    proto::{self as castorepb, NamedNode},
+    Error,
+};
 
 /// Invoke [write_nar], and return the size and sha256 digest of the produced
 /// NAR output.
 pub async fn calculate_size_and_sha256(
-    root_node: &proto::node::Node,
+    root_node: &castorepb::node::Node,
     blob_service: Arc<dyn BlobService>,
     directory_service: Arc<dyn DirectoryService>,
 ) -> Result<(u64, [u8; 32]), RenderError> {
@@ -26,9 +27,9 @@ pub async fn calculate_size_and_sha256(
     Ok((cw.count(), cw.into_inner().finalize().into()))
 }
 
-/// Accepts a [proto::node::Node] pointing to the root of a (store) path,
-/// and uses the passed blob_service and directory_service to
-/// perform the necessary lookups as it traverses the structure.
+/// Accepts a [castorepb::node::Node] pointing to the root of a (store) path,
+/// and uses the passed blob_service and directory_service to perform the
+/// necessary lookups as it traverses the structure.
 /// The contents in NAR serialization are writen to the passed [std::io::Write].
 ///
 /// The writer is passed back in the return value. This is done because async Rust
@@ -39,7 +40,7 @@ pub async fn calculate_size_and_sha256(
 /// This will panic if called outside the context of a Tokio runtime.
 pub async fn write_nar<W: std::io::Write + Send + 'static>(
     mut w: W,
-    proto_root_node: &proto::node::Node,
+    proto_root_node: &castorepb::node::Node,
     blob_service: Arc<dyn BlobService>,
     directory_service: Arc<dyn DirectoryService>,
 ) -> Result<W, RenderError> {
@@ -69,24 +70,24 @@ pub async fn write_nar<W: std::io::Write + Send + 'static>(
 fn walk_node(
     tokio_handle: tokio::runtime::Handle,
     nar_node: nar::writer::Node,
-    proto_node: &proto::node::Node,
+    proto_node: &castorepb::node::Node,
     blob_service: Arc<dyn BlobService>,
     directory_service: Arc<dyn DirectoryService>,
 ) -> Result<(), RenderError> {
     match proto_node {
-        proto::node::Node::Symlink(proto_symlink_node) => {
+        castorepb::node::Node::Symlink(proto_symlink_node) => {
             nar_node
                 .symlink(&proto_symlink_node.target)
                 .map_err(RenderError::NARWriterError)?;
         }
-        proto::node::Node::File(proto_file_node) => {
+        castorepb::node::Node::File(proto_file_node) => {
             let digest = proto_file_node.digest.clone().try_into().map_err(|_e| {
                 warn!(
                     file_node = ?proto_file_node,
                     "invalid digest length in file node",
                 );
 
-                RenderError::StoreError(crate::Error::StorageError(
+                RenderError::StoreError(Error::StorageError(
                     "invalid digest len in file node".to_string(),
                 ))
             })?;
@@ -110,13 +111,13 @@ fn walk_node(
                 )
                 .map_err(RenderError::NARWriterError)?;
         }
-        proto::node::Node::Directory(proto_directory_node) => {
+        castorepb::node::Node::Directory(proto_directory_node) => {
             let digest = proto_directory_node
                 .digest
                 .clone()
                 .try_into()
                 .map_err(|_e| {
-                    RenderError::StoreError(crate::Error::StorageError(
+                    RenderError::StoreError(Error::StorageError(
                         "invalid digest len in directory node".to_string(),
                     ))
                 })?;

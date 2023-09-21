@@ -5,9 +5,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             (unknown)
-// source: tvix/store/protos/rpc_directory.proto
+// source: tvix/castore/protos/rpc_directory.proto
 
-package storev1
+package castorev1
 
 import (
 	context "context"
@@ -22,8 +22,8 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	DirectoryService_Get_FullMethodName = "/tvix.store.v1.DirectoryService/Get"
-	DirectoryService_Put_FullMethodName = "/tvix.store.v1.DirectoryService/Put"
+	DirectoryService_Get_FullMethodName = "/tvix.castore.v1.DirectoryService/Get"
+	DirectoryService_Put_FullMethodName = "/tvix.castore.v1.DirectoryService/Put"
 )
 
 // DirectoryServiceClient is the client API for DirectoryService service.
@@ -219,7 +219,7 @@ func (x *directoryServicePutServer) Recv() (*Directory, error) {
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var DirectoryService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "tvix.store.v1.DirectoryService",
+	ServiceName: "tvix.castore.v1.DirectoryService",
 	HandlerType: (*DirectoryServiceServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
@@ -234,5 +234,5 @@ var DirectoryService_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "tvix/store/protos/rpc_directory.proto",
+	Metadata: "tvix/castore/protos/rpc_directory.proto",
 }

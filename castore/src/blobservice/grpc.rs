@@ -289,8 +289,8 @@ mod tests {
     use tokio_stream::wrappers::UnixListenerStream;
 
     use crate::blobservice::MemoryBlobService;
+    use crate::fixtures;
     use crate::proto::GRPCBlobServiceWrapper;
-    use crate::tests::fixtures;
 
     use super::BlobService;
     use super::GRPCBlobService;

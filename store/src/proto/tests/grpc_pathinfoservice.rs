@@ -1,9 +1,8 @@
 use crate::proto::get_path_info_request::ByWhat::ByOutputHash;
-use crate::proto::node::Node::Symlink;
 use crate::proto::path_info_service_server::PathInfoService as GRPCPathInfoService;
 use crate::proto::GRPCPathInfoServiceWrapper;
+use crate::proto::GetPathInfoRequest;
 use crate::proto::PathInfo;
-use crate::proto::{GetPathInfoRequest, Node, SymlinkNode};
 use crate::tests::fixtures::DUMMY_OUTPUT_HASH;
 use crate::tests::utils::gen_blob_service;
 use crate::tests::utils::gen_directory_service;
@@ -11,6 +10,7 @@ use crate::tests::utils::gen_pathinfo_service;
 use std::sync::Arc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::Request;
+use tvix_castore::proto as castorepb;
 
 /// generates a GRPCPathInfoService out of blob, directory and pathinfo services.
 ///
@@ -48,8 +48,8 @@ async fn put_get() {
     let service = gen_grpc_service();
 
     let path_info = PathInfo {
-        node: Some(Node {
-            node: Some(Symlink(SymlinkNode {
+        node: Some(castorepb::Node {
+            node: Some(castorepb::node::Node::Symlink(castorepb::SymlinkNode {
                 name: "00000000000000000000000000000000-foo".into(),
                 target: "doesntmatter".into(),
             })),

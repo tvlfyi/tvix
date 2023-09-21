@@ -1,16 +1,15 @@
-use crate::B3Digest;
 use data_encoding::BASE64;
-use thiserror::Error;
+use tvix_castore::{B3Digest, Error};
 
 mod renderer;
 pub use renderer::calculate_size_and_sha256;
 pub use renderer::write_nar;
 
 /// Errors that can encounter while rendering NARs.
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum RenderError {
     #[error("failure talking to a backing store client: {0}")]
-    StoreError(crate::Error),
+    StoreError(Error),
 
     #[error("unable to find directory {}, referred from {:?}", .0, .1)]
     DirectoryNotFound(B3Digest, bytes::Bytes),

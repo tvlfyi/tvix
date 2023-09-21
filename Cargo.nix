@@ -53,6 +53,16 @@ rec {
       # File a bug if you depend on any for non-debug work!
       debug = internal.debugCrate { inherit packageId; };
     };
+    "tvix-castore" = rec {
+      packageId = "tvix-castore";
+      build = internal.buildRustCrateWithFeatures {
+        packageId = "tvix-castore";
+      };
+
+      # Debug support which might change between releases.
+      # File a bug if you depend on any for non-debug work!
+      debug = internal.debugCrate { inherit packageId; };
+    };
     "tvix-cli" = rec {
       packageId = "tvix-cli";
       build = internal.buildRustCrateWithFeatures {
@@ -8115,6 +8125,135 @@ rec {
         ];
 
       };
+      "tvix-castore" = rec {
+        crateName = "tvix-castore";
+        version = "0.1.0";
+        edition = "2021";
+        # We can't filter paths with references in Nix 2.4
+        # See https://github.com/NixOS/nix/issues/5410
+        src =
+          if (lib.versionOlder builtins.nixVersion "2.4pre20211007")
+          then lib.cleanSourceWith { filter = sourceFilter; src = ./castore; }
+          else ./castore;
+        dependencies = [
+          {
+            name = "anyhow";
+            packageId = "anyhow";
+          }
+          {
+            name = "async-stream";
+            packageId = "async-stream";
+          }
+          {
+            name = "blake3";
+            packageId = "blake3";
+            features = [ "rayon" "std" ];
+          }
+          {
+            name = "bytes";
+            packageId = "bytes";
+          }
+          {
+            name = "data-encoding";
+            packageId = "data-encoding";
+          }
+          {
+            name = "futures";
+            packageId = "futures";
+          }
+          {
+            name = "lazy_static";
+            packageId = "lazy_static";
+          }
+          {
+            name = "pin-project-lite";
+            packageId = "pin-project-lite";
+          }
+          {
+            name = "prost";
+            packageId = "prost";
+          }
+          {
+            name = "sled";
+            packageId = "sled";
+            features = [ "compression" ];
+          }
+          {
+            name = "thiserror";
+            packageId = "thiserror";
+          }
+          {
+            name = "tokio";
+            packageId = "tokio";
+            features = [ "fs" "net" "rt-multi-thread" "signal" ];
+          }
+          {
+            name = "tokio-stream";
+            packageId = "tokio-stream";
+            features = [ "fs" "net" ];
+          }
+          {
+            name = "tokio-util";
+            packageId = "tokio-util";
+            features = [ "io" "io-util" ];
+          }
+          {
+            name = "tonic";
+            packageId = "tonic";
+          }
+          {
+            name = "tonic-reflection";
+            packageId = "tonic-reflection";
+            optional = true;
+          }
+          {
+            name = "tower";
+            packageId = "tower";
+          }
+          {
+            name = "tracing";
+            packageId = "tracing";
+          }
+          {
+            name = "url";
+            packageId = "url";
+          }
+          {
+            name = "walkdir";
+            packageId = "walkdir";
+          }
+        ];
+        buildDependencies = [
+          {
+            name = "prost-build";
+            packageId = "prost-build";
+          }
+          {
+            name = "tonic-build";
+            packageId = "tonic-build";
+          }
+        ];
+        devDependencies = [
+          {
+            name = "tempfile";
+            packageId = "tempfile";
+          }
+          {
+            name = "test-case";
+            packageId = "test-case";
+          }
+          {
+            name = "tonic-mock";
+            packageId = "tonic-mock";
+          }
+        ];
+        features = {
+          "default" = [ "reflection" ];
+          "reflection" = [ "tonic-reflection" ];
+          "tonic-reflection" = [ "dep:tonic-reflection" ];
+        };
+        resolvedDefaultFeatures = [ "default" "reflection" "tonic-reflection" ];
+      };
       "tvix-cli" = rec {
         crateName = "tvix-cli";
         version = "0.1.0";
@@ -8165,6 +8304,10 @@ rec {
           {
             name = "tracing";
             packageId = "tracing";
+          }
+          {
+            name = "tvix-castore";
+            packageId = "tvix-castore";
           }
           {
             name = "tvix-eval";
@@ -8508,6 +8651,10 @@ rec {
             name = "tracing-subscriber";
             packageId = "tracing-subscriber";
             features = [ "json" ];
+          }
+          {
+            name = "tvix-castore";
+            packageId = "tvix-castore";
           }
           {
             name = "url";

@@ -9,7 +9,7 @@ use super::B3Digest;
 use super::BlobService;
 use super::MemoryBlobService;
 use super::SledBlobService;
-use crate::tests::fixtures;
+use crate::fixtures;
 
 // TODO: avoid having to define all different services we test against for all functions.
 // maybe something like rstest can be used?

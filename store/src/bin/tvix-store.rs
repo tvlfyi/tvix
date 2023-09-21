@@ -8,18 +8,18 @@ use std::path::Path;
 use std::path::PathBuf;
 use tokio::task::JoinHandle;
 use tracing_subscriber::prelude::*;
-use tvix_store::blobservice;
-use tvix_store::directoryservice;
-use tvix_store::import;
+use tvix_castore::blobservice;
+use tvix_castore::directoryservice;
+use tvix_castore::import;
+use tvix_castore::proto::blob_service_server::BlobServiceServer;
+use tvix_castore::proto::directory_service_server::DirectoryServiceServer;
+use tvix_castore::proto::node::Node;
+use tvix_castore::proto::GRPCBlobServiceWrapper;
+use tvix_castore::proto::GRPCDirectoryServiceWrapper;
+use tvix_castore::proto::NamedNode;
 use tvix_store::pathinfoservice;
-use tvix_store::proto::blob_service_server::BlobServiceServer;
-use tvix_store::proto::directory_service_server::DirectoryServiceServer;
-use tvix_store::proto::node::Node;
 use tvix_store::proto::path_info_service_server::PathInfoServiceServer;
-use tvix_store::proto::GRPCBlobServiceWrapper;
-use tvix_store::proto::GRPCDirectoryServiceWrapper;
 use tvix_store::proto::GRPCPathInfoServiceWrapper;
-use tvix_store::proto::NamedNode;
 use tvix_store::proto::NarInfo;
 use tvix_store::proto::PathInfo;
 
@@ -29,6 +29,8 @@ use tvix_store::fs::TvixStoreFs;
 #[cfg(feature = "fuse")]
 use tvix_store::fs::fuse::FuseDaemon;
 
+#[cfg(feature = "reflection")]
+use tvix_castore::proto::FILE_DESCRIPTOR_SET as CASTORE_FILE_DESCRIPTOR_SET;
 #[cfg(feature = "reflection")]
 use tvix_store::proto::FILE_DESCRIPTOR_SET;
 
@@ -185,6 +187,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             #[cfg(feature = "reflection")]
             {
                 let reflection_svc = tonic_reflection::server::Builder::configure()
+                    .register_encoded_file_descriptor_set(CASTORE_FILE_DESCRIPTOR_SET)
                     .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
                     .build()?;
                 router = router.add_service(reflection_svc);
@@ -248,7 +251,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         // assemble the [crate::proto::PathInfo] object.
                         let path_info = PathInfo {
-                            node: Some(tvix_store::proto::Node {
+                            node: Some(tvix_castore::proto::Node {
                                 node: Some(root_node),
                             }),
                             // There's no reference scanning on path contents ingested like this.

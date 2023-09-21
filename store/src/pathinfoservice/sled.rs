@@ -1,13 +1,13 @@
 use super::PathInfoService;
-use crate::{
-    blobservice::BlobService, directoryservice::DirectoryService, nar::calculate_size_and_sha256,
-    proto, Error,
-};
+use crate::nar::calculate_size_and_sha256;
+use crate::proto::PathInfo;
 use futures::{stream::iter, Stream};
 use prost::Message;
 use std::{path::PathBuf, pin::Pin, sync::Arc};
 use tonic::async_trait;
 use tracing::warn;
+use tvix_castore::proto as castorepb;
+use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService, Error};
 
 /// SledPathInfoService stores PathInfo in a [sled](https://github.com/spacejam/sled).
 ///
@@ -63,11 +63,11 @@ impl PathInfoService for SledPathInfoService {
         directory_service: Arc<dyn DirectoryService>,
     ) -> Result<Self, Error> {
         if url.scheme() != "sled" {
-            return Err(crate::Error::StorageError("invalid scheme".to_string()));
+            return Err(Error::StorageError("invalid scheme".to_string()));
         }
 
         if url.has_host() {
-            return Err(crate::Error::StorageError(format!(
+            return Err(Error::StorageError(format!(
                 "invalid host: {}",
                 url.host().unwrap()
             )));
@@ -78,7 +78,7 @@ impl PathInfoService for SledPathInfoService {
             Self::new_temporary(blob_service, directory_service)
                 .map_err(|e| Error::StorageError(e.to_string()))
         } else if url.path() == "/" {
-            Err(crate::Error::StorageError(
+            Err(Error::StorageError(
                 "cowardly refusing to open / with sled".to_string(),
             ))
         } else {
@@ -87,10 +87,10 @@ impl PathInfoService for SledPathInfoService {
         }
     }
 
-    async fn get(&self, digest: [u8; 20]) -> Result<Option<proto::PathInfo>, Error> {
+    async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
         match self.db.get(digest) {
             Ok(None) => Ok(None),
-            Ok(Some(data)) => match proto::PathInfo::decode(&*data) {
+            Ok(Some(data)) => match PathInfo::decode(&*data) {
                 Ok(path_info) => Ok(Some(path_info)),
                 Err(e) => {
                     warn!("failed to decode stored PathInfo: {}", e);
@@ -110,7 +110,7 @@ impl PathInfoService for SledPathInfoService {
         }
     }
 
-    async fn put(&self, path_info: proto::PathInfo) -> Result<proto::PathInfo, Error> {
+    async fn put(&self, path_info: PathInfo) -> Result<PathInfo, Error> {
         // Call validate on the received PathInfo message.
         match path_info.validate() {
             Err(e) => Err(Error::InvalidRequest(format!(
@@ -131,7 +131,10 @@ impl PathInfoService for SledPathInfoService {
         }
     }
 
-    async fn calculate_nar(&self, root_node: &proto::node::Node) -> Result<(u64, [u8; 32]), Error> {
+    async fn calculate_nar(
+        &self,
+        root_node: &castorepb::node::Node,
+    ) -> Result<(u64, [u8; 32]), Error> {
         calculate_size_and_sha256(
             root_node,
             self.blob_service.clone(),
@@ -141,11 +144,11 @@ impl PathInfoService for SledPathInfoService {
         .map_err(|e| Error::StorageError(e.to_string()))
     }
 
-    fn list(&self) -> Pin<Box<dyn Stream<Item = Result<proto::PathInfo, Error>> + Send>> {
+    fn list(&self) -> Pin<Box<dyn Stream<Item = Result<PathInfo, Error>> + Send>> {
         Box::pin(iter(self.db.iter().values().map(|v| match v {
             Ok(data) => {
                 // we retrieved some bytes
-                match proto::PathInfo::decode(&*data) {
+                match PathInfo::decode(&*data) {
                     Ok(path_info) => Ok(path_info),
                     Err(e) => {
                         warn!("failed to decode stored PathInfo: {}", e);

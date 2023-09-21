@@ -5,9 +5,9 @@
 // versions:
 // 	protoc-gen-go v1.31.0
 // 	protoc        (unknown)
-// source: tvix/store/protos/rpc_blobstore.proto
+// source: tvix/castore/protos/rpc_blobstore.proto
 
-package storev1
+package castorev1
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -35,7 +35,7 @@ type StatBlobRequest struct {
 func (x *StatBlobRequest) Reset() {
 	*x = StatBlobRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_tvix_store_protos_rpc_blobstore_proto_msgTypes[0]
+		mi := &file_tvix_castore_protos_rpc_blobstore_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -48,7 +48,7 @@ func (x *StatBlobRequest) String() string {
 func (*StatBlobRequest) ProtoMessage() {}
 
 func (x *StatBlobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tvix_store_protos_rpc_blobstore_proto_msgTypes[0]
+	mi := &file_tvix_castore_protos_rpc_blobstore_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -61,7 +61,7 @@ func (x *StatBlobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatBlobRequest.ProtoReflect.Descriptor instead.
 func (*StatBlobRequest) Descriptor() ([]byte, []int) {
-	return file_tvix_store_protos_rpc_blobstore_proto_rawDescGZIP(), []int{0}
+	return file_tvix_castore_protos_rpc_blobstore_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *StatBlobRequest) GetDigest() []byte {
@@ -80,7 +80,7 @@ type BlobMeta struct {
 func (x *BlobMeta) Reset() {
 	*x = BlobMeta{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_tvix_store_protos_rpc_blobstore_proto_msgTypes[1]
+		mi := &file_tvix_castore_protos_rpc_blobstore_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -93,7 +93,7 @@ func (x *BlobMeta) String() string {
 func (*BlobMeta) ProtoMessage() {}
 
 func (x *BlobMeta) ProtoReflect() protoreflect.Message {
-	mi := &file_tvix_store_protos_rpc_blobstore_proto_msgTypes[1]
+	mi := &file_tvix_castore_protos_rpc_blobstore_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -106,7 +106,7 @@ func (x *BlobMeta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BlobMeta.ProtoReflect.Descriptor instead.
 func (*BlobMeta) Descriptor() ([]byte, []int) {
-	return file_tvix_store_protos_rpc_blobstore_proto_rawDescGZIP(), []int{1}
+	return file_tvix_castore_protos_rpc_blobstore_proto_rawDescGZIP(), []int{1}
 }
 
 type ReadBlobRequest struct {
@@ -121,7 +121,7 @@ type ReadBlobRequest struct {
 func (x *ReadBlobRequest) Reset() {
 	*x = ReadBlobRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_tvix_store_protos_rpc_blobstore_proto_msgTypes[2]
+		mi := &file_tvix_castore_protos_rpc_blobstore_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -134,7 +134,7 @@ func (x *ReadBlobRequest) String() string {
 func (*ReadBlobRequest) ProtoMessage() {}
 
 func (x *ReadBlobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tvix_store_protos_rpc_blobstore_proto_msgTypes[2]
+	mi := &file_tvix_castore_protos_rpc_blobstore_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -147,7 +147,7 @@ func (x *ReadBlobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadBlobRequest.ProtoReflect.Descriptor instead.
 func (*ReadBlobRequest) Descriptor() ([]byte, []int) {
-	return file_tvix_store_protos_rpc_blobstore_proto_rawDescGZIP(), []int{2}
+	return file_tvix_castore_protos_rpc_blobstore_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ReadBlobRequest) GetDigest() []byte {
@@ -170,7 +170,7 @@ type BlobChunk struct {
 func (x *BlobChunk) Reset() {
 	*x = BlobChunk{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_tvix_store_protos_rpc_blobstore_proto_msgTypes[3]
+		mi := &file_tvix_castore_protos_rpc_blobstore_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -183,7 +183,7 @@ func (x *BlobChunk) String() string {
 func (*BlobChunk) ProtoMessage() {}
 
 func (x *BlobChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_tvix_store_protos_rpc_blobstore_proto_msgTypes[3]
+	mi := &file_tvix_castore_protos_rpc_blobstore_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -196,7 +196,7 @@ func (x *BlobChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BlobChunk.ProtoReflect.Descriptor instead.
 func (*BlobChunk) Descriptor() ([]byte, []int) {
-	return file_tvix_store_protos_rpc_blobstore_proto_rawDescGZIP(), []int{3}
+	return file_tvix_castore_protos_rpc_blobstore_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *BlobChunk) GetData() []byte {
@@ -218,7 +218,7 @@ type PutBlobResponse struct {
 func (x *PutBlobResponse) Reset() {
 	*x = PutBlobResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_tvix_store_protos_rpc_blobstore_proto_msgTypes[4]
+		mi := &file_tvix_castore_protos_rpc_blobstore_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -231,7 +231,7 @@ func (x *PutBlobResponse) String() string {
 func (*PutBlobResponse) ProtoMessage() {}
 
 func (x *PutBlobResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_tvix_store_protos_rpc_blobstore_proto_msgTypes[4]
+	mi := &file_tvix_castore_protos_rpc_blobstore_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -244,7 +244,7 @@ func (x *PutBlobResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PutBlobResponse.ProtoReflect.Descriptor instead.
 func (*PutBlobResponse) Descriptor() ([]byte, []int) {
-	return file_tvix_store_protos_rpc_blobstore_proto_rawDescGZIP(), []int{4}
+	return file_tvix_castore_protos_rpc_blobstore_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *PutBlobResponse) GetDigest() []byte {
@@ -254,69 +254,71 @@ func (x *PutBlobResponse) GetDigest() []byte {
 	return nil
 }
 
-var File_tvix_store_protos_rpc_blobstore_proto protoreflect.FileDescriptor
+var File_tvix_castore_protos_rpc_blobstore_proto protoreflect.FileDescriptor
 
-var file_tvix_store_protos_rpc_blobstore_proto_rawDesc = []byte{
-	0x0a, 0x25, 0x74, 0x76, 0x69, 0x78, 0x2f, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x2f, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x73, 0x2f, 0x72, 0x70, 0x63, 0x5f, 0x62, 0x6c, 0x6f, 0x62, 0x73, 0x74, 0x6f, 0x72,
-	0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x0d, 0x74, 0x76, 0x69, 0x78, 0x2e, 0x73, 0x74,
-	0x6f, 0x72, 0x65, 0x2e, 0x76, 0x31, 0x22, 0x29, 0x0a, 0x0f, 0x53, 0x74, 0x61, 0x74, 0x42, 0x6c,
-	0x6f, 0x62, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x16, 0x0a, 0x06, 0x64, 0x69, 0x67,
-	0x65, 0x73, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x06, 0x64, 0x69, 0x67, 0x65, 0x73,
-	0x74, 0x22, 0x0a, 0x0a, 0x08, 0x42, 0x6c, 0x6f, 0x62, 0x4d, 0x65, 0x74, 0x61, 0x22, 0x29, 0x0a,
-	0x0f, 0x52, 0x65, 0x61, 0x64, 0x42, 0x6c, 0x6f, 0x62, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+var file_tvix_castore_protos_rpc_blobstore_proto_rawDesc = []byte{
+	0x0a, 0x27, 0x74, 0x76, 0x69, 0x78, 0x2f, 0x63, 0x61, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x2f, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x73, 0x2f, 0x72, 0x70, 0x63, 0x5f, 0x62, 0x6c, 0x6f, 0x62, 0x73, 0x74,
+	0x6f, 0x72, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x0f, 0x74, 0x76, 0x69, 0x78, 0x2e,
+	0x63, 0x61, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x2e, 0x76, 0x31, 0x22, 0x29, 0x0a, 0x0f, 0x53, 0x74,
+	0x61, 0x74, 0x42, 0x6c, 0x6f, 0x62, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x16, 0x0a,
+	0x06, 0x64, 0x69, 0x67, 0x65, 0x73, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x06, 0x64,
+	0x69, 0x67, 0x65, 0x73, 0x74, 0x22, 0x0a, 0x0a, 0x08, 0x42, 0x6c, 0x6f, 0x62, 0x4d, 0x65, 0x74,
+	0x61, 0x22, 0x29, 0x0a, 0x0f, 0x52, 0x65, 0x61, 0x64, 0x42, 0x6c, 0x6f, 0x62, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x12, 0x16, 0x0a, 0x06, 0x64, 0x69, 0x67, 0x65, 0x73, 0x74, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x0c, 0x52, 0x06, 0x64, 0x69, 0x67, 0x65, 0x73, 0x74, 0x22, 0x1f, 0x0a, 0x09,
+	0x42, 0x6c, 0x6f, 0x62, 0x43, 0x68, 0x75, 0x6e, 0x6b, 0x12, 0x12, 0x0a, 0x04, 0x64, 0x61, 0x74,
+	0x61, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x22, 0x29, 0x0a,
+	0x0f, 0x50, 0x75, 0x74, 0x42, 0x6c, 0x6f, 0x62, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
 	0x12, 0x16, 0x0a, 0x06, 0x64, 0x69, 0x67, 0x65, 0x73, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c,
-	0x52, 0x06, 0x64, 0x69, 0x67, 0x65, 0x73, 0x74, 0x22, 0x1f, 0x0a, 0x09, 0x42, 0x6c, 0x6f, 0x62,
-	0x43, 0x68, 0x75, 0x6e, 0x6b, 0x12, 0x12, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18, 0x01, 0x20,
-	0x01, 0x28, 0x0c, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x22, 0x29, 0x0a, 0x0f, 0x50, 0x75, 0x74,
-	0x42, 0x6c, 0x6f, 0x62, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x16, 0x0a, 0x06,
-	0x64, 0x69, 0x67, 0x65, 0x73, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x06, 0x64, 0x69,
-	0x67, 0x65, 0x73, 0x74, 0x32, 0xd5, 0x01, 0x0a, 0x0b, 0x42, 0x6c, 0x6f, 0x62, 0x53, 0x65, 0x72,
-	0x76, 0x69, 0x63, 0x65, 0x12, 0x3f, 0x0a, 0x04, 0x53, 0x74, 0x61, 0x74, 0x12, 0x1e, 0x2e, 0x74,
-	0x76, 0x69, 0x78, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x53, 0x74, 0x61,
-	0x74, 0x42, 0x6c, 0x6f, 0x62, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x17, 0x2e, 0x74,
-	0x76, 0x69, 0x78, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x6c, 0x6f,
-	0x62, 0x4d, 0x65, 0x74, 0x61, 0x12, 0x42, 0x0a, 0x04, 0x52, 0x65, 0x61, 0x64, 0x12, 0x1e, 0x2e,
-	0x74, 0x76, 0x69, 0x78, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x52, 0x65,
-	0x61, 0x64, 0x42, 0x6c, 0x6f, 0x62, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x18, 0x2e,
-	0x74, 0x76, 0x69, 0x78, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x6c,
-	0x6f, 0x62, 0x43, 0x68, 0x75, 0x6e, 0x6b, 0x30, 0x01, 0x12, 0x41, 0x0a, 0x03, 0x50, 0x75, 0x74,
-	0x12, 0x18, 0x2e, 0x74, 0x76, 0x69, 0x78, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x2e, 0x76, 0x31,
-	0x2e, 0x42, 0x6c, 0x6f, 0x62, 0x43, 0x68, 0x75, 0x6e, 0x6b, 0x1a, 0x1e, 0x2e, 0x74, 0x76, 0x69,
-	0x78, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x50, 0x75, 0x74, 0x42, 0x6c,
-	0x6f, 0x62, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x28, 0x01, 0x42, 0x28, 0x5a, 0x26,
+	0x52, 0x06, 0x64, 0x69, 0x67, 0x65, 0x73, 0x74, 0x32, 0xe1, 0x01, 0x0a, 0x0b, 0x42, 0x6c, 0x6f,
+	0x62, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x43, 0x0a, 0x04, 0x53, 0x74, 0x61, 0x74,
+	0x12, 0x20, 0x2e, 0x74, 0x76, 0x69, 0x78, 0x2e, 0x63, 0x61, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x2e,
+	0x76, 0x31, 0x2e, 0x53, 0x74, 0x61, 0x74, 0x42, 0x6c, 0x6f, 0x62, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x1a, 0x19, 0x2e, 0x74, 0x76, 0x69, 0x78, 0x2e, 0x63, 0x61, 0x73, 0x74, 0x6f, 0x72,
+	0x65, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x6c, 0x6f, 0x62, 0x4d, 0x65, 0x74, 0x61, 0x12, 0x46, 0x0a,
+	0x04, 0x52, 0x65, 0x61, 0x64, 0x12, 0x20, 0x2e, 0x74, 0x76, 0x69, 0x78, 0x2e, 0x63, 0x61, 0x73,
+	0x74, 0x6f, 0x72, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x52, 0x65, 0x61, 0x64, 0x42, 0x6c, 0x6f, 0x62,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1a, 0x2e, 0x74, 0x76, 0x69, 0x78, 0x2e, 0x63,
+	0x61, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x6c, 0x6f, 0x62, 0x43, 0x68,
+	0x75, 0x6e, 0x6b, 0x30, 0x01, 0x12, 0x45, 0x0a, 0x03, 0x50, 0x75, 0x74, 0x12, 0x1a, 0x2e, 0x74,
+	0x76, 0x69, 0x78, 0x2e, 0x63, 0x61, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x42,
+	0x6c, 0x6f, 0x62, 0x43, 0x68, 0x75, 0x6e, 0x6b, 0x1a, 0x20, 0x2e, 0x74, 0x76, 0x69, 0x78, 0x2e,
+	0x63, 0x61, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x50, 0x75, 0x74, 0x42, 0x6c,
+	0x6f, 0x62, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x28, 0x01, 0x42, 0x2c, 0x5a, 0x2a,
 	0x63, 0x6f, 0x64, 0x65, 0x2e, 0x74, 0x76, 0x6c, 0x2e, 0x66, 0x79, 0x69, 0x2f, 0x74, 0x76, 0x69,
-	0x78, 0x2f, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x73, 0x3b, 0x73,
-	0x74, 0x6f, 0x72, 0x65, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x78, 0x2f, 0x63, 0x61, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x73,
+	0x3b, 0x63, 0x61, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x33,
 }
 
 var (
-	file_tvix_store_protos_rpc_blobstore_proto_rawDescOnce sync.Once
-	file_tvix_store_protos_rpc_blobstore_proto_rawDescData = file_tvix_store_protos_rpc_blobstore_proto_rawDesc
+	file_tvix_castore_protos_rpc_blobstore_proto_rawDescOnce sync.Once
+	file_tvix_castore_protos_rpc_blobstore_proto_rawDescData = file_tvix_castore_protos_rpc_blobstore_proto_rawDesc
 )
 
-func file_tvix_store_protos_rpc_blobstore_proto_rawDescGZIP() []byte {
-	file_tvix_store_protos_rpc_blobstore_proto_rawDescOnce.Do(func() {
-		file_tvix_store_protos_rpc_blobstore_proto_rawDescData = protoimpl.X.CompressGZIP(file_tvix_store_protos_rpc_blobstore_proto_rawDescData)
+func file_tvix_castore_protos_rpc_blobstore_proto_rawDescGZIP() []byte {
+	file_tvix_castore_protos_rpc_blobstore_proto_rawDescOnce.Do(func() {
+		file_tvix_castore_protos_rpc_blobstore_proto_rawDescData = protoimpl.X.CompressGZIP(file_tvix_castore_protos_rpc_blobstore_proto_rawDescData)
 	})
-	return file_tvix_store_protos_rpc_blobstore_proto_rawDescData
+	return file_tvix_castore_protos_rpc_blobstore_proto_rawDescData
 }
 
-var file_tvix_store_protos_rpc_blobstore_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
-var file_tvix_store_protos_rpc_blobstore_proto_goTypes = []interface{}{
-	(*StatBlobRequest)(nil), // 0: tvix.store.v1.StatBlobRequest
-	(*BlobMeta)(nil),        // 1: tvix.store.v1.BlobMeta
-	(*ReadBlobRequest)(nil), // 2: tvix.store.v1.ReadBlobRequest
-	(*BlobChunk)(nil),       // 3: tvix.store.v1.BlobChunk
-	(*PutBlobResponse)(nil), // 4: tvix.store.v1.PutBlobResponse
+var file_tvix_castore_protos_rpc_blobstore_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_tvix_castore_protos_rpc_blobstore_proto_goTypes = []interface{}{
+	(*StatBlobRequest)(nil), // 0: tvix.castore.v1.StatBlobRequest
+	(*BlobMeta)(nil),        // 1: tvix.castore.v1.BlobMeta
+	(*ReadBlobRequest)(nil), // 2: tvix.castore.v1.ReadBlobRequest
+	(*BlobChunk)(nil),       // 3: tvix.castore.v1.BlobChunk
+	(*PutBlobResponse)(nil), // 4: tvix.castore.v1.PutBlobResponse
 }
-var file_tvix_store_protos_rpc_blobstore_proto_depIdxs = []int32{
-	0, // 0: tvix.store.v1.BlobService.Stat:input_type -> tvix.store.v1.StatBlobRequest
-	2, // 1: tvix.store.v1.BlobService.Read:input_type -> tvix.store.v1.ReadBlobRequest
-	3, // 2: tvix.store.v1.BlobService.Put:input_type -> tvix.store.v1.BlobChunk
-	1, // 3: tvix.store.v1.BlobService.Stat:output_type -> tvix.store.v1.BlobMeta
-	3, // 4: tvix.store.v1.BlobService.Read:output_type -> tvix.store.v1.BlobChunk
-	4, // 5: tvix.store.v1.BlobService.Put:output_type -> tvix.store.v1.PutBlobResponse
+var file_tvix_castore_protos_rpc_blobstore_proto_depIdxs = []int32{
+	0, // 0: tvix.castore.v1.BlobService.Stat:input_type -> tvix.castore.v1.StatBlobRequest
+	2, // 1: tvix.castore.v1.BlobService.Read:input_type -> tvix.castore.v1.ReadBlobRequest
+	3, // 2: tvix.castore.v1.BlobService.Put:input_type -> tvix.castore.v1.BlobChunk
+	1, // 3: tvix.castore.v1.BlobService.Stat:output_type -> tvix.castore.v1.BlobMeta
+	3, // 4: tvix.castore.v1.BlobService.Read:output_type -> tvix.castore.v1.BlobChunk
+	4, // 5: tvix.castore.v1.BlobService.Put:output_type -> tvix.castore.v1.PutBlobResponse
 	3, // [3:6] is the sub-list for method output_type
 	0, // [0:3] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -324,13 +326,13 @@ var file_tvix_store_protos_rpc_blobstore_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_tvix_store_protos_rpc_blobstore_proto_init() }
-func file_tvix_store_protos_rpc_blobstore_proto_init() {
-	if File_tvix_store_protos_rpc_blobstore_proto != nil {
+func init() { file_tvix_castore_protos_rpc_blobstore_proto_init() }
+func file_tvix_castore_protos_rpc_blobstore_proto_init() {
+	if File_tvix_castore_protos_rpc_blobstore_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_tvix_store_protos_rpc_blobstore_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_tvix_castore_protos_rpc_blobstore_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*StatBlobRequest); i {
 			case 0:
 				return &v.state
@@ -342,7 +344,7 @@ func file_tvix_store_protos_rpc_blobstore_proto_init() {
 				return nil
 			}
 		}
-		file_tvix_store_protos_rpc_blobstore_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_tvix_castore_protos_rpc_blobstore_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*BlobMeta); i {
 			case 0:
 				return &v.state
@@ -354,7 +356,7 @@ func file_tvix_store_protos_rpc_blobstore_proto_init() {
 				return nil
 			}
 		}
-		file_tvix_store_protos_rpc_blobstore_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+		file_tvix_castore_protos_rpc_blobstore_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ReadBlobRequest); i {
 			case 0:
 				return &v.state
@@ -366,7 +368,7 @@ func file_tvix_store_protos_rpc_blobstore_proto_init() {
 				return nil
 			}
 		}
-		file_tvix_store_protos_rpc_blobstore_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+		file_tvix_castore_protos_rpc_blobstore_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*BlobChunk); i {
 			case 0:
 				return &v.state
@@ -378,7 +380,7 @@ func file_tvix_store_protos_rpc_blobstore_proto_init() {
 				return nil
 			}
 		}
-		file_tvix_store_protos_rpc_blobstore_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+		file_tvix_castore_protos_rpc_blobstore_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*PutBlobResponse); i {
 			case 0:
 				return &v.state
@@ -395,18 +397,18 @@ func file_tvix_store_protos_rpc_blobstore_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: file_tvix_store_protos_rpc_blobstore_proto_rawDesc,
+			RawDescriptor: file_tvix_castore_protos_rpc_blobstore_proto_rawDesc,
 			NumEnums:      0,
 			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_tvix_store_protos_rpc_blobstore_proto_goTypes,
-		DependencyIndexes: file_tvix_store_protos_rpc_blobstore_proto_depIdxs,
-		MessageInfos:      file_tvix_store_protos_rpc_blobstore_proto_msgTypes,
+		GoTypes:           file_tvix_castore_protos_rpc_blobstore_proto_goTypes,
+		DependencyIndexes: file_tvix_castore_protos_rpc_blobstore_proto_depIdxs,
+		MessageInfos:      file_tvix_castore_protos_rpc_blobstore_proto_msgTypes,
 	}.Build()
-	File_tvix_store_protos_rpc_blobstore_proto = out.File
-	file_tvix_store_protos_rpc_blobstore_proto_rawDesc = nil
-	file_tvix_store_protos_rpc_blobstore_proto_goTypes = nil
-	file_tvix_store_protos_rpc_blobstore_proto_depIdxs = nil
+	File_tvix_castore_protos_rpc_blobstore_proto = out.File
+	file_tvix_castore_protos_rpc_blobstore_proto_rawDesc = nil
+	file_tvix_castore_protos_rpc_blobstore_proto_goTypes = nil
+	file_tvix_castore_protos_rpc_blobstore_proto_depIdxs = nil
 }

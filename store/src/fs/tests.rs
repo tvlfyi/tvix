@@ -5,17 +5,17 @@ use std::path::Path;
 use std::sync::Arc;
 use tokio::{fs, io};
 use tokio_stream::wrappers::ReadDirStream;
+use tvix_castore::blobservice::BlobService;
+use tvix_castore::directoryservice::DirectoryService;
 
 use tempfile::TempDir;
 
-use crate::blobservice::BlobService;
-use crate::directoryservice::DirectoryService;
 use crate::fs::{fuse::FuseDaemon, TvixStoreFs};
 use crate::pathinfoservice::PathInfoService;
-use crate::proto;
-use crate::proto::{DirectoryNode, FileNode, PathInfo};
+use crate::proto::PathInfo;
 use crate::tests::fixtures;
 use crate::tests::utils::{gen_blob_service, gen_directory_service, gen_pathinfo_service};
+use tvix_castore::proto as castorepb;
 
 const BLOB_A_NAME: &str = "00000000000000000000000000000000-test";
 const BLOB_B_NAME: &str = "55555555555555555555555555555555-test";
@@ -67,8 +67,8 @@ async fn populate_blob_a(
 
     // Create a PathInfo for it
     let path_info = PathInfo {
-        node: Some(proto::Node {
-            node: Some(proto::node::Node::File(FileNode {
+        node: Some(castorepb::Node {
+            node: Some(castorepb::node::Node::File(castorepb::FileNode {
                 name: BLOB_A_NAME.into(),
                 digest: fixtures::BLOB_A_DIGEST.clone().into(),
                 size: fixtures::BLOB_A.len() as u32,
@@ -97,8 +97,8 @@ async fn populate_blob_b(
 
     // Create a PathInfo for it
     let path_info = PathInfo {
-        node: Some(proto::Node {
-            node: Some(proto::node::Node::File(FileNode {
+        node: Some(castorepb::Node {
+            node: Some(castorepb::node::Node::File(castorepb::FileNode {
                 name: BLOB_B_NAME.into(),
                 digest: fixtures::BLOB_B_DIGEST.clone().into(),
                 size: fixtures::BLOB_B.len() as u32,
@@ -131,8 +131,8 @@ async fn populate_helloworld_blob(
 
     // Create a PathInfo for it
     let path_info = PathInfo {
-        node: Some(proto::Node {
-            node: Some(proto::node::Node::File(FileNode {
+        node: Some(castorepb::Node {
+            node: Some(castorepb::node::Node::File(castorepb::FileNode {
                 name: HELLOWORLD_BLOB_NAME.into(),
                 digest: fixtures::HELLOWORLD_BLOB_DIGEST.clone().into(),
                 size: fixtures::HELLOWORLD_BLOB_CONTENTS.len() as u32,
@@ -154,8 +154,8 @@ async fn populate_symlink(
 ) {
     // Create a PathInfo for it
     let path_info = PathInfo {
-        node: Some(proto::Node {
-            node: Some(proto::node::Node::Symlink(proto::SymlinkNode {
+        node: Some(castorepb::Node {
+            node: Some(castorepb::node::Node::Symlink(castorepb::SymlinkNode {
                 name: SYMLINK_NAME.into(),
                 target: BLOB_A_NAME.into(),
             })),
@@ -177,8 +177,8 @@ async fn populate_symlink2(
 ) {
     // Create a PathInfo for it
     let path_info = PathInfo {
-        node: Some(proto::Node {
-            node: Some(proto::node::Node::Symlink(proto::SymlinkNode {
+        node: Some(castorepb::Node {
+            node: Some(castorepb::node::Node::Symlink(castorepb::SymlinkNode {
                 name: SYMLINK_NAME2.into(),
                 target: "/nix/store/somewhereelse".into(),
             })),
@@ -211,8 +211,8 @@ async fn populate_directory_with_keep(
 
     // upload pathinfo
     let path_info = PathInfo {
-        node: Some(proto::Node {
-            node: Some(proto::node::Node::Directory(DirectoryNode {
+        node: Some(castorepb::Node {
+            node: Some(castorepb::node::Node::Directory(castorepb::DirectoryNode {
                 name: DIRECTORY_WITH_KEEP_NAME.into(),
                 digest: fixtures::DIRECTORY_WITH_KEEP.digest().into(),
                 size: fixtures::DIRECTORY_WITH_KEEP.size(),
@@ -235,8 +235,8 @@ async fn populate_pathinfo_without_directory(
 ) {
     // upload pathinfo
     let path_info = PathInfo {
-        node: Some(proto::Node {
-            node: Some(proto::node::Node::Directory(DirectoryNode {
+        node: Some(castorepb::Node {
+            node: Some(castorepb::node::Node::Directory(castorepb::DirectoryNode {
                 name: DIRECTORY_WITH_KEEP_NAME.into(),
                 digest: fixtures::DIRECTORY_WITH_KEEP.digest().into(),
                 size: fixtures::DIRECTORY_WITH_KEEP.size(),
@@ -258,8 +258,8 @@ async fn populate_blob_a_without_blob(
 ) {
     // Create a PathInfo for blob A
     let path_info = PathInfo {
-        node: Some(proto::Node {
-            node: Some(proto::node::Node::File(FileNode {
+        node: Some(castorepb::Node {
+            node: Some(castorepb::node::Node::File(castorepb::FileNode {
                 name: BLOB_A_NAME.into(),
                 digest: fixtures::BLOB_A_DIGEST.clone().into(),
                 size: fixtures::BLOB_A.len() as u32,
@@ -300,8 +300,8 @@ async fn populate_directory_complicated(
 
     // upload pathinfo
     let path_info = PathInfo {
-        node: Some(proto::Node {
-            node: Some(proto::node::Node::Directory(DirectoryNode {
+        node: Some(castorepb::Node {
+            node: Some(castorepb::node::Node::Directory(castorepb::DirectoryNode {
                 name: DIRECTORY_COMPLICATED_NAME.into(),
                 digest: fixtures::DIRECTORY_COMPLICATED.digest().into(),
                 size: fixtures::DIRECTORY_COMPLICATED.size(),

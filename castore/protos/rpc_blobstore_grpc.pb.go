@@ -5,9 +5,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             (unknown)
-// source: tvix/store/protos/rpc_blobstore.proto
+// source: tvix/castore/protos/rpc_blobstore.proto
 
-package storev1
+package castorev1
 
 import (
 	context "context"
@@ -22,9 +22,9 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	BlobService_Stat_FullMethodName = "/tvix.store.v1.BlobService/Stat"
-	BlobService_Read_FullMethodName = "/tvix.store.v1.BlobService/Read"
-	BlobService_Put_FullMethodName  = "/tvix.store.v1.BlobService/Put"
+	BlobService_Stat_FullMethodName = "/tvix.castore.v1.BlobService/Stat"
+	BlobService_Read_FullMethodName = "/tvix.castore.v1.BlobService/Read"
+	BlobService_Put_FullMethodName  = "/tvix.castore.v1.BlobService/Put"
 )
 
 // BlobServiceClient is the client API for BlobService service.
@@ -250,7 +250,7 @@ func (x *blobServicePutServer) Recv() (*BlobChunk, error) {
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var BlobService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "tvix.store.v1.BlobService",
+	ServiceName: "tvix.castore.v1.BlobService",
 	HandlerType: (*BlobServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -270,5 +270,5 @@ var BlobService_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "tvix/store/protos/rpc_blobstore.proto",
+	Metadata: "tvix/castore/protos/rpc_blobstore.proto",
 }

@@ -348,12 +348,10 @@ mod tests {
 
     use crate::{
         directoryservice::DirectoryService,
+        fixtures::{DIRECTORY_A, DIRECTORY_B},
         proto,
         proto::{directory_service_server::DirectoryServiceServer, GRPCDirectoryServiceWrapper},
-        tests::{
-            fixtures::{DIRECTORY_A, DIRECTORY_B},
-            utils::gen_directory_service,
-        },
+        utils::gen_directory_service,
     };
 
     #[test]

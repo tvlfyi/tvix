@@ -1,9 +1,8 @@
-use std::sync::Arc;
-use url::Url;
-
-use crate::{blobservice::BlobService, directoryservice::DirectoryService};
-
 use super::{GRPCPathInfoService, MemoryPathInfoService, PathInfoService, SledPathInfoService};
+
+use std::sync::Arc;
+use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService, Error};
+use url::Url;
 
 /// Constructs a new instance of a [PathInfoService] from an URI.
 ///
@@ -26,9 +25,9 @@ pub fn from_addr(
     uri: &str,
     blob_service: Arc<dyn BlobService>,
     directory_service: Arc<dyn DirectoryService>,
-) -> Result<Arc<dyn PathInfoService>, crate::Error> {
-    let url = Url::parse(uri)
-        .map_err(|e| crate::Error::StorageError(format!("unable to parse url: {}", e)))?;
+) -> Result<Arc<dyn PathInfoService>, Error> {
+    let url =
+        Url::parse(uri).map_err(|e| Error::StorageError(format!("unable to parse url: {}", e)))?;
 
     Ok(if url.scheme() == "memory" {
         Arc::new(MemoryPathInfoService::from_url(
@@ -49,7 +48,7 @@ pub fn from_addr(
             directory_service,
         )?)
     } else {
-        Err(crate::Error::StorageError(format!(
+        Err(Error::StorageError(format!(
             "unknown scheme: {}",
             url.scheme()
         )))?

@@ -2,9 +2,9 @@
 // Copyright © 2022 The Tvix Authors
 syntax = "proto3";
 
-package tvix.store.v1;
+package tvix.castore.v1;
 
-option go_package = "code.tvl.fyi/tvix/store/protos;storev1";
+option go_package = "code.tvl.fyi/tvix/castore/protos;castorev1";
 
 service BlobService {
     // In the future, Stat will expose more metadata about a given blob,

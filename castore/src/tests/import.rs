@@ -1,8 +1,7 @@
-use super::utils::{gen_blob_service, gen_directory_service};
+use crate::fixtures::*;
 use crate::import::ingest_path;
 use crate::proto;
-use crate::tests::fixtures::DIRECTORY_COMPLICATED;
-use crate::tests::fixtures::*;
+use crate::utils::{gen_blob_service, gen_directory_service};
 use tempfile::TempDir;
 
 #[cfg(target_family = "unix")]
@@ -29,7 +28,7 @@ async fn symlink() {
     .expect("must succeed");
 
     assert_eq!(
-        crate::proto::node::Node::Symlink(proto::SymlinkNode {
+        proto::node::Node::Symlink(proto::SymlinkNode {
             name: "doesntmatter".into(),
             target: "/nix/store/somewhereelse".into(),
         }),
@@ -54,7 +53,7 @@ async fn single_file() {
     .expect("must succeed");
 
     assert_eq!(
-        crate::proto::node::Node::File(proto::FileNode {
+        proto::node::Node::File(proto::FileNode {
             name: "root".into(),
             digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
             size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
@@ -94,7 +93,7 @@ async fn complicated() {
 
     // ensure root_node matched expectations
     assert_eq!(
-        crate::proto::node::Node::Directory(proto::DirectoryNode {
+        proto::node::Node::Directory(proto::DirectoryNode {
             name: tmpdir
                 .path()
                 .file_name()

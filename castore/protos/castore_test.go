@@ -1,9 +1,9 @@
-package storev1_test
+package castorev1_test
 
 import (
 	"testing"
 
-	storev1pb "code.tvl.fyi/tvix/store/protos"
+	castorev1pb "code.tvl.fyi/tvix/castore/protos"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,63 +17,63 @@ var (
 
 func TestDirectorySize(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
-		d := storev1pb.Directory{
-			Directories: []*storev1pb.DirectoryNode{},
-			Files:       []*storev1pb.FileNode{},
-			Symlinks:    []*storev1pb.SymlinkNode{},
+		d := castorev1pb.Directory{
+			Directories: []*castorev1pb.DirectoryNode{},
+			Files:       []*castorev1pb.FileNode{},
+			Symlinks:    []*castorev1pb.SymlinkNode{},
 		}
 
 		assert.Equal(t, uint32(0), d.Size())
 	})
 
 	t.Run("containing single empty directory", func(t *testing.T) {
-		d := storev1pb.Directory{
-			Directories: []*storev1pb.DirectoryNode{{
+		d := castorev1pb.Directory{
+			Directories: []*castorev1pb.DirectoryNode{{
 				Name:   []byte([]byte("foo")),
 				Digest: dummyDigest,
 				Size:   0,
 			}},
-			Files:    []*storev1pb.FileNode{},
-			Symlinks: []*storev1pb.SymlinkNode{},
+			Files:    []*castorev1pb.FileNode{},
+			Symlinks: []*castorev1pb.SymlinkNode{},
 		}
 
 		assert.Equal(t, uint32(1), d.Size())
 	})
 
 	t.Run("containing single non-empty directory", func(t *testing.T) {
-		d := storev1pb.Directory{
-			Directories: []*storev1pb.DirectoryNode{{
+		d := castorev1pb.Directory{
+			Directories: []*castorev1pb.DirectoryNode{{
 				Name:   []byte("foo"),
 				Digest: dummyDigest,
 				Size:   4,
 			}},
-			Files:    []*storev1pb.FileNode{},
-			Symlinks: []*storev1pb.SymlinkNode{},
+			Files:    []*castorev1pb.FileNode{},
+			Symlinks: []*castorev1pb.SymlinkNode{},
 		}
 
 		assert.Equal(t, uint32(5), d.Size())
 	})
 
 	t.Run("containing single file", func(t *testing.T) {
-		d := storev1pb.Directory{
-			Directories: []*storev1pb.DirectoryNode{},
-			Files: []*storev1pb.FileNode{{
+		d := castorev1pb.Directory{
+			Directories: []*castorev1pb.DirectoryNode{},
+			Files: []*castorev1pb.FileNode{{
 				Name:       []byte("foo"),
 				Digest:     dummyDigest,
 				Size:       42,
 				Executable: false,
 			}},
-			Symlinks: []*storev1pb.SymlinkNode{},
+			Symlinks: []*castorev1pb.SymlinkNode{},
 		}
 
 		assert.Equal(t, uint32(1), d.Size())
 	})
 
 	t.Run("containing single symlink", func(t *testing.T) {
-		d := storev1pb.Directory{
-			Directories: []*storev1pb.DirectoryNode{},
-			Files:       []*storev1pb.FileNode{},
-			Symlinks: []*storev1pb.SymlinkNode{{
+		d := castorev1pb.Directory{
+			Directories: []*castorev1pb.DirectoryNode{},
+			Files:       []*castorev1pb.FileNode{},
+			Symlinks: []*castorev1pb.SymlinkNode{{
 				Name:   []byte("foo"),
 				Target: []byte("bar"),
 			}},
@@ -84,10 +84,10 @@ func TestDirectorySize(t *testing.T) {
 
 }
 func TestDirectoryDigest(t *testing.T) {
-	d := storev1pb.Directory{
-		Directories: []*storev1pb.DirectoryNode{},
-		Files:       []*storev1pb.FileNode{},
-		Symlinks:    []*storev1pb.SymlinkNode{},
+	d := castorev1pb.Directory{
+		Directories: []*castorev1pb.DirectoryNode{},
+		Files:       []*castorev1pb.FileNode{},
+		Symlinks:    []*castorev1pb.SymlinkNode{},
 	}
 
 	dgst, err := d.Digest()
@@ -101,10 +101,10 @@ func TestDirectoryDigest(t *testing.T) {
 
 func TestDirectoryValidate(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
-		d := storev1pb.Directory{
-			Directories: []*storev1pb.DirectoryNode{},
-			Files:       []*storev1pb.FileNode{},
-			Symlinks:    []*storev1pb.SymlinkNode{},
+		d := castorev1pb.Directory{
+			Directories: []*castorev1pb.DirectoryNode{},
+			Files:       []*castorev1pb.FileNode{},
+			Symlinks:    []*castorev1pb.SymlinkNode{},
 		}
 
 		assert.NoError(t, d.Validate())
@@ -112,50 +112,50 @@ func TestDirectoryValidate(t *testing.T) {
 
 	t.Run("invalid names", func(t *testing.T) {
 		{
-			d := storev1pb.Directory{
-				Directories: []*storev1pb.DirectoryNode{{
+			d := castorev1pb.Directory{
+				Directories: []*castorev1pb.DirectoryNode{{
 					Name:   []byte{},
 					Digest: dummyDigest,
 					Size:   42,
 				}},
-				Files:    []*storev1pb.FileNode{},
-				Symlinks: []*storev1pb.SymlinkNode{},
+				Files:    []*castorev1pb.FileNode{},
+				Symlinks: []*castorev1pb.SymlinkNode{},
 			}
 
 			assert.ErrorContains(t, d.Validate(), "invalid name")
 		}
 		{
-			d := storev1pb.Directory{
-				Directories: []*storev1pb.DirectoryNode{{
+			d := castorev1pb.Directory{
+				Directories: []*castorev1pb.DirectoryNode{{
 					Name:   []byte("."),
 					Digest: dummyDigest,
 					Size:   42,
 				}},
-				Files:    []*storev1pb.FileNode{},
-				Symlinks: []*storev1pb.SymlinkNode{},
+				Files:    []*castorev1pb.FileNode{},
+				Symlinks: []*castorev1pb.SymlinkNode{},
 			}
 
 			assert.ErrorContains(t, d.Validate(), "invalid name")
 		}
 		{
-			d := storev1pb.Directory{
-				Directories: []*storev1pb.DirectoryNode{},
-				Files: []*storev1pb.FileNode{{
+			d := castorev1pb.Directory{
+				Directories: []*castorev1pb.DirectoryNode{},
+				Files: []*castorev1pb.FileNode{{
 					Name:       []byte(".."),
 					Digest:     dummyDigest,
 					Size:       42,
 					Executable: false,
 				}},
-				Symlinks: []*storev1pb.SymlinkNode{},
+				Symlinks: []*castorev1pb.SymlinkNode{},
 			}
 
 			assert.ErrorContains(t, d.Validate(), "invalid name")
 		}
 		{
-			d := storev1pb.Directory{
-				Directories: []*storev1pb.DirectoryNode{},
-				Files:       []*storev1pb.FileNode{},
-				Symlinks: []*storev1pb.SymlinkNode{{
+			d := castorev1pb.Directory{
+				Directories: []*castorev1pb.DirectoryNode{},
+				Files:       []*castorev1pb.FileNode{},
+				Symlinks: []*castorev1pb.SymlinkNode{{
 					Name:   []byte("\x00"),
 					Target: []byte("foo"),
 				}},
@@ -164,10 +164,10 @@ func TestDirectoryValidate(t *testing.T) {
 			assert.ErrorContains(t, d.Validate(), "invalid name")
 		}
 		{
-			d := storev1pb.Directory{
-				Directories: []*storev1pb.DirectoryNode{},
-				Files:       []*storev1pb.FileNode{},
-				Symlinks: []*storev1pb.SymlinkNode{{
+			d := castorev1pb.Directory{
+				Directories: []*castorev1pb.DirectoryNode{},
+				Files:       []*castorev1pb.FileNode{},
+				Symlinks: []*castorev1pb.SymlinkNode{{
 					Name:   []byte("foo/bar"),
 					Target: []byte("foo"),
 				}},
@@ -178,14 +178,14 @@ func TestDirectoryValidate(t *testing.T) {
 	})
 
 	t.Run("invalid digest", func(t *testing.T) {
-		d := storev1pb.Directory{
-			Directories: []*storev1pb.DirectoryNode{{
+		d := castorev1pb.Directory{
+			Directories: []*castorev1pb.DirectoryNode{{
 				Name:   []byte("foo"),
 				Digest: nil,
 				Size:   42,
 			}},
-			Files:    []*storev1pb.FileNode{},
-			Symlinks: []*storev1pb.SymlinkNode{},
+			Files:    []*castorev1pb.FileNode{},
+			Symlinks: []*castorev1pb.SymlinkNode{},
 		}
 
 		assert.ErrorContains(t, d.Validate(), "invalid digest length")
@@ -194,8 +194,8 @@ func TestDirectoryValidate(t *testing.T) {
 	t.Run("sorting", func(t *testing.T) {
 		// "b" comes before "a", bad.
 		{
-			d := storev1pb.Directory{
-				Directories: []*storev1pb.DirectoryNode{{
+			d := castorev1pb.Directory{
+				Directories: []*castorev1pb.DirectoryNode{{
 					Name:   []byte("b"),
 					Digest: dummyDigest,
 					Size:   42,
@@ -204,35 +204,35 @@ func TestDirectoryValidate(t *testing.T) {
 					Digest: dummyDigest,
 					Size:   42,
 				}},
-				Files:    []*storev1pb.FileNode{},
-				Symlinks: []*storev1pb.SymlinkNode{},
+				Files:    []*castorev1pb.FileNode{},
+				Symlinks: []*castorev1pb.SymlinkNode{},
 			}
 			assert.ErrorContains(t, d.Validate(), "is not in sorted order")
 		}
 
 		// "a" exists twice, bad.
 		{
-			d := storev1pb.Directory{
-				Directories: []*storev1pb.DirectoryNode{{
+			d := castorev1pb.Directory{
+				Directories: []*castorev1pb.DirectoryNode{{
 					Name:   []byte("a"),
 					Digest: dummyDigest,
 					Size:   42,
 				}},
-				Files: []*storev1pb.FileNode{{
+				Files: []*castorev1pb.FileNode{{
 					Name:       []byte("a"),
 					Digest:     dummyDigest,
 					Size:       42,
 					Executable: false,
 				}},
-				Symlinks: []*storev1pb.SymlinkNode{},
+				Symlinks: []*castorev1pb.SymlinkNode{},
 			}
 			assert.ErrorContains(t, d.Validate(), "duplicate name")
 		}
 
 		// "a" comes before "b", all good.
 		{
-			d := storev1pb.Directory{
-				Directories: []*storev1pb.DirectoryNode{{
+			d := castorev1pb.Directory{
+				Directories: []*castorev1pb.DirectoryNode{{
 					Name:   []byte("a"),
 					Digest: dummyDigest,
 					Size:   42,
@@ -241,16 +241,16 @@ func TestDirectoryValidate(t *testing.T) {
 					Digest: dummyDigest,
 					Size:   42,
 				}},
-				Files:    []*storev1pb.FileNode{},
-				Symlinks: []*storev1pb.SymlinkNode{},
+				Files:    []*castorev1pb.FileNode{},
+				Symlinks: []*castorev1pb.SymlinkNode{},
 			}
 			assert.NoError(t, d.Validate(), "shouldn't error")
 		}
 
 		// [b, c] and [a] are both properly sorted.
 		{
-			d := storev1pb.Directory{
-				Directories: []*storev1pb.DirectoryNode{{
+			d := castorev1pb.Directory{
+				Directories: []*castorev1pb.DirectoryNode{{
 					Name:   []byte("b"),
 					Digest: dummyDigest,
 					Size:   42,
@@ -259,8 +259,8 @@ func TestDirectoryValidate(t *testing.T) {
 					Digest: dummyDigest,
 					Size:   42,
 				}},
-				Files: []*storev1pb.FileNode{},
-				Symlinks: []*storev1pb.SymlinkNode{{
+				Files: []*castorev1pb.FileNode{},
+				Symlinks: []*castorev1pb.SymlinkNode{{
 					Name:   []byte("a"),
 					Target: []byte("foo"),
 				}},

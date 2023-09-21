@@ -14,9 +14,12 @@ However, enough information is preserved to still be able to render NAR and
 NARInfo when needed.
 
 ## More Information
-Check the `protos/` subfolder for the definition of the exact RPC methods and
-messages.
+The store consists out of two different gRPC services, `tvix.castore.v1` for
+the low-level content-addressed bits, and `tvix.store.v1` for the Nix and
+`StorePath`-specific bits.
 
+Check the `protos/` subfolder both here and in `castore` for the definition of
+the exact RPC methods and messages.
 
 ## Interacting with the GRPC service manually
 The shell environment in `//tvix` provides `evans`, which is an interactive
@@ -37,15 +40,16 @@ $ evans --host localhost --port 8000 -r repl
  more expressive universal gRPC client
 
 
-tvix.store.v1@localhost:8000> service BlobService
+localhost:8000> package tvix.castore.v1
+tvix.castore.v1@localhost:8000> service BlobService
 
-tvix.store.v1.BlobService@localhost:8000> call Put --bytes-from-file
+tvix.castore.v1.BlobService@localhost:8000> call Put --bytes-from-file
 data (TYPE_BYTES) => /run/current-system/system
 {
   "digest": "KOM3/IHEx7YfInAnlJpAElYezq0Sxn9fRz7xuClwNfA="
 }
 
-tvix.store.v1.BlobService@localhost:8000> call Get --bytes-as-base64
+tvix.castore.v1.BlobService@localhost:8000> call Get --bytes-as-base64
 digest (TYPE_BYTES) => KOM3/IHEx7YfInAnlJpAElYezq0Sxn9fRz7xuClwNfA=
 {
   "data": "eDg2XzY0LWxpbnV4"

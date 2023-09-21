@@ -6,14 +6,17 @@ use tokio::io::AsyncReadExt;
 use tracing::{error, instrument, warn};
 use tvix_eval::{EvalIO, FileType, StdIO};
 
-use tvix_store::{
+use tvix_castore::{
     blobservice::BlobService,
     directoryservice::{self, DirectoryService},
     import,
+    proto::{node::Node, NamedNode},
+    B3Digest,
+};
+use tvix_store::{
     nar::calculate_size_and_sha256,
     pathinfoservice::PathInfoService,
-    proto::{node::Node, NamedNode, NarInfo, PathInfo},
-    B3Digest,
+    proto::{NarInfo, PathInfo},
 };
 
 /// Implements [EvalIO], asking given [PathInfoService], [DirectoryService]
@@ -330,7 +333,7 @@ async fn import_path_with_pathinfo(
 
     // assemble the [PathInfo] object.
     let path_info = PathInfo {
-        node: Some(tvix_store::proto::Node {
+        node: Some(tvix_castore::proto::Node {
             node: Some(root_node),
         }),
         // There's no reference scanning on path contents ingested like this.

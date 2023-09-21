@@ -1,4 +1,4 @@
-package storev1
+package castorev1
 
 import (
 	"bytes"

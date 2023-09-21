@@ -8,13 +8,8 @@ pub mod fuse;
 #[cfg(test)]
 mod tests;
 
-use crate::{
-    blobservice::{BlobReader, BlobService},
-    directoryservice::DirectoryService,
-    pathinfoservice::PathInfoService,
-    proto::{node::Node, NamedNode},
-    B3Digest, Error,
-};
+use crate::pathinfoservice::PathInfoService;
+
 use fuse_backend_rs::api::filesystem::{Context, FileSystem, FsOptions, ROOT_ID};
 use futures::StreamExt;
 use nix_compat::store_path::StorePath;
@@ -32,6 +27,12 @@ use tokio::{
     sync::mpsc,
 };
 use tracing::{debug, info_span, warn};
+use tvix_castore::{
+    blobservice::{BlobReader, BlobService},
+    directoryservice::DirectoryService,
+    proto::{node::Node, NamedNode},
+    B3Digest, Error,
+};
 
 use self::{
     file_attr::{gen_file_attr, ROOT_FILE_ATTR},

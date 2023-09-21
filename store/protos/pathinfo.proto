@@ -4,7 +4,7 @@ syntax = "proto3";
 
 package tvix.store.v1;
 
-import "tvix/store/protos/castore.proto";
+import "tvix/castore/protos/castore.proto";
 
 option go_package = "code.tvl.fyi/tvix/store/protos;storev1";
 
@@ -12,7 +12,7 @@ option go_package = "code.tvl.fyi/tvix/store/protos;storev1";
 // That's a single element inside /nix/store.
 message PathInfo {
     // The path can be a directory, file or symlink.
-    Node node = 1;
+    tvix.castore.v1.Node node = 1;
 
     // List of references (output path hashes)
     // This really is the raw *bytes*, after decoding nixbase32, and not a
@@ -21,14 +21,6 @@ message PathInfo {
 
     // see below.
     NARInfo narinfo = 3;
-}
-
-message Node {
-    oneof node {
-        DirectoryNode directory = 1;
-        FileNode file = 2;
-        SymlinkNode symlink = 3;
-    }
 }
 
 // Nix C++ uses NAR (Nix Archive) as a format to transfer store paths,

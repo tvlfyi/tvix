@@ -1,9 +1,9 @@
+use crate::fixtures::{DIRECTORY_A, DIRECTORY_B, DIRECTORY_C};
 use crate::proto::directory_service_server::DirectoryService as GRPCDirectoryService;
 use crate::proto::get_directory_request::ByWhat;
 use crate::proto::{Directory, DirectoryNode, SymlinkNode};
 use crate::proto::{GRPCDirectoryServiceWrapper, GetDirectoryRequest};
-use crate::tests::fixtures::{DIRECTORY_A, DIRECTORY_B, DIRECTORY_C};
-use crate::tests::utils::gen_directory_service;
+use crate::utils::gen_directory_service;
 use tokio_stream::StreamExt;
 use tonic::Status;
 

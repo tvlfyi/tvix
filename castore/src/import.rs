@@ -1,6 +1,12 @@
 use crate::blobservice::BlobService;
+use crate::directoryservice::DirectoryPutter;
 use crate::directoryservice::DirectoryService;
-use crate::{directoryservice::DirectoryPutter, proto};
+use crate::proto::node::Node;
+use crate::proto::Directory;
+use crate::proto::DirectoryNode;
+use crate::proto::FileNode;
+use crate::proto::SymlinkNode;
+use crate::Error as CastoreError;
 use std::os::unix::ffi::OsStrExt;
 use std::sync::Arc;
 use std::{
@@ -15,7 +21,7 @@ use walkdir::WalkDir;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("failed to upload directory at {0}: {1}")]
-    UploadDirectoryError(PathBuf, crate::Error),
+    UploadDirectoryError(PathBuf, CastoreError),
 
     #[error("invalid encoding encountered for entry {0:?}")]
     InvalidEncoding(PathBuf),
@@ -30,11 +36,11 @@ pub enum Error {
     UnableToRead(PathBuf, std::io::Error),
 }
 
-impl From<super::Error> for Error {
-    fn from(value: super::Error) -> Self {
+impl From<CastoreError> for Error {
+    fn from(value: CastoreError) -> Self {
         match value {
-            crate::Error::InvalidRequest(_) => panic!("tvix bug"),
-            crate::Error::StorageError(_) => panic!("error"),
+            CastoreError::InvalidRequest(_) => panic!("tvix bug"),
+            CastoreError::StorageError(_) => panic!("error"),
         }
     }
 }
@@ -59,8 +65,8 @@ async fn process_entry(
     blob_service: Arc<dyn BlobService>,
     directory_putter: &mut Box<dyn DirectoryPutter>,
     entry: &walkdir::DirEntry,
-    maybe_directory: Option<proto::Directory>,
-) -> Result<proto::node::Node, Error> {
+    maybe_directory: Option<Directory>,
+) -> Result<Node, Error> {
     let file_type = entry.file_type();
 
     if file_type.is_dir() {
@@ -75,7 +81,7 @@ async fn process_entry(
             .await
             .map_err(|e| Error::UploadDirectoryError(entry.path().to_path_buf(), e))?;
 
-        return Ok(proto::node::Node::Directory(proto::DirectoryNode {
+        return Ok(Node::Directory(DirectoryNode {
             name: entry.file_name().as_bytes().to_owned().into(),
             digest: directory_digest.into(),
             size: directory_size,
@@ -90,7 +96,7 @@ async fn process_entry(
             .to_owned()
             .into();
 
-        return Ok(proto::node::Node::Symlink(proto::SymlinkNode {
+        return Ok(Node::Symlink(SymlinkNode {
             name: entry.file_name().as_bytes().to_owned().into(),
             target,
         }));
@@ -113,7 +119,7 @@ async fn process_entry(
 
         let digest = writer.close().await?;
 
-        return Ok(proto::node::Node::File(proto::FileNode {
+        return Ok(Node::File(FileNode {
             name: entry.file_name().as_bytes().to_vec().into(),
             digest: digest.into(),
             size: metadata.len() as u32,
@@ -132,17 +138,17 @@ async fn process_entry(
 /// It does not follow symlinks at the root, they will be ingested as actual
 /// symlinks.
 ///
-/// It's not interacting with a
-/// [PathInfoService](crate::pathinfoservice::PathInfoService), it's up to the
-/// caller to possibly register it somewhere (and potentially rename it based on
-/// some naming scheme.
+/// It's not interacting with a PathInfoService (from tvix-store), or anything
+/// else giving it a "non-content-addressed name".
+/// It's up to the caller to possibly register it somewhere (and potentially
+/// rename it based on some naming scheme)
 #[instrument(skip(blob_service, directory_service), fields(path=?p))]
 pub async fn ingest_path<P: AsRef<Path> + Debug>(
     blob_service: Arc<dyn BlobService>,
     directory_service: Arc<dyn DirectoryService>,
     p: P,
-) -> Result<proto::node::Node, Error> {
-    let mut directories: HashMap<PathBuf, proto::Directory> = HashMap::default();
+) -> Result<Node, Error> {
+    let mut directories: HashMap<PathBuf, Directory> = HashMap::default();
 
     // TODO: pass this one instead?
     let mut directory_putter = directory_service.put_multiple_start();
@@ -157,7 +163,7 @@ pub async fn ingest_path<P: AsRef<Path> + Debug>(
 
         // process_entry wants an Option<Directory> in case the entry points to a directory.
         // make sure to provide it.
-        let maybe_directory: Option<proto::Directory> = {
+        let maybe_directory: Option<Directory> = {
             if entry.file_type().is_dir() {
                 Some(
                     directories
@@ -188,9 +194,9 @@ pub async fn ingest_path<P: AsRef<Path> + Debug>(
             // record node in parent directory, creating a new [proto:Directory] if not there yet.
             let parent_directory = directories.entry(parent_path).or_default();
             match node {
-                proto::node::Node::Directory(e) => parent_directory.directories.push(e),
-                proto::node::Node::File(e) => parent_directory.files.push(e),
-                proto::node::Node::Symlink(e) => parent_directory.symlinks.push(e),
+                Node::Directory(e) => parent_directory.directories.push(e),
+                Node::File(e) => parent_directory.files.push(e),
+                Node::Symlink(e) => parent_directory.symlinks.push(e),
             }
         }
     }
