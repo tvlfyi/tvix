@@ -3,14 +3,10 @@ use crate::{proto::NamedNode, B3Digest, Error};
 use std::{os::unix::ffi::OsStrExt, sync::Arc};
 use tracing::{instrument, warn};
 
-/// This traverses from a (root) node to the given (sub)path, returning the Node
+/// This descends from a (root) node to the given (sub)path, returning the Node
 /// at that path, or none, if there's nothing at that path.
-/// TODO: Do we want to use [DirectoryService.get_recursive] to do less lookups?
-/// Or do we consider this to be a non-issue due to store composition and local caching?
-/// TODO: the name of this function (and mod) is a bit bad, because it doesn't
-/// clearly distinguish it from the BFS traversers.
 #[instrument(skip(directory_service))]
-pub async fn traverse_to(
+pub async fn descend_to(
     directory_service: Arc<dyn DirectoryService>,
     root_node: crate::proto::node::Node,
     path: &std::path::Path,
@@ -93,10 +89,10 @@ mod tests {
         utils::gen_directory_service,
     };
 
-    use super::traverse_to;
+    use super::descend_to;
 
     #[tokio::test]
-    async fn test_traverse_to() {
+    async fn test_descend_to() {
         let directory_service = gen_directory_service();
 
         let mut handle = directory_service.put_multiple_start();
@@ -128,7 +124,7 @@ mod tests {
 
         // traversal to an empty subpath should return the root node.
         {
-            let resp = traverse_to(
+            let resp = descend_to(
                 directory_service.clone(),
                 node_directory_complicated.clone(),
                 &PathBuf::from(""),
@@ -141,7 +137,7 @@ mod tests {
 
         // traversal to `keep` should return the node for DIRECTORY_WITH_KEEP
         {
-            let resp = traverse_to(
+            let resp = descend_to(
                 directory_service.clone(),
                 node_directory_complicated.clone(),
                 &PathBuf::from("keep"),
@@ -154,7 +150,7 @@ mod tests {
 
         // traversal to `keep/.keep` should return the node for the .keep file
         {
-            let resp = traverse_to(
+            let resp = descend_to(
                 directory_service.clone(),
                 node_directory_complicated.clone(),
                 &PathBuf::from("keep/.keep"),
@@ -167,7 +163,7 @@ mod tests {
 
         // traversal to `keep/.keep` should return the node for the .keep file
         {
-            let resp = traverse_to(
+            let resp = descend_to(
                 directory_service.clone(),
                 node_directory_complicated.clone(),
                 &PathBuf::from("/keep/.keep"),
@@ -180,7 +176,7 @@ mod tests {
 
         // traversal to `void` should return None (doesn't exist)
         {
-            let resp = traverse_to(
+            let resp = descend_to(
                 directory_service.clone(),
                 node_directory_complicated.clone(),
                 &PathBuf::from("void"),
@@ -193,7 +189,7 @@ mod tests {
 
         // traversal to `void` should return None (doesn't exist)
         {
-            let resp = traverse_to(
+            let resp = descend_to(
                 directory_service.clone(),
                 node_directory_complicated.clone(),
                 &PathBuf::from("//v/oid"),
@@ -207,7 +203,7 @@ mod tests {
         // traversal to `keep/.keep/404` should return None (the path can't be
         // reached, as keep/.keep already is a file)
         {
-            let resp = traverse_to(
+            let resp = descend_to(
                 directory_service.clone(),
                 node_directory_complicated.clone(),
                 &PathBuf::from("keep/.keep/foo"),
@@ -220,7 +216,7 @@ mod tests {
 
         // traversal to a subpath of '/' should return the root node.
         {
-            let resp = traverse_to(
+            let resp = descend_to(
                 directory_service.clone(),
                 node_directory_complicated.clone(),
                 &PathBuf::from("/"),

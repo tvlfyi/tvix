@@ -90,7 +90,7 @@ impl TvixStoreIO {
         let directory_service = self.directory_service.clone();
         let sub_path = sub_path.to_owned();
         let task = self.tokio_handle.spawn(async move {
-            directoryservice::traverse_to(directory_service, root_node, &sub_path).await
+            directoryservice::descend_to(directory_service, root_node, &sub_path).await
         });
 
         Ok(self.tokio_handle.block_on(task).unwrap()?)
