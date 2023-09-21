@@ -90,8 +90,9 @@ impl Builtin {
         self.0.documentation
     }
 
-    /// Apply an additional argument to the builtin. After this, [`call`] *must*
-    /// be called, otherwise it may leave the builtin in an incorrect state.
+    /// Apply an additional argument to the builtin.
+    /// After this, [`Builtin::call`] *must* be called, otherwise it may leave
+    /// the builtin in an incorrect state.
     pub fn apply_arg(&mut self, arg: Value) {
         self.0.partials.push(arg);
 

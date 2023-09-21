@@ -225,8 +225,8 @@ struct ImportCache(HashMap<PathBuf, Value>);
 /// file, so that the same file doesn't need to be re-evaluated multiple times.
 /// Currently the real path of the imported file (determined using
 /// [`std::fs::canonicalize()`], not to be confused with our
-/// [`value::canon_path()`]) is used to identify the file, just like C++ Nix
-/// does.
+/// [`crate::value::canon_path()`]) is used to identify the file,
+/// just like C++ Nix does.
 ///
 /// Errors while determining the real path are currently just ignored, since we
 /// pass around some fake paths like `/__corepkgs__/fetchurl.nix`.

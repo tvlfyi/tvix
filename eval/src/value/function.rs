@@ -42,7 +42,7 @@ impl Formals {
 ///
 /// In order to correctly reproduce cppnix's "pointer equality"
 /// semantics it is important that we never clone a Lambda --
-/// use Rc<Lambda>::clone() instead.  This struct deliberately
+/// use `Rc<Lambda>::clone()` instead.  This struct deliberately
 /// does not `derive(Clone)` in order to prevent this from being
 /// done accidentally.
 ///
@@ -58,7 +58,7 @@ pub struct Lambda {
     /// Number of upvalues which the code in this Lambda closes
     /// over, and which need to be initialised at
     /// runtime.  Information about the variables is emitted using
-    /// data-carrying opcodes (see [`OpCode::DataStackIdx`]).
+    /// data-carrying opcodes (see [`crate::opcode::OpCode::DataStackIdx`]).
     pub(crate) upvalue_count: usize,
     pub(crate) formals: Option<Formals>,
 }
@@ -72,7 +72,7 @@ impl Lambda {
 ///
 /// In order to correctly reproduce cppnix's "pointer equality"
 /// semantics it is important that we never clone a Lambda --
-/// use Rc<Lambda>::clone() instead.  This struct deliberately
+/// use `Rc<Lambda>::clone()` instead.  This struct deliberately
 /// does not `derive(Clone)` in order to prevent this from being
 /// done accidentally.
 ///

@@ -8,7 +8,7 @@ use crate::SourceCode;
 /// Represents a source location from which one or more operations
 /// were compiled.
 ///
-/// The span itself is an index into a [codemap::Codemap], and the
+/// The span itself is an index into a [codemap::CodeMap], and the
 /// structure tracks the number of operations that were yielded from
 /// the same span.
 ///
@@ -18,7 +18,7 @@ use crate::SourceCode;
 /// interesting errors.
 #[derive(Clone, Debug, PartialEq)]
 struct SourceSpan {
-    /// Span into the [codemap::Codemap].
+    /// Span into the [codemap::CodeMap].
     span: codemap::Span,
 
     /// Index of the first operation covered by this span.

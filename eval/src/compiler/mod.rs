@@ -350,7 +350,7 @@ impl Compiler<'_> {
     /// warnings in that expression.
     ///
     /// A warning about the that code being dead is assumed to already be
-    /// emitted by the caller of [compile_dead_code].
+    /// emitted by the caller of this.
     fn compile_dead_code(&mut self, slot: LocalIdx, node: ast::Expr) {
         self.dead_scope += 1;
         self.compile(slot, node);
