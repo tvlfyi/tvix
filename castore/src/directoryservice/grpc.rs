@@ -355,7 +355,7 @@ mod tests {
     };
 
     #[test]
-    fn test() -> anyhow::Result<()> {
+    fn test() {
         let tmpdir = TempDir::new().unwrap();
         let socket_path = tmpdir.path().join("socket");
 
@@ -535,7 +535,5 @@ mod tests {
                     .expect_err("must fail");
             }
         });
-
-        Ok(())
     }
 }

@@ -2734,7 +2734,6 @@ checksum = "3528ecfd12c466c6f163363caf2d02a71161dd5e1cc6ae7b34207ea2d42d81ed"
 name = "tvix-castore"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "async-stream",
  "blake3",
  "bytes",

@@ -8137,10 +8137,6 @@ rec {
           else ./castore;
         dependencies = [
           {
-            name = "anyhow";
-            packageId = "anyhow";
-          }
-          {
             name = "async-stream";
             packageId = "async-stream";
           }
