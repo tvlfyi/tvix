@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	storev1pb "code.tvl.fyi/tvix/store/protos"
+	castorev1pb "code.tvl.fyi/tvix/castore/protos"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -17,7 +17,7 @@ const chunkSize = 1024 * 1024
 
 // this produces a callback function that can be used as blobCb for the
 // reader.Import function call
-func genBlobServiceWriteCb(ctx context.Context, blobServiceClient storev1pb.BlobServiceClient) func(io.Reader) error {
+func genBlobServiceWriteCb(ctx context.Context, blobServiceClient castorev1pb.BlobServiceClient) func(io.Reader) error {
 	return func(blobReader io.Reader) error {
 		// Ensure the blobReader is buffered to at least the chunk size.
 		blobReader = bufio.NewReaderSize(blobReader, chunkSize)
@@ -42,7 +42,7 @@ func genBlobServiceWriteCb(ctx context.Context, blobServiceClient storev1pb.Blob
 				blobSize += n
 
 				// send the blob chunk to the server. The err is only valid in the inner scope
-				if err := putter.Send(&storev1pb.BlobChunk{
+				if err := putter.Send(&castorev1pb.BlobChunk{
 					Data: chunk[:n],
 				}); err != nil {
 					return fmt.Errorf("sending blob chunk: %w", err)

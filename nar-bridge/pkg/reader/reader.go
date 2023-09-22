@@ -9,6 +9,7 @@ import (
 	"path"
 	"strings"
 
+	castorev1pb "code.tvl.fyi/tvix/castore/protos"
 	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/nix-community/go-nix/pkg/nar"
 	"lukechampine.com/blake3"
@@ -21,7 +22,7 @@ type Reader struct {
 // An item on the directories stack
 type item struct {
 	path      string
-	directory *storev1pb.Directory
+	directory *castorev1pb.Directory
 }
 
 func New(r io.Reader) *Reader {
@@ -43,7 +44,7 @@ func (r *Reader) Import(
 	// callback function called with each regular file content
 	blobCb func(fileReader io.Reader) error,
 	// callback function called with each finalized directory node
-	directoryCb func(directory *storev1pb.Directory) error,
+	directoryCb func(directory *castorev1pb.Directory) error,
 ) (*storev1pb.PathInfo, error) {
 
 	// construct a NAR reader, by reading through hrSha256
@@ -55,9 +56,9 @@ func (r *Reader) Import(
 
 	// If we store a symlink or regular file at the root, these are not nil.
 	// If they are nil, we instead have a stackDirectory.
-	var rootSymlink *storev1pb.SymlinkNode
-	var rootFile *storev1pb.FileNode
-	var stackDirectory *storev1pb.Directory
+	var rootSymlink *castorev1pb.SymlinkNode
+	var rootFile *castorev1pb.FileNode
+	var stackDirectory *castorev1pb.Directory
 
 	var stack = []item{}
 
@@ -81,7 +82,7 @@ func (r *Reader) Import(
 			}
 
 			topOfStack := stack[len(stack)-1].directory
-			topOfStack.Directories = append(topOfStack.Directories, &storev1pb.DirectoryNode{
+			topOfStack.Directories = append(topOfStack.Directories, &castorev1pb.DirectoryNode{
 				Name:   []byte(path.Base(toPop.path)),
 				Digest: dgst,
 				Size:   toPop.directory.Size(),
@@ -154,15 +155,15 @@ func (r *Reader) Import(
 				// assemble pathInfo with these and return.
 				pi := assemblePathInfo()
 				if rootFile != nil {
-					pi.Node = &storev1pb.Node{
-						Node: &storev1pb.Node_File{
+					pi.Node = &castorev1pb.Node{
+						Node: &castorev1pb.Node_File{
 							File: rootFile,
 						},
 					}
 				}
 				if rootSymlink != nil {
-					pi.Node = &storev1pb.Node{
-						Node: &storev1pb.Node_Symlink{
+					pi.Node = &castorev1pb.Node{
+						Node: &castorev1pb.Node_Symlink{
 							Symlink: rootSymlink,
 						},
 					}
@@ -174,9 +175,9 @@ func (r *Reader) Import(
 						return nil, fmt.Errorf("unable to calculate root directory digest: %w", err)
 					}
 
-					pi.Node = &storev1pb.Node{
-						Node: &storev1pb.Node_Directory{
-							Directory: &storev1pb.DirectoryNode{
+					pi.Node = &castorev1pb.Node{
+						Node: &castorev1pb.Node_Directory{
+							Directory: &castorev1pb.DirectoryNode{
 								Name:   []byte{},
 								Digest: dgst,
 								Size:   stackDirectory.Size(),
@@ -203,7 +204,7 @@ func (r *Reader) Import(
 			}
 
 			if hdr.Type == nar.TypeSymlink {
-				symlinkNode := &storev1pb.SymlinkNode{
+				symlinkNode := &castorev1pb.SymlinkNode{
 					Name:   []byte(getBasename(hdr.Path)),
 					Target: []byte(hdr.LinkTarget),
 				}
@@ -236,7 +237,7 @@ func (r *Reader) Import(
 				// read the blake3 hash
 				dgst := fileReader.Sum(nil)
 
-				fileNode := &storev1pb.FileNode{
+				fileNode := &castorev1pb.FileNode{
 					Name:       []byte(getBasename(hdr.Path)),
 					Digest:     dgst,
 					Size:       uint32(hdr.Size),
@@ -250,10 +251,10 @@ func (r *Reader) Import(
 				}
 			}
 			if hdr.Type == nar.TypeDirectory {
-				directory := &storev1pb.Directory{
-					Directories: []*storev1pb.DirectoryNode{},
-					Files:       []*storev1pb.FileNode{},
-					Symlinks:    []*storev1pb.SymlinkNode{},
+				directory := &castorev1pb.Directory{
+					Directories: []*castorev1pb.DirectoryNode{},
+					Files:       []*castorev1pb.FileNode{},
+					Symlinks:    []*castorev1pb.SymlinkNode{},
 				}
 				stack = append(stack, item{
 					directory: directory,

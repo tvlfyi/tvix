@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	castorev1pb "code.tvl.fyi/tvix/castore/protos"
 	"code.tvl.fyi/tvix/nar-bridge/pkg/reader"
 	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/google/go-cmp/cmp"
@@ -20,7 +21,7 @@ func requireProtoEq(t *testing.T, expected interface{}, actual interface{}) {
 	}
 }
 
-func mustDigest(d *storev1pb.Directory) []byte {
+func mustDigest(d *castorev1pb.Directory) []byte {
 	dgst, err := d.Digest()
 	if err != nil {
 		panic(err)
@@ -38,16 +39,16 @@ func TestSymlink(t *testing.T) {
 		context.Background(),
 		func(fileReader io.Reader) error {
 			panic("no file contents expected!")
-		}, func(directory *storev1pb.Directory) error {
+		}, func(directory *castorev1pb.Directory) error {
 			panic("no directories expected!")
 		},
 	)
 	require.NoError(t, err)
 
 	expectedPathInfo := &storev1pb.PathInfo{
-		Node: &storev1pb.Node{
-			Node: &storev1pb.Node_Symlink{
-				Symlink: &storev1pb.SymlinkNode{
+		Node: &castorev1pb.Node{
+			Node: &castorev1pb.Node_Symlink{
+				Symlink: &castorev1pb.SymlinkNode{
 					Name:   []byte(""),
 					Target: []byte("/nix/store/somewhereelse"),
 				},
@@ -80,7 +81,7 @@ func TestRegular(t *testing.T) {
 			require.NoError(t, err, "reading fileReader should not error")
 			require.Equal(t, []byte{0x01}, contents, "contents read from fileReader should match expectations")
 			return nil
-		}, func(directory *storev1pb.Directory) error {
+		}, func(directory *castorev1pb.Directory) error {
 			panic("no directories expected!")
 		},
 	)
@@ -94,9 +95,9 @@ func TestRegular(t *testing.T) {
 	}
 
 	expectedPathInfo := &storev1pb.PathInfo{
-		Node: &storev1pb.Node{
-			Node: &storev1pb.Node_File{
-				File: &storev1pb.FileNode{
+		Node: &castorev1pb.Node{
+			Node: &castorev1pb.Node_File{
+				File: &castorev1pb.FileNode{
 					Name:       []byte(""),
 					Digest:     BLAKE3_DIGEST_0X01,
 					Size:       1,
@@ -124,16 +125,16 @@ func TestEmptyDirectory(t *testing.T) {
 
 	r := reader.New(f)
 
-	expectedDirectory := &storev1pb.Directory{
-		Directories: []*storev1pb.DirectoryNode{},
-		Files:       []*storev1pb.FileNode{},
-		Symlinks:    []*storev1pb.SymlinkNode{},
+	expectedDirectory := &castorev1pb.Directory{
+		Directories: []*castorev1pb.DirectoryNode{},
+		Files:       []*castorev1pb.FileNode{},
+		Symlinks:    []*castorev1pb.SymlinkNode{},
 	}
 	actualPathInfo, err := r.Import(
 		context.Background(),
 		func(fileReader io.Reader) error {
 			panic("no file contents expected!")
-		}, func(directory *storev1pb.Directory) error {
+		}, func(directory *castorev1pb.Directory) error {
 			requireProtoEq(t, expectedDirectory, directory)
 			return nil
 		},
@@ -141,9 +142,9 @@ func TestEmptyDirectory(t *testing.T) {
 	require.NoError(t, err)
 
 	expectedPathInfo := &storev1pb.PathInfo{
-		Node: &storev1pb.Node{
-			Node: &storev1pb.Node_Directory{
-				Directory: &storev1pb.DirectoryNode{
+		Node: &castorev1pb.Node{
+			Node: &castorev1pb.Node_Directory{
+				Directory: &castorev1pb.DirectoryNode{
 					Name:   []byte(""),
 					Digest: mustDigest(expectedDirectory),
 					Size:   expectedDirectory.Size(),
@@ -178,12 +179,12 @@ func TestFull(t *testing.T) {
 		"/share",
 		"/",
 	}
-	expectedDirectories := make(map[string]*storev1pb.Directory, len(expectedDirectoryPaths))
+	expectedDirectories := make(map[string]*castorev1pb.Directory, len(expectedDirectoryPaths))
 
 	// /bin is a leaf directory
-	expectedDirectories["/bin"] = &storev1pb.Directory{
-		Directories: []*storev1pb.DirectoryNode{},
-		Files: []*storev1pb.FileNode{
+	expectedDirectories["/bin"] = &castorev1pb.Directory{
+		Directories: []*castorev1pb.DirectoryNode{},
+		Files: []*castorev1pb.FileNode{
 			{
 				Name: []byte("arp"),
 				Digest: []byte{
@@ -257,7 +258,7 @@ func TestFull(t *testing.T) {
 				Executable: true,
 			},
 		},
-		Symlinks: []*storev1pb.SymlinkNode{
+		Symlinks: []*castorev1pb.SymlinkNode{
 			{
 				Name:   []byte("dnsdomainname"),
 				Target: []byte("hostname"),
@@ -279,9 +280,9 @@ func TestFull(t *testing.T) {
 
 	// /share/man/man1 is a leaf directory.
 	// The parser traversed over /sbin, but only added it to / which is still on the stack.
-	expectedDirectories["/share/man/man1"] = &storev1pb.Directory{
-		Directories: []*storev1pb.DirectoryNode{},
-		Files: []*storev1pb.FileNode{
+	expectedDirectories["/share/man/man1"] = &castorev1pb.Directory{
+		Directories: []*castorev1pb.DirectoryNode{},
+		Files: []*castorev1pb.FileNode{
 			{
 				Name: []byte("dnsdomainname.1.gz"),
 				Digest: []byte{
@@ -323,13 +324,13 @@ func TestFull(t *testing.T) {
 				Executable: false,
 			},
 		},
-		Symlinks: []*storev1pb.SymlinkNode{},
+		Symlinks: []*castorev1pb.SymlinkNode{},
 	}
 
 	// /share/man/man5 is a leaf directory
-	expectedDirectories["/share/man/man5"] = &storev1pb.Directory{
-		Directories: []*storev1pb.DirectoryNode{},
-		Files: []*storev1pb.FileNode{
+	expectedDirectories["/share/man/man5"] = &castorev1pb.Directory{
+		Directories: []*castorev1pb.DirectoryNode{},
+		Files: []*castorev1pb.FileNode{
 			{
 				Name: []byte("ethers.5.gz"),
 				Digest: []byte{
@@ -339,13 +340,13 @@ func TestFull(t *testing.T) {
 				Executable: false,
 			},
 		},
-		Symlinks: []*storev1pb.SymlinkNode{},
+		Symlinks: []*castorev1pb.SymlinkNode{},
 	}
 
 	// /share/man/man8 is a leaf directory
-	expectedDirectories["/share/man/man8"] = &storev1pb.Directory{
-		Directories: []*storev1pb.DirectoryNode{},
-		Files: []*storev1pb.FileNode{
+	expectedDirectories["/share/man/man8"] = &castorev1pb.Directory{
+		Directories: []*castorev1pb.DirectoryNode{},
+		Files: []*castorev1pb.FileNode{
 			{
 				Name: []byte("arp.8.gz"),
 				Digest: []byte{
@@ -411,12 +412,12 @@ func TestFull(t *testing.T) {
 				Executable: false,
 			},
 		},
-		Symlinks: []*storev1pb.SymlinkNode{},
+		Symlinks: []*castorev1pb.SymlinkNode{},
 	}
 
 	// /share/man holds /share/man/man{1,5,8}.
-	expectedDirectories["/share/man"] = &storev1pb.Directory{
-		Directories: []*storev1pb.DirectoryNode{
+	expectedDirectories["/share/man"] = &castorev1pb.Directory{
+		Directories: []*castorev1pb.DirectoryNode{
 			{
 				Name:   []byte("man1"),
 				Digest: mustDigest(expectedDirectories["/share/man/man1"]),
@@ -433,26 +434,26 @@ func TestFull(t *testing.T) {
 				Size:   expectedDirectories["/share/man/man8"].Size(),
 			},
 		},
-		Files:    []*storev1pb.FileNode{},
-		Symlinks: []*storev1pb.SymlinkNode{},
+		Files:    []*castorev1pb.FileNode{},
+		Symlinks: []*castorev1pb.SymlinkNode{},
 	}
 
 	// /share holds /share/man.
-	expectedDirectories["/share"] = &storev1pb.Directory{
-		Directories: []*storev1pb.DirectoryNode{
+	expectedDirectories["/share"] = &castorev1pb.Directory{
+		Directories: []*castorev1pb.DirectoryNode{
 			{
 				Name:   []byte("man"),
 				Digest: mustDigest(expectedDirectories["/share/man"]),
 				Size:   expectedDirectories["/share/man"].Size(),
 			},
 		},
-		Files:    []*storev1pb.FileNode{},
-		Symlinks: []*storev1pb.SymlinkNode{},
+		Files:    []*castorev1pb.FileNode{},
+		Symlinks: []*castorev1pb.SymlinkNode{},
 	}
 
 	// / holds /bin, /share, and a /sbin symlink.
-	expectedDirectories["/"] = &storev1pb.Directory{
-		Directories: []*storev1pb.DirectoryNode{
+	expectedDirectories["/"] = &castorev1pb.Directory{
+		Directories: []*castorev1pb.DirectoryNode{
 			{
 				Name:   []byte("bin"),
 				Digest: mustDigest(expectedDirectories["/bin"]),
@@ -464,8 +465,8 @@ func TestFull(t *testing.T) {
 				Size:   expectedDirectories["/share"].Size(),
 			},
 		},
-		Files: []*storev1pb.FileNode{},
-		Symlinks: []*storev1pb.SymlinkNode{
+		Files: []*castorev1pb.FileNode{},
+		Symlinks: []*castorev1pb.SymlinkNode{
 			{
 				Name:   []byte("sbin"),
 				Target: []byte("bin"),
@@ -486,7 +487,7 @@ func TestFull(t *testing.T) {
 			// This also covers the case when the client doesn't read from the reader, and that the
 			// importer will take care of reading all the way to the end no matter what.
 			return nil
-		}, func(directory *storev1pb.Directory) error {
+		}, func(directory *castorev1pb.Directory) error {
 			// use actualDirectoryOrder to look up the Directory object we expect at this specific invocation.
 			currentDirectoryPath := expectedDirectoryPaths[numDirectoriesReceived]
 
@@ -502,9 +503,9 @@ func TestFull(t *testing.T) {
 	require.NoError(t, err)
 
 	expectedPathInfo := &storev1pb.PathInfo{
-		Node: &storev1pb.Node{
-			Node: &storev1pb.Node_Directory{
-				Directory: &storev1pb.DirectoryNode{
+		Node: &castorev1pb.Node{
+			Node: &castorev1pb.Node_Directory{
+				Directory: &castorev1pb.DirectoryNode{
 					Name:   []byte(""),
 					Digest: mustDigest(expectedDirectories["/"]),
 					Size:   expectedDirectories["/"].Size(),
@@ -540,7 +541,7 @@ func TestCallbackErrors(t *testing.T) {
 			context.Background(),
 			func(fileReader io.Reader) error {
 				return targetErr
-			}, func(directory *storev1pb.Directory) error {
+			}, func(directory *castorev1pb.Directory) error {
 				panic("no directories expected!")
 			},
 		)
@@ -559,7 +560,7 @@ func TestCallbackErrors(t *testing.T) {
 			context.Background(),
 			func(fileReader io.Reader) error {
 				panic("no file contents expected!")
-			}, func(directory *storev1pb.Directory) error {
+			}, func(directory *castorev1pb.Directory) error {
 				return targetErr
 			},
 		)
@@ -588,7 +589,7 @@ func TestPopDirectories(t *testing.T) {
 	_, err = r.Import(
 		context.Background(),
 		func(fileReader io.Reader) error { return nil },
-		func(directory *storev1pb.Directory) error {
+		func(directory *castorev1pb.Directory) error {
 			return directory.Validate()
 		},
 	)

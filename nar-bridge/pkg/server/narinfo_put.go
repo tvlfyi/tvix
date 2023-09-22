@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"path"
 
+	castorev1pb "code.tvl.fyi/tvix/castore/protos"
 	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/go-chi/chi/v5"
 	"github.com/nix-community/go-nix/pkg/narinfo"
@@ -123,10 +124,10 @@ func registerNarinfoPut(s *Server) {
 		// We need to add the basename of the storepath from the .narinfo
 		// to the pathInfo to be sent.
 		switch v := (pathInfo.GetNode().GetNode()).(type) {
-		case *storev1pb.Node_File:
-			pathInfoToUpload.Node = &storev1pb.Node{
-				Node: &storev1pb.Node_File{
-					File: &storev1pb.FileNode{
+		case *castorev1pb.Node_File:
+			pathInfoToUpload.Node = &castorev1pb.Node{
+				Node: &castorev1pb.Node_File{
+					File: &castorev1pb.FileNode{
 						Name:       []byte(path.Base(narInfo.StorePath)),
 						Digest:     v.File.Digest,
 						Size:       v.File.Size,
@@ -134,19 +135,19 @@ func registerNarinfoPut(s *Server) {
 					},
 				},
 			}
-		case *storev1pb.Node_Symlink:
-			pathInfoToUpload.Node = &storev1pb.Node{
-				Node: &storev1pb.Node_Symlink{
-					Symlink: &storev1pb.SymlinkNode{
+		case *castorev1pb.Node_Symlink:
+			pathInfoToUpload.Node = &castorev1pb.Node{
+				Node: &castorev1pb.Node_Symlink{
+					Symlink: &castorev1pb.SymlinkNode{
 						Name:   []byte(path.Base(narInfo.StorePath)),
 						Target: v.Symlink.Target,
 					},
 				},
 			}
-		case *storev1pb.Node_Directory:
-			pathInfoToUpload.Node = &storev1pb.Node{
-				Node: &storev1pb.Node_Directory{
-					Directory: &storev1pb.DirectoryNode{
+		case *castorev1pb.Node_Directory:
+			pathInfoToUpload.Node = &castorev1pb.Node{
+				Node: &castorev1pb.Node_Directory{
+					Directory: &castorev1pb.DirectoryNode{
 						Name:   []byte(path.Base(narInfo.StorePath)),
 						Digest: v.Directory.Digest,
 						Size:   v.Directory.Size,

@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 
+	castorev1pb "code.tvl.fyi/tvix/castore/protos"
 	"code.tvl.fyi/tvix/nar-bridge/pkg/reader"
 	"code.tvl.fyi/tvix/nar-bridge/pkg/writer"
 	storev1pb "code.tvl.fyi/tvix/store/protos"
@@ -15,7 +16,7 @@ import (
 	"lukechampine.com/blake3"
 )
 
-func mustDigest(d *storev1pb.Directory) []byte {
+func mustDigest(d *castorev1pb.Directory) []byte {
 	dgst, err := d.Digest()
 	if err != nil {
 		panic(err)
@@ -26,9 +27,9 @@ func mustDigest(d *storev1pb.Directory) []byte {
 func TestSymlink(t *testing.T) {
 	pathInfo := &storev1pb.PathInfo{
 
-		Node: &storev1pb.Node{
-			Node: &storev1pb.Node_Symlink{
-				Symlink: &storev1pb.SymlinkNode{
+		Node: &castorev1pb.Node{
+			Node: &castorev1pb.Node_Symlink{
+				Symlink: &castorev1pb.SymlinkNode{
 					Name:   []byte("doesntmatter"),
 					Target: []byte("/nix/store/somewhereelse"),
 				},
@@ -38,7 +39,7 @@ func TestSymlink(t *testing.T) {
 
 	var buf bytes.Buffer
 
-	err := writer.Export(&buf, pathInfo, func([]byte) (*storev1pb.Directory, error) {
+	err := writer.Export(&buf, pathInfo, func([]byte) (*castorev1pb.Directory, error) {
 		panic("no directories expected")
 	}, func([]byte) (io.ReadCloser, error) {
 		panic("no files expected")
@@ -65,9 +66,9 @@ func TestRegular(t *testing.T) {
 	}
 
 	pathInfo := &storev1pb.PathInfo{
-		Node: &storev1pb.Node{
-			Node: &storev1pb.Node_File{
-				File: &storev1pb.FileNode{
+		Node: &castorev1pb.Node{
+			Node: &castorev1pb.Node_File{
+				File: &castorev1pb.FileNode{
 					Name:       []byte("doesntmatter"),
 					Digest:     BLAKE3_DIGEST_0X01,
 					Size:       1,
@@ -79,7 +80,7 @@ func TestRegular(t *testing.T) {
 
 	var buf bytes.Buffer
 
-	err := writer.Export(&buf, pathInfo, func([]byte) (*storev1pb.Directory, error) {
+	err := writer.Export(&buf, pathInfo, func([]byte) (*castorev1pb.Directory, error) {
 		panic("no directories expected")
 	}, func(blobRef []byte) (io.ReadCloser, error) {
 		if !bytes.Equal(blobRef, BLAKE3_DIGEST_0X01) {
@@ -102,17 +103,17 @@ func TestRegular(t *testing.T) {
 
 func TestEmptyDirectory(t *testing.T) {
 	// construct empty directory node this refers to
-	emptyDirectory := &storev1pb.Directory{
-		Directories: []*storev1pb.DirectoryNode{},
-		Files:       []*storev1pb.FileNode{},
-		Symlinks:    []*storev1pb.SymlinkNode{},
+	emptyDirectory := &castorev1pb.Directory{
+		Directories: []*castorev1pb.DirectoryNode{},
+		Files:       []*castorev1pb.FileNode{},
+		Symlinks:    []*castorev1pb.SymlinkNode{},
 	}
 	emptyDirectoryDigest := mustDigest(emptyDirectory)
 
 	pathInfo := &storev1pb.PathInfo{
-		Node: &storev1pb.Node{
-			Node: &storev1pb.Node_Directory{
-				Directory: &storev1pb.DirectoryNode{
+		Node: &castorev1pb.Node{
+			Node: &castorev1pb.Node_Directory{
+				Directory: &castorev1pb.DirectoryNode{
 					Name:   []byte("doesntmatter"),
 					Digest: emptyDirectoryDigest,
 					Size:   0,
@@ -123,7 +124,7 @@ func TestEmptyDirectory(t *testing.T) {
 
 	var buf bytes.Buffer
 
-	err := writer.Export(&buf, pathInfo, func(directoryRef []byte) (*storev1pb.Directory, error) {
+	err := writer.Export(&buf, pathInfo, func(directoryRef []byte) (*castorev1pb.Directory, error) {
 		if !bytes.Equal(directoryRef, emptyDirectoryDigest) {
 			panic("unexpected directoryRef")
 		}
@@ -156,7 +157,7 @@ func TestFull(t *testing.T) {
 	require.NoError(t, err)
 
 	filesMap := make(map[string][]byte, 0)
-	directoriesMap := make(map[string]*storev1pb.Directory)
+	directoriesMap := make(map[string]*castorev1pb.Directory)
 
 	r := reader.New(bytes.NewBuffer(narContents))
 	pathInfo, err := r.Import(
@@ -174,7 +175,7 @@ func TestFull(t *testing.T) {
 
 			return nil
 		},
-		func(directory *storev1pb.Directory) error {
+		func(directory *castorev1pb.Directory) error {
 			dgst := mustDigest(directory)
 
 			directoriesMap[hex.EncodeToString(dgst)] = directory
@@ -190,7 +191,7 @@ func TestFull(t *testing.T) {
 	err = writer.Export(
 		&buf,
 		pathInfo,
-		func(directoryRef []byte) (*storev1pb.Directory, error) {
+		func(directoryRef []byte) (*castorev1pb.Directory, error) {
 			d, found := directoriesMap[hex.EncodeToString(directoryRef)]
 			if !found {
 				panic("directories not found")

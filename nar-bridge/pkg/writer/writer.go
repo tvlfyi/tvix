@@ -5,11 +5,12 @@ import (
 	"io"
 	"path"
 
+	castorev1pb "code.tvl.fyi/tvix/castore/protos"
 	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/nix-community/go-nix/pkg/nar"
 )
 
-type DirectoryLookupFn func([]byte) (*storev1pb.Directory, error)
+type DirectoryLookupFn func([]byte) (*castorev1pb.Directory, error)
 type BlobLookupFn func([]byte) (io.ReadCloser, error)
 
 // Export will traverse a given pathInfo structure, and write the contents
@@ -38,13 +39,13 @@ func Export(
 	// and emit individual elements to the NAR writer, draining the Directory object.
 	// once it's empty, we can pop it off the stack.
 	var stackPaths = []string{}
-	var stackDirectories = []*storev1pb.Directory{}
+	var stackDirectories = []*castorev1pb.Directory{}
 
 	// peek at the pathInfo root and assemble the root node and write to writer
 	// in the case of a regular file, we retrieve and write the contents, close and exit
 	// in the case of a symlink, we write the symlink, close and exit
 	switch v := (pathInfo.GetNode().GetNode()).(type) {
-	case *storev1pb.Node_File:
+	case *castorev1pb.Node_File:
 		rootHeader.Type = nar.TypeRegular
 		rootHeader.Size = int64(v.File.GetSize())
 		rootHeader.Executable = v.File.GetExecutable()
@@ -77,7 +78,7 @@ func Export(
 
 		return nil
 
-	case *storev1pb.Node_Symlink:
+	case *castorev1pb.Node_Symlink:
 		rootHeader.Type = nar.TypeSymlink
 		rootHeader.LinkTarget = string(v.Symlink.GetTarget())
 		err := narWriter.WriteHeader(rootHeader)
@@ -91,7 +92,7 @@ func Export(
 		}
 
 		return nil
-	case *storev1pb.Node_Directory:
+	case *castorev1pb.Node_Directory:
 		// We have a directory at the root, look it up and put in on the stack.
 		directory, err := directoryLookupFn(v.Directory.Digest)
 		if err != nil {
@@ -136,7 +137,7 @@ func Export(
 		}
 
 		switch n := (nextNode).(type) {
-		case *storev1pb.DirectoryNode:
+		case *castorev1pb.DirectoryNode:
 			err := narWriter.WriteHeader(&nar.Header{
 				Path: path.Join(topOfStackPath, string(n.GetName())),
 				Type: nar.TypeDirectory,
@@ -153,7 +154,7 @@ func Export(
 			// add to stack
 			stackDirectories = append(stackDirectories, d)
 			stackPaths = append(stackPaths, path.Join(topOfStackPath, string(n.GetName())))
-		case *storev1pb.FileNode:
+		case *castorev1pb.FileNode:
 			err := narWriter.WriteHeader(&nar.Header{
 				Path:       path.Join(topOfStackPath, string(n.GetName())),
 				Type:       nar.TypeRegular,
@@ -180,7 +181,7 @@ func Export(
 			if err != nil {
 				return fmt.Errorf("unable to close content reader: %w", err)
 			}
-		case *storev1pb.SymlinkNode:
+		case *castorev1pb.SymlinkNode:
 			err := narWriter.WriteHeader(&nar.Header{
 				Path:       path.Join(topOfStackPath, string(n.GetName())),
 				Type:       nar.TypeSymlink,
@@ -198,15 +199,15 @@ func Export(
 
 // drainNextNode will drain a directory message with one of its child nodes,
 // whichever comes first alphabetically.
-func drainNextNode(d *storev1pb.Directory) interface{} {
+func drainNextNode(d *castorev1pb.Directory) interface{} {
 	switch v := (smallestNode(d)).(type) {
-	case *storev1pb.DirectoryNode:
+	case *castorev1pb.DirectoryNode:
 		d.Directories = d.Directories[1:]
 		return v
-	case *storev1pb.FileNode:
+	case *castorev1pb.FileNode:
 		d.Files = d.Files[1:]
 		return v
-	case *storev1pb.SymlinkNode:
+	case *castorev1pb.SymlinkNode:
 		d.Symlinks = d.Symlinks[1:]
 		return v
 	case nil:
@@ -218,7 +219,7 @@ func drainNextNode(d *storev1pb.Directory) interface{} {
 
 // smallestNode will return the node from a directory message,
 // whichever comes first alphabetically.
-func smallestNode(d *storev1pb.Directory) interface{} {
+func smallestNode(d *castorev1pb.Directory) interface{} {
 	childDirectories := d.GetDirectories()
 	childFiles := d.GetFiles()
 	childSymlinks := d.GetSymlinks()

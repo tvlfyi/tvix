@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"sync"
 
+	castorev1pb "code.tvl.fyi/tvix/castore/protos"
 	"code.tvl.fyi/tvix/nar-bridge/pkg/writer"
 	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/go-chi/chi/v5"
@@ -27,8 +28,8 @@ const (
 func renderNar(
 	ctx context.Context,
 	log *log.Entry,
-	directoryServiceClient storev1pb.DirectoryServiceClient,
-	blobServiceClient storev1pb.BlobServiceClient,
+	directoryServiceClient castorev1pb.DirectoryServiceClient,
+	blobServiceClient castorev1pb.BlobServiceClient,
 	narHashToPathInfoMu *sync.Mutex,
 	narHashToPathInfo map[string]*storev1pb.PathInfo,
 	w io.Writer,
@@ -50,15 +51,15 @@ func renderNar(
 		return nil
 	}
 
-	directories := make(map[string]*storev1pb.Directory)
+	directories := make(map[string]*castorev1pb.Directory)
 
 	// If the root node is a directory, ask the directory service for all directories
 	if pathInfoDirectory := pathInfo.GetNode().GetDirectory(); pathInfoDirectory != nil {
 		rootDirectoryDigest := pathInfoDirectory.GetDigest()
 		log = log.WithField("root_directory", base64.StdEncoding.EncodeToString(rootDirectoryDigest))
 
-		directoryStream, err := directoryServiceClient.Get(ctx, &storev1pb.GetDirectoryRequest{
-			ByWhat: &storev1pb.GetDirectoryRequest_Digest{
+		directoryStream, err := directoryServiceClient.Get(ctx, &castorev1pb.GetDirectoryRequest{
+			ByWhat: &castorev1pb.GetDirectoryRequest_Digest{
 				Digest: rootDirectoryDigest,
 			},
 			Recursive: true,
@@ -96,7 +97,7 @@ func renderNar(
 	err := writer.Export(
 		w,
 		pathInfo,
-		func(directoryDigest []byte) (*storev1pb.Directory, error) {
+		func(directoryDigest []byte) (*castorev1pb.Directory, error) {
 			log.WithField("directory", base64.StdEncoding.EncodeToString(directoryDigest)).Debug("Get directory")
 			directoryRefStr := hex.EncodeToString(directoryDigest)
 			directory, found := directories[directoryRefStr]
@@ -112,7 +113,7 @@ func renderNar(
 		},
 		func(blobDigest []byte) (io.ReadCloser, error) {
 			log.WithField("blob", base64.StdEncoding.EncodeToString(blobDigest)).Debug("Get blob")
-			resp, err := blobServiceClient.Read(ctx, &storev1pb.ReadBlobRequest{
+			resp, err := blobServiceClient.Read(ctx, &castorev1pb.ReadBlobRequest{
 				Digest: blobDigest,
 			})
 			if err != nil {

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 
+	castorev1pb "code.tvl.fyi/tvix/castore/protos"
 	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/go-chi/chi/v5"
 	nixhash "github.com/nix-community/go-nix/pkg/hash"
@@ -82,11 +83,11 @@ func renderNarinfo(
 	// extract the name of the node in the pathInfo structure, which will become the output path
 	var nodeName []byte
 	switch v := (pathInfo.GetNode().GetNode()).(type) {
-	case *storev1pb.Node_File:
+	case *castorev1pb.Node_File:
 		nodeName = v.File.GetName()
-	case *storev1pb.Node_Symlink:
+	case *castorev1pb.Node_Symlink:
 		nodeName = v.Symlink.GetName()
-	case *storev1pb.Node_Directory:
+	case *castorev1pb.Node_Directory:
 		nodeName = v.Directory.GetName()
 	}
 

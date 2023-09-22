@@ -5,17 +5,17 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	storev1pb "code.tvl.fyi/tvix/store/protos"
+	castorev1pb "code.tvl.fyi/tvix/castore/protos"
 	log "github.com/sirupsen/logrus"
 )
 
 type DirectoriesUploader struct {
 	ctx                       context.Context
-	directoryServiceClient    storev1pb.DirectoryServiceClient
-	directoryServicePutStream storev1pb.DirectoryService_PutClient
+	directoryServiceClient    castorev1pb.DirectoryServiceClient
+	directoryServicePutStream castorev1pb.DirectoryService_PutClient
 }
 
-func NewDirectoriesUploader(ctx context.Context, directoryServiceClient storev1pb.DirectoryServiceClient) *DirectoriesUploader {
+func NewDirectoriesUploader(ctx context.Context, directoryServiceClient castorev1pb.DirectoryServiceClient) *DirectoriesUploader {
 	return &DirectoriesUploader{
 		ctx:                       ctx,
 		directoryServiceClient:    directoryServiceClient,
@@ -23,7 +23,7 @@ func NewDirectoriesUploader(ctx context.Context, directoryServiceClient storev1p
 	}
 }
 
-func (du *DirectoriesUploader) Put(directory *storev1pb.Directory) error {
+func (du *DirectoriesUploader) Put(directory *castorev1pb.Directory) error {
 	directoryDgst, err := directory.Digest()
 	if err != nil {
 		return fmt.Errorf("failed calculating directory digest: %w", err)
@@ -50,7 +50,7 @@ func (du *DirectoriesUploader) Put(directory *storev1pb.Directory) error {
 }
 
 // Done is called whenever we're
-func (du *DirectoriesUploader) Done() (*storev1pb.PutDirectoryResponse, error) {
+func (du *DirectoriesUploader) Done() (*castorev1pb.PutDirectoryResponse, error) {
 	// only close once, and only if we opened.
 	if du.directoryServicePutStream == nil {
 		return nil, nil

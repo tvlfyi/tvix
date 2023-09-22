@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"net/http"
 
+	castorev1pb "code.tvl.fyi/tvix/castore/protos"
 	"code.tvl.fyi/tvix/nar-bridge/pkg/reader"
-	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/go-chi/chi/v5"
 	nixhash "github.com/nix-community/go-nix/pkg/hash"
 	"github.com/nix-community/go-nix/pkg/nixbase32"
@@ -44,7 +44,7 @@ func registerNarPut(s *Server) {
 		pathInfo, err := rd.Import(
 			ctx,
 			genBlobServiceWriteCb(ctx, s.blobServiceClient),
-			func(directory *storev1pb.Directory) error {
+			func(directory *castorev1pb.Directory) error {
 				return directoriesUploader.Put(directory)
 			},
 		)

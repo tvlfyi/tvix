@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	castorev1pb "code.tvl.fyi/tvix/castore/protos"
 	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
@@ -17,8 +18,8 @@ type Server struct {
 	srv     *http.Server
 	handler chi.Router
 
-	directoryServiceClient storev1pb.DirectoryServiceClient
-	blobServiceClient      storev1pb.BlobServiceClient
+	directoryServiceClient castorev1pb.DirectoryServiceClient
+	blobServiceClient      castorev1pb.BlobServiceClient
 	pathInfoServiceClient  storev1pb.PathInfoServiceClient
 
 	// When uploading NAR files to a HTTP binary cache, the .nar
@@ -32,8 +33,8 @@ type Server struct {
 }
 
 func New(
-	directoryServiceClient storev1pb.DirectoryServiceClient,
-	blobServiceClient storev1pb.BlobServiceClient,
+	directoryServiceClient castorev1pb.DirectoryServiceClient,
+	blobServiceClient castorev1pb.BlobServiceClient,
 	pathInfoServiceClient storev1pb.PathInfoServiceClient,
 	enableAccessLog bool,
 	priority int,

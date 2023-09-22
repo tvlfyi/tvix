@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	castorev1pb "code.tvl.fyi/tvix/castore/protos"
 	"code.tvl.fyi/tvix/nar-bridge/pkg/server"
 	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/sirupsen/logrus"
@@ -47,8 +48,8 @@ func main() {
 	defer conn.Close()
 
 	s := server.New(
-		storev1pb.NewDirectoryServiceClient(conn),
-		storev1pb.NewBlobServiceClient(conn),
+		castorev1pb.NewDirectoryServiceClient(conn),
+		castorev1pb.NewBlobServiceClient(conn),
 		storev1pb.NewPathInfoServiceClient(conn),
 		cli.EnableAccessLog,
 		30,
