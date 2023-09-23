@@ -30,6 +30,7 @@ tracing-subscriber = { version = "0.3.16", features = ["json"] }
 tvix-castore = { path = "../castore" }
 url = "2.4.0"
 walkdir = "2.4.0"
+tokio-listener = { version = "0.2.1" }
 
 [dependencies.fuse-backend-rs]
 optional = true

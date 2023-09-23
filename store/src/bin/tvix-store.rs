@@ -17,6 +17,7 @@ use tvix_castore::proto::node::Node;
 use tvix_castore::proto::GRPCBlobServiceWrapper;
 use tvix_castore::proto::GRPCDirectoryServiceWrapper;
 use tvix_castore::proto::NamedNode;
+use tvix_store::listener::ListenerStream;
 use tvix_store::pathinfoservice;
 use tvix_store::proto::path_info_service_server::PathInfoServiceServer;
 use tvix_store::proto::GRPCPathInfoServiceWrapper;
@@ -220,7 +221,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             info!("tvix-store listening on {}", listen_address);
 
-            router.serve(listen_address).await?;
+            let listener = ListenerStream::bind(&listen_address).await?;
+
+            router.serve_with_incoming(listener).await?;
         }
         Commands::Import {
             paths,

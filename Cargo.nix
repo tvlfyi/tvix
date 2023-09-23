@@ -417,7 +417,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
           }
           {
             name = "quote";
@@ -443,7 +443,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
           }
           {
             name = "quote";
@@ -1259,7 +1259,7 @@ rec {
           }
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
           }
           {
             name = "quote";
@@ -1921,6 +1921,26 @@ rec {
         ];
 
       };
+      "document-features" = rec {
+        crateName = "document-features";
+        version = "0.2.7";
+        edition = "2018";
+        sha256 = "0mv1xg386as8zndw6kdgs4bwxwwlg42srdhkmgf00zz1zirwb4z4";
+        procMacro = true;
+        libPath = "lib.rs";
+        authors = [
+          "Slint Developers <info@slint-ui.com>"
+        ];
+        dependencies = [
+          {
+            name = "litrs";
+            packageId = "litrs";
+            usesDefaultFeatures = false;
+          }
+        ];
+        features = { };
+        resolvedDefaultFeatures = [ "default" ];
+      };
       "either" = rec {
         crateName = "either";
         version = "1.8.1";
@@ -2421,7 +2441,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
           }
           {
             name = "quote";
@@ -2946,9 +2966,9 @@ rec {
       };
       "hyper" = rec {
         crateName = "hyper";
-        version = "0.14.26";
+        version = "0.14.27";
         edition = "2018";
-        sha256 = "1m27s4p6kv5rbzqkw2lzfs60fwz7wym97zri0j8kn6pilrr2sc5b";
+        sha256 = "0s2l74p3harvjgb0bvaxlxgxq71vpfrzv0cqz2p9w8d8akbczcgz";
         authors = [
           "Sean McArthur <sean@seanmonstar.com>"
         ];
@@ -3691,6 +3711,19 @@ rec {
         };
         resolvedDefaultFeatures = [ "errno" "general" "ioctl" "no_std" ];
       };
+      "litrs" = rec {
+        crateName = "litrs";
+        version = "0.2.3";
+        edition = "2018";
+        sha256 = "1akrxglqv6dz41jrjr409pjjysd00z5w0949007v52yg6c4mw9zr";
+        authors = [
+          "Lukas Kalbertodt <lukas.kalbertodt@gmail.com>"
+        ];
+        features = {
+          "default" = [ "proc-macro2" ];
+          "proc-macro2" = [ "dep:proc-macro2" ];
+        };
+      };
       "lock_api" = rec {
         crateName = "lock_api";
         version = "0.4.9";
@@ -4007,6 +4040,48 @@ rec {
           "zerocopy" = [ "fs" "uio" ];
         };
         resolvedDefaultFeatures = [ "fs" "ioctl" "poll" "process" "signal" "term" ];
+      };
+      "nix 0.26.4" = rec {
+        crateName = "nix";
+        version = "0.26.4";
+        edition = "2018";
+        sha256 = "06xgl4ybb8pvjrbmc3xggbgk3kbs1j0c4c0nzdfrmpbgrkrym2sr";
+        authors = [
+          "The nix-rust Project Developers"
+        ];
+        dependencies = [
+          {
+            name = "bitflags";
+            packageId = "bitflags";
+          }
+          {
+            name = "cfg-if";
+            packageId = "cfg-if";
+          }
+          {
+            name = "libc";
+            packageId = "libc";
+            features = [ "extra_traits" ];
+          }
+        ];
+        features = {
+          "aio" = [ "pin-utils" ];
+          "default" = [ "acct" "aio" "dir" "env" "event" "feature" "fs" "hostname" "inotify" "ioctl" "kmod" "mman" "mount" "mqueue" "net" "personality" "poll" "process" "pthread" "ptrace" "quota" "reboot" "resource" "sched" "signal" "socket" "term" "time" "ucontext" "uio" "user" "zerocopy" ];
+          "dir" = [ "fs" ];
+          "memoffset" = [ "dep:memoffset" ];
+          "mount" = [ "uio" ];
+          "mqueue" = [ "fs" ];
+          "net" = [ "socket" ];
+          "pin-utils" = [ "dep:pin-utils" ];
+          "ptrace" = [ "process" ];
+          "sched" = [ "process" ];
+          "signal" = [ "process" ];
+          "socket" = [ "memoffset" ];
+          "ucontext" = [ "signal" ];
+          "user" = [ "feature" ];
+          "zerocopy" = [ "fs" "uio" ];
+        };
+        resolvedDefaultFeatures = [ "feature" "fs" "user" ];
       };
       "nix-cli" = rec {
         crateName = "nix-cli";
@@ -4501,9 +4576,9 @@ rec {
       };
       "pin-project" = rec {
         crateName = "pin-project";
-        version = "1.0.12";
-        edition = "2018";
-        sha256 = "1k3f9jkia3idxl2pqxamszwnl89dk52fa4jqj3p7zmmwnq4scadd";
+        version = "1.1.3";
+        edition = "2021";
+        sha256 = "08k4cpy8q3j93qqgnrbzkcgpn7g0a88l4a9nm33kyghpdhffv97x";
         dependencies = [
           {
             name = "pin-project-internal";
@@ -4514,14 +4589,14 @@ rec {
       };
       "pin-project-internal" = rec {
         crateName = "pin-project-internal";
-        version = "1.0.12";
-        edition = "2018";
-        sha256 = "0maa6icn7rdfy4xvgfaq7m7bwpw9f19wg76f1ncsiixd0lgdp6q6";
+        version = "1.1.3";
+        edition = "2021";
+        sha256 = "01a4l3vb84brv9v7wl71chzxra2kynm6yvcjca66xv3ij6fgsna3";
         procMacro = true;
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
           }
           {
             name = "quote";
@@ -4529,7 +4604,7 @@ rec {
           }
           {
             name = "syn";
-            packageId = "syn 1.0.109";
+            packageId = "syn 2.0.15";
             features = [ "full" "visit-mut" ];
           }
         ];
@@ -4698,7 +4773,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
             usesDefaultFeatures = false;
           }
           {
@@ -4735,7 +4810,7 @@ rec {
           }
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
           }
           {
             name = "quote";
@@ -4773,7 +4848,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
           }
           {
             name = "quote";
@@ -4807,11 +4882,11 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "proc-macro" ];
       };
-      "proc-macro2 1.0.56" = rec {
+      "proc-macro2 1.0.67" = rec {
         crateName = "proc-macro2";
-        version = "1.0.56";
-        edition = "2018";
-        sha256 = "0ddlk2c7s9c0fhmf8cd0wikayicv9xrm9ck9vzgg9w86rnqbsqrb";
+        version = "1.0.67";
+        edition = "2021";
+        sha256 = "0a0k7adv0yswsgzsqkd7r6ng8rpcdyqrhra5v5ii531y3agkshrx";
         authors = [
           "David Tolnay <dtolnay@gmail.com>"
           "Alex Crichton <alex@alexcrichton.com>"
@@ -5062,7 +5137,7 @@ rec {
           }
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
           }
           {
             name = "quote";
@@ -5154,7 +5229,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
             usesDefaultFeatures = false;
           }
         ];
@@ -6101,7 +6176,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
           }
           {
             name = "quote";
@@ -6473,7 +6548,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
           }
           {
             name = "quote";
@@ -6509,7 +6584,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
           }
           {
             name = "quote";
@@ -6586,7 +6661,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
             usesDefaultFeatures = false;
           }
           {
@@ -6620,7 +6695,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
             usesDefaultFeatures = false;
           }
           {
@@ -6798,7 +6873,7 @@ rec {
           }
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
           }
           {
             name = "quote";
@@ -6859,7 +6934,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
           }
           {
             name = "quote";
@@ -6935,7 +7010,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
           }
           {
             name = "quote";
@@ -7158,6 +7233,81 @@ rec {
         ];
 
       };
+      "tokio-listener" = rec {
+        crateName = "tokio-listener";
+        version = "0.2.1";
+        edition = "2021";
+        sha256 = "1yx7vsiwqg0lzdwyavwwnnpkvnmlgsjivvwsqbz7k9jj00lmx1q5";
+        dependencies = [
+          {
+            name = "document-features";
+            packageId = "document-features";
+          }
+          {
+            name = "futures-core";
+            packageId = "futures-core";
+          }
+          {
+            name = "hyper";
+            packageId = "hyper";
+            optional = true;
+            features = [ "server" ];
+          }
+          {
+            name = "nix";
+            packageId = "nix 0.26.4";
+            optional = true;
+            usesDefaultFeatures = false;
+            target = { target, features }: (target."unix" or false);
+            features = [ "user" "fs" ];
+          }
+          {
+            name = "pin-project";
+            packageId = "pin-project";
+          }
+          {
+            name = "socket2";
+            packageId = "socket2 0.5.4";
+            optional = true;
+            features = [ "all" ];
+          }
+          {
+            name = "tokio";
+            packageId = "tokio";
+            features = [ "net" "io-std" "time" "sync" ];
+          }
+          {
+            name = "tracing";
+            packageId = "tracing";
+          }
+        ];
+        devDependencies = [
+          {
+            name = "hyper";
+            packageId = "hyper";
+            features = [ "server" "http1" ];
+          }
+          {
+            name = "tokio";
+            packageId = "tokio";
+            features = [ "macros" "rt" "io-util" ];
+          }
+        ];
+        features = {
+          "clap" = [ "dep:clap" ];
+          "default" = [ "hyper014" "user_facing_default" ];
+          "hyper" = [ "dep:hyper" ];
+          "hyper014" = [ "hyper" ];
+          "nix" = [ "dep:nix" ];
+          "serde" = [ "dep:serde" "serde_with" ];
+          "serde_with" = [ "dep:serde_with" ];
+          "socket2" = [ "dep:socket2" ];
+          "socket_options" = [ "socket2" ];
+          "unix_path_tools" = [ "nix" ];
+          "user_facing_default" = [ "inetd" "unix" "unix_path_tools" "sd_listen" "socket_options" ];
+        };
+        resolvedDefaultFeatures = [ "default" "hyper" "hyper014" "inetd" "nix" "sd_listen" "socket2" "socket_options" "unix" "unix_path_tools" "user_facing_default" ];
+      };
       "tokio-macros" = rec {
         crateName = "tokio-macros";
         version = "2.1.0";
@@ -7170,7 +7320,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
           }
           {
             name = "quote";
@@ -7577,7 +7727,7 @@ rec {
           }
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
           }
           {
             name = "prost-build";
@@ -7895,7 +8045,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
           }
           {
             name = "quote";
@@ -8484,7 +8634,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
           }
           {
             name = "quote";
@@ -8627,6 +8777,10 @@ rec {
             name = "tokio";
             packageId = "tokio";
             features = [ "fs" "net" "rt-multi-thread" "signal" ];
+          }
+          {
+            name = "tokio-listener";
+            packageId = "tokio-listener";
           }
           {
             name = "tokio-stream";
@@ -9246,7 +9400,7 @@ rec {
           }
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
           }
           {
             name = "quote";
@@ -9303,7 +9457,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.56";
+            packageId = "proc-macro2 1.0.67";
           }
           {
             name = "quote";
