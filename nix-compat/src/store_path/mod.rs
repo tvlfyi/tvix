@@ -1,4 +1,5 @@
 use crate::nixbase32::{self, Nixbase32DecodeError};
+use data_encoding::BASE64;
 use std::{fmt, path::PathBuf, str::FromStr};
 use thiserror;
 
@@ -28,7 +29,11 @@ pub enum Error {
     InvalidHashEncoding(Nixbase32DecodeError),
     #[error("Invalid length")]
     InvalidLength(),
-    #[error("Invalid name: {:?}, character at position {} ('{}') is invalid", .0, .1, .0[1])]
+    #[error(
+        "Invalid name: \"{}\", character at position {} is invalid",
+        std::str::from_utf8(&.0).unwrap_or(&BASE64.encode(.0)),
+        .1,
+    )]
     InvalidName(Vec<u8>, usize),
     #[error("Tried to parse an absolute path which was missing the store dir prefix.")]
     MissingStoreDir(),
