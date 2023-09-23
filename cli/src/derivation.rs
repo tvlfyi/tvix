@@ -229,6 +229,10 @@ mod derivation_builtins {
             .to_str()
             .context("determining derivation name")?;
 
+        if name.is_empty() {
+            return Err(ErrorKind::Abort("derivation has empty name".to_string()));
+        }
+
         // Check whether attributes should be passed as a JSON file.
         // TODO: the JSON serialisation has to happen here.
         if let Some(sa) = input.select(STRUCTURED_ATTRS) {
@@ -458,6 +462,29 @@ mod tests {
         assert_eq!(
             "\"/nix/store/xpcvxsx5sw4rbq666blz6sxqlmsqphmr-foo\"",
             value.to_string()
+        );
+    }
+
+    #[test]
+    fn derivation_empty_name() {
+        let mut eval = tvix_eval::Evaluation::new_impure(
+            r#"(derivation { name = ""; builder = "/bin/sh"; system = "x86_64-linux";}).outPath"#,
+            None,
+        );
+
+        let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
+
+        eval.builtins
+            .extend(crate::derivation::derivation_builtins(known_paths));
+
+        // Add the actual `builtins.derivation` from compiled Nix code
+        // TODO: properly compose this
+        eval.src_builtins
+            .push(("derivation", include_str!("derivation.nix")));
+
+        assert!(
+            !eval.evaluate().errors.is_empty(),
+            "expect evaluation to fail"
         );
     }
 
