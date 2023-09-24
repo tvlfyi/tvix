@@ -61,22 +61,16 @@ Run the VM like this:
 CH_CMDLINE=tvix.shell mg run //tvix/tests:runVM --
 ```
 
-You'll get dropped into a shell, from which you can list the store contents:
+You'll get dropped into an interactive shell, from which you can do things with
+the store:
 
 ```
-[    0.282381] Run /init as init process
-2023/09/24 13:03:38 Welcome to u-root!
-                              _
-   _   _      _ __ ___   ___ | |_
-  | | | |____| '__/ _ \ / _ \| __|
-  | |_| |____| | | (_) | (_) | |_
-   \__,_|    |_|  \___/ \___/ \__|
+  ______      _         ____      _ __
+ /_  __/   __(_)  __   /  _/___  (_) /_
+  / / | | / / / |/_/   / // __ \/ / __/
+ / /  | |/ / />  <   _/ // / / / / /_
+/_/   |___/_/_/|_|  /___/_/ /_/_/\__/
 
-2023/09/24 13:03:38 Running tvix-init…
-2023/09/24 13:03:38 Creating /nix/store
-2023/09/24 13:03:38 Mounting…
-2023/09/24 13:03:38 Invoking shell
-…
 /# ls -la /nix/store/
 dr-xr-xr-x root 0 0   Jan  1 00:00 .
 dr-xr-xr-x root 0 989 Jan  1 00:00 aw2fw9ag10wr9pf0qk4nk5sxi0q0bn56-glibc-2.37-8
@@ -86,30 +80,63 @@ dr-xr-xr-x root 0 141 Jan  1 00:00 mdi7lvrn2mx7rfzv3fdq3v5yw8swiks6-hello-2.12.1
 dr-xr-xr-x root 0 5   Jan  1 00:00 s2gi8pfjszy6rq3ydx0z1vwbbskw994i-libunistring-1.1
 ```
 
-Once you're done, run `poweroff` to turn off the VM.
+Once you exit the shell, the VM will power off itself.
 
 #### Execute a specific binary
 Run the VM like this:
 
 ```
 hello_cmd=$(mg build //third_party/nixpkgs:hello)/bin/hello
-CH_CMDLINE=tvix.exec=$hello_cmd mg run //tvix/tests:runVM --
+CH_CMDLINE=tvix.run=$hello_cmd mg run //tvix/tests:runVM --
 ```
 
 Observe it executing the file (and closure) from the tvix-store:
 
 ```
-2023/09/24 13:06:13 Welcome to u-root!
-                              _
-   _   _      _ __ ___   ___ | |_
-  | | | |____| '__/ _ \ / _ \| __|
-  | |_| |____| | | (_) | (_) | |_
-   \__,_|    |_|  \___/ \___/ \__|
+[    0.277486] Run /init as init process
+  ______      _         ____      _ __
+ /_  __/   __(_)  __   /  _/___  (_) /_
+  / / | | / / / |/_/   / // __ \/ / __/
+ / /  | |/ / />  <   _/ // / / / / /_
+/_/   |___/_/_/|_|  /___/_/ /_/_/\__/
 
-2023/09/24 13:06:13 Running tvix-init…
-2023/09/24 13:06:13 Creating /nix/store
-2023/09/24 13:06:13 Mounting…
-2023/09/24 13:06:13 Invoking /nix/store/mdi7lvrn2mx7rfzv3fdq3v5yw8swiks6-hello-2.12.1/bin/hello
-…
 Hello, world!
+2023/09/24 21:10:19 Nothing left to be done, powering off.
+[    0.299122] ACPI: PM: Preparing to enter system sleep state S5
+[    0.299422] reboot: Power down
 ```
+
+#### Execute a NixOS system closure
+It's also possible to invoke a system closure. To do this, tvix-init honors the
+init= cmdline option, and will switch_root to it.
+
+
+```
+CH_CMDLINE=init=/nix/store/…-nixos-system-…/init mg run //tvix/tests:runVM --
+```
+
+```
+  ______      _         ____      _ __
+ /_  __/   __(_)  __   /  _/___  (_) /_
+  / / | | / / / |/_/   / // __ \/ / __/
+ / /  | |/ / />  <   _/ // / / / / /_
+/_/   |___/_/_/|_|  /___/_/ /_/_/\__/
+
+2023/09/24 21:16:43 switch_root: moving mounts
+2023/09/24 21:16:43 switch_root: Skipping "/run" as the dir does not exist
+2023/09/24 21:16:43 switch_root: Changing directory
+2023/09/24 21:16:43 switch_root: Moving /
+2023/09/24 21:16:43 switch_root: Changing root!
+2023/09/24 21:16:43 switch_root: Deleting old /
+2023/09/24 21:16:43 switch_root: executing init
+
+<<< NixOS Stage 2 >>>
+
+[    0.322096] booting system configuration /nix/store/g657sdxinpqfcdv0162zmb8vv9b5c4c5-nixos-system-client-23.11.git.82102fc37da
+running activation script...
+setting up /etc...
+starting systemd...
+[    0.980740] systemd[1]: systemd 253.6 running in system mode (+PAM +AUDIT -SELINUX +APPARMOR +IMA +SMACK +SECCOMP +GCRYPT -GNUTLS +OPENSSL +ACL +BLKID +CURL +ELFUTILS +FIDO2 +IDN2 -IDN +IPTC +KMOD +LIBCRYPTSETUP +LIBFDISK +PCRE2 -PWQUALITY +P11KIT -QRENCODE +TPM2 +BZIP2 +LZ4 +XZ +ZLIB +ZSTD +BPF_FRAMEWORK -XKBCOMMON +UTMP -SYSVINIT default-hierarchy=unified)
+```
+
+This effectively replaces the NixOS Stage 1 entirely.

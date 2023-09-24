@@ -58,7 +58,7 @@ rec {
       export HOME=$(mktemp -d)
       export GOROOT="$(go env GOROOT)"
 
-      GO111MODULE=off GOPATH=/tmp/go GOPROXY=off ${uroot}/bin/u-root -files ./tvix-init -uinitcmd "/tvix-init" -o $out
+      GO111MODULE=off GOPATH=/tmp/go GOPROXY=off ${uroot}/bin/u-root -files ./tvix-init -initcmd "/tvix-init" -o $out
     '';
   };
 

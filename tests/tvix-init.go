@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -37,11 +38,41 @@ func parseCmdline(cmdline string) map[string]string {
 	return out
 }
 
-func main() {
-	log.Println("Running tvix-init…")
+// mounts the nix store from the virtiofs tag to the given destination,
+// creating the destination if it doesn't exist already.
+func mountTvixStore(dest string) error {
+	if err := os.MkdirAll(dest, os.ModePerm); err != nil {
+		return fmt.Errorf("unable to mkdir dest: %w", err)
+	}
+	if err := run("mount", "-t", "virtiofs", "tvix", dest, "-o", "ro"); err != nil {
+		return fmt.Errorf("unable to run mount: %w", err)
+	}
 
-	log.Println("Creating /nix/store")
-	os.MkdirAll("/nix/store", os.ModePerm)
+	return nil
+}
+
+func main() {
+	fmt.Print(`
+  ______      _         ____      _ __
+ /_  __/   __(_)  __   /  _/___  (_) /_
+  / / | | / / / |/_/   / // __ \/ / __/
+ / /  | |/ / />  <   _/ // / / / / /_
+/_/   |___/_/_/|_|  /___/_/ /_/_/\__/
+
+`)
+
+	// Set PATH to "/bbin", so we can find the u-root tools
+	os.Setenv("PATH", "/bbin")
+
+	if err := run("mount", "-t", "proc", "none", "/proc"); err != nil {
+		log.Printf("Failed to mount /proc: %v\n", err)
+	}
+	if err := run("mount", "-t", "sysfs", "none", "/sys"); err != nil {
+		log.Printf("Failed to mount /sys: %v\n", err)
+	}
+	if err := run("mount", "-t", "devtmpfs", "devtmpfs", "/dev"); err != nil {
+		log.Printf("Failed to mount /dev: %v\n", err)
+	}
 
 	cmdline, err := os.ReadFile("/proc/cmdline")
 	if err != nil {
@@ -49,37 +80,59 @@ func main() {
 	}
 	cmdlineFields := parseCmdline(string(cmdline))
 
-	log.Println("Mounting…")
-	if err := run("mount", "-t", "virtiofs", "tvix", "/nix/store", "-o", "ro"); err != nil {
-		log.Printf("Failed to run mount: %v\n", err)
-	}
-
-	// If tvix.find is set, invoke find /nix/store
 	if _, ok := cmdlineFields["tvix.find"]; ok {
-		log.Println("Listing…")
+		// If tvix.find is set, invoke find /nix/store
+		if err := mountTvixStore("/nix/store"); err != nil {
+			log.Printf("Failed to mount tvix store: %v\n", err)
+		}
+
 		if err := run("find", "/nix/store"); err != nil {
 			log.Printf("Failed to run find command: %s\n", err)
 		}
-	}
+	} else if _, ok := cmdlineFields["tvix.shell"]; ok {
+		// If tvix.shell is set, mount the nix store to /nix/store directly,
+		// then invoke the elvish shell
+		if err := mountTvixStore("/nix/store"); err != nil {
+			log.Printf("Failed to mount tvix store: %v\n", err)
+		}
 
-	// If tvix.shell is set, invoke the elvish shell
-	if v, ok := cmdlineFields["tvix.shell"]; ok {
-		log.Printf("Invoking shell%s\n…", v)
 		if err := run("elvish"); err != nil {
 			log.Printf("Failed to run shell: %s\n", err)
 		}
-	}
-
-	// If tvix.exec is set, invoke the binary specified
-	if v, ok := cmdlineFields["tvix.exec"]; ok {
-		log.Printf("Invoking %s\n…", v)
-		if err := syscall.Exec(v, []string{v}, []string{}); err != nil {
-			log.Printf("Failed to exec: %s\n", err)
+	} else if v, ok := cmdlineFields["tvix.run"]; ok {
+		// If tvix.run is set, mount the nix store to /nix/store directly,
+		// then invoke the command.
+		if err := mountTvixStore("/nix/store"); err != nil {
+			log.Printf("Failed to mount tvix store: %v\n", err)
 		}
+
+		if err := run(v); err != nil {
+			log.Printf("Failed to run command: %s\n", err)
+		}
+	} else if v, ok := cmdlineFields["init"]; ok {
+		// If init is set, invoke the binary specified (with switch_root),
+		// and prepare /fs beforehand as well.
+		os.Mkdir("/fs", os.ModePerm)
+		if err := run("mount", "-t", "tmpfs", "none", "/fs"); err != nil {
+			log.Fatalf("Failed to mount /fs tmpfs: %s\n", err)
+		}
+
+		// Mount /fs/nix/store
+		if err := mountTvixStore("/fs/nix/store"); err != nil {
+			log.Fatalf("Failed to mount tvix store: %v\n", err)
+		}
+
+		// Invoke switch_root, which will take care of moving /proc, /sys and /dev.
+		if err := syscall.Exec("/bbin/switch_root", []string{"switch_root", "/fs", v}, []string{}); err != nil {
+			log.Printf("Failed to switch root: %s\n", err)
+		}
+	} else {
+		log.Printf("No command detected, not knowing what to do!")
 	}
 
-	log.Println("Powering off")
+	// This is only reached in the non switch_root case.
+	log.Printf("Nothing left to be done, powering off.")
 	if err := run("poweroff"); err != nil {
-		log.Printf("Failed to run command: %v\n", err)
+		log.Printf("Failed to run poweroff command: %v\n", err)
 	}
 }
