@@ -21,9 +21,9 @@ import (
 // `help:"Expose a tvix-store gRPC Interface as HTTP NAR/NARinfo"`
 var cli struct {
 	LogLevel        string `enum:"trace,debug,info,warn,error,fatal,panic" help:"The log level to log with" default:"info"`
-	ListenAddr      string `name:"listen-addr" help:"The address this service listens on" type:"string" default:"[::]:9000"` //nolint:lll
-	EnableAccessLog bool   `name:"access-log" help:"Enable access logging" type:"bool" default:"true" negatable:""`          //nolint:lll
-	StoreAddr       string `name:"store-addr" help:"The address to the tvix-store RPC interface this will connect to"`
+	ListenAddr      string `name:"listen-addr" help:"The address this service listens on" type:"string" default:"[::]:9000"`                    //nolint:lll
+	EnableAccessLog bool   `name:"access-log" help:"Enable access logging" type:"bool" default:"true" negatable:""`                             //nolint:lll
+	StoreAddr       string `name:"store-addr" help:"The address to the tvix-store RPC interface this will connect to" default:"localhost:8000"` //nolint:lll
 }
 
 func main() {
