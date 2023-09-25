@@ -773,7 +773,7 @@ checksum = "a06f77d526c1a601b7c4cdd98f54b5eaabffc14d5f2f0296febdc7f357c6d3ba"
 [[package]]
 name = "fuse-backend-rs"
 version = "0.10.5"
-source = "git+https://github.com/cbrewster/fuse-backend-rs.git?branch=optional-allow_other#b553ce526a7267578ae5af4f4cbba717932518ac"
+source = "git+https://github.com/cloud-hypervisor/fuse-backend-rs?rev=402e7c531bc75bc44ac366dc59477de8b5d4ca08#402e7c531bc75bc44ac366dc59477de8b5d4ca08"
 dependencies = [
  "arc-swap",
  "bitflags",

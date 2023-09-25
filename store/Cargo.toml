@@ -35,8 +35,8 @@ tokio-listener = { version = "0.2.1" }
 [dependencies.fuse-backend-rs]
 optional = true
 # TODO: Switch back to upstream version once https://github.com/cloud-hypervisor/fuse-backend-rs/pull/153 lands.
-git = "https://github.com/cbrewster/fuse-backend-rs.git"
-branch = "optional-allow_other"
+git = "https://github.com/cloud-hypervisor/fuse-backend-rs"
+rev = "402e7c531bc75bc44ac366dc59477de8b5d4ca08"
 # Ideally this would only be enabled if virtiofs is enabled
 # Ex: virtiofs = [..., "fuse-backend-rs/?vhost-user-fs", ...]
 # However, crate2nix doesn't properly understand this syntax and doesn't
