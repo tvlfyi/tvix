@@ -1,15 +1,9 @@
-# tvix/tests
+# tvix/boot
 
-This directory provides a bunch of integration tests using tvix.
+This directory provides tooling to boot VMs with /nix/store provided by
+virtiofs.
 
-The currently most interesting (and only) ones ;-) are using a cloud-hypervisor
-VM.
-
-## //tvix/tests:test-docs
-This is a test encapsulated in a nix build.
-It seeds a tvix-store with the tvix docs, then starts a VM, asks it to list all
-files in /nix/store, and ensures the store path is present, which acts as a
-nice smoketest.
+In the `tests/` subdirectory, there's some integration tests.
 
 ## //tvix/tests:runVM
 A script spinning up a `tvix-store virtiofs` daemon, then starting a cloud-
