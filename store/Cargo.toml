@@ -37,11 +37,6 @@ optional = true
 # TODO: Switch back to upstream version once https://github.com/cloud-hypervisor/fuse-backend-rs/pull/153 lands.
 git = "https://github.com/cloud-hypervisor/fuse-backend-rs"
 rev = "402e7c531bc75bc44ac366dc59477de8b5d4ca08"
-# Ideally this would only be enabled if virtiofs is enabled
-# Ex: virtiofs = [..., "fuse-backend-rs/?vhost-user-fs", ...]
-# However, crate2nix doesn't properly understand this syntax and doesn't
-# enable this feature properly.
-features = ["vhost-user-fs"]
 
 [dependencies.vhost]
 optional = true
@@ -87,6 +82,16 @@ tonic-mock = { git = "https://github.com/brainrake/tonic-mock", branch = "bump-d
 [features]
 default = ["fuse", "virtiofs", "reflection"]
 fs = ["dep:libc", "dep:fuse-backend-rs"]
-virtiofs = ["fs", "dep:vhost", "dep:vhost-user-backend", "dep:virtio-queue", "dep:vm-memory", "dep:vmm-sys-util", "dep:virtio-bindings"]
+virtiofs = [
+  "fs",
+  "dep:vhost",
+  "dep:vhost-user-backend",
+  "dep:virtio-queue",
+  "dep:vm-memory",
+  "dep:vmm-sys-util",
+  "dep:virtio-bindings",
+  "fuse-backend-rs?/vhost-user-fs", # impl FsCacheReqHandler for SlaveFsCacheReq
+  "fuse-backend-rs?/virtiofs",
+]
 fuse = ["fs"]
 reflection = ["tonic-reflection"]

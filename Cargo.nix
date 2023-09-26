@@ -8729,7 +8729,6 @@ rec {
             name = "fuse-backend-rs";
             packageId = "fuse-backend-rs";
             optional = true;
-            features = [ "vhost-user-fs" ];
           }
           {
             name = "futures";
@@ -8887,7 +8886,7 @@ rec {
           "fuse" = [ "fs" ];
           "reflection" = [ "tonic-reflection" ];
           "tonic-reflection" = [ "dep:tonic-reflection" ];
-          "virtiofs" = [ "fs" "dep:vhost" "dep:vhost-user-backend" "dep:virtio-queue" "dep:vm-memory" "dep:vmm-sys-util" "dep:virtio-bindings" ];
+          "virtiofs" = [ "fs" "dep:vhost" "dep:vhost-user-backend" "dep:virtio-queue" "dep:vm-memory" "dep:vmm-sys-util" "dep:virtio-bindings" "fuse-backend-rs?/vhost-user-fs" "fuse-backend-rs?/virtiofs" ];
         };
         resolvedDefaultFeatures = [ "default" "fs" "fuse" "reflection" "tonic-reflection" "virtiofs" ];
       };
