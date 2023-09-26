@@ -4,7 +4,7 @@ fn main() -> Result<()> {
     #[allow(unused_mut)]
     let mut builder = tonic_build::configure();
 
-    #[cfg(feature = "reflection")]
+    #[cfg(feature = "tonic-reflection")]
     {
         let out_dir = std::path::PathBuf::from(std::env::var("OUT_DIR").unwrap());
         let descriptor_path = out_dir.join("tvix.castore.v1.bin");

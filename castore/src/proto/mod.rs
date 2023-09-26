@@ -16,7 +16,7 @@ use crate::B3Digest;
 
 tonic::include_proto!("tvix.castore.v1");
 
-#[cfg(feature = "reflection")]
+#[cfg(feature = "tonic-reflection")]
 /// Compiled file descriptors for implementing [gRPC
 /// reflection](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md) with e.g.
 /// [`tonic_reflection`](https://docs.rs/tonic-reflection).

@@ -10,7 +10,7 @@ pub use grpc_pathinfoservice_wrapper::GRPCPathInfoServiceWrapper;
 
 tonic::include_proto!("tvix.store.v1");
 
-#[cfg(feature = "reflection")]
+#[cfg(feature = "tonic-reflection")]
 /// Compiled file descriptors for implementing [gRPC
 /// reflection](https://github.com/grpc/grpc/blob/master/doc/server-reflection.md) with e.g.
 /// [`tonic_reflection`](https://docs.rs/tonic-reflection).

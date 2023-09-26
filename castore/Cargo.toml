@@ -37,5 +37,5 @@ tempfile = "3.3.0"
 tonic-mock = { git = "https://github.com/brainrake/tonic-mock", branch = "bump-dependencies" }
 
 [features]
-default = ["reflection"]
-reflection = ["tonic-reflection"]
+default = []
+tonic-reflection = ["dep:tonic-reflection"]

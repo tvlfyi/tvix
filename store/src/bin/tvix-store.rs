@@ -33,9 +33,9 @@ use tvix_store::fs::fuse::FuseDaemon;
 #[cfg(feature = "virtiofs")]
 use tvix_store::fs::virtiofs::start_virtiofs_daemon;
 
-#[cfg(feature = "reflection")]
+#[cfg(feature = "tonic-reflection")]
 use tvix_castore::proto::FILE_DESCRIPTOR_SET as CASTORE_FILE_DESCRIPTOR_SET;
-#[cfg(feature = "reflection")]
+#[cfg(feature = "tonic-reflection")]
 use tvix_store::proto::FILE_DESCRIPTOR_SET;
 
 use clap::Parser;
@@ -210,7 +210,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     GRPCPathInfoServiceWrapper::from(path_info_service),
                 ));
 
-            #[cfg(feature = "reflection")]
+            #[cfg(feature = "tonic-reflection")]
             {
                 let reflection_svc = tonic_reflection::server::Builder::configure()
                     .register_encoded_file_descriptor_set(CASTORE_FILE_DESCRIPTOR_SET)

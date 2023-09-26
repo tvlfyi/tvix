@@ -80,7 +80,7 @@ tempfile = "3.3.0"
 tonic-mock = { git = "https://github.com/brainrake/tonic-mock", branch = "bump-dependencies" }
 
 [features]
-default = ["fuse", "virtiofs", "reflection"]
+default = ["fuse", "virtiofs", "tonic-reflection"]
 fs = ["dep:libc", "dep:fuse-backend-rs"]
 virtiofs = [
   "fs",
@@ -94,4 +94,4 @@ virtiofs = [
   "fuse-backend-rs?/virtiofs",
 ]
 fuse = ["fs"]
-reflection = ["tonic-reflection"]
+tonic-reflection = ["dep:tonic-reflection", "tvix-castore/tonic-reflection"]

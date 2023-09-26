@@ -8405,11 +8405,9 @@ rec {
           }
         ];
         features = {
-          "default" = [ "reflection" ];
-          "reflection" = [ "tonic-reflection" ];
           "tonic-reflection" = [ "dep:tonic-reflection" ];
         };
-        resolvedDefaultFeatures = [ "default" "reflection" "tonic-reflection" ];
+        resolvedDefaultFeatures = [ "default" "tonic-reflection" ];
       };
       "tvix-cli" = rec {
         crateName = "tvix-cli";
@@ -8882,14 +8880,13 @@ rec {
           }
         ];
         features = {
-          "default" = [ "fuse" "virtiofs" "reflection" ];
+          "default" = [ "fuse" "virtiofs" "tonic-reflection" ];
           "fs" = [ "dep:libc" "dep:fuse-backend-rs" ];
           "fuse" = [ "fs" ];
-          "reflection" = [ "tonic-reflection" ];
-          "tonic-reflection" = [ "dep:tonic-reflection" ];
+          "tonic-reflection" = [ "dep:tonic-reflection" "tvix-castore/tonic-reflection" ];
           "virtiofs" = [ "fs" "dep:vhost" "dep:vhost-user-backend" "dep:virtio-queue" "dep:vm-memory" "dep:vmm-sys-util" "dep:virtio-bindings" "fuse-backend-rs?/vhost-user-fs" "fuse-backend-rs?/virtiofs" ];
         };
-        resolvedDefaultFeatures = [ "default" "fs" "fuse" "reflection" "tonic-reflection" "virtiofs" ];
+        resolvedDefaultFeatures = [ "default" "fs" "fuse" "tonic-reflection" "virtiofs" ];
       };
       "typenum" = rec {
         crateName = "typenum";
