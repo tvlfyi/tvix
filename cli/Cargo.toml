@@ -10,7 +10,7 @@ path = "src/main.rs"
 [dependencies]
 nix-compat = { path = "../nix-compat" }
 tvix-castore = { path = "../castore" }
-tvix-store = { path = "../store", features = []}
+tvix-store = { path = "../store", default-features = false, features = []}
 tvix-eval = { path = "../eval" }
 bytes = "1.4.0"
 clap = { version = "4.0", features = ["derive", "env"] }
