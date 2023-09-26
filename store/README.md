@@ -49,7 +49,7 @@ data (TYPE_BYTES) => /run/current-system/system
   "digest": "KOM3/IHEx7YfInAnlJpAElYezq0Sxn9fRz7xuClwNfA="
 }
 
-tvix.castore.v1.BlobService@localhost:8000> call Get --bytes-as-base64
+tvix.castore.v1.BlobService@localhost:8000> call Read --bytes-as-base64
 digest (TYPE_BYTES) => KOM3/IHEx7YfInAnlJpAElYezq0Sxn9fRz7xuClwNfA=
 {
   "data": "eDg2XzY0LWxpbnV4"
