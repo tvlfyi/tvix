@@ -5,7 +5,7 @@ virtiofs.
 
 In the `tests/` subdirectory, there's some integration tests.
 
-## //tvix/tests:runVM
+## //tvix/boot:runVM
 A script spinning up a `tvix-store virtiofs` daemon, then starting a cloud-
 hypervisor VM.
 
@@ -52,7 +52,7 @@ pkill nar-bridge; pkill tvix-store
 Run the VM like this:
 
 ```
-CH_CMDLINE=tvix.shell mg run //tvix/tests:runVM --
+CH_CMDLINE=tvix.shell mg run //tvix/boot:runVM --
 ```
 
 You'll get dropped into an interactive shell, from which you can do things with
@@ -81,7 +81,7 @@ Run the VM like this:
 
 ```
 hello_cmd=$(mg build //third_party/nixpkgs:hello)/bin/hello
-CH_CMDLINE=tvix.run=$hello_cmd mg run //tvix/tests:runVM --
+CH_CMDLINE=tvix.run=$hello_cmd mg run //tvix/boot:runVM --
 ```
 
 Observe it executing the file (and closure) from the tvix-store:
@@ -106,7 +106,7 @@ init= cmdline option, and will switch_root to it.
 
 
 ```
-CH_CMDLINE=init=/nix/store/…-nixos-system-…/init mg run //tvix/tests:runVM --
+CH_CMDLINE=init=/nix/store/…-nixos-system-…/init mg run //tvix/boot:runVM --
 ```
 
 ```
