@@ -350,7 +350,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             tokio::spawn(async move {
                 tokio::signal::ctrl_c().await.unwrap();
                 info!("interrupt received, unmounting…");
-                fuse_daemon.unmount()?;
+                tokio::task::spawn_blocking(move || fuse_daemon.unmount()).await??;
                 info!("unmount occured, terminating…");
                 Ok::<_, io::Error>(())
             })
