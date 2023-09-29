@@ -1,5 +1,5 @@
 {
-  "fuse-backend-rs 0.10.5 (git+https://github.com/cloud-hypervisor/fuse-backend-rs?rev=402e7c531bc75bc44ac366dc59477de8b5d4ca08#402e7c531bc75bc44ac366dc59477de8b5d4ca08)": "0f70f0wxkx4h18wvkpnnpxhyzvg6f9z1063334w1nlfg0n15wb9y",
+  "fuse-backend-rs 0.10.5 (git+https://github.com/griff/fuse-backend-rs?branch=macfuse-fix#70b835cada7e1f18e5cbb13f6c4b698ba203c820)": "107iaw8zqsz888xh9nkq3vvki1c1rqqqg0mncdplradhhn7wp3kp",
   "test-generator 0.3.0 (git+https://github.com/JamesGuthrie/test-generator.git?rev=82e799979980962aec1aa324ec6e0e4cad781f41#82e799979980962aec1aa324ec6e0e4cad781f41)": "08brp3qqa55hijc7xby3lam2cc84hvx1zzfqv6lj7smlczh8k32y",
   "tonic-mock 0.1.0 (git+https://github.com/brainrake/tonic-mock?branch=bump-dependencies#ec1a15510875de99d709d684190db5d9beab175e)": "0lwa03hpp0mxa6aa1zv5w68k61y4hccfm0q2ykyq392fwal8vb50",
   "wu-manber 0.1.0 (git+https://github.com/tvlfyi/wu-manber.git#0d5b22bea136659f7de60b102a7030e0daaa503d)": "1zhk83lbq99xzyjwphv2qrb8f8qgfqwa5bbbvyzm0z0bljsjv0pd"

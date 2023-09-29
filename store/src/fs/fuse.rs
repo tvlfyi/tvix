@@ -11,6 +11,11 @@ where
     channel: fuse_backend_rs::transport::FuseChannel,
 }
 
+#[cfg(target_os = "macos")]
+const BADFD: libc::c_int = libc::EBADF;
+#[cfg(target_os = "linux")]
+const BADFD: libc::c_int = libc::EBADFD;
+
 impl<FS> FuseServer<FS>
 where
     FS: FileSystem + Sync + Send,
@@ -29,7 +34,7 @@ where
                     match e {
                         // This indicates the session has been shut down.
                         fuse_backend_rs::Error::EncodeMessage(e)
-                            if e.raw_os_error() == Some(libc::EBADFD) =>
+                            if e.raw_os_error() == Some(BADFD) =>
                         {
                             break;
                         }
@@ -63,6 +68,7 @@ impl FuseDaemon {
         let mut session = FuseSession::new(mountpoint.as_ref(), "tvix-store", "", true)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
 
+        #[cfg(target_os = "linux")]
         session.set_allow_other(false);
         session
             .mount()

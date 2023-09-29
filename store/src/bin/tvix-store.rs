@@ -139,11 +139,18 @@ enum Commands {
     },
 }
 
-#[cfg(feature = "fuse")]
+#[cfg(all(feature = "fuse", not(target_os = "macos")))]
 fn default_threads() -> usize {
     std::thread::available_parallelism()
         .map(|threads| threads.into())
         .unwrap_or(4)
+}
+// On MacFUSE only a single channel will receive ENODEV when the file system is
+// unmounted and so all the other channels will block forever.
+// See https://github.com/osxfuse/osxfuse/issues/974
+#[cfg(all(feature = "fuse", target_os = "macos"))]
+fn default_threads() -> usize {
+    1
 }
 
 #[tokio::main]

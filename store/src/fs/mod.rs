@@ -13,6 +13,7 @@ mod tests;
 
 use crate::pathinfoservice::PathInfoService;
 
+use fuse_backend_rs::abi::fuse_abi::stat64;
 use fuse_backend_rs::api::filesystem::{Context, FileSystem, FsOptions, ROOT_ID};
 use futures::StreamExt;
 use nix_compat::store_path::StorePath;
@@ -253,7 +254,7 @@ impl FileSystem for TvixStoreFs {
         _ctx: &Context,
         inode: Self::Inode,
         _handle: Option<Self::Handle>,
-    ) -> io::Result<(libc::stat64, Duration)> {
+    ) -> io::Result<(stat64, Duration)> {
         if inode == ROOT_ID {
             return Ok((ROOT_FILE_ATTR.into(), Duration::MAX));
         }
@@ -441,7 +442,7 @@ impl FileSystem for TvixStoreFs {
                     let written = add_entry(fuse_backend_rs::api::filesystem::DirEntry {
                         ino,
                         offset: offset + i as u64 + 1,
-                        type_: ty,
+                        type_: ty as u32,
                         name: store_path.to_string().as_bytes(),
                     })?;
                     // If the buffer is full, add_entry will return `Ok(0)`.
@@ -490,9 +491,9 @@ impl FileSystem for TvixStoreFs {
                     ino: *ino,
                     offset: offset + i as u64 + 1,
                     type_: match child_node {
-                        Node::Directory(_) => libc::S_IFDIR,
-                        Node::File(_) => libc::S_IFREG,
-                        Node::Symlink(_) => libc::S_IFLNK,
+                        Node::Directory(_) => libc::S_IFDIR as u32,
+                        Node::File(_) => libc::S_IFREG as u32,
+                        Node::Symlink(_) => libc::S_IFLNK as u32,
                     },
                     name: child_node.get_name(),
                 })?;

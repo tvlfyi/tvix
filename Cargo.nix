@@ -2190,9 +2190,9 @@ rec {
         edition = "2018";
         workspace_member = null;
         src = pkgs.fetchgit {
-          url = "https://github.com/cloud-hypervisor/fuse-backend-rs";
-          rev = "402e7c531bc75bc44ac366dc59477de8b5d4ca08";
-          sha256 = "0f70f0wxkx4h18wvkpnnpxhyzvg6f9z1063334w1nlfg0n15wb9y";
+          url = "https://github.com/griff/fuse-backend-rs";
+          rev = "70b835cada7e1f18e5cbb13f6c4b698ba203c820";
+          sha256 = "107iaw8zqsz888xh9nkq3vvki1c1rqqqg0mncdplradhhn7wp3kp";
         };
         authors = [
           "Liu Bo <bo.liu@linux.alibaba.com>"

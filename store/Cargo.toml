@@ -34,9 +34,9 @@ tokio-listener = { version = "0.2.1" }
 
 [dependencies.fuse-backend-rs]
 optional = true
-# TODO: Switch back to upstream version once https://github.com/cloud-hypervisor/fuse-backend-rs/pull/153 lands.
-git = "https://github.com/cloud-hypervisor/fuse-backend-rs"
-rev = "402e7c531bc75bc44ac366dc59477de8b5d4ca08"
+# TODO: Switch back to upstream version once https://github.com/cloud-hypervisor/fuse-backend-rs/pull/157 lands.
+git = "https://github.com/griff/fuse-backend-rs"
+branch = "macfuse-fix"
 
 [dependencies.vhost]
 optional = true
