@@ -10,10 +10,8 @@ import (
 	"strings"
 
 	castorev1pb "code.tvl.fyi/tvix/castore/protos"
-	"code.tvl.fyi/tvix/nar-bridge/pkg/hashers"
 	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/nix-community/go-nix/pkg/nar"
-	"lukechampine.com/blake3"
 )
 
 // An item on the directories stack
@@ -34,12 +32,15 @@ func Import(
 	// callback function called with each finalized directory node
 	directoryCb func(directory *castorev1pb.Directory) ([]byte, error),
 ) (*storev1pb.PathInfo, error) {
-	// wrap the passed reader in a reader that records the number of bytes read and
-	// their sha256 sum.
-	hr := hashers.NewHasher(r, sha256.New())
-
-	// construct a NAR reader from the underlying data.
-	narReader, err := nar.NewReader(hr)
+	// We need to wrap the underlying reader a bit.
+	// - we want to keep track of the number of bytes read in total
+	// - we calculate the sha256 digest over all data read
+	// Express these two things in a MultiWriter, and give the NAR reader a
+	// TeeReader that writes to it.
+	narCountW := &CountingWriter{}
+	sha256W := sha256.New()
+	multiW := io.MultiWriter(narCountW, sha256W)
+	narReader, err := nar.NewReader(io.TeeReader(r, multiW))
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate nar reader: %w", err)
 	}
@@ -132,8 +133,8 @@ func Import(
 					Node:       nil,
 					References: [][]byte{},
 					Narinfo: &storev1pb.NARInfo{
-						NarSize:        uint64(hr.BytesWritten()),
-						NarSha256:      hr.Sum(nil),
+						NarSize:        narCountW.BytesWritten(),
+						NarSha256:      sha256W.Sum(nil),
 						Signatures:     []*storev1pb.NARInfo_Signature{},
 						ReferenceNames: []string{},
 					},
@@ -202,8 +203,9 @@ func Import(
 
 			}
 			if hdr.Type == nar.TypeRegular {
-				// wrap reader with a reader calculating the blake3 hash
-				blobReader := hashers.NewHasher(narReader, blake3.New(32, nil))
+				// wrap reader with a reader counting the number of bytes read
+				blobCountW := &CountingWriter{}
+				blobReader := io.TeeReader(narReader, blobCountW)
 
 				blobDigest, err := blobCb(blobReader)
 				if err != nil {
@@ -212,8 +214,8 @@ func Import(
 
 				// ensure blobCb did read all the way to the end.
 				// If it didn't, the blobCb function is wrong and we should bail out.
-				if blobReader.BytesWritten() != uint32(hdr.Size) {
-					panic("not read to end")
+				if blobCountW.BytesWritten() != uint64(hdr.Size) {
+					panic("blobCB did not read to end")
 				}
 
 				fileNode := &castorev1pb.FileNode{
