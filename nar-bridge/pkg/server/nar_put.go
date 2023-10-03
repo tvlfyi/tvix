@@ -43,7 +43,7 @@ func registerNarPut(s *Server) {
 			ctx,
 			// buffer the body by 10MiB
 			bufio.NewReaderSize(r.Body, 10*1024*1024),
-			genBlobServiceWriteCb(ctx, s.blobServiceClient),
+			importer.GenBlobUploaderCb(ctx, s.blobServiceClient),
 			func(directory *castorev1pb.Directory) ([]byte, error) {
 				return directoriesUploader.Put(directory)
 			},

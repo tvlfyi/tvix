@@ -1,4 +1,4 @@
-package server
+package importer
 
 import (
 	"bufio"
@@ -17,7 +17,7 @@ const chunkSize = 1024 * 1024
 
 // this produces a callback function that can be used as blobCb for the
 // importer.Import function call.
-func genBlobServiceWriteCb(ctx context.Context, blobServiceClient castorev1pb.BlobServiceClient) func(io.Reader) ([]byte, error) {
+func GenBlobUploaderCb(ctx context.Context, blobServiceClient castorev1pb.BlobServiceClient) func(io.Reader) ([]byte, error) {
 	return func(blobReader io.Reader) ([]byte, error) {
 		// Ensure the blobReader is buffered to at least the chunk size.
 		blobReader = bufio.NewReaderSize(blobReader, chunkSize)
