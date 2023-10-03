@@ -43,9 +43,9 @@ Potentially copy some data into tvix-store (via nar-bridge):
 
 ```
 mg run //tvix:store -- daemon &
-mg run //tvix:nar-bridge -- &
+$(mg build //tvix:nar-bridge)/bin/nar-bridge-http &
 rm -Rf ~/.cache/nix; nix copy --to http://localhost:9000\?compression\=none $(mg build //third_party/nixpkgs:hello)
-pkill nar-bridge; pkill tvix-store
+pkill nar-bridge-http; pkill tvix-store
 ```
 
 #### Interactive shell

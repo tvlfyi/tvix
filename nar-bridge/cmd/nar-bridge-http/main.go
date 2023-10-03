@@ -55,7 +55,7 @@ func main() {
 		30,
 	)
 
-	log.Printf("Starting nar-bridge at %v", cli.ListenAddr)
+	log.Printf("Starting nar-bridge-http at %v", cli.ListenAddr)
 	go s.ListenAndServe(cli.ListenAddr)
 
 	// listen for the interrupt signal.
