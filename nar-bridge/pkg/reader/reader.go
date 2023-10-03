@@ -97,20 +97,6 @@ func (r *Reader) Import(
 		return nil
 	}
 
-	// Assemble a PathInfo struct, the Node is populated later.
-	assemblePathInfo := func() *storev1pb.PathInfo {
-		return &storev1pb.PathInfo{
-			Node:       nil,
-			References: [][]byte{},
-			Narinfo: &storev1pb.NARInfo{
-				NarSize:        uint64(r.hrSha256.BytesWritten()),
-				NarSha256:      r.hrSha256.Sum(nil),
-				Signatures:     []*storev1pb.NARInfo_Signature{},
-				ReferenceNames: []string{},
-			},
-		}
-	}
-
 	getBasename := func(p string) string {
 		// extract the basename. In case of "/", replace with empty string.
 		basename := path.Base(p)
@@ -151,9 +137,20 @@ func (r *Reader) Import(
 
 				}
 
-				// Stack is empty. We now either have a regular or symlink root node, or we encountered at least one directory.
-				// assemble pathInfo with these and return.
-				pi := assemblePathInfo()
+				// Stack is empty. We now either have a regular or symlink root node,
+				// or we encountered at least one directory assemble pathInfo with these and
+				// return.
+				pi := &storev1pb.PathInfo{
+					Node:       nil,
+					References: [][]byte{},
+					Narinfo: &storev1pb.NARInfo{
+						NarSize:        uint64(r.hrSha256.BytesWritten()),
+						NarSha256:      r.hrSha256.Sum(nil),
+						Signatures:     []*storev1pb.NARInfo_Signature{},
+						ReferenceNames: []string{},
+					},
+				}
+
 				if rootFile != nil {
 					pi.Node = &castorev1pb.Node{
 						Node: &castorev1pb.Node_File{
