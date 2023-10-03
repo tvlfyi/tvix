@@ -20,7 +20,7 @@ type Reader struct {
 }
 
 // An item on the directories stack
-type item struct {
+type stackItem struct {
 	path      string
 	directory *castorev1pb.Directory
 }
@@ -60,7 +60,7 @@ func (r *Reader) Import(
 	var rootFile *castorev1pb.FileNode
 	var stackDirectory *castorev1pb.Directory
 
-	var stack = []item{}
+	var stack = []stackItem{}
 
 	// popFromStack is used when we transition to a different directory or
 	// drain the stack when we reach the end of the NAR.
@@ -253,7 +253,7 @@ func (r *Reader) Import(
 					Files:       []*castorev1pb.FileNode{},
 					Symlinks:    []*castorev1pb.SymlinkNode{},
 				}
-				stack = append(stack, item{
+				stack = append(stack, stackItem{
 					directory: directory,
 					path:      hdr.Path,
 				})
