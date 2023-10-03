@@ -136,8 +136,8 @@ mod tests {
         0xb3, 0xa2, 0x4d, 0xe9, 0x7a, 0x8f, 0xdb, 0xc8, 0x35, 0xb9, 0x83, 0x31, 0x69, 0x50, 0x10, 0x30,
         0xb8, 0x97, 0x70, 0x31, 0xbc, 0xb5, 0x4b, 0x3b, 0x3a, 0xc1, 0x37, 0x40, 0xf8, 0x46, 0xab, 0x30,
     ]); "sha256")]
-    // this is invalid encoding, because it encodes 10 1-bytes, so the carry
-    // would be 2 1-bytes
+    // this is invalid encoding, because it encodes 10 1-bits, so the carry
+    // would be 2 1-bits
     #[test_case("zz", None; "invalid encoding-1")]
     // this is an even more specific example - it'd decode as 00000000 11
     #[test_case("c0", None; "invalid encoding-2")]
