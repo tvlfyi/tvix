@@ -25,7 +25,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// renderNarinfo writes narinfo contents to a passes io.Writer, or a returns a
+// renderNarinfo writes narinfo contents to a passed io.Writer, or a returns a
 // (wrapped) io.ErrNoExist error if something doesn't exist.
 // if headOnly is set to true, only the existence is checked, but no content is
 // actually written.
