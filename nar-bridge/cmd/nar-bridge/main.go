@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	castorev1pb "code.tvl.fyi/tvix/castore/protos"
-	"code.tvl.fyi/tvix/nar-bridge/pkg/server"
+	narBridgeHttp "code.tvl.fyi/tvix/nar-bridge/pkg/http"
 	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
@@ -47,7 +47,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	s := server.New(
+	s := narBridgeHttp.New(
 		castorev1pb.NewDirectoryServiceClient(conn),
 		castorev1pb.NewBlobServiceClient(conn),
 		storev1pb.NewPathInfoServiceClient(conn),
