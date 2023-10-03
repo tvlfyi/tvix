@@ -155,65 +155,42 @@ func renderNar(
 }
 
 func registerNarGet(s *Server) {
-	// TODO: properly compose this
-	s.handler.Head(narUrl, func(w http.ResponseWriter, r *http.Request) {
-		defer r.Body.Close()
+	// produce a handler for rendering NAR files.
+	genNarHandler := func(isHead bool) func(w http.ResponseWriter, r *http.Request) {
+		return func(w http.ResponseWriter, r *http.Request) {
+			defer r.Body.Close()
 
-		ctx := r.Context()
+			ctx := r.Context()
 
-		// parse the narhash sent in the request URL
-		narHash, err := parseNarHashFromUrl(chi.URLParamFromCtx(ctx, "narhash"))
-		if err != nil {
-			log.WithError(err).WithField("url", r.URL).Error("unable to decode nar hash from url")
-			w.WriteHeader(http.StatusBadRequest)
-			_, err := w.Write([]byte("unable to decode nar hash from url"))
+			// parse the narhash sent in the request URL
+			narHash, err := parseNarHashFromUrl(chi.URLParamFromCtx(ctx, "narhash"))
 			if err != nil {
-				log.WithError(err).Errorf("unable to write error message to client")
+				log.WithError(err).WithField("url", r.URL).Error("unable to decode nar hash from url")
+				w.WriteHeader(http.StatusBadRequest)
+				_, err := w.Write([]byte("unable to decode nar hash from url"))
+				if err != nil {
+					log.WithError(err).Errorf("unable to write error message to client")
+				}
+
+				return
 			}
 
-			return
-		}
+			log := log.WithField("narhash_url", narHash.SRIString())
 
-		log := log.WithField("narhash_url", narHash.SRIString())
-
-		err = renderNar(ctx, log, s.directoryServiceClient, s.blobServiceClient, &s.narHashToPathInfoMu, s.narHashToPathInfo, w, narHash, true)
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				w.WriteHeader(http.StatusNotFound)
-			} else {
-				log.WithError(err).Warn("unable to render nar")
-				w.WriteHeader(http.StatusInternalServerError)
-			}
-		}
-
-	})
-	s.handler.Get(narUrl, func(w http.ResponseWriter, r *http.Request) {
-		defer r.Body.Close()
-
-		ctx := r.Context()
-
-		// parse the narhash sent in the request URL
-		narHash, err := parseNarHashFromUrl(chi.URLParamFromCtx(ctx, "narhash"))
-		if err != nil {
-			log.WithError(err).WithField("url", r.URL).Error("unable to decode nar hash from url")
-			w.WriteHeader(http.StatusBadRequest)
-			_, err := w.Write([]byte("unable to decode nar hash from url"))
+			// TODO: inline more of that function here?
+			err = renderNar(ctx, log, s.directoryServiceClient, s.blobServiceClient, &s.narHashToPathInfoMu, s.narHashToPathInfo, w, narHash, isHead)
 			if err != nil {
-				log.WithError(err).Errorf("unable to write error message to client")
+				if errors.Is(err, fs.ErrNotExist) {
+					w.WriteHeader(http.StatusNotFound)
+				} else {
+					log.WithError(err).Warn("unable to render nar")
+					w.WriteHeader(http.StatusInternalServerError)
+				}
 			}
 
-			return
 		}
+	}
 
-		log := log.WithField("narhash_url", narHash.SRIString())
-
-		err = renderNar(ctx, log, s.directoryServiceClient, s.blobServiceClient, &s.narHashToPathInfoMu, s.narHashToPathInfo, w, narHash, false)
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				w.WriteHeader(http.StatusNotFound)
-			} else {
-				w.WriteHeader(http.StatusInternalServerError)
-			}
-		}
-	})
+	s.handler.Head(narUrl, genNarHandler(true))
+	s.handler.Get(narUrl, genNarHandler(false))
 }
