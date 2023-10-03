@@ -16,7 +16,7 @@ import (
 const chunkSize = 1024 * 1024
 
 // this produces a callback function that can be used as blobCb for the
-// reader.Import function call
+// importer.Import function call.
 func genBlobServiceWriteCb(ctx context.Context, blobServiceClient castorev1pb.BlobServiceClient) func(io.Reader) error {
 	return func(blobReader io.Reader) error {
 		// Ensure the blobReader is buffered to at least the chunk size.

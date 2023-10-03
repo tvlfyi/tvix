@@ -1,4 +1,4 @@
-package reader_test
+package importer_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	castorev1pb "code.tvl.fyi/tvix/castore/protos"
-	"code.tvl.fyi/tvix/nar-bridge/pkg/reader"
+	"code.tvl.fyi/tvix/nar-bridge/pkg/importer"
 	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
@@ -33,10 +33,9 @@ func TestSymlink(t *testing.T) {
 	f, err := os.Open("../../testdata/symlink.nar")
 	require.NoError(t, err)
 
-	r := reader.New(f)
-
-	actualPathInfo, err := r.Import(
+	actualPathInfo, err := importer.Import(
 		context.Background(),
+		f,
 		func(fileReader io.Reader) error {
 			panic("no file contents expected!")
 		}, func(directory *castorev1pb.Directory) error {
@@ -72,10 +71,9 @@ func TestRegular(t *testing.T) {
 	f, err := os.Open("../../testdata/onebyteregular.nar")
 	require.NoError(t, err)
 
-	r := reader.New(f)
-
-	actualPathInfo, err := r.Import(
+	actualPathInfo, err := importer.Import(
 		context.Background(),
+		f,
 		func(fileReader io.Reader) error {
 			contents, err := io.ReadAll(fileReader)
 			require.NoError(t, err, "reading fileReader should not error")
@@ -123,15 +121,14 @@ func TestEmptyDirectory(t *testing.T) {
 	f, err := os.Open("../../testdata/emptydirectory.nar")
 	require.NoError(t, err)
 
-	r := reader.New(f)
-
 	expectedDirectory := &castorev1pb.Directory{
 		Directories: []*castorev1pb.DirectoryNode{},
 		Files:       []*castorev1pb.FileNode{},
 		Symlinks:    []*castorev1pb.SymlinkNode{},
 	}
-	actualPathInfo, err := r.Import(
+	actualPathInfo, err := importer.Import(
 		context.Background(),
+		f,
 		func(fileReader io.Reader) error {
 			panic("no file contents expected!")
 		}, func(directory *castorev1pb.Directory) error {
@@ -167,8 +164,6 @@ func TestEmptyDirectory(t *testing.T) {
 func TestFull(t *testing.T) {
 	f, err := os.Open("../../testdata/nar_1094wph9z4nwlgvsd53abfz8i117ykiv5dwnq9nnhz846s7xqd7d.nar")
 	require.NoError(t, err)
-
-	r := reader.New(f)
 
 	expectedDirectoryPaths := []string{
 		"/bin",
@@ -478,8 +473,9 @@ func TestFull(t *testing.T) {
 
 	numDirectoriesReceived := 0
 
-	actualPathInfo, err := r.Import(
+	actualPathInfo, err := importer.Import(
 		context.Background(),
+		f,
 		func(fileReader io.Reader) error {
 			// Don't really bother reading and comparing the contents here,
 			// We already verify the right digests are produced by comparing the
@@ -533,12 +529,11 @@ func TestCallbackErrors(t *testing.T) {
 		f, err := os.Open("../../testdata/onebyteregular.nar")
 		require.NoError(t, err)
 
-		r := reader.New(f)
-
 		targetErr := errors.New("expected error")
 
-		_, err = r.Import(
+		_, err = importer.Import(
 			context.Background(),
+			f,
 			func(fileReader io.Reader) error {
 				return targetErr
 			}, func(directory *castorev1pb.Directory) error {
@@ -552,12 +547,11 @@ func TestCallbackErrors(t *testing.T) {
 		f, err := os.Open("../../testdata/emptydirectory.nar")
 		require.NoError(t, err)
 
-		r := reader.New(f)
-
 		targetErr := errors.New("expected error")
 
-		_, err = r.Import(
+		_, err = importer.Import(
 			context.Background(),
+			f,
 			func(fileReader io.Reader) error {
 				panic("no file contents expected!")
 			}, func(directory *castorev1pb.Directory) error {
@@ -585,9 +579,9 @@ func TestPopDirectories(t *testing.T) {
 	require.NoError(t, err)
 	defer f.Close()
 
-	r := reader.New(f)
-	_, err = r.Import(
+	_, err = importer.Import(
 		context.Background(),
+		f,
 		func(fileReader io.Reader) error { return nil },
 		func(directory *castorev1pb.Directory) error {
 			return directory.Validate()

@@ -1,4 +1,4 @@
-package reader
+package hashers
 
 import (
 	"errors"

@@ -1,4 +1,4 @@
-package reader
+package importer
 
 import (
 	"context"
@@ -10,14 +10,11 @@ import (
 	"strings"
 
 	castorev1pb "code.tvl.fyi/tvix/castore/protos"
+	"code.tvl.fyi/tvix/nar-bridge/pkg/hashers"
 	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/nix-community/go-nix/pkg/nar"
 	"lukechampine.com/blake3"
 )
-
-type Reader struct {
-	hrSha256 *Hasher
-}
 
 // An item on the directories stack
 type stackItem struct {
@@ -25,30 +22,24 @@ type stackItem struct {
 	directory *castorev1pb.Directory
 }
 
-func New(r io.Reader) *Reader {
-	// Instead of using the underlying reader itself, wrap the reader
-	// with a hasher calculating sha256 and one calculating sha512,
-	// and feed that one into the NAR reader.
-	hrSha256 := NewHasher(r, sha256.New())
-
-	return &Reader{
-		hrSha256: hrSha256,
-	}
-}
-
-// Import reads from the internally-wrapped reader,
-// and calls the callback functions whenever regular file contents are
-// encountered, or a Directory node is about to be finished.
-func (r *Reader) Import(
+// Import reads NAR from a reader, and returns a (sparsely populated) PathInfo
+// object.
+func Import(
+	// a context, to support cancellation
 	ctx context.Context,
+	// The reader the data is read from
+	r io.Reader,
 	// callback function called with each regular file content
 	blobCb func(fileReader io.Reader) error,
 	// callback function called with each finalized directory node
 	directoryCb func(directory *castorev1pb.Directory) error,
 ) (*storev1pb.PathInfo, error) {
+	// wrap the passed reader in a reader that records the number of bytes read and
+	// their sha256 sum.
+	hr := hashers.NewHasher(r, sha256.New())
 
-	// construct a NAR reader, by reading through hrSha256
-	narReader, err := nar.NewReader(r.hrSha256)
+	// construct a NAR reader from the underlying data.
+	narReader, err := nar.NewReader(hr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate nar reader: %w", err)
 	}
@@ -144,8 +135,8 @@ func (r *Reader) Import(
 					Node:       nil,
 					References: [][]byte{},
 					Narinfo: &storev1pb.NARInfo{
-						NarSize:        uint64(r.hrSha256.BytesWritten()),
-						NarSha256:      r.hrSha256.Sum(nil),
+						NarSize:        uint64(hr.BytesWritten()),
+						NarSha256:      hr.Sum(nil),
 						Signatures:     []*storev1pb.NARInfo_Signature{},
 						ReferenceNames: []string{},
 					},
@@ -215,7 +206,7 @@ func (r *Reader) Import(
 			}
 			if hdr.Type == nar.TypeRegular {
 				// wrap reader with a reader calculating the blake3 hash
-				fileReader := NewHasher(narReader, blake3.New(32, nil))
+				fileReader := hashers.NewHasher(narReader, blake3.New(32, nil))
 
 				err := blobCb(fileReader)
 				if err != nil {

@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	castorev1pb "code.tvl.fyi/tvix/castore/protos"
-	"code.tvl.fyi/tvix/nar-bridge/pkg/reader"
+	"code.tvl.fyi/tvix/nar-bridge/pkg/importer"
 	"github.com/go-chi/chi/v5"
 	nixhash "github.com/nix-community/go-nix/pkg/hash"
 	"github.com/nix-community/go-nix/pkg/nixbase32"
@@ -39,10 +39,10 @@ func registerNarPut(s *Server) {
 		directoriesUploader := NewDirectoriesUploader(ctx, s.directoryServiceClient)
 		defer directoriesUploader.Done() //nolint:errcheck
 
-		// buffer the body by 10MiB
-		rd := reader.New(bufio.NewReaderSize(r.Body, 10*1024*1024))
-		pathInfo, err := rd.Import(
+		pathInfo, err := importer.Import(
 			ctx,
+			// buffer the body by 10MiB
+			bufio.NewReaderSize(r.Body, 10*1024*1024),
 			genBlobServiceWriteCb(ctx, s.blobServiceClient),
 			func(directory *castorev1pb.Directory) error {
 				return directoriesUploader.Put(directory)

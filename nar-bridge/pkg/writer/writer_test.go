@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	castorev1pb "code.tvl.fyi/tvix/castore/protos"
-	"code.tvl.fyi/tvix/nar-bridge/pkg/reader"
+	"code.tvl.fyi/tvix/nar-bridge/pkg/importer"
 	"code.tvl.fyi/tvix/nar-bridge/pkg/writer"
 	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/stretchr/testify/require"
@@ -159,9 +159,9 @@ func TestFull(t *testing.T) {
 	filesMap := make(map[string][]byte, 0)
 	directoriesMap := make(map[string]*castorev1pb.Directory)
 
-	r := reader.New(bytes.NewBuffer(narContents))
-	pathInfo, err := r.Import(
+	pathInfo, err := importer.Import(
 		context.Background(),
+		bytes.NewBuffer(narContents),
 		func(fileReader io.Reader) error {
 			fileContents, err := io.ReadAll(fileReader)
 			require.NoError(t, err)
