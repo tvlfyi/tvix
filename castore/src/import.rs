@@ -61,10 +61,10 @@ impl From<CastoreError> for Error {
 //
 // It assumes the caller adds returned nodes to the directories it assembles.
 #[instrument(skip_all, fields(entry.file_type=?&entry.file_type(),entry.path=?entry.path()))]
-async fn process_entry(
+async fn process_entry<'a>(
     blob_service: Arc<dyn BlobService>,
-    directory_putter: &mut Box<dyn DirectoryPutter>,
-    entry: &walkdir::DirEntry,
+    directory_putter: &'a mut Box<dyn DirectoryPutter>,
+    entry: &'a walkdir::DirEntry,
     maybe_directory: Option<Directory>,
 ) -> Result<Node, Error> {
     let file_type = entry.file_type();
