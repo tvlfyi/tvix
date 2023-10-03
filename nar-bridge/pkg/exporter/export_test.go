@@ -1,4 +1,4 @@
-package writer_test
+package exporter_test
 
 import (
 	"bytes"
@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	castorev1pb "code.tvl.fyi/tvix/castore/protos"
+	"code.tvl.fyi/tvix/nar-bridge/pkg/exporter"
 	"code.tvl.fyi/tvix/nar-bridge/pkg/importer"
-	"code.tvl.fyi/tvix/nar-bridge/pkg/writer"
 	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/stretchr/testify/require"
 	"lukechampine.com/blake3"
@@ -49,7 +49,7 @@ func TestSymlink(t *testing.T) {
 
 	var buf bytes.Buffer
 
-	err := writer.Export(&buf, pathInfo, func([]byte) (*castorev1pb.Directory, error) {
+	err := exporter.Export(&buf, pathInfo, func([]byte) (*castorev1pb.Directory, error) {
 		panic("no directories expected")
 	}, func([]byte) (io.ReadCloser, error) {
 		panic("no files expected")
@@ -90,7 +90,7 @@ func TestRegular(t *testing.T) {
 
 	var buf bytes.Buffer
 
-	err := writer.Export(&buf, pathInfo, func([]byte) (*castorev1pb.Directory, error) {
+	err := exporter.Export(&buf, pathInfo, func([]byte) (*castorev1pb.Directory, error) {
 		panic("no directories expected")
 	}, func(blobRef []byte) (io.ReadCloser, error) {
 		if !bytes.Equal(blobRef, BLAKE3_DIGEST_0X01) {
@@ -134,7 +134,7 @@ func TestEmptyDirectory(t *testing.T) {
 
 	var buf bytes.Buffer
 
-	err := writer.Export(&buf, pathInfo, func(directoryRef []byte) (*castorev1pb.Directory, error) {
+	err := exporter.Export(&buf, pathInfo, func(directoryRef []byte) (*castorev1pb.Directory, error) {
 		if !bytes.Equal(directoryRef, emptyDirectoryDigest) {
 			panic("unexpected directoryRef")
 		}
@@ -196,7 +196,7 @@ func TestFull(t *testing.T) {
 
 	// done populating everything, now actually test the export :-)
 	var buf bytes.Buffer
-	err = writer.Export(
+	err = exporter.Export(
 		&buf,
 		pathInfo,
 		func(directoryDgst []byte) (*castorev1pb.Directory, error) {

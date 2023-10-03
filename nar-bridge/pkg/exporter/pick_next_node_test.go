@@ -1,4 +1,4 @@
-package writer
+package exporter
 
 import (
 	"testing"

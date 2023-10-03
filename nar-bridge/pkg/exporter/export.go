@@ -1,4 +1,4 @@
-package writer
+package exporter
 
 import (
 	"fmt"
@@ -13,7 +13,7 @@ import (
 type DirectoryLookupFn func([]byte) (*castorev1pb.Directory, error)
 type BlobLookupFn func([]byte) (io.ReadCloser, error)
 
-// Export will traverse a given pathInfo structure, and write the contents
+// Export will traverse a given PathInfo structure, and write the contents
 // in NAR format to the passed Writer.
 // It uses directoryLookupFn and blobLookupFn to resolve references.
 func Export(

@@ -13,7 +13,7 @@ import (
 	"sync"
 
 	castorev1pb "code.tvl.fyi/tvix/castore/protos"
-	"code.tvl.fyi/tvix/nar-bridge/pkg/writer"
+	"code.tvl.fyi/tvix/nar-bridge/pkg/exporter"
 	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/go-chi/chi/v5"
 	nixhash "github.com/nix-community/go-nix/pkg/hash"
@@ -94,7 +94,7 @@ func renderNar(
 	}
 
 	// render the NAR file
-	err := writer.Export(
+	err := exporter.Export(
 		w,
 		pathInfo,
 		func(directoryDigest []byte) (*castorev1pb.Directory, error) {
