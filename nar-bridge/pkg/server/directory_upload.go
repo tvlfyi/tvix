@@ -9,6 +9,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// DirectoriesUploader opens a Put stream when it receives the first Put() call,
+// and then uses the opened stream for subsequent Put() calls.
+// When the uploading is finished, a call to Done() will close the stream and
+// return the root digest returned from the directoryServiceClient.
 type DirectoriesUploader struct {
 	ctx                       context.Context
 	directoryServiceClient    castorev1pb.DirectoryServiceClient
@@ -49,7 +53,7 @@ func (du *DirectoriesUploader) Put(directory *castorev1pb.Directory) ([]byte, er
 	return directoryDigest, nil
 }
 
-// Done is called whenever we're
+// Done closes the stream and returns the response.
 func (du *DirectoriesUploader) Done() (*castorev1pb.PutDirectoryResponse, error) {
 	// only close once, and only if we opened.
 	if du.directoryServicePutStream == nil {
