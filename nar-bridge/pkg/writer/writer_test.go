@@ -3,7 +3,8 @@ package writer_test
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
+	"encoding/base64"
+	"fmt"
 	"io"
 	"os"
 	"testing"
@@ -16,12 +17,21 @@ import (
 	"lukechampine.com/blake3"
 )
 
-func mustDigest(d *castorev1pb.Directory) []byte {
+func mustDirectoryDigest(d *castorev1pb.Directory) []byte {
 	dgst, err := d.Digest()
 	if err != nil {
 		panic(err)
 	}
 	return dgst
+}
+
+func mustBlobDigest(r io.Reader) []byte {
+	hasher := blake3.New(32, nil)
+	_, err := io.Copy(hasher, r)
+	if err != nil {
+		panic(err)
+	}
+	return hasher.Sum([]byte{})
 }
 
 func TestSymlink(t *testing.T) {
@@ -108,7 +118,7 @@ func TestEmptyDirectory(t *testing.T) {
 		Files:       []*castorev1pb.FileNode{},
 		Symlinks:    []*castorev1pb.SymlinkNode{},
 	}
-	emptyDirectoryDigest := mustDigest(emptyDirectory)
+	emptyDirectoryDigest := mustDirectoryDigest(emptyDirectory)
 
 	pathInfo := &storev1pb.PathInfo{
 		Node: &castorev1pb.Node{
@@ -156,54 +166,52 @@ func TestFull(t *testing.T) {
 	narContents, err := io.ReadAll(f)
 	require.NoError(t, err)
 
-	filesMap := make(map[string][]byte, 0)
+	blobsMap := make(map[string][]byte, 0)
 	directoriesMap := make(map[string]*castorev1pb.Directory)
 
 	pathInfo, err := importer.Import(
 		context.Background(),
 		bytes.NewBuffer(narContents),
-		func(fileReader io.Reader) error {
-			fileContents, err := io.ReadAll(fileReader)
+		func(blobReader io.Reader) ([]byte, error) {
+			// read in contents, we need to put it into filesMap later.
+			contents, err := io.ReadAll(blobReader)
 			require.NoError(t, err)
 
-			b3Writer := blake3.New(32, nil)
-			_, err = io.Copy(b3Writer, bytes.NewReader(fileContents))
-			require.NoError(t, err)
+			dgst := mustBlobDigest(bytes.NewReader(contents))
 
 			// put it in filesMap
-			filesMap[hex.EncodeToString(b3Writer.Sum(nil))] = fileContents
+			blobsMap[base64.StdEncoding.EncodeToString(dgst)] = contents
 
-			return nil
+			return dgst, nil
 		},
-		func(directory *castorev1pb.Directory) error {
-			dgst := mustDigest(directory)
+		func(directory *castorev1pb.Directory) ([]byte, error) {
+			dgst := mustDirectoryDigest(directory)
 
-			directoriesMap[hex.EncodeToString(dgst)] = directory
-			return nil
+			directoriesMap[base64.StdEncoding.EncodeToString(dgst)] = directory
+			return dgst, nil
 		},
 	)
 
 	require.NoError(t, err)
 
 	// done populating everything, now actually test the export :-)
-
 	var buf bytes.Buffer
 	err = writer.Export(
 		&buf,
 		pathInfo,
-		func(directoryRef []byte) (*castorev1pb.Directory, error) {
-			d, found := directoriesMap[hex.EncodeToString(directoryRef)]
+		func(directoryDgst []byte) (*castorev1pb.Directory, error) {
+			d, found := directoriesMap[base64.StdEncoding.EncodeToString(directoryDgst)]
 			if !found {
-				panic("directories not found")
+				panic(fmt.Sprintf("directory %v not found", base64.StdEncoding.EncodeToString(directoryDgst)))
 			}
 			return d, nil
 		},
-		func(fileRef []byte) (io.ReadCloser, error) {
-			fileContents, found := filesMap[hex.EncodeToString(fileRef)]
+		func(blobDgst []byte) (io.ReadCloser, error) {
+			blobContents, found := blobsMap[base64.StdEncoding.EncodeToString(blobDgst)]
 			if !found {
-				panic("file not found")
+				panic(fmt.Sprintf("blob      %v not found", base64.StdEncoding.EncodeToString(blobDgst)))
 			}
-			return io.NopCloser(bytes.NewReader(fileContents)), nil
+			return io.NopCloser(bytes.NewReader(blobContents)), nil
 		},
 	)
 

@@ -1,6 +1,7 @@
 package importer_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
+	"lukechampine.com/blake3"
 )
 
 func requireProtoEq(t *testing.T, expected interface{}, actual interface{}) {
@@ -21,12 +23,21 @@ func requireProtoEq(t *testing.T, expected interface{}, actual interface{}) {
 	}
 }
 
-func mustDigest(d *castorev1pb.Directory) []byte {
+func mustDirectoryDigest(d *castorev1pb.Directory) []byte {
 	dgst, err := d.Digest()
 	if err != nil {
 		panic(err)
 	}
 	return dgst
+}
+
+func mustBlobDigest(r io.Reader) []byte {
+	hasher := blake3.New(32, nil)
+	_, err := io.Copy(hasher, r)
+	if err != nil {
+		panic(err)
+	}
+	return hasher.Sum([]byte{})
 }
 
 func TestSymlink(t *testing.T) {
@@ -36,9 +47,9 @@ func TestSymlink(t *testing.T) {
 	actualPathInfo, err := importer.Import(
 		context.Background(),
 		f,
-		func(fileReader io.Reader) error {
+		func(blobReader io.Reader) ([]byte, error) {
 			panic("no file contents expected!")
-		}, func(directory *castorev1pb.Directory) error {
+		}, func(directory *castorev1pb.Directory) ([]byte, error) {
 			panic("no directories expected!")
 		},
 	)
@@ -74,12 +85,12 @@ func TestRegular(t *testing.T) {
 	actualPathInfo, err := importer.Import(
 		context.Background(),
 		f,
-		func(fileReader io.Reader) error {
-			contents, err := io.ReadAll(fileReader)
-			require.NoError(t, err, "reading fileReader should not error")
-			require.Equal(t, []byte{0x01}, contents, "contents read from fileReader should match expectations")
-			return nil
-		}, func(directory *castorev1pb.Directory) error {
+		func(blobReader io.Reader) ([]byte, error) {
+			contents, err := io.ReadAll(blobReader)
+			require.NoError(t, err, "reading blobReader should not error")
+			require.Equal(t, []byte{0x01}, contents, "contents read from blobReader should match expectations")
+			return mustBlobDigest(bytes.NewBuffer(contents)), nil
+		}, func(directory *castorev1pb.Directory) ([]byte, error) {
 			panic("no directories expected!")
 		},
 	)
@@ -129,11 +140,11 @@ func TestEmptyDirectory(t *testing.T) {
 	actualPathInfo, err := importer.Import(
 		context.Background(),
 		f,
-		func(fileReader io.Reader) error {
+		func(blobReader io.Reader) ([]byte, error) {
 			panic("no file contents expected!")
-		}, func(directory *castorev1pb.Directory) error {
+		}, func(directory *castorev1pb.Directory) ([]byte, error) {
 			requireProtoEq(t, expectedDirectory, directory)
-			return nil
+			return mustDirectoryDigest(directory), nil
 		},
 	)
 	require.NoError(t, err)
@@ -143,7 +154,7 @@ func TestEmptyDirectory(t *testing.T) {
 			Node: &castorev1pb.Node_Directory{
 				Directory: &castorev1pb.DirectoryNode{
 					Name:   []byte(""),
-					Digest: mustDigest(expectedDirectory),
+					Digest: mustDirectoryDigest(expectedDirectory),
 					Size:   expectedDirectory.Size(),
 				},
 			},
@@ -415,17 +426,17 @@ func TestFull(t *testing.T) {
 		Directories: []*castorev1pb.DirectoryNode{
 			{
 				Name:   []byte("man1"),
-				Digest: mustDigest(expectedDirectories["/share/man/man1"]),
+				Digest: mustDirectoryDigest(expectedDirectories["/share/man/man1"]),
 				Size:   expectedDirectories["/share/man/man1"].Size(),
 			},
 			{
 				Name:   []byte("man5"),
-				Digest: mustDigest(expectedDirectories["/share/man/man5"]),
+				Digest: mustDirectoryDigest(expectedDirectories["/share/man/man5"]),
 				Size:   expectedDirectories["/share/man/man5"].Size(),
 			},
 			{
 				Name:   []byte("man8"),
-				Digest: mustDigest(expectedDirectories["/share/man/man8"]),
+				Digest: mustDirectoryDigest(expectedDirectories["/share/man/man8"]),
 				Size:   expectedDirectories["/share/man/man8"].Size(),
 			},
 		},
@@ -438,7 +449,7 @@ func TestFull(t *testing.T) {
 		Directories: []*castorev1pb.DirectoryNode{
 			{
 				Name:   []byte("man"),
-				Digest: mustDigest(expectedDirectories["/share/man"]),
+				Digest: mustDirectoryDigest(expectedDirectories["/share/man"]),
 				Size:   expectedDirectories["/share/man"].Size(),
 			},
 		},
@@ -451,12 +462,12 @@ func TestFull(t *testing.T) {
 		Directories: []*castorev1pb.DirectoryNode{
 			{
 				Name:   []byte("bin"),
-				Digest: mustDigest(expectedDirectories["/bin"]),
+				Digest: mustDirectoryDigest(expectedDirectories["/bin"]),
 				Size:   expectedDirectories["/bin"].Size(),
 			},
 			{
 				Name:   []byte("share"),
-				Digest: mustDigest(expectedDirectories["/share"]),
+				Digest: mustDirectoryDigest(expectedDirectories["/share"]),
 				Size:   expectedDirectories["/share"].Size(),
 			},
 		},
@@ -476,14 +487,12 @@ func TestFull(t *testing.T) {
 	actualPathInfo, err := importer.Import(
 		context.Background(),
 		f,
-		func(fileReader io.Reader) error {
+		func(blobReader io.Reader) ([]byte, error) {
 			// Don't really bother reading and comparing the contents here,
 			// We already verify the right digests are produced by comparing the
 			// directoryCb calls, and TestRegular ensures the reader works.
-			// This also covers the case when the client doesn't read from the reader, and that the
-			// importer will take care of reading all the way to the end no matter what.
-			return nil
-		}, func(directory *castorev1pb.Directory) error {
+			return mustBlobDigest(blobReader), nil
+		}, func(directory *castorev1pb.Directory) ([]byte, error) {
 			// use actualDirectoryOrder to look up the Directory object we expect at this specific invocation.
 			currentDirectoryPath := expectedDirectoryPaths[numDirectoriesReceived]
 
@@ -493,7 +502,7 @@ func TestFull(t *testing.T) {
 			requireProtoEq(t, expectedDirectory, directory)
 
 			numDirectoriesReceived += 1
-			return nil
+			return mustDirectoryDigest(directory), nil
 		},
 	)
 	require.NoError(t, err)
@@ -503,7 +512,7 @@ func TestFull(t *testing.T) {
 			Node: &castorev1pb.Node_Directory{
 				Directory: &castorev1pb.DirectoryNode{
 					Name:   []byte(""),
-					Digest: mustDigest(expectedDirectories["/"]),
+					Digest: mustDirectoryDigest(expectedDirectories["/"]),
 					Size:   expectedDirectories["/"].Size(),
 				},
 			},
@@ -524,7 +533,7 @@ func TestFull(t *testing.T) {
 // TestCallbackErrors ensures that errors returned from the callback function
 // bubble up to the importer process, and are not ignored.
 func TestCallbackErrors(t *testing.T) {
-	t.Run("callback file", func(t *testing.T) {
+	t.Run("callback blob", func(t *testing.T) {
 		// Pick an example NAR with a regular file.
 		f, err := os.Open("../../testdata/onebyteregular.nar")
 		require.NoError(t, err)
@@ -534,9 +543,9 @@ func TestCallbackErrors(t *testing.T) {
 		_, err = importer.Import(
 			context.Background(),
 			f,
-			func(fileReader io.Reader) error {
-				return targetErr
-			}, func(directory *castorev1pb.Directory) error {
+			func(blobReader io.Reader) ([]byte, error) {
+				return nil, targetErr
+			}, func(directory *castorev1pb.Directory) ([]byte, error) {
 				panic("no directories expected!")
 			},
 		)
@@ -552,10 +561,10 @@ func TestCallbackErrors(t *testing.T) {
 		_, err = importer.Import(
 			context.Background(),
 			f,
-			func(fileReader io.Reader) error {
+			func(blobReader io.Reader) ([]byte, error) {
 				panic("no file contents expected!")
-			}, func(directory *castorev1pb.Directory) error {
-				return targetErr
+			}, func(directory *castorev1pb.Directory) ([]byte, error) {
+				return nil, targetErr
 			},
 		)
 		require.ErrorIs(t, err, targetErr)
@@ -582,9 +591,10 @@ func TestPopDirectories(t *testing.T) {
 	_, err = importer.Import(
 		context.Background(),
 		f,
-		func(fileReader io.Reader) error { return nil },
-		func(directory *castorev1pb.Directory) error {
-			return directory.Validate()
+		func(blobReader io.Reader) ([]byte, error) { return mustBlobDigest(blobReader), nil },
+		func(directory *castorev1pb.Directory) ([]byte, error) {
+			require.NoError(t, directory.Validate(), "directory validation shouldn't error")
+			return mustDirectoryDigest(directory), nil
 		},
 	)
 	require.NoError(t, err)

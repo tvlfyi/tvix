@@ -17,15 +17,15 @@ const chunkSize = 1024 * 1024
 
 // this produces a callback function that can be used as blobCb for the
 // importer.Import function call.
-func genBlobServiceWriteCb(ctx context.Context, blobServiceClient castorev1pb.BlobServiceClient) func(io.Reader) error {
-	return func(blobReader io.Reader) error {
+func genBlobServiceWriteCb(ctx context.Context, blobServiceClient castorev1pb.BlobServiceClient) func(io.Reader) ([]byte, error) {
+	return func(blobReader io.Reader) ([]byte, error) {
 		// Ensure the blobReader is buffered to at least the chunk size.
 		blobReader = bufio.NewReaderSize(blobReader, chunkSize)
 
 		putter, err := blobServiceClient.Put(ctx)
 		if err != nil {
 			// return error to the importer
-			return fmt.Errorf("error from blob service: %w", err)
+			return nil, fmt.Errorf("error from blob service: %w", err)
 		}
 
 		blobSize := 0
@@ -34,7 +34,7 @@ func genBlobServiceWriteCb(ctx context.Context, blobServiceClient castorev1pb.Bl
 		for {
 			n, err := blobReader.Read(chunk)
 			if err != nil && !errors.Is(err, io.EOF) {
-				return fmt.Errorf("unable to read from blobreader: %w", err)
+				return nil, fmt.Errorf("unable to read from blobreader: %w", err)
 			}
 
 			if n != 0 {
@@ -45,7 +45,7 @@ func genBlobServiceWriteCb(ctx context.Context, blobServiceClient castorev1pb.Bl
 				if err := putter.Send(&castorev1pb.BlobChunk{
 					Data: chunk[:n],
 				}); err != nil {
-					return fmt.Errorf("sending blob chunk: %w", err)
+					return nil, fmt.Errorf("sending blob chunk: %w", err)
 				}
 			}
 
@@ -58,7 +58,7 @@ func genBlobServiceWriteCb(ctx context.Context, blobServiceClient castorev1pb.Bl
 
 		resp, err := putter.CloseAndRecv()
 		if err != nil {
-			return fmt.Errorf("close blob putter: %w", err)
+			return nil, fmt.Errorf("close blob putter: %w", err)
 		}
 
 		log.WithFields(log.Fields{
@@ -66,6 +66,6 @@ func genBlobServiceWriteCb(ctx context.Context, blobServiceClient castorev1pb.Bl
 			"blob_size":   blobSize,
 		}).Debug("uploaded blob")
 
-		return nil
+		return resp.GetDigest(), nil
 	}
 }

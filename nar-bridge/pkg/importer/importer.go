@@ -30,9 +30,9 @@ func Import(
 	// The reader the data is read from
 	r io.Reader,
 	// callback function called with each regular file content
-	blobCb func(fileReader io.Reader) error,
+	blobCb func(fileReader io.Reader) ([]byte, error),
 	// callback function called with each finalized directory node
-	directoryCb func(directory *castorev1pb.Directory) error,
+	directoryCb func(directory *castorev1pb.Directory) ([]byte, error),
 ) (*storev1pb.PathInfo, error) {
 	// wrap the passed reader in a reader that records the number of bytes read and
 	// their sha256 sum.
@@ -65,23 +65,20 @@ func Import(
 		toPop := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
 
+		// call the directoryCb
+		directoryDigest, err := directoryCb(toPop.directory)
+		if err != nil {
+			return fmt.Errorf("failed calling directoryCb: %w", err)
+		}
+
 		// if there's still a parent left on the stack, refer to it from there.
 		if len(stack) > 0 {
-			dgst, err := toPop.directory.Digest()
-			if err != nil {
-				return fmt.Errorf("unable to calculate directory digest: %w", err)
-			}
-
 			topOfStack := stack[len(stack)-1].directory
 			topOfStack.Directories = append(topOfStack.Directories, &castorev1pb.DirectoryNode{
 				Name:   []byte(path.Base(toPop.path)),
-				Digest: dgst,
+				Digest: directoryDigest,
 				Size:   toPop.directory.Size(),
 			})
-		}
-		// call the directoryCb
-		if err := directoryCb(toPop.directory); err != nil {
-			return fmt.Errorf("failed calling directoryCb: %w", err)
 		}
 		// Keep track that we have encounter at least one directory
 		stackDirectory = toPop.directory
@@ -106,7 +103,7 @@ func Import(
 			hdr, err := narReader.Next()
 
 			// If this returns an error, it's either EOF (when we're done reading from the NAR),
-			// or another error
+			// or another error.
 			if err != nil {
 				// if this returns no EOF, bail out
 				if !errors.Is(err, io.EOF) {
@@ -206,28 +203,22 @@ func Import(
 			}
 			if hdr.Type == nar.TypeRegular {
 				// wrap reader with a reader calculating the blake3 hash
-				fileReader := hashers.NewHasher(narReader, blake3.New(32, nil))
+				blobReader := hashers.NewHasher(narReader, blake3.New(32, nil))
 
-				err := blobCb(fileReader)
+				blobDigest, err := blobCb(blobReader)
 				if err != nil {
 					return nil, fmt.Errorf("failure from blobCb: %w", err)
 				}
 
-				// drive the file reader to the end, in case the CB function doesn't read
-				// all the way to the end on its own
-				if fileReader.BytesWritten() != uint32(hdr.Size) {
-					_, err := io.ReadAll(fileReader)
-					if err != nil {
-						return nil, fmt.Errorf("unable to read until the end of the file content: %w", err)
-					}
+				// ensure blobCb did read all the way to the end.
+				// If it didn't, the blobCb function is wrong and we should bail out.
+				if blobReader.BytesWritten() != uint32(hdr.Size) {
+					panic("not read to end")
 				}
-
-				// read the blake3 hash
-				dgst := fileReader.Sum(nil)
 
 				fileNode := &castorev1pb.FileNode{
 					Name:       []byte(getBasename(hdr.Path)),
-					Digest:     dgst,
+					Digest:     blobDigest,
 					Size:       uint32(hdr.Size),
 					Executable: hdr.Executable,
 				}

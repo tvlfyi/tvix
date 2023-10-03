@@ -23,10 +23,10 @@ func NewDirectoriesUploader(ctx context.Context, directoryServiceClient castorev
 	}
 }
 
-func (du *DirectoriesUploader) Put(directory *castorev1pb.Directory) error {
-	directoryDgst, err := directory.Digest()
+func (du *DirectoriesUploader) Put(directory *castorev1pb.Directory) ([]byte, error) {
+	directoryDigest, err := directory.Digest()
 	if err != nil {
-		return fmt.Errorf("failed calculating directory digest: %w", err)
+		return nil, fmt.Errorf("failed calculating directory digest: %w", err)
 	}
 
 	// Send the directory to the directory service
@@ -34,7 +34,7 @@ func (du *DirectoriesUploader) Put(directory *castorev1pb.Directory) error {
 	if du.directoryServicePutStream == nil {
 		directoryServicePutStream, err := du.directoryServiceClient.Put(du.ctx)
 		if err != nil {
-			return fmt.Errorf("unable to initialize directory service put stream: %v", err)
+			return nil, fmt.Errorf("unable to initialize directory service put stream: %v", err)
 		}
 		du.directoryServicePutStream = directoryServicePutStream
 	}
@@ -42,11 +42,11 @@ func (du *DirectoriesUploader) Put(directory *castorev1pb.Directory) error {
 	// send the directory out
 	err = du.directoryServicePutStream.Send(directory)
 	if err != nil {
-		return fmt.Errorf("error sending directory: %w", err)
+		return nil, fmt.Errorf("error sending directory: %w", err)
 	}
-	log.WithField("digest", base64.StdEncoding.EncodeToString(directoryDgst)).Debug("uploaded directory")
+	log.WithField("digest", base64.StdEncoding.EncodeToString(directoryDigest)).Debug("uploaded directory")
 
-	return nil
+	return directoryDigest, nil
 }
 
 // Done is called whenever we're
