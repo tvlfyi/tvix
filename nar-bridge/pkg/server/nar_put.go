@@ -36,7 +36,7 @@ func registerNarPut(s *Server) {
 
 		log := log.WithField("narhash_url", narHashFromUrl.SRIString())
 
-		directoriesUploader := NewDirectoriesUploader(ctx, s.directoryServiceClient)
+		directoriesUploader := importer.NewDirectoriesUploader(ctx, s.directoryServiceClient)
 		defer directoriesUploader.Done() //nolint:errcheck
 
 		pathInfo, err := importer.Import(
