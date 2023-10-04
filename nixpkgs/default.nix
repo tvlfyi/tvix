@@ -24,6 +24,7 @@ let
       (if externalArgs ? nixpkgsConfig then externalArgs.nixpkgsConfig else { })
       // {
         allowUnfree = true;
+        allowUnfreeRedistributable = true;
         allowBroken = true;
         # Forbids our meta.ci attribute
         # https://github.com/NixOS/nixpkgs/pull/191171#issuecomment-1260650771
