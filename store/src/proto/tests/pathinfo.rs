@@ -43,7 +43,7 @@ fn validate_no_node(
         digest: Bytes::new(),
         size: 0,
     },
-    Err(ValidatePathInfoError::InvalidDigestLen(0));
+    Err(ValidatePathInfoError::InvalidNodeDigestLen(0));
     "invalid digest length"
 )]
 #[test_case(
@@ -88,7 +88,7 @@ fn validate_directory(
         digest: Bytes::new(),
         ..Default::default()
     },
-    Err(ValidatePathInfoError::InvalidDigestLen(0));
+    Err(ValidatePathInfoError::InvalidNodeDigestLen(0));
     "invalid digest length"
 )]
 #[test_case(

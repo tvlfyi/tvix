@@ -2,7 +2,7 @@
 // https://github.com/hyperium/tonic/issues/1056
 use nix_compat::store_path::{self, StorePath};
 use thiserror::Error;
-use tvix_castore::{proto as castorepb, B3Digest};
+use tvix_castore::{proto as castorepb, B3Digest, B3_LEN};
 
 mod grpc_pathinfoservice_wrapper;
 
@@ -31,8 +31,8 @@ pub enum ValidatePathInfoError {
     InvalidNodeName(Vec<u8>, store_path::Error),
 
     /// The digest the (root) node refers to has invalid length.
-    #[error("Invalid Digest length: {0}")]
-    InvalidDigestLen(usize),
+    #[error("Invalid Digest length: expected {}, got {}", B3_LEN, .0)]
+    InvalidNodeDigestLen(usize),
 
     /// The number of references in the narinfo.reference_names field does not match
     /// the number of references in the .references field.
@@ -84,7 +84,7 @@ impl PathInfo {
                 Some(castorepb::node::Node::Directory(directory_node)) => {
                     // ensure the digest has the appropriate size.
                     if TryInto::<B3Digest>::try_into(directory_node.digest.clone()).is_err() {
-                        return Err(ValidatePathInfoError::InvalidDigestLen(
+                        return Err(ValidatePathInfoError::InvalidNodeDigestLen(
                             directory_node.digest.len(),
                         ));
                     }
@@ -98,7 +98,7 @@ impl PathInfo {
                 Some(castorepb::node::Node::File(file_node)) => {
                     // ensure the digest has the appropriate size.
                     if TryInto::<B3Digest>::try_into(file_node.digest.clone()).is_err() {
-                        return Err(ValidatePathInfoError::InvalidDigestLen(
+                        return Err(ValidatePathInfoError::InvalidNodeDigestLen(
                             file_node.digest.len(),
                         ));
                     }
