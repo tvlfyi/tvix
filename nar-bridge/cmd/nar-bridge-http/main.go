@@ -68,7 +68,7 @@ func main() {
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if s.Shutdown(timeoutCtx); err != nil {
+	if err := s.Shutdown(timeoutCtx); err != nil {
 		log.WithError(err).Warn("failed to shutdown")
 		os.Exit(1)
 	}
