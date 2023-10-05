@@ -248,7 +248,7 @@ func (p *PathInfoServiceServer) Get(ctx context.Context, getPathInfoRequest *sto
 	// currently the root node has no name yet.
 	outPath, err := storepath.FromAbsolutePath(narInfo.StorePath)
 	if err != nil {
-		// unreachable due to nixpath.Check()
+		// unreachable due to narInfo.Check()
 		panic(err)
 	}
 	newName := []byte(nixbase32.EncodeToString(outPath.Digest) + "-" + string(outPath.Name))
