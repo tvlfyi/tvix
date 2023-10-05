@@ -200,29 +200,10 @@ func (p *PathInfoServiceServer) Get(ctx context.Context, getPathInfoRequest *sto
 
 	// Close the directories uploader. This ensures the DirectoryService has
 	// properly persisted all Directory messages sent.
-	directoriesPutResponse, err := directoriesUploader.Done()
-	if err != nil {
+	if _, err := directoriesUploader.Done(); err != nil {
 		log.WithError(err).Error("error during directory upload")
 
 		return nil, status.Error(codes.Internal, "error during directory upload")
-	}
-
-	// If we uploaded directories (so directoriesPutResponse doesn't return null),
-	// the RootDigest field in directoriesPutResponse should match the digest
-	// returned in importedPathInfo.
-	// This check ensures the directory service came up with the same root hash as we did.
-	if directoriesPutResponse != nil {
-		rootDigestPathInfo := pathInfo.GetNode().GetDirectory().GetDigest()
-		rootDigestDirectoriesPutResponse := directoriesPutResponse.GetRootDigest()
-
-		log := log.WithFields(logrus.Fields{
-			"root_digest_pathinfo":             rootDigestPathInfo,
-			"root_digest_directories_put_resp": rootDigestDirectoriesPutResponse,
-		})
-		if !bytes.Equal(rootDigestPathInfo, rootDigestDirectoriesPutResponse) {
-			log.Errorf("returned root digest doesn't match what's calculated")
-			return nil, status.Error(codes.Internal, "error in root digest calculation")
-		}
 	}
 
 	// Compare NAR hash in the NARInfo with the one we calculated while reading the NAR

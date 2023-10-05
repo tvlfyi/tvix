@@ -1,6 +1,7 @@
 package importer
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -17,6 +18,7 @@ type DirectoriesUploader struct {
 	ctx                       context.Context
 	directoryServiceClient    castorev1pb.DirectoryServiceClient
 	directoryServicePutStream castorev1pb.DirectoryService_PutClient
+	lastDirectoryDigest       []byte
 }
 
 func NewDirectoriesUploader(ctx context.Context, directoryServiceClient castorev1pb.DirectoryServiceClient) *DirectoriesUploader {
@@ -50,20 +52,36 @@ func (du *DirectoriesUploader) Put(directory *castorev1pb.Directory) ([]byte, er
 	}
 	log.WithField("digest", base64.StdEncoding.EncodeToString(directoryDigest)).Debug("uploaded directory")
 
+	// update lastDirectoryDigest
+	du.lastDirectoryDigest = directoryDigest
+
 	return directoryDigest, nil
 }
 
 // Done closes the stream and returns the response.
+// It returns null if closed for a second time.
 func (du *DirectoriesUploader) Done() (*castorev1pb.PutDirectoryResponse, error) {
 	// only close once, and only if we opened.
 	if du.directoryServicePutStream == nil {
 		return nil, nil
 	}
+
 	putDirectoryResponse, err := du.directoryServicePutStream.CloseAndRecv()
 	if err != nil {
 		return nil, fmt.Errorf("unable to close directory service put stream: %v", err)
 	}
 
+	// ensure the response contains the same digest as the one we have in lastDirectoryDigest.
+	// Otherwise, the backend came up with another digest than we, in which we return an error.
+	if !bytes.Equal(du.lastDirectoryDigest, putDirectoryResponse.RootDigest) {
+		return nil, fmt.Errorf(
+			"backend calculated different root digest as we, expected %s, actual %s",
+			base64.StdEncoding.EncodeToString(du.lastDirectoryDigest),
+			base64.StdEncoding.EncodeToString(putDirectoryResponse.RootDigest),
+		)
+	}
+
+	// clear directoryServicePutStream.
 	du.directoryServicePutStream = nil
 
 	return putDirectoryResponse, nil
