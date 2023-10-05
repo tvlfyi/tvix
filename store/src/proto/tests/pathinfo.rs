@@ -1,4 +1,4 @@
-use crate::proto::{NarInfo, PathInfo, ValidatePathInfoError};
+use crate::proto::{PathInfo, ValidatePathInfoError};
 use crate::tests::fixtures::*;
 use bytes::Bytes;
 use nix_compat::store_path::{self, StorePath};
@@ -150,49 +150,79 @@ fn validate_symlink(
     assert_eq!(t_result, p.validate());
 }
 
+/// Ensure parsing a correct PathInfo without narinfo populated succeeds.
 #[test]
-fn validate_references() {
-    // create a PathInfo without narinfo field.
-    let path_info = PathInfo {
-        node: Some(castorepb::Node {
-            node: Some(castorepb::node::Node::Directory(castorepb::DirectoryNode {
-                name: DUMMY_NAME.into(),
-                digest: DUMMY_DIGEST.clone().into(),
-                size: 0,
-            })),
-        }),
-        references: vec![DUMMY_OUTPUT_HASH.clone().into()],
-        narinfo: None,
-    };
-    assert!(path_info.validate().is_ok());
+fn validate_references_without_narinfo_ok() {
+    assert!(PATH_INFO_WITHOUT_NARINFO.validate().is_ok());
+}
 
-    // create a PathInfo with a narinfo field, but an inconsistent set of references
-    let path_info_with_narinfo_missing_refs = PathInfo {
-        narinfo: Some(NarInfo {
-            nar_size: 0,
-            nar_sha256: DUMMY_DIGEST.clone().into(),
-            signatures: vec![],
-            reference_names: vec![],
-        }),
-        ..path_info.clone()
-    };
-    match path_info_with_narinfo_missing_refs
-        .validate()
-        .expect_err("must_fail")
-    {
-        ValidatePathInfoError::InconsistentNumberOfReferences(_, _) => {}
-        _ => panic!("unexpected error"),
-    };
+/// Ensure parsing a correct PathInfo with narinfo populated succeeds.
+#[test]
+fn validate_references_with_narinfo_ok() {
+    assert!(PATH_INFO_WITH_NARINFO.validate().is_ok());
+}
 
-    // create a pathinfo with the correct number of references, should suceed
-    let path_info_with_narinfo = PathInfo {
-        narinfo: Some(NarInfo {
-            nar_size: 0,
-            nar_sha256: DUMMY_DIGEST.clone().into(),
-            signatures: vec![],
-            reference_names: vec![DUMMY_NAME.to_string()],
-        }),
-        ..path_info
+/// Create a PathInfo with a wrong count of narinfo.reference_names,
+/// and ensure validation fails.
+#[test]
+fn validate_inconsistent_num_refs_fail() {
+    let mut path_info = PATH_INFO_WITH_NARINFO.clone();
+    path_info.narinfo.as_mut().unwrap().reference_names = vec![];
+
+    match path_info.validate().expect_err("must_fail") {
+        ValidatePathInfoError::InconsistentNumberOfReferences(1, 0) => {}
+        e => panic!("unexpected error: {:?}", e),
     };
-    assert!(path_info_with_narinfo.validate().is_ok());
+}
+
+/// Create a PathInfo with a wrong digest length in references.
+#[test]
+fn validate_invalid_reference_digest_len() {
+    let mut path_info = PATH_INFO_WITHOUT_NARINFO.clone();
+    path_info.references.push(vec![0xff, 0xff].into());
+
+    match path_info.validate().expect_err("must fail") {
+        ValidatePathInfoError::InvalidReferenceDigestLen(
+            1, // position
+            2, // unexpected digest len
+        ) => {}
+        e => panic!("unexpected error: {:?}", e),
+    };
+}
+
+/// Create a PathInfo with a narinfo.reference_name[1] that is no valid store path.
+#[test]
+fn validate_invalid_narinfo_reference_name() {
+    let mut path_info = PATH_INFO_WITH_NARINFO.clone();
+
+    // This is invalid, as the store prefix is not part of reference_names.
+    path_info.narinfo.as_mut().unwrap().reference_names[0] =
+        "/nix/store/00000000000000000000000000000000-dummy".to_string();
+
+    match path_info.validate().expect_err("must fail") {
+        ValidatePathInfoError::InvalidNarinfoReferenceName(0, reference_name) => {
+            assert_eq!(
+                "/nix/store/00000000000000000000000000000000-dummy",
+                reference_name
+            );
+        }
+        e => panic!("unexpected error: {:?}", e),
+    }
+}
+
+/// Create a PathInfo with a narinfo.reference_name[0] that doesn't match references[0].
+#[test]
+fn validate_inconsistent_narinfo_reference_name_digest() {
+    let mut path_info = PATH_INFO_WITH_NARINFO.clone();
+
+    // mutate the first reference, they were all zeroes before
+    path_info.references[0] = vec![0xff; store_path::DIGEST_SIZE].into();
+
+    match path_info.validate().expect_err("must fail") {
+        ValidatePathInfoError::InconsistentNarinfoReferenceNameDigest(0, e_expected, e_actual) => {
+            assert_eq!(path_info.references[0][..], e_expected);
+            assert_eq!(DUMMY_OUTPUT_HASH[..], e_actual);
+        }
+        e => panic!("unexpected error: {:?}", e),
+    }
 }

@@ -1,5 +1,8 @@
 use lazy_static::lazy_static;
 pub use tvix_castore::fixtures::*;
+use tvix_castore::proto as castorepb;
+
+use crate::proto::{NarInfo, PathInfo};
 
 pub const DUMMY_NAME: &str = "00000000000000000000000000000000-dummy";
 
@@ -94,4 +97,30 @@ lazy_static! {
         1, 0, 0, 0, 0, 0, 0, 0, b')', 0, 0, 0, 0, 0, 0, 0, // ")"
         1, 0, 0, 0, 0, 0, 0, 0, b')', 0, 0, 0, 0, 0, 0, 0, // ")"
     ];
+
+    /// A PathInfo message without .narinfo populated.
+    pub static ref PATH_INFO_WITHOUT_NARINFO : PathInfo = PathInfo {
+        node: Some(castorepb::Node {
+            node: Some(castorepb::node::Node::Directory(castorepb::DirectoryNode {
+                name: DUMMY_NAME.into(),
+                digest: DUMMY_DIGEST.clone().into(),
+                size: 0,
+            })),
+        }),
+        references: vec![DUMMY_OUTPUT_HASH.clone().into()],
+        narinfo: None,
+    };
+
+    /// A PathInfo message with .narinfo populated.
+    /// The references in `narinfo.reference_names` aligns with what's in
+    /// `references`.
+    pub static ref PATH_INFO_WITH_NARINFO : PathInfo = PathInfo {
+        narinfo: Some(NarInfo {
+            nar_size: 0,
+            nar_sha256: DUMMY_DIGEST.clone().into(),
+            signatures: vec![],
+            reference_names: vec![DUMMY_NAME.to_string()],
+        }),
+      ..PATH_INFO_WITHOUT_NARINFO.clone()
+    };
 }
