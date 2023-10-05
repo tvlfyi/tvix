@@ -9,7 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/nix-community/go-nix/pkg/narinfo"
 	"github.com/nix-community/go-nix/pkg/nixbase32"
-	"github.com/nix-community/go-nix/pkg/nixpath"
+	"github.com/nix-community/go-nix/pkg/storepath"
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
@@ -82,7 +82,7 @@ func registerNarinfoPut(s *Server) {
 		// the bytes in pathInfo.References, and the full strings in pathInfo.Narinfo.ReferenceNames.
 		referencesBytes := make([][]byte, 0)
 		for _, reference := range narInfo.References {
-			np, err := nixpath.FromString(path.Join(nixpath.StoreDir, reference))
+			storePath, err := storepath.FromString(reference)
 			if err != nil {
 				log.WithField("reference", reference).WithError(err).Error("unable to parse reference")
 				w.WriteHeader(http.StatusBadRequest)
@@ -93,7 +93,7 @@ func registerNarinfoPut(s *Server) {
 
 				return
 			}
-			referencesBytes = append(referencesBytes, np.Digest)
+			referencesBytes = append(referencesBytes, storePath.Digest)
 		}
 
 		// assemble the []*storev1pb.NARInfo_Signature{} from narinfo.Signatures.

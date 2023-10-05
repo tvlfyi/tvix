@@ -16,7 +16,7 @@ import (
 	mh "github.com/multiformats/go-multihash/core"
 	"github.com/nix-community/go-nix/pkg/narinfo"
 	"github.com/nix-community/go-nix/pkg/nixbase32"
-	"github.com/nix-community/go-nix/pkg/nixpath"
+	"github.com/nix-community/go-nix/pkg/storepath"
 	"github.com/sirupsen/logrus"
 	"github.com/ulikunitz/xz"
 	"google.golang.org/grpc/codes"
@@ -246,7 +246,7 @@ func (p *PathInfoServiceServer) Get(ctx context.Context, getPathInfoRequest *sto
 
 	// set the root node name to the basename of the output path in the narInfo.
 	// currently the root node has no name yet.
-	outPath, err := nixpath.FromString(narInfo.StorePath)
+	outPath, err := storepath.FromAbsolutePath(narInfo.StorePath)
 	if err != nil {
 		// unreachable due to nixpath.Check()
 		panic(err)

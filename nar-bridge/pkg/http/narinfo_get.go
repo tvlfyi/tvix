@@ -19,7 +19,7 @@ import (
 	"github.com/nix-community/go-nix/pkg/narinfo"
 	"github.com/nix-community/go-nix/pkg/narinfo/signature"
 	"github.com/nix-community/go-nix/pkg/nixbase32"
-	"github.com/nix-community/go-nix/pkg/nixpath"
+	"github.com/nix-community/go-nix/pkg/storepath"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -92,7 +92,7 @@ func renderNarinfo(
 	}
 
 	narInfo := narinfo.NarInfo{
-		StorePath:   path.Join(nixpath.StoreDir, string(nodeName)),
+		StorePath:   path.Join(storepath.StoreDir, string(nodeName)),
 		URL:         "nar/" + nixbase32.EncodeToString(narHash.Digest()) + ".nar",
 		Compression: "none", // TODO: implement zstd compression
 		NarHash:     narHash,
