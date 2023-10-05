@@ -3,7 +3,10 @@ use data_encoding::BASE64;
 // https://github.com/hyperium/tonic/issues/1056
 use nix_compat::store_path::{self, StorePath};
 use thiserror::Error;
-use tvix_castore::{proto as castorepb, B3Digest, B3_LEN};
+use tvix_castore::{
+    proto::{self as castorepb, NamedNode},
+    B3Digest, B3_LEN,
+};
 
 mod grpc_pathinfoservice_wrapper;
 
@@ -135,37 +138,31 @@ impl PathInfo {
                 None => {
                     return Err(ValidatePathInfoError::NoNodePresent());
                 }
-                Some(castorepb::node::Node::Directory(directory_node)) => {
-                    // ensure the digest has the appropriate size.
-                    if TryInto::<B3Digest>::try_into(directory_node.digest.clone()).is_err() {
-                        return Err(ValidatePathInfoError::InvalidNodeDigestLen(
-                            directory_node.digest.len(),
-                        ));
+                Some(node) => {
+                    match node {
+                        // for a directory root node, ensure the digest has the appropriate size.
+                        castorepb::node::Node::Directory(directory_node) => {
+                            if TryInto::<B3Digest>::try_into(directory_node.digest.clone()).is_err()
+                            {
+                                return Err(ValidatePathInfoError::InvalidNodeDigestLen(
+                                    directory_node.digest.len(),
+                                ));
+                            }
+                        }
+                        // for a file root node, ensure the digest has the appropriate size.
+                        castorepb::node::Node::File(file_node) => {
+                            // ensure the digest has the appropriate size.
+                            if TryInto::<B3Digest>::try_into(file_node.digest.clone()).is_err() {
+                                return Err(ValidatePathInfoError::InvalidNodeDigestLen(
+                                    file_node.digest.len(),
+                                ));
+                            }
+                        }
+                        // nothing to do specifically for symlinks
+                        castorepb::node::Node::Symlink(_) => {}
                     }
-
-                    // parse the name
-                    parse_node_name_root(
-                        &directory_node.name,
-                        ValidatePathInfoError::InvalidNodeName,
-                    )?
-                }
-                Some(castorepb::node::Node::File(file_node)) => {
-                    // ensure the digest has the appropriate size.
-                    if TryInto::<B3Digest>::try_into(file_node.digest.clone()).is_err() {
-                        return Err(ValidatePathInfoError::InvalidNodeDigestLen(
-                            file_node.digest.len(),
-                        ));
-                    }
-
-                    // parse the name
-                    parse_node_name_root(&file_node.name, ValidatePathInfoError::InvalidNodeName)?
-                }
-                Some(castorepb::node::Node::Symlink(symlink_node)) => {
-                    // parse the name
-                    parse_node_name_root(
-                        &symlink_node.name,
-                        ValidatePathInfoError::InvalidNodeName,
-                    )?
+                    // parse the name of the node itself and return
+                    parse_node_name_root(&node.get_name(), ValidatePathInfoError::InvalidNodeName)?
                 }
             },
         };
