@@ -1,4 +1,5 @@
 #![allow(clippy::derive_partial_eq_without_eq, non_snake_case)]
+use data_encoding::BASE64;
 // https://github.com/hyperium/tonic/issues/1056
 use nix_compat::store_path::{self, StorePath};
 use thiserror::Error;
@@ -22,6 +23,10 @@ mod tests;
 /// Errors that can occur during the validation of PathInfo messages.
 #[derive(Debug, Error, PartialEq)]
 pub enum ValidatePathInfoError {
+    /// Invalid length of a reference
+    #[error("Invalid length of digest at position {}, expected {}, got {}", .0, store_path::DIGEST_SIZE, .1)]
+    InvalidReferenceDigestLen(usize, usize),
+
     /// No node present
     #[error("No node present")]
     NoNodePresent(),
@@ -36,8 +41,21 @@ pub enum ValidatePathInfoError {
 
     /// The number of references in the narinfo.reference_names field does not match
     /// the number of references in the .references field.
-    #[error("Inconsistent Number of References: {0} (references) vs {0} (narinfo)")]
+    #[error("Inconsistent Number of References: {0} (references) vs {1} (narinfo)")]
     InconsistentNumberOfReferences(usize, usize),
+
+    /// A string in narinfo.reference_names does not parse to a StorePath.
+    #[error("Invalid reference_name at position {0}: {1}")]
+    InvalidNarinfoReferenceName(usize, String),
+
+    /// The digest in the parsed `.narinfo.reference_names[i]` does not match
+    /// the one in `.references[i]`.`
+    #[error("digest in reference_name at position {} does not match digest in PathInfo, expected {}, got {}", .0, BASE64.encode(.1), BASE64.encode(.2))]
+    InconsistentNarinfoReferenceNameDigest(
+        usize,
+        [u8; store_path::DIGEST_SIZE],
+        [u8; store_path::DIGEST_SIZE],
+    ),
 }
 
 /// Parses a root node name.
@@ -59,18 +77,54 @@ impl PathInfo {
     /// Returning either a [StorePath] of the root node, or a
     /// [ValidatePathInfoError].
     pub fn validate(&self) -> Result<StorePath, ValidatePathInfoError> {
+        // ensure the references have the right number of bytes.
+        for (i, reference) in self.references.iter().enumerate() {
+            if reference.len() != store_path::DIGEST_SIZE {
+                return Err(ValidatePathInfoError::InvalidReferenceDigestLen(
+                    i,
+                    reference.len(),
+                ));
+            }
+        }
+
         // If there is a narinfo field populated, ensure the number of references there
         // matches PathInfo.references count.
         if let Some(narinfo) = &self.narinfo {
             if narinfo.reference_names.len() != self.references.len() {
                 return Err(ValidatePathInfoError::InconsistentNumberOfReferences(
-                    narinfo.reference_names.len(),
                     self.references.len(),
+                    narinfo.reference_names.len(),
                 ));
             }
+
+            // parse references in reference_names.
+            for (i, reference_name_str) in narinfo.reference_names.iter().enumerate() {
+                // ensure thy parse as (non-absolute) store path
+                let reference_names_store_path =
+                    StorePath::from_bytes(reference_name_str.as_bytes()).map_err(|_| {
+                        ValidatePathInfoError::InvalidNarinfoReferenceName(
+                            i,
+                            reference_name_str.to_owned(),
+                        )
+                    })?;
+
+                // ensure their digest matches the one at self.references[i].
+                {
+                    // This is safe, because we ensured the proper length earlier already.
+                    let reference_digest = self.references[i].to_vec().try_into().unwrap();
+
+                    if reference_names_store_path.digest != reference_digest {
+                        return Err(
+                            ValidatePathInfoError::InconsistentNarinfoReferenceNameDigest(
+                                i,
+                                reference_digest,
+                                reference_names_store_path.digest,
+                            ),
+                        );
+                    }
+                }
+            }
         }
-        // FUTUREWORK: parse references in reference_names. ensure they start
-        // with storeDir, and use the same digest as in self.references.
 
         // Ensure there is a (root) node present, and it properly parses to a [StorePath].
         let root_nix_path = match &self.node {

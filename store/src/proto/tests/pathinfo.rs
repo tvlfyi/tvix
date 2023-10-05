@@ -161,7 +161,7 @@ fn validate_references() {
                 size: 0,
             })),
         }),
-        references: vec![DUMMY_DIGEST_2.clone().into()],
+        references: vec![DUMMY_OUTPUT_HASH.clone().into()],
         narinfo: None,
     };
     assert!(path_info.validate().is_ok());
@@ -190,7 +190,7 @@ fn validate_references() {
             nar_size: 0,
             nar_sha256: DUMMY_DIGEST.clone().into(),
             signatures: vec![],
-            reference_names: vec![format!("/nix/store/{}", DUMMY_NAME)],
+            reference_names: vec![DUMMY_NAME.to_string()],
         }),
         ..path_info
     };
