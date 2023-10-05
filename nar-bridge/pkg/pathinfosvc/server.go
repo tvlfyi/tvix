@@ -264,6 +264,20 @@ func (p *PathInfoServiceServer) Get(ctx context.Context, getPathInfoRequest *sto
 		panic("node may not be nil")
 	}
 
+	// run Validate on the PathInfo, more as an additional sanity check our code is sound,
+	// to make sure we populated everything properly, before returning it.
+	validatedOutPath, err := pathInfo.Validate()
+	if err != nil {
+		panic("pathinfo failed validation")
+	}
+	if narInfo.StorePath != validatedOutPath.Absolute() {
+		panic(fmt.Sprintf(
+			"StorePath returned from Validate() mismatches the one from .narinfo (%s vs %s)",
+			validatedOutPath.Absolute(),
+			narInfo.StorePath),
+		)
+	}
+
 	return pathInfo, nil
 
 	// TODO: Deriver, System, CA

@@ -1,8 +1,8 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 code.tvl.fyi/tvix/castore/protos v0.0.0-20230922125121-72355662d742 h1:x7LsxggggaN3acnCMNDO5LZLAV+A+rZ+R8TXzr+Lgsk=
 code.tvl.fyi/tvix/castore/protos v0.0.0-20230922125121-72355662d742/go.mod h1:Ejhyvc0dJUWQMxtJxddfFuAF5N8IKIO94q5CP4czY8Y=
-code.tvl.fyi/tvix/store/protos v0.0.0-20230922125121-4251671e09c1 h1:ttMO8cE4rVbqJlqLsoirePWEtXhT4MxrGvLMFyJ+UhA=
-code.tvl.fyi/tvix/store/protos v0.0.0-20230922125121-4251671e09c1/go.mod h1:uOGlmwyEraDd9kzAWHdDeZdNgKrpOAmtWCdMeY+DVKs=
+code.tvl.fyi/tvix/store/protos v0.0.0-20231005184258-5be346d3c195 h1:Phbmz5mjc2D5EYmiZy12l6yoh4NwZVWUg9eqsfJBJO0=
+code.tvl.fyi/tvix/store/protos v0.0.0-20231005184258-5be346d3c195/go.mod h1:wY+2UywCYumr2lKLN8H+J/PvczD0mmsnU2dqotIxeLo=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/alecthomas/assert/v2 v2.1.0 h1:tbredtNcQnoSd3QBhQWI7QZ3XHOVkw1Moklp2ojoH/0=
 github.com/alecthomas/kong v0.7.1 h1:azoTh0IOfwlAX3qN9sHWTxACE2oV8Bg2gAwBsMwDQY4=
@@ -51,11 +51,8 @@ github.com/multiformats/go-multihash v0.2.1 h1:aem8ZT0VA2nCHHk7bPJ1BjUbHNciqZC/d
 github.com/multiformats/go-multihash v0.2.1/go.mod h1:WxoMcYG85AZVQUyRyo9s4wULvW5qrI9vb2Lt6evduFc=
 github.com/multiformats/go-varint v0.0.6 h1:gk85QWKxh3TazbLxED/NlDVv8+q+ReFJk7Y2W/KhfNY=
 github.com/multiformats/go-varint v0.0.6/go.mod h1:3Ls8CIEsrijN6+B7PbrXRPxHRPuXSrVKRY101jdMZYE=
-github.com/nix-community/go-nix v0.0.0-20230825195510-c72199eca18e h1:15CPg2PQMyBl+TTEKuonrQqS9uOJyi7JcuU0FpvV088=
-github.com/nix-community/go-nix v0.0.0-20230825195510-c72199eca18e/go.mod h1:y3eASc0gMh26jjoP9Xz+qqMKjTnqJgG1RG8xvKvFR8s=
 github.com/nix-community/go-nix v0.0.0-20231005143722-b0f8b73c06df h1:n4I26uXUST5vmdsDWPo9ikK57il4htQyhnsLWoHYFmY=
 github.com/nix-community/go-nix v0.0.0-20231005143722-b0f8b73c06df/go.mod h1:hHM9UK2zOCjvmiLgeaW4LVbOW/vBaRWFJGzfi31/slQ=
-github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:xMI15A0UPsDsEKsMN9yxemIoYk6Tm2C1GtYGdfGttqA=
