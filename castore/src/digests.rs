@@ -12,6 +12,8 @@ pub enum Error {
     InvalidDigestLen(usize),
 }
 
+pub const B3_LEN: usize = 32;
+
 impl B3Digest {
     // returns a copy of the inner [Vec<u8>].
     pub fn to_vec(&self) -> Vec<u8> {
@@ -31,7 +33,7 @@ impl TryFrom<Vec<u8>> for B3Digest {
     // constructs a [B3Digest] from a [Vec<u8>].
     // Returns an error if the digest has the wrong length.
     fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        if value.len() != 32 {
+        if value.len() != B3_LEN {
             Err(Error::InvalidDigestLen(value.len()))
         } else {
             Ok(Self(value.into()))
@@ -45,7 +47,7 @@ impl TryFrom<bytes::Bytes> for B3Digest {
     // constructs a [B3Digest] from a [bytes::Bytes].
     // Returns an error if the digest has the wrong length.
     fn try_from(value: bytes::Bytes) -> Result<Self, Self::Error> {
-        if value.len() != 32 {
+        if value.len() != B3_LEN {
             Err(Error::InvalidDigestLen(value.len()))
         } else {
             Ok(Self(value))
@@ -53,8 +55,8 @@ impl TryFrom<bytes::Bytes> for B3Digest {
     }
 }
 
-impl From<&[u8; 32]> for B3Digest {
-    fn from(value: &[u8; 32]) -> Self {
+impl From<&[u8; B3_LEN]> for B3Digest {
+    fn from(value: &[u8; B3_LEN]) -> Self {
         Self(value.to_vec().into())
     }
 }

@@ -8,7 +8,7 @@ pub mod import;
 pub mod proto;
 pub mod utils;
 
-pub use digests::B3Digest;
+pub use digests::{B3Digest, B3_LEN};
 pub use errors::Error;
 
 #[cfg(test)]
