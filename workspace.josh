@@ -2,4 +2,7 @@
     ::nixpkgs/
     ::sources/
 ]
-:/tvix
+
+::tvix:exclude[
+  ::tvix/default.nix
+]:/tvix
