@@ -339,7 +339,6 @@ impl DirectoryPutter for GRPCPutter {
 mod tests {
     use core::time;
     use futures::StreamExt;
-    use tempfile::TempDir;
 
     use crate::{
         directoryservice::DirectoryService,
@@ -349,11 +348,9 @@ mod tests {
 
     #[tokio::test]
     async fn test() {
-        let tempdir = TempDir::new().expect("must succeed");
         // create the GrpcDirectoryService
-        let directory_service = super::GRPCDirectoryService::from_client(
-            gen_directorysvc_grpc_client(tempdir.path()).await,
-        );
+        let directory_service =
+            super::GRPCDirectoryService::from_client(gen_directorysvc_grpc_client().await);
 
         // try to get DIRECTORY_A should return Ok(None)
         assert_eq!(

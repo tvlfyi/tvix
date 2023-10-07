@@ -4,7 +4,6 @@ use crate::proto::get_directory_request::ByWhat;
 use crate::proto::GetDirectoryRequest;
 use crate::proto::{Directory, DirectoryNode, SymlinkNode};
 use crate::utils::gen_directorysvc_grpc_client;
-use tempfile::TempDir;
 use tokio_stream::StreamExt;
 use tonic::transport::Channel;
 use tonic::Status;
@@ -37,8 +36,7 @@ async fn get_directories(
 /// Trying to get a non-existent Directory should return a not found error.
 #[tokio::test]
 async fn not_found() {
-    let tempdir = TempDir::new().expect("must succeed");
-    let mut grpc_client = gen_directorysvc_grpc_client(tempdir.path()).await;
+    let mut grpc_client = gen_directorysvc_grpc_client().await;
 
     let resp = grpc_client
         .get(tonic::Request::new(GetDirectoryRequest {
@@ -66,8 +64,7 @@ async fn not_found() {
 /// Put a Directory into the store, get it back.
 #[tokio::test]
 async fn put_get() {
-    let tempdir = TempDir::new().expect("must succeed");
-    let mut grpc_client = gen_directorysvc_grpc_client(tempdir.path()).await;
+    let mut grpc_client = gen_directorysvc_grpc_client().await;
 
     // send directory A.
     let put_resp = {
@@ -98,8 +95,7 @@ async fn put_get() {
 /// Put multiple Directories into the store, and get them back
 #[tokio::test]
 async fn put_get_multiple() {
-    let tempdir = TempDir::new().expect("must succeed");
-    let mut grpc_client = gen_directorysvc_grpc_client(tempdir.path()).await;
+    let mut grpc_client = gen_directorysvc_grpc_client().await;
 
     // sending "b" (which refers to "a") without sending "a" first should fail.
     let put_resp = {
@@ -157,8 +153,7 @@ async fn put_get_multiple() {
 /// Put multiple Directories into the store, and omit duplicates.
 #[tokio::test]
 async fn put_get_dedup() {
-    let tempdir = TempDir::new().expect("must succeed");
-    let mut grpc_client = gen_directorysvc_grpc_client(tempdir.path()).await;
+    let mut grpc_client = gen_directorysvc_grpc_client().await;
 
     // Send "A", then "C", which refers to "A" two times
     // Pretend we're a dumb client sending A twice.
@@ -196,8 +191,7 @@ async fn put_get_dedup() {
 /// Trying to upload a Directory failing validation should fail.
 #[tokio::test]
 async fn put_reject_failed_validation() {
-    let tempdir = TempDir::new().expect("must succeed");
-    let mut grpc_client = gen_directorysvc_grpc_client(tempdir.path()).await;
+    let mut grpc_client = gen_directorysvc_grpc_client().await;
 
     // construct a broken Directory message that fails validation
     let broken_directory = Directory {
@@ -223,8 +217,7 @@ async fn put_reject_failed_validation() {
 /// Trying to upload a Directory with wrong size should fail.
 #[tokio::test]
 async fn put_reject_wrong_size() {
-    let tempdir = TempDir::new().expect("must succeed");
-    let mut grpc_client = gen_directorysvc_grpc_client(tempdir.path()).await;
+    let mut grpc_client = gen_directorysvc_grpc_client().await;
 
     // Construct a directory referring to DIRECTORY_A, but with wrong size.
     let broken_parent_directory = Directory {
