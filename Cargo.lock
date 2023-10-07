@@ -2903,7 +2903,6 @@ dependencies = [
  "tokio-util",
  "tonic",
  "tonic-build",
- "tonic-mock",
  "tonic-reflection",
  "tower",
  "tracing",

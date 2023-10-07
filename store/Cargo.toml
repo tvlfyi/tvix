@@ -77,7 +77,6 @@ tonic-build = "0.8.2"
 [dev-dependencies]
 test-case = "2.2.2"
 tempfile = "3.3.0"
-tonic-mock = { git = "https://github.com/brainrake/tonic-mock", branch = "bump-dependencies" }
 
 [features]
 default = ["fuse", "tonic-reflection"]

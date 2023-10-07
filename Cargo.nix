@@ -8874,10 +8874,6 @@ rec {
             name = "test-case";
             packageId = "test-case";
           }
-          {
-            name = "tonic-mock";
-            packageId = "tonic-mock";
-          }
         ];
         features = {
           "default" = [ "fuse" "tonic-reflection" ];
