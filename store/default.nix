@@ -25,7 +25,8 @@ in
 (depot.tvix.crates.workspaceMembers.tvix-store.build.override {
   runTests = true;
   # virtiofs feature currently fails to build on Darwin.
-  features = if pkgs.stdenv.isDarwin then [ "fuse" "tonic-reflection" ] else [ "default" ];
+  # we however can ship it for non-darwin.
+  features = if pkgs.stdenv.isDarwin then [ "default" ] else [ "default" "virtiofs" ];
 }).overrideAttrs (_: {
   meta.ci.extraSteps = {
     import-docs = (mkImportCheck "tvix/store/docs" ./docs);

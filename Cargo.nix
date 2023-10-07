@@ -8880,7 +8880,7 @@ rec {
           }
         ];
         features = {
-          "default" = [ "fuse" "virtiofs" "tonic-reflection" ];
+          "default" = [ "fuse" "tonic-reflection" ];
           "fs" = [ "dep:libc" "dep:fuse-backend-rs" ];
           "fuse" = [ "fs" ];
           "tonic-reflection" = [ "dep:tonic-reflection" "tvix-castore/tonic-reflection" ];
