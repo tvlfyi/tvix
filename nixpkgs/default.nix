@@ -49,14 +49,7 @@ let
   # instead (e.g. because something is broken in unstable).
   # Use `stableNixpkgs` from above.
   stableOverlay = _unstableSelf: _unstableSuper: {
-    inherit (stableNixpkgs)
-      # binaryen does not build on unstable as of 2022-08-22
-      binaryen
-
-      # mysql80 is broken as of 2023-04-26, but should work after the next
-      # staging-next cycle: https://github.com/NixOS/nixpkgs/issues/226673
-      mysql80
-      ;
+    # nothing is currently broken on unstable. yay!
   };
 
   # Overlay to expose the nixpkgs commits we are using to other Nix code.
