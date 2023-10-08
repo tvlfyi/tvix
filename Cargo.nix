@@ -7751,47 +7751,6 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "prost" "prost-build" "transport" ];
       };
-      "tonic-mock" = rec {
-        crateName = "tonic-mock";
-        version = "0.1.0";
-        edition = "2018";
-        workspace_member = null;
-        src = pkgs.fetchgit {
-          url = "https://github.com/brainrake/tonic-mock";
-          rev = "ec1a15510875de99d709d684190db5d9beab175e";
-          sha256 = "0lwa03hpp0mxa6aa1zv5w68k61y4hccfm0q2ykyq392fwal8vb50";
-        };
-        authors = [
-          "Tyr Chen <tyr.chen@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "bytes";
-            packageId = "bytes";
-          }
-          {
-            name = "futures";
-            packageId = "futures";
-          }
-          {
-            name = "http";
-            packageId = "http";
-          }
-          {
-            name = "http-body";
-            packageId = "http-body";
-          }
-          {
-            name = "prost";
-            packageId = "prost";
-          }
-          {
-            name = "tonic";
-            packageId = "tonic";
-          }
-        ];
-
-      };
       "tonic-reflection" = rec {
         crateName = "tonic-reflection";
         version = "0.5.0";
@@ -8398,10 +8357,6 @@ rec {
           {
             name = "test-case";
             packageId = "test-case";
-          }
-          {
-            name = "tonic-mock";
-            packageId = "tonic-mock";
           }
         ];
         features = {

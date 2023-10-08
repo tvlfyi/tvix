@@ -12,8 +12,10 @@ use crate::{
     blobservice::{BlobService, MemoryBlobService},
     directoryservice::{DirectoryService, MemoryDirectoryService},
     proto::{
+        blob_service_client::BlobServiceClient, blob_service_server::BlobServiceServer,
         directory_service_client::DirectoryServiceClient,
-        directory_service_server::DirectoryServiceServer, GRPCDirectoryServiceWrapper,
+        directory_service_server::DirectoryServiceServer, GRPCBlobServiceWrapper,
+        GRPCDirectoryServiceWrapper,
     },
 };
 
@@ -34,9 +36,8 @@ pin_project! {
     }
 }
 
-/// This will spawn the a gRPC server with a DirectoryService client, and
-/// connect a gRPC DirectoryService client.
-/// The client is returned.
+/// This will spawn the a gRPC server with a DirectoryService client, connect a
+/// gRPC DirectoryService client and return it.
 #[allow(dead_code)]
 pub(crate) async fn gen_directorysvc_grpc_client() -> DirectoryServiceClient<Channel> {
     let (left, right) = tokio::io::duplex(64);
@@ -57,6 +58,41 @@ pub(crate) async fn gen_directorysvc_grpc_client() -> DirectoryServiceClient<Cha
     // Create a client, connecting to the right side. The URI is unused.
     let mut maybe_right = Some(right);
     let grpc_client = DirectoryServiceClient::new(
+        Endpoint::try_from("http://[::]:50051")
+            .unwrap()
+            .connect_with_connector(tower::service_fn(move |_: Uri| {
+                let right = maybe_right.take().unwrap();
+                async move { Ok::<_, std::io::Error>(right) }
+            }))
+            .await
+            .unwrap(),
+    );
+
+    grpc_client
+}
+
+/// This will spawn the a gRPC server with a BlobService client, connect a
+/// gRPC BlobService client and return it.
+#[allow(dead_code)]
+pub(crate) async fn gen_blobsvc_grpc_client() -> BlobServiceClient<Channel> {
+    let (left, right) = tokio::io::duplex(64);
+
+    // spin up a server, which will only connect once, to the left side.
+    tokio::spawn(async {
+        // spin up a new DirectoryService
+        let mut server = Server::builder();
+        let router = server.add_service(BlobServiceServer::new(GRPCBlobServiceWrapper::from(
+            gen_blob_service(),
+        )));
+
+        router
+            .serve_with_incoming(tokio_stream::once(Ok::<_, std::io::Error>(left)))
+            .await
+    });
+
+    // Create a client, connecting to the right side. The URI is unused.
+    let mut maybe_right = Some(right);
+    let grpc_client = BlobServiceClient::new(
         Endpoint::try_from("http://[::]:50051")
             .unwrap()
             .connect_with_connector(tower::service_fn(move |_: Uri| {

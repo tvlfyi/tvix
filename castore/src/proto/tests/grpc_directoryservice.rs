@@ -16,9 +16,7 @@ async fn get_directories(
     grpc_client: &mut DirectoryServiceClient<Channel>,
     get_directory_request: GetDirectoryRequest,
 ) -> Result<Vec<Directory>, Status> {
-    let resp = grpc_client
-        .get(tonic::Request::new(get_directory_request))
-        .await;
+    let resp = grpc_client.get(get_directory_request).await;
 
     // if the response is an error itself, return the error, otherwise unpack
     let stream = match resp {
@@ -39,10 +37,10 @@ async fn not_found() {
     let mut grpc_client = gen_directorysvc_grpc_client().await;
 
     let resp = grpc_client
-        .get(tonic::Request::new(GetDirectoryRequest {
+        .get(GetDirectoryRequest {
             by_what: Some(ByWhat::Digest(DIRECTORY_A.digest().into())),
             ..Default::default()
-        }))
+        })
         .await;
 
     let stream = resp.expect("must succeed").into_inner();

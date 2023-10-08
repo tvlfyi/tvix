@@ -2627,19 +2627,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tonic-mock"
-version = "0.1.0"
-source = "git+https://github.com/brainrake/tonic-mock?branch=bump-dependencies#ec1a15510875de99d709d684190db5d9beab175e"
-dependencies = [
- "bytes",
- "futures",
- "http",
- "http-body",
- "prost",
- "tonic",
-]
-
-[[package]]
 name = "tonic-reflection"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2796,7 +2783,6 @@ dependencies = [
  "tokio-util",
  "tonic",
  "tonic-build",
- "tonic-mock",
  "tonic-reflection",
  "tower",
  "tracing",
