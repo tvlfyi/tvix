@@ -155,6 +155,9 @@ pub async fn ingest_path<P: AsRef<Path> + Debug>(
     for entry in WalkDir::new(p)
         .follow_links(false)
         .follow_root_links(false)
+        // We need to process a directory's children before processing
+        // the directory itself in order to have all the data needed
+        // to compute the hash.
         .contents_first(true)
         .sort_by_file_name()
     {
@@ -162,6 +165,8 @@ pub async fn ingest_path<P: AsRef<Path> + Debug>(
 
         // process_entry wants an Option<Directory> in case the entry points to a directory.
         // make sure to provide it.
+        // If the directory has contents, we already have it in
+        // `directories` due to the use of contents_first on WalkDir.
         let maybe_directory: Option<Directory> = {
             if entry.file_type().is_dir() {
                 Some(
