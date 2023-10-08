@@ -150,7 +150,6 @@ pub async fn ingest_path<P: AsRef<Path> + Debug>(
 ) -> Result<Node, Error> {
     let mut directories: HashMap<PathBuf, Directory> = HashMap::default();
 
-    // TODO: pass this one instead?
     let mut directory_putter = directory_service.put_multiple_start();
 
     for entry in WalkDir::new(p)
