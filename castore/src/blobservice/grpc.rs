@@ -281,10 +281,12 @@ impl<W: tokio::io::AsyncWrite + Unpin> tokio::io::AsyncWrite for GRPCBlobWriter<
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
+    use std::time::Duration;
 
     use tempfile::TempDir;
     use tokio::net::UnixListener;
-    use tokio::time;
+    use tokio_retry::strategy::ExponentialBackoff;
+    use tokio_retry::Retry;
     use tokio_stream::wrappers::UnixListenerStream;
 
     use crate::blobservice::MemoryBlobService;
@@ -374,22 +376,18 @@ mod tests {
         });
 
         // wait for the socket to be created
-        {
-            let mut socket_created = false;
-            // TODO: exponential backoff urgently
-            for _try in 1..20 {
+        Retry::spawn(
+            ExponentialBackoff::from_millis(20).max_delay(Duration::from_secs(10)),
+            || async {
                 if socket_path.exists() {
-                    socket_created = true;
-                    break;
+                    Ok(())
+                } else {
+                    Err(())
                 }
-                tokio::time::sleep(time::Duration::from_millis(20)).await;
-            }
-
-            assert!(
-                socket_created,
-                "expected socket path to eventually get created, but never happened"
-            );
-        }
+            },
+        )
+        .await
+        .expect("failed to wait for socket");
 
         // prepare a client
         let grpc_client = {

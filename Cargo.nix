@@ -7182,6 +7182,38 @@ rec {
         ];
 
       };
+      "tokio-retry" = rec {
+        crateName = "tokio-retry";
+        version = "0.3.0";
+        edition = "2018";
+        sha256 = "0kr1hnm5dmb9gfkby88yg2xj8g6x4i4gipva0c8ca3xyxhvfnmvz";
+        authors = [
+          "Sam Rijs <srijs@airpost.net>"
+        ];
+        dependencies = [
+          {
+            name = "pin-project";
+            packageId = "pin-project";
+          }
+          {
+            name = "rand";
+            packageId = "rand";
+          }
+          {
+            name = "tokio";
+            packageId = "tokio";
+            features = [ "time" ];
+          }
+        ];
+        devDependencies = [
+          {
+            name = "tokio";
+            packageId = "tokio";
+            features = [ "full" ];
+          }
+        ];
+
+      };
       "tokio-stream" = rec {
         crateName = "tokio-stream";
         version = "0.1.14";
@@ -8126,6 +8158,10 @@ rec {
           {
             name = "test-case";
             packageId = "test-case";
+          }
+          {
+            name = "tokio-retry";
+            packageId = "tokio-retry";
           }
         ];
         features = {
