@@ -180,7 +180,6 @@ impl PathInfoService for GRPCPathInfoService {
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
-    use std::thread;
 
     use tempfile::TempDir;
     use tokio::net::UnixListener;
@@ -269,58 +268,40 @@ mod tests {
         );
     }
 
-    /// This uses the correct scheme for a unix socket, and provides a server on the other side.
+    /// This ensures connecting via gRPC works as expected.
     #[tokio::test]
     async fn test_valid_unix_path_ping_pong() {
         let tmpdir = TempDir::new().unwrap();
-        let path = tmpdir.path().join("daemon");
+        let socket_path = tmpdir.path().join("daemon");
 
         // let mut join_set = JoinSet::new();
 
-        // prepare a client
-        let client = {
-            let mut url = url::Url::parse("grpc+unix:///path/to/somewhere").expect("must parse");
-            url.set_path(path.to_str().unwrap());
-            GRPCPathInfoService::from_url(&url, gen_blob_service(), gen_directory_service())
-                .expect("must succeed")
-        };
+        let path_copy = socket_path.clone();
 
-        let path_copy = path.clone();
+        // Spin up a server
+        tokio::spawn(async {
+            let uds = UnixListener::bind(path_copy).unwrap();
+            let uds_stream = UnixListenerStream::new(uds);
 
-        // Spin up a server, in a thread far away, which spawns its own tokio runtime,
-        // and blocks on the task.
-        thread::spawn(move || {
-            // Create the runtime
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            // Get a handle from this runtime
-            let handle = rt.handle();
-
-            let task = handle.spawn(async {
-                let uds = UnixListener::bind(path_copy).unwrap();
-                let uds_stream = UnixListenerStream::new(uds);
-
-                // spin up a new server
-                let mut server = tonic::transport::Server::builder();
-                let router = server.add_service(
-                    crate::proto::path_info_service_server::PathInfoServiceServer::new(
-                        GRPCPathInfoServiceWrapper::from(Arc::new(MemoryPathInfoService::new(
-                            gen_blob_service(),
-                            gen_directory_service(),
-                        ))
-                            as Arc<dyn PathInfoService>),
-                    ),
-                );
-                router.serve_with_incoming(uds_stream).await
-            });
-
-            handle.block_on(task)
+            // spin up a new server
+            let mut server = tonic::transport::Server::builder();
+            let router = server.add_service(
+                crate::proto::path_info_service_server::PathInfoServiceServer::new(
+                    GRPCPathInfoServiceWrapper::from(Arc::new(MemoryPathInfoService::new(
+                        gen_blob_service(),
+                        gen_directory_service(),
+                    ))
+                        as Arc<dyn PathInfoService>),
+                ),
+            );
+            router.serve_with_incoming(uds_stream).await
         });
 
         // wait for the socket to be created
         {
             let mut socket_created = false;
             for _try in 1..20 {
-                if path.exists() {
+                if socket_path.exists() {
                     socket_created = true;
                     break;
                 }
@@ -332,12 +313,19 @@ mod tests {
                 "expected socket path to eventually get created, but never happened"
             );
         }
+        // prepare a client
+        let grpc_client = {
+            let url = url::Url::parse(&format!("grpc+unix://{}", socket_path.display()))
+                .expect("must parse");
+            GRPCPathInfoService::from_url(&url, gen_blob_service(), gen_directory_service())
+                .expect("must succeed")
+        };
 
-        let pi = client
+        let path_info = grpc_client
             .get(fixtures::DUMMY_OUTPUT_HASH.to_vec().try_into().unwrap())
             .await
             .expect("must not be error");
 
-        assert!(pi.is_none());
+        assert!(path_info.is_none());
     }
 }
