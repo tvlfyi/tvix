@@ -271,7 +271,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             .calculate_nar(&root_node_copy)
                             .await?;
 
-                        // TODO: make a path_to_name helper function?
                         let name = path
                             .file_name()
                             .expect("path must not be ..")
