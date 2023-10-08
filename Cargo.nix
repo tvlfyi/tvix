@@ -425,7 +425,7 @@ rec {
           }
           {
             name = "syn";
-            packageId = "syn 2.0.15";
+            packageId = "syn 2.0.16";
             features = [ "full" "visit-mut" ];
           }
         ];
@@ -451,7 +451,7 @@ rec {
           }
           {
             name = "syn";
-            packageId = "syn 2.0.15";
+            packageId = "syn 2.0.16";
             features = [ "full" "visit-mut" ];
           }
         ];
@@ -747,9 +747,9 @@ rec {
       };
       "base64" = rec {
         crateName = "base64";
-        version = "0.13.1";
+        version = "0.21.4";
         edition = "2018";
-        sha256 = "1s494mqmzjb766fy1kqlccgfg2sdcjb6hzbvzqv2jw65fdi5h6wy";
+        sha256 = "18jhmsli1l7zn6pgslgjdrnghqnz12g68n25fv48ids3yfk3x94v";
         authors = [
           "Alice Maz <alice@alicemaz.com>"
           "Marshall Pierce <marshall@mpierce.org>"
@@ -1267,7 +1267,7 @@ rec {
           }
           {
             name = "syn";
-            packageId = "syn 2.0.15";
+            packageId = "syn 2.0.16";
             features = [ "full" ];
           }
         ];
@@ -2449,7 +2449,7 @@ rec {
           }
           {
             name = "syn";
-            packageId = "syn 2.0.15";
+            packageId = "syn 2.0.16";
             features = [ "full" ];
           }
         ];
@@ -4604,7 +4604,7 @@ rec {
           }
           {
             name = "syn";
-            packageId = "syn 2.0.15";
+            packageId = "syn 2.0.16";
             features = [ "full" "visit-mut" ];
           }
         ];
@@ -4764,9 +4764,9 @@ rec {
       };
       "prettyplease" = rec {
         crateName = "prettyplease";
-        version = "0.1.25";
+        version = "0.2.9";
         edition = "2021";
-        sha256 = "11lskniv8pf8y8bn4dc3nmjapfhnibxbm5gamp2ad9qna3lld1kc";
+        sha256 = "10n2s6b11pmh8qxz9kjmrb6pgnv5dnsydi3rxpz221nn053a09cq";
         authors = [
           "David Tolnay <dtolnay@gmail.com>"
         ];
@@ -4778,7 +4778,7 @@ rec {
           }
           {
             name = "syn";
-            packageId = "syn 1.0.109";
+            packageId = "syn 2.0.16";
             usesDefaultFeatures = false;
             features = [ "full" ];
           }
@@ -4786,7 +4786,7 @@ rec {
         devDependencies = [
           {
             name = "syn";
-            packageId = "syn 1.0.109";
+            packageId = "syn 2.0.16";
             usesDefaultFeatures = false;
             features = [ "parsing" ];
           }
@@ -4996,9 +4996,9 @@ rec {
       };
       "prost" = rec {
         crateName = "prost";
-        version = "0.11.9";
+        version = "0.12.1";
         edition = "2021";
-        sha256 = "1kc1hva2h894hc0zf6r4r8fsxfpazf7xn5rj3jya9sbrsyhym0hb";
+        sha256 = "039lgs7qbc8mvn2bk8hm84nhczqw79hs1x0d0qybaccw7cpx5zgl";
         authors = [
           "Dan Burkert <dan@danburkert.com>"
           "Lucio Franco <luciofranco14@gmail.com"
@@ -5024,9 +5024,9 @@ rec {
       };
       "prost-build" = rec {
         crateName = "prost-build";
-        version = "0.11.9";
+        version = "0.12.1";
         edition = "2021";
-        sha256 = "0w5jx97q96ydhkg67wx3lb11kfy8195c56g0476glzws5iak758i";
+        sha256 = "1b0ipgmvvy7rwxdvpsar490533bc4a8g52hz8wyvh8fqh4l5kpwb";
         authors = [
           "Dan Burkert <dan@danburkert.com>"
           "Lucio Franco <luciofranco14@gmail.com>"
@@ -5049,10 +5049,6 @@ rec {
             features = [ "use_alloc" ];
           }
           {
-            name = "lazy_static";
-            packageId = "lazy_static";
-          }
-          {
             name = "log";
             packageId = "log";
           }
@@ -5060,6 +5056,10 @@ rec {
             name = "multimap";
             packageId = "multimap";
             usesDefaultFeatures = false;
+          }
+          {
+            name = "once_cell";
+            packageId = "once_cell";
           }
           {
             name = "petgraph";
@@ -5089,7 +5089,7 @@ rec {
           }
           {
             name = "syn";
-            packageId = "syn 1.0.109";
+            packageId = "syn 2.0.16";
             optional = true;
             features = [ "full" ];
           }
@@ -5115,9 +5115,9 @@ rec {
       };
       "prost-derive" = rec {
         crateName = "prost-derive";
-        version = "0.11.9";
+        version = "0.12.1";
         edition = "2021";
-        sha256 = "1d3mw2s2jba1f7wcjmjd6ha2a255p2rmynxhm1nysv9w1z8xilp5";
+        sha256 = "0cjcib5w99sycw01j4a1j1xcx97crg9gfyc10zsnqhdxzaksnnr6";
         procMacro = true;
         authors = [
           "Dan Burkert <dan@danburkert.com>"
@@ -5145,7 +5145,7 @@ rec {
           }
           {
             name = "syn";
-            packageId = "syn 1.0.109";
+            packageId = "syn 2.0.16";
             features = [ "extra-traits" ];
           }
         ];
@@ -5153,9 +5153,9 @@ rec {
       };
       "prost-types" = rec {
         crateName = "prost-types";
-        version = "0.11.9";
+        version = "0.12.1";
         edition = "2021";
-        sha256 = "04ryk38sqkp2nf4dgdqdfbgn6zwwvjraw6hqq6d9a6088shj4di1";
+        sha256 = "1kr7ffva3sfc0ya0qkwa5pwnq5gr4kj3z7zwbk3lnfnqcfgv50g0";
         authors = [
           "Dan Burkert <dan@danburkert.com>"
           "Lucio Franco <luciofranco14@gmail.com"
@@ -6184,7 +6184,7 @@ rec {
           }
           {
             name = "syn";
-            packageId = "syn 2.0.15";
+            packageId = "syn 2.0.16";
           }
         ];
         features = { };
@@ -6684,11 +6684,11 @@ rec {
         };
         resolvedDefaultFeatures = [ "clone-impls" "default" "derive" "extra-traits" "full" "parsing" "printing" "proc-macro" "quote" "visit" "visit-mut" ];
       };
-      "syn 2.0.15" = rec {
+      "syn 2.0.16" = rec {
         crateName = "syn";
-        version = "2.0.15";
+        version = "2.0.16";
         edition = "2021";
-        sha256 = "08n8c235bj7f86a5jg561s5zjfijdn8jw6ih2im7xxb0iczcykx3";
+        sha256 = "00fg96sqsswq7nwc8yxxhj3dyf96zrksxh0rxjnqxnzznpa73xm6";
         authors = [
           "David Tolnay <dtolnay@gmail.com>"
         ];
@@ -7018,7 +7018,7 @@ rec {
           }
           {
             name = "syn";
-            packageId = "syn 2.0.15";
+            packageId = "syn 2.0.16";
           }
         ];
 
@@ -7328,7 +7328,7 @@ rec {
           }
           {
             name = "syn";
-            packageId = "syn 2.0.15";
+            packageId = "syn 2.0.16";
             features = [ "full" ];
           }
         ];
@@ -7379,9 +7379,9 @@ rec {
       };
       "tokio-util" = rec {
         crateName = "tokio-util";
-        version = "0.7.8";
+        version = "0.7.9";
         edition = "2021";
-        sha256 = "0zfvblvskaj65rianw6agz9hnbdbsfgf5fkw4srwik3yr31fhvw0";
+        sha256 = "03d63ivnd8pwi6qzrlw0gyqkiawq5vmkb5sdb4hhnypm4130fs0x";
         authors = [
           "Tokio Contributors <team@tokio.rs>"
         ];
@@ -7548,9 +7548,9 @@ rec {
       };
       "tonic" = rec {
         crateName = "tonic";
-        version = "0.8.3";
-        edition = "2018";
-        sha256 = "1yymp2xi1p60g81p5jfaybcawpfkb01vqvzqn4cyz6wj7fnry8cg";
+        version = "0.10.2";
+        edition = "2021";
+        sha256 = "03hx1b2810p4jmsphbql8cn3r22c9n1ar73bj8azf7761lx96q6m";
         authors = [
           "Lucio Franco <luciofranco14@gmail.com>"
         ];
@@ -7558,6 +7558,7 @@ rec {
           {
             name = "async-stream";
             packageId = "async-stream";
+            optional = true;
           }
           {
             name = "async-trait";
@@ -7577,16 +7578,6 @@ rec {
           {
             name = "bytes";
             packageId = "bytes";
-          }
-          {
-            name = "futures-core";
-            packageId = "futures-core";
-            usesDefaultFeatures = false;
-          }
-          {
-            name = "futures-util";
-            packageId = "futures-util";
-            usesDefaultFeatures = false;
           }
           {
             name = "h2";
@@ -7623,28 +7614,17 @@ rec {
           {
             name = "prost";
             packageId = "prost";
-            rename = "prost1";
             optional = true;
-          }
-          {
-            name = "prost-derive";
-            packageId = "prost-derive";
-            optional = true;
+            usesDefaultFeatures = false;
+            features = [ "std" ];
           }
           {
             name = "tokio";
             packageId = "tokio";
-            optional = true;
-            features = [ "net" ];
           }
           {
             name = "tokio-stream";
             packageId = "tokio-stream";
-          }
-          {
-            name = "tokio-util";
-            packageId = "tokio-util";
-            features = [ "codec" ];
           }
           {
             name = "tower";
@@ -7665,11 +7645,6 @@ rec {
             name = "tracing";
             packageId = "tracing";
           }
-          {
-            name = "tracing-futures";
-            packageId = "tracing-futures";
-            optional = true;
-          }
         ];
         devDependencies = [
           {
@@ -7684,39 +7659,23 @@ rec {
           }
         ];
         features = {
-          "async-trait" = [ "dep:async-trait" ];
-          "axum" = [ "dep:axum" ];
-          "channel" = [ "h2" "hyper" "tokio" "tower" "tracing-futures" "tokio/macros" "tokio/time" "hyper-timeout" ];
-          "codegen" = [ "async-trait" ];
+          "codegen" = [ "dep:async-trait" ];
           "default" = [ "transport" "codegen" "prost" ];
-          "flate2" = [ "dep:flate2" ];
-          "gzip" = [ "flate2" ];
-          "h2" = [ "dep:h2" ];
-          "hyper" = [ "dep:hyper" ];
-          "hyper-timeout" = [ "dep:hyper-timeout" ];
-          "prost" = [ "prost1" "prost-derive" ];
-          "prost-derive" = [ "dep:prost-derive" ];
-          "prost1" = [ "dep:prost1" ];
-          "rustls-native-certs" = [ "dep:rustls-native-certs" ];
-          "rustls-pemfile" = [ "dep:rustls-pemfile" ];
-          "tls" = [ "rustls-pemfile" "transport" "tokio-rustls" ];
-          "tls-roots" = [ "tls-roots-common" "rustls-native-certs" ];
+          "gzip" = [ "dep:flate2" ];
+          "prost" = [ "dep:prost" ];
+          "tls" = [ "dep:rustls-pemfile" "transport" "dep:tokio-rustls" "dep:rustls" "tokio/rt" "tokio/macros" ];
+          "tls-roots" = [ "tls-roots-common" "dep:rustls-native-certs" ];
           "tls-roots-common" = [ "tls" ];
-          "tls-webpki-roots" = [ "tls-roots-common" "webpki-roots" ];
-          "tokio" = [ "dep:tokio" ];
-          "tokio-rustls" = [ "dep:tokio-rustls" ];
-          "tower" = [ "dep:tower" ];
-          "tracing-futures" = [ "dep:tracing-futures" ];
-          "transport" = [ "axum" "channel" ];
-          "webpki-roots" = [ "dep:webpki-roots" ];
+          "tls-webpki-roots" = [ "tls-roots-common" "dep:webpki-roots" ];
+          "transport" = [ "dep:async-stream" "dep:axum" "channel" "dep:h2" "dep:hyper" "tokio/net" "tokio/time" "dep:tower" "dep:hyper-timeout" ];
         };
-        resolvedDefaultFeatures = [ "async-trait" "axum" "channel" "codegen" "default" "h2" "hyper" "hyper-timeout" "prost" "prost-derive" "prost1" "tokio" "tower" "tracing-futures" "transport" ];
+        resolvedDefaultFeatures = [ "channel" "codegen" "default" "prost" "transport" ];
       };
       "tonic-build" = rec {
         crateName = "tonic-build";
-        version = "0.8.4";
-        edition = "2018";
-        sha256 = "1i781mfzcbzfk6fnf7qp95q6r0b05ixvmynw4z0agq7pq2wykxav";
+        version = "0.10.2";
+        edition = "2021";
+        sha256 = "129qd12ka65h5f1dzi5mrlz6wndi0pfx1320lawq51f18k01y0lx";
         authors = [
           "Lucio Franco <luciofranco14@gmail.com>"
         ];
@@ -7740,11 +7699,11 @@ rec {
           }
           {
             name = "syn";
-            packageId = "syn 1.0.109";
+            packageId = "syn 2.0.16";
           }
         ];
         features = {
-          "cleanup-markdown" = [ "prost-build/cleanup-markdown" ];
+          "cleanup-markdown" = [ "prost" "prost-build/cleanup-markdown" ];
           "default" = [ "transport" "prost" ];
           "prost" = [ "prost-build" ];
           "prost-build" = [ "dep:prost-build" ];
@@ -7753,18 +7712,14 @@ rec {
       };
       "tonic-reflection" = rec {
         crateName = "tonic-reflection";
-        version = "0.5.0";
-        edition = "2018";
-        sha256 = "05i6c1fcbwkkj0p2r63vb5iac60b22a5rif3zx5li8a0slqgfm84";
+        version = "0.10.2";
+        edition = "2021";
+        sha256 = "0xhvp8f7ysyb3vqnb0knq4dfzf8qr4l1v8jbgwcrsczi7m8pr8rz";
         authors = [
           "James Nugent <james@jen20.com>"
           "Samani G. Gikandi <samani@gojulas.com>"
         ];
         dependencies = [
-          {
-            name = "bytes";
-            packageId = "bytes";
-          }
           {
             name = "prost";
             packageId = "prost";
@@ -7776,7 +7731,7 @@ rec {
           {
             name = "tokio";
             packageId = "tokio";
-            features = [ "sync" ];
+            features = [ "sync" "rt" ];
           }
           {
             name = "tokio-stream";
@@ -7786,14 +7741,16 @@ rec {
           {
             name = "tonic";
             packageId = "tonic";
+            usesDefaultFeatures = false;
             features = [ "codegen" "prost" ];
           }
         ];
-        buildDependencies = [
+        devDependencies = [
           {
-            name = "tonic-build";
-            packageId = "tonic-build";
-            features = [ "transport" "prost" ];
+            name = "tonic";
+            packageId = "tonic";
+            usesDefaultFeatures = false;
+            features = [ "transport" ];
           }
         ];
 
@@ -8012,7 +7969,7 @@ rec {
           }
           {
             name = "syn";
-            packageId = "syn 2.0.15";
+            packageId = "syn 2.0.16";
             usesDefaultFeatures = false;
             features = [ "full" "parsing" "printing" "visit-mut" "clone-impls" "extra-traits" "proc-macro" ];
           }
@@ -8048,42 +8005,6 @@ rec {
           "valuable" = [ "dep:valuable" ];
         };
         resolvedDefaultFeatures = [ "default" "once_cell" "std" "valuable" ];
-      };
-      "tracing-futures" = rec {
-        crateName = "tracing-futures";
-        version = "0.2.5";
-        edition = "2018";
-        sha256 = "1wimg0iwa2ldq7xv98lvivvf3q9ykfminig8r1bs0ig22np9bl4p";
-        authors = [
-          "Eliza Weisman <eliza@buoyant.io>"
-          "Tokio Contributors <team@tokio.rs>"
-        ];
-        dependencies = [
-          {
-            name = "pin-project";
-            packageId = "pin-project";
-            optional = true;
-          }
-          {
-            name = "tracing";
-            packageId = "tracing";
-            usesDefaultFeatures = false;
-          }
-        ];
-        features = {
-          "default" = [ "std-future" "std" ];
-          "futures" = [ "dep:futures" ];
-          "futures-01" = [ "futures_01" "std" ];
-          "futures-03" = [ "std-future" "futures" "futures-task" "std" ];
-          "futures-task" = [ "dep:futures-task" ];
-          "futures_01" = [ "dep:futures_01" ];
-          "pin-project" = [ "dep:pin-project" ];
-          "std" = [ "tracing/std" ];
-          "std-future" = [ "pin-project" ];
-          "tokio" = [ "dep:tokio" ];
-          "tokio-executor" = [ "dep:tokio-executor" ];
-        };
-        resolvedDefaultFeatures = [ "default" "pin-project" "std" "std-future" ];
       };
       "tracing-log" = rec {
         crateName = "tracing-log";
@@ -8301,7 +8222,7 @@ rec {
           {
             name = "tokio";
             packageId = "tokio";
-            features = [ "fs" "net" "rt-multi-thread" "signal" ];
+            features = [ "fs" "macros" "net" "rt" "rt-multi-thread" "signal" ];
           }
           {
             name = "tokio-stream";
@@ -8729,7 +8650,7 @@ rec {
           {
             name = "tokio";
             packageId = "tokio";
-            features = [ "fs" "net" "rt-multi-thread" "signal" ];
+            features = [ "fs" "macros" "net" "rt" "rt-multi-thread" "signal" ];
           }
           {
             name = "tokio-listener";

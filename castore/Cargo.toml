@@ -11,13 +11,13 @@ data-encoding = "2.3.3"
 futures = "0.3.28"
 lazy_static = "1.4.0"
 pin-project-lite = "0.2.13"
-prost = "0.11.2"
+prost = "0.12.1"
 sled = { version = "0.34.7", features = ["compression"] }
 thiserror = "1.0.38"
 tokio-stream = { version = "0.1.14", features = ["fs", "net"] }
-tokio-util = { version = "0.7.8", features = ["io", "io-util"] }
-tokio = { version = "1.28.0", features = ["fs", "net", "rt-multi-thread", "signal"] }
-tonic = "0.8.2"
+tokio-util = { version = "0.7.9", features = ["io", "io-util"] }
+tokio = { version = "1.32.0", features = ["fs", "macros", "net", "rt", "rt-multi-thread", "signal"] }
+tonic = "0.10.2"
 tower = "0.4.13"
 tracing = "0.1.37"
 url = "2.4.0"
@@ -25,11 +25,11 @@ walkdir = "2.4.0"
 
 [dependencies.tonic-reflection]
 optional = true
-version = "0.5.0"
+version = "0.10.2"
 
 [build-dependencies]
-prost-build = "0.11.2"
-tonic-build = "0.8.2"
+prost-build = "0.12.1"
+tonic-build = "0.10.2"
 
 [dev-dependencies]
 test-case = "2.2.2"
