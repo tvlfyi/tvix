@@ -8634,6 +8634,10 @@ rec {
             name = "test-case";
             packageId = "test-case";
           }
+          {
+            name = "tokio-retry";
+            packageId = "tokio-retry";
+          }
         ];
         features = {
           "default" = [ "fuse" "tonic-reflection" ];

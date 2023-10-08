@@ -180,10 +180,12 @@ impl PathInfoService for GRPCPathInfoService {
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
+    use std::time::Duration;
 
     use tempfile::TempDir;
     use tokio::net::UnixListener;
-    use tokio::time;
+    use tokio_retry::strategy::ExponentialBackoff;
+    use tokio_retry::Retry;
     use tokio_stream::wrappers::UnixListenerStream;
 
     use crate::pathinfoservice::MemoryPathInfoService;
@@ -274,13 +276,11 @@ mod tests {
         let tmpdir = TempDir::new().unwrap();
         let socket_path = tmpdir.path().join("daemon");
 
-        // let mut join_set = JoinSet::new();
-
-        let path_copy = socket_path.clone();
+        let path_clone = socket_path.clone();
 
         // Spin up a server
         tokio::spawn(async {
-            let uds = UnixListener::bind(path_copy).unwrap();
+            let uds = UnixListener::bind(path_clone).unwrap();
             let uds_stream = UnixListenerStream::new(uds);
 
             // spin up a new server
@@ -298,21 +298,19 @@ mod tests {
         });
 
         // wait for the socket to be created
-        {
-            let mut socket_created = false;
-            for _try in 1..20 {
+        Retry::spawn(
+            ExponentialBackoff::from_millis(20).max_delay(Duration::from_secs(10)),
+            || async {
                 if socket_path.exists() {
-                    socket_created = true;
-                    break;
+                    Ok(())
+                } else {
+                    Err(())
                 }
-                tokio::time::sleep(time::Duration::from_millis(20)).await;
-            }
+            },
+        )
+        .await
+        .expect("failed to wait for socket");
 
-            assert!(
-                socket_created,
-                "expected socket path to eventually get created, but never happened"
-            );
-        }
         // prepare a client
         let grpc_client = {
             let url = url::Url::parse(&format!("grpc+unix://{}", socket_path.display()))
