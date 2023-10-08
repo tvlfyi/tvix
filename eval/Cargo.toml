@@ -35,7 +35,7 @@ xml-rs = "0.8.4"
 criterion = "0.4"
 pretty_assertions = "1.2.1"
 itertools = "0.10.3"
-tempdir = "0.3.7"
+tempfile = "3.3.0"
 
 [dev-dependencies.test-generator]
 # This fork of test-generator adds support for cargo workspaces, see

@@ -3,7 +3,6 @@
 use std::{env, path::PathBuf, process::Command};
 
 use pretty_assertions::assert_eq;
-use tempdir::TempDir;
 
 fn nix_binary_path() -> PathBuf {
     env::var("NIX_INSTANTIATE_BINARY_PATH")
@@ -18,7 +17,7 @@ enum Strictness {
 }
 
 fn nix_eval(expr: &str, strictness: Strictness) -> String {
-    let store_dir = TempDir::new("store-dir").unwrap();
+    let store_dir = tempfile::tempdir().unwrap();
 
     let mut args = match strictness {
         Strictness::Lazy => vec![],

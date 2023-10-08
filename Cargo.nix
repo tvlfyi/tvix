@@ -2174,16 +2174,6 @@ rec {
         ];
 
       };
-      "fuchsia-cprng" = rec {
-        crateName = "fuchsia-cprng";
-        version = "0.1.1";
-        edition = "2018";
-        sha256 = "1fnkqrbz7ixxzsb04bsz9p0zzazanma8znfdqjvh39n14vapfvx0";
-        authors = [
-          "Erick Tryzelaar <etryzelaar@google.com>"
-        ];
-
-      };
       "fuse-backend-rs" = rec {
         crateName = "fuse-backend-rs";
         version = "0.10.5";
@@ -3164,7 +3154,7 @@ rec {
           }
           {
             name = "rand_core";
-            packageId = "rand_core 0.6.4";
+            packageId = "rand_core";
           }
           {
             name = "rand_xoshiro";
@@ -4943,7 +4933,7 @@ rec {
           }
           {
             name = "rand";
-            packageId = "rand 0.8.5";
+            packageId = "rand";
             usesDefaultFeatures = false;
             features = [ "alloc" ];
           }
@@ -5261,53 +5251,7 @@ rec {
           "serde" = [ "dep:serde" ];
         };
       };
-      "rand 0.4.6" = rec {
-        crateName = "rand";
-        version = "0.4.6";
-        edition = "2015";
-        sha256 = "14qjfv3gggzhnma20k0sc1jf8y6pplsaq7n1j9ls5c8kf2wl0a2m";
-        authors = [
-          "The Rust Project Developers"
-        ];
-        dependencies = [
-          {
-            name = "fuchsia-cprng";
-            packageId = "fuchsia-cprng";
-            target = { target, features }: ("fuchsia" == target."os");
-          }
-          {
-            name = "libc";
-            packageId = "libc";
-            optional = true;
-            target = { target, features }: (target."unix" or false);
-          }
-          {
-            name = "rand_core";
-            packageId = "rand_core 0.3.1";
-            usesDefaultFeatures = false;
-            target = { target, features }: ("sgx" == target."env");
-          }
-          {
-            name = "rdrand";
-            packageId = "rdrand";
-            target = { target, features }: ("sgx" == target."env");
-          }
-          {
-            name = "winapi";
-            packageId = "winapi";
-            target = { target, features }: (target."windows" or false);
-            features = [ "minwindef" "ntsecapi" "profileapi" "winnt" ];
-          }
-        ];
-        features = {
-          "default" = [ "std" ];
-          "libc" = [ "dep:libc" ];
-          "nightly" = [ "i128_support" ];
-          "std" = [ "libc" ];
-        };
-        resolvedDefaultFeatures = [ "default" "libc" "std" ];
-      };
-      "rand 0.8.5" = rec {
+      "rand" = rec {
         crateName = "rand";
         version = "0.8.5";
         edition = "2018";
@@ -5332,7 +5276,7 @@ rec {
           }
           {
             name = "rand_core";
-            packageId = "rand_core 0.6.4";
+            packageId = "rand_core";
           }
         ];
         features = {
@@ -5370,7 +5314,7 @@ rec {
           }
           {
             name = "rand_core";
-            packageId = "rand_core 0.6.4";
+            packageId = "rand_core";
           }
         ];
         features = {
@@ -5381,45 +5325,7 @@ rec {
         };
         resolvedDefaultFeatures = [ "std" ];
       };
-      "rand_core 0.3.1" = rec {
-        crateName = "rand_core";
-        version = "0.3.1";
-        edition = "2015";
-        sha256 = "0jzdgszfa4bliigiy4hi66k7fs3gfwi2qxn8vik84ph77fwdwvvs";
-        authors = [
-          "The Rand Project Developers"
-          "The Rust Project Developers"
-        ];
-        dependencies = [
-          {
-            name = "rand_core";
-            packageId = "rand_core 0.4.2";
-          }
-        ];
-        features = {
-          "alloc" = [ "rand_core/alloc" ];
-          "default" = [ "std" ];
-          "serde1" = [ "rand_core/serde1" ];
-          "std" = [ "rand_core/std" ];
-        };
-      };
-      "rand_core 0.4.2" = rec {
-        crateName = "rand_core";
-        version = "0.4.2";
-        edition = "2015";
-        sha256 = "1p09ynysrq1vcdlmcqnapq4qakl2yd1ng3kxh3qscpx09k2a6cww";
-        authors = [
-          "The Rand Project Developers"
-          "The Rust Project Developers"
-        ];
-        features = {
-          "serde" = [ "dep:serde" ];
-          "serde1" = [ "serde" "serde_derive" ];
-          "serde_derive" = [ "dep:serde_derive" ];
-          "std" = [ "alloc" ];
-        };
-      };
-      "rand_core 0.6.4" = rec {
+      "rand_core" = rec {
         crateName = "rand_core";
         version = "0.6.4";
         edition = "2018";
@@ -5455,7 +5361,7 @@ rec {
         dependencies = [
           {
             name = "rand_core";
-            packageId = "rand_core 0.6.4";
+            packageId = "rand_core";
           }
         ];
         features = {
@@ -5474,7 +5380,7 @@ rec {
         dependencies = [
           {
             name = "rand_core";
-            packageId = "rand_core 0.6.4";
+            packageId = "rand_core";
           }
         ];
         features = {
@@ -5532,26 +5438,6 @@ rec {
           }
         ];
 
-      };
-      "rdrand" = rec {
-        crateName = "rdrand";
-        version = "0.4.0";
-        edition = "2015";
-        sha256 = "1cjq0kwx1bk7jx3kzyciiish5gqsj7620dm43dc52sr8fzmm9037";
-        authors = [
-          "Simonas Kazlauskas <rdrand@kazlauskas.me>"
-        ];
-        dependencies = [
-          {
-            name = "rand_core";
-            packageId = "rand_core 0.3.1";
-            usesDefaultFeatures = false;
-          }
-        ];
-        features = {
-          "default" = [ "std" ];
-        };
-        resolvedDefaultFeatures = [ "default" "std" ];
       };
       "redox_syscall 0.2.16" = rec {
         crateName = "redox_syscall";
@@ -5732,24 +5618,6 @@ rec {
           "unicode" = [ "unicode-age" "unicode-bool" "unicode-case" "unicode-gencat" "unicode-perl" "unicode-script" "unicode-segment" ];
         };
         resolvedDefaultFeatures = [ "default" "std" "unicode" "unicode-age" "unicode-bool" "unicode-case" "unicode-gencat" "unicode-perl" "unicode-script" "unicode-segment" ];
-      };
-      "remove_dir_all" = rec {
-        crateName = "remove_dir_all";
-        version = "0.5.3";
-        edition = "2015";
-        sha256 = "1rzqbsgkmr053bxxl04vmvsd1njyz0nxvly97aip6aa2cmb15k9s";
-        authors = [
-          "Aaronepower <theaaronepower@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "winapi";
-            packageId = "winapi";
-            target = { target, features }: (target."windows" or false);
-            features = [ "std" "errhandlingapi" "winerror" "fileapi" "winbase" ];
-          }
-        ];
-
       };
       "rnix" = rec {
         crateName = "rnix";
@@ -6751,26 +6619,6 @@ rec {
           "regex" = [ "dep:regex" ];
         };
         resolvedDefaultFeatures = [ "default" ];
-      };
-      "tempdir" = rec {
-        crateName = "tempdir";
-        version = "0.3.7";
-        edition = "2015";
-        sha256 = "1n5n86zxpgd85y0mswrp5cfdisizq2rv3la906g6ipyc03xvbwhm";
-        authors = [
-          "The Rust Project Developers"
-        ];
-        dependencies = [
-          {
-            name = "rand";
-            packageId = "rand 0.4.6";
-          }
-          {
-            name = "remove_dir_all";
-            packageId = "remove_dir_all";
-          }
-        ];
-
       };
       "tempfile" = rec {
         crateName = "tempfile";
@@ -7793,7 +7641,7 @@ rec {
           }
           {
             name = "rand";
-            packageId = "rand 0.8.5";
+            packageId = "rand";
             optional = true;
             features = [ "small_rng" ];
           }
@@ -8476,8 +8324,8 @@ rec {
             packageId = "pretty_assertions";
           }
           {
-            name = "tempdir";
-            packageId = "tempdir";
+            name = "tempfile";
+            packageId = "tempfile";
           }
           {
             name = "test-generator";
@@ -9869,7 +9717,7 @@ rec {
         features = {
           "debug" = [ "impl-debug" ];
         };
-        resolvedDefaultFeatures = [ "basetsd" "consoleapi" "errhandlingapi" "fileapi" "handleapi" "knownfolders" "minwinbase" "minwindef" "ntsecapi" "ntstatus" "objbase" "processenv" "processthreadsapi" "profileapi" "shellapi" "shlobj" "std" "stringapiset" "synchapi" "sysinfoapi" "winbase" "wincon" "winerror" "winnt" "winuser" "ws2ipdef" "ws2tcpip" ];
+        resolvedDefaultFeatures = [ "basetsd" "consoleapi" "errhandlingapi" "fileapi" "handleapi" "knownfolders" "minwinbase" "minwindef" "ntstatus" "objbase" "processenv" "processthreadsapi" "shellapi" "shlobj" "std" "stringapiset" "synchapi" "sysinfoapi" "winbase" "wincon" "winerror" "winnt" "winuser" "ws2ipdef" "ws2tcpip" ];
       };
       "winapi-i686-pc-windows-gnu" = rec {
         crateName = "winapi-i686-pc-windows-gnu";
