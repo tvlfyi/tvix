@@ -129,6 +129,9 @@ impl<'a, 'w> Node<'a, 'w> {
 
     /// Make this node a directory, the content of which is set using the
     /// resulting [`Directory`] value.
+    ///
+    /// It is the caller's responsibility to invoke [`Directory::close`],
+    /// or invalid archives will be produced silently.
     pub fn directory(mut self) -> io::Result<Directory<'a, 'w>> {
         self.write(&wire::TOK_DIR)?;
         Ok(Directory::new(self))
