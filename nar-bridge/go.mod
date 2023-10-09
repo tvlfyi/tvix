@@ -8,7 +8,7 @@ require (
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/google/go-cmp v0.5.9
 	github.com/multiformats/go-multihash v0.2.1
-	github.com/nix-community/go-nix v0.0.0-20231005143722-b0f8b73c06df
+	github.com/nix-community/go-nix v0.0.0-20231009143713-ebca3299475b
 	github.com/sirupsen/logrus v1.9.0
 	github.com/stretchr/testify v1.8.1
 	github.com/ulikunitz/xz v0.5.11

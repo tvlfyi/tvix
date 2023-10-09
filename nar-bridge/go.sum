@@ -51,8 +51,8 @@ github.com/multiformats/go-multihash v0.2.1 h1:aem8ZT0VA2nCHHk7bPJ1BjUbHNciqZC/d
 github.com/multiformats/go-multihash v0.2.1/go.mod h1:WxoMcYG85AZVQUyRyo9s4wULvW5qrI9vb2Lt6evduFc=
 github.com/multiformats/go-varint v0.0.6 h1:gk85QWKxh3TazbLxED/NlDVv8+q+ReFJk7Y2W/KhfNY=
 github.com/multiformats/go-varint v0.0.6/go.mod h1:3Ls8CIEsrijN6+B7PbrXRPxHRPuXSrVKRY101jdMZYE=
-github.com/nix-community/go-nix v0.0.0-20231005143722-b0f8b73c06df h1:n4I26uXUST5vmdsDWPo9ikK57il4htQyhnsLWoHYFmY=
-github.com/nix-community/go-nix v0.0.0-20231005143722-b0f8b73c06df/go.mod h1:hHM9UK2zOCjvmiLgeaW4LVbOW/vBaRWFJGzfi31/slQ=
+github.com/nix-community/go-nix v0.0.0-20231009143713-ebca3299475b h1:AWEKOdDO3JnHApQDOmONEKLXbMCQJhYJJfJpiWB9VGI=
+github.com/nix-community/go-nix v0.0.0-20231009143713-ebca3299475b/go.mod h1:hHM9UK2zOCjvmiLgeaW4LVbOW/vBaRWFJGzfi31/slQ=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:xMI15A0UPsDsEKsMN9yxemIoYk6Tm2C1GtYGdfGttqA=
