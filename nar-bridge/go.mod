@@ -13,7 +13,7 @@ require (
 	github.com/stretchr/testify v1.8.1
 	github.com/ulikunitz/xz v0.5.11
 	google.golang.org/grpc v1.51.0
-	google.golang.org/protobuf v1.28.1
+	google.golang.org/protobuf v1.31.0
 	lukechampine.com/blake3 v1.1.7
 )
 
