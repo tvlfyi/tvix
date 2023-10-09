@@ -188,7 +188,7 @@ impl<'a, 'w> Directory<'a, 'w> {
                         "misordered names: {_prev_name:?} >= {name:?}"
                     );
                     _prev_name.clear();
-                    _prev_name.append(&mut name.to_vec());
+                    _prev_name.extend_from_slice(name);
                 }
                 self.node.write(&wire::TOK_PAR)?;
             }
