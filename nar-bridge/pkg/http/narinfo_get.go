@@ -8,18 +8,13 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
-	"path"
 	"strings"
 	"sync"
 
-	castorev1pb "code.tvl.fyi/tvix/castore/protos"
 	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/go-chi/chi/v5"
 	nixhash "github.com/nix-community/go-nix/pkg/hash"
-	"github.com/nix-community/go-nix/pkg/narinfo"
-	"github.com/nix-community/go-nix/pkg/narinfo/signature"
 	"github.com/nix-community/go-nix/pkg/nixbase32"
-	"github.com/nix-community/go-nix/pkg/storepath"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -71,37 +66,10 @@ func renderNarinfo(
 		return nil
 	}
 
-	// convert the signatures from storev1pb signatures to narinfo signatures
-	narinfoSignatures := make([]signature.Signature, 0)
-	for _, pathInfoSignature := range pathInfo.Narinfo.Signatures {
-		narinfoSignatures = append(narinfoSignatures, signature.Signature{
-			Name: pathInfoSignature.GetName(),
-			Data: pathInfoSignature.GetData(),
-		})
-	}
+	// convert the PathInfo to NARInfo.
+	narInfo, err := ToNixNarInfo(pathInfo)
 
-	// extract the name of the node in the pathInfo structure, which will become the output path
-	var nodeName []byte
-	switch v := (pathInfo.GetNode().GetNode()).(type) {
-	case *castorev1pb.Node_File:
-		nodeName = v.File.GetName()
-	case *castorev1pb.Node_Symlink:
-		nodeName = v.Symlink.GetName()
-	case *castorev1pb.Node_Directory:
-		nodeName = v.Directory.GetName()
-	}
-
-	narInfo := narinfo.NarInfo{
-		StorePath:   path.Join(storepath.StoreDir, string(nodeName)),
-		URL:         "nar/" + nixbase32.EncodeToString(narHash.Digest()) + ".nar",
-		Compression: "none", // TODO: implement zstd compression
-		NarHash:     narHash,
-		NarSize:     uint64(pathInfo.Narinfo.NarSize),
-		References:  pathInfo.Narinfo.GetReferenceNames(),
-		Signatures:  narinfoSignatures,
-	}
-
-	// render .narinfo from pathInfo
+	// Write it out to the client.
 	_, err = io.Copy(w, strings.NewReader(narInfo.String()))
 	if err != nil {
 		return fmt.Errorf("unable to write narinfo to client: %w", err)
