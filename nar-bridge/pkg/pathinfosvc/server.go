@@ -247,16 +247,7 @@ func (p *PathInfoServiceServer) Get(ctx context.Context, getPathInfoRequest *sto
 		panic(err)
 	}
 
-	// set the root name in all three cases.
-	if node := pathInfo.Node.GetDirectory(); node != nil {
-		node.Name = []byte(outPath.String())
-	} else if node := pathInfo.Node.GetFile(); node != nil {
-		node.Name = []byte(outPath.String())
-	} else if node := pathInfo.Node.GetSymlink(); node != nil {
-		node.Name = []byte(outPath.String())
-	} else {
-		panic("node may not be nil")
-	}
+	pathInfo.Node = castorev1pb.RenamedNode(pathInfo.Node, outPath.String())
 
 	// run Validate on the PathInfo, more as an additional sanity check our code is sound,
 	// to make sure we populated everything properly, before returning it.
