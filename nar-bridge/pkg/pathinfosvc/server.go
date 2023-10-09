@@ -218,25 +218,20 @@ func (p *PathInfoServiceServer) Get(ctx context.Context, getPathInfoRequest *sto
 
 	// annotate importedPathInfo with the rest of the metadata from NARINfo.
 
-	// extract the output hashes from narInfo.References into importedPathInfo.References.
-	{
-		// Length of the hash portion of the store path in base32.
-		encodedPathHashSize := nixbase32.EncodedLen(20)
-		for _, referenceStr := range narInfo.References {
-			if len(referenceStr) < encodedPathHashSize {
-				return nil, fmt.Errorf("reference string '%s' is too small", referenceStr)
-			}
-
-			decodedReferenceHash, err := nixbase32.DecodeString(referenceStr[0:encodedPathHashSize])
-			if err != nil {
-				return nil, fmt.Errorf("unable to decode reference string '%s': %w", referenceStr, err)
-
-			}
-			pathInfo.References = append(pathInfo.References, decodedReferenceHash)
+	// extract the output digests
+	for _, referenceStr := range narInfo.References {
+		referenceStorePath, err := storepath.FromString(referenceStr)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse %s as StorePath: %w", referenceStr, err)
 		}
+
+		pathInfo.References = append(pathInfo.References, referenceStorePath.Digest)
 	}
+
+	// extract narInfo.References into pathInfo.NarInfo.ReferenceNames.
 	pathInfo.Narinfo.ReferenceNames = narInfo.References
 
+	// copy over signatures from narInfo.signatures into pathInfo.NarInfo.Signatures.
 	for _, signature := range narInfo.Signatures {
 		pathInfo.Narinfo.Signatures = append(pathInfo.Narinfo.Signatures, &storev1pb.NARInfo_Signature{
 			Name: signature.Name,
@@ -251,15 +246,14 @@ func (p *PathInfoServiceServer) Get(ctx context.Context, getPathInfoRequest *sto
 		// unreachable due to narInfo.Check()
 		panic(err)
 	}
-	newName := []byte(nixbase32.EncodeToString(outPath.Digest) + "-" + string(outPath.Name))
 
 	// set the root name in all three cases.
 	if node := pathInfo.Node.GetDirectory(); node != nil {
-		node.Name = newName
+		node.Name = []byte(outPath.String())
 	} else if node := pathInfo.Node.GetFile(); node != nil {
-		node.Name = newName
+		node.Name = []byte(outPath.String())
 	} else if node := pathInfo.Node.GetSymlink(); node != nil {
-		node.Name = newName
+		node.Name = []byte(outPath.String())
 	} else {
 		panic("node may not be nil")
 	}
