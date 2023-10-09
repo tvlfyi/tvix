@@ -1404,6 +1404,8 @@ version = "0.1.0"
 dependencies = [
  "bstr",
  "data-encoding",
+ "futures",
+ "futures-util",
  "serde",
  "serde_json",
  "sha2",
