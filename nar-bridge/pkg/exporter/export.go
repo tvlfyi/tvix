@@ -194,9 +194,6 @@ func Export(
 	}
 }
 
-// TODO: add validation functions to Directory in both rust and golang, to
-// validate the keys in directories, files and symlinks are sorted.
-
 // drainNextNode will drain a directory message with one of its child nodes,
 // whichever comes first alphabetically.
 func drainNextNode(d *castorev1pb.Directory) interface{} {
