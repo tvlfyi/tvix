@@ -31,7 +31,7 @@ pub enum Error {
     InvalidLength(),
     #[error(
         "Invalid name: \"{}\", character at position {} is invalid",
-        std::str::from_utf8(&.0).unwrap_or(&BASE64.encode(.0)),
+        std::str::from_utf8(.0).unwrap_or(&BASE64.encode(.0)),
         .1,
     )]
     InvalidName(Vec<u8>, usize),
