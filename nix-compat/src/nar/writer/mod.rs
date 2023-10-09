@@ -163,6 +163,10 @@ impl<'a, 'w> Directory<'a, 'w> {
     ///
     /// The entry is simply another [`Node`], which can then be filled like the
     /// root of a NAR (including, of course, by nesting directories).
+    ///
+    /// It is the caller's responsibility to ensure that directory entries are
+    /// written in order of ascending name. If this is not ensured, this method
+    /// may panic or silently produce invalid archives.
     pub fn entry(&mut self, name: &[u8]) -> io::Result<Node<'_, 'w>> {
         debug_assert!(
             name.len() <= wire::MAX_NAME_LEN,
