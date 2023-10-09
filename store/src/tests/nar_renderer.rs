@@ -4,16 +4,17 @@ use crate::tests::fixtures::*;
 use crate::tests::utils::*;
 use sha2::{Digest, Sha256};
 use std::io;
+use tokio::io::sink;
 use tvix_castore::proto::DirectoryNode;
 use tvix_castore::proto::FileNode;
 use tvix_castore::proto::{self as castorepb, SymlinkNode};
 
 #[tokio::test]
 async fn single_symlink() {
-    let buf: Vec<u8> = vec![];
+    let mut buf: Vec<u8> = vec![];
 
-    let buf = write_nar(
-        buf,
+    write_nar(
+        &mut buf,
         &castorepb::node::Node::Symlink(SymlinkNode {
             name: "doesntmatter".into(),
             target: "/nix/store/somewhereelse".into(),
@@ -31,10 +32,8 @@ async fn single_symlink() {
 /// Make sure the NARRenderer fails if a referred blob doesn't exist.
 #[tokio::test]
 async fn single_file_missing_blob() {
-    let buf: Vec<u8> = vec![];
-
     let e = write_nar(
-        buf,
+        sink(),
         &castorepb::node::Node::File(FileNode {
             name: "doesntmatter".into(),
             digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
@@ -78,10 +77,8 @@ async fn single_file_wrong_blob_size() {
     let bs = blob_service.clone();
     // Test with a root FileNode of a too big size
     {
-        let buf: Vec<u8> = vec![];
-
         let e = write_nar(
-            buf,
+            sink(),
             &castorepb::node::Node::File(FileNode {
                 name: "doesntmatter".into(),
                 digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
@@ -105,10 +102,8 @@ async fn single_file_wrong_blob_size() {
     let bs = blob_service.clone();
     // Test with a root FileNode of a too small size
     {
-        let buf: Vec<u8> = vec![];
-
         let e = write_nar(
-            buf,
+            sink(),
             &castorepb::node::Node::File(FileNode {
                 name: "doesntmatter".into(),
                 digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
@@ -148,10 +143,10 @@ async fn single_file() {
         writer.close().await.unwrap()
     );
 
-    let buf: Vec<u8> = vec![];
+    let mut buf: Vec<u8> = vec![];
 
-    let buf = write_nar(
-        buf,
+    write_nar(
+        &mut buf,
         &castorepb::node::Node::File(FileNode {
             name: "doesntmatter".into(),
             digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
@@ -192,13 +187,13 @@ async fn test_complicated() {
         .await
         .unwrap();
 
-    let buf: Vec<u8> = vec![];
+    let mut buf: Vec<u8> = vec![];
 
     let bs = blob_service.clone();
     let ds = directory_service.clone();
 
-    let buf = write_nar(
-        buf,
+    write_nar(
+        &mut buf,
         &castorepb::node::Node::Directory(DirectoryNode {
             name: "doesntmatter".into(),
             digest: DIRECTORY_COMPLICATED.digest().into(),
