@@ -12,12 +12,12 @@ import (
 type DirectoryLookupFn func([]byte) (*castorev1pb.Directory, error)
 type BlobLookupFn func([]byte) (io.ReadCloser, error)
 
-// Export will traverse a given PathInfo structure, and write the contents
-// in NAR format to the passed Writer.
+// Export will traverse a given root node, and write the contents in NAR format
+// to the passed Writer.
 // It uses directoryLookupFn and blobLookupFn to resolve references.
 func Export(
 	w io.Writer,
-	pathInfo *PathInfo,
+	rootNode *castorev1pb.Node,
 	directoryLookupFn DirectoryLookupFn,
 	blobLookupFn BlobLookupFn,
 ) error {
@@ -43,18 +43,17 @@ func Export(
 	// peek at the pathInfo root and assemble the root node and write to writer
 	// in the case of a regular file, we retrieve and write the contents, close and exit
 	// in the case of a symlink, we write the symlink, close and exit
-	switch v := (pathInfo.GetNode().GetNode()).(type) {
-	case *castorev1pb.Node_File:
+	if fileNode := rootNode.GetFile(); fileNode != nil {
 		rootHeader.Type = nar.TypeRegular
-		rootHeader.Size = int64(v.File.GetSize())
-		rootHeader.Executable = v.File.GetExecutable()
+		rootHeader.Size = int64(fileNode.GetSize())
+		rootHeader.Executable = fileNode.GetExecutable()
 		err := narWriter.WriteHeader(rootHeader)
 		if err != nil {
 			return fmt.Errorf("unable to write root header: %w", err)
 		}
 
 		// if it's a regular file, retrieve and write the contents
-		blobReader, err := blobLookupFn(v.File.GetDigest())
+		blobReader, err := blobLookupFn(fileNode.GetDigest())
 		if err != nil {
 			return fmt.Errorf("unable to lookup blob: %w", err)
 		}
@@ -76,10 +75,9 @@ func Export(
 		}
 
 		return nil
-
-	case *castorev1pb.Node_Symlink:
+	} else if symlinkNode := rootNode.GetSymlink(); symlinkNode != nil {
 		rootHeader.Type = nar.TypeSymlink
-		rootHeader.LinkTarget = string(v.Symlink.GetTarget())
+		rootHeader.LinkTarget = string(symlinkNode.GetTarget())
 		err := narWriter.WriteHeader(rootHeader)
 		if err != nil {
 			return fmt.Errorf("unable to write root header: %w", err)
@@ -89,11 +87,9 @@ func Export(
 		if err != nil {
 			return fmt.Errorf("unable to close nar reader: %w", err)
 		}
-
-		return nil
-	case *castorev1pb.Node_Directory:
+	} else if directoryNode := rootNode.GetDirectory(); directoryNode != nil {
 		// We have a directory at the root, look it up and put in on the stack.
-		directory, err := directoryLookupFn(v.Directory.Digest)
+		directory, err := directoryLookupFn(directoryNode.GetDigest())
 		if err != nil {
 			return fmt.Errorf("unable to lookup directory: %w", err)
 		}
@@ -108,6 +104,8 @@ func Export(
 		if err != nil {
 			return fmt.Errorf("error writing header: %w", err)
 		}
+	} else {
+		panic("invalid type") // unreachable
 	}
 
 	// as long as the stack is not empty, we keep running.

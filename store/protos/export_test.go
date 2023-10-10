@@ -30,21 +30,18 @@ func mustBlobDigest(r io.Reader) []byte {
 }
 
 func TestSymlink(t *testing.T) {
-	pathInfo := &storev1pb.PathInfo{
-
-		Node: &castorev1pb.Node{
-			Node: &castorev1pb.Node_Symlink{
-				Symlink: &castorev1pb.SymlinkNode{
-					Name:   []byte("doesntmatter"),
-					Target: []byte("/nix/store/somewhereelse"),
-				},
+	node := &castorev1pb.Node{
+		Node: &castorev1pb.Node_Symlink{
+			Symlink: &castorev1pb.SymlinkNode{
+				Name:   []byte("doesntmatter"),
+				Target: []byte("/nix/store/somewhereelse"),
 			},
 		},
 	}
 
 	var buf bytes.Buffer
 
-	err := storev1pb.Export(&buf, pathInfo, func([]byte) (*castorev1pb.Directory, error) {
+	err := storev1pb.Export(&buf, node, func([]byte) (*castorev1pb.Directory, error) {
 		panic("no directories expected")
 	}, func([]byte) (io.ReadCloser, error) {
 		panic("no files expected")
@@ -70,22 +67,20 @@ func TestRegular(t *testing.T) {
 		0x65, 0x2b,
 	}
 
-	pathInfo := &storev1pb.PathInfo{
-		Node: &castorev1pb.Node{
-			Node: &castorev1pb.Node_File{
-				File: &castorev1pb.FileNode{
-					Name:       []byte("doesntmatter"),
-					Digest:     BLAKE3_DIGEST_0X01,
-					Size:       1,
-					Executable: false,
-				},
+	node := &castorev1pb.Node{
+		Node: &castorev1pb.Node_File{
+			File: &castorev1pb.FileNode{
+				Name:       []byte("doesntmatter"),
+				Digest:     BLAKE3_DIGEST_0X01,
+				Size:       1,
+				Executable: false,
 			},
 		},
 	}
 
 	var buf bytes.Buffer
 
-	err := storev1pb.Export(&buf, pathInfo, func([]byte) (*castorev1pb.Directory, error) {
+	err := storev1pb.Export(&buf, node, func([]byte) (*castorev1pb.Directory, error) {
 		panic("no directories expected")
 	}, func(blobRef []byte) (io.ReadCloser, error) {
 		if !bytes.Equal(blobRef, BLAKE3_DIGEST_0X01) {
@@ -115,21 +110,19 @@ func TestEmptyDirectory(t *testing.T) {
 	}
 	emptyDirectoryDigest := mustDirectoryDigest(emptyDirectory)
 
-	pathInfo := &storev1pb.PathInfo{
-		Node: &castorev1pb.Node{
-			Node: &castorev1pb.Node_Directory{
-				Directory: &castorev1pb.DirectoryNode{
-					Name:   []byte("doesntmatter"),
-					Digest: emptyDirectoryDigest,
-					Size:   0,
-				},
+	node := &castorev1pb.Node{
+		Node: &castorev1pb.Node_Directory{
+			Directory: &castorev1pb.DirectoryNode{
+				Name:   []byte("doesntmatter"),
+				Digest: emptyDirectoryDigest,
+				Size:   0,
 			},
 		},
 	}
 
 	var buf bytes.Buffer
 
-	err := storev1pb.Export(&buf, pathInfo, func(directoryRef []byte) (*castorev1pb.Directory, error) {
+	err := storev1pb.Export(&buf, node, func(directoryRef []byte) (*castorev1pb.Directory, error) {
 		if !bytes.Equal(directoryRef, emptyDirectoryDigest) {
 			panic("unexpected directoryRef")
 		}
