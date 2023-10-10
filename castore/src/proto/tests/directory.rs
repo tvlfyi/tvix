@@ -61,6 +61,37 @@ fn size() {
 }
 
 #[test]
+#[cfg_attr(not(debug_assertions), ignore)]
+#[should_panic]
+fn size_unchecked_panic() {
+    let d = Directory {
+        directories: vec![DirectoryNode {
+            name: "foo".into(),
+            digest: DUMMY_DIGEST.to_vec().into(),
+            size: u32::MAX,
+        }],
+        ..Default::default()
+    };
+
+    d.size();
+}
+
+#[test]
+#[cfg_attr(debug_assertions, ignore)]
+fn size_unchecked_wrap() {
+    let d = Directory {
+        directories: vec![DirectoryNode {
+            name: "foo".into(),
+            digest: DUMMY_DIGEST.to_vec().into(),
+            size: u32::MAX,
+        }],
+        ..Default::default()
+    };
+
+    assert_eq!(d.size(), 0);
+}
+
+#[test]
 fn digest() {
     let d = Directory::default();
 
