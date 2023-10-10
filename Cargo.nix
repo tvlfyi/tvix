@@ -8117,6 +8117,10 @@ rec {
             features = [ "rayon" "std" ];
           }
           {
+            name = "bstr";
+            packageId = "bstr";
+          }
+          {
             name = "bytes";
             packageId = "bytes";
           }
