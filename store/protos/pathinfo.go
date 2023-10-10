@@ -51,7 +51,9 @@ func (p *PathInfo) Validate() (*storepath.StorePath, error) {
 		return nil, fmt.Errorf("root node must be set")
 	}
 
-	// ensure it properly parses to a store path, and in case it refers to a digest, ensure it has the right length.
+	// for all three node types, ensure the name properly parses to a store path,
+	// and in case it refers to a digest, ensure it has the right length.
+
 	if node := rootNode.GetDirectory(); node != nil {
 		if len(node.Digest) != 32 {
 			return nil, fmt.Errorf("invalid digest size for %s, expected %d, got %d", node.Name, 32, len(node.Digest))
