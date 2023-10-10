@@ -21,6 +21,10 @@ message PathInfo {
 
     // see below.
     NARInfo narinfo = 3;
+
+    // The StorePath of the .drv file producing this output.
+    // The .drv suffix is omitted in its `name` field.
+    StorePath deriver = 4;
 }
 
 // Represents a path in the Nix store (a direct child of STORE_DIR).

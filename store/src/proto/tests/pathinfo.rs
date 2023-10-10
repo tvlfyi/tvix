@@ -262,3 +262,34 @@ fn validate_symlink_target_null_byte_invalid() {
 
     node.validate().expect_err("must fail validation");
 }
+
+/// Create a PathInfo with a correct deriver field and ensure it succeeds.
+#[test]
+fn validate_valid_deriver() {
+    let mut path_info = PATH_INFO_WITHOUT_NARINFO.clone();
+
+    // add a valid deriver
+    path_info.deriver = Some(crate::proto::StorePath {
+        name: "foo".to_string(),
+        digest: DUMMY_OUTPUT_HASH.clone(),
+    });
+
+    path_info.validate().expect("must validate");
+}
+
+/// Create a PathInfo with a broken deriver field and ensure it fails.
+#[test]
+fn validate_invalid_deriver() {
+    let mut path_info = PATH_INFO_WITHOUT_NARINFO.clone();
+
+    // add a broken deriver (invalid digest)
+    path_info.deriver = Some(crate::proto::StorePath {
+        name: "foo".to_string(),
+        digest: vec![].into(),
+    });
+
+    match path_info.validate().expect_err("must fail validation") {
+        ValidatePathInfoError::InvalidDeriverField(_) => {}
+        e => panic!("unexpected error: {:?}", e),
+    }
+}

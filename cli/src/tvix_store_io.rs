@@ -346,6 +346,7 @@ async fn import_path_with_pathinfo(
             // TODO: narinfo for talosctl.src contains `CA: fixed:r:sha256:1x13j5hy75221bf6kz7cpgld9vgic6bqx07w5xjs4pxnksj6lxb6`
             // do we need this anywhere?
         }),
+        deriver: None,
     };
 
     // put into [PathInfoService], and return the [PathInfo] that we get

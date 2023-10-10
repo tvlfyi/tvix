@@ -116,6 +116,14 @@ impl StorePath {
         }
     }
 
+    /// Construct a [StorePath] from a name and digest.
+    pub fn from_name_and_digest(name: String, digest: &[u8]) -> Result<StorePath, Error> {
+        Ok(Self {
+            name: validate_name(name.as_bytes())?,
+            digest: digest.try_into().map_err(|_| Error::InvalidLength())?,
+        })
+    }
+
     /// Decompose a string into a [StorePath] and a [PathBuf] containing the
     /// rest of the path, or an error.
     #[cfg(target_family = "unix")]
@@ -177,6 +185,14 @@ pub(crate) fn validate_name(s: &[u8]) -> Result<String, Error> {
     }
 
     Ok(String::from_utf8(s.to_vec()).unwrap())
+}
+
+/// Ensures the StorePath fulfils the requirements for store paths.
+/// Useful when populating the struct manually instead of parsing.
+pub fn validate(s: &StorePath) -> Result<(), Error> {
+    validate_name(s.name.as_bytes())?;
+
+    Ok(())
 }
 
 impl fmt::Display for StorePath {

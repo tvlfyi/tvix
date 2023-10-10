@@ -48,7 +48,7 @@ pub enum ValidatePathInfoError {
     #[error("Inconsistent Number of References: {0} (references) vs {1} (narinfo)")]
     InconsistentNumberOfReferences(usize, usize),
 
-    /// A string in narinfo.reference_names does not parse to a StorePath.
+    /// A string in narinfo.reference_names does not parse to a [store_path::StorePath].
     #[error("Invalid reference_name at position {0}: {1}")]
     InvalidNarinfoReferenceName(usize, String),
 
@@ -60,6 +60,10 @@ pub enum ValidatePathInfoError {
         [u8; store_path::DIGEST_SIZE],
         [u8; store_path::DIGEST_SIZE],
     ),
+
+    /// The deriver field is invalid.
+    #[error("deriver field is invalid: {0}")]
+    InvalidDeriverField(store_path::Error),
 }
 
 /// Parses a root node name.
@@ -151,6 +155,16 @@ impl PathInfo {
                 parse_node_name_root(node.get_name(), ValidatePathInfoError::InvalidNodeName)?
             }
         };
+
+        // If the Deriver field is populated, ensure it parses to a
+        // [store_path::StorePath].
+        // We can't check for it to *not* end with .drv, as the .drv files produced by
+        // recursive Nix end with multiple .drv suffixes, and only one is popped when
+        // converting to this field.
+        if let Some(deriver) = &self.deriver {
+            store_path::StorePath::from_name_and_digest(deriver.name.clone(), &deriver.digest)
+                .map_err(ValidatePathInfoError::InvalidDeriverField)?;
+        }
 
         // return the root nix path
         Ok(root_nix_path)

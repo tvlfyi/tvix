@@ -296,6 +296,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 signatures: vec![],
                                 reference_names: vec![],
                             }),
+                            deriver: None,
                         };
 
                         // put into [PathInfoService], and return the PathInfo that we get back

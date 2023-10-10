@@ -109,6 +109,7 @@ lazy_static! {
         }),
         references: vec![DUMMY_OUTPUT_HASH.clone()],
         narinfo: None,
+        deriver: None,
     };
 
     /// A PathInfo message with .narinfo populated.
