@@ -40,6 +40,8 @@ pub enum ValidateDirectoryError {
     /// Invalid digest length encountered
     #[error("Invalid Digest length: {0}")]
     InvalidDigestLen(usize),
+    #[error("Total size exceeds u32::MAX")]
+    SizeOverflow,
 }
 
 /// Checks a Node name for validity as an intermediate node, and returns an
@@ -130,16 +132,29 @@ fn insert_once<'n>(
     Ok(())
 }
 
+fn checked_sum(iter: impl IntoIterator<Item = u32>) -> Option<u32> {
+    iter.into_iter().try_fold(0u32, |acc, i| acc.checked_add(i))
+}
+
 impl Directory {
     /// The size of a directory is the number of all regular and symlink elements,
     /// the number of directory elements, and their size fields.
     pub fn size(&self) -> u32 {
-        self.files.len() as u32
-            + self.symlinks.len() as u32
-            + self
-                .directories
-                .iter()
-                .fold(0, |acc: u32, e| (acc + 1 + e.size))
+        if cfg!(debug_assertions) {
+            self.size_checked()
+                .expect("Directory::size exceeds u32::MAX")
+        } else {
+            self.size_checked().unwrap_or(u32::MAX)
+        }
+    }
+
+    fn size_checked(&self) -> Option<u32> {
+        checked_sum([
+            self.files.len().try_into().ok()?,
+            self.symlinks.len().try_into().ok()?,
+            self.directories.len().try_into().ok()?,
+            checked_sum(self.directories.iter().map(|e| e.size))?,
+        ])
     }
 
     /// Calculates the digest of a Directory, which is the blake3 hash of a
@@ -200,6 +215,9 @@ impl Directory {
             update_if_lt_prev(&mut last_symlink_name, &symlink_node.name)?;
             insert_once(&mut seen_names, &symlink_node.name)?;
         }
+
+        self.size_checked()
+            .ok_or(ValidateDirectoryError::SizeOverflow)?;
 
         Ok(())
     }
