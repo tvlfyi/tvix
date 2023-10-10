@@ -2,7 +2,7 @@ module code.tvl.fyi/tvix/nar-bridge
 
 require (
 	code.tvl.fyi/tvix/castore/protos v0.0.0-20231009220507-d6e0c5ab9bb7
-	code.tvl.fyi/tvix/store/protos v0.0.0-20231009220507-46652989e097
+	code.tvl.fyi/tvix/store/protos v0.0.0-20231010185549-e7ea67342035
 	github.com/alecthomas/kong v0.7.1
 	github.com/go-chi/chi v1.5.4
 	github.com/go-chi/chi/v5 v5.0.7
@@ -27,7 +27,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	golang.org/x/crypto v0.14.0 // indirect
-	golang.org/x/net v0.16.0 // indirect
+	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231009173412-8bfb1ae86b6c // indirect

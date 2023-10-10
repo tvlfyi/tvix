@@ -11,34 +11,8 @@ import (
 	castorev1pb "code.tvl.fyi/tvix/castore/protos"
 	"code.tvl.fyi/tvix/nar-bridge/pkg/importer"
 	storev1pb "code.tvl.fyi/tvix/store/protos"
-	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/testing/protocmp"
-	"lukechampine.com/blake3"
 )
-
-func requireProtoEq(t *testing.T, expected interface{}, actual interface{}) {
-	if diff := cmp.Diff(expected, actual, protocmp.Transform()); diff != "" {
-		t.Errorf("unexpected difference:\n%v", diff)
-	}
-}
-
-func mustDirectoryDigest(d *castorev1pb.Directory) []byte {
-	dgst, err := d.Digest()
-	if err != nil {
-		panic(err)
-	}
-	return dgst
-}
-
-func mustBlobDigest(r io.Reader) []byte {
-	hasher := blake3.New(32, nil)
-	_, err := io.Copy(hasher, r)
-	if err != nil {
-		panic(err)
-	}
-	return hasher.Sum([]byte{})
-}
 
 func TestSymlink(t *testing.T) {
 	f, err := os.Open("../../testdata/symlink.nar")

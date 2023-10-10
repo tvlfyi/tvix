@@ -1,4 +1,4 @@
-package exporter_test
+package importer_test
 
 import (
 	"bytes"
@@ -10,15 +10,15 @@ import (
 	"testing"
 
 	castorev1pb "code.tvl.fyi/tvix/castore/protos"
-	"code.tvl.fyi/tvix/nar-bridge/pkg/exporter"
 	"code.tvl.fyi/tvix/nar-bridge/pkg/importer"
+	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/stretchr/testify/require"
-	"lukechampine.com/blake3"
 )
 
-func TestFull(t *testing.T) {
-	// We pipe nar_1094wph9z4nwlgvsd53abfz8i117ykiv5dwnq9nnhz846s7xqd7d.nar to the exporter,
-	// and store all the file contents and directory objects received in two hashmaps.
+func TestRoundtrip(t *testing.T) {
+	// We pipe nar_1094wph9z4nwlgvsd53abfz8i117ykiv5dwnq9nnhz846s7xqd7d.nar to
+	// storev1pb.Export, and store all the file contents and directory objects
+	// received in two hashmaps.
 	// We then feed it to the writer, and test we come up with the same NAR file.
 
 	f, err := os.Open("../../testdata/nar_1094wph9z4nwlgvsd53abfz8i117ykiv5dwnq9nnhz846s7xqd7d.nar")
@@ -57,7 +57,7 @@ func TestFull(t *testing.T) {
 
 	// done populating everything, now actually test the export :-)
 	var buf bytes.Buffer
-	err = exporter.Export(
+	err = storev1pb.Export(
 		&buf,
 		pathInfo,
 		func(directoryDgst []byte) (*castorev1pb.Directory, error) {
@@ -78,21 +78,4 @@ func TestFull(t *testing.T) {
 
 	require.NoError(t, err, "exporter shouldn't fail")
 	require.Equal(t, narContents, buf.Bytes())
-}
-
-func mustDirectoryDigest(d *castorev1pb.Directory) []byte {
-	dgst, err := d.Digest()
-	if err != nil {
-		panic(err)
-	}
-	return dgst
-}
-
-func mustBlobDigest(r io.Reader) []byte {
-	hasher := blake3.New(32, nil)
-	_, err := io.Copy(hasher, r)
-	if err != nil {
-		panic(err)
-	}
-	return hasher.Sum([]byte{})
 }
