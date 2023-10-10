@@ -23,6 +23,17 @@ message PathInfo {
     NARInfo narinfo = 3;
 }
 
+// Represents a path in the Nix store (a direct child of STORE_DIR).
+// It is commonly formatted by a nixbase32-encoding the digest, and
+// concatenating the name, separated by a `-`.
+message StorePath {
+    // The string after digest and `-`.
+    string name = 1;
+
+    // The digest (20 bytes).
+    bytes digest = 2;
+}
+
 // Nix C++ uses NAR (Nix Archive) as a format to transfer store paths,
 // and stores metadata and signatures in NARInfo files.
 // Store all these attributes in a separate message.
