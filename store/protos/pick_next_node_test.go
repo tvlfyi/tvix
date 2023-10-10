@@ -1,4 +1,4 @@
-package exporter
+package storev1
 
 import (
 	"testing"
