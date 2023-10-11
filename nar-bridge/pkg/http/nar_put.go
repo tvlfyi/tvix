@@ -39,7 +39,7 @@ func registerNarPut(s *Server) {
 		directoriesUploader := importer.NewDirectoriesUploader(ctx, s.directoryServiceClient)
 		defer directoriesUploader.Done() //nolint:errcheck
 
-		pathInfo, err := importer.Import(
+		rootNode, narSize, narSha256, err := importer.Import(
 			ctx,
 			// buffer the body by 10MiB
 			bufio.NewReaderSize(r.Body, 10*1024*1024),
@@ -80,7 +80,7 @@ func registerNarPut(s *Server) {
 		// This check ensures the server-side came up with the same root hash.
 
 		if directoriesPutResponse != nil {
-			rootDigestPathInfo := pathInfo.GetNode().GetDirectory().GetDigest()
+			rootDigestPathInfo := rootNode.GetDirectory().GetDigest()
 			rootDigestDirectoriesPutResponse := directoriesPutResponse.GetRootDigest()
 
 			log := log.WithFields(logrus.Fields{
@@ -102,17 +102,18 @@ func registerNarPut(s *Server) {
 
 		// Compare the nar hash specified in the URL with the one that has been
 		// calculated while processing the NAR file
-		piNarHash, err := nixhash.ParseNixBase32(
-			"sha256:" + nixbase32.EncodeToString(pathInfo.GetNarinfo().NarSha256),
+		// TODO: bump go-nix and remove the parsing
+		narHash, err := nixhash.ParseNixBase32(
+			"sha256:" + nixbase32.EncodeToString(narSha256),
 		)
 		if err != nil {
 			panic("must parse nixbase32")
 		}
 
-		if !bytes.Equal(narHashFromUrl.Digest(), piNarHash.Digest()) {
+		if !bytes.Equal(narHashFromUrl.Digest(), narHash.Digest()) {
 			log := log.WithFields(logrus.Fields{
-				"narhash_received_sha256": piNarHash.SRIString(),
-				"narsize":                 pathInfo.GetNarinfo().GetNarSize(),
+				"narhash_received_sha256": narHash.SRIString(),
+				"narsize":                 narSize,
 			})
 			log.Error("received bytes don't match narhash from URL")
 
@@ -123,7 +124,6 @@ func registerNarPut(s *Server) {
 			}
 
 			return
-
 		}
 
 		// Insert the partial pathinfo structs into our lookup map,
@@ -131,9 +131,12 @@ func registerNarPut(s *Server) {
 		// The same  might exist already, but it'll have the same contents (so
 		// replacing will be a no-op), except maybe the root node Name field value, which
 		// is safe to ignore (as not part of the NAR).
-		s.narHashToPathInfoMu.Lock()
-		s.narHashToPathInfo[piNarHash.SRIString()] = pathInfo
-		s.narHashToPathInfoMu.Unlock()
+		s.narDbMu.Lock()
+		s.narDb[narHash.SRIString()] = &narData{
+			rootNode: rootNode,
+			narSize:  narSize,
+		}
+		s.narDbMu.Unlock()
 
 		// Done!
 	})

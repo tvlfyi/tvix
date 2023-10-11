@@ -29,16 +29,18 @@ func renderNar(
 	log *log.Entry,
 	directoryServiceClient castorev1pb.DirectoryServiceClient,
 	blobServiceClient castorev1pb.BlobServiceClient,
-	narHashToPathInfoMu *sync.Mutex,
-	narHashToPathInfo map[string]*storev1pb.PathInfo,
+	narHashDbMu *sync.Mutex,
+	narHashDb map[string]*narData,
 	w io.Writer,
 	narHash *nixhash.Hash,
 	headOnly bool,
 ) error {
 	// look in the lookup table
-	narHashToPathInfoMu.Lock()
-	pathInfo, found := narHashToPathInfo[narHash.SRIString()]
-	narHashToPathInfoMu.Unlock()
+	narHashDbMu.Lock()
+	narData, found := narHashDb[narHash.SRIString()]
+	narHashDbMu.Unlock()
+
+	rootNode := narData.rootNode
 
 	// if we didn't find anything, return 404.
 	if !found {
@@ -53,7 +55,7 @@ func renderNar(
 	directories := make(map[string]*castorev1pb.Directory)
 
 	// If the root node is a directory, ask the directory service for all directories
-	if pathInfoDirectory := pathInfo.GetNode().GetDirectory(); pathInfoDirectory != nil {
+	if pathInfoDirectory := rootNode.GetDirectory(); pathInfoDirectory != nil {
 		rootDirectoryDigest := pathInfoDirectory.GetDigest()
 		log = log.WithField("root_directory", base64.StdEncoding.EncodeToString(rootDirectoryDigest))
 
@@ -95,7 +97,7 @@ func renderNar(
 	// render the NAR file
 	err := storev1pb.Export(
 		w,
-		pathInfo.Node,
+		rootNode,
 		func(directoryDigest []byte) (*castorev1pb.Directory, error) {
 			log.WithField("directory", base64.StdEncoding.EncodeToString(directoryDigest)).Debug("Get directory")
 			directoryRefStr := hex.EncodeToString(directoryDigest)
@@ -177,7 +179,7 @@ func registerNarGet(s *Server) {
 			log := log.WithField("narhash_url", narHash.SRIString())
 
 			// TODO: inline more of that function here?
-			err = renderNar(ctx, log, s.directoryServiceClient, s.blobServiceClient, &s.narHashToPathInfoMu, s.narHashToPathInfo, w, narHash, isHead)
+			err = renderNar(ctx, log, s.directoryServiceClient, s.blobServiceClient, &s.narDbMu, s.narDb, w, narHash, isHead)
 			if err != nil {
 				if errors.Is(err, fs.ErrNotExist) {
 					w.WriteHeader(http.StatusNotFound)

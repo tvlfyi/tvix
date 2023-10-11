@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	castorev1pb "code.tvl.fyi/tvix/castore/protos"
-	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/nix-community/go-nix/pkg/nar"
 )
 
@@ -20,8 +19,8 @@ type stackItem struct {
 	directory *castorev1pb.Directory
 }
 
-// Import reads NAR from a reader, and returns a (sparsely populated) PathInfo
-// object.
+// Import reads a NAR from a reader, and returns a the root node,
+// NAR size and NAR sha256 digest.
 func Import(
 	// a context, to support cancellation
 	ctx context.Context,
@@ -31,7 +30,7 @@ func Import(
 	blobCb func(fileReader io.Reader) ([]byte, error),
 	// callback function called with each finalized directory node
 	directoryCb func(directory *castorev1pb.Directory) ([]byte, error),
-) (*storev1pb.PathInfo, error) {
+) (*castorev1pb.Node, uint64, []byte, error) {
 	// We need to wrap the underlying reader a bit.
 	// - we want to keep track of the number of bytes read in total
 	// - we calculate the sha256 digest over all data read
@@ -42,7 +41,7 @@ func Import(
 	multiW := io.MultiWriter(narCountW, sha256W)
 	narReader, err := nar.NewReader(io.TeeReader(r, multiW))
 	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate nar reader: %w", err)
+		return nil, 0, nil, fmt.Errorf("failed to instantiate nar reader: %w", err)
 	}
 	defer narReader.Close()
 
@@ -98,7 +97,7 @@ func Import(
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, 0, nil, ctx.Err()
 		default:
 			// call narReader.Next() to get the next element
 			hdr, err := narReader.Next()
@@ -108,60 +107,49 @@ func Import(
 			if err != nil {
 				// if this returns no EOF, bail out
 				if !errors.Is(err, io.EOF) {
-					return nil, fmt.Errorf("failed getting next nar element: %w", err)
+					return nil, 0, nil, fmt.Errorf("failed getting next nar element: %w", err)
 				}
 
 				// The NAR has been read all the way to the end…
 				// Make sure we close the nar reader, which might read some final trailers.
 				if err := narReader.Close(); err != nil {
-					return nil, fmt.Errorf("unable to close nar reader: %w", err)
+					return nil, 0, nil, fmt.Errorf("unable to close nar reader: %w", err)
 				}
 
 				// Check the stack. While it's not empty, we need to pop things off the stack.
 				for len(stack) > 0 {
 					err := popFromStack()
 					if err != nil {
-						return nil, fmt.Errorf("unable to pop from stack: %w", err)
+						return nil, 0, nil, fmt.Errorf("unable to pop from stack: %w", err)
 					}
-
 				}
 
-				// Stack is empty. We now either have a regular or symlink root node,
-				// or we encountered at least one directory assemble pathInfo with these and
-				// return.
-				pi := &storev1pb.PathInfo{
-					Node:       nil,
-					References: [][]byte{},
-					Narinfo: &storev1pb.NARInfo{
-						NarSize:        narCountW.BytesWritten(),
-						NarSha256:      sha256W.Sum(nil),
-						Signatures:     []*storev1pb.NARInfo_Signature{},
-						ReferenceNames: []string{},
-					},
-				}
+				// Stack is empty.
+				// Now either root{File,Symlink,Directory} is not nil,
+				// and we can return the root node.
+				narSize := narCountW.BytesWritten()
+				narSha256 := sha256W.Sum(nil)
 
 				if rootFile != nil {
-					pi.Node = &castorev1pb.Node{
+					return &castorev1pb.Node{
 						Node: &castorev1pb.Node_File{
 							File: rootFile,
 						},
-					}
-				}
-				if rootSymlink != nil {
-					pi.Node = &castorev1pb.Node{
+					}, narSize, narSha256, nil
+				} else if rootSymlink != nil {
+					return &castorev1pb.Node{
 						Node: &castorev1pb.Node_Symlink{
 							Symlink: rootSymlink,
 						},
-					}
-				}
-				if stackDirectory != nil {
+					}, narSize, narSha256, nil
+				} else if stackDirectory != nil {
 					// calculate directory digest (i.e. after we received all its contents)
 					dgst, err := stackDirectory.Digest()
 					if err != nil {
-						return nil, fmt.Errorf("unable to calculate root directory digest: %w", err)
+						return nil, 0, nil, fmt.Errorf("unable to calculate root directory digest: %w", err)
 					}
 
-					pi.Node = &castorev1pb.Node{
+					return &castorev1pb.Node{
 						Node: &castorev1pb.Node_Directory{
 							Directory: &castorev1pb.DirectoryNode{
 								Name:   []byte{},
@@ -169,9 +157,10 @@ func Import(
 								Size:   stackDirectory.Size(),
 							},
 						},
-					}
+					}, narSize, narSha256, nil
+				} else {
+					return nil, 0, nil, fmt.Errorf("no root set")
 				}
-				return pi, nil
 			}
 
 			// Check for valid path transitions, pop from stack if needed
@@ -185,7 +174,7 @@ func Import(
 			for len(stack) > 1 && !strings.HasPrefix(hdr.Path, stack[len(stack)-1].path+"/") {
 				err := popFromStack()
 				if err != nil {
-					return nil, fmt.Errorf("unable to pop from stack: %w", err)
+					return nil, 0, nil, fmt.Errorf("unable to pop from stack: %w", err)
 				}
 			}
 
@@ -209,7 +198,7 @@ func Import(
 
 				blobDigest, err := blobCb(blobReader)
 				if err != nil {
-					return nil, fmt.Errorf("failure from blobCb: %w", err)
+					return nil, 0, nil, fmt.Errorf("failure from blobCb: %w", err)
 				}
 
 				// ensure blobCb did read all the way to the end.

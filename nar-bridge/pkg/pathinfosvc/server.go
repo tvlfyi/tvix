@@ -16,7 +16,6 @@ import (
 	mh "github.com/multiformats/go-multihash/core"
 	"github.com/nix-community/go-nix/pkg/narinfo"
 	"github.com/nix-community/go-nix/pkg/nixbase32"
-	"github.com/nix-community/go-nix/pkg/storepath"
 	"github.com/sirupsen/logrus"
 	"github.com/ulikunitz/xz"
 	"google.golang.org/grpc/codes"
@@ -172,7 +171,7 @@ func (p *PathInfoServiceServer) Get(ctx context.Context, getPathInfoRequest *sto
 
 	blobUploaderCb := importer.GenBlobUploaderCb(ctx, p.blobServiceClient)
 
-	pathInfo, err := importer.Import(
+	rootNode, _, importedNarSha256, err := importer.Import(
 		ctx,
 		narBody,
 		func(blobReader io.Reader) ([]byte, error) {
@@ -207,8 +206,7 @@ func (p *PathInfoServiceServer) Get(ctx context.Context, getPathInfoRequest *sto
 	}
 
 	// Compare NAR hash in the NARInfo with the one we calculated while reading the NAR
-	// We already checked above that the digest is in sha256.
-	importedNarSha256 := pathInfo.GetNarinfo().GetNarSha256()
+	// We don't need to additionally compare the narSize.
 	if !bytes.Equal(narInfo.NarHash.Digest(), importedNarSha256) {
 		log := log.WithField("imported_nar_sha256", base64.StdEncoding.EncodeToString(importedNarSha256))
 		log.Error("imported digest doesn't match NARInfo digest")
@@ -216,51 +214,11 @@ func (p *PathInfoServiceServer) Get(ctx context.Context, getPathInfoRequest *sto
 		return nil, fmt.Errorf("imported digest doesn't match NARInfo digest")
 	}
 
-	// annotate importedPathInfo with the rest of the metadata from NARINfo.
-
-	// extract the output digests
-	for _, referenceStr := range narInfo.References {
-		referenceStorePath, err := storepath.FromString(referenceStr)
-		if err != nil {
-			return nil, fmt.Errorf("unable to parse %s as StorePath: %w", referenceStr, err)
-		}
-
-		pathInfo.References = append(pathInfo.References, referenceStorePath.Digest)
-	}
-
-	// extract narInfo.References into pathInfo.NarInfo.ReferenceNames.
-	pathInfo.Narinfo.ReferenceNames = narInfo.References
-
-	// copy over signatures from narInfo.signatures into pathInfo.NarInfo.Signatures.
-	for _, signature := range narInfo.Signatures {
-		pathInfo.Narinfo.Signatures = append(pathInfo.Narinfo.Signatures, &storev1pb.NARInfo_Signature{
-			Name: signature.Name,
-			Data: signature.Data,
-		})
-	}
-
-	// set the root node name to the basename of the output path in the narInfo.
-	// currently the root node has no name yet.
-	outPath, err := storepath.FromAbsolutePath(narInfo.StorePath)
+	// generate PathInfo
+	pathInfo, err := importer.GenPathInfo(rootNode, narInfo)
 	if err != nil {
-		// unreachable due to narInfo.Check()
-		panic(err)
-	}
-
-	pathInfo.Node = castorev1pb.RenamedNode(pathInfo.Node, outPath.String())
-
-	// run Validate on the PathInfo, more as an additional sanity check our code is sound,
-	// to make sure we populated everything properly, before returning it.
-	validatedOutPath, err := pathInfo.Validate()
-	if err != nil {
-		panic("pathinfo failed validation")
-	}
-	if narInfo.StorePath != validatedOutPath.Absolute() {
-		panic(fmt.Sprintf(
-			"StorePath returned from Validate() mismatches the one from .narinfo (%s vs %s)",
-			validatedOutPath.Absolute(),
-			narInfo.StorePath),
-		)
+		log.WithError(err).Error("uable to generate PathInfo")
+		return nil, status.Errorf(codes.Internal, "unable to generate PathInfo")
 	}
 
 	return pathInfo, nil

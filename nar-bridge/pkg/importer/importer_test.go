@@ -10,7 +10,6 @@ import (
 
 	castorev1pb "code.tvl.fyi/tvix/castore/protos"
 	"code.tvl.fyi/tvix/nar-bridge/pkg/importer"
-	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,7 +17,7 @@ func TestSymlink(t *testing.T) {
 	f, err := os.Open("../../testdata/symlink.nar")
 	require.NoError(t, err)
 
-	actualPathInfo, err := importer.Import(
+	rootNode, narSize, narSha256, err := importer.Import(
 		context.Background(),
 		f,
 		func(blobReader io.Reader) ([]byte, error) {
@@ -28,35 +27,25 @@ func TestSymlink(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
-
-	expectedPathInfo := &storev1pb.PathInfo{
-		Node: &castorev1pb.Node{
-			Node: &castorev1pb.Node_Symlink{
-				Symlink: &castorev1pb.SymlinkNode{
-					Name:   []byte(""),
-					Target: []byte("/nix/store/somewhereelse"),
-				},
+	require.Equal(t, &castorev1pb.Node{
+		Node: &castorev1pb.Node_Symlink{
+			Symlink: &castorev1pb.SymlinkNode{
+				Name:   []byte(""),
+				Target: []byte("/nix/store/somewhereelse"),
 			},
 		},
-		References: [][]byte{},
-		Narinfo: &storev1pb.NARInfo{
-			NarSize: 136,
-			NarSha256: []byte{
-				0x09, 0x7d, 0x39, 0x7e, 0x9b, 0x58, 0x26, 0x38, 0x4e, 0xaa, 0x16, 0xc4, 0x57, 0x71, 0x5d, 0x1c, 0x1a, 0x51, 0x67, 0x03, 0x13, 0xea, 0xd0, 0xf5, 0x85, 0x66, 0xe0, 0xb2, 0x32, 0x53, 0x9c, 0xf1,
-			},
-			Signatures:     []*storev1pb.NARInfo_Signature{},
-			ReferenceNames: []string{},
-		},
-	}
-
-	requireProtoEq(t, expectedPathInfo, actualPathInfo)
+	}, rootNode)
+	require.Equal(t, []byte{
+		0x09, 0x7d, 0x39, 0x7e, 0x9b, 0x58, 0x26, 0x38, 0x4e, 0xaa, 0x16, 0xc4, 0x57, 0x71, 0x5d, 0x1c, 0x1a, 0x51, 0x67, 0x03, 0x13, 0xea, 0xd0, 0xf5, 0x85, 0x66, 0xe0, 0xb2, 0x32, 0x53, 0x9c, 0xf1,
+	}, narSha256)
+	require.Equal(t, uint64(136), narSize)
 }
 
 func TestRegular(t *testing.T) {
 	f, err := os.Open("../../testdata/onebyteregular.nar")
 	require.NoError(t, err)
 
-	actualPathInfo, err := importer.Import(
+	rootNode, narSize, narSha256, err := importer.Import(
 		context.Background(),
 		f,
 		func(blobReader io.Reader) ([]byte, error) {
@@ -68,7 +57,6 @@ func TestRegular(t *testing.T) {
 			panic("no directories expected!")
 		},
 	)
-	require.NoError(t, err)
 
 	// The blake3 digest of the 0x01 byte.
 	BLAKE3_DIGEST_0X01 := []byte{
@@ -77,29 +65,21 @@ func TestRegular(t *testing.T) {
 		0x65, 0x2b,
 	}
 
-	expectedPathInfo := &storev1pb.PathInfo{
-		Node: &castorev1pb.Node{
-			Node: &castorev1pb.Node_File{
-				File: &castorev1pb.FileNode{
-					Name:       []byte(""),
-					Digest:     BLAKE3_DIGEST_0X01,
-					Size:       1,
-					Executable: false,
-				},
+	require.NoError(t, err)
+	require.Equal(t, &castorev1pb.Node{
+		Node: &castorev1pb.Node_File{
+			File: &castorev1pb.FileNode{
+				Name:       []byte(""),
+				Digest:     BLAKE3_DIGEST_0X01,
+				Size:       1,
+				Executable: false,
 			},
 		},
-		References: [][]byte{},
-		Narinfo: &storev1pb.NARInfo{
-			NarSize: 120,
-			NarSha256: []byte{
-				0x73, 0x08, 0x50, 0xa8, 0x11, 0x25, 0x9d, 0xbf, 0x3a, 0x68, 0xdc, 0x2e, 0xe8, 0x7a, 0x79, 0xaa, 0x6c, 0xae, 0x9f, 0x71, 0x37, 0x5e, 0xdf, 0x39, 0x6f, 0x9d, 0x7a, 0x91, 0xfb, 0xe9, 0x13, 0x4d,
-			},
-			Signatures:     []*storev1pb.NARInfo_Signature{},
-			ReferenceNames: []string{},
-		},
-	}
-
-	requireProtoEq(t, expectedPathInfo, actualPathInfo)
+	}, rootNode)
+	require.Equal(t, []byte{
+		0x73, 0x08, 0x50, 0xa8, 0x11, 0x25, 0x9d, 0xbf, 0x3a, 0x68, 0xdc, 0x2e, 0xe8, 0x7a, 0x79, 0xaa, 0x6c, 0xae, 0x9f, 0x71, 0x37, 0x5e, 0xdf, 0x39, 0x6f, 0x9d, 0x7a, 0x91, 0xfb, 0xe9, 0x13, 0x4d,
+	}, narSha256)
+	require.Equal(t, uint64(120), narSize)
 }
 
 func TestEmptyDirectory(t *testing.T) {
@@ -111,7 +91,7 @@ func TestEmptyDirectory(t *testing.T) {
 		Files:       []*castorev1pb.FileNode{},
 		Symlinks:    []*castorev1pb.SymlinkNode{},
 	}
-	actualPathInfo, err := importer.Import(
+	rootNode, narSize, narSha256, err := importer.Import(
 		context.Background(),
 		f,
 		func(blobReader io.Reader) ([]byte, error) {
@@ -122,28 +102,19 @@ func TestEmptyDirectory(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
-
-	expectedPathInfo := &storev1pb.PathInfo{
-		Node: &castorev1pb.Node{
-			Node: &castorev1pb.Node_Directory{
-				Directory: &castorev1pb.DirectoryNode{
-					Name:   []byte(""),
-					Digest: mustDirectoryDigest(expectedDirectory),
-					Size:   expectedDirectory.Size(),
-				},
+	require.Equal(t, &castorev1pb.Node{
+		Node: &castorev1pb.Node_Directory{
+			Directory: &castorev1pb.DirectoryNode{
+				Name:   []byte(""),
+				Digest: mustDirectoryDigest(expectedDirectory),
+				Size:   expectedDirectory.Size(),
 			},
 		},
-		References: [][]byte{},
-		Narinfo: &storev1pb.NARInfo{
-			NarSize: 96,
-			NarSha256: []byte{
-				0xa5, 0x0a, 0x5a, 0xb6, 0xd9, 0x92, 0xf5, 0x59, 0x8e, 0xdd, 0x92, 0x10, 0x50, 0x59, 0xfa, 0xe9, 0xac, 0xfc, 0x19, 0x29, 0x81, 0xe0, 0x8b, 0xd8, 0x85, 0x34, 0xc2, 0x16, 0x7e, 0x92, 0x52, 0x6a,
-			},
-			Signatures:     []*storev1pb.NARInfo_Signature{},
-			ReferenceNames: []string{},
-		},
-	}
-	requireProtoEq(t, expectedPathInfo, actualPathInfo)
+	}, rootNode)
+	require.Equal(t, []byte{
+		0xa5, 0x0a, 0x5a, 0xb6, 0xd9, 0x92, 0xf5, 0x59, 0x8e, 0xdd, 0x92, 0x10, 0x50, 0x59, 0xfa, 0xe9, 0xac, 0xfc, 0x19, 0x29, 0x81, 0xe0, 0x8b, 0xd8, 0x85, 0x34, 0xc2, 0x16, 0x7e, 0x92, 0x52, 0x6a,
+	}, narSha256)
+	require.Equal(t, uint64(96), narSize)
 }
 
 func TestFull(t *testing.T) {
@@ -458,7 +429,7 @@ func TestFull(t *testing.T) {
 
 	numDirectoriesReceived := 0
 
-	actualPathInfo, err := importer.Import(
+	rootNode, narSize, narSha256, err := importer.Import(
 		context.Background(),
 		f,
 		func(blobReader io.Reader) ([]byte, error) {
@@ -480,28 +451,19 @@ func TestFull(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
-
-	expectedPathInfo := &storev1pb.PathInfo{
-		Node: &castorev1pb.Node{
-			Node: &castorev1pb.Node_Directory{
-				Directory: &castorev1pb.DirectoryNode{
-					Name:   []byte(""),
-					Digest: mustDirectoryDigest(expectedDirectories["/"]),
-					Size:   expectedDirectories["/"].Size(),
-				},
+	require.Equal(t, &castorev1pb.Node{
+		Node: &castorev1pb.Node_Directory{
+			Directory: &castorev1pb.DirectoryNode{
+				Name:   []byte(""),
+				Digest: mustDirectoryDigest(expectedDirectories["/"]),
+				Size:   expectedDirectories["/"].Size(),
 			},
 		},
-		References: [][]byte{},
-		Narinfo: &storev1pb.NARInfo{
-			NarSize: 464152,
-			NarSha256: []byte{
-				0xc6, 0xe1, 0x55, 0xb3, 0x45, 0x6e, 0x30, 0xb7, 0x61, 0x22, 0x63, 0xec, 0x09, 0x50, 0x70, 0x81, 0x1c, 0xaf, 0x8a, 0xbf, 0xd5, 0x9f, 0xaa, 0x72, 0xab, 0x82, 0xa5, 0x92, 0xef, 0xde, 0xb2, 0x53,
-			},
-			Signatures:     []*storev1pb.NARInfo_Signature{},
-			ReferenceNames: []string{},
-		},
-	}
-	requireProtoEq(t, expectedPathInfo, actualPathInfo)
+	}, rootNode)
+	require.Equal(t, []byte{
+		0xc6, 0xe1, 0x55, 0xb3, 0x45, 0x6e, 0x30, 0xb7, 0x61, 0x22, 0x63, 0xec, 0x09, 0x50, 0x70, 0x81, 0x1c, 0xaf, 0x8a, 0xbf, 0xd5, 0x9f, 0xaa, 0x72, 0xab, 0x82, 0xa5, 0x92, 0xef, 0xde, 0xb2, 0x53,
+	}, narSha256)
+	require.Equal(t, uint64(464152), narSize)
 }
 
 // TestCallbackErrors ensures that errors returned from the callback function
@@ -514,7 +476,7 @@ func TestCallbackErrors(t *testing.T) {
 
 		targetErr := errors.New("expected error")
 
-		_, err = importer.Import(
+		_, _, _, err = importer.Import(
 			context.Background(),
 			f,
 			func(blobReader io.Reader) ([]byte, error) {
@@ -532,7 +494,7 @@ func TestCallbackErrors(t *testing.T) {
 
 		targetErr := errors.New("expected error")
 
-		_, err = importer.Import(
+		_, _, _, err = importer.Import(
 			context.Background(),
 			f,
 			func(blobReader io.Reader) ([]byte, error) {
@@ -562,7 +524,7 @@ func TestPopDirectories(t *testing.T) {
 	require.NoError(t, err)
 	defer f.Close()
 
-	_, err = importer.Import(
+	_, _, _, err = importer.Import(
 		context.Background(),
 		f,
 		func(blobReader io.Reader) ([]byte, error) { return mustBlobDigest(blobReader), nil },

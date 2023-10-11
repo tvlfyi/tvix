@@ -25,11 +25,17 @@ type Server struct {
 	// When uploading NAR files to a HTTP binary cache, the .nar
 	// files are uploaded before the .narinfo files.
 	// We need *both* to be able to fully construct a PathInfo object.
-	// Keep a in-memory map of narhash(es) (in SRI) to sparse PathInfo.
+	// Keep a in-memory map of narhash(es) (in SRI) to (unnamed) root node and nar
+	// size.
 	// This is necessary until we can ask a PathInfoService for a node with a given
 	// narSha256.
-	narHashToPathInfoMu sync.Mutex
-	narHashToPathInfo   map[string]*storev1pb.PathInfo
+	narDbMu sync.Mutex
+	narDb   map[string]*narData
+}
+
+type narData struct {
+	rootNode *castorev1pb.Node
+	narSize  uint64
 }
 
 func New(
@@ -64,7 +70,7 @@ func New(
 		directoryServiceClient: directoryServiceClient,
 		blobServiceClient:      blobServiceClient,
 		pathInfoServiceClient:  pathInfoServiceClient,
-		narHashToPathInfo:      make(map[string]*storev1pb.PathInfo),
+		narDb:                  make(map[string]*narData),
 	}
 
 	registerNarPut(s)

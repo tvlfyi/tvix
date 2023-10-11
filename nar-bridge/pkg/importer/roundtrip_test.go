@@ -30,7 +30,7 @@ func TestRoundtrip(t *testing.T) {
 	blobsMap := make(map[string][]byte, 0)
 	directoriesMap := make(map[string]*castorev1pb.Directory)
 
-	pathInfo, err := importer.Import(
+	rootNode, _, _, err := importer.Import(
 		context.Background(),
 		bytes.NewBuffer(narContents),
 		func(blobReader io.Reader) ([]byte, error) {
@@ -56,10 +56,10 @@ func TestRoundtrip(t *testing.T) {
 	require.NoError(t, err)
 
 	// done populating everything, now actually test the export :-)
-	var buf bytes.Buffer
+	var narBuf bytes.Buffer
 	err = storev1pb.Export(
-		&buf,
-		pathInfo.Node,
+		&narBuf,
+		rootNode,
 		func(directoryDgst []byte) (*castorev1pb.Directory, error) {
 			d, found := directoriesMap[base64.StdEncoding.EncodeToString(directoryDgst)]
 			if !found {
@@ -77,5 +77,5 @@ func TestRoundtrip(t *testing.T) {
 	)
 
 	require.NoError(t, err, "exporter shouldn't fail")
-	require.Equal(t, narContents, buf.Bytes())
+	require.Equal(t, narContents, narBuf.Bytes())
 }

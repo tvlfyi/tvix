@@ -29,7 +29,7 @@ func renderNarinfo(
 	log *log.Entry,
 	pathInfoServiceClient storev1pb.PathInfoServiceClient,
 	narHashToPathInfoMu *sync.Mutex,
-	narHashToPathInfo map[string]*storev1pb.PathInfo,
+	narHashToPathInfo map[string]*narData,
 	outputHash []byte,
 	w io.Writer,
 	headOnly bool,
@@ -51,6 +51,7 @@ func renderNarinfo(
 		return fmt.Errorf("unable to get pathinfo: %w", err)
 	}
 
+	// TODO: don't parse
 	narHash, err := nixhash.ParseNixBase32("sha256:" + nixbase32.EncodeToString(pathInfo.GetNarinfo().GetNarSha256()))
 	if err != nil {
 		// TODO: return proper error
@@ -59,7 +60,10 @@ func renderNarinfo(
 
 	// add things to the lookup table, in case the same process didn't handle the NAR hash yet.
 	narHashToPathInfoMu.Lock()
-	narHashToPathInfo[narHash.SRIString()] = pathInfo
+	narHashToPathInfo[narHash.SRIString()] = &narData{
+		rootNode: pathInfo.GetNode(),
+		narSize:  pathInfo.GetNarinfo().GetNarSize(),
+	}
 	narHashToPathInfoMu.Unlock()
 
 	if headOnly {
@@ -102,7 +106,7 @@ func registerNarinfoGet(s *Server) {
 			return
 		}
 
-		err = renderNarinfo(ctx, log, s.pathInfoServiceClient, &s.narHashToPathInfoMu, s.narHashToPathInfo, outputHash, w, false)
+		err = renderNarinfo(ctx, log, s.pathInfoServiceClient, &s.narDbMu, s.narDb, outputHash, w, false)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				w.WriteHeader(http.StatusNotFound)
