@@ -32,7 +32,7 @@ enum Error {
     /// Failed to handle unknown event.
     HandleEventUnknownEvent,
     /// Invalid descriptor chain.
-    InvlaidDescriptorChain,
+    InvalidDescriptorChain,
     /// Failed to handle filesystem requests.
     HandleRequests(fuse_backend_rs::Error),
     /// Failed to construct new vhost user daemon.
@@ -80,9 +80,9 @@ where
         {
             let memory = desc_chain.memory();
             let reader = Reader::from_descriptor_chain(memory, desc_chain.clone())
-                .map_err(|_| Error::InvlaidDescriptorChain)?;
+                .map_err(|_| Error::InvalidDescriptorChain)?;
             let writer = VirtioFsWriter::new(memory, desc_chain.clone())
-                .map_err(|_| Error::InvlaidDescriptorChain)?;
+                .map_err(|_| Error::InvalidDescriptorChain)?;
 
             self.server
                 .handle_message(
