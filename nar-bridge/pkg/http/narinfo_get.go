@@ -53,14 +53,12 @@ func renderNarinfo(
 
 	log = log.WithField("pathInfo", pathInfo)
 
-	// The PathInfo received needs to be valid, and contain a NARInfo field.
 	if _, err := pathInfo.Validate(); err != nil {
 		log.WithError(err).Error("unable to validate PathInfo")
 
 		return fmt.Errorf("unable to validate PathInfo: %w", err)
 	}
 
-	// Ensure the PathInfo contains a NARInfo field
 	if pathInfo.GetNarinfo() == nil {
 		log.Error("PathInfo doesn't contain Narinfo field")
 
