@@ -2,6 +2,7 @@ package storev1
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 
@@ -20,6 +21,11 @@ func (p *PathInfo) Validate() (*storepath.StorePath, error) {
 
 	// If there's a Narinfo field populated..
 	if narInfo := p.GetNarinfo(); narInfo != nil {
+		// ensure the NarSha256 digest has the correct length.
+		if len(narInfo.GetNarSha256()) != sha256.Size {
+			return nil, fmt.Errorf("invalid number of bytes for NarSha256: expected %d, got %d", sha256.Size, len(narInfo.GetNarSha256()))
+		}
+
 		// ensure the number of references matches len(References).
 		if len(narInfo.GetReferenceNames()) != len(p.GetReferences()) {
 			return nil, fmt.Errorf("inconsistent number of references: %d (references) vs %d (narinfo)", len(narInfo.GetReferenceNames()), len(p.GetReferences()))

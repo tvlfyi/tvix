@@ -34,7 +34,7 @@ func genPathInfoSymlink() *storev1pb.PathInfo {
 		References: [][]byte{exampleStorePathDigest},
 		Narinfo: &storev1pb.NARInfo{
 			NarSize:        0,
-			NarSha256:      []byte{},
+			NarSha256:      []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
 			Signatures:     []*storev1pb.NARInfo_Signature{},
 			ReferenceNames: []string{EXAMPLE_STORE_PATH},
 		},
@@ -59,6 +59,16 @@ func TestValidate(t *testing.T) {
 		storePath, err := genPathInfoSymlinkThin().Validate()
 		assert.NoError(t, err, "PathInfo must validate")
 		assert.Equal(t, "00000000000000000000000000000000-dummy", storePath.String())
+	})
+
+	t.Run("invalid nar_sha256", func(t *testing.T) {
+		pi := genPathInfoSymlink()
+
+		// create broken references, where the reference digest is wrong
+		pi.Narinfo.NarSha256 = []byte{0xbe, 0xef}
+
+		_, err := pi.Validate()
+		assert.Error(t, err, "must not validate")
 	})
 
 	t.Run("invalid reference digest", func(t *testing.T) {
