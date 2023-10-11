@@ -9,6 +9,7 @@ import (
 	castorev1pb "code.tvl.fyi/tvix/castore/protos"
 	"code.tvl.fyi/tvix/nar-bridge/pkg/importer"
 	"github.com/go-chi/chi/v5"
+	mh "github.com/multiformats/go-multihash/core"
 	nixhash "github.com/nix-community/go-nix/pkg/hash"
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
@@ -101,7 +102,7 @@ func registerNarPut(s *Server) {
 
 		// Compare the nar hash specified in the URL with the one that has been
 		// calculated while processing the NAR file.
-		narHash, err := nixhash.FromHashTypeAndDigest(0x12, narSha256)
+		narHash, err := nixhash.FromHashTypeAndDigest(mh.SHA2_256, narSha256)
 		if err != nil {
 			panic("must parse nixbase32")
 		}

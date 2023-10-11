@@ -4,7 +4,9 @@ import (
 	"fmt"
 
 	storev1pb "code.tvl.fyi/tvix/store/protos"
+	mh "github.com/multiformats/go-multihash/core"
 	nixhash "github.com/nix-community/go-nix/pkg/hash"
+
 	"github.com/nix-community/go-nix/pkg/narinfo"
 	"github.com/nix-community/go-nix/pkg/narinfo/signature"
 	"github.com/nix-community/go-nix/pkg/nixbase32"
@@ -30,7 +32,7 @@ func ToNixNarInfo(p *storev1pb.PathInfo) (*narinfo.NarInfo, error) {
 
 	// produce nixhash for the narsha256.
 	narHash, err := nixhash.FromHashTypeAndDigest(
-		0x12, // SHA2_256
+		mh.SHA2_256,
 		p.GetNarinfo().GetNarSha256(),
 	)
 	if err != nil {
