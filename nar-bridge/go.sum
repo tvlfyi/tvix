@@ -1,7 +1,7 @@
 code.tvl.fyi/tvix/castore/protos v0.0.0-20231009220507-d6e0c5ab9bb7 h1:gX2LWo/QHwGZK2QsDap9Lx1GrKLPX6mfgeNbGK3mwrU=
 code.tvl.fyi/tvix/castore/protos v0.0.0-20231009220507-d6e0c5ab9bb7/go.mod h1:hj0y8RPthqn1QPj8u2jFe2vzH7NouUoclrwo1/CSbuc=
-code.tvl.fyi/tvix/store/protos v0.0.0-20231010185549-e7ea67342035 h1:/CjyjG/4PiByWnO6q26bLGjFPP96oZCMMX63UA9wkdc=
-code.tvl.fyi/tvix/store/protos v0.0.0-20231010185549-e7ea67342035/go.mod h1:RmijF3bfElwtZpNkBtW66QEj/jldGNu+W2HlgZro7lw=
+code.tvl.fyi/tvix/store/protos v0.0.0-20231010202247-8ec3506856aa h1:FwMglyEtXebo5rXgtLkxs+y11UVxAekGboFotdbfHcg=
+code.tvl.fyi/tvix/store/protos v0.0.0-20231010202247-8ec3506856aa/go.mod h1:RmijF3bfElwtZpNkBtW66QEj/jldGNu+W2HlgZro7lw=
 github.com/alecthomas/assert/v2 v2.1.0 h1:tbredtNcQnoSd3QBhQWI7QZ3XHOVkw1Moklp2ojoH/0=
 github.com/alecthomas/kong v0.7.1 h1:azoTh0IOfwlAX3qN9sHWTxACE2oV8Bg2gAwBsMwDQY4=
 github.com/alecthomas/kong v0.7.1/go.mod h1:n1iCIO2xS46oE8ZfYCNDqdR0b0wZNrXAIAqro/2132U=

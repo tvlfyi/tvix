@@ -59,7 +59,7 @@ func TestRoundtrip(t *testing.T) {
 	var buf bytes.Buffer
 	err = storev1pb.Export(
 		&buf,
-		pathInfo,
+		pathInfo.Node,
 		func(directoryDgst []byte) (*castorev1pb.Directory, error) {
 			d, found := directoriesMap[base64.StdEncoding.EncodeToString(directoryDgst)]
 			if !found {

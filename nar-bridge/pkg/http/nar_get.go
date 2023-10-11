@@ -95,7 +95,7 @@ func renderNar(
 	// render the NAR file
 	err := storev1pb.Export(
 		w,
-		pathInfo,
+		pathInfo.Node,
 		func(directoryDigest []byte) (*castorev1pb.Directory, error) {
 			log.WithField("directory", base64.StdEncoding.EncodeToString(directoryDigest)).Debug("Get directory")
 			directoryRefStr := hex.EncodeToString(directoryDigest)
