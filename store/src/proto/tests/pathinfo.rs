@@ -162,6 +162,19 @@ fn validate_references_with_narinfo_ok() {
     assert!(PATH_INFO_WITH_NARINFO.validate().is_ok());
 }
 
+/// Create a PathInfo with a wrong digest length in narinfo.nar_sha256, and
+/// ensure validation fails.
+#[test]
+fn validate_wrong_nar_sha256() {
+    let mut path_info = PATH_INFO_WITH_NARINFO.clone();
+    path_info.narinfo.as_mut().unwrap().nar_sha256 = vec![0xbe, 0xef].into();
+
+    match path_info.validate().expect_err("must_fail") {
+        ValidatePathInfoError::InvalidNarSha256DigestLen(2) => {}
+        e => panic!("unexpected error: {:?}", e),
+    };
+}
+
 /// Create a PathInfo with a wrong count of narinfo.reference_names,
 /// and ensure validation fails.
 #[test]

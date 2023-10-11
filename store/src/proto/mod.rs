@@ -42,6 +42,10 @@ pub enum ValidatePathInfoError {
     #[error("Invalid Digest length: expected {}, got {}", B3_LEN, .0)]
     InvalidNodeDigestLen(usize),
 
+    /// The digest in narinfo.nar_sha256 has an invalid len.
+    #[error("Invalid narinfo.nar_sha256 length: expected {}, got {}", 32, .0)]
+    InvalidNarSha256DigestLen(usize),
+
     /// The number of references in the narinfo.reference_names field does not match
     /// the number of references in the .references field.
     #[error("Inconsistent Number of References: {0} (references) vs {1} (narinfo)")]
@@ -90,9 +94,16 @@ impl PathInfo {
             }
         }
 
-        // If there is a narinfo field populated, ensure the number of references there
-        // matches PathInfo.references count.
+        // If there is a narinfo field populated…
         if let Some(narinfo) = &self.narinfo {
+            // ensure the nar_sha256 digest has the correct length.
+            if narinfo.nar_sha256.len() != 32 {
+                return Err(ValidatePathInfoError::InvalidNarSha256DigestLen(
+                    narinfo.nar_sha256.len(),
+                ));
+            }
+
+            // ensure the number of references there matches PathInfo.references count.
             if narinfo.reference_names.len() != self.references.len() {
                 return Err(ValidatePathInfoError::InconsistentNumberOfReferences(
                     self.references.len(),
