@@ -65,13 +65,10 @@ func renderNarinfo(
 		return fmt.Errorf("PathInfo doesn't contain Narinfo field")
 	}
 
-	// extract the NARHash
+	// extract the NARHash. This must succeed, as Validate() did succeed.
 	narHash, err := nixhash.FromHashTypeAndDigest(0x12, pathInfo.GetNarinfo().GetNarSha256())
 	if err != nil {
-		// TODO: replace with panic once we use cl/9649
-
-		log.WithError(err).Error("invalid NarHash in PathInfo")
-		return fmt.Errorf("invalid NarHash in PathInfo")
+		panic("must parse NarHash")
 	}
 
 	// add things to the lookup table, in case the same process didn't handle the NAR hash yet.
