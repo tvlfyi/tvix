@@ -51,11 +51,29 @@ func renderNarinfo(
 		return fmt.Errorf("unable to get pathinfo: %w", err)
 	}
 
-	// TODO: don't parse
-	narHash, err := nixhash.ParseNixBase32("sha256:" + nixbase32.EncodeToString(pathInfo.GetNarinfo().GetNarSha256()))
+	log = log.WithField("pathInfo", pathInfo)
+
+	// The PathInfo received needs to be valid, and contain a NARInfo field.
+	if _, err := pathInfo.Validate(); err != nil {
+		log.WithError(err).Error("unable to validate PathInfo")
+
+		return fmt.Errorf("unable to validate PathInfo: %w", err)
+	}
+
+	// Ensure the PathInfo contains a NARInfo field
+	if pathInfo.GetNarinfo() == nil {
+		log.Error("PathInfo doesn't contain Narinfo field")
+
+		return fmt.Errorf("PathInfo doesn't contain Narinfo field")
+	}
+
+	// extract the NARHash
+	narHash, err := nixhash.FromHashTypeAndDigest(0x12, pathInfo.GetNarinfo().GetNarSha256())
 	if err != nil {
-		// TODO: return proper error
-		return fmt.Errorf("No usable NarHash found in PathInfo")
+		// TODO: replace with panic once we use cl/9649
+
+		log.WithError(err).Error("invalid NarHash in PathInfo")
+		return fmt.Errorf("invalid NarHash in PathInfo")
 	}
 
 	// add things to the lookup table, in case the same process didn't handle the NAR hash yet.

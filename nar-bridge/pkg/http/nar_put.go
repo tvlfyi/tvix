@@ -10,7 +10,6 @@ import (
 	"code.tvl.fyi/tvix/nar-bridge/pkg/importer"
 	"github.com/go-chi/chi/v5"
 	nixhash "github.com/nix-community/go-nix/pkg/hash"
-	"github.com/nix-community/go-nix/pkg/nixbase32"
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
@@ -101,11 +100,8 @@ func registerNarPut(s *Server) {
 		}
 
 		// Compare the nar hash specified in the URL with the one that has been
-		// calculated while processing the NAR file
-		// TODO: bump go-nix and remove the parsing
-		narHash, err := nixhash.ParseNixBase32(
-			"sha256:" + nixbase32.EncodeToString(narSha256),
-		)
+		// calculated while processing the NAR file.
+		narHash, err := nixhash.FromHashTypeAndDigest(0x12, narSha256)
 		if err != nil {
 			panic("must parse nixbase32")
 		}
