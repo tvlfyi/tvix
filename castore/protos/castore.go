@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+
 	"google.golang.org/protobuf/proto"
 	"lukechampine.com/blake3"
 )
@@ -50,6 +51,68 @@ func isValidName(n []byte) bool {
 	return true
 }
 
+// Validate ensures a DirectoryNode has a valid name and correct digest len.
+func (n *DirectoryNode) Validate() error {
+	if len(n.Digest) != 32 {
+		return fmt.Errorf("invalid digest length for %s, expected %d, got %d", n.Name, 32, len(n.Digest))
+	}
+
+	if !isValidName(n.Name) {
+		return fmt.Errorf("invalid node name: %s", n.Name)
+	}
+
+	return nil
+}
+
+// Validate ensures a FileNode has a valid name and correct digest len.
+func (n *FileNode) Validate() error {
+	if len(n.Digest) != 32 {
+		return fmt.Errorf("invalid digest length for %s, expected %d, got %d", n.Name, 32, len(n.Digest))
+	}
+
+	if !isValidName(n.Name) {
+		return fmt.Errorf("invalid node name: %s", n.Name)
+	}
+
+	return nil
+}
+
+// Validate ensures a SymlinkNode has a valid name and target.
+func (n *SymlinkNode) Validate() error {
+	if len(n.Target) == 0 || bytes.Contains(n.Target, []byte{0}) {
+		return fmt.Errorf("invalid symlink target: %s", n.Target)
+	}
+
+	if !isValidName(n.Name) {
+		return fmt.Errorf("invalid node name: %s", n.Name)
+	}
+
+	return nil
+}
+
+// Validate ensures a node is valid, by dispatching to the per-type validation functions.
+func (n *Node) Validate() error {
+	if node := n.GetDirectory(); node != nil {
+		if err := node.Validate(); err != nil {
+			return fmt.Errorf("SymlinkNode failed validation: %w", err)
+		}
+	} else if node := n.GetFile(); node != nil {
+		if err := node.Validate(); err != nil {
+			return fmt.Errorf("FileNode failed validation: %w", err)
+		}
+	} else if node := n.GetSymlink(); node != nil {
+		if err := node.Validate(); err != nil {
+			return fmt.Errorf("SymlinkNode failed validation: %w", err)
+		}
+
+	} else {
+		// this would only happen if we introduced a new type
+		return fmt.Errorf("no specific node found")
+	}
+
+	return nil
+}
+
 // Validate thecks the Directory message for invalid data, such as:
 // - violations of name restrictions
 // - invalid digest lengths
@@ -87,21 +150,14 @@ func (d *Directory) Validate() error {
 		return nil
 	}
 
-	// Loop over all Directories, Files and Symlinks individually.
-	// Check the name for validity, check a potential digest for length,
-	// then check for sorting in the current list, and uniqueness across all three lists.
+	// Loop over all Directories, Files and Symlinks individually,
+	// check them for validity, then check for sorting in the current list, and
+	// uniqueness across all three lists.
 	for _, directoryNode := range d.Directories {
 		directoryName := directoryNode.GetName()
 
-		// check name for validity
-		if !isValidName(directoryName) {
-			return fmt.Errorf("invalid name for DirectoryNode: %v", directoryName)
-		}
-
-		// check digest to be 32 bytes
-		digestLen := len(directoryNode.GetDigest())
-		if digestLen != 32 {
-			return fmt.Errorf("invalid digest length for DirectoryNode: %d", digestLen)
+		if err := directoryNode.Validate(); err != nil {
+			return fmt.Errorf("DirectoryNode %s failed validation: %w", directoryName, err)
 		}
 
 		// ensure names are sorted
@@ -119,15 +175,8 @@ func (d *Directory) Validate() error {
 	for _, fileNode := range d.Files {
 		fileName := fileNode.GetName()
 
-		// check name for validity
-		if !isValidName(fileName) {
-			return fmt.Errorf("invalid name for FileNode: %v", fileName)
-		}
-
-		// check digest to be 32 bytes
-		digestLen := len(fileNode.GetDigest())
-		if digestLen != 32 {
-			return fmt.Errorf("invalid digest length for FileNode: %d", digestLen)
+		if err := fileNode.Validate(); err != nil {
+			return fmt.Errorf("FileNode %s failed validation: %w", fileName, err)
 		}
 
 		// ensure names are sorted
@@ -144,9 +193,8 @@ func (d *Directory) Validate() error {
 	for _, symlinkNode := range d.Symlinks {
 		symlinkName := symlinkNode.GetName()
 
-		// check name for validity
-		if !isValidName(symlinkName) {
-			return fmt.Errorf("invalid name for SymlinkNode: %v", symlinkName)
+		if err := symlinkNode.Validate(); err != nil {
+			return fmt.Errorf("SymlinkNode %s failed validation: %w", symlinkName, err)
 		}
 
 		// ensure names are sorted

@@ -122,7 +122,7 @@ func TestDirectoryValidate(t *testing.T) {
 				Symlinks: []*castorev1pb.SymlinkNode{},
 			}
 
-			assert.ErrorContains(t, d.Validate(), "invalid name")
+			assert.ErrorContains(t, d.Validate(), "invalid node name")
 		}
 		{
 			d := castorev1pb.Directory{
@@ -135,7 +135,7 @@ func TestDirectoryValidate(t *testing.T) {
 				Symlinks: []*castorev1pb.SymlinkNode{},
 			}
 
-			assert.ErrorContains(t, d.Validate(), "invalid name")
+			assert.ErrorContains(t, d.Validate(), "invalid node name")
 		}
 		{
 			d := castorev1pb.Directory{
@@ -149,7 +149,7 @@ func TestDirectoryValidate(t *testing.T) {
 				Symlinks: []*castorev1pb.SymlinkNode{},
 			}
 
-			assert.ErrorContains(t, d.Validate(), "invalid name")
+			assert.ErrorContains(t, d.Validate(), "invalid node name")
 		}
 		{
 			d := castorev1pb.Directory{
@@ -161,7 +161,7 @@ func TestDirectoryValidate(t *testing.T) {
 				}},
 			}
 
-			assert.ErrorContains(t, d.Validate(), "invalid name")
+			assert.ErrorContains(t, d.Validate(), "invalid node name")
 		}
 		{
 			d := castorev1pb.Directory{
@@ -173,7 +173,7 @@ func TestDirectoryValidate(t *testing.T) {
 				}},
 			}
 
-			assert.ErrorContains(t, d.Validate(), "invalid name")
+			assert.ErrorContains(t, d.Validate(), "invalid node name")
 		}
 	})
 
@@ -189,6 +189,33 @@ func TestDirectoryValidate(t *testing.T) {
 		}
 
 		assert.ErrorContains(t, d.Validate(), "invalid digest length")
+	})
+
+	t.Run("invalid symlink targets", func(t *testing.T) {
+		{
+			d := castorev1pb.Directory{
+				Directories: []*castorev1pb.DirectoryNode{},
+				Files:       []*castorev1pb.FileNode{},
+				Symlinks: []*castorev1pb.SymlinkNode{{
+					Name:   []byte("foo"),
+					Target: []byte{},
+				}},
+			}
+
+			assert.ErrorContains(t, d.Validate(), "invalid symlink target")
+		}
+		{
+			d := castorev1pb.Directory{
+				Directories: []*castorev1pb.DirectoryNode{},
+				Files:       []*castorev1pb.FileNode{},
+				Symlinks: []*castorev1pb.SymlinkNode{{
+					Name:   []byte("foo"),
+					Target: []byte{0x66, 0x6f, 0x6f, 0},
+				}},
+			}
+
+			assert.ErrorContains(t, d.Validate(), "invalid symlink target")
+		}
 	})
 
 	t.Run("sorting", func(t *testing.T) {
