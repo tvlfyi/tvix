@@ -9,7 +9,6 @@ import (
 	castorev1pb "code.tvl.fyi/tvix/castore/protos"
 	storev1pb "code.tvl.fyi/tvix/store/protos"
 	"github.com/stretchr/testify/require"
-	"lukechampine.com/blake3"
 )
 
 func mustDirectoryDigest(d *castorev1pb.Directory) []byte {
@@ -18,15 +17,6 @@ func mustDirectoryDigest(d *castorev1pb.Directory) []byte {
 		panic(err)
 	}
 	return dgst
-}
-
-func mustBlobDigest(r io.Reader) []byte {
-	hasher := blake3.New(32, nil)
-	_, err := io.Copy(hasher, r)
-	if err != nil {
-		panic(err)
-	}
-	return hasher.Sum([]byte{})
 }
 
 func TestSymlink(t *testing.T) {
