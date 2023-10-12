@@ -1,3 +1,4 @@
+#![allow(clippy::unnecessary_cast)] // libc::S_IFDIR is u32 on Linux and u16 on MacOS
 use super::inodes::{DirectoryInodeData, InodeData};
 use fuse_backend_rs::abi::fuse_abi::Attr;
 

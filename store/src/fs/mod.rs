@@ -134,7 +134,7 @@ impl TvixStoreFs {
         name: &std::ffi::CStr,
     ) -> Result<Option<(u64, Arc<InodeData>)>, Error> {
         // parse the name into a [StorePath].
-        let store_path = if let Some(name) = name.to_str().ok() {
+        let store_path = if let Ok(name) = name.to_str() {
             match StorePath::from_str(name) {
                 Ok(store_path) => store_path,
                 Err(e) => {
@@ -233,7 +233,7 @@ impl FileSystem for TvixStoreFs {
         }
 
         match self.inode_tracker.read().get(inode) {
-            None => return Err(io::Error::from_raw_os_error(libc::ENOENT)),
+            None => Err(io::Error::from_raw_os_error(libc::ENOENT)),
             Some(node) => {
                 debug!(node = ?node, "found node");
                 Ok((gen_file_attr(&node, inode).into(), Duration::MAX))
@@ -474,8 +474,14 @@ impl FileSystem for TvixStoreFs {
                     ino: *ino,
                     offset: offset + i as u64 + 1,
                     type_: match child_node {
+                        #[allow(clippy::unnecessary_cast)]
+                        // libc::S_IFDIR is u32 on Linux and u16 on MacOS
                         Node::Directory(_) => libc::S_IFDIR as u32,
+                        #[allow(clippy::unnecessary_cast)]
+                        // libc::S_IFDIR is u32 on Linux and u16 on MacOS
                         Node::File(_) => libc::S_IFREG as u32,
+                        #[allow(clippy::unnecessary_cast)]
+                        // libc::S_IFDIR is u32 on Linux and u16 on MacOS
                         Node::Symlink(_) => libc::S_IFLNK as u32,
                     },
                     name: child_node.get_name(),
@@ -512,7 +518,7 @@ impl FileSystem for TvixStoreFs {
             // read is invalid on non-files.
             InodeData::Directory(..) | InodeData::Symlink(_) => {
                 warn!("is directory");
-                return Err(io::Error::from_raw_os_error(libc::EISDIR));
+                Err(io::Error::from_raw_os_error(libc::EISDIR))
             }
             InodeData::Regular(ref blob_digest, _blob_size, _) => {
                 let span = info_span!("read", blob.digest = %blob_digest);
@@ -530,11 +536,11 @@ impl FileSystem for TvixStoreFs {
                 match blob_reader {
                     Ok(None) => {
                         warn!("blob not found");
-                        return Err(io::Error::from_raw_os_error(libc::EIO));
+                        Err(io::Error::from_raw_os_error(libc::EIO))
                     }
                     Err(e) => {
                         warn!(e=?e, "error opening blob");
-                        return Err(io::Error::from_raw_os_error(libc::EIO));
+                        Err(io::Error::from_raw_os_error(libc::EIO))
                     }
                     Ok(Some(blob_reader)) => {
                         // get a new file handle
@@ -612,11 +618,11 @@ impl FileSystem for TvixStoreFs {
             let mut blob_reader = blob_reader.lock().await;
 
             // seek to the offset specified, which is relative to the start of the file.
-            let resp = blob_reader.seek(io::SeekFrom::Start(offset as u64)).await;
+            let resp = blob_reader.seek(io::SeekFrom::Start(offset)).await;
 
             match resp {
                 Ok(pos) => {
-                    debug_assert_eq!(offset as u64, pos);
+                    debug_assert_eq!(offset, pos);
                 }
                 Err(e) => {
                     warn!("failed to seek to offset {}: {}", offset, e);
