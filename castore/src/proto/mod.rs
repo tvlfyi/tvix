@@ -11,7 +11,7 @@ mod grpc_directoryservice_wrapper;
 pub use grpc_blobservice_wrapper::GRPCBlobServiceWrapper;
 pub use grpc_directoryservice_wrapper::GRPCDirectoryServiceWrapper;
 
-use crate::B3Digest;
+use crate::{B3Digest, B3_LEN};
 
 tonic::include_proto!("tvix.castore.v1");
 
@@ -111,30 +111,29 @@ impl node::Node {
             node::Node::Symlink(n) => node::Node::Symlink(SymlinkNode { name, ..n }),
         }
     }
+
+    /// Ensures the node has a valid name, and checks the type-specific fields too.
     pub fn validate(&self) -> Result<(), ValidateNodeError> {
         match self {
             // for a directory root node, ensure the digest has the appropriate size.
             node::Node::Directory(directory_node) => {
-                if TryInto::<B3Digest>::try_into(directory_node.digest.clone()).is_err() {
+                if directory_node.digest.len() != B3_LEN {
                     Err(ValidateNodeError::InvalidDigestLen(
                         directory_node.digest.len(),
                     ))?;
-                };
+                }
                 validate_node_name(&directory_node.name)?;
             }
             // for a file root node, ensure the digest has the appropriate size.
             node::Node::File(file_node) => {
-                if TryInto::<B3Digest>::try_into(file_node.digest.clone()).is_err() {
+                if file_node.digest.len() != B3_LEN {
                     Err(ValidateNodeError::InvalidDigestLen(file_node.digest.len()))?;
-                };
+                }
                 validate_node_name(&file_node.name)?;
             }
             // ensure the symlink target is not empty and doesn't contain null bytes.
             node::Node::Symlink(symlink_node) => {
-                if symlink_node.target.len() == 0 {
-                    Err(ValidateNodeError::InvalidSymlinkTarget(vec![]))?;
-                }
-                if symlink_node.target.contains(&b'\0') {
+                if symlink_node.target.len() == 0 || symlink_node.target.contains(&b'\0') {
                     Err(ValidateNodeError::InvalidSymlinkTarget(
                         symlink_node.target.to_vec(),
                     ))?;
