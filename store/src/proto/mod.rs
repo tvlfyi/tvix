@@ -142,40 +142,34 @@ impl PathInfo {
 
         // Ensure there is a (root) node present, and it properly parses to a [StorePath].
         let root_nix_path = match &self.node {
-            None => {
-                return Err(ValidatePathInfoError::NoNodePresent());
+            None | Some(castorepb::Node { node: None }) => {
+                Err(ValidatePathInfoError::NoNodePresent())?
             }
-            Some(castorepb::Node { node }) => match node {
-                None => {
-                    return Err(ValidatePathInfoError::NoNodePresent());
-                }
-                Some(node) => {
-                    match node {
-                        // for a directory root node, ensure the digest has the appropriate size.
-                        castorepb::node::Node::Directory(directory_node) => {
-                            if TryInto::<B3Digest>::try_into(directory_node.digest.clone()).is_err()
-                            {
-                                return Err(ValidatePathInfoError::InvalidNodeDigestLen(
-                                    directory_node.digest.len(),
-                                ));
-                            }
+            Some(castorepb::Node { node: Some(node) }) => {
+                match node {
+                    // for a directory root node, ensure the digest has the appropriate size.
+                    castorepb::node::Node::Directory(directory_node) => {
+                        if TryInto::<B3Digest>::try_into(directory_node.digest.clone()).is_err() {
+                            return Err(ValidatePathInfoError::InvalidNodeDigestLen(
+                                directory_node.digest.len(),
+                            ));
                         }
-                        // for a file root node, ensure the digest has the appropriate size.
-                        castorepb::node::Node::File(file_node) => {
-                            // ensure the digest has the appropriate size.
-                            if TryInto::<B3Digest>::try_into(file_node.digest.clone()).is_err() {
-                                return Err(ValidatePathInfoError::InvalidNodeDigestLen(
-                                    file_node.digest.len(),
-                                ));
-                            }
-                        }
-                        // nothing to do specifically for symlinks
-                        castorepb::node::Node::Symlink(_) => {}
                     }
-                    // parse the name of the node itself and return
-                    parse_node_name_root(node.get_name(), ValidatePathInfoError::InvalidNodeName)?
+                    // for a file root node, ensure the digest has the appropriate size.
+                    castorepb::node::Node::File(file_node) => {
+                        // ensure the digest has the appropriate size.
+                        if TryInto::<B3Digest>::try_into(file_node.digest.clone()).is_err() {
+                            return Err(ValidatePathInfoError::InvalidNodeDigestLen(
+                                file_node.digest.len(),
+                            ));
+                        }
+                    }
+                    // nothing to do specifically for symlinks
+                    castorepb::node::Node::Symlink(_) => {}
                 }
-            },
+                // parse the name of the node itself and return
+                parse_node_name_root(node.get_name(), ValidatePathInfoError::InvalidNodeName)?
+            }
         };
 
         // return the root nix path
