@@ -44,20 +44,16 @@ impl PathInfoService for GRPCPathInfoService {
         match url.scheme().strip_prefix("grpc+") {
             None => Err(Error::StorageError("invalid scheme".to_string())),
             Some(rest) => {
-                if rest == "unix" {
+                let channel = if rest == "unix" {
                     if url.host_str().is_some() {
                         return Err(Error::StorageError("host may not be set".to_string()));
                     }
                     let path = url.path().to_string();
-                    let channel = tonic::transport::Endpoint::try_from("http://[::]:50051") // doesn't matter
+                    tonic::transport::Endpoint::try_from("http://[::]:50051") // doesn't matter
                         .unwrap()
                         .connect_with_connector_lazy(tower::service_fn(
                             move |_: tonic::transport::Uri| UnixStream::connect(path.clone()),
-                        ));
-
-                    Ok(Self::from_client(
-                        proto::path_info_service_client::PathInfoServiceClient::new(channel),
-                    ))
+                        ))
                 } else {
                     // ensure path is empty, not supported with gRPC.
                     if !url.path().is_empty() {
@@ -75,14 +71,13 @@ impl PathInfoService for GRPCPathInfoService {
                         let s_stripped = url_str.strip_prefix("grpc+").unwrap();
                         url::Url::parse(s_stripped).unwrap()
                     };
-                    let channel = tonic::transport::Endpoint::try_from(url.to_string())
+                    tonic::transport::Endpoint::try_from(url.to_string())
                         .unwrap()
-                        .connect_lazy();
-
-                    Ok(Self::from_client(
-                        proto::path_info_service_client::PathInfoServiceClient::new(channel),
-                    ))
-                }
+                        .connect_lazy()
+                };
+                Ok(Self::from_client(
+                    proto::path_info_service_client::PathInfoServiceClient::new(channel),
+                ))
             }
         }
     }

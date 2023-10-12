@@ -48,20 +48,18 @@ impl BlobService for GRPCBlobService {
         match url.scheme().strip_prefix("grpc+") {
             None => Err(crate::Error::StorageError("invalid scheme".to_string())),
             Some(rest) => {
-                if rest == "unix" {
+                let channel = if rest == "unix" {
                     if url.host_str().is_some() {
                         return Err(crate::Error::StorageError(
                             "host may not be set".to_string(),
                         ));
                     }
                     let path = url.path().to_string();
-                    let channel = tonic::transport::Endpoint::try_from("http://[::]:50051") // doesn't matter
+                    tonic::transport::Endpoint::try_from("http://[::]:50051") // doesn't matter
                         .unwrap()
                         .connect_with_connector_lazy(tower::service_fn(
                             move |_: tonic::transport::Uri| UnixStream::connect(path.clone()),
-                        ));
-                    let grpc_client = proto::blob_service_client::BlobServiceClient::new(channel);
-                    Ok(Self::from_client(grpc_client))
+                        ))
                 } else {
                     // ensure path is empty, not supported with gRPC.
                     if !url.path().is_empty() {
@@ -79,13 +77,14 @@ impl BlobService for GRPCBlobService {
                         let s_stripped = url_str.strip_prefix("grpc+").unwrap();
                         url::Url::parse(s_stripped).unwrap()
                     };
-                    let channel = tonic::transport::Endpoint::try_from(url.to_string())
+                    tonic::transport::Endpoint::try_from(url.to_string())
                         .unwrap()
-                        .connect_lazy();
+                        .connect_lazy()
+                };
 
-                    let grpc_client = proto::blob_service_client::BlobServiceClient::new(channel);
-                    Ok(Self::from_client(grpc_client))
-                }
+                Ok(Self::from_client(
+                    proto::blob_service_client::BlobServiceClient::new(channel),
+                ))
             }
         }
     }
