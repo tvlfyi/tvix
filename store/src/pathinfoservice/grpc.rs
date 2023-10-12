@@ -3,7 +3,6 @@ use crate::proto::{self, ListPathInfoRequest, PathInfo};
 use async_stream::try_stream;
 use futures::Stream;
 use std::{pin::Pin, sync::Arc};
-use tokio::net::UnixStream;
 use tonic::{async_trait, transport::Channel, Code};
 use tvix_castore::{
     blobservice::BlobService, directoryservice::DirectoryService, proto as castorepb, Error,
@@ -40,46 +39,10 @@ impl PathInfoService for GRPCPathInfoService {
         _blob_service: Arc<dyn BlobService>,
         _directory_service: Arc<dyn DirectoryService>,
     ) -> Result<Self, tvix_castore::Error> {
-        // Start checking for the scheme to start with grpc+.
-        match url.scheme().strip_prefix("grpc+") {
-            None => Err(Error::StorageError("invalid scheme".to_string())),
-            Some(rest) => {
-                let channel = if rest == "unix" {
-                    if url.host_str().is_some() {
-                        return Err(Error::StorageError("host may not be set".to_string()));
-                    }
-                    let path = url.path().to_string();
-                    tonic::transport::Endpoint::try_from("http://[::]:50051") // doesn't matter
-                        .unwrap()
-                        .connect_with_connector_lazy(tower::service_fn(
-                            move |_: tonic::transport::Uri| UnixStream::connect(path.clone()),
-                        ))
-                } else {
-                    // ensure path is empty, not supported with gRPC.
-                    if !url.path().is_empty() {
-                        return Err(tvix_castore::Error::StorageError(
-                            "path may not be set".to_string(),
-                        ));
-                    }
-
-                    // clone the uri, and drop the grpc+ from the scheme.
-                    // Recreate a new uri with the `grpc+` prefix dropped from the scheme.
-                    // We can't use `url.set_scheme(rest)`, as it disallows
-                    // setting something http(s) that previously wasn't.
-                    let url = {
-                        let url_str = url.to_string();
-                        let s_stripped = url_str.strip_prefix("grpc+").unwrap();
-                        url::Url::parse(s_stripped).unwrap()
-                    };
-                    tonic::transport::Endpoint::try_from(url.to_string())
-                        .unwrap()
-                        .connect_lazy()
-                };
-                Ok(Self::from_client(
-                    proto::path_info_service_client::PathInfoServiceClient::new(channel),
-                ))
-            }
-        }
+        let channel = tvix_castore::channel::from_url(url)?;
+        Ok(Self::from_client(
+            proto::path_info_service_client::PathInfoServiceClient::new(channel),
+        ))
     }
 
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {

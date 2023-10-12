@@ -2,6 +2,7 @@ mod digests;
 mod errors;
 
 pub mod blobservice;
+pub mod channel;
 pub mod directoryservice;
 pub mod fixtures;
 pub mod import;

@@ -34,6 +34,12 @@ impl From<Error> for Status {
     }
 }
 
+impl From<crate::channel::Error> for Error {
+    fn from(value: crate::channel::Error) -> Self {
+        Self::StorageError(value.to_string())
+    }
+}
+
 // TODO: this should probably go somewhere else?
 impl From<Error> for std::io::Error {
     fn from(value: Error) -> Self {

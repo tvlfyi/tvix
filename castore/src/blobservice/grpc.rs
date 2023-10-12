@@ -9,7 +9,7 @@ use std::{
     task::Poll,
 };
 use tokio::io::AsyncWriteExt;
-use tokio::{net::UnixStream, task::JoinHandle};
+use tokio::task::JoinHandle;
 use tokio_stream::{wrappers::ReceiverStream, StreamExt};
 use tokio_util::{
     io::{CopyToBytes, SinkWriter},
@@ -44,49 +44,10 @@ impl BlobService for GRPCBlobService {
     /// - In the case of unix sockets, there must be a path, but may not be a host.
     /// - In the case of non-unix sockets, there must be a host, but no path.
     fn from_url(url: &url::Url) -> Result<Self, crate::Error> {
-        // Start checking for the scheme to start with grpc+.
-        match url.scheme().strip_prefix("grpc+") {
-            None => Err(crate::Error::StorageError("invalid scheme".to_string())),
-            Some(rest) => {
-                let channel = if rest == "unix" {
-                    if url.host_str().is_some() {
-                        return Err(crate::Error::StorageError(
-                            "host may not be set".to_string(),
-                        ));
-                    }
-                    let path = url.path().to_string();
-                    tonic::transport::Endpoint::try_from("http://[::]:50051") // doesn't matter
-                        .unwrap()
-                        .connect_with_connector_lazy(tower::service_fn(
-                            move |_: tonic::transport::Uri| UnixStream::connect(path.clone()),
-                        ))
-                } else {
-                    // ensure path is empty, not supported with gRPC.
-                    if !url.path().is_empty() {
-                        return Err(crate::Error::StorageError(
-                            "path may not be set".to_string(),
-                        ));
-                    }
-
-                    // clone the uri, and drop the grpc+ from the scheme.
-                    // Recreate a new uri with the `grpc+` prefix dropped from the scheme.
-                    // We can't use `url.set_scheme(rest)`, as it disallows
-                    // setting something http(s) that previously wasn't.
-                    let url = {
-                        let url_str = url.to_string();
-                        let s_stripped = url_str.strip_prefix("grpc+").unwrap();
-                        url::Url::parse(s_stripped).unwrap()
-                    };
-                    tonic::transport::Endpoint::try_from(url.to_string())
-                        .unwrap()
-                        .connect_lazy()
-                };
-
-                Ok(Self::from_client(
-                    proto::blob_service_client::BlobServiceClient::new(channel),
-                ))
-            }
-        }
+        let channel = crate::channel::from_url(url)?;
+        Ok(Self::from_client(
+            proto::blob_service_client::BlobServiceClient::new(channel),
+        ))
     }
 
     #[instrument(skip(self, digest), fields(blob.digest=%digest))]
