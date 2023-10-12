@@ -112,12 +112,11 @@ impl BlobService for GRPCBlobService {
         &self,
         digest: &B3Digest,
     ) -> Result<Option<Box<dyn BlobReader>>, crate::Error> {
-        // Get a new handle to the gRPC client, and copy the digest.
-        let mut grpc_client = self.grpc_client.clone();
-
         // Get a stream of [proto::BlobChunk], or return an error if the blob
         // doesn't exist.
-        let resp = grpc_client
+        let resp = self
+            .grpc_client
+            .clone()
             .read(proto::ReadBlobRequest {
                 digest: digest.clone().into(),
             })

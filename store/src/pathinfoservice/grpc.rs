@@ -54,9 +54,10 @@ impl PathInfoService for GRPCPathInfoService {
                         .connect_with_connector_lazy(tower::service_fn(
                             move |_: tonic::transport::Uri| UnixStream::connect(path.clone()),
                         ));
-                    let grpc_client =
-                        proto::path_info_service_client::PathInfoServiceClient::new(channel);
-                    Ok(Self::from_client(grpc_client))
+
+                    Ok(Self::from_client(
+                        proto::path_info_service_client::PathInfoServiceClient::new(channel),
+                    ))
                 } else {
                     // ensure path is empty, not supported with gRPC.
                     if !url.path().is_empty() {
@@ -78,19 +79,18 @@ impl PathInfoService for GRPCPathInfoService {
                         .unwrap()
                         .connect_lazy();
 
-                    let grpc_client =
-                        proto::path_info_service_client::PathInfoServiceClient::new(channel);
-                    Ok(Self::from_client(grpc_client))
+                    Ok(Self::from_client(
+                        proto::path_info_service_client::PathInfoServiceClient::new(channel),
+                    ))
                 }
             }
         }
     }
 
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
-        // Get a new handle to the gRPC client.
-        let mut grpc_client = self.grpc_client.clone();
-
-        let path_info = grpc_client
+        let path_info = self
+            .grpc_client
+            .clone()
             .get(proto::GetPathInfoRequest {
                 by_what: Some(proto::get_path_info_request::ByWhat::ByOutputHash(
                     digest.to_vec().into(),
@@ -106,10 +106,9 @@ impl PathInfoService for GRPCPathInfoService {
     }
 
     async fn put(&self, path_info: PathInfo) -> Result<PathInfo, Error> {
-        // Get a new handle to the gRPC client.
-        let mut grpc_client = self.grpc_client.clone();
-
-        let path_info = grpc_client
+        let path_info = self
+            .grpc_client
+            .clone()
             .put(path_info)
             .await
             .map_err(|e| Error::StorageError(e.to_string()))?
@@ -122,13 +121,11 @@ impl PathInfoService for GRPCPathInfoService {
         &self,
         root_node: &castorepb::node::Node,
     ) -> Result<(u64, [u8; 32]), Error> {
-        // Get a new handle to the gRPC client.
-        let mut grpc_client = self.grpc_client.clone();
-        let root_node = root_node.clone();
-
-        let path_info = grpc_client
+        let path_info = self
+            .grpc_client
+            .clone()
             .calculate_nar(castorepb::Node {
-                node: Some(root_node),
+                node: Some(root_node.clone()),
             })
             .await
             .map_err(|e| Error::StorageError(e.to_string()))?

@@ -139,9 +139,11 @@ impl DirectoryService for GRPCDirectoryService {
     }
 
     async fn put(&self, directory: crate::proto::Directory) -> Result<B3Digest, crate::Error> {
-        let mut grpc_client = self.grpc_client.clone();
-
-        let resp = grpc_client.put(tokio_stream::iter(vec![directory])).await;
+        let resp = self
+            .grpc_client
+            .clone()
+            .put(tokio_stream::once(directory))
+            .await;
 
         match resp {
             Ok(put_directory_resp) => Ok(put_directory_resp
