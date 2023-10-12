@@ -88,7 +88,7 @@ impl Connected for Connection {
             ListenerConnectInfo::TCP(tcp_stream.connect_info())
         } else if let Some(unix_stream) = self.try_borrow_unix() {
             ListenerConnectInfo::Unix(unix_stream.connect_info())
-        } else if let Some(_) = self.try_borrow_stdio() {
+        } else if self.try_borrow_stdio().is_some() {
             ListenerConnectInfo::Stdio
         } else {
             ListenerConnectInfo::Other

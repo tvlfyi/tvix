@@ -107,7 +107,7 @@ lazy_static! {
                 size: 0,
             })),
         }),
-        references: vec![DUMMY_OUTPUT_HASH.clone().into()],
+        references: vec![DUMMY_OUTPUT_HASH.clone()],
         narinfo: None,
     };
 

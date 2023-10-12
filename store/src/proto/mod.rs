@@ -173,7 +173,7 @@ impl PathInfo {
                         castorepb::node::Node::Symlink(_) => {}
                     }
                     // parse the name of the node itself and return
-                    parse_node_name_root(&node.get_name(), ValidatePathInfoError::InvalidNodeName)?
+                    parse_node_name_root(node.get_name(), ValidatePathInfoError::InvalidNodeName)?
                 }
             },
         };

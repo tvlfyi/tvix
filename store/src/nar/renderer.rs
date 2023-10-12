@@ -84,7 +84,7 @@ pub async fn write_nar<W: AsyncWrite + Unpin + Send>(
 
     walk_node(
         nar_root_node,
-        &proto_root_node,
+        proto_root_node,
         blob_service,
         directory_service,
     )
