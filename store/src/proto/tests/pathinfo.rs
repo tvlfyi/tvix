@@ -43,7 +43,7 @@ fn validate_no_node(
         digest: Bytes::new(),
         size: 0,
     },
-    Err(ValidatePathInfoError::InvalidNodeDigestLen(0));
+    Err(ValidatePathInfoError::InvalidRootNode(castorepb::ValidateNodeError::InvalidDigestLen(0)));
     "invalid digest length"
 )]
 #[test_case(
@@ -88,7 +88,7 @@ fn validate_directory(
         digest: Bytes::new(),
         ..Default::default()
     },
-    Err(ValidatePathInfoError::InvalidNodeDigestLen(0));
+    Err(ValidatePathInfoError::InvalidRootNode(castorepb::ValidateNodeError::InvalidDigestLen(0)));
     "invalid digest length"
 )]
 #[test_case(
@@ -120,7 +120,7 @@ fn validate_file(
 #[test_case(
     castorepb::SymlinkNode {
         name: DUMMY_NAME.into(),
-        ..Default::default()
+        target: "foo".into(),
     },
     Ok(StorePath::from_str(DUMMY_NAME).expect("must succeed"));
     "ok"
@@ -128,7 +128,7 @@ fn validate_file(
 #[test_case(
     castorepb::SymlinkNode {
         name: "invalid".into(),
-        ..Default::default()
+        target: "foo".into(),
     },
     Err(ValidatePathInfoError::InvalidNodeName(
         "invalid".into(),
@@ -238,4 +238,27 @@ fn validate_inconsistent_narinfo_reference_name_digest() {
         }
         e => panic!("unexpected error: {:?}", e),
     }
+}
+
+/// Create a node with an empty symlink target, and ensure it fails validation.
+#[test]
+fn validate_symlink_empty_target_invalid() {
+    let node = castorepb::node::Node::Symlink(castorepb::SymlinkNode {
+        name: "foo".into(),
+        target: "".into(),
+    });
+
+    node.validate().expect_err("must fail validation");
+}
+
+/// Create a node with a symlink target including null bytes, and ensure it
+/// fails validation.
+#[test]
+fn validate_symlink_target_null_byte_invalid() {
+    let node = castorepb::node::Node::Symlink(castorepb::SymlinkNode {
+        name: "foo".into(),
+        target: "foo\0".into(),
+    });
+
+    node.validate().expect_err("must fail validation");
 }

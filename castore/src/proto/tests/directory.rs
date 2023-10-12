@@ -1,4 +1,6 @@
-use crate::proto::{Directory, DirectoryNode, FileNode, SymlinkNode, ValidateDirectoryError};
+use crate::proto::{
+    Directory, DirectoryNode, FileNode, SymlinkNode, ValidateDirectoryError, ValidateNodeError,
+};
 use lazy_static::lazy_static;
 
 lazy_static! {
@@ -171,7 +173,7 @@ fn validate_invalid_names() {
             ..Default::default()
         };
         match d.validate().expect_err("must fail") {
-            ValidateDirectoryError::InvalidName(n) => {
+            ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName()) => {
                 assert_eq!(n, b"")
             }
             _ => panic!("unexpected error"),
@@ -188,7 +190,7 @@ fn validate_invalid_names() {
             ..Default::default()
         };
         match d.validate().expect_err("must fail") {
-            ValidateDirectoryError::InvalidName(n) => {
+            ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName()) => {
                 assert_eq!(n, b".")
             }
             _ => panic!("unexpected error"),
@@ -206,7 +208,7 @@ fn validate_invalid_names() {
             ..Default::default()
         };
         match d.validate().expect_err("must fail") {
-            ValidateDirectoryError::InvalidName(n) => {
+            ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName()) => {
                 assert_eq!(n, b"..")
             }
             _ => panic!("unexpected error"),
@@ -222,7 +224,7 @@ fn validate_invalid_names() {
             ..Default::default()
         };
         match d.validate().expect_err("must fail") {
-            ValidateDirectoryError::InvalidName(n) => {
+            ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName()) => {
                 assert_eq!(n, b"\x00")
             }
             _ => panic!("unexpected error"),
@@ -238,7 +240,7 @@ fn validate_invalid_names() {
             ..Default::default()
         };
         match d.validate().expect_err("must fail") {
-            ValidateDirectoryError::InvalidName(n) => {
+            ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName()) => {
                 assert_eq!(n, b"foo/bar")
             }
             _ => panic!("unexpected error"),
@@ -257,7 +259,7 @@ fn validate_invalid_digest() {
         ..Default::default()
     };
     match d.validate().expect_err("must fail") {
-        ValidateDirectoryError::InvalidDigestLen(n) => {
+        ValidateDirectoryError::InvalidNode(_, ValidateNodeError::InvalidDigestLen(n)) => {
             assert_eq!(n, 2)
         }
         _ => panic!("unexpected error"),

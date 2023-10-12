@@ -2,7 +2,6 @@
 // https://github.com/hyperium/tonic/issues/1056
 use bstr::ByteSlice;
 use std::{collections::HashSet, iter::Peekable};
-use thiserror::Error;
 
 use prost::Message;
 
@@ -26,7 +25,7 @@ pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("tvix
 mod tests;
 
 /// Errors that can occur during the validation of Directory messages.
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ValidateDirectoryError {
     /// Elements are not in sorted order
     #[error("{:?} is not sorted", .0.as_bstr())]
@@ -34,28 +33,37 @@ pub enum ValidateDirectoryError {
     /// Multiple elements with the same name encountered
     #[error("{:?} is a duplicate name", .0.as_bstr())]
     DuplicateName(Vec<u8>),
-    /// Invalid name encountered
-    #[error("Invalid name in {:?}", .0.as_bstr())]
-    InvalidName(Vec<u8>),
-    /// Invalid digest length encountered
-    #[error("Invalid Digest length: {0}")]
-    InvalidDigestLen(usize),
+    /// Invalid node
+    #[error("invalid node with name {:?}: {:?}", .0.as_bstr(), .1.to_string())]
+    InvalidNode(Vec<u8>, ValidateNodeError),
     #[error("Total size exceeds u32::MAX")]
     SizeOverflow,
 }
 
-/// Checks a Node name for validity as an intermediate node, and returns an
-/// error that's generated from the supplied constructor.
-///
+/// Errors that occur during Node validation
+#[derive(Debug, PartialEq, Eq, thiserror::Error)]
+pub enum ValidateNodeError {
+    /// Invalid digest length encountered
+    #[error("Invalid Digest length: {0}")]
+    InvalidDigestLen(usize),
+    /// Invalid name encountered
+    #[error("Invalid name")]
+    InvalidName(),
+    /// Invalid symlink target
+    #[error("Invalid symlink target: {}", .0.as_bstr())]
+    InvalidSymlinkTarget(Vec<u8>),
+}
+
+/// Checks a Node name for validity as an intermediate node.
 /// We disallow slashes, null bytes, '.', '..' and the empty string.
-fn validate_node_name<E>(name: &[u8], err: fn(Vec<u8>) -> E) -> Result<(), E> {
+fn validate_node_name(name: &[u8]) -> Result<(), ValidateNodeError> {
     if name.is_empty()
         || name == b".."
         || name == b"."
         || name.contains(&0x00)
         || name.contains(&b'/')
     {
-        return Err(err(name.to_vec()));
+        Err(ValidateNodeError::InvalidName())?;
     }
     Ok(())
 }
@@ -102,6 +110,39 @@ impl node::Node {
             node::Node::File(n) => node::Node::File(FileNode { name, ..n }),
             node::Node::Symlink(n) => node::Node::Symlink(SymlinkNode { name, ..n }),
         }
+    }
+    pub fn validate(&self) -> Result<(), ValidateNodeError> {
+        match self {
+            // for a directory root node, ensure the digest has the appropriate size.
+            node::Node::Directory(directory_node) => {
+                if TryInto::<B3Digest>::try_into(directory_node.digest.clone()).is_err() {
+                    Err(ValidateNodeError::InvalidDigestLen(
+                        directory_node.digest.len(),
+                    ))?;
+                };
+                validate_node_name(&directory_node.name)?;
+            }
+            // for a file root node, ensure the digest has the appropriate size.
+            node::Node::File(file_node) => {
+                if TryInto::<B3Digest>::try_into(file_node.digest.clone()).is_err() {
+                    Err(ValidateNodeError::InvalidDigestLen(file_node.digest.len()))?;
+                };
+                validate_node_name(&file_node.name)?;
+            }
+            // ensure the symlink target is not empty and doesn't contain null bytes.
+            node::Node::Symlink(symlink_node) => {
+                if symlink_node.target.len() == 0 {
+                    Err(ValidateNodeError::InvalidSymlinkTarget(vec![]))?;
+                }
+                if symlink_node.target.contains(&b'\0') {
+                    Err(ValidateNodeError::InvalidSymlinkTarget(
+                        symlink_node.target.to_vec(),
+                    ))?;
+                }
+                validate_node_name(&symlink_node.name)?;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -183,13 +224,11 @@ impl Directory {
 
         // check directories
         for directory_node in &self.directories {
-            validate_node_name(&directory_node.name, ValidateDirectoryError::InvalidName)?;
-            // ensure the digest has the appropriate size.
-            if TryInto::<B3Digest>::try_into(directory_node.digest.clone()).is_err() {
-                return Err(ValidateDirectoryError::InvalidDigestLen(
-                    directory_node.digest.len(),
-                ));
-            }
+            node::Node::Directory(directory_node.clone())
+                .validate()
+                .map_err(|e| {
+                    ValidateDirectoryError::InvalidNode(directory_node.name.to_vec(), e)
+                })?;
 
             update_if_lt_prev(&mut last_directory_name, &directory_node.name)?;
             insert_once(&mut seen_names, &directory_node.name)?;
@@ -197,12 +236,9 @@ impl Directory {
 
         // check files
         for file_node in &self.files {
-            validate_node_name(&file_node.name, ValidateDirectoryError::InvalidName)?;
-            if TryInto::<B3Digest>::try_into(file_node.digest.clone()).is_err() {
-                return Err(ValidateDirectoryError::InvalidDigestLen(
-                    file_node.digest.len(),
-                ));
-            }
+            node::Node::File(file_node.clone())
+                .validate()
+                .map_err(|e| ValidateDirectoryError::InvalidNode(file_node.name.to_vec(), e))?;
 
             update_if_lt_prev(&mut last_file_name, &file_node.name)?;
             insert_once(&mut seen_names, &file_node.name)?;
@@ -210,7 +246,9 @@ impl Directory {
 
         // check symlinks
         for symlink_node in &self.symlinks {
-            validate_node_name(&symlink_node.name, ValidateDirectoryError::InvalidName)?;
+            node::Node::Symlink(symlink_node.clone())
+                .validate()
+                .map_err(|e| ValidateDirectoryError::InvalidNode(symlink_node.name.to_vec(), e))?;
 
             update_if_lt_prev(&mut last_symlink_name, &symlink_node.name)?;
             insert_once(&mut seen_names, &symlink_node.name)?;

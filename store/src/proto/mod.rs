@@ -3,10 +3,7 @@ use data_encoding::BASE64;
 // https://github.com/hyperium/tonic/issues/1056
 use nix_compat::store_path::{self, StorePath};
 use thiserror::Error;
-use tvix_castore::{
-    proto::{self as castorepb, NamedNode},
-    B3Digest, B3_LEN,
-};
+use tvix_castore::proto::{self as castorepb, NamedNode, ValidateNodeError};
 
 mod grpc_pathinfoservice_wrapper;
 
@@ -34,13 +31,13 @@ pub enum ValidatePathInfoError {
     #[error("No node present")]
     NoNodePresent(),
 
-    /// Invalid node name encountered.
+    /// Node fails validation
+    #[error("Invalid root node: {:?}", .0.to_string())]
+    InvalidRootNode(ValidateNodeError),
+
+    /// Invalid node name encountered. Root nodes in PathInfos have more strict name requirements
     #[error("Failed to parse {0:?} as StorePath: {1}")]
     InvalidNodeName(Vec<u8>, store_path::Error),
-
-    /// The digest the (root) node refers to has invalid length.
-    #[error("Invalid Digest length: expected {}, got {}", B3_LEN, .0)]
-    InvalidNodeDigestLen(usize),
 
     /// The digest in narinfo.nar_sha256 has an invalid len.
     #[error("Invalid narinfo.nar_sha256 length: expected {}, got {}", 32, .0)]
@@ -146,27 +143,8 @@ impl PathInfo {
                 Err(ValidatePathInfoError::NoNodePresent())?
             }
             Some(castorepb::Node { node: Some(node) }) => {
-                match node {
-                    // for a directory root node, ensure the digest has the appropriate size.
-                    castorepb::node::Node::Directory(directory_node) => {
-                        if TryInto::<B3Digest>::try_into(directory_node.digest.clone()).is_err() {
-                            return Err(ValidatePathInfoError::InvalidNodeDigestLen(
-                                directory_node.digest.len(),
-                            ));
-                        }
-                    }
-                    // for a file root node, ensure the digest has the appropriate size.
-                    castorepb::node::Node::File(file_node) => {
-                        // ensure the digest has the appropriate size.
-                        if TryInto::<B3Digest>::try_into(file_node.digest.clone()).is_err() {
-                            return Err(ValidatePathInfoError::InvalidNodeDigestLen(
-                                file_node.digest.len(),
-                            ));
-                        }
-                    }
-                    // nothing to do specifically for symlinks
-                    castorepb::node::Node::Symlink(_) => {}
-                }
+                node.validate()
+                    .map_err(|e| ValidatePathInfoError::InvalidRootNode(e))?;
                 // parse the name of the node itself and return
                 parse_node_name_root(node.get_name(), ValidatePathInfoError::InvalidNodeName)?
             }
