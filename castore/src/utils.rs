@@ -57,7 +57,7 @@ pub(crate) async fn gen_directorysvc_grpc_client() -> DirectoryServiceClient<Cha
 
     // Create a client, connecting to the right side. The URI is unused.
     let mut maybe_right = Some(right);
-    let grpc_client = DirectoryServiceClient::new(
+    DirectoryServiceClient::new(
         Endpoint::try_from("http://[::]:50051")
             .unwrap()
             .connect_with_connector(tower::service_fn(move |_: Uri| {
@@ -66,9 +66,7 @@ pub(crate) async fn gen_directorysvc_grpc_client() -> DirectoryServiceClient<Cha
             }))
             .await
             .unwrap(),
-    );
-
-    grpc_client
+    )
 }
 
 /// This will spawn the a gRPC server with a BlobService client, connect a
@@ -92,7 +90,7 @@ pub(crate) async fn gen_blobsvc_grpc_client() -> BlobServiceClient<Channel> {
 
     // Create a client, connecting to the right side. The URI is unused.
     let mut maybe_right = Some(right);
-    let grpc_client = BlobServiceClient::new(
+    BlobServiceClient::new(
         Endpoint::try_from("http://[::]:50051")
             .unwrap()
             .connect_with_connector(tower::service_fn(move |_: Uri| {
@@ -101,7 +99,5 @@ pub(crate) async fn gen_blobsvc_grpc_client() -> BlobServiceClient<Channel> {
             }))
             .await
             .unwrap(),
-    );
-
-    grpc_client
+    )
 }
