@@ -21,31 +21,25 @@ where
     FS: FileSystem + Sync + Send,
 {
     fn start(&mut self) -> io::Result<()> {
-        loop {
-            if let Some((reader, writer)) = self
-                .channel
-                .get_request()
-                .map_err(|_| io::Error::from_raw_os_error(libc::EINVAL))?
+        while let Some((reader, writer)) = self
+            .channel
+            .get_request()
+            .map_err(|_| io::Error::from_raw_os_error(libc::EINVAL))?
+        {
+            if let Err(e) = self
+                .server
+                .handle_message(reader, writer.into(), None, None)
             {
-                if let Err(e) = self
-                    .server
-                    .handle_message(reader, writer.into(), None, None)
-                {
-                    match e {
-                        // This indicates the session has been shut down.
-                        fuse_backend_rs::Error::EncodeMessage(e)
-                            if e.raw_os_error() == Some(BADFD) =>
-                        {
-                            break;
-                        }
-                        error => {
-                            error!(?error, "failed to handle fuse request");
-                            continue;
-                        }
+                match e {
+                    // This indicates the session has been shut down.
+                    fuse_backend_rs::Error::EncodeMessage(e) if e.raw_os_error() == Some(BADFD) => {
+                        break;
+                    }
+                    error => {
+                        error!(?error, "failed to handle fuse request");
+                        continue;
                     }
                 }
-            } else {
-                break;
             }
         }
         Ok(())
