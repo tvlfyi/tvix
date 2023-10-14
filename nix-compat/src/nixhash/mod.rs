@@ -14,7 +14,7 @@ pub enum NixHash {
     Md5([u8; 16]),
     Sha1([u8; 20]),
     Sha256([u8; 32]),
-    Sha512([u8; 64]),
+    Sha512(Box<[u8; 64]>),
 }
 
 impl NixHash {
@@ -34,7 +34,7 @@ impl NixHash {
             NixHash::Md5(digest) => digest,
             NixHash::Sha1(digest) => digest,
             NixHash::Sha256(digest) => digest,
-            NixHash::Sha512(digest) => digest,
+            NixHash::Sha512(digest) => digest.as_ref(),
         }
     }
 
@@ -73,7 +73,7 @@ pub fn from_algo_and_digest(algo: HashAlgo, digest: &[u8]) -> Result<NixHash, Er
         HashAlgo::Md5 => NixHash::Md5(digest.try_into().unwrap()),
         HashAlgo::Sha1 => NixHash::Sha1(digest.try_into().unwrap()),
         HashAlgo::Sha256 => NixHash::Sha256(digest.try_into().unwrap()),
-        HashAlgo::Sha512 => NixHash::Sha512(digest.try_into().unwrap()),
+        HashAlgo::Sha512 => NixHash::Sha512(Box::new(digest.try_into().unwrap())),
     })
 }
 
@@ -307,7 +307,7 @@ mod tests {
     /// Test parsing a hash string in various formats, and also when/how the out-of-band algo is needed.
     #[test_case(&NixHash::Sha1(DIGEST_SHA1); "sha1")]
     #[test_case(&NixHash::Sha256(DIGEST_SHA256); "sha256")]
-    #[test_case(&NixHash::Sha512(DIGEST_SHA512); "sha512")]
+    #[test_case(&NixHash::Sha512(Box::new(DIGEST_SHA512)); "sha512")]
     #[test_case(&NixHash::Md5(DIGEST_MD5); "md5")]
     fn from_str(expected_hash: &NixHash) {
         let algo = &expected_hash.algo();
