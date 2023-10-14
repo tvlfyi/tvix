@@ -7481,9 +7481,9 @@ rec {
       };
       "tokio-listener" = rec {
         crateName = "tokio-listener";
-        version = "0.2.1";
+        version = "0.2.2";
         edition = "2021";
-        sha256 = "1yx7vsiwqg0lzdwyavwwnnpkvnmlgsjivvwsqbz7k9jj00lmx1q5";
+        sha256 = "0iaxcxbjhl2dk6b0w2bwm7qiryp119zgdhgqma169kmncn2xg7k6";
         dependencies = [
           {
             name = "document-features";
@@ -7523,6 +7523,11 @@ rec {
             features = [ "net" "io-std" "time" "sync" ];
           }
           {
+            name = "tonic";
+            packageId = "tonic";
+            optional = true;
+          }
+          {
             name = "tracing";
             packageId = "tracing";
           }
@@ -7538,6 +7543,10 @@ rec {
             packageId = "tokio";
             features = [ "macros" "rt" "io-util" ];
           }
+          {
+            name = "tonic";
+            packageId = "tonic";
+          }
         ];
         features = {
           "clap" = [ "dep:clap" ];
@@ -7549,10 +7558,12 @@ rec {
           "serde_with" = [ "dep:serde_with" ];
           "socket2" = [ "dep:socket2" ];
           "socket_options" = [ "socket2" ];
+          "tonic" = [ "dep:tonic" ];
+          "tonic010" = [ "tonic" ];
           "unix_path_tools" = [ "nix" ];
           "user_facing_default" = [ "inetd" "unix" "unix_path_tools" "sd_listen" "socket_options" ];
         };
-        resolvedDefaultFeatures = [ "default" "hyper" "hyper014" "inetd" "nix" "sd_listen" "socket2" "socket_options" "unix" "unix_path_tools" "user_facing_default" ];
+        resolvedDefaultFeatures = [ "default" "hyper" "hyper014" "inetd" "nix" "sd_listen" "socket2" "socket_options" "tonic" "tonic010" "unix" "unix_path_tools" "user_facing_default" ];
       };
       "tokio-macros" = rec {
         crateName = "tokio-macros";
@@ -9003,6 +9014,7 @@ rec {
           {
             name = "tokio-listener";
             packageId = "tokio-listener";
+            features = [ "tonic010" ];
           }
           {
             name = "tokio-stream";

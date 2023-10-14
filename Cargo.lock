@@ -2570,9 +2570,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-listener"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05875e290052a679fec29aef1da57eb4da3dafb59c6fe579fb143ccca3dea7fb"
+checksum = "669ed78565b6ce6482aaf8c1f67e0ae1fa1cf1a97c090e96994d502857675d45"
 dependencies = [
  "document-features",
  "futures-core",
@@ -2581,6 +2581,7 @@ dependencies = [
  "pin-project",
  "socket2 0.5.4",
  "tokio",
+ "tonic",
  "tracing",
 ]
 
