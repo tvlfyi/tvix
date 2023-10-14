@@ -1,6 +1,6 @@
 use super::{Error, STORE_DIR};
 use crate::nixbase32;
-use crate::nixhash::{HashAlgo, NixHash, NixHashWithMode};
+use crate::nixhash::{NixHash, NixHashWithMode};
 use crate::store_path::StorePath;
 use sha2::{Digest, Sha256};
 use thiserror;
@@ -55,12 +55,7 @@ pub fn build_text_path<S: AsRef<str>, I: IntoIterator<Item = S>, C: AsRef<[u8]>>
                 hasher.finalize()
             };
 
-            // We populate the struct directly, as we know the sha256 digest has the
-            // right size.
-            NixHash {
-                algo: crate::nixhash::HashAlgo::Sha256,
-                digest: content_digest.to_vec(),
-            }
+            NixHash::Sha256(content_digest.into())
         },
         name,
     )
@@ -74,17 +69,14 @@ pub fn build_regular_ca_path<S: AsRef<str>, I: IntoIterator<Item = S>>(
     self_reference: bool,
 ) -> Result<StorePath, BuildStorePathError> {
     match &hash_with_mode {
-        NixHashWithMode::Recursive(
-            ref hash @ NixHash {
-                algo: HashAlgo::Sha256,
-                ..
-            },
-        ) => build_store_path_from_fingerprint_parts(
-            &make_type("source", references, self_reference),
-            hash,
-            name,
-        )
-        .map_err(BuildStorePathError::InvalidStorePath),
+        NixHashWithMode::Recursive(ref hash @ NixHash::Sha256(_)) => {
+            build_store_path_from_fingerprint_parts(
+                &make_type("source", references, self_reference),
+                hash,
+                name,
+            )
+            .map_err(BuildStorePathError::InvalidStorePath)
+        }
         _ => {
             if references.into_iter().next().is_some() {
                 return Err(BuildStorePathError::InvalidReference());
@@ -98,21 +90,17 @@ pub fn build_regular_ca_path<S: AsRef<str>, I: IntoIterator<Item = S>>(
                     let content_digest = {
                         let mut hasher = Sha256::new_with_prefix("fixed:out:");
                         hasher.update(hash_with_mode.mode().prefix());
-                        hasher.update(hash_with_mode.digest().algo.to_string());
+                        hasher.update(hash_with_mode.digest().algo().to_string());
                         hasher.update(":");
                         hasher.update(
-                            &data_encoding::HEXLOWER.encode(&hash_with_mode.digest().digest),
+                            &data_encoding::HEXLOWER
+                                .encode(hash_with_mode.digest().digest_as_bytes()),
                         );
                         hasher.update(":");
                         hasher.finalize()
                     };
 
-                    // We don't use [NixHash::from_algo_and_digest], as we know [Sha256] has
-                    // the right digest size.
-                    NixHash {
-                        algo: crate::nixhash::HashAlgo::Sha256,
-                        digest: content_digest.to_vec(),
-                    }
+                    NixHash::Sha256(content_digest.into())
                 },
                 name,
             )
@@ -123,12 +111,8 @@ pub fn build_regular_ca_path<S: AsRef<str>, I: IntoIterator<Item = S>>(
 
 /// For given NAR sha256 digest and name, return the new [StorePath] this would have.
 pub fn build_nar_based_store_path(nar_sha256_digest: &[u8; 32], name: &str) -> StorePath {
-    // We populate the struct directly, as we know the sha256 digest has the
-    // right size.
-    let nar_hash_with_mode = NixHashWithMode::Recursive(NixHash {
-        algo: HashAlgo::Sha256,
-        digest: nar_sha256_digest.to_vec(),
-    });
+    let nar_hash_with_mode =
+        NixHashWithMode::Recursive(NixHash::Sha256(nar_sha256_digest.to_owned()));
 
     build_regular_ca_path(name, &nar_hash_with_mode, Vec::<String>::new(), false).unwrap()
 }
@@ -266,12 +250,13 @@ mod test {
     fn build_sha1_path() {
         let outer = build_regular_ca_path(
             "bar",
-            &NixHashWithMode::Recursive(NixHash {
-                algo: HashAlgo::Sha1,
-                digest: data_encoding::HEXLOWER
+            &NixHashWithMode::Recursive(NixHash::Sha1(
+                data_encoding::HEXLOWER
                     .decode(b"0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33")
-                    .expect("hex should decode"),
-            }),
+                    .expect("hex should decode")
+                    .try_into()
+                    .expect("should have right len"),
+            )),
             Vec::<String>::new(),
             false,
         )
@@ -294,11 +279,12 @@ mod test {
         // rewrote '/nix/store/5xd714cbfnkz02h2vbsj4fm03x3f15nf-baz' to '/nix/store/s89y431zzhmdn3k8r96rvakryddkpv2v-baz'
         let outer = build_regular_ca_path(
             "baz",
-            &NixHashWithMode::Recursive(NixHash {
-                algo: HashAlgo::Sha256,
-                digest: nixbase32::decode(b"1xqkzcb3909fp07qngljr4wcdnrh1gdam1m2n29i6hhrxlmkgkv1")
-                    .expect("hex should decode"),
-            }),
+            &NixHashWithMode::Recursive(NixHash::Sha256(
+                nixbase32::decode(b"1xqkzcb3909fp07qngljr4wcdnrh1gdam1m2n29i6hhrxlmkgkv1")
+                    .expect("hex should decode")
+                    .try_into()
+                    .expect("should have right len"),
+            )),
             vec!["/nix/store/dxwkwjzdaq7ka55pkk252gh32bgpmql4-foo"],
             false,
         )

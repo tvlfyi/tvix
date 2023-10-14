@@ -6,6 +6,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Map, Value};
 
 use super::algos::SUPPORTED_ALGOS;
+use super::from_algo_and_digest;
 
 pub enum NixHashMode {
     Flat,
@@ -103,40 +104,38 @@ impl NixHashWithMode {
             if let Some(s) = v.as_str() {
                 match s.strip_prefix("r:") {
                     Some(rest) => Ok(Some(Self::Recursive(
-                        (
+                        from_algo_and_digest(
                             HashAlgo::try_from(rest).map_err(|e| {
                                 serde::de::Error::invalid_value(
                                     Unexpected::Other(&e.to_string()),
                                     &format!("one of {}", SUPPORTED_ALGOS.join(",")).as_str(),
                                 )
                             })?,
-                            digest,
+                            &digest,
                         )
-                            .try_into()
-                            .map_err(|e: nixhash::Error| {
-                                serde::de::Error::invalid_value(
-                                    Unexpected::Other(&e.to_string()),
-                                    &"a digest with right length",
-                                )
-                            })?,
+                        .map_err(|e: nixhash::Error| {
+                            serde::de::Error::invalid_value(
+                                Unexpected::Other(&e.to_string()),
+                                &"a digest with right length",
+                            )
+                        })?,
                     ))),
                     None => Ok(Some(Self::Flat(
-                        (
+                        from_algo_and_digest(
                             HashAlgo::try_from(s).map_err(|e| {
                                 serde::de::Error::invalid_value(
                                     Unexpected::Other(&e.to_string()),
                                     &format!("one of {}", SUPPORTED_ALGOS.join(",")).as_str(),
                                 )
                             })?,
-                            digest,
+                            &digest,
                         )
-                            .try_into()
-                            .map_err(|e: nixhash::Error| {
-                                serde::de::Error::invalid_value(
-                                    Unexpected::Other(&e.to_string()),
-                                    &"a digest with right length",
-                                )
-                            })?,
+                        .map_err(|e: nixhash::Error| {
+                            serde::de::Error::invalid_value(
+                                Unexpected::Other(&e.to_string()),
+                                &"a digest with right length",
+                            )
+                        })?,
                     ))),
                 }
             } else {
@@ -162,12 +161,12 @@ impl Serialize for NixHashWithMode {
         let mut map = serializer.serialize_map(Some(2))?;
         match self {
             NixHashWithMode::Flat(h) => {
-                map.serialize_entry("hash", &nixbase32::encode(&h.digest))?;
-                map.serialize_entry("hashAlgo", &h.algo.to_string())?;
+                map.serialize_entry("hash", &nixbase32::encode(h.digest_as_bytes()))?;
+                map.serialize_entry("hashAlgo", &h.algo())?;
             }
             NixHashWithMode::Recursive(h) => {
-                map.serialize_entry("hash", &nixbase32::encode(&h.digest))?;
-                map.serialize_entry("hashAlgo", &format!("r:{}", &h.algo.to_string()))?;
+                map.serialize_entry("hash", &nixbase32::encode(h.digest_as_bytes()))?;
+                map.serialize_entry("hashAlgo", &format!("r:{}", &h.algo()))?;
             }
         };
         map.end()

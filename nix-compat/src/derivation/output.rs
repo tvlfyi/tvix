@@ -44,8 +44,8 @@ impl Output {
         if let Some(hash) = &self.hash_with_mode {
             match hash {
                 NixHashWithMode::Flat(h) | NixHashWithMode::Recursive(h) => {
-                    if h.algo != HashAlgo::Sha1 || h.algo != HashAlgo::Sha256 {
-                        return Err(OutputError::InvalidHashAlgo(h.algo.to_string()));
+                    if h.algo() != HashAlgo::Sha1 || h.algo() != HashAlgo::Sha256 {
+                        return Err(OutputError::InvalidHashAlgo(h.algo().to_string()));
                     }
                 }
             }

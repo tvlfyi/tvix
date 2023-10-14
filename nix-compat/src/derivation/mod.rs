@@ -168,7 +168,8 @@ impl Derivation {
             // This is not the [NixHash::to_nix_hash_string], but without the sha256: prefix).
             for (drv_path, output_names) in &self.input_derivations {
                 replaced_input_derivations.insert(
-                    data_encoding::HEXLOWER.encode(&fn_get_derivation_or_fod_hash(drv_path).digest),
+                    data_encoding::HEXLOWER
+                        .encode(fn_get_derivation_or_fod_hash(drv_path).digest_as_bytes()),
                     output_names.clone(),
                 );
             }
@@ -186,12 +187,7 @@ impl Derivation {
             hasher.finalize().to_vec()
         });
 
-        // We populate the struct directly, as we know the sha256 digest has the
-        // right size.
-        NixHash {
-            algo: crate::nixhash::HashAlgo::Sha256,
-            digest: digest.to_vec(),
-        }
+        NixHash::Sha256(digest.try_into().unwrap())
     }
 
     /// This calculates all output paths of a Derivation and updates the struct.

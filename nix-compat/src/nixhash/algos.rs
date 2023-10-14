@@ -13,6 +13,18 @@ pub enum HashAlgo {
     Sha512,
 }
 
+impl HashAlgo {
+    // return the number of bytes in the digest of the given hash algo.
+    pub fn digest_length(&self) -> usize {
+        match self {
+            HashAlgo::Sha1 => 20,
+            HashAlgo::Sha256 => 32,
+            HashAlgo::Sha512 => 64,
+            HashAlgo::Md5 => 16,
+        }
+    }
+}
+
 impl Display for HashAlgo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
