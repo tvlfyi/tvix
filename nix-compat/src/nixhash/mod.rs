@@ -17,6 +17,9 @@ pub enum NixHash {
     Sha512(Box<[u8; 64]>),
 }
 
+/// convenience Result type for all nixhash parsing Results.
+pub type Result<V> = std::result::Result<V, Error>;
+
 impl NixHash {
     /// returns the algo as [HashAlgo].
     pub fn algo(&self) -> HashAlgo {
@@ -55,7 +58,7 @@ impl TryFrom<(HashAlgo, &[u8])> for NixHash {
     /// Constructs a new [NixHash] by specifying [HashAlgo] and digest.
     /// It can fail if the passed digest length doesn't match what's expected for
     /// the passed algo.
-    fn try_from(value: (HashAlgo, &[u8])) -> Result<Self, Self::Error> {
+    fn try_from(value: (HashAlgo, &[u8])) -> Result<Self> {
         let (algo, digest) = value;
         from_algo_and_digest(algo, digest)
     }
@@ -64,7 +67,7 @@ impl TryFrom<(HashAlgo, &[u8])> for NixHash {
 /// Constructs a new [NixHash] by specifying [HashAlgo] and digest.
 // It can fail if the passed digest length doesn't match what's expected for
 // the passed algo.
-pub fn from_algo_and_digest(algo: HashAlgo, digest: &[u8]) -> Result<NixHash, Error> {
+pub fn from_algo_and_digest(algo: HashAlgo, digest: &[u8]) -> Result<NixHash> {
     if digest.len() != algo.digest_length() {
         return Err(Error::InvalidEncodedDigestLength(digest.len(), algo));
     }
@@ -117,7 +120,7 @@ pub enum Error {
 /// The hash is communicated out-of-band, but might also be in-band (in the
 /// case of a nix hash string or SRI), in which it needs to be consistent with the
 /// one communicated out-of-band.
-pub fn from_str(s: &str, algo_str: Option<&str>) -> Result<NixHash, Error> {
+pub fn from_str(s: &str, algo_str: Option<&str>) -> Result<NixHash> {
     // if algo_str is some, parse or bail out
     let algo: Option<HashAlgo> = if let Some(algo_str) = algo_str {
         Some(algo_str.try_into()?)
@@ -167,7 +170,7 @@ pub fn from_str(s: &str, algo_str: Option<&str>) -> Result<NixHash, Error> {
 }
 
 /// Parses a Nix hash string ($algo:$digest) to a NixHash.
-pub fn from_nix_str(s: &str) -> Result<NixHash, Error> {
+pub fn from_nix_str(s: &str) -> Result<NixHash> {
     if let Some(rest) = s.strip_prefix("sha1:") {
         decode_digest(rest.as_bytes(), HashAlgo::Sha1)
     } else if let Some(rest) = s.strip_prefix("sha256:") {
@@ -186,7 +189,7 @@ pub fn from_nix_str(s: &str) -> Result<NixHash, Error> {
 /// only supports sha256 and sha512 from the spec, and supports sha1 and md5
 /// additionally.
 /// It also accepts SRI strings where the base64 has an with invalid padding.
-pub fn from_sri_str(s: &str) -> Result<NixHash, Error> {
+pub fn from_sri_str(s: &str) -> Result<NixHash> {
     // try to find the first occurence of "-"
     let idx = s.as_bytes().iter().position(|&e| e == b'-');
 
@@ -229,7 +232,7 @@ pub fn from_sri_str(s: &str) -> Result<NixHash, Error> {
 /// Decode a plain digest depending on the hash algo specified externally.
 /// hexlower, nixbase32 and base64 encodings are supported - the encoding is
 /// inferred from the input length.
-fn decode_digest(s: &[u8], algo: HashAlgo) -> Result<NixHash, Error> {
+fn decode_digest(s: &[u8], algo: HashAlgo) -> Result<NixHash> {
     // for the chosen hash algo, calculate the expected (decoded) digest length
     // (as bytes)
     let digest = if s.len() == HEXLOWER.encode_len(algo.digest_length()) {
