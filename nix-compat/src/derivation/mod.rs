@@ -115,7 +115,7 @@ impl Derivation {
 
     /// Returns the FOD digest, if the derivation is fixed-output, or None if
     /// it's not.
-    fn fod_digest(&self) -> Option<Vec<u8>> {
+    fn fod_digest(&self) -> Option<[u8; 32]> {
         if self.outputs.len() != 1 {
             return None;
         }
@@ -128,7 +128,7 @@ impl Derivation {
                 out_output.path
             ))
             .finalize()
-            .to_vec(),
+            .into(),
         )
     }
 
@@ -184,10 +184,10 @@ impl Derivation {
             let mut hasher = Sha256::new();
             hasher.update(replaced_derivation.to_aterm_bytes());
 
-            hasher.finalize().to_vec()
+            hasher.finalize().into()
         });
 
-        NixHash::Sha256(digest.try_into().unwrap())
+        NixHash::Sha256(digest)
     }
 
     /// This calculates all output paths of a Derivation and updates the struct.
