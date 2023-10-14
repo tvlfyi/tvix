@@ -65,8 +65,8 @@ impl TryFrom<(HashAlgo, &[u8])> for NixHash {
 }
 
 /// Constructs a new [NixHash] by specifying [HashAlgo] and digest.
-// It can fail if the passed digest length doesn't match what's expected for
-// the passed algo.
+/// It can fail if the passed digest length doesn't match what's expected for
+/// the passed algo.
 pub fn from_algo_and_digest(algo: HashAlgo, digest: &[u8]) -> Result<NixHash> {
     if digest.len() != algo.digest_length() {
         return Err(Error::InvalidEncodedDigestLength(digest.len(), algo));

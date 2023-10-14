@@ -30,6 +30,21 @@ pub enum NixHashWithMode {
 }
 
 impl NixHashWithMode {
+    /// Construct a [NixHashWithMode] from a string containing the algo, and
+    /// optionally a `r:` prefix, and a digest (bytes).
+    pub fn from_algo_mode_hash(algo_and_mode: &str, digest: &[u8]) -> super::Result<Self> {
+        Ok(match algo_and_mode.strip_prefix("r:") {
+            Some(algo) => nixhash::NixHashWithMode::Recursive(nixhash::from_algo_and_digest(
+                algo.try_into()?,
+                &digest,
+            )?),
+            None => nixhash::NixHashWithMode::Flat(nixhash::from_algo_and_digest(
+                algo_and_mode.try_into()?,
+                &digest,
+            )?),
+        })
+    }
+
     pub fn mode(&self) -> NixHashMode {
         match self {
             Self::Flat(_) => NixHashMode::Flat,
@@ -184,5 +199,36 @@ impl<'de> Deserialize<'de> for NixHashWithMode {
             None => Err(serde::de::Error::custom("couldn't parse as map")),
             Some(v) => Ok(v),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::nixhash::{NixHash, NixHashWithMode};
+    use lazy_static::lazy_static;
+    use test_case::test_case;
+
+    const DIGEST_SHA256: [u8; 32] = [
+        0xa5, 0xce, 0x9c, 0x15, 0x5e, 0xd0, 0x93, 0x97, 0x61, 0x46, 0x46, 0xc9, 0x71, 0x7f, 0xc7,
+        0xcd, 0x94, 0xb1, 0x02, 0x3d, 0x7b, 0x76, 0xb6, 0x18, 0xd4, 0x09, 0xe4, 0xfe, 0xfd, 0x6e,
+        0x9d, 0x39,
+    ];
+    lazy_static! {
+        pub static ref NIXHASH_SHA256: NixHash = NixHash::Sha256(DIGEST_SHA256);
+    }
+
+    #[test_case("sha256", &DIGEST_SHA256, NixHashWithMode::Flat(NIXHASH_SHA256.clone()); "sha256 flat")]
+    #[test_case("r:sha256", &DIGEST_SHA256, NixHashWithMode::Recursive(NIXHASH_SHA256.clone()); "sha256 recursive")]
+    fn from_from_algo_mode_hash(algo_and_mode: &str, digest: &[u8], expected: NixHashWithMode) {
+        assert_eq!(
+            expected,
+            NixHashWithMode::from_algo_mode_hash(algo_and_mode, digest).unwrap()
+        );
+    }
+
+    #[test]
+    fn from_algo_mode_failure() {
+        assert!(NixHashWithMode::from_algo_mode_hash("r:sha256", &[]).is_err());
+        assert!(NixHashWithMode::from_algo_mode_hash("ha256", &DIGEST_SHA256).is_err());
     }
 }

@@ -1427,6 +1427,7 @@ dependencies = [
  "data-encoding",
  "futures",
  "futures-util",
+ "lazy_static",
  "serde",
  "serde_json",
  "sha2",

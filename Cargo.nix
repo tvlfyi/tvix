@@ -4216,6 +4216,10 @@ rec {
             features = [ "executor" ];
           }
           {
+            name = "lazy_static";
+            packageId = "lazy_static";
+          }
+          {
             name = "serde_json";
             packageId = "serde_json";
           }
