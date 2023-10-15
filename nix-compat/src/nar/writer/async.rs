@@ -30,7 +30,7 @@
 //! # });
 //! ```
 
-use super::wire;
+use crate::nar::wire;
 use bstr::ByteSlice;
 use futures_util::{AsyncBufRead, AsyncBufReadExt, AsyncWrite, AsyncWriteExt};
 use std::{

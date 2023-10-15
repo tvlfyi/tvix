@@ -28,7 +28,7 @@
 //! # Ok::<(), std::io::Error>(())
 //! ```
 
-use super::wire;
+use crate::nar::wire;
 use bstr::ByteSlice;
 use std::io::{
     self, BufRead,

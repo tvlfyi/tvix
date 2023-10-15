@@ -108,3 +108,25 @@ fn tokens() {
         assert_eq!(tok, token(xs));
     }
 }
+
+pub use tag::Tag;
+mod tag;
+
+tag::make! {
+    /// These are the node tokens, succeeding [TOK_NAR] or [TOK_NOD],
+    /// and preceding the next variable-length element.
+    pub enum Node[16] {
+        Sym = TOK_SYM,
+        Reg = TOK_REG,
+        Exe = TOK_EXE,
+        Dir = TOK_DIR,
+    }
+
+    /// Directory entry or terminator
+    pub enum Entry[0] {
+        /// End of directory
+        None = TOK_PAR,
+        /// Directory entry, which must be followed by [Node]
+        Some = TOK_ENT,
+    }
+}
