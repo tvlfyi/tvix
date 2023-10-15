@@ -6,15 +6,23 @@ use crate::nixhash;
 
 pub type NomResult<I, O> = IResult<I, O, NomError<I>>;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, thiserror::Error, PartialEq)]
 pub enum ErrorKind {
-    // duplicate key in map
+    /// duplicate key in map
+    #[error("duplicate map key: {0}")]
     DuplicateMapKey(String),
 
-    // Digest parsing error
+    /// Input derivation has two outputs with the same name
+    #[error("duplicate output name {1} for input derivation {0}")]
+    DuplicateInputDerivationOutputName(String, String),
+
+    #[error("duplicate input source: {0}")]
+    DuplicateInputSource(String),
+
+    #[error("nix hash error: {0}")]
     NixHashError(nixhash::Error),
 
-    // error kind wrapped from native nom errors
+    #[error("nom error: {0:?}")]
     Nom(nom::error::ErrorKind),
 }
 
