@@ -174,13 +174,15 @@ pub fn write_arguments(writer: &mut impl Write, arguments: &[String]) -> Result<
     Ok(())
 }
 
-pub fn write_enviroment(
-    writer: &mut impl Write,
-    environment: &BTreeMap<String, BString>,
-) -> Result<(), io::Error> {
+pub fn write_enviroment<E, K, V>(writer: &mut impl Write, environment: E) -> Result<(), io::Error>
+where
+    E: IntoIterator<Item = (K, V)>,
+    K: AsRef<[u8]>,
+    V: AsRef<[u8]>,
+{
     write_char(writer, BRACKET_OPEN)?;
 
-    for (i, (k, v)) in environment.iter().enumerate() {
+    for (i, (k, v)) in environment.into_iter().enumerate() {
         if i > 0 {
             write_char(writer, COMMA)?;
         }
