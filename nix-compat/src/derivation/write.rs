@@ -174,7 +174,7 @@ pub fn write_arguments(writer: &mut impl Write, arguments: &[String]) -> Result<
     Ok(())
 }
 
-pub fn write_enviroment<E, K, V>(writer: &mut impl Write, environment: E) -> Result<(), io::Error>
+pub fn write_environment<E, K, V>(writer: &mut impl Write, environment: E) -> Result<(), io::Error>
 where
     E: IntoIterator<Item = (K, V)>,
     K: AsRef<[u8]>,

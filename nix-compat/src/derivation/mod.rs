@@ -70,7 +70,7 @@ impl Derivation {
         write_arguments(writer, &self.arguments)?;
         write_char(writer, COMMA)?;
 
-        write_enviroment(writer, &self.environment)?;
+        write_environment(writer, &self.environment)?;
 
         write_char(writer, PAREN_CLOSE)?;
 
