@@ -12,9 +12,6 @@
 , ...
 }:
 
-let
-  iconvDarwinDep = pkgs.lib.optionals pkgs.stdenv.isDarwin [ pkgs.libiconv ];
-in
 pkgs.mkShell {
   name = "tvix-rust-dev-env";
   packages = [
@@ -29,5 +26,10 @@ pkgs.mkShell {
     pkgs.rustc
     pkgs.rustfmt
     pkgs.protobuf
-  ] ++ iconvDarwinDep;
+  ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+    # We need these two dependencies in the ambient environment to be able to
+    # `cargo build` on MacOS.
+    pkgs.libiconv
+    pkgs.buildPackages.darwin.apple_sdk.frameworks.Security
+  ];
 }
