@@ -134,7 +134,7 @@ fn parse_input_derivations(i: &[u8]) -> NomResult<&[u8], BTreeMap<String, BTreeS
     for (input_derivation, output_names) in input_derivations_list {
         let mut new_output_names = BTreeSet::new();
         for output_name in output_names.into_iter() {
-            if !new_output_names.insert(output_name.clone()) {
+            if new_output_names.contains(&output_name) {
                 return Err(nom::Err::Failure(NomError {
                     input: i,
                     code: ErrorKind::DuplicateInputDerivationOutputName(
@@ -142,6 +142,8 @@ fn parse_input_derivations(i: &[u8]) -> NomResult<&[u8], BTreeMap<String, BTreeS
                         output_name.to_string(),
                     ),
                 }));
+            } else {
+                new_output_names.insert(output_name);
             }
         }
         input_derivations.insert(input_derivation, new_output_names);
@@ -155,11 +157,13 @@ fn parse_input_sources(i: &[u8]) -> NomResult<&[u8], BTreeSet<String>> {
 
     let mut input_sources: BTreeSet<_> = BTreeSet::new();
     for input_source in input_sources_lst.into_iter() {
-        if !input_sources.insert(input_source.clone()) {
+        if input_sources.contains(&input_source) {
             return Err(nom::Err::Failure(NomError {
                 input: i,
                 code: ErrorKind::DuplicateInputSource(input_source),
             }));
+        } else {
+            input_sources.insert(input_source);
         }
     }
 
@@ -253,11 +257,13 @@ where
                     for (k, v) in pairs.into_iter() {
                         // collect the 2-tuple to a BTreeMap,
                         // and fail if the key was already seen before.
-                        if kvs.insert(k.clone(), v).is_some() {
+                        if kvs.contains_key(&k) {
                             return Err(nom::Err::Failure(NomError {
                                 input: i,
                                 code: ErrorKind::DuplicateMapKey(k),
                             }));
+                        } else {
+                            kvs.insert(k, v);
                         }
                     }
                     Ok((rest, kvs))
