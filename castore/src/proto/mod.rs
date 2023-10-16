@@ -133,7 +133,7 @@ impl node::Node {
             }
             // ensure the symlink target is not empty and doesn't contain null bytes.
             node::Node::Symlink(symlink_node) => {
-                if symlink_node.target.len() == 0 || symlink_node.target.contains(&b'\0') {
+                if symlink_node.target.is_empty() || symlink_node.target.contains(&b'\0') {
                     Err(ValidateNodeError::InvalidSymlinkTarget(
                         symlink_node.target.to_vec(),
                     ))?;
