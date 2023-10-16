@@ -150,7 +150,7 @@ impl PathInfo {
             }
             Some(castorepb::Node { node: Some(node) }) => {
                 node.validate()
-                    .map_err(|e| ValidatePathInfoError::InvalidRootNode(e))?;
+                    .map_err(ValidatePathInfoError::InvalidRootNode)?;
                 // parse the name of the node itself and return
                 parse_node_name_root(node.get_name(), ValidatePathInfoError::InvalidNodeName)?
             }
