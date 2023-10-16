@@ -61,7 +61,7 @@ impl TvixStoreIO {
         sub_path: &Path,
     ) -> Result<Option<Node>, io::Error> {
         let path_info_service = self.path_info_service.clone();
-        let digest = store_path.digest.clone();
+        let digest = store_path.digest;
         let task = self
             .tokio_handle
             .spawn(async move { path_info_service.get(digest).await });
