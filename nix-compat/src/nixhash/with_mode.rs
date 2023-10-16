@@ -36,11 +36,11 @@ impl NixHashWithMode {
         Ok(match algo_and_mode.strip_prefix("r:") {
             Some(algo) => nixhash::NixHashWithMode::Recursive(nixhash::from_algo_and_digest(
                 algo.try_into()?,
-                &digest,
+                digest,
             )?),
             None => nixhash::NixHashWithMode::Flat(nixhash::from_algo_and_digest(
                 algo_and_mode.try_into()?,
-                &digest,
+                digest,
             )?),
         })
     }
