@@ -12,6 +12,7 @@
 , externalArgs ? { }
 , depotOverlays ? true
 , localSystem ? externalArgs.localSystem or builtins.currentSystem
+, crossSystem ? externalArgs.crossSystem or localSystem
 , ...
 }:
 
@@ -31,7 +32,7 @@ let
         checkMeta = false;
       };
 
-    inherit localSystem;
+    inherit localSystem crossSystem;
   };
 
   # import the nixos-unstable package set, or optionally use the
