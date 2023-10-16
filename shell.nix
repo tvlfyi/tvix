@@ -21,6 +21,7 @@ pkgs.mkShell {
     pkgs.clippy
     pkgs.evans
     pkgs.fuse
+    pkgs.go
     pkgs.pkg-config
     pkgs.rust-analyzer
     pkgs.rustc
