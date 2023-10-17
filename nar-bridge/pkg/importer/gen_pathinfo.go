@@ -1,8 +1,8 @@
 package importer
 
 import (
-	castorev1pb "code.tvl.fyi/tvix/castore/protos"
-	storev1pb "code.tvl.fyi/tvix/store/protos"
+	castorev1pb "code.tvl.fyi/tvix/castore-go"
+	storev1pb "code.tvl.fyi/tvix/store-go"
 	"fmt"
 	"github.com/nix-community/go-nix/pkg/narinfo"
 	"github.com/nix-community/go-nix/pkg/storepath"

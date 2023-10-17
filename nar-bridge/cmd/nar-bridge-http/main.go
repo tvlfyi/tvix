@@ -11,9 +11,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	castorev1pb "code.tvl.fyi/tvix/castore/protos"
+	castorev1pb "code.tvl.fyi/tvix/castore-go"
 	narBridgeHttp "code.tvl.fyi/tvix/nar-bridge/pkg/http"
-	storev1pb "code.tvl.fyi/tvix/store/protos"
+	storev1pb "code.tvl.fyi/tvix/store-go"
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )

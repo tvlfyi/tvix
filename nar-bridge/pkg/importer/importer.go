@@ -9,7 +9,7 @@ import (
 	"path"
 	"strings"
 
-	castorev1pb "code.tvl.fyi/tvix/castore/protos"
+	castorev1pb "code.tvl.fyi/tvix/castore-go"
 	"github.com/nix-community/go-nix/pkg/nar"
 )
 

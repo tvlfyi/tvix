@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"net/url"
 
-	castorev1pb "code.tvl.fyi/tvix/castore/protos"
+	castorev1pb "code.tvl.fyi/tvix/castore-go"
 	"code.tvl.fyi/tvix/nar-bridge/pkg/importer"
-	storev1pb "code.tvl.fyi/tvix/store/protos"
+	storev1pb "code.tvl.fyi/tvix/store-go"
 	mh "github.com/multiformats/go-multihash/core"
 	"github.com/nix-community/go-nix/pkg/narinfo"
 	"github.com/nix-community/go-nix/pkg/nixbase32"

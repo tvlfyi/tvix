@@ -3,7 +3,7 @@ package http
 import (
 	"fmt"
 
-	storev1pb "code.tvl.fyi/tvix/store/protos"
+	storev1pb "code.tvl.fyi/tvix/store-go"
 	mh "github.com/multiformats/go-multihash/core"
 	nixhash "github.com/nix-community/go-nix/pkg/hash"
 

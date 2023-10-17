@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	castorev1pb "code.tvl.fyi/tvix/castore/protos"
-	storev1pb "code.tvl.fyi/tvix/store/protos"
+	castorev1pb "code.tvl.fyi/tvix/castore-go"
+	storev1pb "code.tvl.fyi/tvix/store-go"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	log "github.com/sirupsen/logrus"

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	castorev1pb "code.tvl.fyi/tvix/castore/protos"
+	castorev1pb "code.tvl.fyi/tvix/castore-go"
 	log "github.com/sirupsen/logrus"
 )
 

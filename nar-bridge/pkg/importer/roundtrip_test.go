@@ -9,9 +9,9 @@ import (
 	"os"
 	"testing"
 
-	castorev1pb "code.tvl.fyi/tvix/castore/protos"
+	castorev1pb "code.tvl.fyi/tvix/castore-go"
 	"code.tvl.fyi/tvix/nar-bridge/pkg/importer"
-	storev1pb "code.tvl.fyi/tvix/store/protos"
+	storev1pb "code.tvl.fyi/tvix/store-go"
 	"github.com/stretchr/testify/require"
 )
 

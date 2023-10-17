@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	storev1pb "code.tvl.fyi/tvix/store/protos"
+	storev1pb "code.tvl.fyi/tvix/store-go"
 	"github.com/go-chi/chi/v5"
 	nixhash "github.com/nix-community/go-nix/pkg/hash"
 	"github.com/nix-community/go-nix/pkg/nixbase32"
