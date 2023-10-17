@@ -1,4 +1,4 @@
-module code.tvl.fyi/tvix/castore/protos
+module code.tvl.fyi/tvix/castore-go
 
 go 1.19
 

@@ -3,7 +3,7 @@ package castorev1_test
 import (
 	"testing"
 
-	castorev1pb "code.tvl.fyi/tvix/castore/protos"
+	castorev1pb "code.tvl.fyi/tvix/castore-go"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -4,7 +4,7 @@ syntax = "proto3";
 
 package tvix.castore.v1;
 
-option go_package = "code.tvl.fyi/tvix/castore/protos;castorev1";
+option go_package = "code.tvl.fyi/tvix/castore-go;castorev1";
 
 service BlobService {
     // In the future, Stat will expose more metadata about a given blob,
