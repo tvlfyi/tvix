@@ -189,6 +189,10 @@ pub async fn ingest_path<P: AsRef<Path> + Debug>(
         .await?;
 
         if entry.depth() == 0 {
+            // Make sure all the directories are flushed.
+            if entry.file_type().is_dir() {
+                directory_putter.close().await?;
+            }
             return Ok(node);
         } else {
             // calculate the parent path, and make sure we register the node there.
