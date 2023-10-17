@@ -10,7 +10,7 @@
 package storev1
 
 import (
-	protos "code.tvl.fyi/tvix/castore/protos"
+	protos "code.tvl.fyi/tvix/castore-go"
 	context "context"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"

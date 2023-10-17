@@ -7,8 +7,8 @@ import (
 	"github.com/nix-community/go-nix/pkg/storepath"
 	"github.com/stretchr/testify/assert"
 
-	castorev1pb "code.tvl.fyi/tvix/castore/protos"
-	storev1pb "code.tvl.fyi/tvix/store/protos"
+	castorev1pb "code.tvl.fyi/tvix/castore-go"
+	storev1pb "code.tvl.fyi/tvix/store-go"
 )
 
 const (

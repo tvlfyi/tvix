@@ -7,7 +7,7 @@ package tvix.store.v1;
 import "tvix/store/protos/pathinfo.proto";
 import "tvix/castore/protos/castore.proto";
 
-option go_package = "code.tvl.fyi/tvix/store/protos;storev1";
+option go_package = "code.tvl.fyi/tvix/store-go;storev1";
 
 service PathInfoService {
     // Return a PathInfo message matching the criteria specified in the

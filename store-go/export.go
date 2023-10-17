@@ -5,7 +5,7 @@ import (
 	"io"
 	"path"
 
-	castorev1pb "code.tvl.fyi/tvix/castore/protos"
+	castorev1pb "code.tvl.fyi/tvix/castore-go"
 	"github.com/nix-community/go-nix/pkg/nar"
 )
 

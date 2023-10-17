@@ -1,6 +1,6 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
-code.tvl.fyi/tvix/castore/protos v0.0.0-20231014122118-3fc2ade7dfb2 h1:Z5GS8OUe7L/hKDbb1amArY7QgX0DSD5xaBwWxmh4H3Y=
-code.tvl.fyi/tvix/castore/protos v0.0.0-20231014122118-3fc2ade7dfb2/go.mod h1:hj0y8RPthqn1QPj8u2jFe2vzH7NouUoclrwo1/CSbuc=
+code.tvl.fyi/tvix/castore-go v0.0.0-20231017202545-96df348c772c h1:NMxDhSYISwhTt3NoyYUnvDPQZTf5bnR9BoXAc1p2Ugg=
+code.tvl.fyi/tvix/castore-go v0.0.0-20231017202545-96df348c772c/go.mod h1:+vKbozsa04yy2TWh3kUVU568jaza3Hf0p1jAEoMoCwA=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=

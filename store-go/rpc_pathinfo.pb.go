@@ -10,7 +10,7 @@
 package storev1
 
 import (
-	protos "code.tvl.fyi/tvix/castore/protos"
+	protos "code.tvl.fyi/tvix/castore-go"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
