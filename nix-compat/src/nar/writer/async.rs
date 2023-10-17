@@ -203,8 +203,7 @@ impl<'a, 'w> Directory<'a, 'w> {
                         _prev_name.as_bstr(),
                         name.as_bstr()
                     );
-                    _prev_name.clear();
-                    _prev_name.extend_from_slice(name);
+                    name.clone_into(_prev_name);
                 }
                 self.node.write(&wire::TOK_PAR).await?;
             }
