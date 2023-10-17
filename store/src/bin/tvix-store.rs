@@ -302,8 +302,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 nar_sha256: nar_sha256.to_vec().into(),
                                 signatures: vec![],
                                 reference_names: vec![],
+                                deriver: None,
                             }),
-                            deriver: None,
                         };
 
                         // put into [PathInfoService], and return the PathInfo that we get back

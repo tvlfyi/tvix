@@ -10,7 +10,7 @@
 package storev1
 
 import (
-	protos "code.tvl.fyi/tvix/castore-go"
+	castore_go "code.tvl.fyi/tvix/castore-go"
 	context "context"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
@@ -61,7 +61,7 @@ type PathInfoServiceClient interface {
 	//
 	// It can also be used to calculate arbitrary NAR hashes of output paths,
 	// in case a legacy Nix Binary Cache frontend is provided.
-	CalculateNAR(ctx context.Context, in *protos.Node, opts ...grpc.CallOption) (*CalculateNARResponse, error)
+	CalculateNAR(ctx context.Context, in *castore_go.Node, opts ...grpc.CallOption) (*CalculateNARResponse, error)
 	// Return a stream of PathInfo messages matching the criteria specified in
 	// ListPathInfoRequest.
 	List(ctx context.Context, in *ListPathInfoRequest, opts ...grpc.CallOption) (PathInfoService_ListClient, error)
@@ -93,7 +93,7 @@ func (c *pathInfoServiceClient) Put(ctx context.Context, in *PathInfo, opts ...g
 	return out, nil
 }
 
-func (c *pathInfoServiceClient) CalculateNAR(ctx context.Context, in *protos.Node, opts ...grpc.CallOption) (*CalculateNARResponse, error) {
+func (c *pathInfoServiceClient) CalculateNAR(ctx context.Context, in *castore_go.Node, opts ...grpc.CallOption) (*CalculateNARResponse, error) {
 	out := new(CalculateNARResponse)
 	err := c.cc.Invoke(ctx, PathInfoService_CalculateNAR_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -166,7 +166,7 @@ type PathInfoServiceServer interface {
 	//
 	// It can also be used to calculate arbitrary NAR hashes of output paths,
 	// in case a legacy Nix Binary Cache frontend is provided.
-	CalculateNAR(context.Context, *protos.Node) (*CalculateNARResponse, error)
+	CalculateNAR(context.Context, *castore_go.Node) (*CalculateNARResponse, error)
 	// Return a stream of PathInfo messages matching the criteria specified in
 	// ListPathInfoRequest.
 	List(*ListPathInfoRequest, PathInfoService_ListServer) error
@@ -183,7 +183,7 @@ func (UnimplementedPathInfoServiceServer) Get(context.Context, *GetPathInfoReque
 func (UnimplementedPathInfoServiceServer) Put(context.Context, *PathInfo) (*PathInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Put not implemented")
 }
-func (UnimplementedPathInfoServiceServer) CalculateNAR(context.Context, *protos.Node) (*CalculateNARResponse, error) {
+func (UnimplementedPathInfoServiceServer) CalculateNAR(context.Context, *castore_go.Node) (*CalculateNARResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CalculateNAR not implemented")
 }
 func (UnimplementedPathInfoServiceServer) List(*ListPathInfoRequest, PathInfoService_ListServer) error {
@@ -239,7 +239,7 @@ func _PathInfoService_Put_Handler(srv interface{}, ctx context.Context, dec func
 }
 
 func _PathInfoService_CalculateNAR_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(protos.Node)
+	in := new(castore_go.Node)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -251,7 +251,7 @@ func _PathInfoService_CalculateNAR_Handler(srv interface{}, ctx context.Context,
 		FullMethod: PathInfoService_CalculateNAR_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PathInfoServiceServer).CalculateNAR(ctx, req.(*protos.Node))
+		return srv.(PathInfoServiceServer).CalculateNAR(ctx, req.(*castore_go.Node))
 	}
 	return interceptor(ctx, in, info, handler)
 }

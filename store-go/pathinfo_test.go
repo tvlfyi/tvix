@@ -125,7 +125,7 @@ func TestValidate(t *testing.T) {
 		pi := genPathInfoSymlink()
 
 		// add the Deriver Field.
-		pi.Deriver = &storev1pb.StorePath{
+		pi.Narinfo.Deriver = &storev1pb.StorePath{
 			Digest: exampleStorePathDigest,
 			Name:   "foo",
 		}
@@ -138,7 +138,7 @@ func TestValidate(t *testing.T) {
 		pi := genPathInfoSymlink()
 
 		// add the Deriver Field, with a broken digest
-		pi.Deriver = &storev1pb.StorePath{
+		pi.Narinfo.Deriver = &storev1pb.StorePath{
 			Digest: []byte{},
 			Name:   "foo2",
 		}

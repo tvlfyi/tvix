@@ -266,10 +266,11 @@ fn validate_symlink_target_null_byte_invalid() {
 /// Create a PathInfo with a correct deriver field and ensure it succeeds.
 #[test]
 fn validate_valid_deriver() {
-    let mut path_info = PATH_INFO_WITHOUT_NARINFO.clone();
+    let mut path_info = PATH_INFO_WITH_NARINFO.clone();
 
     // add a valid deriver
-    path_info.deriver = Some(crate::proto::StorePath {
+    let narinfo = path_info.narinfo.as_mut().unwrap();
+    narinfo.deriver = Some(crate::proto::StorePath {
         name: "foo".to_string(),
         digest: DUMMY_OUTPUT_HASH.clone(),
     });
@@ -280,10 +281,11 @@ fn validate_valid_deriver() {
 /// Create a PathInfo with a broken deriver field and ensure it fails.
 #[test]
 fn validate_invalid_deriver() {
-    let mut path_info = PATH_INFO_WITHOUT_NARINFO.clone();
+    let mut path_info = PATH_INFO_WITH_NARINFO.clone();
 
     // add a broken deriver (invalid digest)
-    path_info.deriver = Some(crate::proto::StorePath {
+    let narinfo = path_info.narinfo.as_mut().unwrap();
+    narinfo.deriver = Some(crate::proto::StorePath {
         name: "foo".to_string(),
         digest: vec![].into(),
     });

@@ -49,6 +49,20 @@ func (p *PathInfo) Validate() (*storepath.StorePath, error) {
 				)
 			}
 		}
+
+		// If the Deriver field is populated, ensure it parses to a StorePath.
+		// We can't check for it to *not* end with .drv, as the .drv files produced by
+		// recursive Nix end with multiple .drv suffixes, and only one is popped when
+		// converting to this field.
+		if deriver := narInfo.GetDeriver(); deriver != nil {
+			deriverStorePath := storepath.StorePath{
+				Name:   string(deriver.GetName()),
+				Digest: deriver.GetDigest(),
+			}
+			if err := deriverStorePath.Validate(); err != nil {
+				return nil, fmt.Errorf("invalid deriver field: %w", err)
+			}
+		}
 	}
 
 	// ensure there is a (root) node present
@@ -79,20 +93,6 @@ func (p *PathInfo) Validate() (*storepath.StorePath, error) {
 	storePath, err := storepath.FromString(string(rootNodeName))
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse root node name %s as StorePath: %w", rootNodeName, err)
-	}
-
-	// If the Deriver field is populated, ensure it parses to a StorePath.
-	// We can't check for it to *not* end with .drv, as the .drv files produced by
-	// recursive Nix end with multiple .drv suffixes, and only one is popped when
-	// converting to this field.
-	if p.Deriver != nil {
-		deriverStorePath := storepath.StorePath{
-			Name:   string(p.Deriver.GetName()),
-			Digest: p.Deriver.GetDigest(),
-		}
-		if err := deriverStorePath.Validate(); err != nil {
-			return nil, fmt.Errorf("invalid deriver field: %w", err)
-		}
 	}
 
 	return storePath, nil

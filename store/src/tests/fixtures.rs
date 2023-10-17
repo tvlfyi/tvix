@@ -109,7 +109,6 @@ lazy_static! {
         }),
         references: vec![DUMMY_OUTPUT_HASH.clone()],
         narinfo: None,
-        deriver: None,
     };
 
     /// A PathInfo message with .narinfo populated.
@@ -121,6 +120,7 @@ lazy_static! {
             nar_sha256: DUMMY_DIGEST.clone().into(),
             signatures: vec![],
             reference_names: vec![DUMMY_NAME.to_string()],
+            deriver: None,
         }),
       ..PATH_INFO_WITHOUT_NARINFO.clone()
     };
