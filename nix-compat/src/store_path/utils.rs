@@ -89,13 +89,7 @@ pub fn build_regular_ca_path<S: AsRef<str>, I: IntoIterator<Item = S>>(
                 &{
                     let content_digest = {
                         let mut hasher = Sha256::new_with_prefix("fixed:out:");
-                        hasher.update(hash_with_mode.mode().prefix());
-                        hasher.update(hash_with_mode.digest().algo().to_string());
-                        hasher.update(":");
-                        hasher.update(
-                            &data_encoding::HEXLOWER
-                                .encode(hash_with_mode.digest().digest_as_bytes()),
-                        );
+                        hasher.update(hash_with_mode.to_nix_hash_string());
                         hasher.update(":");
                         hasher.finalize()
                     };
