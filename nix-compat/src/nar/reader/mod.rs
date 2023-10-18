@@ -14,6 +14,8 @@ use std::io::{
 use crate::nar::wire;
 
 mod read;
+#[cfg(test)]
+mod test;
 
 pub type Reader<'a> = dyn Read + Send + 'a;
 
