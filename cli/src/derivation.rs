@@ -115,7 +115,7 @@ fn populate_output_configuration(
 ) -> Result<(), ErrorKind> {
     // We only do something when `digest` and `algo` are `Some(_)``, and
     // there's an `out` output.
-    if let (Some(hash), Some(algo), hash_mode) = (hash, hash_algo, hash_mode) {
+    if let (Some(nixhash_str), Some(algo), hash_mode) = (hash, hash_algo, hash_mode) {
         match drv.outputs.get_mut("out") {
             None => return Err(Error::ConflictingOutputTypes.into()),
             Some(out) => {
@@ -126,12 +126,12 @@ fn populate_output_configuration(
                     Some(algo.as_ref())
                 };
 
-                let output_hash = nixhash::from_str(&hash, a).map_err(Error::InvalidOutputHash)?;
+                let hash = nixhash::from_str(&nixhash_str, a).map_err(Error::InvalidOutputHash)?;
 
                 // construct the NixHashWithMode.
-                out.hash_with_mode = match hash_mode.as_deref() {
-                    None | Some("flat") => Some(nixhash::NixHashWithMode::Flat(output_hash)),
-                    Some("recursive") => Some(nixhash::NixHashWithMode::Recursive(output_hash)),
+                out.ca_hash = match hash_mode.as_deref() {
+                    None | Some("flat") => Some(nixhash::CAHash::Flat(hash)),
+                    Some("recursive") => Some(nixhash::CAHash::Nar(hash)),
                     Some(other) => {
                         return Err(Error::InvalidOutputHashMode(other.to_string()).into())
                     }

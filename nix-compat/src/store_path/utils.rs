@@ -1,7 +1,6 @@
-use super::{Error, STORE_DIR};
 use crate::nixbase32;
-use crate::nixhash::{NixHash, NixHashWithMode};
-use crate::store_path::StorePath;
+use crate::nixhash::{CAHash, NixHash};
+use crate::store_path::{Error, StorePath, STORE_DIR};
 use sha2::{Digest, Sha256};
 use thiserror;
 
@@ -41,43 +40,51 @@ pub fn compress_hash<const OUTPUT_SIZE: usize>(input: &[u8]) -> [u8; OUTPUT_SIZE
 
 /// This builds a store path, by calculating the text_hash_string of either a
 /// derivation or a literal text file that may contain references.
+/// If you don't want to have to pass the entire contents, you might want to use
+/// [build_ca_path] instead.
 pub fn build_text_path<S: AsRef<str>, I: IntoIterator<Item = S>, C: AsRef<[u8]>>(
     name: &str,
     content: C,
     references: I,
-) -> Result<StorePath, Error> {
-    build_store_path_from_fingerprint_parts(
-        &make_type("text", references, false),
-        // the nix_hash_string representation of the sha256 digest of some contents
-        &{
-            let content_digest = {
-                let hasher = Sha256::new_with_prefix(content);
-                hasher.finalize()
-            };
+) -> Result<StorePath, BuildStorePathError> {
+    // produce the sha256 digest of the contents
+    let content_digest = Sha256::new_with_prefix(content).finalize().into();
 
-            NixHash::Sha256(content_digest.into())
-        },
+    build_ca_path(
         name,
+        &CAHash::Text(Box::new(content_digest)),
+        references,
+        false,
     )
 }
 
-/// This builds a more "regular" content-addressed store path
-pub fn build_regular_ca_path<S: AsRef<str>, I: IntoIterator<Item = S>>(
-    name: &str,
-    hash_with_mode: &NixHashWithMode,
+/// This builds a store path from a [CAHash] and a list of references.
+pub fn build_ca_path<B: AsRef<[u8]>, S: AsRef<str>, I: IntoIterator<Item = S>>(
+    name: B,
+    ca_hash: &CAHash,
     references: I,
     self_reference: bool,
 ) -> Result<StorePath, BuildStorePathError> {
-    match &hash_with_mode {
-        NixHashWithMode::Recursive(ref hash @ NixHash::Sha256(_)) => {
+    match &ca_hash {
+        CAHash::Text(ref digest) => {
+            if self_reference {
+                return Err(BuildStorePathError::InvalidReference());
+            }
             build_store_path_from_fingerprint_parts(
-                &make_type("source", references, self_reference),
-                hash,
+                &make_references_string("text", references, false),
+                &NixHash::Sha256(*digest.to_owned()),
                 name,
             )
             .map_err(BuildStorePathError::InvalidStorePath)
         }
-        _ => {
+        CAHash::Nar(ref hash @ NixHash::Sha256(_)) => build_store_path_from_fingerprint_parts(
+            &make_references_string("source", references, self_reference),
+            hash,
+            name,
+        )
+        .map_err(BuildStorePathError::InvalidStorePath),
+        // for all other CAHash::Nar, another custom scheme is used.
+        CAHash::Nar(ref hash) => {
             if references.into_iter().next().is_some() {
                 return Err(BuildStorePathError::InvalidReference());
             }
@@ -87,14 +94,38 @@ pub fn build_regular_ca_path<S: AsRef<str>, I: IntoIterator<Item = S>>(
             build_store_path_from_fingerprint_parts(
                 "output:out",
                 &{
-                    let content_digest = {
-                        let mut hasher = Sha256::new_with_prefix("fixed:out:");
-                        hasher.update(hash_with_mode.to_nix_hash_string());
-                        hasher.update(":");
-                        hasher.finalize()
-                    };
-
-                    NixHash::Sha256(content_digest.into())
+                    NixHash::Sha256(
+                        Sha256::new_with_prefix(format!(
+                            "fixed:out:r:{}:",
+                            hash.to_nix_hash_string()
+                        ))
+                        .finalize()
+                        .into(),
+                    )
+                },
+                name,
+            )
+            .map_err(BuildStorePathError::InvalidStorePath)
+        }
+        // CaHash::Flat is using something very similar, except the `r:` prefix.
+        CAHash::Flat(ref hash) => {
+            if references.into_iter().next().is_some() {
+                return Err(BuildStorePathError::InvalidReference());
+            }
+            if self_reference {
+                return Err(BuildStorePathError::InvalidReference());
+            }
+            build_store_path_from_fingerprint_parts(
+                "output:out",
+                &{
+                    NixHash::Sha256(
+                        Sha256::new_with_prefix(format!(
+                            "fixed:out:{}:",
+                            hash.to_nix_hash_string()
+                        ))
+                        .finalize()
+                        .into(),
+                    )
                 },
                 name,
             )
@@ -105,13 +136,12 @@ pub fn build_regular_ca_path<S: AsRef<str>, I: IntoIterator<Item = S>>(
 
 /// For given NAR sha256 digest and name, return the new [StorePath] this would have.
 pub fn build_nar_based_store_path(nar_sha256_digest: &[u8; 32], name: &str) -> StorePath {
-    let nar_hash_with_mode =
-        NixHashWithMode::Recursive(NixHash::Sha256(nar_sha256_digest.to_owned()));
+    let nar_hash_with_mode = CAHash::Nar(NixHash::Sha256(nar_sha256_digest.to_owned()));
 
-    build_regular_ca_path(name, &nar_hash_with_mode, Vec::<String>::new(), false).unwrap()
+    build_ca_path(name, &nar_hash_with_mode, Vec::<String>::new(), false).unwrap()
 }
 
-/// This builds an input-addressed store path
+/// This builds an input-addressed store path.
 ///
 /// Input-addresed store paths are always derivation outputs, the "input" in question is the
 /// derivation and its closure.
@@ -135,22 +165,20 @@ pub fn build_output_path(
 ///
 /// The fingerprint is hashed with sha256, its digest is compressed to 20 bytes,
 /// and nixbase32-encoded (32 characters).
-fn build_store_path_from_fingerprint_parts(
+fn build_store_path_from_fingerprint_parts<B: AsRef<[u8]>>(
     ty: &str,
     hash: &NixHash,
-    name: &str,
+    name: B,
 ) -> Result<StorePath, Error> {
+    let name = super::validate_name(name.as_ref())?;
     let fingerprint =
-        String::from(ty) + ":" + &hash.to_nix_hash_string() + ":" + STORE_DIR + ":" + name;
-    let digest = {
-        let hasher = Sha256::new_with_prefix(fingerprint);
-        hasher.finalize()
-    };
+        String::from(ty) + ":" + &hash.to_nix_hash_string() + ":" + STORE_DIR + ":" + &name;
+    let digest = Sha256::new_with_prefix(fingerprint).finalize();
     let compressed = compress_hash::<20>(&digest);
-    super::validate_name(name.as_bytes())?;
+
     Ok(StorePath {
         digest: compressed,
-        name: name.to_string(),
+        name,
     })
 }
 
@@ -164,7 +192,7 @@ fn build_store_path_from_fingerprint_parts(
 ///  - the nix_hash_string representation of the sha256 digest of some contents
 ///  - the value of `storeDir`
 ///  - the name
-fn make_type<S: AsRef<str>, I: IntoIterator<Item = S>>(
+fn make_references_string<S: AsRef<str>, I: IntoIterator<Item = S>>(
     ty: &str,
     references: I,
     self_ref: bool,
@@ -190,11 +218,7 @@ fn make_type<S: AsRef<str>, I: IntoIterator<Item = S>>(
 /// The actual placeholder is basically just a SHA256 hash encoded in
 /// cppnix format.
 pub fn hash_placeholder(name: &str) -> String {
-    let digest = {
-        let mut hasher = Sha256::new();
-        hasher.update(format!("nix-output:{}", name));
-        hasher.finalize()
-    };
+    let digest = Sha256::new_with_prefix(format!("nix-output:{}", name)).finalize();
 
     format!("/{}", nixbase32::encode(&digest))
 }
@@ -202,7 +226,7 @@ pub fn hash_placeholder(name: &str) -> String {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::nixhash::{NixHash, NixHashWithMode};
+    use crate::nixhash::{CAHash, NixHash};
 
     #[test]
     fn build_text_path_with_zero_references() {
@@ -242,9 +266,9 @@ mod test {
 
     #[test]
     fn build_sha1_path() {
-        let outer = build_regular_ca_path(
+        let outer = build_ca_path(
             "bar",
-            &NixHashWithMode::Recursive(NixHash::Sha1(
+            &CAHash::Nar(NixHash::Sha1(
                 data_encoding::HEXLOWER
                     .decode(b"0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33")
                     .expect("hex should decode")
@@ -271,9 +295,9 @@ mod test {
         //
         // $ nix store make-content-addressed /nix/store/5xd714cbfnkz02h2vbsj4fm03x3f15nf-baz
         // rewrote '/nix/store/5xd714cbfnkz02h2vbsj4fm03x3f15nf-baz' to '/nix/store/s89y431zzhmdn3k8r96rvakryddkpv2v-baz'
-        let outer = build_regular_ca_path(
+        let outer = build_ca_path(
             "baz",
-            &NixHashWithMode::Recursive(NixHash::Sha256(
+            &CAHash::Nar(NixHash::Sha256(
                 nixbase32::decode(b"1xqkzcb3909fp07qngljr4wcdnrh1gdam1m2n29i6hhrxlmkgkv1")
                     .expect("hex should decode")
                     .try_into()

@@ -315,7 +315,7 @@ fn output_path_construction() {
         "out".to_string(),
         Output {
             path: "".to_string(), // will be calculated
-            hash_with_mode: Some(crate::nixhash::NixHashWithMode::Recursive(
+            ca_hash: Some(crate::nixhash::CAHash::Nar(
                 crate::nixhash::from_algo_and_digest(
                     crate::nixhash::HashAlgo::Sha256,
                     &data_encoding::HEXLOWER
@@ -376,7 +376,7 @@ fn output_path_construction() {
         "out".to_string(),
         Output {
             path: "".to_string(), // will be calculated
-            hash_with_mode: None,
+            ca_hash: None,
         },
     );
 

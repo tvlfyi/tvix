@@ -3,10 +3,10 @@ use data_encoding::{BASE64, BASE64_NOPAD, HEXLOWER};
 use thiserror;
 
 mod algos;
-mod with_mode;
+mod ca_hash;
 
 pub use algos::HashAlgo;
-pub use with_mode::NixHashWithMode;
+pub use ca_hash::CAHash;
 
 /// NixHash represents hashes known by Nix.
 #[derive(Clone, Debug, Eq, PartialEq)]

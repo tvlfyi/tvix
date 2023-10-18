@@ -1,5 +1,7 @@
-use crate::{nixbase32::Nixbase32DecodeError, store_path};
+use crate::store_path;
 use thiserror::Error;
+
+use super::CAHash;
 
 /// Errors that can occur during the validation of Derivation structs.
 #[derive(Debug, Error, PartialEq)]
@@ -50,10 +52,6 @@ pub enum DerivationError {
 pub enum OutputError {
     #[error("Invalid output path {0}: {1}")]
     InvalidOutputPath(String, store_path::Error),
-    #[error("Invalid hash encoding: {0}")]
-    InvalidHashEncoding(String, Nixbase32DecodeError),
-    #[error("Invalid hash algo: {0}")]
-    InvalidHashAlgo(String),
-    #[error("Invalid Digest size {0} for algo {1}")]
-    InvalidDigestSizeForAlgo(usize, String),
+    #[error("Invalid CAHash: {:?}", .0)]
+    InvalidCAHash(CAHash),
 }

@@ -12,8 +12,8 @@ use nom::sequence::{delimited, preceded, separated_pair, terminated, tuple};
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror;
 
-use super::parse_error::{into_nomerror, ErrorKind, NomError, NomResult};
-use super::{write, Derivation, NixHashWithMode, Output};
+use crate::derivation::parse_error::{into_nomerror, ErrorKind, NomError, NomResult};
+use crate::derivation::{write, CAHash, Derivation, Output};
 use crate::{aterm, nixhash};
 
 #[derive(Debug, thiserror::Error)]
@@ -42,6 +42,24 @@ pub(crate) fn parse(i: &[u8]) -> Result<Derivation, Error<&[u8]>> {
     }
 }
 
+/// Consume a string containing the algo, and optionally a `r:`
+/// prefix, and a digest (bytes), return a [CAHash::Nar] or [CAHash::Flat].
+fn from_algo_and_mode_and_digest<B: AsRef<[u8]>>(
+    algo_and_mode: &str,
+    digest: B,
+) -> crate::nixhash::Result<CAHash> {
+    Ok(match algo_and_mode.strip_prefix("r:") {
+        Some(algo) => nixhash::CAHash::Nar(nixhash::from_algo_and_digest(
+            algo.try_into()?,
+            digest.as_ref(),
+        )?),
+        None => nixhash::CAHash::Flat(nixhash::from_algo_and_digest(
+            algo_and_mode.try_into()?,
+            digest.as_ref(),
+        )?),
+    })
+}
+
 /// Parse one output in ATerm. This is 4 string fields inside parans:
 /// output name, output path, algo (and mode), digest.
 /// Returns the output name and [Output] struct.
@@ -60,27 +78,26 @@ fn parse_output(i: &[u8]) -> NomResult<&[u8], (String, Output)> {
             },
             |(output_name, output_path, algo_and_mode, encoded_digest)| {
                 // convert these 4 fields into an [Output].
-                let hash_with_mode_res = {
+                let ca_hash_res = {
                     if algo_and_mode.is_empty() && encoded_digest.is_empty() {
                         None
                     } else {
                         match data_encoding::HEXLOWER.decode(&encoded_digest) {
-                            Ok(digest) => Some(NixHashWithMode::from_algo_mode_hash(
-                                &algo_and_mode,
-                                &digest,
-                            )),
+                            Ok(digest) => {
+                                Some(from_algo_and_mode_and_digest(&algo_and_mode, digest))
+                            }
                             Err(e) => Some(Err(nixhash::Error::InvalidBase64Encoding(e))),
                         }
                     }
                 }
                 .transpose();
 
-                match hash_with_mode_res {
+                match ca_hash_res {
                     Ok(hash_with_mode) => Ok((
                         output_name,
                         Output {
                             path: output_path,
-                            hash_with_mode,
+                            ca_hash: hash_with_mode,
                         },
                     )),
                     Err(e) => Err(nom::Err::Failure(NomError {
@@ -279,12 +296,20 @@ where
 mod tests {
     use std::collections::{BTreeMap, BTreeSet};
 
-    use crate::derivation::{parse_error::ErrorKind, Output};
+    use crate::derivation::{
+        parse_error::ErrorKind, parser::from_algo_and_mode_and_digest, CAHash, NixHash, Output,
+    };
     use bstr::{BString, ByteSlice};
     use lazy_static::lazy_static;
     use test_case::test_case;
+    const DIGEST_SHA256: [u8; 32] = [
+        0xa5, 0xce, 0x9c, 0x15, 0x5e, 0xd0, 0x93, 0x97, 0x61, 0x46, 0x46, 0xc9, 0x71, 0x7f, 0xc7,
+        0xcd, 0x94, 0xb1, 0x02, 0x3d, 0x7b, 0x76, 0xb6, 0x18, 0xd4, 0x09, 0xe4, 0xfe, 0xfd, 0x6e,
+        0x9d, 0x39,
+    ];
 
     lazy_static! {
+        pub static ref NIXHASH_SHA256: NixHash = NixHash::Sha256(DIGEST_SHA256);
         static ref EXP_MULTI_OUTPUTS: BTreeMap<String, Output> = {
             let mut b = BTreeMap::new();
             b.insert(
@@ -292,14 +317,14 @@ mod tests {
                 Output {
                     path: "/nix/store/2vixb94v0hy2xc6p7mbnxxcyc095yyia-has-multi-out-lib"
                         .to_string(),
-                    hash_with_mode: None,
+                    ca_hash: None,
                 },
             );
             b.insert(
                 "out".to_string(),
                 Output {
                     path: "/nix/store/55lwldka5nyxa08wnvlizyqw02ihy8ic-has-multi-out".to_string(),
-                    hash_with_mode: None,
+                    ca_hash: None,
                 },
             );
             b
@@ -441,19 +466,15 @@ mod tests {
         br#"("out","/nix/store/5vyvcwah9l9kf07d52rcgdk70g2f4y13-foo","","")"#,
         ("out".to_string(), Output {
             path: "/nix/store/5vyvcwah9l9kf07d52rcgdk70g2f4y13-foo".to_string(),
-            hash_with_mode: None
+            ca_hash: None
         }); "simple"
     )]
     #[test_case(
         br#"("out","/nix/store/4q0pg5zpfmznxscq3avycvf9xdvx50n3-bar","r:sha256","08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba")"#,
         ("out".to_string(), Output {
             path: "/nix/store/4q0pg5zpfmznxscq3avycvf9xdvx50n3-bar".to_string(),
-            hash_with_mode: Some(crate::derivation::NixHashWithMode::Recursive(
-                crate::nixhash::from_algo_and_digest (
-                   crate::nixhash::HashAlgo::Sha256,
-                   &data_encoding::HEXLOWER.decode(b"08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba").unwrap()
-                ).unwrap()
-            )),
+            ca_hash: Some(from_algo_and_mode_and_digest("r:sha256",
+                   &data_encoding::HEXLOWER.decode(b"08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba").unwrap()            ).unwrap()),
         }); "fod"
      )]
     fn parse_output(input: &[u8], expected: (String, Output)) {
@@ -471,5 +492,20 @@ mod tests {
         let (rest, parsed) = super::parse_outputs(input).expect("must parse");
         assert!(rest.is_empty());
         assert_eq!(*expected, parsed);
+    }
+
+    #[test_case("sha256", &DIGEST_SHA256, CAHash::Flat(NIXHASH_SHA256.clone()); "sha256 flat")]
+    #[test_case("r:sha256", &DIGEST_SHA256, CAHash::Nar(NIXHASH_SHA256.clone()); "sha256 recursive")]
+    fn test_from_algo_and_mode_and_digest(algo_and_mode: &str, digest: &[u8], expected: CAHash) {
+        assert_eq!(
+            expected,
+            from_algo_and_mode_and_digest(algo_and_mode, digest).unwrap()
+        );
+    }
+
+    #[test]
+    fn from_algo_and_mode_and_digest_failure() {
+        assert!(from_algo_and_mode_and_digest("r:sha256", &[]).is_err());
+        assert!(from_algo_and_mode_and_digest("ha256", &DIGEST_SHA256).is_err());
     }
 }

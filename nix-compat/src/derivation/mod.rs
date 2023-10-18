@@ -1,6 +1,4 @@
-use crate::store_path::{
-    self, build_output_path, build_regular_ca_path, build_text_path, StorePath,
-};
+use crate::store_path::{self, build_ca_path, build_output_path, build_text_path, StorePath};
 use bstr::BString;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -18,7 +16,7 @@ mod write;
 mod tests;
 
 // Public API of the crate.
-pub use crate::nixhash::{NixHash, NixHashWithMode};
+pub use crate::nixhash::{CAHash, NixHash};
 pub use errors::{DerivationError, OutputError};
 pub use output::Output;
 
@@ -122,16 +120,22 @@ impl Derivation {
 
     /// Returns the FOD digest, if the derivation is fixed-output, or None if
     /// it's not.
+    /// TODO: this is kinda the string from [build_ca_path] with a
+    /// [CAHash::Flat], what's fed to `build_store_path_from_fingerprint_parts`
+    /// (except the out_output.path being an empty string)
     fn fod_digest(&self) -> Option<[u8; 32]> {
         if self.outputs.len() != 1 {
             return None;
         }
 
         let out_output = self.outputs.get("out")?;
+        let ca_hash = &out_output.ca_hash.as_ref()?;
+
         Some(
             Sha256::new_with_prefix(format!(
-                "fixed:out:{}:{}",
-                out_output.hash_with_mode.clone()?.to_nix_hash_string(),
+                "fixed:out:{}{}:{}",
+                ca_kind_prefix(ca_hash),
+                ca_hash.digest().to_nix_hash_string(),
                 out_output.path
             ))
             .finalize()
@@ -229,10 +233,10 @@ impl Derivation {
 
             // For fixed output derivation we use the per-output info, otherwise we use the
             // derivation hash.
-            let abs_store_path = if let Some(ref hwm) = output.hash_with_mode {
-                build_regular_ca_path(&path_name, hwm, Vec::<String>::new(), false).map_err(
-                    |e| DerivationError::InvalidOutputDerivationPath(output_name.to_string(), e),
-                )?
+            let abs_store_path = if let Some(ref hwm) = output.ca_hash {
+                build_ca_path(&path_name, hwm, Vec::<String>::new(), false).map_err(|e| {
+                    DerivationError::InvalidOutputDerivationPath(output_name.to_string(), e)
+                })?
             } else {
                 build_output_path(derivation_or_fod_hash, output_name, &path_name).map_err(|e| {
                     DerivationError::InvalidOutputDerivationPath(
@@ -264,4 +268,16 @@ fn output_path_name(derivation_name: &str, output_name: &str) -> String {
         output_path_name.push_str(output_name);
     }
     output_path_name
+}
+
+/// For a [CAHash], return the "prefix" used for NAR purposes.
+/// For [CAHash::Flat], this is an empty string, for [CAHash::Nar], it's "r:".
+/// Panics for other [CAHash] kinds, as they're not valid in a derivation
+/// context.
+fn ca_kind_prefix(ca_hash: &CAHash) -> &'static str {
+    match ca_hash {
+        CAHash::Flat(_) => "",
+        CAHash::Nar(_) => "r:",
+        _ => panic!("invalid ca hash in derivation context: {:?}", ca_hash),
+    }
 }

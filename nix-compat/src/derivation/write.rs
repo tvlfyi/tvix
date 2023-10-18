@@ -4,7 +4,7 @@
 //! [ATerm]: http://program-transformation.org/Tools/ATermFormat.html
 
 use crate::aterm::escape_bytes;
-use crate::derivation::output::Output;
+use crate::derivation::{ca_kind_prefix, output::Output};
 use bstr::BString;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -79,14 +79,10 @@ pub fn write_outputs(
 
         let mut elements: Vec<&str> = vec![output_name, &output.path];
 
-        let (mode_and_algo, digest) = match &output.hash_with_mode {
-            Some(crate::nixhash::NixHashWithMode::Flat(h)) => (
-                h.algo().to_string(),
-                data_encoding::HEXLOWER.encode(h.digest_as_bytes()),
-            ),
-            Some(crate::nixhash::NixHashWithMode::Recursive(h)) => (
-                format!("r:{}", h.algo()),
-                data_encoding::HEXLOWER.encode(h.digest_as_bytes()),
+        let (mode_and_algo, digest) = match &output.ca_hash {
+            Some(ca_hash) => (
+                format!("{}{}", ca_kind_prefix(ca_hash), ca_hash.digest().algo()),
+                data_encoding::HEXLOWER.encode(ca_hash.digest().digest_as_bytes()),
             ),
             None => ("".to_string(), "".to_string()),
         };

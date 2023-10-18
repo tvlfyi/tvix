@@ -1,5 +1,5 @@
 use crate::derivation::OutputError;
-use crate::nixhash::{HashAlgo, NixHashWithMode};
+use crate::nixhash::CAHash;
 use crate::store_path::StorePath;
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
@@ -9,7 +9,7 @@ pub struct Output {
     pub path: String,
 
     #[serde(flatten)]
-    pub hash_with_mode: Option<NixHashWithMode>,
+    pub ca_hash: Option<CAHash>, // we can only represent a subset here.
 }
 
 impl<'de> Deserialize<'de> for Output {
@@ -30,26 +30,26 @@ impl<'de> Deserialize<'de> for Output {
                     &"a string",
                 ))?
                 .to_owned(),
-            hash_with_mode: NixHashWithMode::from_map::<D>(&fields)?,
+            ca_hash: CAHash::from_map::<D>(&fields)?,
         })
     }
 }
 
 impl Output {
     pub fn is_fixed(&self) -> bool {
-        self.hash_with_mode.is_some()
+        self.ca_hash.is_some()
     }
 
     pub fn validate(&self, validate_output_paths: bool) -> Result<(), OutputError> {
-        if let Some(hash) = &self.hash_with_mode {
-            match hash {
-                NixHashWithMode::Flat(h) | NixHashWithMode::Recursive(h) => {
-                    if h.algo() != HashAlgo::Sha1 || h.algo() != HashAlgo::Sha256 {
-                        return Err(OutputError::InvalidHashAlgo(h.algo().to_string()));
-                    }
+        if let Some(fixed_output_hash) = &self.ca_hash {
+            match fixed_output_hash {
+                CAHash::Flat(_) | CAHash::Nar(_) => {
+                    // all hashes allowed for Flat, and Nar.
                 }
+                _ => return Err(OutputError::InvalidCAHash(fixed_output_hash.clone())),
             }
         }
+
         if validate_output_paths {
             if let Err(e) = StorePath::from_absolute_path(self.path.as_bytes()) {
                 return Err(OutputError::InvalidOutputPath(self.path.to_string(), e));
