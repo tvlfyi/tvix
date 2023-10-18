@@ -126,7 +126,8 @@ tag::make! {
     pub enum Entry[0] {
         /// End of directory
         None = TOK_PAR,
-        /// Directory entry, which must be followed by [Node]
+        /// Directory entry
+        /// Followed by a name string, [TOK_NOD], and a [Node].
         Some = TOK_ENT,
     }
 }
