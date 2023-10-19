@@ -2,7 +2,7 @@ use lazy_static::lazy_static;
 pub use tvix_castore::fixtures::*;
 use tvix_castore::proto as castorepb;
 
-use crate::proto::{NarInfo, PathInfo};
+use crate::proto::{nar_info::ca, nar_info::Ca, NarInfo, PathInfo};
 
 pub const DUMMY_NAME: &str = "00000000000000000000000000000000-dummy";
 
@@ -121,6 +121,7 @@ lazy_static! {
             signatures: vec![],
             reference_names: vec![DUMMY_NAME.to_string()],
             deriver: None,
+            ca: Some(Ca { r#type: ca::Hash::NarSha256.into(), digest:  DUMMY_DIGEST.clone().into() })
         }),
       ..PATH_INFO_WITHOUT_NARINFO.clone()
     };

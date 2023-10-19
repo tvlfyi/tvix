@@ -69,4 +69,60 @@ message NARInfo {
     // The StorePath of the .drv file producing this output.
     // The .drv suffix is omitted in its `name` field.
     StorePath deriver = 5;
+
+    // The CA field in the .narinfo.
+    // Its textual representations seen in the wild are one of the following:
+    //  - `fixed:r:sha256:1gcky5hlf5vqfzpyhihydmm54grhc94mcs8w7xr8613qsqb1v2j6`
+    //    fixed-output derivations using "recursive" `outputHashMode`.
+    //  - `fixed:sha256:19xqkh72crbcba7flwxyi3n293vav6d7qkzkh2v4zfyi4iia8vj8
+    //    fixed-output derivations using "flat" `outputHashMode`
+    //  - `text:sha256:19xqkh72crbcba7flwxyi3n293vav6d7qkzkh2v4zfyi4iia8vj8`
+    //    Text hashing, used for uploaded .drv files and outputs produced by
+    //    builtins.toFile.
+    //
+    // Semantically, they can be split into the following components:
+    //  - "content address prefix". Currently, "fixed" and "text" are supported.
+    //  - "hash mode". Currently, "flat" and "recursive" are supported.
+    //  - "hash type". The underlying hash function used.
+    //    Currently, sha1, md5, sha256, sha512.
+    //  - "digest". The digest itself.
+    //
+    // There are some restrictions on the possible combinations.
+    // For example, `text` and `fixed:recursive` always imply sha256.
+    //
+    // We use an enum to encode the possible combinations, and optimize
+    // for the common case, `fixed:recursive`, identified as `NAR_SHA256`.
+    CA ca = 6;
+
+    message CA {
+        enum Hash {
+            // produced when uploading fixed-output store paths using NAR-based
+            // hashing (`outputHashMode = "recursive"`).
+            NAR_SHA256 = 0;
+            NAR_SHA1 = 1;
+            NAR_SHA512 = 2;
+            NAR_MD5 = 3;
+
+            // Produced when uploading .drv files or outputs produced by
+            // builtins.toFile.
+            // Produces equivalent digests as FLAT_SHA256, but is a separate
+            // hashing type in Nix, affecting output path calculation.
+            TEXT_SHA256 = 4;
+
+            // Produced when using fixed-output derivations with
+            // `outputHashMode = "flat"`.
+            FLAT_SHA1 = 5;
+            FLAT_MD5 = 6;
+            FLAT_SHA256 = 7;
+            FLAT_SHA512 = 8;
+
+            // TODO: what happens in Rust if we introduce a new enum kind here?
+        }
+
+        // The hashing type used.
+        Hash type = 1;
+
+        // The digest, in raw bytes.
+        bytes digest = 2;
+    }
 }

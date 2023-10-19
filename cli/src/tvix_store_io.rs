@@ -344,8 +344,10 @@ async fn import_path_with_pathinfo(
             signatures: vec![],
             reference_names: vec![],
             deriver: None,
-            // TODO: narinfo for talosctl.src contains `CA: fixed:r:sha256:1x13j5hy75221bf6kz7cpgld9vgic6bqx07w5xjs4pxnksj6lxb6`
-            // do we need this anywhere?
+            ca: Some(tvix_store::proto::nar_info::Ca {
+                r#type: tvix_store::proto::nar_info::ca::Hash::NarSha256.into(),
+                digest: nar_sha256.to_vec().into(),
+            }),
         }),
     };
 

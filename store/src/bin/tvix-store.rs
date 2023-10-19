@@ -21,6 +21,7 @@ use tvix_castore::proto::GRPCBlobServiceWrapper;
 use tvix_castore::proto::GRPCDirectoryServiceWrapper;
 use tvix_castore::proto::NamedNode;
 use tvix_store::pathinfoservice;
+use tvix_store::proto::nar_info;
 use tvix_store::proto::path_info_service_server::PathInfoServiceServer;
 use tvix_store::proto::GRPCPathInfoServiceWrapper;
 use tvix_store::proto::NarInfo;
@@ -303,6 +304,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 signatures: vec![],
                                 reference_names: vec![],
                                 deriver: None,
+                                ca: Some(nar_info::Ca {
+                                    r#type: tvix_store::proto::nar_info::ca::Hash::NarSha256.into(),
+                                    digest: nar_sha256.to_vec().into(),
+                                }),
                             }),
                         };
 
