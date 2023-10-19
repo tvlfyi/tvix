@@ -1,10 +1,12 @@
-tvix-store API
+tvix-[ca]store API
 ==============
 
-This document outlines the design of the API exposed by tvix-store, as
-well as other implementations of this store protocol.
+This document outlines the design of the API exposed by tvix-castore and tvix-
+store, as well as other implementations of this store protocol.
 
-This document is meant to be read side-by-side with [castore.md](./castore.md) which describes the data model in more detail.
+This document is meant to be read side-by-side with
+[castore.md](../../tvix-castore/docs/castore.md) which describes the data model
+in more detail.
 
 The store API has four main consumers:
 
@@ -115,8 +117,9 @@ content-addressed world to a physical path.
 
 ### PathInfo
 As most paths in the Nix store currently are input-addressed [^input-addressed],
-we need something mapping from an input-addressed "output path hash" to the
-contents in the content- addressed world.
+and the `tvix-castore` data model is also not intrinsically using NAR hashes,
+we need something mapping from an input-addressed "output path hash" (or a Nix-
+specific content-addressed path) to the contents in the `tvix-castore` world.
 
 That's what `PathInfo` provides. It embeds the root node (Directory, File or
 Symlink) at a given store path.
@@ -215,13 +218,15 @@ This is useful for people running a Tvix-only system, or running builds on a
 In a system with Nix installed, we can't simply manually "extract" things to
 `/nix/store`, as Nix assumes to own all writes to this location.
 In these use cases, we're probably better off exposing a tvix-store as a local
-binary cache (that's what nar-bridge does).
+binary cache (that's what `//tvix/nar-bridge` does).
 
 Assuming we are in an environment where we control `/nix/store` exclusively, a
-"realize to disk" would either "extract" things from the tvix-store to a
-filesystem, or expose a FUSE filesystem. The latter would be particularly
-interesting for remote build workloads, as build inputs can be realized on-
-demand, which saves copying around a lot of never-accessed files.
+"realize to disk" would either "extract" things from the `tvix-store` to a
+filesystem, or expose a `FUSE`/`virtio-fs` filesystem.
+
+The latter is already implemented, and particularly interesting for (remote)
+build workloads, as build inputs can be realized on-demand, which saves copying
+around a lot of never- accessed files.
 
 In both cases, the API interactions are similar.
  * The *PathInfoService* is asked for the `PathInfo` of the requested store path.
@@ -253,7 +258,7 @@ As already described above, the only non-content-addressed service is the
 This means, all other messages (such as `Blob` and `Directory` messages) can be
 substituted from many different, untrusted sources/mirrors, which will make
 plugging in additional substitution strategies like IPFS, local network
-neighbors super simple.
+neighbors super simple. That's also why it's living in the `tvix-castore` crate.
 
 As for `PathInfo`, we don't specify an additional signature mechanism yet, but
 carry the NAR-based signatures from Nix along.
@@ -268,7 +273,7 @@ rather than a whole NAR file.
 A future signature mechanism, that is only signing (parts of) the `PathInfo`
 message, which only points to content-addressed data will enable verified
 partial access into a store path, opening up opportunities for lazy filesystem
-access, which is very useful in remote builder scenarios.
+access etc.
 
 
 

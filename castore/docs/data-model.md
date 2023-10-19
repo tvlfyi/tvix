@@ -1,8 +1,8 @@
-# //tvix/store/docs/castore.md
+# Data model
 
 This provides some more notes on the fields used in castore.proto.
 
-It's meant to supplement `//tvix/store/docs/api.md`.
+See `//tvix/store/docs/api.md` for the full context.
 
 ## Directory message
 `Directory` messages use the blake3 hash of their canonical protobuf
