@@ -120,13 +120,14 @@ fn populate_output_configuration(
             None => return Err(Error::ConflictingOutputTypes.into()),
             Some(out) => {
                 // treat an empty algo as None
-                let a = if algo.is_empty() {
+                let algo_str = if algo.is_empty() {
                     None
                 } else {
                     Some(algo.as_ref())
                 };
 
-                let hash = nixhash::from_str(&nixhash_str, a).map_err(Error::InvalidOutputHash)?;
+                let hash =
+                    nixhash::from_str(&nixhash_str, algo_str).map_err(Error::InvalidOutputHash)?;
 
                 // construct the NixHashWithMode.
                 out.ca_hash = match hash_mode.as_deref() {
