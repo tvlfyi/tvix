@@ -43,8 +43,6 @@ impl Derivation {
                         output_name.to_string(),
                     ));
                 }
-
-                break;
             }
 
             if let Err(e) = output.validate(validate_output_paths) {
@@ -125,5 +123,36 @@ impl Derivation {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::collections::BTreeMap;
+
+    use crate::derivation::{CAHash, Derivation, Output};
+
+    /// Regression test: produce a Derivation that's almost valid, except its
+    /// fixed-output output has the wrong hash specified.
+    #[test]
+    fn output_validate() {
+        let mut outputs = BTreeMap::new();
+        outputs.insert(
+            "out".to_string(),
+            Output {
+                path: "".to_string(),
+                ca_hash: Some(CAHash::Text(Box::new([0; 32]))), // This is disallowed
+            },
+        );
+
+        let drv = Derivation {
+            arguments: vec![],
+            builder: "/bin/sh".to_string(),
+            outputs,
+            system: "x86_64-linux".to_string(),
+            ..Default::default()
+        };
+
+        drv.validate(false).expect_err("must fail");
     }
 }
