@@ -1,5 +1,5 @@
 //! Implements `builtins.derivation`, the core of what makes Nix build packages.
-use nix_compat::derivation::Derivation;
+use nix_compat::derivation::{Derivation, Output};
 use nix_compat::nixhash;
 use std::cell::RefCell;
 use std::collections::{btree_map, BTreeSet};
@@ -88,8 +88,8 @@ fn populate_inputs<I: IntoIterator<Item = PathName>>(
 }
 
 /// Populate the output configuration of a derivation based on the
-/// parameters passed to the call, flipping the required
-/// parameters for a fixed-output derivation if necessary.
+/// parameters passed to the call, configuring a fixed-output derivation output
+/// if necessary.
 ///
 /// This function handles all possible combinations of the
 /// parameters, including invalid ones.
@@ -107,40 +107,39 @@ fn populate_inputs<I: IntoIterator<Item = PathName>>(
 /// (lowercase) hex encoding of the digest.
 ///
 /// These values are only rewritten for the outputs, not what's passed to env.
-fn populate_output_configuration(
+fn handle_fixed_output(
     drv: &mut Derivation,
-    hash: Option<String>,      // in nix: outputHash
-    hash_algo: Option<String>, // in nix: outputHashAlgo
-    hash_mode: Option<String>, // in nix: outputHashmode
+    hash_str: Option<String>,      // in nix: outputHash
+    hash_algo_str: Option<String>, // in nix: outputHashAlgo
+    hash_mode_str: Option<String>, // in nix: outputHashmode
 ) -> Result<(), ErrorKind> {
-    // We only do something when `digest` and `algo` are `Some(_)``, and
-    // there's an `out` output.
-    if let (Some(nixhash_str), Some(algo), hash_mode) = (hash, hash_algo, hash_mode) {
-        match drv.outputs.get_mut("out") {
-            None => return Err(Error::ConflictingOutputTypes.into()),
-            Some(out) => {
-                // treat an empty algo as None
-                let algo_str = if algo.is_empty() {
-                    None
-                } else {
-                    Some(algo.as_ref())
-                };
+    // If outputHash is provided, ensure hash_algo_str is compatible.
+    // If outputHash is not provided, do nothing.
+    if let Some(hash_str) = hash_str {
+        // treat an empty algo as None
+        let hash_algo_str = match hash_algo_str {
+            Some(s) if s.is_empty() => None,
+            Some(s) => Some(s),
+            None => None,
+        };
 
-                let hash =
-                    nixhash::from_str(&nixhash_str, algo_str).map_err(Error::InvalidOutputHash)?;
+        // construct a NixHash.
+        let nixhash = nixhash::from_str(&hash_str, hash_algo_str.as_deref())
+            .map_err(Error::InvalidOutputHash)?;
 
-                // construct the NixHashWithMode.
-                out.ca_hash = match hash_mode.as_deref() {
-                    None | Some("flat") => Some(nixhash::CAHash::Flat(hash)),
-                    Some("recursive") => Some(nixhash::CAHash::Nar(hash)),
-                    Some(other) => {
-                        return Err(Error::InvalidOutputHashMode(other.to_string()).into())
-                    }
-                }
-            }
-        }
+        // construct the fixed output.
+        drv.outputs.insert(
+            "out".to_string(),
+            Output {
+                path: "".to_string(),
+                ca_hash: match hash_mode_str.as_deref() {
+                    None | Some("flat") => Some(nixhash::CAHash::Flat(nixhash)),
+                    Some("recursive") => Some(nixhash::CAHash::Nar(nixhash)),
+                    Some(other) => return Err(Error::InvalidOutputHashMode(other.to_string()))?,
+                },
+            },
+        );
     }
-
     Ok(())
 }
 
@@ -260,8 +259,6 @@ mod derivation_builtins {
         let mut drv = Derivation::default();
         drv.outputs.insert("out".to_string(), Default::default());
 
-        // Configure fixed-output derivations if required.
-
         async fn select_string(
             co: &GenCo,
             attrs: &NixAttrs,
@@ -315,28 +312,31 @@ mod derivation_builtins {
             }
         }
 
-        let output_hash = match select_string(&co, &input, "outputHash")
-            .await
-            .context("evaluating the `outputHash` parameter")?
+        // Configure fixed-output derivations if required.
         {
-            Err(cek) => return Ok(Value::Catchable(cek)),
-            Ok(s) => s,
-        };
-        let output_hash_algo = match select_string(&co, &input, "outputHashAlgo")
-            .await
-            .context("evaluating the `outputHashAlgo` parameter")?
-        {
-            Err(cek) => return Ok(Value::Catchable(cek)),
-            Ok(s) => s,
-        };
-        let output_hash_mode = match select_string(&co, &input, "outputHashMode")
-            .await
-            .context("evaluating the `outputHashMode` parameter")?
-        {
-            Err(cek) => return Ok(Value::Catchable(cek)),
-            Ok(s) => s,
-        };
-        populate_output_configuration(&mut drv, output_hash, output_hash_algo, output_hash_mode)?;
+            let output_hash = match select_string(&co, &input, "outputHash")
+                .await
+                .context("evaluating the `outputHash` parameter")?
+            {
+                Err(cek) => return Ok(Value::Catchable(cek)),
+                Ok(s) => s,
+            };
+            let output_hash_algo = match select_string(&co, &input, "outputHashAlgo")
+                .await
+                .context("evaluating the `outputHashAlgo` parameter")?
+            {
+                Err(cek) => return Ok(Value::Catchable(cek)),
+                Ok(s) => s,
+            };
+            let output_hash_mode = match select_string(&co, &input, "outputHashMode")
+                .await
+                .context("evaluating the `outputHashMode` parameter")?
+            {
+                Err(cek) => return Ok(Value::Catchable(cek)),
+                Ok(s) => s,
+            };
+            handle_fixed_output(&mut drv, output_hash, output_hash_algo, output_hash_mode)?;
+        }
 
         // Scan references in relevant attributes to detect any build-references.
         let references = {
@@ -539,6 +539,29 @@ mod tests {
     #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "flat"; outputHashAlgo = "sha1"; outputHash = "sha1-VUCRC+16gU5lcrLYHlPSUyx0Y/Q="; }).outPath"#, "/nix/store/zgpnjjmga53d8srp8chh3m9fn7nnbdv6-foo"; "sha1")]
     #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "flat"; outputHashAlgo = "md5"; outputHash = "md5-07BzhNET7exJ6qYjitX/AA=="; }).outPath"#, "/nix/store/jfhcwnq1852ccy9ad9nakybp2wadngnd-foo"; "md5")]
     #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "flat"; outputHashAlgo = "sha512"; outputHash = "sha512-DPkYCnZKuoY6Z7bXLwkYvBMcZ3JkLLLc5aNPCnAvlHDdwr8SXBIZixmVwjPDS0r9NGxUojNMNQqUilG26LTmtg=="; }).outPath"#, "/nix/store/as736rr116ian9qzg457f96j52ki8bm3-foo"; "sha512")]
+    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/17wgs52s7kcamcyin4ja58njkf91ipq8-foo"; "r:sha256 outputHashAlgo omitted")]
+    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/q4pkwkxdib797fhk22p0k3g1q32jmxvf-foo"; "r:sha256 outputHashAlgo and outputHashMode omitted")]
+    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; }).outPath"#, "/nix/store/xpcvxsx5sw4rbq666blz6sxqlmsqphmr-foo"; "outputHash* omitted")]
+    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; outputs = ["foo" "bar"]; system = "x86_64-linux"; }).outPath"#, "/nix/store/hkwdinvz2jpzgnjy9lv34d2zxvclj4s3-foo-foo"; "multiple outputs")]
+    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; args = ["--foo" "42" "--bar"]; system = "x86_64-linux"; }).outPath"#, "/nix/store/365gi78n2z7vwc1bvgb98k0a9cqfp6as-foo"; "args")]
+    #[test_case(r#"
+                   let
+                     bar = builtins.derivation {
+                       name = "bar";
+                       builder = ":";
+                       system = ":";
+                       outputHash = "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba";
+                       outputHashAlgo = "sha256";
+                       outputHashMode = "recursive";
+                     };
+                   in
+                   (builtins.derivation {
+                     name = "foo";
+                     builder = ":";
+                     system = ":";
+                     inherit bar;
+                   }).outPath
+        "#, "/nix/store/5vyvcwah9l9kf07d52rcgdk70g2f4y13-foo"; "full")]
     fn test_outpath(code: &str, expected_path: &str) {
         let value = eval(code).value.expect("must succeed");
 
@@ -553,6 +576,7 @@ mod tests {
     /// construct some calls to builtins.derivation that should be rejected
     #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "sha256-00"; }).outPath"#; "invalid outputhash")]
     #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha1"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#; "sha1 and sha256")]
+    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; outputs = ["foo" "foo"]; system = "x86_64-linux"; }).outPath"#; "duplicate output names")]
     fn test_outpath_invalid(code: &str) {
         let resp = eval(code);
         assert!(resp.value.is_none(), "Value should be None");
@@ -561,251 +585,6 @@ mod tests {
             "There should have been some errors"
         );
     }
-    // TODO: These tests are commented out because we do not have
-    // scaffolding to drive generators during testing at the moment.
-
-    // static mut OBSERVER: NoOpObserver = NoOpObserver {};
-
-    // // Creates a fake VM for tests, which can *not* actually be
-    // // used to force (most) values but can satisfy the type
-    // // parameter.
-    // fn fake_vm() -> VM<'static> {
-    //     // safe because accessing the observer doesn't actually do anything
-    //     unsafe {
-    //         VM::new(
-    //             Default::default(),
-    //             Box::new(tvix_eval::DummyIO),
-    //             &mut OBSERVER,
-    //             Default::default(),
-    //             todo!(),
-    //         )
-    //     }
-    // }
-
-    // #[test]
-    // fn populate_outputs_ok() {
-    //     let mut vm = fake_vm();
-    //     let mut drv = Derivation::default();
-    //     drv.outputs.insert("out".to_string(), Default::default());
-
-    //     let outputs = NixList::construct(
-    //         2,
-    //         vec![Value::String("foo".into()), Value::String("bar".into())],
-    //     );
-
-    //     populate_outputs(&mut vm, &mut drv, outputs).expect("populate_outputs should succeed");
-
-    //     assert_eq!(drv.outputs.len(), 2);
-    //     assert!(drv.outputs.contains_key("bar"));
-    //     assert!(drv.outputs.contains_key("foo"));
-    // }
-
-    // #[test]
-    // fn populate_outputs_duplicate() {
-    //     let mut vm = fake_vm();
-    //     let mut drv = Derivation::default();
-    //     drv.outputs.insert("out".to_string(), Default::default());
-
-    //     let outputs = NixList::construct(
-    //         2,
-    //         vec![Value::String("foo".into()), Value::String("foo".into())],
-    //     );
-
-    //     populate_outputs(&mut vm, &mut drv, outputs)
-    //         .expect_err("supplying duplicate outputs should fail");
-    // }
-
-    // #[test]
-    // fn populate_inputs_empty() {
-    //     let mut drv = Derivation::default();
-    //     let paths = KnownPaths::default();
-    //     let inputs = vec![];
-
-    //     populate_inputs(&mut drv, &paths, inputs);
-
-    //     assert!(drv.input_sources.is_empty());
-    //     assert!(drv.input_derivations.is_empty());
-    // }
-
-    // #[test]
-    // fn populate_inputs_all() {
-    //     let mut drv = Derivation::default();
-
-    //     let mut paths = KnownPaths::default();
-    //     paths.plain("/nix/store/fn7zvafq26f0c8b17brs7s95s10ibfzs-foo");
-    //     paths.drv(
-    //         "/nix/store/aqffiyqx602lbam7n1zsaz3yrh6v08pc-bar.drv",
-    //         &["out"],
-    //     );
-    //     paths.output(
-    //         "/nix/store/zvpskvjwi72fjxg0vzq822sfvq20mq4l-bar",
-    //         "out",
-    //         "/nix/store/aqffiyqx602lbam7n1zsaz3yrh6v08pc-bar.drv",
-    //     );
-
-    //     let inputs = vec![
-    //         "/nix/store/fn7zvafq26f0c8b17brs7s95s10ibfzs-foo".into(),
-    //         "/nix/store/aqffiyqx602lbam7n1zsaz3yrh6v08pc-bar.drv".into(),
-    //         "/nix/store/zvpskvjwi72fjxg0vzq822sfvq20mq4l-bar".into(),
-    //     ];
-
-    //     populate_inputs(&mut drv, &paths, inputs);
-
-    //     assert_eq!(drv.input_sources.len(), 1);
-    //     assert!(drv
-    //         .input_sources
-    //         .contains("/nix/store/fn7zvafq26f0c8b17brs7s95s10ibfzs-foo"));
-
-    //     assert_eq!(drv.input_derivations.len(), 1);
-    //     assert!(drv
-    //         .input_derivations
-    //         .contains_key("/nix/store/aqffiyqx602lbam7n1zsaz3yrh6v08pc-bar.drv"));
-    // }
-
-    // #[test]
-    // fn populate_output_config_std() {
-    //     let mut drv = Derivation::default();
-
-    //     populate_output_configuration(&mut drv, None, None, None)
-    //         .expect("populate_output_configuration() should succeed");
-
-    //     assert_eq!(drv, Derivation::default(), "derivation should be unchanged");
-    // }
-
-    // #[test]
-    // fn populate_output_config_fod() {
-    //     let mut drv = Derivation::default();
-    //     drv.outputs.insert("out".to_string(), Default::default());
-
-    //     populate_output_configuration(
-    //         &mut drv,
-    //         Some("0000000000000000000000000000000000000000000000000000000000000000".into()),
-    //         Some("sha256".into()),
-    //         None,
-    //     )
-    //     .expect("populate_output_configuration() should succeed");
-
-    //     let expected = Hash {
-    //         algo: "sha256".into(),
-    //         digest: "0000000000000000000000000000000000000000000000000000000000000000".into(),
-    //     };
-
-    //     assert_eq!(drv.outputs["out"].hash, Some(expected));
-    // }
-
-    // #[test]
-    // fn populate_output_config_fod_recursive() {
-    //     let mut drv = Derivation::default();
-    //     drv.outputs.insert("out".to_string(), Default::default());
-
-    //     populate_output_configuration(
-    //         &mut drv,
-    //         Some("0000000000000000000000000000000000000000000000000000000000000000".into()),
-    //         Some("sha256".into()),
-    //         Some("recursive".into()),
-    //     )
-    //     .expect("populate_output_configuration() should succeed");
-
-    //     let expected = Hash {
-    //         algo: "r:sha256".into(),
-    //         digest: "0000000000000000000000000000000000000000000000000000000000000000".into(),
-    //     };
-
-    //     assert_eq!(drv.outputs["out"].hash, Some(expected));
-    // }
-
-    // #[test]
-    // /// hash_algo set to sha256, but SRI hash passed
-    // fn populate_output_config_flat_sri_sha256() {
-    //     let mut drv = Derivation::default();
-    //     drv.outputs.insert("out".to_string(), Default::default());
-
-    //     populate_output_configuration(
-    //         &mut drv,
-    //         Some("sha256-swapHA/ZO8QoDPwumMt6s5gf91oYe+oyk4EfRSyJqMg=".into()),
-    //         Some("sha256".into()),
-    //         Some("flat".into()),
-    //     )
-    //     .expect("populate_output_configuration() should succeed");
-
-    //     let expected = Hash {
-    //         algo: "sha256".into(),
-    //         digest: "b306a91c0fd93bc4280cfc2e98cb7ab3981ff75a187bea3293811f452c89a8c8".into(), // lower hex
-    //     };
-
-    //     assert_eq!(drv.outputs["out"].hash, Some(expected));
-    // }
-
-    // #[test]
-    // /// hash_algo set to empty string, SRI hash passed
-    // fn populate_output_config_flat_sri() {
-    //     let mut drv = Derivation::default();
-    //     drv.outputs.insert("out".to_string(), Default::default());
-
-    //     populate_output_configuration(
-    //         &mut drv,
-    //         Some("sha256-s6JN6XqP28g1uYMxaVAQMLiXcDG8tUs7OsE3QPhGqzA=".into()),
-    //         Some("".into()),
-    //         Some("flat".into()),
-    //     )
-    //     .expect("populate_output_configuration() should succeed");
-
-    //     let expected = Hash {
-    //         algo: "sha256".into(),
-    //         digest: "b3a24de97a8fdbc835b9833169501030b8977031bcb54b3b3ac13740f846ab30".into(), // lower hex
-    //     };
-
-    //     assert_eq!(drv.outputs["out"].hash, Some(expected));
-    // }
-
-    // #[test]
-    // fn handle_outputs_parameter() {
-    //     let mut vm = fake_vm();
-    //     let mut drv = Derivation::default();
-    //     drv.outputs.insert("out".to_string(), Default::default());
-
-    //     let outputs = Value::List(NixList::construct(
-    //         2,
-    //         vec![Value::String("foo".into()), Value::String("bar".into())],
-    //     ));
-    //     let outputs_str = outputs
-    //         .coerce_to_string(CoercionKind::Strong, &mut vm)
-    //         .unwrap();
-
-    //     handle_derivation_parameters(&mut drv, &mut vm, "outputs", &outputs, outputs_str.as_str())
-    //         .expect("handling 'outputs' parameter should succeed");
-
-    //     assert_eq!(drv.outputs.len(), 2);
-    //     assert!(drv.outputs.contains_key("bar"));
-    //     assert!(drv.outputs.contains_key("foo"));
-    // }
-
-    // #[test]
-    // fn handle_args_parameter() {
-    //     let mut vm = fake_vm();
-    //     let mut drv = Derivation::default();
-
-    //     let args = Value::List(NixList::construct(
-    //         3,
-    //         vec![
-    //             Value::String("--foo".into()),
-    //             Value::String("42".into()),
-    //             Value::String("--bar".into()),
-    //         ],
-    //     ));
-
-    //     let args_str = args
-    //         .coerce_to_string(CoercionKind::Strong, &mut vm)
-    //         .unwrap();
-
-    //     handle_derivation_parameters(&mut drv, &mut vm, "args", &args, args_str.as_str())
-    //         .expect("handling 'args' parameter should succeed");
-
-    //     assert_eq!(
-    //         drv.arguments,
-    //         vec!["--foo".to_string(), "42".to_string(), "--bar".to_string()]
-    //     );
-    // }
 
     #[test]
     fn builtins_placeholder_hashes() {
