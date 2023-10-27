@@ -177,7 +177,9 @@ impl StorePath {
 
 /// Checks a given &[u8] to match the restrictions for [StorePath::name], and
 /// returns the name as string if successful.
-pub(crate) fn validate_name(s: &[u8]) -> Result<&str, Error> {
+pub(crate) fn validate_name(s: &(impl AsRef<[u8]> + ?Sized)) -> Result<&str, Error> {
+    let s = s.as_ref();
+
     // Empty or excessively long names are not allowed.
     if s.is_empty() || s.len() > 211 {
         return Err(Error::InvalidLength());
