@@ -52,7 +52,7 @@ pub fn encode(input: &[u8]) -> String {
 
 /// This maps a nixbase32-encoded character to its binary representation, which
 /// is also the index of the character in the alphabet.
-fn decode_char(encoded_char: &u8) -> Option<u8> {
+fn decode_char(encoded_char: u8) -> Option<u8> {
     Some(match encoded_char {
         b'0'..=b'9' => encoded_char - b'0',
         b'a'..=b'd' => encoded_char - b'a' + 10_u8,
@@ -69,29 +69,24 @@ pub fn decode(input: &[u8]) -> Result<Vec<u8>, Nixbase32DecodeError> {
     let mut output: Vec<u8> = vec![0x00; output_len];
 
     // loop over all characters in reverse, and keep the iteration count in n.
-    for (n, c) in input.iter().rev().enumerate() {
-        match decode_char(c) {
-            None => return Err(Nixbase32DecodeError::CharacterNotInAlphabet(*c)),
-            Some(c_decoded) => {
-                let b = n * 5;
-                let i = b / 8;
-                let j = b % 8;
+    let mut carry = 0;
+    for (n, &c) in input.iter().rev().enumerate() {
+        if let Some(digit) = decode_char(c) {
+            let b = n * 5;
+            let i = b / 8;
+            let j = b % 8;
 
-                let val = (c_decoded as u16).rotate_left(j as u32);
-                output[i] |= (val & 0x00ff) as u8;
-                let carry = ((val & 0xff00) >> 8) as u8;
-
-                // if we're at the end of dst…
-                if i == output_len - 1 {
-                    // but have a nonzero carry, the encoding is invalid.
-                    if carry != 0 {
-                        return Err(Nixbase32DecodeError::NonzeroCarry());
-                    }
-                } else {
-                    output[i + 1] |= carry;
-                }
-            }
+            let value = (digit as u16) << j;
+            output[i] |= value as u8 | carry;
+            carry = (value >> 8) as u8;
+        } else {
+            return Err(Nixbase32DecodeError::CharacterNotInAlphabet(c));
         }
+    }
+
+    // if we're at the end, but have a nonzero carry, the encoding is invalid.
+    if carry != 0 {
+        return Err(Nixbase32DecodeError::NonzeroCarry());
     }
 
     Ok(output)
