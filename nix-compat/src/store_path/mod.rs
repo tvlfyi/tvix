@@ -164,8 +164,8 @@ impl StorePath {
 /// Checks a given &[u8] to match the restrictions for [StorePath::name], and
 /// returns the name as string if successful.
 pub(crate) fn validate_name(s: &[u8]) -> Result<String, Error> {
-    // Empty names are not allowed.
-    if s.is_empty() {
+    // Empty or excessively long names are not allowed.
+    if s.is_empty() || s.len() > 211 {
         return Err(Error::InvalidLength());
     }
 
@@ -243,6 +243,17 @@ mod tests {
     #[test]
     fn starts_with_dot() {
         StorePath::from_bytes(b"fli4bwscgna7lpm7v5xgnjxrxh0yc7ra-.gitignore")
+            .expect_err("must fail");
+    }
+
+    #[test]
+    fn empty_name() {
+        StorePath::from_bytes(b"00bgd045z0d4icpbc2yy-").expect_err("must fail");
+    }
+
+    #[test]
+    fn excessive_length() {
+        StorePath::from_bytes(b"00bgd045z0d4icpbc2yy-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
             .expect_err("must fail");
     }
 
