@@ -124,7 +124,6 @@ fn decode_inner(input: &[u8], output: &mut [u8]) -> Result<(), Nixbase32DecodeEr
     Ok(())
 }
 
-#[cold]
 fn find_invalid(input: &[u8]) -> u8 {
     for &c in input {
         if !ALPHABET.contains(&c) {

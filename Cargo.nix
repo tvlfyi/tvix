@@ -1796,29 +1796,6 @@ rec {
         };
         resolvedDefaultFeatures = [ "std" ];
       };
-      "ctor" = rec {
-        crateName = "ctor";
-        version = "0.1.26";
-        edition = "2018";
-        sha256 = "15m0wqhv12p25xkxz5dxvg23r7a6bkh7p8zi1cdhgswjhdl028vd";
-        procMacro = true;
-        authors = [
-          "Matt Mastracci <matthew@mastracci.com>"
-        ];
-        dependencies = [
-          {
-            name = "quote";
-            packageId = "quote 1.0.26";
-          }
-          {
-            name = "syn";
-            packageId = "syn 1.0.109";
-            usesDefaultFeatures = false;
-            features = [ "full" "parsing" "printing" "proc-macro" ];
-          }
-        ];
-
-      };
       "data-encoding" = rec {
         crateName = "data-encoding";
         version = "2.3.3";
@@ -4260,6 +4237,10 @@ rec {
             packageId = "lazy_static";
           }
           {
+            name = "pretty_assertions";
+            packageId = "pretty_assertions";
+          }
+          {
             name = "serde_json";
             packageId = "serde_json";
           }
@@ -4270,6 +4251,10 @@ rec {
           {
             name = "test-generator";
             packageId = "test-generator";
+          }
+          {
+            name = "zstd";
+            packageId = "zstd";
           }
         ];
         features = {
@@ -4488,23 +4473,6 @@ rec {
           "uniquote" = [ "dep:uniquote" ];
         };
         resolvedDefaultFeatures = [ "raw_os_str" ];
-      };
-      "output_vt100" = rec {
-        crateName = "output_vt100";
-        version = "0.1.3";
-        edition = "2018";
-        sha256 = "0rpvpiq7gkyvvwyp9sk0zxhbk99ldlrv5q3ycr03wkmbxgx270k2";
-        authors = [
-          "Phuntsok Drak-pa <phundrak@phundrak.fr>"
-        ];
-        dependencies = [
-          {
-            name = "winapi";
-            packageId = "winapi";
-            features = [ "winuser" "winbase" "consoleapi" "processenv" ];
-          }
-        ];
-
       };
       "overload" = rec {
         crateName = "overload";
@@ -4871,9 +4839,9 @@ rec {
       };
       "pretty_assertions" = rec {
         crateName = "pretty_assertions";
-        version = "1.3.0";
+        version = "1.4.0";
         edition = "2018";
-        sha256 = "0mgp1ajl3fdc55h989ph48znnk86m41j9dqnpg80yy5a435rnpm2";
+        sha256 = "0rmsnqlpmpfjp5gyi31xgc48kdhc1kqn246bnc494nwadhdfwz5g";
         authors = [
           "Colin Kiegel <kiegel@gmx.de>"
           "Florent Fayolle <florent.fayolle69@gmail.com>"
@@ -4881,18 +4849,8 @@ rec {
         ];
         dependencies = [
           {
-            name = "ctor";
-            packageId = "ctor";
-            target = { target, features }: (target."windows" or false);
-          }
-          {
             name = "diff";
             packageId = "diff";
-          }
-          {
-            name = "output_vt100";
-            packageId = "output_vt100";
-            target = { target, features }: (target."windows" or false);
           }
           {
             name = "yansi";

@@ -26,6 +26,8 @@ serde_json = "1.0"
 test-case = "2.2.2"
 criterion = { version = "0.4", features = ["html_reports"] }
 hex-literal = "0.4.1"
+pretty_assertions = "1.4.0"
+zstd = "^0.9.0"
 
 [dev-dependencies.test-generator]
 # This fork of test-generator adds support for cargo workspaces, see
@@ -35,4 +37,8 @@ rev = "82e799979980962aec1aa324ec6e0e4cad781f41"
 
 [[bench]]
 name = "derivation_parse_aterm"
+harness = false
+
+[[bench]]
+name = "narinfo_parse"
 harness = false
