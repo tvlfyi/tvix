@@ -68,7 +68,9 @@ const BASE32_ORD: [u8; 256] = {
 };
 
 /// Returns decoded input
-pub fn decode(input: &[u8]) -> Result<Vec<u8>, Nixbase32DecodeError> {
+pub fn decode(input: impl AsRef<[u8]>) -> Result<Vec<u8>, Nixbase32DecodeError> {
+    let input = input.as_ref();
+
     let output_len = decode_len(input.len());
     let mut output: Vec<u8> = vec![0x00; output_len];
 
@@ -149,11 +151,11 @@ mod tests {
         match dec {
             Some(dec) => {
                 // The decode needs to match what's passed in dec
-                assert_eq!(dec, super::decode(enc.as_bytes()).unwrap());
+                assert_eq!(dec, super::decode(enc).unwrap());
             }
             None => {
                 // the decode needs to be an error
-                assert!(super::decode(enc.as_bytes()).is_err());
+                assert!(super::decode(enc).is_err());
             }
         }
     }
