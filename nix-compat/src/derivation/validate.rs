@@ -141,7 +141,7 @@ mod test {
             "out".to_string(),
             Output {
                 path: "".to_string(),
-                ca_hash: Some(CAHash::Text(Box::new([0; 32]))), // This is disallowed
+                ca_hash: Some(CAHash::Text([0; 32])), // This is disallowed
             },
         );
 

@@ -50,12 +50,7 @@ pub fn build_text_path<S: AsRef<str>, I: IntoIterator<Item = S>, C: AsRef<[u8]>>
     // produce the sha256 digest of the contents
     let content_digest = Sha256::new_with_prefix(content).finalize().into();
 
-    build_ca_path(
-        name,
-        &CAHash::Text(Box::new(content_digest)),
-        references,
-        false,
-    )
+    build_ca_path(name, &CAHash::Text(content_digest), references, false)
 }
 
 /// This builds a store path from a [CAHash] and a list of references.
@@ -72,7 +67,7 @@ pub fn build_ca_path<B: AsRef<[u8]>, S: AsRef<str>, I: IntoIterator<Item = S>>(
             }
             build_store_path_from_fingerprint_parts(
                 &make_references_string("text", references, false),
-                &NixHash::Sha256(*digest.to_owned()),
+                &NixHash::Sha256(*digest),
                 name,
             )
             .map_err(BuildStorePathError::InvalidStorePath)

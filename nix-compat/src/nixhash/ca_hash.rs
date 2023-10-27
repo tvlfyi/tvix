@@ -19,17 +19,17 @@ use super::from_algo_and_digest;
 ///  - "digest". The digest itself.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CAHash {
-    Flat(NixHash),       // "fixed flat"
-    Nar(NixHash),        // "fixed recursive"
-    Text(Box<[u8; 32]>), // "text", only supports sha256
+    Flat(NixHash),  // "fixed flat"
+    Nar(NixHash),   // "fixed recursive"
+    Text([u8; 32]), // "text", only supports sha256
 }
 
 impl CAHash {
     pub fn digest(&self) -> Cow<NixHash> {
-        match self {
-            CAHash::Nar(ref digest) => Cow::Borrowed(digest),
-            CAHash::Text(ref digest) => Cow::Owned(NixHash::Sha256(*digest.clone())),
+        match *self {
             CAHash::Flat(ref digest) => Cow::Borrowed(digest),
+            CAHash::Nar(ref digest) => Cow::Borrowed(digest),
+            CAHash::Text(digest) => Cow::Owned(NixHash::Sha256(digest)),
         }
     }
 
