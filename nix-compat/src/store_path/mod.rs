@@ -1,6 +1,10 @@
 use crate::nixbase32::{self, Nixbase32DecodeError};
 use data_encoding::BASE64;
-use std::{fmt, path::PathBuf, str::FromStr};
+use std::{
+    fmt,
+    path::PathBuf,
+    str::{self, FromStr},
+};
 use thiserror;
 
 #[cfg(target_family = "unix")]
@@ -111,7 +115,7 @@ impl StorePath {
         }
 
         Ok(StorePath {
-            name: validate_name(&s[ENCODED_DIGEST_SIZE + 1..])?,
+            name: validate_name(&s[ENCODED_DIGEST_SIZE + 1..])?.to_owned(),
             digest: digest.try_into().expect("size is known"),
         })
     }
@@ -129,7 +133,7 @@ impl StorePath {
     /// Construct a [StorePath] from a name and digest.
     pub fn from_name_and_digest(name: String, digest: &[u8]) -> Result<StorePath, Error> {
         Ok(Self {
-            name: validate_name(name.as_bytes())?,
+            name: validate_name(name.as_bytes())?.to_owned(),
             digest: digest.try_into().map_err(|_| Error::InvalidLength())?,
         })
     }
@@ -173,7 +177,7 @@ impl StorePath {
 
 /// Checks a given &[u8] to match the restrictions for [StorePath::name], and
 /// returns the name as string if successful.
-pub(crate) fn validate_name(s: &[u8]) -> Result<String, Error> {
+pub(crate) fn validate_name(s: &[u8]) -> Result<&str, Error> {
     // Empty or excessively long names are not allowed.
     if s.is_empty() || s.len() > 211 {
         return Err(Error::InvalidLength());
@@ -194,7 +198,7 @@ pub(crate) fn validate_name(s: &[u8]) -> Result<String, Error> {
         return Err(Error::InvalidName(s.to_vec(), i));
     }
 
-    Ok(String::from_utf8(s.to_vec()).unwrap())
+    Ok(str::from_utf8(s).unwrap())
 }
 
 impl fmt::Display for StorePath {

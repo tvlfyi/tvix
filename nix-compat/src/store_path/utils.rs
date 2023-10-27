@@ -167,7 +167,7 @@ fn build_store_path_from_fingerprint_parts<B: AsRef<[u8]>>(
     name: B,
 ) -> Result<StorePath, Error> {
     let name = name.as_ref();
-    let name = super::validate_name(name.as_ref())?;
+    let name = super::validate_name(name.as_ref())?.to_owned();
 
     let digest = compress_hash(&{
         let mut h = Sha256::new();
