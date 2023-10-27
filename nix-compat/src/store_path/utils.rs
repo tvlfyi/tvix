@@ -2,6 +2,7 @@ use crate::nixbase32;
 use crate::nixhash::{CAHash, NixHash};
 use crate::store_path::{Error, StorePath, STORE_DIR};
 use sha2::{Digest, Sha256};
+use std::io::Write;
 use thiserror;
 
 /// Errors that can occur when creating a content-addressed store path.
@@ -165,16 +166,16 @@ fn build_store_path_from_fingerprint_parts<B: AsRef<[u8]>>(
     hash: &NixHash,
     name: B,
 ) -> Result<StorePath, Error> {
+    let name = name.as_ref();
     let name = super::validate_name(name.as_ref())?;
-    let fingerprint =
-        String::from(ty) + ":" + &hash.to_nix_hash_string() + ":" + STORE_DIR + ":" + &name;
-    let digest = Sha256::new_with_prefix(fingerprint).finalize();
-    let compressed = compress_hash::<20>(&digest);
 
-    Ok(StorePath {
-        digest: compressed,
-        name,
-    })
+    let digest = compress_hash(&{
+        let mut h = Sha256::new();
+        write!(h, "{ty}:{}:{STORE_DIR}:{name}", hash.to_nix_hash_string()).unwrap();
+        h.finalize()
+    });
+
+    Ok(StorePath { digest, name })
 }
 
 /// This contains the Nix logic to create "text hash strings", which are used
