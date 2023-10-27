@@ -96,28 +96,7 @@ impl StorePath {
     /// Construct a [StorePath] by passing the `$digest-$name` string
     /// that comes after [STORE_DIR_WITH_SLASH].
     pub fn from_bytes(s: &[u8]) -> Result<StorePath, Error> {
-        // the whole string needs to be at least:
-        //
-        // - 32 characters (encoded hash)
-        // - 1 dash
-        // - 1 character for the name
-        if s.len() < ENCODED_DIGEST_SIZE + 2 {
-            Err(Error::InvalidLength)?
-        }
-
-        let digest = match nixbase32::decode(&s[..ENCODED_DIGEST_SIZE]) {
-            Ok(decoded) => decoded,
-            Err(decoder_error) => return Err(Error::InvalidHashEncoding(decoder_error)),
-        };
-
-        if s[ENCODED_DIGEST_SIZE] != b'-' {
-            return Err(Error::MissingDash);
-        }
-
-        Ok(StorePath {
-            name: validate_name(&s[ENCODED_DIGEST_SIZE + 1..])?.to_owned(),
-            digest: digest.try_into().expect("size is known"),
-        })
+        Ok(StorePathRef::from_bytes(s)?.into())
     }
 
     /// Construct a [StorePath] from an absolute store path string.
@@ -172,6 +151,71 @@ impl StorePath {
     /// ([STORE_DIR_WITH_SLASH]),
     pub fn to_absolute_path(&self) -> String {
         format!("{}{}", STORE_DIR_WITH_SLASH, self)
+    }
+}
+
+/// Like [StorePath], but without a heap allocation for the name.
+/// Used by [StorePath] for parsing.
+///
+/// TODO(edef): migrate most methods here
+#[derive(Debug)]
+pub struct StorePathRef<'a> {
+    digest: [u8; DIGEST_SIZE],
+    name: &'a str,
+}
+
+impl From<StorePathRef<'_>> for StorePath {
+    fn from(StorePathRef { digest, name }: StorePathRef<'_>) -> Self {
+        StorePath {
+            digest,
+            name: name.to_owned(),
+        }
+    }
+}
+
+impl<'a> From<&'a StorePath> for StorePathRef<'a> {
+    fn from(&StorePath { digest, ref name }: &'a StorePath) -> Self {
+        StorePathRef {
+            digest,
+            name: name.as_ref(),
+        }
+    }
+}
+
+impl<'a> StorePathRef<'a> {
+    pub fn digest(&self) -> &[u8; DIGEST_SIZE] {
+        &self.digest
+    }
+
+    pub fn name(&self) -> &'a str {
+        self.name
+    }
+
+    /// Construct a [StorePathRef] by passing the `$digest-$name` string
+    /// that comes after [STORE_DIR_WITH_SLASH].
+    pub fn from_bytes(s: &'a [u8]) -> Result<Self, Error> {
+        // the whole string needs to be at least:
+        //
+        // - 32 characters (encoded hash)
+        // - 1 dash
+        // - 1 character for the name
+        if s.len() < ENCODED_DIGEST_SIZE + 2 {
+            Err(Error::InvalidLength)?
+        }
+
+        let digest = match nixbase32::decode(&s[..ENCODED_DIGEST_SIZE]) {
+            Ok(decoded) => decoded,
+            Err(decoder_error) => return Err(Error::InvalidHashEncoding(decoder_error)),
+        };
+
+        if s[ENCODED_DIGEST_SIZE] != b'-' {
+            return Err(Error::MissingDash);
+        }
+
+        Ok(StorePathRef {
+            digest: digest.try_into().expect("size is known"),
+            name: validate_name(&s[ENCODED_DIGEST_SIZE + 1..])?,
+        })
     }
 }
 
@@ -231,6 +275,12 @@ pub(crate) fn validate_name(s: &(impl AsRef<[u8]> + ?Sized)) -> Result<&str, Err
 }
 
 impl fmt::Display for StorePath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        StorePathRef::from(self).fmt(f)
+    }
+}
+
+impl fmt::Display for StorePathRef<'_> {
     /// The string representation of a store path starts with a digest (20
     /// bytes), [crate::nixbase32]-encoded, followed by a `-`,
     /// and ends with the name.
