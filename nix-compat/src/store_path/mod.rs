@@ -38,7 +38,7 @@ pub enum Error {
         std::str::from_utf8(.0).unwrap_or(&BASE64.encode(.0)),
         .1,
     )]
-    InvalidName(Vec<u8>, usize),
+    InvalidName(Vec<u8>, u8),
     #[error("Tried to parse an absolute path which was missing the store dir prefix.")]
     MissingStoreDir(),
 }
@@ -175,6 +175,29 @@ impl StorePath {
     }
 }
 
+/// NAME_CHARS contains `true` for bytes that are valid in store path names,
+/// not accounting for '.' being permitted only past the first character.
+static NAME_CHARS: [bool; 256] = {
+    let mut tbl = [false; 256];
+    let mut c = 0;
+
+    loop {
+        tbl[c as usize] = match c {
+            b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' => true,
+            b'+' | b'-' | b'_' | b'?' | b'=' | b'.' => true,
+            _ => false,
+        };
+
+        if c == u8::MAX {
+            break;
+        }
+
+        c += 1;
+    }
+
+    tbl
+};
+
 /// Checks a given &[u8] to match the restrictions for [StorePath::name], and
 /// returns the name as string if successful.
 pub(crate) fn validate_name(s: &(impl AsRef<[u8]> + ?Sized)) -> Result<&str, Error> {
@@ -185,19 +208,23 @@ pub(crate) fn validate_name(s: &(impl AsRef<[u8]> + ?Sized)) -> Result<&str, Err
         return Err(Error::InvalidLength());
     }
 
-    for (i, c) in s.iter().enumerate() {
-        if c.is_ascii_alphanumeric()
-            || (*c == b'.' && i != 0) // can't start with a dot
-            || *c == b'-'
-            || *c == b'_'
-            || *c == b'+'
-            || *c == b'?'
-            || *c == b'='
-        {
-            continue;
+    if s[0] == b'.' {
+        return Err(Error::InvalidName(s.to_vec(), 0));
+    }
+
+    let mut valid = true;
+    for &c in s {
+        valid = valid && NAME_CHARS[c as usize];
+    }
+
+    if !valid {
+        for (i, &c) in s.iter().enumerate() {
+            if !NAME_CHARS[c as usize] {
+                return Err(Error::InvalidName(s.to_vec(), i as u8));
+            }
         }
 
-        return Err(Error::InvalidName(s.to_vec(), i));
+        unreachable!();
     }
 
     Ok(str::from_utf8(s).unwrap())
