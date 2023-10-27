@@ -63,7 +63,7 @@ pub struct NarInfo<'a> {
 }
 
 impl<'a> NarInfo<'a> {
-    pub fn parse(input: &'a str) -> Option<Self> {
+    pub fn parse(input: &'a str) -> Result<Self, Error> {
         let mut store_path = None;
         let mut url = None;
         let mut compression = None;
@@ -78,117 +78,142 @@ impl<'a> NarInfo<'a> {
         let mut ca = None;
 
         for line in input.lines() {
-            let (tag, val) = line.split_once(':')?;
-            let val = val.strip_prefix(' ')?;
+            let (tag, val) = line
+                .split_once(':')
+                .ok_or(Error::InvalidLine(line.to_string()))?;
+
+            let val = val
+                .strip_prefix(' ')
+                .ok_or(Error::InvalidLine(line.to_string()))?;
 
             match tag {
                 "StorePath" => {
-                    let val = val.strip_prefix("/nix/store/")?;
-                    let val = StorePathRef::from_bytes(val.as_bytes()).ok()?;
+                    let val = val
+                        .strip_prefix("/nix/store/")
+                        .ok_or(Error::InvalidStorePath(
+                            crate::store_path::Error::MissingStoreDir,
+                        ))?;
+                    let val = StorePathRef::from_bytes(val.as_bytes())
+                        .map_err(Error::InvalidStorePath)?;
 
                     if store_path.replace(val).is_some() {
-                        return None;
+                        return Err(Error::DuplicateField(tag.to_string()));
                     }
                 }
                 "URL" => {
                     if val.is_empty() {
-                        return None;
+                        return Err(Error::EmptyField(tag.to_string()));
                     }
 
                     if url.replace(val).is_some() {
-                        return None;
+                        return Err(Error::DuplicateField(tag.to_string()));
                     }
                 }
                 "Compression" => {
                     if val.is_empty() {
-                        return None;
+                        return Err(Error::EmptyField(tag.to_string()));
                     }
 
                     if compression.replace(val).is_some() {
-                        return None;
+                        return Err(Error::DuplicateField(tag.to_string()));
                     }
                 }
                 "FileHash" => {
-                    let val = val.strip_prefix("sha256:")?;
-                    let val = nixbase32::decode_fixed::<32>(val).ok()?;
+                    let val = val
+                        .strip_prefix("sha256:")
+                        .ok_or(Error::MissingPrefixForHash(tag.to_string()))?;
+                    let val = nixbase32::decode_fixed::<32>(val)
+                        .map_err(|e| Error::UnableToDecodeHash(tag.to_string(), e))?;
 
                     if file_hash.replace(val).is_some() {
-                        return None;
+                        return Err(Error::DuplicateField(tag.to_string()));
                     }
                 }
                 "FileSize" => {
-                    let val = val.parse::<u64>().ok()?;
+                    let val = val
+                        .parse::<u64>()
+                        .map_err(|_| Error::UnableToParseSize(tag.to_string(), val.to_string()))?;
 
                     if file_size.replace(val).is_some() {
-                        return None;
+                        return Err(Error::DuplicateField(tag.to_string()));
                     }
                 }
                 "NarHash" => {
-                    let val = val.strip_prefix("sha256:")?;
-                    let val = nixbase32::decode_fixed::<32>(val).ok()?;
+                    let val = val
+                        .strip_prefix("sha256:")
+                        .ok_or(Error::MissingPrefixForHash(tag.to_string()))?;
+
+                    let val = nixbase32::decode_fixed::<32>(val)
+                        .map_err(|e| Error::UnableToDecodeHash(tag.to_string(), e))?;
 
                     if nar_hash.replace(val).is_some() {
-                        return None;
+                        return Err(Error::DuplicateField(tag.to_string()));
                     }
                 }
                 "NarSize" => {
-                    let val = val.parse::<u64>().ok()?;
+                    let val = val
+                        .parse::<u64>()
+                        .map_err(|_| Error::UnableToParseSize(tag.to_string(), val.to_string()))?;
 
                     if nar_size.replace(val).is_some() {
-                        return None;
+                        return Err(Error::DuplicateField(tag.to_string()));
                     }
                 }
                 "References" => {
                     let val: Vec<StorePathRef> = if !val.is_empty() {
                         let mut prev = "";
                         val.split(' ')
-                            .map(|s| {
+                            .enumerate()
+                            .map(|(i, s)| {
                                 if mem::replace(&mut prev, s) < s {
-                                    StorePathRef::from_bytes(s.as_bytes()).ok()
+                                    StorePathRef::from_bytes(s.as_bytes())
+                                        .map_err(|err| Error::InvalidReference(i, err))
                                 } else {
                                     // references are out of order
-                                    None
+                                    Err(Error::OutOfOrderReference(i))
                                 }
                             })
-                            .collect::<Option<_>>()?
+                            .collect::<Result<_, _>>()?
                     } else {
                         vec![]
                     };
 
                     if references.replace(val).is_some() {
-                        return None;
+                        return Err(Error::DuplicateField(tag.to_string()));
                     }
                 }
                 "System" => {
                     if val.is_empty() {
-                        return None;
+                        return Err(Error::EmptyField(tag.to_string()));
                     }
 
                     if system.replace(val).is_some() {
-                        return None;
+                        return Err(Error::DuplicateField(tag.to_string()));
                     }
                 }
                 "Deriver" => {
-                    let val = StorePathRef::from_bytes(val.as_bytes()).ok()?;
+                    let val = StorePathRef::from_bytes(val.as_bytes())
+                        .map_err(Error::InvalidDeriverStorePath)?;
 
                     if !val.name().ends_with(".drv") {
-                        return None;
+                        return Err(Error::InvalidDeriverStorePathMissingSuffix);
                     }
 
                     if deriver.replace(val).is_some() {
-                        return None;
+                        return Err(Error::DuplicateField(tag.to_string()));
                     }
                 }
                 "Sig" => {
-                    let val = Signature::parse(val)?;
+                    let val = Signature::parse(val)
+                        .map_err(|e| Error::UnableToParseSignature(signatures.len(), e))?;
 
                     signatures.push(val);
                 }
                 "CA" => {
-                    let val = parse_ca(val)?;
+                    let val = parse_ca(val).ok_or(Error::UnableToParseCA(val.to_string()))?;
 
                     if ca.replace(val).is_some() {
-                        return None;
+                        return Err(Error::DuplicateField(tag.to_string()));
                     }
                 }
                 _ => {
@@ -197,16 +222,16 @@ impl<'a> NarInfo<'a> {
             }
         }
 
-        Some(NarInfo {
-            store_path: store_path?,
-            nar_hash: nar_hash?,
-            nar_size: nar_size?,
-            references: references?,
+        Ok(NarInfo {
+            store_path: store_path.ok_or(Error::MissingField("StorePath".to_string()))?,
+            nar_hash: nar_hash.ok_or(Error::MissingField("NarHash".to_string()))?,
+            nar_size: nar_size.ok_or(Error::MissingField("NarSize".to_string()))?,
+            references: references.ok_or(Error::MissingField("References".to_string()))?,
             signatures,
             ca,
             system,
             deriver,
-            url: url?,
+            url: url.ok_or(Error::MissingField("URL".to_string()))?,
             compression,
             file_hash,
             file_size,
@@ -271,8 +296,10 @@ pub struct Signature<'a> {
 }
 
 impl<'a> Signature<'a> {
-    pub fn parse(input: &'a str) -> Option<Signature<'a>> {
-        let (name, bytes64) = input.split_once(':')?;
+    pub fn parse(input: &'a str) -> Result<Signature<'a>, SignatureError> {
+        let (name, bytes64) = input
+            .split_once(':')
+            .ok_or(SignatureError::MissingSeparator)?;
 
         let mut buf = [0; 66];
         let mut bytes = [0; 64];
@@ -280,12 +307,12 @@ impl<'a> Signature<'a> {
             Ok(64) => {
                 bytes.copy_from_slice(&buf[..64]);
             }
-            _ => {
-                return None;
-            }
+            Ok(n) => return Err(SignatureError::InvalidSignatureLen(n)),
+            // keeping DecodePartial gets annoying lifetime-wise
+            Err(_) => return Err(SignatureError::DecodeError(input.to_string())),
         }
 
-        Some(Signature { name, bytes })
+        Ok(Signature { name, bytes })
     }
 
     pub fn name(&self) -> &'a str {
@@ -295,6 +322,16 @@ impl<'a> Signature<'a> {
     pub fn bytes(&self) -> &[u8; 64] {
         &self.bytes
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum SignatureError {
+    #[error("Missing separator")]
+    MissingSeparator,
+    #[error("Invalid signature len: {0}")]
+    InvalidSignatureLen(usize),
+    #[error("Unable to base64-decode signature: {0}")]
+    DecodeError(String),
 }
 
 impl Display for Signature<'_> {
@@ -372,6 +409,51 @@ impl Display for fmt_hash<'_> {
 
         write!(w, "{tag}:{}", nixbase32::encode(digest))
     }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("duplicate field: {0}")]
+    DuplicateField(String),
+
+    #[error("missing field: {0}")]
+    MissingField(String),
+
+    #[error("invalid line: {0}")]
+    InvalidLine(String),
+
+    #[error("invalid StorePath: {0}")]
+    InvalidStorePath(crate::store_path::Error),
+
+    #[error("field {0} may not be empty string")]
+    EmptyField(String),
+
+    #[error("invalid {0}: {1}")]
+    UnableToParseSize(String, String),
+
+    #[error("unable to parse #{0} reference: {1}")]
+    InvalidReference(usize, crate::store_path::Error),
+
+    #[error("reference at {0} is out of order")]
+    OutOfOrderReference(usize),
+
+    #[error("invalid Deriver store path: {0}")]
+    InvalidDeriverStorePath(crate::store_path::Error),
+
+    #[error("invalid Deriver store path, must end with .drv")]
+    InvalidDeriverStorePathMissingSuffix,
+
+    #[error("missing prefix for {0}")]
+    MissingPrefixForHash(String),
+
+    #[error("unable to decode {0}: {1}")]
+    UnableToDecodeHash(String, nixbase32::Nixbase32DecodeError),
+
+    #[error("unable to parse signature #{0}: {1}")]
+    UnableToParseSignature(usize, SignatureError),
+
+    #[error("unable to parse CA field: {0}")]
+    UnableToParseCA(String),
 }
 
 #[cfg(test)]
