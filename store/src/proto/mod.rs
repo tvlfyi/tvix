@@ -130,12 +130,12 @@ impl PathInfo {
                     // This is safe, because we ensured the proper length earlier already.
                     let reference_digest = self.references[i].to_vec().try_into().unwrap();
 
-                    if reference_names_store_path.digest != reference_digest {
+                    if reference_names_store_path.digest() != &reference_digest {
                         return Err(
                             ValidatePathInfoError::InconsistentNarinfoReferenceNameDigest(
                                 i,
                                 reference_digest,
-                                reference_names_store_path.digest,
+                                *reference_names_store_path.digest(),
                             ),
                         );
                     }

@@ -61,10 +61,10 @@ impl TvixStoreIO {
         sub_path: &Path,
     ) -> Result<Option<Node>, io::Error> {
         let path_info_service = self.path_info_service.clone();
-        let digest = store_path.digest;
-        let task = self
-            .tokio_handle
-            .spawn(async move { path_info_service.get(digest).await });
+        let task = self.tokio_handle.spawn({
+            let digest = *store_path.digest();
+            async move { path_info_service.get(digest).await }
+        });
         let path_info = match self.tokio_handle.block_on(task).unwrap()? {
             // If there's no PathInfo found, early exit
             None => return Ok(None),

@@ -119,7 +119,10 @@ impl PathInfoService for SledPathInfoService {
             ))),
             // In case the PathInfo is valid, and we were able to extract a NixPath, store it in the database.
             // This overwrites existing PathInfo objects.
-            Ok(nix_path) => match self.db.insert(nix_path.digest, path_info.encode_to_vec()) {
+            Ok(nix_path) => match self
+                .db
+                .insert(*nix_path.digest(), path_info.encode_to_vec())
+            {
                 Ok(_) => Ok(path_info),
                 Err(e) => {
                     warn!("failed to insert PathInfo: {}", e);

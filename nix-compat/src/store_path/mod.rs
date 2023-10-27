@@ -52,8 +52,18 @@ pub enum Error {
 /// path.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StorePath {
-    pub digest: [u8; DIGEST_SIZE],
-    pub name: String,
+    digest: [u8; DIGEST_SIZE],
+    name: String,
+}
+
+impl StorePath {
+    pub fn digest(&self) -> &[u8; DIGEST_SIZE] {
+        &self.digest
+    }
+
+    pub fn name(&self) -> &str {
+        self.name.as_ref()
+    }
 }
 
 impl PartialOrd for StorePath {
@@ -185,14 +195,6 @@ pub(crate) fn validate_name(s: &[u8]) -> Result<String, Error> {
     }
 
     Ok(String::from_utf8(s.to_vec()).unwrap())
-}
-
-/// Ensures the StorePath fulfils the requirements for store paths.
-/// Useful when populating the struct manually instead of parsing.
-pub fn validate(s: &StorePath) -> Result<(), Error> {
-    validate_name(s.name.as_bytes())?;
-
-    Ok(())
 }
 
 impl fmt::Display for StorePath {

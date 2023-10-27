@@ -74,7 +74,7 @@ impl PathInfoService for MemoryPathInfoService {
             // This overwrites existing PathInfo objects.
             Ok(nix_path) => {
                 let mut db = self.db.write().unwrap();
-                db.insert(nix_path.digest, path_info.clone());
+                db.insert(*nix_path.digest(), path_info.clone());
 
                 Ok(path_info)
             }

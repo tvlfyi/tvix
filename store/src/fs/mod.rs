@@ -169,9 +169,10 @@ impl TvixStoreFs {
         } else {
             // If we don't have it, look it up in PathInfoService.
             let path_info_service = self.path_info_service.clone();
-            let task = self
-                .tokio_handle
-                .spawn(async move { path_info_service.get(store_path.digest).await });
+            let task = self.tokio_handle.spawn({
+                let digest = *store_path.digest();
+                async move { path_info_service.get(digest).await }
+            });
             match self.tokio_handle.block_on(task).unwrap()? {
                 // the pathinfo doesn't exist, so the file doesn't exist.
                 None => Ok(None),
