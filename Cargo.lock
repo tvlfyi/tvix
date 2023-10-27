@@ -1013,6 +1013,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fed44880c466736ef9a5c5b5facefb5ed0785676d0c02d612db14e54f0d84286"
 
 [[package]]
+name = "hex-literal"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6fe2267d4ed49bc07b63801559be28c718ea06c4738b7a03c94df7386d2cde46"
+
+[[package]]
 name = "http"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1435,6 +1441,7 @@ dependencies = [
  "futures",
  "futures-util",
  "glob",
+ "hex-literal",
  "lazy_static",
  "nom",
  "serde",
@@ -2874,6 +2881,7 @@ dependencies = [
  "bytes",
  "data-encoding",
  "futures",
+ "hex-literal",
  "lazy_static",
  "pin-project-lite",
  "prost",

@@ -36,6 +36,7 @@ tonic-build = "0.10.2"
 test-case = "2.2.2"
 tempfile = "3.3.0"
 tokio-retry = "0.3.0"
+hex-literal = "0.4.1"
 
 [features]
 default = []

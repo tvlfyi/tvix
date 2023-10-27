@@ -300,13 +300,11 @@ mod tests {
         parse_error::ErrorKind, parser::from_algo_and_mode_and_digest, CAHash, NixHash, Output,
     };
     use bstr::{BString, ByteSlice};
+    use hex_literal::hex;
     use lazy_static::lazy_static;
     use test_case::test_case;
-    const DIGEST_SHA256: [u8; 32] = [
-        0xa5, 0xce, 0x9c, 0x15, 0x5e, 0xd0, 0x93, 0x97, 0x61, 0x46, 0x46, 0xc9, 0x71, 0x7f, 0xc7,
-        0xcd, 0x94, 0xb1, 0x02, 0x3d, 0x7b, 0x76, 0xb6, 0x18, 0xd4, 0x09, 0xe4, 0xfe, 0xfd, 0x6e,
-        0x9d, 0x39,
-    ];
+    const DIGEST_SHA256: [u8; 32] =
+        hex!("a5ce9c155ed09397614646c9717fc7cd94b1023d7b76b618d409e4fefd6e9d39");
 
     lazy_static! {
         pub static ref NIXHASH_SHA256: NixHash = NixHash::Sha256(DIGEST_SHA256);

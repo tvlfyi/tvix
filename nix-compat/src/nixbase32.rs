@@ -124,37 +124,28 @@ pub fn encode_len(len: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use hex_literal::hex;
     use test_case::test_case;
 
-    #[test_case("", vec![] ; "empty bytes")]
-    #[test_case("0z", vec![0x1f]; "one byte")]
-    #[test_case("00bgd045z0d4icpbc2yyz4gx48ak44la", vec![
-                 0x8a, 0x12, 0x32, 0x15, 0x22, 0xfd, 0x91, 0xef, 0xbd, 0x60, 0xeb, 0xb2, 0x48, 0x1a,
-                 0xf8, 0x85, 0x80, 0xf6, 0x16, 0x00]; "store path")]
-    #[test_case("0c5b8vw40dy178xlpddw65q9gf1h2186jcc3p4swinwggbllv8mk", vec![
-        0xb3, 0xa2, 0x4d, 0xe9, 0x7a, 0x8f, 0xdb, 0xc8, 0x35, 0xb9, 0x83, 0x31, 0x69, 0x50, 0x10, 0x30,
-        0xb8, 0x97, 0x70, 0x31, 0xbc, 0xb5, 0x4b, 0x3b, 0x3a, 0xc1, 0x37, 0x40, 0xf8, 0x46, 0xab, 0x30,
-    ]; "sha256")]
-    fn encode(enc: &str, dec: Vec<u8>) {
+    #[test_case("", &[]; "empty bytes")]
+    #[test_case("0z", &hex!("1f"); "one byte")]
+    #[test_case("00bgd045z0d4icpbc2yyz4gx48ak44la", &hex!("8a12321522fd91efbd60ebb2481af88580f61600"); "store path")]
+    #[test_case("0c5b8vw40dy178xlpddw65q9gf1h2186jcc3p4swinwggbllv8mk", &hex!("b3a24de97a8fdbc835b9833169501030b8977031bcb54b3b3ac13740f846ab30"); "sha256")]
+    fn encode(enc: &str, dec: &[u8]) {
         assert_eq!(enc, super::encode(&dec));
     }
 
-    #[test_case("", Some(vec![]) ; "empty bytes")]
-    #[test_case("0z", Some(vec![0x1f]); "one byte")]
-    #[test_case("00bgd045z0d4icpbc2yyz4gx48ak44la", Some(vec![
-                 0x8a, 0x12, 0x32, 0x15, 0x22, 0xfd, 0x91, 0xef, 0xbd, 0x60, 0xeb, 0xb2, 0x48, 0x1a,
-                 0xf8, 0x85, 0x80, 0xf6, 0x16, 0x00]); "store path")]
-    #[test_case("0c5b8vw40dy178xlpddw65q9gf1h2186jcc3p4swinwggbllv8mk", Some(vec![
-        0xb3, 0xa2, 0x4d, 0xe9, 0x7a, 0x8f, 0xdb, 0xc8, 0x35, 0xb9, 0x83, 0x31, 0x69, 0x50, 0x10, 0x30,
-        0xb8, 0x97, 0x70, 0x31, 0xbc, 0xb5, 0x4b, 0x3b, 0x3a, 0xc1, 0x37, 0x40, 0xf8, 0x46, 0xab, 0x30,
-    ]); "sha256")]
+    #[test_case("", Some(&[]) ; "empty bytes")]
+    #[test_case("0z", Some(&hex!("1f")); "one byte")]
+    #[test_case("00bgd045z0d4icpbc2yyz4gx48ak44la", Some(&hex!("8a12321522fd91efbd60ebb2481af88580f61600")); "store path")]
+    #[test_case("0c5b8vw40dy178xlpddw65q9gf1h2186jcc3p4swinwggbllv8mk", Some(&hex!("b3a24de97a8fdbc835b9833169501030b8977031bcb54b3b3ac13740f846ab30")); "sha256")]
     // this is invalid encoding, because it encodes 10 1-bits, so the carry
     // would be 2 1-bits
     #[test_case("zz", None; "invalid encoding-1")]
     // this is an even more specific example - it'd decode as 00000000 11
     #[test_case("c0", None; "invalid encoding-2")]
 
-    fn decode(enc: &str, dec: Option<Vec<u8>>) {
+    fn decode(enc: &str, dec: Option<&[u8]>) {
         match dec {
             Some(dec) => {
                 // The decode needs to match what's passed in dec

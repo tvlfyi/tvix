@@ -2935,6 +2935,16 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" ];
       };
+      "hex-literal" = rec {
+        crateName = "hex-literal";
+        version = "0.4.1";
+        edition = "2021";
+        sha256 = "0iny5inkixsdr41pm2vkqh3fl66752z5j5c0cdxw16yl9ryjdqkg";
+        authors = [
+          "RustCrypto Developers"
+        ];
+
+      };
       "http" = rec {
         crateName = "http";
         version = "0.2.9";
@@ -4240,6 +4250,10 @@ rec {
             packageId = "futures";
             usesDefaultFeatures = false;
             features = [ "executor" ];
+          }
+          {
+            name = "hex-literal";
+            packageId = "hex-literal";
           }
           {
             name = "lazy_static";
@@ -8677,6 +8691,10 @@ rec {
           }
         ];
         devDependencies = [
+          {
+            name = "hex-literal";
+            packageId = "hex-literal";
+          }
           {
             name = "tempfile";
             packageId = "tempfile";

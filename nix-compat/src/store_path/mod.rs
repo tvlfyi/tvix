@@ -210,6 +210,7 @@ mod tests {
 
     use crate::nixbase32;
     use crate::store_path::{DIGEST_SIZE, ENCODED_DIGEST_SIZE};
+    use hex_literal::hex;
     use test_case::test_case;
 
     use super::{Error, StorePath};
@@ -226,10 +227,7 @@ mod tests {
         let nixpath = StorePath::from_bytes(example_nix_path_str.as_bytes())
             .expect("Error parsing example string");
 
-        let expected_digest: [u8; DIGEST_SIZE] = [
-            0x8a, 0x12, 0x32, 0x15, 0x22, 0xfd, 0x91, 0xef, 0xbd, 0x60, 0xeb, 0xb2, 0x48, 0x1a,
-            0xf8, 0x85, 0x80, 0xf6, 0x16, 0x00,
-        ];
+        let expected_digest: [u8; DIGEST_SIZE] = hex!("8a12321522fd91efbd60ebb2481af88580f61600");
 
         assert_eq!("net-tools-1.60_p20170221182432", nixpath.name);
         assert_eq!(nixpath.digest, expected_digest);
