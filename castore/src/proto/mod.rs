@@ -48,7 +48,7 @@ pub enum ValidateNodeError {
     InvalidDigestLen(usize),
     /// Invalid name encountered
     #[error("Invalid name")]
-    InvalidName(),
+    InvalidName,
     /// Invalid symlink target
     #[error("Invalid symlink target: {}", .0.as_bstr())]
     InvalidSymlinkTarget(Vec<u8>),
@@ -63,7 +63,7 @@ fn validate_node_name(name: &[u8]) -> Result<(), ValidateNodeError> {
         || name.contains(&0x00)
         || name.contains(&b'/')
     {
-        Err(ValidateNodeError::InvalidName())?;
+        Err(ValidateNodeError::InvalidName)?;
     }
     Ok(())
 }

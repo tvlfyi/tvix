@@ -29,7 +29,7 @@ pub enum ValidatePathInfoError {
 
     /// No node present
     #[error("No node present")]
-    NoNodePresent(),
+    NoNodePresent,
 
     /// Node fails validation
     #[error("Invalid root node: {:?}", .0.to_string())]
@@ -159,7 +159,7 @@ impl PathInfo {
         // Ensure there is a (root) node present, and it properly parses to a [store_path::StorePath].
         let root_nix_path = match &self.node {
             None | Some(castorepb::Node { node: None }) => {
-                Err(ValidatePathInfoError::NoNodePresent())?
+                Err(ValidatePathInfoError::NoNodePresent)?
             }
             Some(castorepb::Node { node: Some(node) }) => {
                 node.validate()

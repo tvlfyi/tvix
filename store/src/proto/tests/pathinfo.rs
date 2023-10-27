@@ -8,12 +8,12 @@ use tvix_castore::proto as castorepb;
 
 #[test_case(
     None,
-    Err(ValidatePathInfoError::NoNodePresent()) ;
+    Err(ValidatePathInfoError::NoNodePresent) ;
     "No node"
 )]
 #[test_case(
     Some(castorepb::Node { node: None }),
-    Err(ValidatePathInfoError::NoNodePresent());
+    Err(ValidatePathInfoError::NoNodePresent);
     "No node 2"
 )]
 fn validate_no_node(
@@ -54,7 +54,7 @@ fn validate_no_node(
     },
     Err(ValidatePathInfoError::InvalidNodeName(
         "invalid".into(),
-        store_path::Error::InvalidLength()
+        store_path::Error::InvalidLength
     ));
     "invalid node name"
 )]
@@ -99,7 +99,7 @@ fn validate_directory(
     },
     Err(ValidatePathInfoError::InvalidNodeName(
         "invalid".into(),
-        store_path::Error::InvalidLength()
+        store_path::Error::InvalidLength
     ));
     "invalid node name"
 )]
@@ -132,7 +132,7 @@ fn validate_file(
     },
     Err(ValidatePathInfoError::InvalidNodeName(
         "invalid".into(),
-        store_path::Error::InvalidLength()
+        store_path::Error::InvalidLength
     ));
     "invalid node name"
 )]

@@ -28,11 +28,11 @@ pub const STORE_DIR_WITH_SLASH: &str = "/nix/store/";
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum Error {
     #[error("Dash is missing between hash and name")]
-    MissingDash(),
+    MissingDash,
     #[error("Hash encoding is invalid: {0}")]
     InvalidHashEncoding(Nixbase32DecodeError),
     #[error("Invalid length")]
-    InvalidLength(),
+    InvalidLength,
     #[error(
         "Invalid name: \"{}\", character at position {} is invalid",
         std::str::from_utf8(.0).unwrap_or(&BASE64.encode(.0)),
@@ -40,7 +40,7 @@ pub enum Error {
     )]
     InvalidName(Vec<u8>, u8),
     #[error("Tried to parse an absolute path which was missing the store dir prefix.")]
-    MissingStoreDir(),
+    MissingStoreDir,
 }
 
 /// Represents a path in the Nix store (a direct child of [STORE_DIR]).
@@ -102,7 +102,7 @@ impl StorePath {
         // - 1 dash
         // - 1 character for the name
         if s.len() < ENCODED_DIGEST_SIZE + 2 {
-            Err(Error::InvalidLength())?
+            Err(Error::InvalidLength)?
         }
 
         let digest = match nixbase32::decode(&s[..ENCODED_DIGEST_SIZE]) {
@@ -111,7 +111,7 @@ impl StorePath {
         };
 
         if s[ENCODED_DIGEST_SIZE] != b'-' {
-            return Err(Error::MissingDash());
+            return Err(Error::MissingDash);
         }
 
         Ok(StorePath {
@@ -126,7 +126,7 @@ impl StorePath {
     pub fn from_absolute_path(s: &[u8]) -> Result<StorePath, Error> {
         match s.strip_prefix(STORE_DIR_WITH_SLASH.as_bytes()) {
             Some(s_stripped) => Self::from_bytes(s_stripped),
-            None => Err(Error::MissingStoreDir()),
+            None => Err(Error::MissingStoreDir),
         }
     }
 
@@ -134,7 +134,7 @@ impl StorePath {
     pub fn from_name_and_digest(name: String, digest: &[u8]) -> Result<StorePath, Error> {
         Ok(Self {
             name: validate_name(name.as_bytes())?.to_owned(),
-            digest: digest.try_into().map_err(|_| Error::InvalidLength())?,
+            digest: digest.try_into().map_err(|_| Error::InvalidLength)?,
         })
     }
 
@@ -144,7 +144,7 @@ impl StorePath {
     pub fn from_absolute_path_full(s: &str) -> Result<(StorePath, PathBuf), Error> {
         // strip [STORE_DIR_WITH_SLASH] from s
         match s.strip_prefix(STORE_DIR_WITH_SLASH) {
-            None => Err(Error::MissingStoreDir()),
+            None => Err(Error::MissingStoreDir),
             Some(rest) => {
                 // put rest in a PathBuf
                 let mut p = PathBuf::new();
@@ -161,7 +161,7 @@ impl StorePath {
                     let rest_buf: PathBuf = it.collect();
                     Ok((store_path, rest_buf))
                 } else {
-                    Err(Error::InvalidLength()) // Well, or missing "/"?
+                    Err(Error::InvalidLength) // Well, or missing "/"?
                 }
             }
         }
@@ -205,7 +205,7 @@ pub(crate) fn validate_name(s: &(impl AsRef<[u8]> + ?Sized)) -> Result<&str, Err
 
     // Empty or excessively long names are not allowed.
     if s.is_empty() || s.len() > 211 {
-        return Err(Error::InvalidLength());
+        return Err(Error::InvalidLength);
     }
 
     if s[0] == b'.' {
@@ -341,7 +341,7 @@ mod tests {
     #[test]
     fn absolute_path_missing_prefix() {
         assert_eq!(
-            Error::MissingStoreDir(),
+            Error::MissingStoreDir,
             StorePath::from_absolute_path(b"foobar-123").expect_err("must fail")
         );
     }
@@ -370,15 +370,15 @@ mod tests {
     #[test]
     fn from_absolute_path_errors() {
         assert_eq!(
-            Error::InvalidLength(),
+            Error::InvalidLength,
             StorePath::from_absolute_path_full("/nix/store/").expect_err("must fail")
         );
         assert_eq!(
-            Error::InvalidLength(),
+            Error::InvalidLength,
             StorePath::from_absolute_path_full("/nix/store/foo").expect_err("must fail")
         );
         assert_eq!(
-            Error::MissingStoreDir(),
+            Error::MissingStoreDir,
             StorePath::from_absolute_path_full(
                 "00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432"
             )

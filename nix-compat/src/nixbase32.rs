@@ -19,7 +19,7 @@ pub enum Nixbase32DecodeError {
     #[error("character {0:x} not in alphabet")]
     CharacterNotInAlphabet(u8),
     #[error("nonzero carry")]
-    NonzeroCarry(),
+    NonzeroCarry,
     #[error("invalid length")]
     InvalidLength,
 }
@@ -118,7 +118,7 @@ fn decode_inner(input: &[u8], output: &mut [u8]) -> Result<(), Nixbase32DecodeEr
 
     // if we're at the end, but have a nonzero carry, the encoding is invalid.
     if carry != 0 {
-        return Err(Nixbase32DecodeError::NonzeroCarry());
+        return Err(Nixbase32DecodeError::NonzeroCarry);
     }
 
     Ok(())
