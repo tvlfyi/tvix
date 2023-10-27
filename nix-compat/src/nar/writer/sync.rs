@@ -29,7 +29,6 @@
 //! ```
 
 use crate::nar::wire;
-use bstr::ByteSlice;
 use std::io::{
     self, BufRead,
     ErrorKind::{InvalidInput, UnexpectedEof},
@@ -186,6 +185,7 @@ impl<'a, 'w> Directory<'a, 'w> {
             Some(ref mut _prev_name) => {
                 #[cfg(debug_assertions)]
                 {
+                    use bstr::ByteSlice;
                     assert!(
                         &**_prev_name < name,
                         "misordered names: {:?} >= {:?}",

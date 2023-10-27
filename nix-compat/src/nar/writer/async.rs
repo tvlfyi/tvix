@@ -31,7 +31,6 @@
 //! ```
 
 use crate::nar::wire;
-use bstr::ByteSlice;
 use futures_util::{AsyncBufRead, AsyncBufReadExt, AsyncWrite, AsyncWriteExt};
 use std::{
     io::{
@@ -197,6 +196,7 @@ impl<'a, 'w> Directory<'a, 'w> {
             Some(ref mut _prev_name) => {
                 #[cfg(debug_assertions)]
                 {
+                    use bstr::ByteSlice;
                     assert!(
                         &**_prev_name < name,
                         "misordered names: {:?} >= {:?}",
