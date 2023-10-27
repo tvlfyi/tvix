@@ -1,7 +1,7 @@
 #![allow(clippy::derive_partial_eq_without_eq, non_snake_case)]
 // https://github.com/hyperium/tonic/issues/1056
 use bstr::ByteSlice;
-use std::{collections::HashSet, iter::Peekable};
+use std::{collections::HashSet, iter::Peekable, str};
 
 use prost::Message;
 
@@ -47,8 +47,8 @@ pub enum ValidateNodeError {
     #[error("Invalid Digest length: {0}")]
     InvalidDigestLen(usize),
     /// Invalid name encountered
-    #[error("Invalid name")]
-    InvalidName,
+    #[error("Invalid name: {}", .0.as_bstr())]
+    InvalidName(Vec<u8>),
     /// Invalid symlink target
     #[error("Invalid symlink target: {}", .0.as_bstr())]
     InvalidSymlinkTarget(Vec<u8>),
@@ -63,9 +63,10 @@ fn validate_node_name(name: &[u8]) -> Result<(), ValidateNodeError> {
         || name.contains(&0x00)
         || name.contains(&b'/')
     {
-        Err(ValidateNodeError::InvalidName)?;
+        Err(ValidateNodeError::InvalidName(name.to_owned()))
+    } else {
+        Ok(())
     }
-    Ok(())
 }
 
 /// NamedNode is implemented for [FileNode], [DirectoryNode] and [SymlinkNode]
@@ -122,14 +123,14 @@ impl node::Node {
                         directory_node.digest.len(),
                     ))?;
                 }
-                validate_node_name(&directory_node.name)?;
+                validate_node_name(&directory_node.name)
             }
             // for a file root node, ensure the digest has the appropriate size.
             node::Node::File(file_node) => {
                 if file_node.digest.len() != B3_LEN {
                     Err(ValidateNodeError::InvalidDigestLen(file_node.digest.len()))?;
                 }
-                validate_node_name(&file_node.name)?;
+                validate_node_name(&file_node.name)
             }
             // ensure the symlink target is not empty and doesn't contain null bytes.
             node::Node::Symlink(symlink_node) => {
@@ -138,10 +139,9 @@ impl node::Node {
                         symlink_node.target.to_vec(),
                     ))?;
                 }
-                validate_node_name(&symlink_node.name)?;
+                validate_node_name(&symlink_node.name)
             }
         }
-        Ok(())
     }
 }
 

@@ -165,7 +165,7 @@ fn validate_invalid_names() {
             ..Default::default()
         };
         match d.validate().expect_err("must fail") {
-            ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName) => {
+            ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName(_)) => {
                 assert_eq!(n, b"")
             }
             _ => panic!("unexpected error"),
@@ -182,7 +182,7 @@ fn validate_invalid_names() {
             ..Default::default()
         };
         match d.validate().expect_err("must fail") {
-            ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName) => {
+            ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName(_)) => {
                 assert_eq!(n, b".")
             }
             _ => panic!("unexpected error"),
@@ -200,7 +200,7 @@ fn validate_invalid_names() {
             ..Default::default()
         };
         match d.validate().expect_err("must fail") {
-            ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName) => {
+            ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName(_)) => {
                 assert_eq!(n, b"..")
             }
             _ => panic!("unexpected error"),
@@ -216,7 +216,7 @@ fn validate_invalid_names() {
             ..Default::default()
         };
         match d.validate().expect_err("must fail") {
-            ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName) => {
+            ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName(_)) => {
                 assert_eq!(n, b"\x00")
             }
             _ => panic!("unexpected error"),
@@ -232,7 +232,7 @@ fn validate_invalid_names() {
             ..Default::default()
         };
         match d.validate().expect_err("must fail") {
-            ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName) => {
+            ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName(_)) => {
                 assert_eq!(n, b"foo/bar")
             }
             _ => panic!("unexpected error"),
