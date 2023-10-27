@@ -104,10 +104,7 @@ pub fn decode_len(len: usize) -> usize {
 
 /// Returns the encoded length of an input of length len
 pub fn encode_len(len: usize) -> usize {
-    if len == 0 {
-        return 0;
-    }
-    (len * 8 - 1) / 5 + 1
+    (len * 8 + 4) / 5
 }
 
 #[cfg(test)]
@@ -157,11 +154,13 @@ mod tests {
 
     #[test]
     fn encode_len() {
-        assert_eq!(super::encode_len(20), 32)
+        assert_eq!(super::encode_len(0), 0);
+        assert_eq!(super::encode_len(20), 32);
     }
 
     #[test]
     fn decode_len() {
-        assert_eq!(super::decode_len(32), 20)
+        assert_eq!(super::decode_len(0), 0);
+        assert_eq!(super::decode_len(32), 20);
     }
 }
