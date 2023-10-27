@@ -29,24 +29,23 @@ pub fn encode(input: &[u8]) -> String {
     let output_len = encode_len(input.len());
     let mut output = String::with_capacity(output_len);
 
-    if output_len > 0 {
-        for n in (0..=output_len - 1).rev() {
-            let b = n * 5; // bit offset within the entire input
-            let i = b / 8; // input byte index
-            let j = b % 8; // bit offset within that input byte
+    for n in (0..output_len).rev() {
+        let b = n * 5; // bit offset within the entire input
+        let i = b / 8; // input byte index
+        let j = b % 8; // bit offset within that input byte
 
-            let mut c = input[i] >> j;
-            if i + 1 < input.len() {
-                // we want to right shift, and discard shifted out bits (unchecked)
-                // To do this without panicing, we need to do the shifting in u16
-                // and convert back to u8 afterwards.
-                c |= ((input[i + 1] as u16) << (8 - j as u16)) as u8
+        // 5-bit words aren't aligned to bytes
+        // we can only read byte-aligned units
+        // read 16 bits then shift and mask to 5
+        let c = {
+            let mut word = input[i] as u16;
+            if let Some(&msb) = input.get(i + 1) {
+                word |= (msb as u16) << 8;
             }
+            (word >> j) & 0x1f
+        };
 
-            output
-                .write_char(ALPHABET[(c & 0x1f) as usize] as char)
-                .unwrap();
-        }
+        output.write_char(ALPHABET[c as usize] as char).unwrap();
     }
 
     output
