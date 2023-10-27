@@ -203,10 +203,8 @@ impl<'a> StorePathRef<'a> {
             Err(Error::InvalidLength)?
         }
 
-        let digest = match nixbase32::decode(&s[..ENCODED_DIGEST_SIZE]) {
-            Ok(decoded) => decoded,
-            Err(decoder_error) => return Err(Error::InvalidHashEncoding(decoder_error)),
-        };
+        let digest = nixbase32::decode_fixed(&s[..ENCODED_DIGEST_SIZE])
+            .map_err(Error::InvalidHashEncoding)?;
 
         if s[ENCODED_DIGEST_SIZE] != b'-' {
             return Err(Error::MissingDash);
