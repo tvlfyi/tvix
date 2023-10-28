@@ -35,7 +35,7 @@ pub fn parse(c: &mut Criterion) {
         g.throughput(Throughput::Bytes(SAMPLE.len() as u64));
         g.bench_with_input("single", SAMPLE, |b, data| {
             b.iter(|| {
-                black_box(NarInfo::parse(black_box(data)));
+                black_box(NarInfo::parse(black_box(data)).ok().unwrap());
             });
         });
     }
@@ -52,7 +52,11 @@ pub fn parse(c: &mut Criterion) {
             let mut vec = vec![];
             b.iter(|| {
                 vec.clear();
-                vec.extend(black_box(data).iter().map(|s| NarInfo::parse(s)));
+                vec.extend(
+                    black_box(data)
+                        .iter()
+                        .map(|s| NarInfo::parse(s).ok().unwrap()),
+                );
                 black_box(&vec);
             });
         });
