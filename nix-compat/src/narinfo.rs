@@ -80,11 +80,11 @@ impl<'a> NarInfo<'a> {
         for line in input.lines() {
             let (tag, val) = line
                 .split_once(':')
-                .ok_or(Error::InvalidLine(line.to_string()))?;
+                .ok_or_else(|| Error::InvalidLine(line.to_string()))?;
 
             let val = val
                 .strip_prefix(' ')
-                .ok_or(Error::InvalidLine(line.to_string()))?;
+                .ok_or_else(|| Error::InvalidLine(line.to_string()))?;
 
             match tag {
                 "StorePath" => {
@@ -121,7 +121,7 @@ impl<'a> NarInfo<'a> {
                 "FileHash" => {
                     let val = val
                         .strip_prefix("sha256:")
-                        .ok_or(Error::MissingPrefixForHash(tag.to_string()))?;
+                        .ok_or_else(|| Error::MissingPrefixForHash(tag.to_string()))?;
                     let val = nixbase32::decode_fixed::<32>(val)
                         .map_err(|e| Error::UnableToDecodeHash(tag.to_string(), e))?;
 
@@ -141,7 +141,7 @@ impl<'a> NarInfo<'a> {
                 "NarHash" => {
                     let val = val
                         .strip_prefix("sha256:")
-                        .ok_or(Error::MissingPrefixForHash(tag.to_string()))?;
+                        .ok_or_else(|| Error::MissingPrefixForHash(tag.to_string()))?;
 
                     let val = nixbase32::decode_fixed::<32>(val)
                         .map_err(|e| Error::UnableToDecodeHash(tag.to_string(), e))?;
@@ -210,7 +210,8 @@ impl<'a> NarInfo<'a> {
                     signatures.push(val);
                 }
                 "CA" => {
-                    let val = parse_ca(val).ok_or(Error::UnableToParseCA(val.to_string()))?;
+                    let val =
+                        parse_ca(val).ok_or_else(|| Error::UnableToParseCA(val.to_string()))?;
 
                     if ca.replace(val).is_some() {
                         return Err(Error::DuplicateField(tag.to_string()));
@@ -223,15 +224,15 @@ impl<'a> NarInfo<'a> {
         }
 
         Ok(NarInfo {
-            store_path: store_path.ok_or(Error::MissingField("StorePath".to_string()))?,
-            nar_hash: nar_hash.ok_or(Error::MissingField("NarHash".to_string()))?,
-            nar_size: nar_size.ok_or(Error::MissingField("NarSize".to_string()))?,
-            references: references.ok_or(Error::MissingField("References".to_string()))?,
+            store_path: store_path.ok_or(Error::MissingField("StorePath"))?,
+            nar_hash: nar_hash.ok_or(Error::MissingField("NarHash"))?,
+            nar_size: nar_size.ok_or(Error::MissingField("NarSize"))?,
+            references: references.ok_or(Error::MissingField("References"))?,
             signatures,
             ca,
             system,
             deriver,
-            url: url.ok_or(Error::MissingField("URL".to_string()))?,
+            url: url.ok_or(Error::MissingField("URL"))?,
             compression,
             file_hash,
             file_size,
@@ -417,7 +418,7 @@ pub enum Error {
     DuplicateField(String),
 
     #[error("missing field: {0}")]
-    MissingField(String),
+    MissingField(&'static str),
 
     #[error("invalid line: {0}")]
     InvalidLine(String),
