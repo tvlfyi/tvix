@@ -299,6 +299,12 @@ impl NixAttrs {
         })
     }
 
+    /// Same as iter(), but marks call sites which rely on the
+    /// iteration being lexicographic.
+    pub fn iter_sorted<'a>(&'a self) -> Iter<KeyValue<'a>> {
+        self.iter()
+    }
+
     pub fn into_iter(self) -> IntoIter {
         match self.0 {
             AttrsRep::Empty => IntoIter(IntoIterRepr::Empty),
