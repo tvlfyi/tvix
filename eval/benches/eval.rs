@@ -8,8 +8,7 @@ fn interpret(code: &str) {
 fn eval_literals(c: &mut Criterion) {
     c.bench_function("int", |b| {
         b.iter(|| {
-            interpret("42");
-            black_box(())
+            interpret(black_box("42"));
         })
     });
 }
@@ -17,8 +16,7 @@ fn eval_literals(c: &mut Criterion) {
 fn eval_merge_attrs(c: &mut Criterion) {
     c.bench_function("merge small attrs", |b| {
         b.iter(|| {
-            interpret("{ a = 1; b = 2; } // { c = 3; }");
-            black_box(())
+            interpret(black_box("{ a = 1; b = 2; } // { c = 3; }"));
         })
     });
 
@@ -29,8 +27,7 @@ fn eval_merge_attrs(c: &mut Criterion) {
         );
         let expr = format!("{large_attrs} // {{ c = 3; }}");
         b.iter(move || {
-            interpret(&expr);
-            black_box(())
+            interpret(black_box(&expr));
         })
     });
 }
