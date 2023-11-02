@@ -505,8 +505,8 @@ impl Value {
                     return Ok(Value::Bool(false));
                 }
 
-                let iter1 = a1.into_iter_sorted();
-                let iter2 = a2.into_iter_sorted();
+                let iter1 = a1.iter_sorted();
+                let iter2 = a2.iter_sorted();
 
                 for ((k1, v1), (k2, v2)) in iter1.zip(iter2) {
                     if k1 != k2 {
@@ -515,8 +515,8 @@ impl Value {
 
                     if !generators::check_equality(
                         &co,
-                        v1,
-                        v2,
+                        v1.clone(),
+                        v2.clone(),
                         std::cmp::max(ptr_eq, PointerEquality::AllowNested),
                     )
                     .await?
