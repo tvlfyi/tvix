@@ -468,7 +468,7 @@ pub use derivation_builtins::builtins as derivation_builtins;
 
 #[cfg(test)]
 mod tests {
-    use crate::known_paths::KnownPaths;
+    use crate::{add_derivation_builtins, known_paths::KnownPaths};
     use nix_compat::store_path::hash_placeholder;
     use std::{cell::RefCell, rc::Rc};
     use test_case::test_case;
@@ -482,12 +482,7 @@ mod tests {
 
         let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
 
-        eval.builtins
-            .extend(crate::derivation::derivation_builtins(known_paths));
-
-        // Add the actual `builtins.derivation` from compiled Nix code
-        eval.src_builtins
-            .push(("derivation", include_str!("derivation.nix")));
+        add_derivation_builtins(&mut eval, known_paths.clone());
 
         // run the evaluation itself.
         eval.evaluate()
