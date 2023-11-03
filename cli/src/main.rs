@@ -1,24 +1,18 @@
-mod derivation;
-mod errors;
-mod known_paths;
-mod refscan;
-mod tvix_io;
-mod tvix_store_io;
-
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::{fs, path::PathBuf};
+use tvix_glue::add_derivation_builtins;
+use tvix_glue::known_paths::KnownPaths;
 
 use clap::Parser;
-use known_paths::KnownPaths;
 use rustyline::{error::ReadlineError, Editor};
 use tvix_castore::blobservice::MemoryBlobService;
 use tvix_castore::directoryservice::MemoryDirectoryService;
 use tvix_eval::observer::{DisassemblingObserver, TracingObserver};
 use tvix_eval::Value;
+use tvix_glue::tvix_store_io::TvixStoreIO;
 use tvix_store::pathinfoservice::MemoryPathInfoService;
-use tvix_store_io::TvixStoreIO;
 
 #[derive(Parser)]
 struct Args {
@@ -69,7 +63,6 @@ struct Args {
 /// evaluation succeeded.
 fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> bool {
     let mut eval = tvix_eval::Evaluation::new_impure(code, path);
-    let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
 
     eval.strict = args.strict;
 
@@ -80,9 +73,11 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
         directory_service.clone(),
     ));
 
-    let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
+    let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
+    add_derivation_builtins(&mut eval, known_paths.clone());
 
-    eval.io_handle = Box::new(tvix_io::TvixIO::new(
+    let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
+    eval.io_handle = Box::new(tvix_glue::tvix_io::TvixIO::new(
         known_paths.clone(),
         TvixStoreIO::new(
             blob_service,
@@ -99,13 +94,6 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
         .as_ref()
         .map(|p| format!("nix=/__corepkgs__:{}", p))
         .or_else(|| Some("nix=/__corepkgs__".to_string()));
-
-    eval.builtins
-        .extend(derivation::derivation_builtins(known_paths));
-
-    // Add the actual `builtins.derivation` from compiled Nix code
-    eval.src_builtins
-        .push(("derivation", include_str!("derivation.nix")));
 
     let source_map = eval.source_map();
     let result = {

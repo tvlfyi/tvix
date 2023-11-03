@@ -8,15 +8,16 @@
 //! otherwise fundamental features like nixpkgs bootstrapping and hash
 //! calculation will not work.
 
-use crate::KnownPaths;
 use std::cell::RefCell;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use tvix_eval::{EvalIO, FileType};
 
+use crate::known_paths::KnownPaths;
+
 // TODO: Merge this together with TvixStoreIO?
-pub(crate) struct TvixIO<T: EvalIO> {
+pub struct TvixIO<T: EvalIO> {
     /// Ingested paths must be reported to this known paths tracker
     /// for accurate build reference scanning.
     known_paths: Rc<RefCell<KnownPaths>>,
@@ -26,7 +27,7 @@ pub(crate) struct TvixIO<T: EvalIO> {
 }
 
 impl<T: EvalIO> TvixIO<T> {
-    pub(crate) fn new(known_paths: Rc<RefCell<KnownPaths>>, actual: T) -> Self {
+    pub fn new(known_paths: Rc<RefCell<KnownPaths>>, actual: T) -> Self {
         Self {
             known_paths,
             actual,

@@ -23,6 +23,7 @@ members = [
   "cli",
   "eval",
   "eval/builtin-macros",
+  "glue",
   "nix_cli",
   "nix-compat",
   "serde",

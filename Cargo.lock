@@ -2899,6 +2899,7 @@ dependencies = [
  "tracing",
  "tvix-castore",
  "tvix-eval",
+ "tvix-glue",
  "tvix-store",
  "wu-manber",
 ]
@@ -2943,6 +2944,22 @@ dependencies = [
  "quote 1.0.26",
  "syn 1.0.109",
  "tvix-eval",
+]
+
+[[package]]
+name = "tvix-glue"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "nix-compat",
+ "test-case",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tvix-castore",
+ "tvix-eval",
+ "tvix-store",
+ "wu-manber",
 ]
 
 [[package]]
