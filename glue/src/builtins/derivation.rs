@@ -1,4 +1,6 @@
 //! Implements `builtins.derivation`, the core of what makes Nix build packages.
+use crate::builtins::DerivationError;
+use crate::known_paths::{KnownPaths, PathKind, PathName};
 use nix_compat::derivation::{Derivation, Output};
 use nix_compat::nixhash;
 use std::cell::RefCell;
@@ -9,9 +11,6 @@ use tvix_eval::generators::{self, emit_warning_kind, GenCo};
 use tvix_eval::{
     AddContext, CatchableErrorKind, CoercionKind, ErrorKind, NixAttrs, NixList, Value, WarningKind,
 };
-
-use crate::errors::Error;
-use crate::known_paths::{KnownPaths, PathKind, PathName};
 
 // Constants used for strangely named fields in derivation inputs.
 const STRUCTURED_ATTRS: &str = "__structuredAttrs";
@@ -39,7 +38,7 @@ async fn populate_outputs(
             .insert(output_name.as_str().into(), Default::default())
             .is_some()
         {
-            return Err(Error::DuplicateOutput(output_name.as_str().into()).into());
+            return Err(DerivationError::DuplicateOutput(output_name.as_str().into()).into());
         }
     }
 
@@ -125,7 +124,7 @@ fn handle_fixed_output(
 
         // construct a NixHash.
         let nixhash = nixhash::from_str(&hash_str, hash_algo_str.as_deref())
-            .map_err(Error::InvalidOutputHash)?;
+            .map_err(DerivationError::InvalidOutputHash)?;
 
         // construct the fixed output.
         drv.outputs.insert(
@@ -135,7 +134,9 @@ fn handle_fixed_output(
                 ca_hash: match hash_mode_str.as_deref() {
                     None | Some("flat") => Some(nixhash::CAHash::Flat(nixhash)),
                     Some("recursive") => Some(nixhash::CAHash::Nar(nixhash)),
-                    Some(other) => return Err(Error::InvalidOutputHashMode(other.to_string()))?,
+                    Some(other) => {
+                        return Err(DerivationError::InvalidOutputHashMode(other.to_string()))?
+                    }
                 },
             },
         );
@@ -205,7 +206,7 @@ async fn strong_coerce_to_string(
 }
 
 #[builtins(state = "Rc<RefCell<KnownPaths>>")]
-mod derivation_builtins {
+pub(crate) mod derivation_builtins {
     use super::*;
     use nix_compat::store_path::hash_placeholder;
     use tvix_eval::generators::Gen;
@@ -306,7 +307,9 @@ mod derivation_builtins {
                         .insert(name.as_str().to_string(), val_str.into())
                         .is_some()
                     {
-                        return Err(Error::DuplicateEnvVar(name.as_str().to_string()).into());
+                        return Err(
+                            DerivationError::DuplicateEnvVar(name.as_str().to_string()).into()
+                        );
                     }
                 }
             }
@@ -371,7 +374,8 @@ mod derivation_builtins {
 
         // At this point, derivation fields are fully populated from
         // eval data structures.
-        drv.validate(false).map_err(Error::InvalidDerivation)?;
+        drv.validate(false)
+            .map_err(DerivationError::InvalidDerivation)?;
 
         // Calculate the derivation_or_fod_hash for the current derivation.
         // This one is still intermediate (so not added to known_paths)
@@ -380,11 +384,11 @@ mod derivation_builtins {
 
         // Mutate the Derivation struct and set output paths
         drv.calculate_output_paths(&name, &derivation_or_fod_hash_tmp)
-            .map_err(Error::InvalidDerivation)?;
+            .map_err(DerivationError::InvalidDerivation)?;
 
         let derivation_path = drv
             .calculate_derivation_path(&name)
-            .map_err(Error::InvalidDerivation)?;
+            .map_err(DerivationError::InvalidDerivation)?;
 
         // recompute the hash derivation modulo and add to known_paths
         let derivation_or_fod_hash_final =
@@ -453,7 +457,7 @@ mod derivation_builtins {
                     name.as_str().to_string(),
                 )
             })
-            .map_err(Error::InvalidDerivation)?
+            .map_err(DerivationError::InvalidDerivation)?
             .to_absolute_path();
 
         state.borrow_mut().plain(&path);
@@ -465,132 +469,3 @@ mod derivation_builtins {
 }
 
 pub use derivation_builtins::builtins as derivation_builtins;
-
-#[cfg(test)]
-mod tests {
-    use crate::{add_derivation_builtins, known_paths::KnownPaths};
-    use nix_compat::store_path::hash_placeholder;
-    use std::{cell::RefCell, rc::Rc};
-    use test_case::test_case;
-    use tvix_eval::EvaluationResult;
-
-    /// evaluates a given nix expression and returns the result.
-    /// Takes care of setting up the evaluator so it knows about the
-    // `derivation` builtin.
-    fn eval(str: &str) -> EvaluationResult {
-        let mut eval = tvix_eval::Evaluation::new_impure(str, None);
-
-        let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
-
-        add_derivation_builtins(&mut eval, known_paths.clone());
-
-        // run the evaluation itself.
-        eval.evaluate()
-    }
-
-    #[test]
-    fn derivation() {
-        let result = eval(
-            r#"(derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux";}).outPath"#,
-        );
-
-        assert!(result.errors.is_empty(), "expect evaluation to succeed");
-        let value = result.value.expect("must be some");
-
-        match value {
-            tvix_eval::Value::String(s) => {
-                assert_eq!(
-                    "/nix/store/xpcvxsx5sw4rbq666blz6sxqlmsqphmr-foo",
-                    s.as_str()
-                );
-            }
-            _ => panic!("unexpected value type: {:?}", value),
-        }
-    }
-
-    /// a derivation with an empty name is an error.
-    #[test]
-    fn derivation_empty_name_fail() {
-        let result = eval(
-            r#"(derivation { name = ""; builder = "/bin/sh"; system = "x86_64-linux";}).outPath"#,
-        );
-
-        assert!(!result.errors.is_empty(), "expect evaluation to fail");
-    }
-
-    /// construct some calls to builtins.derivation and compare produced output
-    /// paths.
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/17wgs52s7kcamcyin4ja58njkf91ipq8-foo"; "r:sha256")]
-    #[test_case(r#"(builtins.derivation { name = "foo2"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/gi0p8vd635vpk1nq029cz3aa3jkhar5k-foo2"; "r:sha256 other name")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha1"; outputHash = "sha1-VUCRC+16gU5lcrLYHlPSUyx0Y/Q="; }).outPath"#, "/nix/store/p5sammmhpa84ama7ymkbgwwzrilva24x-foo"; "r:sha1")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "md5"; outputHash = "md5-07BzhNET7exJ6qYjitX/AA=="; }).outPath"#, "/nix/store/gmmxgpy1jrzs86r5y05wy6wiy2m15xgi-foo"; "r:md5")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha512"; outputHash = "sha512-DPkYCnZKuoY6Z7bXLwkYvBMcZ3JkLLLc5aNPCnAvlHDdwr8SXBIZixmVwjPDS0r9NGxUojNMNQqUilG26LTmtg=="; }).outPath"#, "/nix/store/lfi2bfyyap88y45mfdwi4j99gkaxaj19-foo"; "r:sha512")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "4374173a8cbe88de152b609f96f46e958bcf65762017474eec5a05ec2bd61530"; }).outPath"#, "/nix/store/17wgs52s7kcamcyin4ja58njkf91ipq8-foo"; "r:sha256 base16")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "0c0msqmyq1asxi74f5r0frjwz2wmdvs9d7v05caxx25yihx1fx23"; }).outPath"#, "/nix/store/17wgs52s7kcamcyin4ja58njkf91ipq8-foo"; "r:sha256 nixbase32")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/17wgs52s7kcamcyin4ja58njkf91ipq8-foo"; "r:sha256 base64")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "sha256-fgIr3TyFGDAXP5+qoAaiMKDg/a1MlT6Fv/S/DaA24S8="; }).outPath"#, "/nix/store/xm1l9dx4zgycv9qdhcqqvji1z88z534b-foo"; "r:sha256 base64 nopad")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "flat"; outputHashAlgo = "sha256"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/q4pkwkxdib797fhk22p0k3g1q32jmxvf-foo"; "sha256")]
-    #[test_case(r#"(builtins.derivation { name = "foo2"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "flat"; outputHashAlgo = "sha256"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/znw17xlmx9r6gw8izjkqxkl6s28sza4l-foo2"; "sha256 other name")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "flat"; outputHashAlgo = "sha1"; outputHash = "sha1-VUCRC+16gU5lcrLYHlPSUyx0Y/Q="; }).outPath"#, "/nix/store/zgpnjjmga53d8srp8chh3m9fn7nnbdv6-foo"; "sha1")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "flat"; outputHashAlgo = "md5"; outputHash = "md5-07BzhNET7exJ6qYjitX/AA=="; }).outPath"#, "/nix/store/jfhcwnq1852ccy9ad9nakybp2wadngnd-foo"; "md5")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "flat"; outputHashAlgo = "sha512"; outputHash = "sha512-DPkYCnZKuoY6Z7bXLwkYvBMcZ3JkLLLc5aNPCnAvlHDdwr8SXBIZixmVwjPDS0r9NGxUojNMNQqUilG26LTmtg=="; }).outPath"#, "/nix/store/as736rr116ian9qzg457f96j52ki8bm3-foo"; "sha512")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/17wgs52s7kcamcyin4ja58njkf91ipq8-foo"; "r:sha256 outputHashAlgo omitted")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/q4pkwkxdib797fhk22p0k3g1q32jmxvf-foo"; "r:sha256 outputHashAlgo and outputHashMode omitted")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; }).outPath"#, "/nix/store/xpcvxsx5sw4rbq666blz6sxqlmsqphmr-foo"; "outputHash* omitted")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; outputs = ["foo" "bar"]; system = "x86_64-linux"; }).outPath"#, "/nix/store/hkwdinvz2jpzgnjy9lv34d2zxvclj4s3-foo-foo"; "multiple outputs")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; args = ["--foo" "42" "--bar"]; system = "x86_64-linux"; }).outPath"#, "/nix/store/365gi78n2z7vwc1bvgb98k0a9cqfp6as-foo"; "args")]
-    #[test_case(r#"
-                   let
-                     bar = builtins.derivation {
-                       name = "bar";
-                       builder = ":";
-                       system = ":";
-                       outputHash = "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba";
-                       outputHashAlgo = "sha256";
-                       outputHashMode = "recursive";
-                     };
-                   in
-                   (builtins.derivation {
-                     name = "foo";
-                     builder = ":";
-                     system = ":";
-                     inherit bar;
-                   }).outPath
-        "#, "/nix/store/5vyvcwah9l9kf07d52rcgdk70g2f4y13-foo"; "full")]
-    fn test_outpath(code: &str, expected_path: &str) {
-        let value = eval(code).value.expect("must succeed");
-
-        match value {
-            tvix_eval::Value::String(s) => {
-                assert_eq!(expected_path, s.as_str());
-            }
-            _ => panic!("unexpected value type: {:?}", value),
-        }
-    }
-
-    /// construct some calls to builtins.derivation that should be rejected
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "sha256-00"; }).outPath"#; "invalid outputhash")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha1"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#; "sha1 and sha256")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; outputs = ["foo" "foo"]; system = "x86_64-linux"; }).outPath"#; "duplicate output names")]
-    fn test_outpath_invalid(code: &str) {
-        let resp = eval(code);
-        assert!(resp.value.is_none(), "Value should be None");
-        assert!(
-            !resp.errors.is_empty(),
-            "There should have been some errors"
-        );
-    }
-
-    #[test]
-    fn builtins_placeholder_hashes() {
-        assert_eq!(
-            hash_placeholder("out").as_str(),
-            "/1rz4g4znpzjwh1xymhjpm42vipw92pr73vdgl6xs1hycac8kf2n9"
-        );
-
-        assert_eq!(
-            hash_placeholder("").as_str(),
-            "/171rf4jhx57xqz3p7swniwkig249cif71pa08p80mgaf0mqz5bmr"
-        );
-    }
-}

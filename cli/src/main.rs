@@ -3,7 +3,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::{fs, path::PathBuf};
 use tvix_glue::known_paths::KnownPaths;
-use tvix_glue::{add_derivation_builtins, configure_nix_path};
+use tvix_glue::{builtins::add_derivation_builtins, configure_nix_path};
 
 use clap::Parser;
 use rustyline::{error::ReadlineError, Editor};

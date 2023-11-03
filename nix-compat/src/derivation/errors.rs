@@ -1,3 +1,4 @@
+//! Contains [DerivationError], exported as [crate::builtins::DerivationError]
 use crate::store_path;
 use thiserror::Error;
 

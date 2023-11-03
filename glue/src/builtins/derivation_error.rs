@@ -1,3 +1,4 @@
+//! Contains [crate::builtins::DerivationError].
 use nix_compat::{derivation::DerivationError, nixhash};
 use std::rc::Rc;
 use thiserror::Error;
