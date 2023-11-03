@@ -2,8 +2,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::{fs, path::PathBuf};
-use tvix_glue::add_derivation_builtins;
 use tvix_glue::known_paths::KnownPaths;
+use tvix_glue::{add_derivation_builtins, configure_nix_path};
 
 use clap::Parser;
 use rustyline::{error::ReadlineError, Editor};
@@ -75,6 +75,7 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
 
     let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
     add_derivation_builtins(&mut eval, known_paths.clone());
+    configure_nix_path(&mut eval, &args.nix_search_path);
 
     let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
     eval.io_handle = Box::new(tvix_glue::tvix_io::TvixIO::new(
@@ -86,14 +87,6 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
             tokio_runtime.handle().clone(),
         ),
     ));
-
-    // bundle fetchurl.nix (used in nixpkgs) by resolving <nix> to
-    // `/__corepkgs__`, which has special handling in [`nix_compat`].
-    eval.nix_path = args
-        .nix_search_path
-        .as_ref()
-        .map(|p| format!("nix=/__corepkgs__:{}", p))
-        .or_else(|| Some("nix=/__corepkgs__".to_string()));
 
     let source_map = eval.source_map();
     let result = {

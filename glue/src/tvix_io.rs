@@ -59,8 +59,8 @@ impl<T: EvalIO> EvalIO for TvixIO<T> {
 
     fn read_to_string(&self, path: &Path) -> Result<String, io::Error> {
         // Bundled version of corepkgs/fetchurl.nix. The counterpart
-        // of this happens in `main`, where the `nix_path` of the
-        // evaluation has `nix=/__corepkgs__` added to it.
+        // of this happens in [crate::configure_nix_path], where the `nix_path`
+        // of the evaluation has `nix=/__corepkgs__` added to it.
         //
         // This workaround is similar to what cppnix does for passing
         // the path through.
