@@ -15,9 +15,7 @@ mod utils;
 pub use utils::*;
 
 pub const DIGEST_SIZE: usize = 20;
-// lazy_static doesn't allow us to call NIXBASE32.encode_len(), so we ran it
-// manually and have an assert in the tests.
-pub const ENCODED_DIGEST_SIZE: usize = 32;
+pub const ENCODED_DIGEST_SIZE: usize = nixbase32::encode_len(DIGEST_SIZE);
 
 // The store dir prefix, without trailing slash.
 // That's usually where the Nix store is mounted at.
@@ -297,11 +295,6 @@ mod tests {
     use test_case::test_case;
 
     use super::{Error, StorePath};
-
-    #[test]
-    fn encoded_digest_size() {
-        assert_eq!(ENCODED_DIGEST_SIZE, nixbase32::encode_len(DIGEST_SIZE));
-    }
 
     #[test]
     fn happy_path() {

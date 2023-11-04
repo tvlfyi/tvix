@@ -134,12 +134,12 @@ fn find_invalid(input: &[u8]) -> u8 {
 }
 
 /// Returns the decoded length of an input of length len.
-pub fn decode_len(len: usize) -> usize {
+pub const fn decode_len(len: usize) -> usize {
     (len * 5) / 8
 }
 
 /// Returns the encoded length of an input of length len
-pub fn encode_len(len: usize) -> usize {
+pub const fn encode_len(len: usize) -> usize {
     (len * 8 + 4) / 5
 }
 
