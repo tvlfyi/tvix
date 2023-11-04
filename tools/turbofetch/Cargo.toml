@@ -1,0 +1,28 @@
+[package]
+name = "turbofetch"
+version = "0.1.0"
+edition = "2021"
+
+# We don't join the //tvix workspace, as this is fairly cache.nixos.org-specific.
+[workspace]
+members = ["."]
+
+[dependencies]
+aws_lambda_events = { version = "0.11.1", default-features = false, features = ["lambda_function_urls"] }
+bytes = "1.5.0"
+data-encoding = "2.4.0"
+futures = { version = "0.3.29", default-features = false, features = ["std"] }
+httparse = "1.8.0"
+hyper = { version = "0.14.27", default-features = false }
+lambda_runtime = "0.8.2"
+magic-buffer = "0.1.0"
+rusoto_core = { version = "0.48.0", features = ["rustls"], default-features = false }
+rusoto_s3 = { version = "0.48.0", features = ["rustls"], default-features = false }
+serde_json = "1.0.108"
+serde = { version = "1.0.190", features = ["derive"] }
+tokio = { version = "1.33.0", features = ["full"] }
+tower = "0.4.13"
+# TODO(edef): zstd = "0.13.0"
+zstd = "0.9.0"
+tracing-subscriber = { version = "0.3.17", features = ["json"] }
+tracing = "0.1.40"
