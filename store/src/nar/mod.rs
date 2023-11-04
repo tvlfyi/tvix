@@ -1,7 +1,9 @@
 use data_encoding::BASE64;
 use tvix_castore::{B3Digest, Error};
 
+mod import;
 mod renderer;
+pub use import::read_nar;
 pub use renderer::calculate_size_and_sha256;
 pub use renderer::write_nar;
 
