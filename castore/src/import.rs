@@ -122,7 +122,7 @@ async fn process_entry<'a>(
         return Ok(Node::File(FileNode {
             name: entry.file_name().as_bytes().to_vec().into(),
             digest: digest.into(),
-            size: metadata.len() as u32,
+            size: metadata.len(),
             // If it's executable by the user, it'll become executable.
             // This matches nix's dump() function behaviour.
             executable: metadata.permissions().mode() & 64 != 0,

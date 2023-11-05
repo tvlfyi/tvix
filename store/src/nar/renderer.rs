@@ -136,7 +136,7 @@ async fn walk_node(
             nar_node
                 .file(
                     proto_file_node.executable,
-                    proto_file_node.size.into(),
+                    proto_file_node.size,
                     &mut blob_reader.compat(),
                 )
                 .await

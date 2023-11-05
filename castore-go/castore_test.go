@@ -23,7 +23,7 @@ func TestDirectorySize(t *testing.T) {
 			Symlinks:    []*castorev1pb.SymlinkNode{},
 		}
 
-		assert.Equal(t, uint32(0), d.Size())
+		assert.Equal(t, uint64(0), d.Size())
 	})
 
 	t.Run("containing single empty directory", func(t *testing.T) {
@@ -37,7 +37,7 @@ func TestDirectorySize(t *testing.T) {
 			Symlinks: []*castorev1pb.SymlinkNode{},
 		}
 
-		assert.Equal(t, uint32(1), d.Size())
+		assert.Equal(t, uint64(1), d.Size())
 	})
 
 	t.Run("containing single non-empty directory", func(t *testing.T) {
@@ -51,7 +51,7 @@ func TestDirectorySize(t *testing.T) {
 			Symlinks: []*castorev1pb.SymlinkNode{},
 		}
 
-		assert.Equal(t, uint32(5), d.Size())
+		assert.Equal(t, uint64(5), d.Size())
 	})
 
 	t.Run("containing single file", func(t *testing.T) {
@@ -66,7 +66,7 @@ func TestDirectorySize(t *testing.T) {
 			Symlinks: []*castorev1pb.SymlinkNode{},
 		}
 
-		assert.Equal(t, uint32(1), d.Size())
+		assert.Equal(t, uint64(1), d.Size())
 	})
 
 	t.Run("containing single symlink", func(t *testing.T) {
@@ -79,7 +79,7 @@ func TestDirectorySize(t *testing.T) {
 			}},
 		}
 
-		assert.Equal(t, uint32(1), d.Size())
+		assert.Equal(t, uint64(1), d.Size())
 	})
 
 }

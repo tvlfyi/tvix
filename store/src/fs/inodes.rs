@@ -5,7 +5,7 @@ use tvix_castore::B3Digest;
 
 #[derive(Clone, Debug)]
 pub enum InodeData {
-    Regular(B3Digest, u32, bool),  // digest, size, executable
+    Regular(B3Digest, u64, bool),  // digest, size, executable
     Symlink(bytes::Bytes),         // target
     Directory(DirectoryInodeData), // either [DirectoryInodeData:Sparse] or [DirectoryInodeData:Populated]
 }
@@ -16,7 +16,7 @@ pub enum InodeData {
 /// lookup and did fetch the data.
 #[derive(Clone, Debug)]
 pub enum DirectoryInodeData {
-    Sparse(B3Digest, u32),                                  // digest, size
+    Sparse(B3Digest, u64),                                  // digest, size
     Populated(B3Digest, Vec<(u64, castorepb::node::Node)>), // [(child_inode, node)]
 }
 

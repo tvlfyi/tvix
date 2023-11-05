@@ -96,7 +96,7 @@ impl proto::directory_service_server::DirectoryService for GRPCDirectoryServiceW
         // We don't need to keep the contents around, they're stored in the DB.
         // https://github.com/rust-lang/rust-clippy/issues/5812
         #[allow(clippy::mutable_key_type)]
-        let mut seen_directories_sizes: HashMap<B3Digest, u32> = HashMap::new();
+        let mut seen_directories_sizes: HashMap<B3Digest, u64> = HashMap::new();
         let mut last_directory_dgst: Option<B3Digest> = None;
 
         // Consume directories, and insert them into the store.

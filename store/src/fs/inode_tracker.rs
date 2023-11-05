@@ -217,7 +217,7 @@ mod tests {
         let mut inode_tracker = InodeTracker::default();
         let f = InodeData::Regular(
             fixtures::BLOB_A_DIGEST.clone(),
-            fixtures::BLOB_A.len() as u32,
+            fixtures::BLOB_A.len() as u64,
             false,
         );
 
@@ -241,7 +241,7 @@ mod tests {
             ino,
             inode_tracker.put(InodeData::Regular(
                 fixtures::BLOB_B_DIGEST.clone(),
-                fixtures::BLOB_B.len() as u32,
+                fixtures::BLOB_B.len() as u64,
                 false,
             ))
         );

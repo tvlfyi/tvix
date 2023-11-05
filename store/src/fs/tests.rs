@@ -71,7 +71,7 @@ async fn populate_blob_a(
             node: Some(castorepb::node::Node::File(castorepb::FileNode {
                 name: BLOB_A_NAME.into(),
                 digest: fixtures::BLOB_A_DIGEST.clone().into(),
-                size: fixtures::BLOB_A.len() as u32,
+                size: fixtures::BLOB_A.len() as u64,
                 executable: false,
             })),
         }),
@@ -101,7 +101,7 @@ async fn populate_blob_b(
             node: Some(castorepb::node::Node::File(castorepb::FileNode {
                 name: BLOB_B_NAME.into(),
                 digest: fixtures::BLOB_B_DIGEST.clone().into(),
-                size: fixtures::BLOB_B.len() as u32,
+                size: fixtures::BLOB_B.len() as u64,
                 executable: false,
             })),
         }),
@@ -135,7 +135,7 @@ async fn populate_helloworld_blob(
             node: Some(castorepb::node::Node::File(castorepb::FileNode {
                 name: HELLOWORLD_BLOB_NAME.into(),
                 digest: fixtures::HELLOWORLD_BLOB_DIGEST.clone().into(),
-                size: fixtures::HELLOWORLD_BLOB_CONTENTS.len() as u32,
+                size: fixtures::HELLOWORLD_BLOB_CONTENTS.len() as u64,
                 executable: true,
             })),
         }),
@@ -262,7 +262,7 @@ async fn populate_blob_a_without_blob(
             node: Some(castorepb::node::Node::File(castorepb::FileNode {
                 name: BLOB_A_NAME.into(),
                 digest: fixtures::BLOB_A_DIGEST.clone().into(),
-                size: fixtures::BLOB_A.len() as u32,
+                size: fixtures::BLOB_A.len() as u64,
                 executable: false,
             })),
         }),

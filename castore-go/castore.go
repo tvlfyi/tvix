@@ -12,9 +12,9 @@ import (
 // The size of a directory is calculated by summing up the numbers of
 // `directories`, `files` and `symlinks`, and for each directory, its size
 // field.
-func (d *Directory) Size() uint32 {
-	var size uint32
-	size = uint32(len(d.Files) + len(d.Symlinks))
+func (d *Directory) Size() uint64 {
+	var size uint64
+	size = uint64(len(d.Files) + len(d.Symlinks))
 	for _, d := range d.Directories {
 		size += 1 + d.Size
 	}

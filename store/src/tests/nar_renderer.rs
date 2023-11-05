@@ -37,7 +37,7 @@ async fn single_file_missing_blob() {
         &castorepb::node::Node::File(FileNode {
             name: "doesntmatter".into(),
             digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
-            size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
+            size: HELLOWORLD_BLOB_CONTENTS.len() as u64,
             executable: false,
         }),
         // the blobservice is empty intentionally, to provoke the error.
@@ -150,7 +150,7 @@ async fn single_file() {
         &castorepb::node::Node::File(FileNode {
             name: "doesntmatter".into(),
             digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
-            size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
+            size: HELLOWORLD_BLOB_CONTENTS.len() as u64,
             executable: false,
         }),
         blob_service,

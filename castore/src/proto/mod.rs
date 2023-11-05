@@ -172,23 +172,23 @@ fn insert_once<'n>(
     Ok(())
 }
 
-fn checked_sum(iter: impl IntoIterator<Item = u32>) -> Option<u32> {
-    iter.into_iter().try_fold(0u32, |acc, i| acc.checked_add(i))
+fn checked_sum(iter: impl IntoIterator<Item = u64>) -> Option<u64> {
+    iter.into_iter().try_fold(0u64, |acc, i| acc.checked_add(i))
 }
 
 impl Directory {
     /// The size of a directory is the number of all regular and symlink elements,
     /// the number of directory elements, and their size fields.
-    pub fn size(&self) -> u32 {
+    pub fn size(&self) -> u64 {
         if cfg!(debug_assertions) {
             self.size_checked()
-                .expect("Directory::size exceeds u32::MAX")
+                .expect("Directory::size exceeds u64::MAX")
         } else {
-            self.size_checked().unwrap_or(u32::MAX)
+            self.size_checked().unwrap_or(u64::MAX)
         }
     }
 
-    fn size_checked(&self) -> Option<u32> {
+    fn size_checked(&self) -> Option<u64> {
         checked_sum([
             self.files.len().try_into().ok()?,
             self.symlinks.len().try_into().ok()?,

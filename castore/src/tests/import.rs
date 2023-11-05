@@ -56,7 +56,7 @@ async fn single_file() {
         proto::node::Node::File(proto::FileNode {
             name: "root".into(),
             digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
-            size: HELLOWORLD_BLOB_CONTENTS.len() as u32,
+            size: HELLOWORLD_BLOB_CONTENTS.len() as u64,
             executable: false,
         }),
         root_node,

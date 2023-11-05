@@ -60,13 +60,13 @@ fn size() {
 
 #[test]
 #[cfg_attr(not(debug_assertions), ignore)]
-#[should_panic = "Directory::size exceeds u32::MAX"]
+#[should_panic = "Directory::size exceeds u64::MAX"]
 fn size_unchecked_panic() {
     let d = Directory {
         directories: vec![DirectoryNode {
             name: "foo".into(),
             digest: DUMMY_DIGEST.to_vec().into(),
-            size: u32::MAX,
+            size: u64::MAX,
         }],
         ..Default::default()
     };
@@ -81,12 +81,12 @@ fn size_unchecked_saturate() {
         directories: vec![DirectoryNode {
             name: "foo".into(),
             digest: DUMMY_DIGEST.to_vec().into(),
-            size: u32::MAX,
+            size: u64::MAX,
         }],
         ..Default::default()
     };
 
-    assert_eq!(d.size(), u32::MAX);
+    assert_eq!(d.size(), u64::MAX);
 }
 
 #[test]
@@ -98,18 +98,18 @@ fn size_checked() {
             directories: vec![DirectoryNode {
                 name: "foo".into(),
                 digest: DUMMY_DIGEST.to_vec().into(),
-                size: u32::MAX - 1,
+                size: u64::MAX - 1,
             }],
             ..Default::default()
         };
-        assert_eq!(d.size_checked(), Some(u32::MAX));
+        assert_eq!(d.size_checked(), Some(u64::MAX));
     }
     {
         let d = Directory {
             directories: vec![DirectoryNode {
                 name: "foo".into(),
                 digest: DUMMY_DIGEST.to_vec().into(),
-                size: u32::MAX,
+                size: u64::MAX,
             }],
             ..Default::default()
         };
@@ -121,12 +121,12 @@ fn size_checked() {
                 DirectoryNode {
                     name: "foo".into(),
                     digest: DUMMY_DIGEST.to_vec().into(),
-                    size: u32::MAX / 2,
+                    size: u64::MAX / 2,
                 },
                 DirectoryNode {
                     name: "foo".into(),
                     digest: DUMMY_DIGEST.to_vec().into(),
-                    size: u32::MAX / 2,
+                    size: u64::MAX / 2,
                 },
             ],
             ..Default::default()
@@ -363,7 +363,7 @@ fn validate_overflow() {
         directories: vec![DirectoryNode {
             name: "foo".into(),
             digest: DUMMY_DIGEST.to_vec().into(),
-            size: u32::MAX,
+            size: u64::MAX,
         }],
         ..Default::default()
     };
