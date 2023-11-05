@@ -222,11 +222,7 @@ static NAME_CHARS: [bool; 256] = {
     let mut c = 0;
 
     loop {
-        tbl[c as usize] = match c {
-            b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' => true,
-            b'+' | b'-' | b'_' | b'?' | b'=' | b'.' => true,
-            _ => false,
-        };
+        tbl[c as usize] = matches!(c, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'+' | b'-' | b'_' | b'?' | b'=' | b'.');
 
         if c == u8::MAX {
             break;
