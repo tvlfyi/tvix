@@ -9,7 +9,7 @@ use nom::character::complete::char as nomchar;
 use nom::combinator::{all_consuming, map_res};
 use nom::multi::{separated_list0, separated_list1};
 use nom::sequence::{delimited, preceded, separated_pair, terminated, tuple};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{btree_map, BTreeMap, BTreeSet};
 use thiserror;
 
 use crate::derivation::parse_error::{into_nomerror, ErrorKind, NomError, NomResult};
@@ -274,13 +274,14 @@ where
                     for (k, v) in pairs.into_iter() {
                         // collect the 2-tuple to a BTreeMap,
                         // and fail if the key was already seen before.
-                        if kvs.contains_key(&k) {
-                            return Err(nom::Err::Failure(NomError {
-                                input: i,
-                                code: ErrorKind::DuplicateMapKey(k),
-                            }));
-                        } else {
-                            kvs.insert(k, v);
+                        match kvs.entry(k) {
+                            btree_map::Entry::Vacant(e) => { e.insert(v); },
+                            btree_map::Entry::Occupied(e) => {
+                                return Err(nom::Err::Failure(NomError {
+                                    input: i,
+                                    code: ErrorKind::DuplicateMapKey(e.key().clone()),
+                                }));
+                            }
                         }
                     }
                     Ok((rest, kvs))
