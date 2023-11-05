@@ -6,33 +6,66 @@ package tvix.castore.v1;
 
 option go_package = "code.tvl.fyi/tvix/castore-go;castorev1";
 
+// BlobService allows reading (or uploading) content-addressed blobs of data.
+// BLAKE3 is used as a hashing function for the data. Uploading a blob will
+// return the BLAKE3 digest of it, and that's the identifier used to Read/Stat
+// them too.
 service BlobService {
-    // In the future, Stat will expose more metadata about a given blob,
-    // such as more granular chunking, baos.
-    // For now, it's only used to check for the existence of a blob, as asking
-    // this for a non-existing Blob will return a Status::not_found gRPC error.
-    rpc Stat(StatBlobRequest) returns (BlobMeta);
+    // Stat can be used to check for the existence of a blob, as well as
+    // gathering more data about it, like more granular chunking information
+    // or baos.
+    // Server implementations are not required to provide more granular chunking
+    // information, especially if the digest specified in [StatBlobRequest] is
+    // already a chunk of a blob.
+    rpc Stat(StatBlobRequest) returns (StatBlobResponse);
 
-    // Read returns a stream of BlobChunk, which is just a stream of bytes with
-    // the digest specified in ReadBlobRequest.
-    //
+    // Read allows reading (all) data of a blob/chunk by the BLAKE3 digest of
+    // its contents.
+    // If the backend communicated more granular chunks in the `Stat` request,
+    // this can also be used to read chunks.
+    // This request returns a stream of BlobChunk, which is just a container for
+    // a stream of bytes.
     // The server may decide on whatever chunking it may seem fit as a size for
-    // the individual BlobChunk sent in the response stream.
+    // the individual BlobChunk sent in the response stream, this is mostly to
+    // keep individual messages at a manageable size.
     rpc Read(ReadBlobRequest) returns (stream BlobChunk);
 
     // Put uploads a Blob, by reading a stream of bytes.
     //
     // The way the data is chunked up in individual BlobChunk messages sent in
-    // the stream has no effect on how the server ends up chunking blobs up.
+    // the stream has no effect on how the server ends up chunking blobs up, if
+    // it does at all.
     rpc Put(stream BlobChunk) returns (PutBlobResponse);
 }
 
 message StatBlobRequest {
     // The blake3 digest of the blob requested
     bytes digest = 1;
+
+    // Whether the server should reply with a list of more granular chunks.
+    bool send_chunks = 2;
+
+    // Whether the server should reply with a bao.
+    bool send_bao = 3;
 }
 
-message BlobMeta {
+message StatBlobResponse {
+    // If `send_chunks` was set to true, this MAY contain a list of more
+    // granular chunks, which then may be read individually via the `Read`
+    // method.
+    repeated ChunkMeta chunks = 2;
+
+    message ChunkMeta {
+        // Digest of that specific chunk
+        bytes digest = 1;
+
+        // Length of that chunk, in bytes.
+        uint64 size = 2;
+    }
+
+    // If `send_bao` was set to true, this MAY contain a outboard bao.
+    // The exact format and message types here will still be fleshed out.
+    bytes bao = 3;
 }
 
 message ReadBlobRequest {

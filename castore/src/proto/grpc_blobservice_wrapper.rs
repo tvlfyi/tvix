@@ -93,7 +93,7 @@ impl super::blob_service_server::BlobService for GRPCBlobServiceWrapper {
     async fn stat(
         &self,
         request: Request<super::StatBlobRequest>,
-    ) -> Result<Response<super::BlobMeta>, Status> {
+    ) -> Result<Response<super::StatBlobResponse>, Status> {
         let rq = request.into_inner();
         let req_digest = rq
             .digest
@@ -101,7 +101,7 @@ impl super::blob_service_server::BlobService for GRPCBlobServiceWrapper {
             .map_err(|_e| Status::invalid_argument("invalid digest length"))?;
 
         match self.blob_service.has(&req_digest).await {
-            Ok(true) => Ok(Response::new(super::BlobMeta::default())),
+            Ok(true) => Ok(Response::new(super::StatBlobResponse::default())),
             Ok(false) => Err(Status::not_found(format!("blob {} not found", &req_digest))),
             Err(e) => Err(e.into()),
         }

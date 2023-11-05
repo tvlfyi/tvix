@@ -31,21 +31,28 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type BlobServiceClient interface {
-	// In the future, Stat will expose more metadata about a given blob,
-	// such as more granular chunking, baos.
-	// For now, it's only used to check for the existence of a blob, as asking
-	// this for a non-existing Blob will return a Status::not_found gRPC error.
-	Stat(ctx context.Context, in *StatBlobRequest, opts ...grpc.CallOption) (*BlobMeta, error)
-	// Read returns a stream of BlobChunk, which is just a stream of bytes with
-	// the digest specified in ReadBlobRequest.
-	//
+	// Stat can be used to check for the existence of a blob, as well as
+	// gathering more data about it, like more granular chunking information
+	// or baos.
+	// Server implementations are not required to provide more granular chunking
+	// information, especially if the digest specified in [StatBlobRequest] is
+	// already a chunk of a blob.
+	Stat(ctx context.Context, in *StatBlobRequest, opts ...grpc.CallOption) (*StatBlobResponse, error)
+	// Read allows reading (all) data of a blob/chunk by the BLAKE3 digest of
+	// its contents.
+	// If the backend communicated more granular chunks in the `Stat` request,
+	// this can also be used to read chunks.
+	// This request returns a stream of BlobChunk, which is just a container for
+	// a stream of bytes.
 	// The server may decide on whatever chunking it may seem fit as a size for
-	// the individual BlobChunk sent in the response stream.
+	// the individual BlobChunk sent in the response stream, this is mostly to
+	// keep individual messages at a manageable size.
 	Read(ctx context.Context, in *ReadBlobRequest, opts ...grpc.CallOption) (BlobService_ReadClient, error)
 	// Put uploads a Blob, by reading a stream of bytes.
 	//
 	// The way the data is chunked up in individual BlobChunk messages sent in
-	// the stream has no effect on how the server ends up chunking blobs up.
+	// the stream has no effect on how the server ends up chunking blobs up, if
+	// it does at all.
 	Put(ctx context.Context, opts ...grpc.CallOption) (BlobService_PutClient, error)
 }
 
@@ -57,8 +64,8 @@ func NewBlobServiceClient(cc grpc.ClientConnInterface) BlobServiceClient {
 	return &blobServiceClient{cc}
 }
 
-func (c *blobServiceClient) Stat(ctx context.Context, in *StatBlobRequest, opts ...grpc.CallOption) (*BlobMeta, error) {
-	out := new(BlobMeta)
+func (c *blobServiceClient) Stat(ctx context.Context, in *StatBlobRequest, opts ...grpc.CallOption) (*StatBlobResponse, error) {
+	out := new(StatBlobResponse)
 	err := c.cc.Invoke(ctx, BlobService_Stat_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -136,21 +143,28 @@ func (x *blobServicePutClient) CloseAndRecv() (*PutBlobResponse, error) {
 // All implementations must embed UnimplementedBlobServiceServer
 // for forward compatibility
 type BlobServiceServer interface {
-	// In the future, Stat will expose more metadata about a given blob,
-	// such as more granular chunking, baos.
-	// For now, it's only used to check for the existence of a blob, as asking
-	// this for a non-existing Blob will return a Status::not_found gRPC error.
-	Stat(context.Context, *StatBlobRequest) (*BlobMeta, error)
-	// Read returns a stream of BlobChunk, which is just a stream of bytes with
-	// the digest specified in ReadBlobRequest.
-	//
+	// Stat can be used to check for the existence of a blob, as well as
+	// gathering more data about it, like more granular chunking information
+	// or baos.
+	// Server implementations are not required to provide more granular chunking
+	// information, especially if the digest specified in [StatBlobRequest] is
+	// already a chunk of a blob.
+	Stat(context.Context, *StatBlobRequest) (*StatBlobResponse, error)
+	// Read allows reading (all) data of a blob/chunk by the BLAKE3 digest of
+	// its contents.
+	// If the backend communicated more granular chunks in the `Stat` request,
+	// this can also be used to read chunks.
+	// This request returns a stream of BlobChunk, which is just a container for
+	// a stream of bytes.
 	// The server may decide on whatever chunking it may seem fit as a size for
-	// the individual BlobChunk sent in the response stream.
+	// the individual BlobChunk sent in the response stream, this is mostly to
+	// keep individual messages at a manageable size.
 	Read(*ReadBlobRequest, BlobService_ReadServer) error
 	// Put uploads a Blob, by reading a stream of bytes.
 	//
 	// The way the data is chunked up in individual BlobChunk messages sent in
-	// the stream has no effect on how the server ends up chunking blobs up.
+	// the stream has no effect on how the server ends up chunking blobs up, if
+	// it does at all.
 	Put(BlobService_PutServer) error
 	mustEmbedUnimplementedBlobServiceServer()
 }
@@ -159,7 +173,7 @@ type BlobServiceServer interface {
 type UnimplementedBlobServiceServer struct {
 }
 
-func (UnimplementedBlobServiceServer) Stat(context.Context, *StatBlobRequest) (*BlobMeta, error) {
+func (UnimplementedBlobServiceServer) Stat(context.Context, *StatBlobRequest) (*StatBlobResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Stat not implemented")
 }
 func (UnimplementedBlobServiceServer) Read(*ReadBlobRequest, BlobService_ReadServer) error {
