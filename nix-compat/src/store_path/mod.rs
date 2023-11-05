@@ -209,7 +209,7 @@ impl<'a> StorePathRef<'a> {
         }
 
         Ok(StorePathRef {
-            digest: digest.try_into().expect("size is known"),
+            digest,
             name: validate_name(&s[ENCODED_DIGEST_SIZE + 1..])?,
         })
     }
