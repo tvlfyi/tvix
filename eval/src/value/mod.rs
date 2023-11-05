@@ -469,6 +469,7 @@ impl Value {
 
                 // Special-case for derivation comparisons: If both attribute sets
                 // have `type = derivation`, compare them by `outPath`.
+                #[allow(clippy::single_match)] // might need more match arms later
                 match (a1.select("type"), a2.select("type")) {
                     (Some(v1), Some(v2)) => {
                         let s1 = generators::request_force(&co, v1.clone()).await.to_str();

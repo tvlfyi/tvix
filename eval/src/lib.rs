@@ -288,6 +288,7 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
 
 /// Internal helper function for common parsing & compilation logic
 /// between the public functions.
+#[allow(clippy::too_many_arguments)] // internal API, no point making an indirection type
 fn parse_compile_internal(
     result: &mut EvaluationResult,
     code: &str,

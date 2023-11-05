@@ -93,6 +93,7 @@ pub struct TvixStoreFs {
     inode_tracker: RwLock<InodeTracker>,
 
     /// This holds all open file handles
+    #[allow(clippy::type_complexity)]
     file_handles: RwLock<HashMap<u64, Arc<tokio::sync::Mutex<Box<dyn BlobReader>>>>>,
 
     next_file_handle: AtomicU64,
