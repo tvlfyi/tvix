@@ -551,7 +551,7 @@ rec {
           }
           {
             name = "bitflags";
-            packageId = "bitflags";
+            packageId = "bitflags 1.3.2";
           }
           {
             name = "bytes";
@@ -833,9 +833,9 @@ rec {
           "serde_no_std" = [ "serde/alloc" ];
           "serde_std" = [ "std" "serde/std" ];
         };
-        resolvedDefaultFeatures = [ "std" ];
+        resolvedDefaultFeatures = [ "default" "std" ];
       };
-      "bitflags" = rec {
+      "bitflags 1.3.2" = rec {
         crateName = "bitflags";
         version = "1.3.2";
         edition = "2018";
@@ -849,6 +849,23 @@ rec {
           "rustc-dep-of-std" = [ "core" "compiler_builtins" ];
         };
         resolvedDefaultFeatures = [ "default" ];
+      };
+      "bitflags 2.4.1" = rec {
+        crateName = "bitflags";
+        version = "2.4.1";
+        edition = "2021";
+        sha256 = "01ryy3kd671b0ll4bhdvhsz67vwz1lz53fz504injrd7wpv64xrj";
+        authors = [
+          "The Rust Project Developers"
+        ];
+        features = {
+          "arbitrary" = [ "dep:arbitrary" ];
+          "bytemuck" = [ "dep:bytemuck" ];
+          "compiler_builtins" = [ "dep:compiler_builtins" ];
+          "core" = [ "dep:core" ];
+          "rustc-dep-of-std" = [ "core" "compiler_builtins" ];
+          "serde" = [ "dep:serde" ];
+        };
       };
       "bitmaps" = rec {
         crateName = "bitmaps";
@@ -1153,7 +1170,7 @@ rec {
         dependencies = [
           {
             name = "bitflags";
-            packageId = "bitflags";
+            packageId = "bitflags 1.3.2";
           }
           {
             name = "clap_lex";
@@ -1258,7 +1275,7 @@ rec {
           }
           {
             name = "bitflags";
-            packageId = "bitflags";
+            packageId = "bitflags 1.3.2";
           }
           {
             name = "clap_lex";
@@ -2239,7 +2256,7 @@ rec {
           }
           {
             name = "bitflags";
-            packageId = "bitflags";
+            packageId = "bitflags 1.3.2";
           }
           {
             name = "caps";
@@ -4014,7 +4031,7 @@ rec {
         dependencies = [
           {
             name = "bitflags";
-            packageId = "bitflags";
+            packageId = "bitflags 1.3.2";
           }
           {
             name = "cfg-if";
@@ -4060,7 +4077,7 @@ rec {
         dependencies = [
           {
             name = "bitflags";
-            packageId = "bitflags";
+            packageId = "bitflags 1.3.2";
           }
           {
             name = "cfg-if";
@@ -4108,7 +4125,7 @@ rec {
         dependencies = [
           {
             name = "bitflags";
-            packageId = "bitflags";
+            packageId = "bitflags 1.3.2";
           }
           {
             name = "cfg-if";
@@ -5014,9 +5031,9 @@ rec {
       };
       "proptest" = rec {
         crateName = "proptest";
-        version = "1.1.0";
+        version = "1.3.1";
         edition = "2018";
-        sha256 = "0w5s3wwchd3i6m15lsbsk3r3y25d1gwn13m6a185ks8w06cbiw99";
+        sha256 = "03n213yppl8lpw94cms2bb6rns3ahg78n6az9yvppc3wqz43l03w";
         authors = [
           "Jason Lingle"
         ];
@@ -5027,13 +5044,13 @@ rec {
             optional = true;
           }
           {
-            name = "bitflags";
-            packageId = "bitflags";
+            name = "bit-vec";
+            packageId = "bit-vec";
+            optional = true;
           }
           {
-            name = "byteorder";
-            packageId = "byteorder";
-            usesDefaultFeatures = false;
+            name = "bitflags";
+            packageId = "bitflags 2.4.1";
           }
           {
             name = "lazy_static";
@@ -5045,11 +5062,6 @@ rec {
             packageId = "num-traits";
             usesDefaultFeatures = false;
             features = [ "libm" ];
-          }
-          {
-            name = "quick-error";
-            packageId = "quick-error 2.0.1";
-            optional = true;
           }
           {
             name = "rand";
@@ -5068,7 +5080,7 @@ rec {
           }
           {
             name = "regex-syntax";
-            packageId = "regex-syntax 0.6.29";
+            packageId = "regex-syntax";
             optional = true;
           }
           {
@@ -5088,21 +5100,20 @@ rec {
           }
         ];
         features = {
-          "bit-set" = [ "dep:bit-set" ];
-          "default" = [ "std" "fork" "timeout" "bit-set" "break-dead-code" ];
+          "bit-set" = [ "dep:bit-set" "dep:bit-vec" ];
+          "default" = [ "std" "fork" "timeout" "bit-set" ];
           "default-code-coverage" = [ "std" "fork" "timeout" "bit-set" ];
           "fork" = [ "std" "rusty-fork" "tempfile" ];
           "hardware-rng" = [ "x86" ];
           "lazy_static" = [ "dep:lazy_static" ];
-          "quick-error" = [ "dep:quick-error" ];
           "regex-syntax" = [ "dep:regex-syntax" ];
           "rusty-fork" = [ "dep:rusty-fork" ];
-          "std" = [ "rand/std" "byteorder/std" "lazy_static" "quick-error" "regex-syntax" "num-traits/std" ];
+          "std" = [ "rand/std" "lazy_static" "regex-syntax" "num-traits/std" ];
           "tempfile" = [ "dep:tempfile" ];
           "timeout" = [ "fork" "rusty-fork/timeout" ];
           "x86" = [ "dep:x86" ];
         };
-        resolvedDefaultFeatures = [ "alloc" "bit-set" "break-dead-code" "default" "fork" "lazy_static" "quick-error" "regex-syntax" "rusty-fork" "std" "tempfile" "timeout" ];
+        resolvedDefaultFeatures = [ "alloc" "bit-set" "default" "fork" "lazy_static" "regex-syntax" "rusty-fork" "std" "tempfile" "timeout" ];
       };
       "prost" = rec {
         crateName = "prost";
@@ -5285,22 +5296,11 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "std" ];
       };
-      "quick-error 1.2.3" = rec {
+      "quick-error" = rec {
         crateName = "quick-error";
         version = "1.2.3";
         edition = "2015";
         sha256 = "1q6za3v78hsspisc197bg3g7rpc989qycy8ypr8ap8igv10ikl51";
-        authors = [
-          "Paul Colomiets <paul@colomiets.name>"
-          "Colin Kiegel <kiegel@gmx.de>"
-        ];
-
-      };
-      "quick-error 2.0.1" = rec {
-        crateName = "quick-error";
-        version = "2.0.1";
-        edition = "2018";
-        sha256 = "18z6r2rcjvvf8cn92xjhm2qc3jpd1ljvcbf12zv0k9p565gmb4x9";
         authors = [
           "Paul Colomiets <paul@colomiets.name>"
           "Colin Kiegel <kiegel@gmx.de>"
@@ -5571,7 +5571,7 @@ rec {
         dependencies = [
           {
             name = "bitflags";
-            packageId = "bitflags";
+            packageId = "bitflags 1.3.2";
           }
         ];
 
@@ -5588,7 +5588,7 @@ rec {
         dependencies = [
           {
             name = "bitflags";
-            packageId = "bitflags";
+            packageId = "bitflags 1.3.2";
           }
         ];
         features = {
@@ -5648,7 +5648,7 @@ rec {
           }
           {
             name = "regex-syntax";
-            packageId = "regex-syntax 0.7.1";
+            packageId = "regex-syntax";
             usesDefaultFeatures = false;
           }
         ];
@@ -5711,21 +5711,7 @@ rec {
         };
         resolvedDefaultFeatures = [ "dfa-search" ];
       };
-      "regex-syntax 0.6.29" = rec {
-        crateName = "regex-syntax";
-        version = "0.6.29";
-        edition = "2018";
-        sha256 = "1qgj49vm6y3zn1hi09x91jvgkl2b1fiaq402skj83280ggfwcqpi";
-        authors = [
-          "The Rust Project Developers"
-        ];
-        features = {
-          "default" = [ "unicode" ];
-          "unicode" = [ "unicode-age" "unicode-bool" "unicode-case" "unicode-gencat" "unicode-perl" "unicode-script" "unicode-segment" ];
-        };
-        resolvedDefaultFeatures = [ "default" "unicode" "unicode-age" "unicode-bool" "unicode-case" "unicode-gencat" "unicode-perl" "unicode-script" "unicode-segment" ];
-      };
-      "regex-syntax 0.7.1" = rec {
+      "regex-syntax" = rec {
         crateName = "regex-syntax";
         version = "0.7.1";
         edition = "2021";
@@ -5909,7 +5895,7 @@ rec {
         dependencies = [
           {
             name = "bitflags";
-            packageId = "bitflags";
+            packageId = "bitflags 1.3.2";
           }
           {
             name = "errno";
@@ -6151,7 +6137,7 @@ rec {
           }
           {
             name = "quick-error";
-            packageId = "quick-error 1.2.3";
+            packageId = "quick-error";
           }
           {
             name = "tempfile";
@@ -6181,7 +6167,7 @@ rec {
         dependencies = [
           {
             name = "bitflags";
-            packageId = "bitflags";
+            packageId = "bitflags 1.3.2";
           }
           {
             name = "cfg-if";
@@ -6363,7 +6349,7 @@ rec {
         dependencies = [
           {
             name = "bitflags";
-            packageId = "bitflags";
+            packageId = "bitflags 1.3.2";
           }
           {
             name = "core-foundation";
@@ -8818,7 +8804,7 @@ rec {
             packageId = "proptest";
             optional = true;
             usesDefaultFeatures = false;
-            features = [ "std" "alloc" "break-dead-code" "tempfile" ];
+            features = [ "std" "alloc" "tempfile" ];
           }
           {
             name = "regex";
@@ -9430,7 +9416,7 @@ rec {
         dependencies = [
           {
             name = "bitflags";
-            packageId = "bitflags";
+            packageId = "bitflags 1.3.2";
           }
           {
             name = "libc";
@@ -9611,7 +9597,7 @@ rec {
         dependencies = [
           {
             name = "bitflags";
-            packageId = "bitflags";
+            packageId = "bitflags 1.3.2";
             target = { target, features }: (("linux" == target."os") || ("android" == target."os"));
           }
           {
