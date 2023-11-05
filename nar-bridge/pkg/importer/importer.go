@@ -210,7 +210,7 @@ func Import(
 				fileNode := &castorev1pb.FileNode{
 					Name:       []byte(getBasename(hdr.Path)),
 					Digest:     blobDigest,
-					Size:       uint32(hdr.Size),
+					Size:       uint64(hdr.Size),
 					Executable: hdr.Executable,
 				}
 				if len(stack) > 0 {
