@@ -285,8 +285,7 @@ impl fmt::Display for StorePathRef<'_> {
 mod tests {
     use std::path::PathBuf;
 
-    use crate::nixbase32;
-    use crate::store_path::{DIGEST_SIZE, ENCODED_DIGEST_SIZE};
+    use crate::store_path::DIGEST_SIZE;
     use hex_literal::hex;
     use test_case::test_case;
 
