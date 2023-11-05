@@ -305,19 +305,9 @@ impl NixAttrs {
         self.iter()
     }
 
-    pub fn into_iter(self) -> IntoIter {
-        match self.0 {
-            AttrsRep::Empty => IntoIter(IntoIterRepr::Empty),
-            AttrsRep::KV { name, value } => IntoIter(IntoIterRepr::Finite(
-                vec![(NAME_REF.clone(), name), (VALUE_REF.clone(), value)].into_iter(),
-            )),
-            AttrsRep::Im(map) => IntoIter(IntoIterRepr::Im(map.into_iter())),
-        }
-    }
-
-    /// Same as into_iter(), but marks call sites which rely on the
+    /// Same as [IntoIterator::into_iter], but marks call sites which rely on the
     /// iteration being lexicographic.
-    pub fn into_iter_sorted(self) -> IntoIter {
+    pub fn into_iter_sorted(self) -> OwnedAttrsIterator {
         self.into_iter()
     }
 
@@ -403,6 +393,21 @@ impl NixAttrs {
         }
 
         None
+    }
+}
+
+impl IntoIterator for NixAttrs {
+    type Item = (NixString, Value);
+    type IntoIter = OwnedAttrsIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self.0 {
+            AttrsRep::Empty => OwnedAttrsIterator(IntoIterRepr::Empty),
+            AttrsRep::KV { name, value } => OwnedAttrsIterator(IntoIterRepr::Finite(
+                vec![(NAME_REF.clone(), name), (VALUE_REF.clone(), value)].into_iter(),
+            )),
+            AttrsRep::Im(map) => OwnedAttrsIterator(IntoIterRepr::Im(map.into_iter())),
+        }
     }
 }
 
@@ -584,10 +589,12 @@ pub enum IntoIterRepr {
     Im(imbl::ordmap::ConsumingIter<(NixString, Value)>),
 }
 
+/// Wrapper type which hides the internal implementation details from
+/// users.
 #[repr(transparent)]
-pub struct IntoIter(IntoIterRepr);
+pub struct OwnedAttrsIterator(IntoIterRepr);
 
-impl Iterator for IntoIter {
+impl Iterator for OwnedAttrsIterator {
     type Item = (NixString, Value);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -599,7 +606,7 @@ impl Iterator for IntoIter {
     }
 }
 
-impl ExactSizeIterator for IntoIter {
+impl ExactSizeIterator for OwnedAttrsIterator {
     fn len(&self) -> usize {
         match &self.0 {
             IntoIterRepr::Empty => 0,
