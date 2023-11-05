@@ -406,7 +406,7 @@ impl<'o> VM<'o> {
             .pop()
             .expect("tvix bug: runtime stack empty after execution");
         Ok(RuntimeResult {
-            value: value,
+            value,
             warnings: self.warnings,
         })
     }

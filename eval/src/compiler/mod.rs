@@ -1004,7 +1004,7 @@ impl Compiler<'_> {
         // For each of the bindings, push the set on the stack and
         // attempt to select from it.
         let stack_idx = self.scope().stack_index(set_idx);
-        for tracked_formal in (&entries).into_iter() {
+        for tracked_formal in entries.iter() {
             self.push_op(OpCode::OpGetLocal(stack_idx), pattern);
             self.emit_literal_ident(&tracked_formal.pattern_entry().ident().unwrap());
 
@@ -1067,7 +1067,7 @@ impl Compiler<'_> {
             }
         }
 
-        for tracked_formal in (&entries).into_iter() {
+        for tracked_formal in entries.iter() {
             if self.scope()[tracked_formal.local_idx()].needs_finaliser {
                 let stack_idx = self.scope().stack_index(tracked_formal.local_idx());
                 match tracked_formal {
@@ -1527,7 +1527,7 @@ pub fn prepare_globals(
     Rc::new_cyclic(Box::new(move |weak: &Weak<GlobalsMap>| {
         // First step is to construct the builtins themselves as
         // `NixAttrs`.
-        let mut builtins: GlobalsMap = HashMap::from_iter(builtins.into_iter());
+        let mut builtins: GlobalsMap = HashMap::from_iter(builtins);
 
         // At this point, optionally insert `import` if enabled. To
         // "tie the knot" of `import` needing the full set of globals
@@ -1574,7 +1574,7 @@ pub fn prepare_globals(
         // in the global scope.
         globals.insert(
             "builtins",
-            Value::attrs(NixAttrs::from_iter(builtins.clone().into_iter())),
+            Value::attrs(NixAttrs::from_iter(builtins.clone())),
         );
 
         // Finally, the builtins that should be globally available are

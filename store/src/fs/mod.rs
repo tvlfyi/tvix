@@ -421,7 +421,7 @@ impl FileSystem for TvixStoreFs {
                     let written = add_entry(fuse_backend_rs::api::filesystem::DirEntry {
                         ino,
                         offset: offset + i as u64 + 1,
-                        type_: ty as u32,
+                        type_: ty,
                         name: store_path.to_string().as_bytes(),
                     })?;
                     // If the buffer is full, add_entry will return `Ok(0)`.

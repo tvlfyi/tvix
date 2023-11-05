@@ -12,7 +12,7 @@ use serde_json::Value as Json; // name clash with *our* `Value`
 use serde_json::{Map, Number};
 
 impl Value {
-    pub(crate) async fn to_json(
+    pub(crate) async fn into_json(
         self,
         co: &GenCo,
     ) -> Result<Result<Json, CatchableErrorKind>, ErrorKind> {
@@ -86,8 +86,8 @@ impl Value {
 
     /// Generator version of the above, which wraps responses in
     /// Value::Json.
-    pub(crate) async fn to_json_generator(self, co: GenCo) -> Result<Value, ErrorKind> {
-        match self.to_json(&co).await? {
+    pub(crate) async fn into_json_generator(self, co: GenCo) -> Result<Value, ErrorKind> {
+        match self.into_json(&co).await? {
             Err(cek) => Ok(Value::Catchable(cek)),
             Ok(json) => Ok(Value::Json(json)),
         }

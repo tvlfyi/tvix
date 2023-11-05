@@ -59,7 +59,7 @@ impl NixList {
             stack_slice.len(),
         );
 
-        NixList(Rc::new(Vector::from_iter(stack_slice.into_iter())))
+        NixList(Rc::new(Vector::from_iter(stack_slice)))
     }
 
     pub fn iter(&self) -> vector::Iter<Value> {
@@ -76,7 +76,7 @@ impl NixList {
 
     #[deprecated(note = "callers should avoid constructing from Vec")]
     pub fn from_vec(vs: Vec<Value>) -> Self {
-        Self(Rc::new(Vector::from_iter(vs.into_iter())))
+        Self(Rc::new(Vector::from_iter(vs)))
     }
 
     /// Asynchronous sorting algorithm in which the comparator can make use of

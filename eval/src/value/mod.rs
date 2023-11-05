@@ -97,7 +97,7 @@ where
     Value: From<V>,
 {
     fn from(v: Result<V, CatchableErrorKind>) -> Value {
-        v.map_or_else(|cek| Value::Catchable(cek), |v| v.into())
+        v.map_or_else(Value::Catchable, |v| v.into())
     }
 }
 
@@ -362,7 +362,7 @@ impl Value {
                 kind,
             }),
 
-            (c @ Value::Catchable(_), _) => return Ok(c),
+            (c @ Value::Catchable(_), _) => Ok(c),
 
             (Value::AttrNotFound, _)
             | (Value::Blueprint(_), _)
@@ -762,11 +762,10 @@ fn total_fmt_float<F: std::fmt::Write>(num: f64, mut f: F) -> std::fmt::Result {
         if !new_s.is_empty() {
             s = &mut new_s
         }
-    }
-    // else, if this is not scientific notation, and there's a
-    // decimal point, make sure we really drop trailing zeroes.
-    // In some cases, lexical_core doesn't.
-    else if s.contains(&b'.') {
+    } else if s.contains(&b'.') {
+        // else, if this is not scientific notation, and there's a
+        // decimal point, make sure we really drop trailing zeroes.
+        // In some cases, lexical_core doesn't.
         for (i, c) in s.iter().enumerate() {
             // at `.``
             if c == &b'.' {

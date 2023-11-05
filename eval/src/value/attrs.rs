@@ -301,7 +301,7 @@ impl NixAttrs {
 
     /// Same as iter(), but marks call sites which rely on the
     /// iteration being lexicographic.
-    pub fn iter_sorted<'a>(&'a self) -> Iter<KeyValue<'a>> {
+    pub fn iter_sorted(&self) -> Iter<KeyValue<'_>> {
         self.iter()
     }
 
@@ -399,7 +399,7 @@ impl NixAttrs {
             // /another/ set with a __toString attr.
             let s = generators::request_string_coerce(co, result, kind).await;
 
-            return Some(s.ok()?);
+            return s.ok();
         }
 
         None

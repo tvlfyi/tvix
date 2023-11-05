@@ -176,10 +176,10 @@ fn nix_escape_char(ch: char, next: Option<&char>) -> Option<&'static str> {
 /// parsed as identifiers.  See also cppnix commit
 /// b72bc4a972fe568744d98b89d63adcd504cb586c.
 fn is_keyword(s: &str) -> bool {
-    match s {
-        "if" | "then" | "else" | "assert" | "with" | "let" | "in" | "rec" | "inherit" => true,
-        _ => false,
-    }
+    matches!(
+        s,
+        "if" | "then" | "else" | "assert" | "with" | "let" | "in" | "rec" | "inherit"
+    )
 }
 
 /// Return true if this string can be used as an identifier in Nix.

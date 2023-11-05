@@ -19,7 +19,7 @@ use crate::{aterm, nixhash};
 #[derive(Debug, thiserror::Error)]
 pub enum Error<I> {
     #[error("parsing error: {0}")]
-    ParseError(NomError<I>),
+    Parser(NomError<I>),
     #[error("premature EOF")]
     Incomplete,
     #[error("validation error: {0}")]
@@ -38,7 +38,7 @@ pub(crate) fn parse(i: &[u8]) -> Result<Derivation, Error<&[u8]>> {
             Ok(derivation)
         }
         Err(nom::Err::Incomplete(_)) => Err(Error::Incomplete),
-        Err(nom::Err::Error(e) | nom::Err::Failure(e)) => Err(Error::ParseError(e)),
+        Err(nom::Err::Error(e) | nom::Err::Failure(e)) => Err(Error::Parser(e)),
     }
 }
 

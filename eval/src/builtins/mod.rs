@@ -353,7 +353,7 @@ mod pure_builtins {
 
     #[builtin("toJSON")]
     async fn builtin_to_json(co: GenCo, val: Value) -> Result<Value, ErrorKind> {
-        match val.to_json(&co).await? {
+        match val.into_json(&co).await? {
             Err(cek) => Ok(Value::Catchable(cek)),
             Ok(json_value) => {
                 let json_str = serde_json::to_string(&json_value)?;
@@ -1007,7 +1007,7 @@ mod pure_builtins {
     #[builtin("toPath")]
     async fn builtin_to_path(co: GenCo, s: Value) -> Result<Value, ErrorKind> {
         match coerce_value_to_path(&co, s).await? {
-            Err(cek) => return Ok(Value::Catchable(cek)),
+            Err(cek) => Ok(Value::Catchable(cek)),
             Ok(path) => {
                 let path: Value = crate::value::canon_path(path).into();
                 Ok(path.coerce_to_string(co, CoercionKind::Weak).await?)

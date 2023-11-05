@@ -3,7 +3,7 @@ use tvix_eval_builtin_macros::builtins;
 
 #[builtins]
 mod builtins {
-    use tvix_eval::generators::{self, Gen, GenCo};
+    use tvix_eval::generators::{Gen, GenCo};
     use tvix_eval::{ErrorKind, Value};
 
     /// Test docstring.
@@ -11,12 +11,12 @@ mod builtins {
     /// It has multiple lines!
     #[builtin("identity")]
     pub async fn builtin_identity(co: GenCo, x: Value) -> Result<Value, ErrorKind> {
-        Ok(todo!())
+        Ok(x)
     }
 
     #[builtin("tryEval")]
     pub async fn builtin_try_eval(co: GenCo, #[lazy] _x: Value) -> Result<Value, ErrorKind> {
-        todo!()
+        unimplemented!("builtin is never called")
     }
 }
 

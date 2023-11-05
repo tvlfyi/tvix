@@ -473,7 +473,7 @@ impl<'o> VM<'o> {
                         VMRequest::ToJson(value) => {
                             self.reenqueue_generator(name, span.clone(), generator);
                             self.enqueue_generator("to_json", span, |co| {
-                                value.to_json_generator(co)
+                                value.into_json_generator(co)
                             });
                             return Ok(false);
                         }

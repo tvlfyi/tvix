@@ -81,7 +81,7 @@ fn parse_module_args(args: TokenStream) -> Option<Type> {
         _ => panic!("arguments to `builtins`-attribute must be of the form `name = value`"),
     };
 
-    if name_value.path.get_ident().unwrap().to_string() != "state" {
+    if *name_value.path.get_ident().unwrap() != "state" {
         return None;
     }
 
@@ -182,7 +182,7 @@ pub fn builtins(args: TokenStream, item: TokenStream) -> TokenStream {
                 let mut captures_state = false;
                 if let FnArg::Typed(PatType { pat, .. }) = &f.sig.inputs[0] {
                     if let Pat::Ident(PatIdent { ident, .. }) = pat.as_ref() {
-                        if ident.to_string() == "state" {
+                        if *ident == "state" {
                             if state_type.is_none() {
                                 panic!("builtin captures a `state` argument, but no state type was defined");
                             }

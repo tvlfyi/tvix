@@ -1,7 +1,7 @@
 use super::parse_error::ErrorKind;
 use crate::derivation::output::Output;
 use crate::derivation::parse_error::NomError;
-use crate::derivation::parser::Error::ParseError;
+use crate::derivation::parser::Error;
 use crate::derivation::Derivation;
 use crate::store_path::StorePath;
 use bstr::{BStr, BString};
@@ -116,7 +116,7 @@ fn from_aterm_bytes_duplicate_map_key() {
     let err = Derivation::from_aterm_bytes(&buf).expect_err("must fail");
 
     match err {
-        ParseError(NomError { input: _, code }) => {
+        Error::Parser(NomError { input: _, code }) => {
             assert_eq!(code, ErrorKind::DuplicateMapKey("name".to_string()));
         }
         _ => {
