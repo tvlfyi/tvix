@@ -4195,6 +4195,13 @@ rec {
         crateName = "nix-compat";
         version = "0.1.0";
         edition = "2021";
+        crateBin = [
+          {
+            name = "drvfmt";
+            path = "src/bin/drvfmt.rs";
+            requiredFeatures = [ ];
+          }
+        ];
         # We can't filter paths with references in Nix 2.4
         # See https://github.com/NixOS/nix/issues/5410
         src =
