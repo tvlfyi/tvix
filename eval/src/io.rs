@@ -32,29 +32,56 @@ pub enum FileType {
     Unknown,
 }
 
-/// Defines how filesystem interaction occurs inside of tvix-eval.
+/// Represents all possible filesystem interactions that exist in the Nix
+/// language, and that need to be executed somehow.
+///
+/// This trait is specifically *only* concerned with what is visible on the
+/// level of the language. All internal implementation details are not part of
+/// this trait.
 pub trait EvalIO {
     /// Verify whether the file at the specified path exists.
+    ///
+    /// This is used for the following language evaluation cases:
+    ///
+    /// * checking whether a file added to the `NIX_PATH` actually exists when
+    ///   it is referenced in `<...>` brackets.
+    /// * `builtins.pathExists :: path -> bool`
     fn path_exists(&self, path: &Path) -> Result<bool, io::Error>;
 
     /// Read the file at the specified path to a string.
+    ///
+    /// This is used for the following language evaluation cases:
+    ///
+    /// * `builtins.readFile :: path -> string`
+    /// * `builtins.import :: path -> any`
     fn read_to_string(&self, path: &Path) -> Result<String, io::Error>;
 
     /// Read the directory at the specified path and return the names
     /// of its entries associated with their [`FileType`].
+    ///
+    /// This is used for the following language evaluation cases:
+    ///
+    /// * `builtins.readDir :: path -> attrs<filename, filetype>`
     fn read_dir(&self, path: &Path) -> Result<Vec<(bytes::Bytes, FileType)>, io::Error>;
 
-    /// Import the given path. What this means depends on the
-    /// implementation, for example for a `std::io`-based
-    /// implementation this might be a no-op, while for a Tvix store
-    /// this might be a copy of the given files to the store.
+    /// Import the given path. What this means depends on the implementation,
+    /// for example for a `std::io`-based implementation this might be a no-op,
+    /// while for a Tvix store this might be a copy of the given files to the
+    /// store.
     ///
-    /// This is primarily used in the context of things like coercing
-    /// a local path to a string, or builtins like `path`.
+    /// This is used for the following language evaluation cases:
+    ///
+    /// * string coercion of path literals (e.g. `/foo/bar`), which are expected
+    ///   to return a path
+    /// * `builtins.toJSON` on a path literal, also expected to return a path
     fn import_path(&self, path: &Path) -> Result<PathBuf, io::Error>;
 
     /// Returns the root of the store directory, if such a thing
     /// exists in the evaluation context.
+    ///
+    /// This is used for the following language evaluation cases:
+    ///
+    /// * `builtins.storeDir :: string`
     fn store_dir(&self) -> Option<String> {
         None
     }
