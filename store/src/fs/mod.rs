@@ -21,7 +21,6 @@ use parking_lot::RwLock;
 use std::{
     collections::HashMap,
     io,
-    str::FromStr,
     sync::atomic::AtomicU64,
     sync::{atomic::Ordering, Arc},
     time::Duration,
@@ -199,85 +198,83 @@ impl TvixStoreFs {
         }
     }
 
-    /// This will turn a lookup request for [std::ffi::OsStr] in the root to
-    /// a ino and [InodeData].
+    /// This will turn a lookup request for a name in the root to a ino and
+    /// [InodeData].
     /// It will peek in [self.store_paths], and then either look it up from
     /// [self.inode_tracker],
     /// or otherwise fetch from [self.path_info_service], and then insert into
     /// [self.inode_tracker].
+    /// In the case the name can't be found, a libc::ENOENT is returned.
     fn name_in_root_to_ino_and_data(
         &self,
         name: &std::ffi::CStr,
-    ) -> Result<Option<(u64, Arc<InodeData>)>, Error> {
+    ) -> io::Result<(u64, Arc<InodeData>)> {
         // parse the name into a [StorePath].
-        let store_path = if let Ok(name) = name.to_str() {
-            match StorePath::from_str(name) {
-                Ok(store_path) => store_path,
-                Err(e) => {
-                    debug!(e=?e, "unable to parse as store path");
-                    // This is not an error, but a "ENOENT", as someone can stat
-                    // a file inside the root that's no valid store path
-                    return Ok(None);
-                }
-            }
-        } else {
-            debug!("{name:?} is not a valid utf-8 string");
-            // same here.
-            return Ok(None);
-        };
+        let store_path = StorePath::from_bytes(name.to_bytes()).map_err(|e| {
+            debug!(e=?e, "unable to parse as store path");
+            // This is not an error, but a "ENOENT", as someone can stat
+            // a file inside the root that's no valid store path
+            io::Error::from_raw_os_error(libc::ENOENT)
+        })?;
 
-        if let Some(ino) = self.get_inode_for_store_path(&store_path) {
-            // If we already have that store path, lookup the inode from
-            // self.store_paths and then get the data from [self.inode_tracker],
-            // which in the case of a [InodeData::Directory] will be fully
-            // populated.
-            Ok(Some((
-                ino,
-                self.inode_tracker.read().get(ino).expect("must exist"),
-            )))
-        } else {
-            // If we don't have it, look it up in PathInfoService.
-            let path_info_service = self.path_info_service.clone();
-            let task = self.tokio_handle.spawn({
+        // Look up the inode for that store path.
+        // If there's one, [self.inode_tracker] MUST also contain the data,
+        // which we can then return.
+        if let Some(inode) = self.get_inode_for_store_path(&store_path) {
+            return Ok((
+                inode,
+                self.inode_tracker
+                    .read()
+                    .get(inode)
+                    .expect("must exist")
+                    .to_owned(),
+            ));
+        }
+
+        // We don't have it yet, look it up in [self.path_info_service].
+        match self
+            .tokio_handle
+            .block_on({
+                let path_info_service = self.path_info_service.clone();
                 let digest = *store_path.digest();
                 async move { path_info_service.get(digest).await }
-            });
-            match self.tokio_handle.block_on(task).unwrap()? {
-                // the pathinfo doesn't exist, so the file doesn't exist.
-                None => Ok(None),
-                Some(path_info) => {
-                    // The pathinfo does exist, so there must be a root node
-                    let root_node = path_info.node.unwrap().node.unwrap();
+            })
+            .unwrap()
+        {
+            // the pathinfo doesn't exist, so the file doesn't exist.
+            None => Err(io::Error::from_raw_os_error(libc::ENOENT)),
+            // The pathinfo does exist
+            Some(path_info) => {
+                // There must be a root node (ensured by the validation happening inside clients)
+                let root_node = path_info.node.unwrap().node.unwrap();
 
-                    // The name must match what's passed in the lookup, otherwise we return nothing.
-                    if root_node.get_name() != store_path.to_string().as_bytes() {
-                        return Ok(None);
-                    }
-
-                    // Let's check if someone else beat us to updating the inode tracker and
-                    // store_paths map.
-                    let mut store_paths = self.store_paths.write();
-                    if let Some(ino) = store_paths.get(&store_path).cloned() {
-                        return Ok(Some((
-                            ino,
-                            self.inode_tracker.read().get(ino).expect("must exist"),
-                        )));
-                    }
-
-                    // insert the (sparse) inode data and register in
-                    // self.store_paths.
-                    // FUTUREWORK: change put to return the data after
-                    // inserting, so we don't need to lookup a second
-                    // time?
-                    let (ino, inode) = {
-                        let mut inode_tracker = self.inode_tracker.write();
-                        let ino = inode_tracker.put((&root_node).into());
-                        (ino, inode_tracker.get(ino).unwrap())
-                    };
-                    store_paths.insert(store_path, ino);
-
-                    Ok(Some((ino, inode)))
+                // The name must match what's passed in the lookup, otherwise this is also a ENOENT.
+                if root_node.get_name() != store_path.to_string().as_bytes() {
+                    debug!(root_node.name=?root_node.get_name(), store_path.name=%store_path.to_string(), "store path mismatch");
+                    return Err(io::Error::from_raw_os_error(libc::ENOENT));
                 }
+
+                // Let's check if someone else beat us to updating the inode tracker and
+                // store_paths map. This avoids locking inode_tracker for writing.
+                if let Some(ino) = self.store_paths.read().get(&store_path) {
+                    return Ok((
+                        *ino,
+                        self.inode_tracker.read().get(*ino).expect("must exist"),
+                    ));
+                }
+
+                // Only in case it doesn't, lock [self.store_paths] and
+                // [self.inode_tracker] for writing.
+                let mut store_paths = self.store_paths.write();
+                let mut inode_tracker = self.inode_tracker.write();
+
+                // insert the (sparse) inode data and register in
+                // self.store_paths.
+                let inode_data: InodeData = (&root_node).into();
+                let ino = inode_tracker.put(inode_data.clone());
+                store_paths.insert(store_path, ino);
+
+                Ok((ino, Arc::new(inode_data)))
             }
         }
     }
@@ -326,23 +323,16 @@ impl FileSystem for TvixStoreFs {
         // - Otherwise, lookup the parent in [self.inode_tracker] (which must be
         //   a [InodeData::Directory]), and find the child with that name.
         if parent == ROOT_ID {
-            return match self.name_in_root_to_ino_and_data(name) {
-                Err(e) => {
-                    warn!("{}", e);
-                    Err(io::Error::from_raw_os_error(libc::ENOENT))
-                }
-                Ok(None) => Err(io::Error::from_raw_os_error(libc::ENOENT)),
-                Ok(Some((ino, inode_data))) => {
-                    debug!(inode_data=?&inode_data, ino=ino, "Some");
-                    Ok(fuse_backend_rs::api::filesystem::Entry {
-                        inode: ino,
-                        attr: gen_file_attr(&inode_data, ino).into(),
-                        attr_timeout: Duration::MAX,
-                        entry_timeout: Duration::MAX,
-                        ..Default::default()
-                    })
-                }
-            };
+            let (ino, inode_data) = self.name_in_root_to_ino_and_data(name)?;
+
+            debug!(inode_data=?&inode_data, ino=ino, "Some");
+            return Ok(fuse_backend_rs::api::filesystem::Entry {
+                inode: ino,
+                attr: gen_file_attr(&inode_data, ino).into(),
+                attr_timeout: Duration::MAX,
+                entry_timeout: Duration::MAX,
+                ..Default::default()
+            });
         }
         // This is the "lookup for "a" inside inode 42.
         // We already know that inode 42 must be a directory.
