@@ -167,8 +167,7 @@ impl super::blob_service_server::BlobService for GRPCBlobServiceWrapper {
                 warn!("error closing stream: {}", e);
                 Status::internal("error closing stream")
             })
-            .await?
-            .to_vec();
+            .await?;
 
         Ok(Response::new(super::PutBlobResponse {
             digest: digest.into(),

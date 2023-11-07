@@ -61,7 +61,7 @@ impl BlobService for SledBlobService {
 
     #[instrument(skip(self), fields(blob.digest=%digest))]
     async fn has(&self, digest: &B3Digest) -> Result<bool, Error> {
-        match self.db.contains_key(digest.to_vec()) {
+        match self.db.contains_key(digest.as_slice()) {
             Ok(has) => Ok(has),
             Err(e) => Err(Error::StorageError(e.to_string())),
         }
@@ -69,7 +69,7 @@ impl BlobService for SledBlobService {
 
     #[instrument(skip(self), fields(blob.digest=%digest))]
     async fn open_read(&self, digest: &B3Digest) -> Result<Option<Box<dyn BlobReader>>, Error> {
-        match self.db.get(digest.to_vec()) {
+        match self.db.get(digest.as_slice()) {
             Ok(None) => Ok(None),
             Ok(Some(data)) => Ok(Some(Box::new(Cursor::new(data[..].to_vec())))),
             Err(e) => Err(Error::StorageError(e.to_string())),
@@ -158,12 +158,12 @@ impl BlobWriter for SledBlobWriter {
             let digest: B3Digest = hasher.finalize().as_bytes().into();
 
             // Only insert if the blob doesn't already exist.
-            if !self.db.contains_key(digest.to_vec()).map_err(|e| {
+            if !self.db.contains_key(digest.as_slice()).map_err(|e| {
                 Error::StorageError(format!("Unable to check if we have blob {}: {}", digest, e))
             })? {
                 // put buf in there. This will move buf out.
                 self.db
-                    .insert(digest.to_vec(), buf)
+                    .insert(digest.as_slice(), buf)
                     .map_err(|e| Error::StorageError(format!("unable to insert blob: {}", e)))?;
             }
 

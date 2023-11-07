@@ -54,7 +54,7 @@ async fn put_read_stat() {
         .expect("must succeed")
         .into_inner();
 
-    assert_eq!(BLOB_A_DIGEST.to_vec(), put_resp.digest);
+    assert_eq!(BLOB_A_DIGEST.as_slice(), put_resp.digest);
 
     // Stat for the digest of A.
     // We currently don't ask for more granular chunking data, as we don't

@@ -15,9 +15,8 @@ pub enum Error {
 pub const B3_LEN: usize = 32;
 
 impl B3Digest {
-    // returns a copy of the inner [Vec<u8>].
-    pub fn to_vec(&self) -> Vec<u8> {
-        self.0.to_vec()
+    pub fn as_slice(&self) -> &[u8] {
+        &self.0[..]
     }
 }
 

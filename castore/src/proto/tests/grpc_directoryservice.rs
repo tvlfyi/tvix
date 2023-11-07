@@ -74,7 +74,7 @@ async fn put_get() {
     };
 
     // the sent root_digest should match the calculated digest
-    assert_eq!(put_resp.root_digest, DIRECTORY_A.digest().to_vec());
+    assert_eq!(put_resp.root_digest, DIRECTORY_A.digest().as_slice());
 
     // get it back
     let items = get_directories(
@@ -117,7 +117,7 @@ async fn put_get_multiple() {
             .into_inner()
     };
 
-    assert_eq!(DIRECTORY_B.digest().to_vec(), put_resp.root_digest);
+    assert_eq!(DIRECTORY_B.digest().as_slice(), put_resp.root_digest);
 
     // now, request b, first in non-recursive mode.
     let items = get_directories(
@@ -167,7 +167,7 @@ async fn put_get_dedup() {
     };
 
     assert_eq!(
-        DIRECTORY_C.digest().to_vec(),
+        DIRECTORY_C.digest().as_slice(),
         put_resp.into_inner().root_digest
     );
 

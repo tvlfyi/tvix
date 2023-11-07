@@ -199,8 +199,8 @@ async fn populate_directory_with_keep(
     // upload empty blob
     let mut bw = blob_service.open_write().await;
     assert_eq!(
-        fixtures::EMPTY_BLOB_DIGEST.to_vec(),
-        bw.close().await.expect("must succeed closing").to_vec(),
+        fixtures::EMPTY_BLOB_DIGEST.as_slice(),
+        bw.close().await.expect("must succeed closing").as_slice(),
     );
 
     // upload directory
@@ -282,8 +282,8 @@ async fn populate_directory_complicated(
     // upload empty blob
     let mut bw = blob_service.open_write().await;
     assert_eq!(
-        fixtures::EMPTY_BLOB_DIGEST.to_vec(),
-        bw.close().await.expect("must succeed closing").to_vec(),
+        fixtures::EMPTY_BLOB_DIGEST.as_slice(),
+        bw.close().await.expect("must succeed closing").as_slice(),
     );
 
     // upload inner directory

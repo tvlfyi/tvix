@@ -64,7 +64,7 @@ impl DirectoryService for SledDirectoryService {
 
     #[instrument(skip(self, digest), fields(directory.digest = %digest))]
     async fn get(&self, digest: &B3Digest) -> Result<Option<proto::Directory>, Error> {
-        match self.db.get(digest.to_vec()) {
+        match self.db.get(digest.as_slice()) {
             // The directory was not found, return
             Ok(None) => Ok(None),
 
@@ -114,7 +114,7 @@ impl DirectoryService for SledDirectoryService {
             )));
         }
         // store it
-        let result = self.db.insert(digest.to_vec(), directory.encode_to_vec());
+        let result = self.db.insert(digest.as_slice(), directory.encode_to_vec());
         if let Err(e) = result {
             return Err(Error::StorageError(e.to_string()));
         }
