@@ -282,49 +282,60 @@ impl FileSystem for TvixStoreFs {
         // It might not be populated yet, so if it isn't, we do (by
         // fetching from [self.directory_service]), and save the result in
         // [self.inode_tracker].
-        // Now it for sure is populated, so we search for that name in the
-        // list of children and return the FileAttrs.
-
-        // TODO: Reduce the critical section of this write lock.
-        let mut inode_tracker = self.inode_tracker.write();
-        let parent_data = inode_tracker.get(parent).unwrap();
-        let parent_data = match *parent_data {
-            InodeData::Regular(..) | InodeData::Symlink(_) => {
-                // if the parent inode was not a directory, this doesn't make sense
-                return Err(io::Error::from_raw_os_error(libc::ENOTDIR));
-            }
-            InodeData::Directory(DirectoryInodeData::Sparse(ref parent_digest, _)) => {
-                let directory_service = self.directory_service.clone();
-                let parent_digest = parent_digest.to_owned();
-                let task = self.tokio_handle.spawn(async move {
-                    fetch_directory_inode_data(directory_service, &parent_digest).await
-                });
-                match self.tokio_handle.block_on(task).unwrap() {
-                    Ok(new_data) => {
-                        // update data in [self.inode_tracker] with populated variant.
-                        // FUTUREWORK: change put to return the data after
-                        // inserting, so we don't need to lookup a second
-                        // time?
-                        let ino = inode_tracker.put(new_data);
-                        inode_tracker.get(ino).unwrap()
-                    }
-                    Err(_e) => {
-                        return Err(io::Error::from_raw_os_error(libc::EIO));
+        let (parent_digest, children) = {
+            let parent_data = self.inode_tracker.read().get(parent).unwrap();
+            match *parent_data {
+                // if it's populated already, extract parent_digest and children.
+                InodeData::Directory(DirectoryInodeData::Populated(
+                    ref parent_digest,
+                    ref children,
+                )) => (parent_digest.clone(), children.clone()),
+                // if it's sparse, fetch data using fetch_directory_inode_data and insert.
+                InodeData::Directory(DirectoryInodeData::Sparse(ref parent_digest, _)) => {
+                    let directory_service = self.directory_service.clone();
+                    let parent_digest = parent_digest.to_owned();
+                    match self
+                        .tokio_handle
+                        .block_on(self.tokio_handle.spawn(async move {
+                            fetch_directory_inode_data(directory_service, &parent_digest).await
+                        }))
+                        .unwrap()
+                    {
+                        Ok(
+                            ref data @ InodeData::Directory(DirectoryInodeData::Populated(
+                                ref parent_digest,
+                                _,
+                            )),
+                        ) => {
+                            // update data in [self.inode_tracker] with populated variant.
+                            // we need to round-trip via self.inode_tracker so
+                            // inodes for children are populated.
+                            self.inode_tracker.write().put(data.clone());
+                            let children = match *self.inode_tracker.read().get(parent).unwrap() {
+                                InodeData::Directory(DirectoryInodeData::Populated(
+                                    _,
+                                    ref children,
+                                )) => children.to_owned(),
+                                _ => unreachable!(),
+                            };
+                            (parent_digest.clone(), children)
+                        }
+                        // we know fetch_directory_inode_data only returns InodeData::Directory(DirectoryInodeData::Populated(..))
+                        Ok(_) => panic!("unexpected type"),
+                        Err(_e) => {
+                            return Err(io::Error::from_raw_os_error(libc::EIO));
+                        }
                     }
                 }
+                // if the parent inode was not a directory, this doesn't make sense
+                InodeData::Regular(..) | InodeData::Symlink(_) => {
+                    return Err(io::Error::from_raw_os_error(libc::ENOTDIR));
+                }
             }
-            InodeData::Directory(DirectoryInodeData::Populated(..)) => parent_data,
         };
 
-        // now parent_data can only be a [InodeData::Directory(DirectoryInodeData::Populated(..))].
-        let (parent_digest, children) = if let InodeData::Directory(
-            DirectoryInodeData::Populated(ref parent_digest, ref children),
-        ) = *parent_data
-        {
-            (parent_digest, children)
-        } else {
-            panic!("unexpected type")
-        };
+        // Now it for sure is populated, so we search for that name in the
+        // list of children and return the FileAttrs.
         let span = info_span!("lookup", directory.digest = %parent_digest);
         let _enter = span.enter();
 
@@ -332,7 +343,7 @@ impl FileSystem for TvixStoreFs {
         if let Some((child_ino, _)) = children.iter().find(|e| e.1.get_name() == name.to_bytes()) {
             // lookup the child [InodeData] in [self.inode_tracker].
             // We know the inodes for children have already been allocated.
-            let child_inode_data = inode_tracker.get(*child_ino).unwrap();
+            let child_inode_data = self.inode_tracker.read().get(*child_ino).unwrap();
 
             // Reply with the file attributes for the child.
             // For child directories, we still have all data we need to reply.
