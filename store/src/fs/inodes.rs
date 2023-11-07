@@ -55,16 +55,3 @@ impl From<&castorepb::DirectoryNode> for InodeData {
         ))
     }
 }
-
-/// converts a proto::Directory to a InodeData::Directory(DirectoryInodeData::Populated(..)).
-/// The inodes for each child are 0, because it's up to the InodeTracker to allocate them.
-impl From<castorepb::Directory> for InodeData {
-    fn from(value: castorepb::Directory) -> Self {
-        let digest = value.digest();
-
-        let children: Vec<(u64, castorepb::node::Node)> =
-            value.nodes().map(|node| (0, node)).collect();
-
-        InodeData::Directory(DirectoryInodeData::Populated(digest, children))
-    }
-}

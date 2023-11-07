@@ -1,7 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
 use super::inodes::{DirectoryInodeData, InodeData};
-use tvix_castore::proto as castorepb;
 use tvix_castore::B3Digest;
 
 /// InodeTracker keeps track of inodes, stores data being these inodes and deals
@@ -43,6 +42,14 @@ impl InodeTracker {
         self.data.get(&ino).cloned()
     }
 
+    // Replaces data for a given inode.
+    // Panics if the inode doesn't already exist.
+    pub fn replace(&mut self, ino: u64, data: Arc<InodeData>) {
+        if self.data.insert(ino, data).is_none() {
+            panic!("replace called on unknown inode");
+        }
+    }
+
     // Stores data and returns the inode for it.
     // In case an inode has already been allocated for the same data, that inode
     // is returned, otherwise a new one is allocated.
@@ -81,84 +88,12 @@ impl InodeTracker {
                     }
                 }
             }
-            // Inserting [DirectoryInodeData::Populated] usually replaces an
-            // existing [DirectoryInodeData::Sparse] one.
-            InodeData::Directory(DirectoryInodeData::Populated(ref digest, ref children)) => {
-                let dir_ino = self.directory_digest_to_inode.get(digest);
-                if let Some(dir_ino) = dir_ino {
-                    let dir_ino = *dir_ino;
-
-                    // We know the data must exist, as we found it in [directory_digest_to_inode].
-                    let needs_update = match **self.data.get(&dir_ino).unwrap() {
-                        InodeData::Regular(..) | InodeData::Symlink(_) => {
-                            panic!("unexpected type at inode {}", dir_ino);
-                        }
-                        // already populated, nothing to do
-                        InodeData::Directory(DirectoryInodeData::Populated(..)) => false,
-                        // in case the actual data is sparse, replace it with the populated one.
-                        // this allocates inodes for new children in the process.
-                        InodeData::Directory(DirectoryInodeData::Sparse(
-                            ref old_digest,
-                            ref _old_size,
-                        )) => {
-                            // sanity checking to ensure we update the right node
-                            debug_assert_eq!(old_digest, digest);
-
-                            true
-                        }
-                    };
-
-                    if needs_update {
-                        // populate inode fields in children
-                        let children = self.allocate_inodes_for_children(children.to_vec());
-
-                        // update sparse data with populated data
-                        self.data.insert(
-                            dir_ino,
-                            Arc::new(InodeData::Directory(DirectoryInodeData::Populated(
-                                digest.clone(),
-                                children,
-                            ))),
-                        );
-                    }
-
-                    dir_ino
-                } else {
-                    // populate inode fields in children
-                    let children = self.allocate_inodes_for_children(children.to_vec());
-                    // insert and return InodeData
-                    self.insert_and_increment(InodeData::Directory(DirectoryInodeData::Populated(
-                        digest.clone(),
-                        children,
-                    )))
-                }
+            // Inserting [DirectoryInodeData::Populated] doesn't normally happen,
+            // only via [replace].
+            InodeData::Directory(DirectoryInodeData::Populated(..)) => {
+                unreachable!("should never be called with DirectoryInodeData::Populated")
             }
         }
-    }
-
-    // Consume a list of children with zeroed inodes, and allocate (or fetch existing) inodes.
-    fn allocate_inodes_for_children(
-        &mut self,
-        children: Vec<(u64, castorepb::node::Node)>,
-    ) -> Vec<(u64, castorepb::node::Node)> {
-        // allocate new inodes for all children
-        let mut children_new: Vec<(u64, castorepb::node::Node)> = Vec::new();
-
-        for (child_ino, ref child_node) in children {
-            debug_assert_eq!(0, child_ino, "expected child inode to be 0");
-            let child_ino = match child_node {
-                castorepb::node::Node::Directory(directory_node) => {
-                    // Try putting the sparse data in. If we already have a
-                    // populated version, it'll not update it.
-                    self.put(directory_node.into())
-                }
-                castorepb::node::Node::File(file_node) => self.put(file_node.into()),
-                castorepb::node::Node::Symlink(symlink_node) => self.put(symlink_node.into()),
-            };
-
-            children_new.push((child_ino, child_node.clone()))
-        }
-        children_new
     }
 
     // Inserts the data and returns the inode it was stored at, while
@@ -197,9 +132,7 @@ impl InodeTracker {
 
 #[cfg(test)]
 mod tests {
-    use crate::fs::inodes::DirectoryInodeData;
     use crate::tests::fixtures;
-    use tvix_castore::proto as castorepb;
 
     use super::InodeData;
     use super::InodeTracker;
@@ -271,187 +204,4 @@ mod tests {
         // inserting another file should return a different ino
         assert_ne!(ino, inode_tracker.put(InodeData::Symlink("target2".into())));
     }
-
-    // TODO: put sparse directory
-
-    /// Put a directory into the inode tracker, which refers to a file not seen yet.
-    #[test]
-    fn put_directory_leaf() {
-        let mut inode_tracker = InodeTracker::default();
-
-        // this is a directory with a single item, a ".keep" file pointing to a 0 bytes blob.
-        let dir: InodeData = fixtures::DIRECTORY_WITH_KEEP.clone().into();
-
-        // put it in
-        let dir_ino = inode_tracker.put(dir);
-
-        // a get should return the right data
-        let data = inode_tracker.get(dir_ino).expect("must be some");
-        match *data {
-            InodeData::Directory(super::DirectoryInodeData::Sparse(..)) => {
-                panic!("wrong type");
-            }
-            InodeData::Directory(super::DirectoryInodeData::Populated(
-                ref directory_digest,
-                ref children,
-            )) => {
-                // ensure the directory digest matches
-                assert_eq!(&fixtures::DIRECTORY_WITH_KEEP.digest(), directory_digest);
-
-                // ensure the child is populated, with a different inode than
-                // the parent, and the data matches expectations.
-                assert_eq!(1, children.len());
-                let (child_ino, child_node) = children.first().unwrap();
-                assert_ne!(dir_ino, *child_ino);
-                assert_eq!(
-                    &castorepb::node::Node::File(
-                        fixtures::DIRECTORY_WITH_KEEP.files.first().unwrap().clone()
-                    ),
-                    child_node
-                );
-
-                // ensure looking up that inode directly returns the data
-                let child_data = inode_tracker.get(*child_ino).expect("must exist");
-                match *child_data {
-                    InodeData::Regular(ref digest, size, executable) => {
-                        assert_eq!(&fixtures::EMPTY_BLOB_DIGEST.clone(), digest);
-                        assert_eq!(0, size);
-                        assert!(!executable);
-                    }
-                    InodeData::Symlink(_) | InodeData::Directory(..) => panic!("wrong type"),
-                }
-            }
-            InodeData::Symlink(_) | InodeData::Regular(..) => panic!("wrong type"),
-        }
-    }
-
-    /// Put a directory into the inode tracker, referring to files, directories
-    /// and symlinks not seen yet.
-    #[test]
-    fn put_directory_complicated() {
-        let mut inode_tracker = InodeTracker::default();
-
-        // this is a directory with a single item, a ".keep" file pointing to a 0 bytes blob.
-        let dir_complicated: InodeData = fixtures::DIRECTORY_COMPLICATED.clone().into();
-
-        // put it in
-        let dir_complicated_ino = inode_tracker.put(dir_complicated);
-
-        // a get should return the right data
-        let dir_data = inode_tracker
-            .get(dir_complicated_ino)
-            .expect("must be some");
-
-        let child_dir_ino = match *dir_data {
-            InodeData::Directory(DirectoryInodeData::Sparse(..)) => {
-                panic!("wrong type");
-            }
-            InodeData::Directory(DirectoryInodeData::Populated(
-                ref directory_digest,
-                ref children,
-            )) => {
-                // assert the directory digest matches
-                assert_eq!(&fixtures::DIRECTORY_COMPLICATED.digest(), directory_digest);
-
-                // ensure there's three children, all with different inodes
-                assert_eq!(3, children.len());
-                let mut seen_inodes = Vec::from([dir_complicated_ino]);
-
-                // check the first child (.keep)
-                {
-                    let (child_ino, child_node) = &children[0];
-                    assert!(!seen_inodes.contains(child_ino));
-                    assert_eq!(
-                        &castorepb::node::Node::File(
-                            fixtures::DIRECTORY_COMPLICATED.files[0].clone()
-                        ),
-                        child_node
-                    );
-                    seen_inodes.push(*child_ino);
-                }
-
-                // check the second child (aa)
-                {
-                    let (child_ino, child_node) = &children[1];
-                    assert!(!seen_inodes.contains(child_ino));
-                    assert_eq!(
-                        &castorepb::node::Node::Symlink(
-                            fixtures::DIRECTORY_COMPLICATED.symlinks[0].clone()
-                        ),
-                        child_node
-                    );
-                    seen_inodes.push(*child_ino);
-                }
-
-                // check the third child (keep)
-                {
-                    let (child_ino, child_node) = &children[2];
-                    assert!(!seen_inodes.contains(child_ino));
-                    assert_eq!(
-                        &castorepb::node::Node::Directory(
-                            fixtures::DIRECTORY_COMPLICATED.directories[0].clone()
-                        ),
-                        child_node
-                    );
-                    seen_inodes.push(*child_ino);
-
-                    // return the child_ino
-                    *child_ino
-                }
-            }
-            InodeData::Regular(..) | InodeData::Symlink(_) => panic!("wrong type"),
-        };
-
-        // get of the inode for child_ino
-        let child_dir_data = inode_tracker.get(child_dir_ino).expect("must be some");
-        // it should be a sparse InodeData::Directory with the right digest.
-        match *child_dir_data {
-            InodeData::Directory(DirectoryInodeData::Sparse(
-                ref child_dir_digest,
-                child_dir_size,
-            )) => {
-                assert_eq!(&fixtures::DIRECTORY_WITH_KEEP.digest(), child_dir_digest);
-                assert_eq!(fixtures::DIRECTORY_WITH_KEEP.size(), child_dir_size);
-            }
-            InodeData::Directory(DirectoryInodeData::Populated(..))
-            | InodeData::Regular(..)
-            | InodeData::Symlink(_) => {
-                panic!("wrong type")
-            }
-        }
-
-        // put DIRECTORY_WITH_KEEP, which should return the same ino as [child_dir_ino],
-        // but update the sparse object to a populated one at the same time.
-        let child_dir_ino2 = inode_tracker.put(fixtures::DIRECTORY_WITH_KEEP.clone().into());
-        assert_eq!(child_dir_ino, child_dir_ino2);
-
-        // get the data
-        match *inode_tracker.get(child_dir_ino).expect("must be some") {
-            // it should be a populated InodeData::Directory with the right digest!
-            InodeData::Directory(DirectoryInodeData::Populated(
-                ref directory_digest,
-                ref children,
-            )) => {
-                // ensure the directory digest matches
-                assert_eq!(&fixtures::DIRECTORY_WITH_KEEP.digest(), directory_digest);
-
-                // ensure the child is populated, with a different inode than
-                // the parent, and the data matches expectations.
-                assert_eq!(1, children.len());
-                let (child_node_inode, child_node) = children.first().unwrap();
-                assert_ne!(dir_complicated_ino, *child_node_inode);
-                assert_eq!(
-                    &castorepb::node::Node::File(
-                        fixtures::DIRECTORY_WITH_KEEP.files.first().unwrap().clone()
-                    ),
-                    child_node
-                );
-            }
-            InodeData::Directory(DirectoryInodeData::Sparse(..))
-            | InodeData::Regular(..)
-            | InodeData::Symlink(_) => panic!("wrong type"),
-        }
-    }
 }
-
-// TODO: add test inserting a populated one first, then ensure an update doesn't degrade it back to sparse.
