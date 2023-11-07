@@ -131,6 +131,74 @@ impl TvixStoreFs {
         store_paths.get(store_path).cloned()
     }
 
+    /// For a given inode, look up the given directory behind it (from
+    /// self.inode_tracker), and return its children.
+    /// The inode_tracker MUST know about this inode already, and it MUST point
+    /// to a [InodeData::Directory].
+    /// It is ok if it's a [DirectoryInodeData::Sparse] - in that case, a lookup
+    /// in self.directory_service is performed, and self.inode_tracker is updated with the
+    /// [DirectoryInodeData::Populated].
+    #[instrument(skip(self), err)]
+    fn get_directory_children(&self, ino: u64) -> io::Result<(B3Digest, Vec<(u64, Node)>)> {
+        let data = self.inode_tracker.read().get(ino).unwrap();
+        match *data {
+            // if it's populated already, return children.
+            InodeData::Directory(DirectoryInodeData::Populated(
+                ref parent_digest,
+                ref children,
+            )) => Ok((parent_digest.clone(), children.clone())),
+            // if it's sparse, fetch data using fetch_directory_inode_data and insert.
+            InodeData::Directory(DirectoryInodeData::Sparse(ref parent_digest, _)) => {
+                let directory_service = self.directory_service.clone();
+                let parent_digest = parent_digest.to_owned();
+                match self
+                    .tokio_handle
+                    .block_on(self.tokio_handle.spawn(async move {
+                        match directory_service.get(&parent_digest).await? {
+                            // If the Directory can't be found, this is a hole, bail out.
+                            None => {
+                                warn!(directory.digest=%parent_digest, "directory not found");
+                                Err(Error::StorageError(format!(
+                                    "directory {} not found",
+                                    parent_digest
+                                )))
+                            }
+                            Some(directory) => Ok(directory.into()),
+                        }
+                    }))
+                    .unwrap()
+                {
+                    Err(_e) => Err(io::Error::from_raw_os_error(libc::EIO)),
+                    Ok(
+                        ref data @ InodeData::Directory(DirectoryInodeData::Populated(
+                            ref parent_digest,
+                            _,
+                        )),
+                    ) => {
+                        // update data in [self.inode_tracker] with populated variant.
+                        // we need to round-trip via self.inode_tracker so
+                        // inodes for children are populated.
+                        self.inode_tracker.write().put(data.clone());
+                        let children = match *self.inode_tracker.read().get(ino).unwrap() {
+                            InodeData::Directory(DirectoryInodeData::Populated(
+                                _,
+                                ref children,
+                            )) => children.to_owned(),
+                            _ => unreachable!(),
+                        };
+                        Ok((parent_digest.clone(), children))
+                    }
+                    // we know fetch_directory_inode_data only returns InodeData::Directory(DirectoryInodeData::Populated(..))
+                    Ok(_) => panic!("unexpected type"),
+                }
+            }
+            // if the parent inode was not a directory, this doesn't make sense
+            InodeData::Regular(..) | InodeData::Symlink(_) => {
+                Err(io::Error::from_raw_os_error(libc::ENOTDIR))
+            }
+        }
+    }
+
     /// This will turn a lookup request for [std::ffi::OsStr] in the root to
     /// a ino and [InodeData].
     /// It will peek in [self.store_paths], and then either look it up from
@@ -216,8 +284,8 @@ impl TvixStoreFs {
 }
 
 impl FileSystem for TvixStoreFs {
-    type Inode = u64;
     type Handle = u64;
+    type Inode = u64;
 
     fn init(&self, _capable: FsOptions) -> io::Result<FsOptions> {
         Ok(FsOptions::empty())
@@ -276,68 +344,14 @@ impl FileSystem for TvixStoreFs {
                 }
             };
         }
-
         // This is the "lookup for "a" inside inode 42.
         // We already know that inode 42 must be a directory.
-        // It might not be populated yet, so if it isn't, we do (by
-        // fetching from [self.directory_service]), and save the result in
-        // [self.inode_tracker].
-        let (parent_digest, children) = {
-            let parent_data = self.inode_tracker.read().get(parent).unwrap();
-            match *parent_data {
-                // if it's populated already, extract parent_digest and children.
-                InodeData::Directory(DirectoryInodeData::Populated(
-                    ref parent_digest,
-                    ref children,
-                )) => (parent_digest.clone(), children.clone()),
-                // if it's sparse, fetch data using fetch_directory_inode_data and insert.
-                InodeData::Directory(DirectoryInodeData::Sparse(ref parent_digest, _)) => {
-                    let directory_service = self.directory_service.clone();
-                    let parent_digest = parent_digest.to_owned();
-                    match self
-                        .tokio_handle
-                        .block_on(self.tokio_handle.spawn(async move {
-                            fetch_directory_inode_data(directory_service, &parent_digest).await
-                        }))
-                        .unwrap()
-                    {
-                        Ok(
-                            ref data @ InodeData::Directory(DirectoryInodeData::Populated(
-                                ref parent_digest,
-                                _,
-                            )),
-                        ) => {
-                            // update data in [self.inode_tracker] with populated variant.
-                            // we need to round-trip via self.inode_tracker so
-                            // inodes for children are populated.
-                            self.inode_tracker.write().put(data.clone());
-                            let children = match *self.inode_tracker.read().get(parent).unwrap() {
-                                InodeData::Directory(DirectoryInodeData::Populated(
-                                    _,
-                                    ref children,
-                                )) => children.to_owned(),
-                                _ => unreachable!(),
-                            };
-                            (parent_digest.clone(), children)
-                        }
-                        // we know fetch_directory_inode_data only returns InodeData::Directory(DirectoryInodeData::Populated(..))
-                        Ok(_) => panic!("unexpected type"),
-                        Err(_e) => {
-                            return Err(io::Error::from_raw_os_error(libc::EIO));
-                        }
-                    }
-                }
-                // if the parent inode was not a directory, this doesn't make sense
-                InodeData::Regular(..) | InodeData::Symlink(_) => {
-                    return Err(io::Error::from_raw_os_error(libc::ENOTDIR));
-                }
-            }
-        };
+        let (parent_digest, children) = self.get_directory_children(parent)?;
 
-        // Now it for sure is populated, so we search for that name in the
-        // list of children and return the FileAttrs.
         let span = info_span!("lookup", directory.digest = %parent_digest);
         let _enter = span.enter();
+
+        // Search for that name in the list of children and return the FileAttrs.
 
         // in the children, find the one with the desired name.
         if let Some((child_ino, _)) = children.iter().find(|e| e.1.get_name() == name.to_bytes()) {
@@ -440,52 +454,11 @@ impl FileSystem for TvixStoreFs {
             }
         }
 
-        // lookup the inode data.
-        let dir_inode_data = {
-            let inode_tracker = self.inode_tracker.read();
-            inode_tracker.get(inode).unwrap()
-        };
+        // lookup the children, or return an error if it's not a directory.
+        let (parent_digest, children) = self.get_directory_children(inode)?;
 
-        let children = match *dir_inode_data {
-            InodeData::Directory(DirectoryInodeData::Populated(ref _digest, ref children)) => {
-                children.to_vec()
-            }
-            InodeData::Directory(DirectoryInodeData::Sparse(ref directory_digest, _)) => {
-                match self
-                    .tokio_handle
-                    .block_on(self.tokio_handle.spawn({
-                        let directory_digest = directory_digest.to_owned();
-                        let directory_service = self.directory_service.clone();
-                        async move {
-                            fetch_directory_inode_data(directory_service, &directory_digest).await
-                        }
-                    }))
-                    .unwrap()
-                {
-                    Ok(
-                        ref new_data @ InodeData::Directory(DirectoryInodeData::Populated(
-                            ref _digest,
-                            ref children,
-                        )),
-                    ) => {
-                        // update data in [self.inode_tracker] with populated variant.
-                        {
-                            let mut inode_tracker = self.inode_tracker.write();
-                            inode_tracker.put(new_data.clone());
-                        }
-                        children.to_vec()
-                    }
-                    // we know fetch_directory_inode_data only returns InodeData::Directory(DirectoryInodeData::Populated(..))
-                    Ok(_) => panic!("unexpected type"),
-                    Err(_e) => {
-                        return Err(io::Error::from_raw_os_error(libc::EIO));
-                    }
-                }
-            }
-            InodeData::Regular(..) | InodeData::Symlink(..) => {
-                return Err(io::Error::from_raw_os_error(libc::ENOTDIR));
-            }
-        };
+        let span = info_span!("lookup", directory.digest = %parent_digest);
+        let _enter = span.enter();
 
         for (i, (ino, child_node)) in children.iter().skip(offset as usize).enumerate() {
             // the second parameter will become the "offset" parameter on the next call.
@@ -691,24 +664,5 @@ impl FileSystem for TvixStoreFs {
             }
             InodeData::Symlink(ref target) => Ok(target.to_vec()),
         }
-    }
-}
-
-/// This will lookup a directory by digest, and will turn it into a
-/// [InodeData::Directory(DirectoryInodeData::Populated(..))].
-/// This is both used to initially insert the root node of a store path,
-/// as well as when looking up an intermediate DirectoryNode.
-#[instrument(skip_all, fields(directory.digest = %directory_digest), err)]
-async fn fetch_directory_inode_data<DS: DirectoryService + ?Sized>(
-    directory_service: Arc<DS>,
-    directory_digest: &B3Digest,
-) -> Result<InodeData, Error> {
-    match directory_service.get(directory_digest).await? {
-        // If the Directory can't be found, this is a hole, bail out.
-        None => Err(Error::StorageError(format!(
-            "directory {} not found",
-            directory_digest
-        ))),
-        Some(directory) => Ok(directory.into()),
     }
 }
