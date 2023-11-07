@@ -441,65 +441,74 @@ impl FileSystem for TvixStoreFs {
         }
 
         // lookup the inode data.
-        let mut inode_tracker = self.inode_tracker.write();
-        let dir_inode_data = inode_tracker.get(inode).unwrap();
-        let dir_inode_data = match *dir_inode_data {
-            InodeData::Regular(..) | InodeData::Symlink(..) => {
-                warn!("Not a directory");
-                return Err(io::Error::from_raw_os_error(libc::ENOTDIR));
+        let dir_inode_data = {
+            let inode_tracker = self.inode_tracker.read();
+            inode_tracker.get(inode).unwrap()
+        };
+
+        let children = match *dir_inode_data {
+            InodeData::Directory(DirectoryInodeData::Populated(ref _digest, ref children)) => {
+                children.to_vec()
             }
             InodeData::Directory(DirectoryInodeData::Sparse(ref directory_digest, _)) => {
-                let directory_digest = directory_digest.to_owned();
-                let directory_service = self.directory_service.clone();
-                let task = self.tokio_handle.spawn(async move {
-                    fetch_directory_inode_data(directory_service, &directory_digest).await
-                });
-                match self.tokio_handle.block_on(task).unwrap() {
-                    Ok(new_data) => {
+                match self
+                    .tokio_handle
+                    .block_on(self.tokio_handle.spawn({
+                        let directory_digest = directory_digest.to_owned();
+                        let directory_service = self.directory_service.clone();
+                        async move {
+                            fetch_directory_inode_data(directory_service, &directory_digest).await
+                        }
+                    }))
+                    .unwrap()
+                {
+                    Ok(
+                        ref new_data @ InodeData::Directory(DirectoryInodeData::Populated(
+                            ref _digest,
+                            ref children,
+                        )),
+                    ) => {
                         // update data in [self.inode_tracker] with populated variant.
-                        // FUTUREWORK: change put to return the data after
-                        // inserting, so we don't need to lookup a second
-                        // time?
-                        let ino = inode_tracker.put(new_data.clone());
-                        inode_tracker.get(ino).unwrap()
+                        {
+                            let mut inode_tracker = self.inode_tracker.write();
+                            inode_tracker.put(new_data.clone());
+                        }
+                        children.to_vec()
                     }
+                    // we know fetch_directory_inode_data only returns InodeData::Directory(DirectoryInodeData::Populated(..))
+                    Ok(_) => panic!("unexpected type"),
                     Err(_e) => {
                         return Err(io::Error::from_raw_os_error(libc::EIO));
                     }
                 }
             }
-            InodeData::Directory(DirectoryInodeData::Populated(..)) => dir_inode_data,
+            InodeData::Regular(..) | InodeData::Symlink(..) => {
+                return Err(io::Error::from_raw_os_error(libc::ENOTDIR));
+            }
         };
 
-        // now parent_data can only be InodeData::Directory(DirectoryInodeData::Populated(..))
-        if let InodeData::Directory(DirectoryInodeData::Populated(ref _digest, ref children)) =
-            *dir_inode_data
-        {
-            for (i, (ino, child_node)) in children.iter().skip(offset as usize).enumerate() {
-                // the second parameter will become the "offset" parameter on the next call.
-                let written = add_entry(fuse_backend_rs::api::filesystem::DirEntry {
-                    ino: *ino,
-                    offset: offset + i as u64 + 1,
-                    type_: match child_node {
-                        #[allow(clippy::unnecessary_cast)]
-                        // libc::S_IFDIR is u32 on Linux and u16 on MacOS
-                        Node::Directory(_) => libc::S_IFDIR as u32,
-                        #[allow(clippy::unnecessary_cast)]
-                        // libc::S_IFDIR is u32 on Linux and u16 on MacOS
-                        Node::File(_) => libc::S_IFREG as u32,
-                        #[allow(clippy::unnecessary_cast)]
-                        // libc::S_IFDIR is u32 on Linux and u16 on MacOS
-                        Node::Symlink(_) => libc::S_IFLNK as u32,
-                    },
-                    name: child_node.get_name(),
-                })?;
-                // If the buffer is full, add_entry will return `Ok(0)`.
-                if written == 0 {
-                    break;
-                }
+        for (i, (ino, child_node)) in children.iter().skip(offset as usize).enumerate() {
+            // the second parameter will become the "offset" parameter on the next call.
+            let written = add_entry(fuse_backend_rs::api::filesystem::DirEntry {
+                ino: *ino,
+                offset: offset + i as u64 + 1,
+                type_: match child_node {
+                    #[allow(clippy::unnecessary_cast)]
+                    // libc::S_IFDIR is u32 on Linux and u16 on MacOS
+                    Node::Directory(_) => libc::S_IFDIR as u32,
+                    #[allow(clippy::unnecessary_cast)]
+                    // libc::S_IFDIR is u32 on Linux and u16 on MacOS
+                    Node::File(_) => libc::S_IFREG as u32,
+                    #[allow(clippy::unnecessary_cast)]
+                    // libc::S_IFDIR is u32 on Linux and u16 on MacOS
+                    Node::Symlink(_) => libc::S_IFLNK as u32,
+                },
+                name: child_node.get_name(),
+            })?;
+            // If the buffer is full, add_entry will return `Ok(0)`.
+            if written == 0 {
+                break;
             }
-        } else {
-            panic!("unexpected type")
         }
 
         Ok(())
