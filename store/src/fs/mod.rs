@@ -124,6 +124,13 @@ impl TvixStoreFs {
         }
     }
 
+    /// Retrieves the inode for a given StorePath, if present.
+    /// This obtains a read lock on self.store_paths.
+    fn get_inode_for_store_path(&self, store_path: &StorePath) -> Option<u64> {
+        let store_paths = self.store_paths.read();
+        store_paths.get(store_path).cloned()
+    }
+
     /// This will turn a lookup request for [std::ffi::OsStr] in the root to
     /// a ino and [InodeData].
     /// It will peek in [self.store_paths], and then either look it up from
@@ -151,14 +158,7 @@ impl TvixStoreFs {
             return Ok(None);
         };
 
-        let ino = {
-            // This extra scope makes sure we drop the read lock
-            // immediately after reading, to prevent deadlocks.
-            let store_paths = self.store_paths.read();
-            store_paths.get(&store_path).cloned()
-        };
-
-        if let Some(ino) = ino {
+        if let Some(ino) = self.get_inode_for_store_path(&store_path) {
             // If we already have that store path, lookup the inode from
             // self.store_paths and then get the data from [self.inode_tracker],
             // which in the case of a [InodeData::Directory] will be fully
@@ -396,22 +396,16 @@ impl FileSystem for TvixStoreFs {
                     let root_node = path_info.node.unwrap().node.unwrap();
                     let store_path = StorePath::from_bytes(root_node.get_name()).unwrap();
 
-                    let ino = {
-                        // This extra scope makes sure we drop the read lock
-                        // immediately after reading, to prevent deadlocks.
-                        let store_paths = self.store_paths.read();
-                        store_paths.get(&store_path).cloned()
-                    };
-                    let ino = match ino {
-                        Some(ino) => ino,
-                        None => {
+                    // obtain the inode, or allocate a new one.
+                    let ino = self
+                        .get_inode_for_store_path(&store_path)
+                        .unwrap_or_else(|| {
                             // insert the (sparse) inode data and register in
                             // self.store_paths.
                             let ino = self.inode_tracker.write().put((&root_node).into());
                             self.store_paths.write().insert(store_path.clone(), ino);
                             ino
-                        }
-                    };
+                        });
 
                     let ty = match root_node {
                         Node::Directory(_) => libc::S_IFDIR,
