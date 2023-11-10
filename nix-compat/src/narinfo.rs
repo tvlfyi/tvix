@@ -31,6 +31,7 @@ use crate::{
 
 #[derive(Debug)]
 pub struct NarInfo<'a> {
+    pub unknown_fields: bool,
     // core (authenticated, but unverified here)
     /// Store path described by this [NarInfo]
     pub store_path: StorePathRef<'a>,
@@ -64,6 +65,8 @@ pub struct NarInfo<'a> {
 
 impl<'a> NarInfo<'a> {
     pub fn parse(input: &'a str) -> Result<Self, Error> {
+        let mut unknown_fields = false;
+
         let mut store_path = None;
         let mut url = None;
         let mut compression = None;
@@ -218,12 +221,13 @@ impl<'a> NarInfo<'a> {
                     }
                 }
                 _ => {
-                    // unknown field, ignore
+                    unknown_fields = true;
                 }
             }
         }
 
         Ok(NarInfo {
+            unknown_fields,
             store_path: store_path.ok_or(Error::MissingField("StorePath"))?,
             nar_hash: nar_hash.ok_or(Error::MissingField("NarHash"))?,
             nar_size: nar_size.ok_or(Error::MissingField("NarSize"))?,
