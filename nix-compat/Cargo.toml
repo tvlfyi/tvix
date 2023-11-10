@@ -9,6 +9,7 @@ edition = "2021"
 async = ["futures-util"]
 
 [dependencies]
+bitflags = "2.4.1"
 bstr = { version = "1.6.0", features = ["alloc", "unicode", "serde"] }
 data-encoding = "2.3.3"
 futures-util = { version = "0.3.28", features = ["io"], optional = true }

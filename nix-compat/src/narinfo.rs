@@ -17,6 +17,7 @@
 //!    * compression algorithm used for the NAR
 //!    * hash and size of the compressed NAR
 
+use bitflags::bitflags;
 use data_encoding::{BASE64, HEXLOWER};
 use std::{
     fmt::{self, Display},
@@ -31,10 +32,7 @@ use crate::{
 
 #[derive(Debug)]
 pub struct NarInfo<'a> {
-    pub unknown_fields: bool,
-    pub compression_default: bool,
-    pub nar_hash_hex: bool,
-    pub references_out_of_order: bool,
+    pub flags: Flags,
     // core (authenticated, but unverified here)
     /// Store path described by this [NarInfo]
     pub store_path: StorePathRef<'a>,
@@ -70,13 +68,21 @@ pub struct NarInfo<'a> {
     pub file_size: Option<u64>,
 }
 
+bitflags! {
+    /// TODO(edef): be conscious of these when roundtripping
+    #[derive(Debug, Copy, Clone)]
+    pub struct Flags: u8 {
+        const UNKNOWN_FIELD = 1 << 0;
+        const COMPRESSION_DEFAULT = 1 << 1;
+        // Format quirks encountered in the cache.nixos.org dataset
+        const REFERENCES_OUT_OF_ORDER = 1 << 2;
+        const NAR_HASH_HEX = 1 << 3;
+    }
+}
+
 impl<'a> NarInfo<'a> {
     pub fn parse(input: &'a str) -> Result<Self, Error> {
-        let mut unknown_fields = false;
-        let mut compression_default = false;
-        let mut nar_hash_hex = false;
-        let mut references_out_of_order = false;
-
+        let mut flags = Flags::empty();
         let mut store_path = None;
         let mut url = None;
         let mut compression = None;
@@ -159,7 +165,7 @@ impl<'a> NarInfo<'a> {
                     let val = if val.len() != HEXLOWER.encode_len(32) {
                         nixbase32::decode_fixed::<32>(val)
                     } else {
-                        nar_hash_hex = true;
+                        flags |= Flags::NAR_HASH_HEX;
 
                         let val = val.as_bytes();
                         let mut buf = [0u8; 32];
@@ -193,7 +199,7 @@ impl<'a> NarInfo<'a> {
                             .map(|(i, s)| {
                                 // TODO(edef): track *duplicates* if this occurs
                                 if mem::replace(&mut prev, s) >= s {
-                                    references_out_of_order = true;
+                                    flags |= Flags::REFERENCES_OUT_OF_ORDER;
                                 }
 
                                 StorePathRef::from_bytes(s.as_bytes())
@@ -244,15 +250,12 @@ impl<'a> NarInfo<'a> {
                     }
                 }
                 _ => {
-                    unknown_fields = true;
+                    flags |= Flags::UNKNOWN_FIELD;
                 }
             }
         }
 
         Ok(NarInfo {
-            unknown_fields,
-            nar_hash_hex,
-            references_out_of_order,
             store_path: store_path.ok_or(Error::MissingField("StorePath"))?,
             nar_hash: nar_hash.ok_or(Error::MissingField("NarHash"))?,
             nar_size: nar_size.ok_or(Error::MissingField("NarSize"))?,
@@ -265,14 +268,14 @@ impl<'a> NarInfo<'a> {
             compression: match compression {
                 Some("none") => None,
                 None => {
-                    compression_default = true;
+                    flags |= Flags::COMPRESSION_DEFAULT;
                     Some("bzip2")
                 }
                 _ => compression,
             },
-            compression_default,
             file_hash,
             file_size,
+            flags,
         })
     }
 }
@@ -502,7 +505,7 @@ mod test {
         store_path::StorePathRef,
     };
 
-    use super::NarInfo;
+    use super::{Flags, NarInfo};
 
     lazy_static! {
         static ref CASES: &'static [&'static str] = {
@@ -541,7 +544,7 @@ Deriver: 2dzpn70c1hawczwhg9aavqk18zp9zsva-gcc-3.4.6.drv
 Sig: cache.nixos.org-1:o1DTsjCz0PofLJ216P2RBuSulI8BAb6zHxWE4N+tzlcELk5Uk/GO2SCxWTRN5wJutLZZ+cHTMdWqOHF88KGQDg==
 "#).expect("should parse");
 
-        assert!(parsed.references_out_of_order);
+        assert!(parsed.flags.contains(Flags::REFERENCES_OUT_OF_ORDER));
         assert_eq!(
             vec![
                 "a8922c0h87iilxzzvwn2hmv8x210aqb9-glibc-2.7",
@@ -597,7 +600,7 @@ System: i686-linux
 Sig: cache.nixos.org-1:92fl0i5q7EyegCj5Yf4L0bENkWuVAtgveiRcTEEUH0P6HvCE1xFcPbz/0Pf6Np+K1LPzHK+s5RHOmVoxRsvsDg==
 "#).expect("should parse");
 
-        assert!(parsed.compression_default);
+        assert!(parsed.flags.contains(Flags::COMPRESSION_DEFAULT));
         assert_eq!(parsed.compression, Some("bzip2"));
     }
 
@@ -615,7 +618,7 @@ Deriver: fb4ihlq3psnsjq95mvvs49rwpplpc8zj-perl-HTTP-Cookies-6.01.drv
 Sig: cache.nixos.org-1:HhaiY36Uk3XV1JGe9d9xHnzAapqJXprU1YZZzSzxE97jCuO5RR7vlG2kF7MSC5thwRyxAtdghdSz3AqFi+QSCw==
 "#).expect("should parse");
 
-        assert!(parsed.nar_hash_hex);
+        assert!(parsed.flags.contains(Flags::NAR_HASH_HEX));
         assert_eq!(
             hex!("60adfd293a4d81ad7cd7e47263cbb3fc846309ef91b154a08ba672b558f94ff3"),
             parsed.nar_hash,

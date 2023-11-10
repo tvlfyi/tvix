@@ -1431,6 +1431,7 @@ dependencies = [
 name = "nix-compat"
 version = "0.1.0"
 dependencies = [
+ "bitflags 2.4.1",
  "bstr",
  "criterion",
  "data-encoding",
