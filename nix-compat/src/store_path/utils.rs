@@ -220,6 +220,8 @@ pub fn hash_placeholder(name: &str) -> String {
 
 #[cfg(test)]
 mod test {
+    use hex_literal::hex;
+
     use super::*;
     use crate::nixhash::{CAHash, NixHash};
 
@@ -263,13 +265,9 @@ mod test {
     fn build_sha1_path() {
         let outer = build_ca_path(
             "bar",
-            &CAHash::Nar(NixHash::Sha1(
-                data_encoding::HEXLOWER
-                    .decode(b"0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33")
-                    .expect("hex should decode")
-                    .try_into()
-                    .expect("should have right len"),
-            )),
+            &CAHash::Nar(NixHash::Sha1(hex!(
+                "0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33"
+            ))),
             Vec::<String>::new(),
             false,
         )
@@ -294,7 +292,7 @@ mod test {
             "baz",
             &CAHash::Nar(NixHash::Sha256(
                 nixbase32::decode(b"1xqkzcb3909fp07qngljr4wcdnrh1gdam1m2n29i6hhrxlmkgkv1")
-                    .expect("hex should decode")
+                    .expect("nixbase32 should decode")
                     .try_into()
                     .expect("should have right len"),
             )),
