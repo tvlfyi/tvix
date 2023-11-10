@@ -34,6 +34,7 @@ pub struct NarInfo<'a> {
     pub unknown_fields: bool,
     pub compression_default: bool,
     pub nar_hash_hex: bool,
+    pub references_out_of_order: bool,
     // core (authenticated, but unverified here)
     /// Store path described by this [NarInfo]
     pub store_path: StorePathRef<'a>,
@@ -74,6 +75,7 @@ impl<'a> NarInfo<'a> {
         let mut unknown_fields = false;
         let mut compression_default = false;
         let mut nar_hash_hex = false;
+        let mut references_out_of_order = false;
 
         let mut store_path = None;
         let mut url = None;
@@ -189,13 +191,13 @@ impl<'a> NarInfo<'a> {
                         val.split(' ')
                             .enumerate()
                             .map(|(i, s)| {
-                                if mem::replace(&mut prev, s) < s {
-                                    StorePathRef::from_bytes(s.as_bytes())
-                                        .map_err(|err| Error::InvalidReference(i, err))
-                                } else {
-                                    // references are out of order
-                                    Err(Error::OutOfOrderReference(i))
+                                // TODO(edef): track *duplicates* if this occurs
+                                if mem::replace(&mut prev, s) >= s {
+                                    references_out_of_order = true;
                                 }
+
+                                StorePathRef::from_bytes(s.as_bytes())
+                                    .map_err(|err| Error::InvalidReference(i, err))
                             })
                             .collect::<Result<_, _>>()?
                     } else {
@@ -250,6 +252,7 @@ impl<'a> NarInfo<'a> {
         Ok(NarInfo {
             unknown_fields,
             nar_hash_hex,
+            references_out_of_order,
             store_path: store_path.ok_or(Error::MissingField("StorePath"))?,
             nar_hash: nar_hash.ok_or(Error::MissingField("NarHash"))?,
             nar_size: nar_size.ok_or(Error::MissingField("NarSize"))?,
@@ -468,9 +471,6 @@ pub enum Error {
     #[error("unable to parse #{0} reference: {1}")]
     InvalidReference(usize, crate::store_path::Error),
 
-    #[error("reference at {0} is out of order")]
-    OutOfOrderReference(usize),
-
     #[error("invalid Deriver store path: {0}")]
     InvalidDeriverStorePath(crate::store_path::Error),
 
@@ -497,7 +497,10 @@ mod test {
     use pretty_assertions::assert_eq;
     use std::{io, str};
 
-    use crate::nixhash::{CAHash, NixHash};
+    use crate::{
+        nixhash::{CAHash, NixHash},
+        store_path::StorePathRef,
+    };
 
     use super::NarInfo;
 
@@ -521,6 +524,38 @@ mod test {
             let output = format!("{parsed}");
             assert_eq!(input, output, "should roundtrip");
         }
+    }
+
+    #[test]
+    fn references_out_of_order() {
+        let parsed = NarInfo::parse(
+            r#"StorePath: /nix/store/xi429w4ddvb1r77978hm7jfb2jsn559r-gcc-3.4.6
+URL: nar/1hr09cgkyw1hcsfkv5qp5jlpmf2mqrkrqs3xj5zklq9c1h9544ff.nar.bz2
+Compression: bzip2
+FileHash: sha256:1hr09cgkyw1hcsfkv5qp5jlpmf2mqrkrqs3xj5zklq9c1h9544ff
+FileSize: 4006
+NarHash: sha256:0ik9mpqxpd9hv325hdblj2nawqj5w7951qdyy8ikxgwr6fq7m11c
+NarSize: 21264
+References: a8922c0h87iilxzzvwn2hmv8x210aqb9-glibc-2.7 7w2acjgalb0cm7b3bg8yswza4l7iil9y-binutils-2.18 mm631h09mj964hm9q04l5fd8vw12j1mm-bash-3.2-p39 nx2zs2qd6snfcpzw4a0jnh26z9m0yihz-gcc-3.4.6 xi429w4ddvb1r77978hm7jfb2jsn559r-gcc-3.4.6
+Deriver: 2dzpn70c1hawczwhg9aavqk18zp9zsva-gcc-3.4.6.drv
+Sig: cache.nixos.org-1:o1DTsjCz0PofLJ216P2RBuSulI8BAb6zHxWE4N+tzlcELk5Uk/GO2SCxWTRN5wJutLZZ+cHTMdWqOHF88KGQDg==
+"#).expect("should parse");
+
+        assert!(parsed.references_out_of_order);
+        assert_eq!(
+            vec![
+                "a8922c0h87iilxzzvwn2hmv8x210aqb9-glibc-2.7",
+                "7w2acjgalb0cm7b3bg8yswza4l7iil9y-binutils-2.18",
+                "mm631h09mj964hm9q04l5fd8vw12j1mm-bash-3.2-p39",
+                "nx2zs2qd6snfcpzw4a0jnh26z9m0yihz-gcc-3.4.6",
+                "xi429w4ddvb1r77978hm7jfb2jsn559r-gcc-3.4.6"
+            ],
+            parsed
+                .references
+                .iter()
+                .map(StorePathRef::to_string)
+                .collect::<Vec<_>>(),
+        );
     }
 
     #[test]
