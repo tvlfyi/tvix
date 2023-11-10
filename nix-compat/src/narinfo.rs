@@ -17,7 +17,7 @@
 //!    * compression algorithm used for the NAR
 //!    * hash and size of the compressed NAR
 
-use data_encoding::BASE64;
+use data_encoding::{BASE64, HEXLOWER};
 use std::{
     fmt::{self, Display},
     mem,
@@ -33,6 +33,7 @@ use crate::{
 pub struct NarInfo<'a> {
     pub unknown_fields: bool,
     pub compression_default: bool,
+    pub nar_hash_hex: bool,
     // core (authenticated, but unverified here)
     /// Store path described by this [NarInfo]
     pub store_path: StorePathRef<'a>,
@@ -72,6 +73,7 @@ impl<'a> NarInfo<'a> {
     pub fn parse(input: &'a str) -> Result<Self, Error> {
         let mut unknown_fields = false;
         let mut compression_default = false;
+        let mut nar_hash_hex = false;
 
         let mut store_path = None;
         let mut url = None;
@@ -152,8 +154,21 @@ impl<'a> NarInfo<'a> {
                         .strip_prefix("sha256:")
                         .ok_or_else(|| Error::MissingPrefixForHash(tag.to_string()))?;
 
-                    let val = nixbase32::decode_fixed::<32>(val)
-                        .map_err(|e| Error::UnableToDecodeHash(tag.to_string(), e))?;
+                    let val = if val.len() != HEXLOWER.encode_len(32) {
+                        nixbase32::decode_fixed::<32>(val)
+                    } else {
+                        nar_hash_hex = true;
+
+                        let val = val.as_bytes();
+                        let mut buf = [0u8; 32];
+
+                        HEXLOWER
+                            .decode_mut(val, &mut buf)
+                            .map_err(|e| e.error)
+                            .map(|_| buf)
+                    };
+
+                    let val = val.map_err(|e| Error::UnableToDecodeHash(tag.to_string(), e))?;
 
                     if nar_hash.replace(val).is_some() {
                         return Err(Error::DuplicateField(tag.to_string()));
@@ -234,6 +249,7 @@ impl<'a> NarInfo<'a> {
 
         Ok(NarInfo {
             unknown_fields,
+            nar_hash_hex,
             store_path: store_path.ok_or(Error::MissingField("StorePath"))?,
             nar_hash: nar_hash.ok_or(Error::MissingField("NarHash"))?,
             nar_size: nar_size.ok_or(Error::MissingField("NarSize"))?,
@@ -548,5 +564,26 @@ Sig: cache.nixos.org-1:92fl0i5q7EyegCj5Yf4L0bENkWuVAtgveiRcTEEUH0P6HvCE1xFcPbz/0
 
         assert!(parsed.compression_default);
         assert_eq!(parsed.compression, Some("bzip2"));
+    }
+
+    #[test]
+    fn nar_hash_hex() {
+        let parsed = NarInfo::parse(r#"StorePath: /nix/store/0vpqfxbkx0ffrnhbws6g9qwhmliksz7f-perl-HTTP-Cookies-6.01
+URL: nar/1rv1m9inydm1r4krw8hmwg1hs86d0nxddd1pbhihx7l7fycjvfk3.nar.xz
+Compression: xz
+FileHash: sha256:1rv1m9inydm1r4krw8hmwg1hs86d0nxddd1pbhihx7l7fycjvfk3
+FileSize: 19912
+NarHash: sha256:60adfd293a4d81ad7cd7e47263cbb3fc846309ef91b154a08ba672b558f94ff3
+NarSize: 45840
+References: 0vpqfxbkx0ffrnhbws6g9qwhmliksz7f-perl-HTTP-Cookies-6.01 9vrhbib2lxd9pjlg6fnl5b82gblidrcr-perl-HTTP-Message-6.06 wy20zslqxzxxfpzzk0rajh41d7a6mlnf-perl-HTTP-Date-6.02
+Deriver: fb4ihlq3psnsjq95mvvs49rwpplpc8zj-perl-HTTP-Cookies-6.01.drv
+Sig: cache.nixos.org-1:HhaiY36Uk3XV1JGe9d9xHnzAapqJXprU1YZZzSzxE97jCuO5RR7vlG2kF7MSC5thwRyxAtdghdSz3AqFi+QSCw==
+"#).expect("should parse");
+
+        assert!(parsed.nar_hash_hex);
+        assert_eq!(
+            hex!("60adfd293a4d81ad7cd7e47263cbb3fc846309ef91b154a08ba672b558f94ff3"),
+            parsed.nar_hash,
+        );
     }
 }
