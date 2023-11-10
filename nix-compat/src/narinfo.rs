@@ -351,9 +351,8 @@ pub fn parse_ca(s: &str) -> Option<CAHash> {
             Some(CAHash::Text(digest))
         }
         "fixed" => {
-            if let Some(digest) = s.strip_prefix("r:sha256:") {
-                let digest = nixbase32::decode_fixed(digest).ok()?;
-                Some(CAHash::Nar(NixHash::Sha256(digest)))
+            if let Some(s) = s.strip_prefix("r:") {
+                parse_hash(s).map(CAHash::Nar)
             } else {
                 parse_hash(s).map(CAHash::Flat)
             }
@@ -459,9 +458,12 @@ pub enum Error {
 
 #[cfg(test)]
 mod test {
+    use hex_literal::hex;
     use lazy_static::lazy_static;
     use pretty_assertions::assert_eq;
     use std::{io, str};
+
+    use crate::nixhash::{CAHash, NixHash};
 
     use super::NarInfo;
 
@@ -485,5 +487,28 @@ mod test {
             let output = format!("{parsed}");
             assert_eq!(input, output, "should roundtrip");
         }
+    }
+
+    #[test]
+    fn ca_nar_hash_sha1() {
+        let parsed = NarInfo::parse(
+            r#"StorePath: /nix/store/k20pahypzvr49fy82cw5sx72hdfg3qcr-texlive-hyphenex-37354
+URL: nar/0i5biw0g01514llhfswxy6xfav8lxxdq1xg6ik7hgsqbpw0f06yi.nar.xz
+Compression: xz
+FileHash: sha256:0i5biw0g01514llhfswxy6xfav8lxxdq1xg6ik7hgsqbpw0f06yi
+FileSize: 7120
+NarHash: sha256:0h1bm4sj1cnfkxgyhvgi8df1qavnnv94sd0v09wcrm971602shfg
+NarSize: 22552
+References: 
+Sig: cache.nixos.org-1:u01BybwQhyI5H1bW1EIWXssMDhDDIvXOG5uh8Qzgdyjz6U1qg6DHhMAvXZOUStIj6X5t4/ufFgR8i3fjf0bMAw==
+CA: fixed:r:sha1:1ak1ymbmsfx7z8kh09jzkr3a4dvkrfjw
+"#).expect("should parse");
+
+        assert_eq!(
+            parsed.ca,
+            Some(CAHash::Nar(NixHash::Sha1(hex!(
+                "5cba3c77236ae4f9650270a27fbad375551fa60a"
+            ))))
+        );
     }
 }
