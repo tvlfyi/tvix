@@ -32,6 +32,7 @@ use crate::{
 #[derive(Debug)]
 pub struct NarInfo<'a> {
     pub unknown_fields: bool,
+    pub compression_default: bool,
     // core (authenticated, but unverified here)
     /// Store path described by this [NarInfo]
     pub store_path: StorePathRef<'a>,
@@ -55,7 +56,11 @@ pub struct NarInfo<'a> {
     /// Relative URL of the compressed NAR file
     pub url: &'a str,
     /// Compression method of the NAR file
-    /// TODO(edef): default this to bzip2, and have None mean "none" (uncompressed)
+    /// `None` means `Compression: none`.
+    ///
+    /// Nix interprets a missing `Compression` field as `Some("bzip2")`,
+    /// so we do as well. We haven't found any examples of this in the
+    /// wild, not even in the cache.nixos.org dataset.
     pub compression: Option<&'a str>,
     /// SHA-256 digest of the file at `url`
     pub file_hash: Option<[u8; 32]>,
@@ -66,6 +71,7 @@ pub struct NarInfo<'a> {
 impl<'a> NarInfo<'a> {
     pub fn parse(input: &'a str) -> Result<Self, Error> {
         let mut unknown_fields = false;
+        let mut compression_default = false;
 
         let mut store_path = None;
         let mut url = None;
@@ -237,7 +243,15 @@ impl<'a> NarInfo<'a> {
             system,
             deriver,
             url: url.ok_or(Error::MissingField("URL"))?,
-            compression,
+            compression: match compression {
+                Some("none") => None,
+                None => {
+                    compression_default = true;
+                    Some("bzip2")
+                }
+                _ => compression,
+            },
+            compression_default,
             file_hash,
             file_size,
         })
@@ -514,5 +528,25 @@ CA: fixed:r:sha1:1ak1ymbmsfx7z8kh09jzkr3a4dvkrfjw
                 "5cba3c77236ae4f9650270a27fbad375551fa60a"
             ))))
         );
+    }
+
+    #[test]
+    fn compression_default() {
+        // This doesn't exist as such in cache.nixos.org.
+        // We explicitly removed the compression field for the sake of this test.
+        let parsed = NarInfo::parse(r#"StorePath: /nix/store/a1jjalr4csx9hcga7fnm122aqabrjnch-digikam-2.6.0
+URL: nar/1fzimfnvq2k8b40n4g54abmncpx2ddckh6qlb77pgq6xiysyil69.nar.bz2
+FileHash: sha256:1fzimfnvq2k8b40n4g54abmncpx2ddckh6qlb77pgq6xiysyil69
+FileSize: 43503778
+NarHash: sha256:0zpbbwipqzr5p8mlpag9wrsp5hlaxkq7gax5jj0hg3vvdziypcw5
+NarSize: 100658640
+References: 0izkyk7bq2ag9393nvnhgm87p75cq09w-liblqr-1-0.4.1 1cslpgyb7vb30inj3210jv6agqv42jxz-qca-2.0.3 1sya3bwjxkzpkmwn67gfzp4gz4g62l36-libXrandr-1.3.1 26yxdaa9z0ma5sgw02i670rsqnl57crs-glib-2.30.3 27lnjh99236kmhbpc5747599zcymfzmg-qt-4.8.2 2v6x378vcfvyxilkvihs60zha54z2x2y-qjson-0.7.1 45hgr3fbnr45n795hn2x7hsymp0h2j2m-libjpeg-8c 4kw1b212s80ap2iyibxrimcqb5imhfj7-libkexiv2-4.7.4 7dvylm5crlc0sfafcc0n46mb5ch67q0j-glibc-2.13 a05cbh1awjbl1rbyb2ynyf4k42v5a9a7-boost-1.47.0 a1jjalr4csx9hcga7fnm122aqabrjnch-digikam-2.6.0 aav5ffg8wlnilgnvdb2jnrv2aam4zmmz-perl-5.14.2 ab0m9h30nsr13w48qriv0k350kmwx567-kdelibs-4.7.4 avffkd49cqvpwdkzry8bn69dkbw4cy29-lensfun-0.2.5 cy8rl8h4yp2j3h8987vkklg328q3wmjz-gcc-4.6.3 dmmh5ihyg1r2dm4azgsfj2kprj92czlg-libSM-1.2.0 fl56j5n4shfw9c0r6vs2i4f1h9zx5kac-soprano-2.7.6 g15cmvh15ggdjcwapskngv20q4yhix40-jasper-1.900.1 i04maxd0din6v92rnqcwl9yra0kl2vk5-marble-4.7.4 kqjjb3m26rdddwwwkk8v45821aps877k-libICE-1.0.7 lxz9r135wkndvi642z4bjgmvyypsgirb-libtiff-3.9.4 m9c8i0a6cl30lcqp654dqkbag3wjmd00-libX11-1.4.1 mpnj4k2ijrgyfkh48fg96nzcmklfh5pl-coreutils-8.15 nppljblap477s0893c151lyq7r7n5v1q-zlib-1.2.7 nw9mdbyp8kyn3v4vkdzq0gsnqbc4mnx3-expat-2.0.1 p1a0dn931mzdkvj6h5yzshbmgxba5r0z-libgphoto2-2.4.11 pvjj07xa1cfkad3gwk376nzdrgknbcqm-mesa-7.11.2 pzcxag98jqccp9ycbxknyh0w95pgnsk4-lcms-1.19 qfi5pgds33kg6vlnxsmj0hyl74vcmyiz-libpng-1.5.10 scm6bj86s3qh3s3x0b9ayjp6755p4q86-mysql-5.1.54 sd23qspcyg385va0lr35xgz3hvlqphg6-libkipi-4.7.4 svmbrhc6kzfzakv20a7zrfl6kbr5mfpq-kdepimlibs-4.7.4 v7kh3h7xfwjz4hgffg3gwrfzjff9bw9d-bash-4.2-p24 vi17f22064djgpk0w248da348q8gxkww-libkdcraw-4.7.4 wkjdzmj3z4dcbsc9f833zs6krdgg2krk-phonon-4.6.0 xf3i3awqi0035ixy2qyb6hk4c92r3vrn-opencv-2.4.2 y1vr0nz8i59x59501020nh2k1dw3bhwq-libusb-0.1.12 yf3hin2hb6i08n7zrk8g3acy54rhg9bp-libXext-1.2.0
+Deriver: la77dr44phk5m5jnl4dvk01cwpykyw9s-digikam-2.6.0.drv
+System: i686-linux
+Sig: cache.nixos.org-1:92fl0i5q7EyegCj5Yf4L0bENkWuVAtgveiRcTEEUH0P6HvCE1xFcPbz/0Pf6Np+K1LPzHK+s5RHOmVoxRsvsDg==
+"#).expect("should parse");
+
+        assert!(parsed.compression_default);
+        assert_eq!(parsed.compression, Some("bzip2"));
     }
 }
