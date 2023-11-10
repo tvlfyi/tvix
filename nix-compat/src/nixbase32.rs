@@ -9,20 +9,9 @@
 
 use std::fmt::Write;
 
-use thiserror::Error;
+use data_encoding::{DecodeError, DecodeKind};
 
 const ALPHABET: &[u8; 32] = b"0123456789abcdfghijklmnpqrsvwxyz";
-
-/// Errors that can occur while decoding nixbase32-encoded data.
-#[derive(Debug, Eq, PartialEq, Error)]
-pub enum Nixbase32DecodeError {
-    #[error("character {0:x} not in alphabet")]
-    CharacterNotInAlphabet(u8),
-    #[error("nonzero carry")]
-    NonzeroCarry,
-    #[error("invalid length")]
-    InvalidLength,
-}
 
 /// Returns encoded input
 pub fn encode(input: &[u8]) -> String {
@@ -69,7 +58,7 @@ const BASE32_ORD: [u8; 256] = {
 };
 
 /// Returns decoded input
-pub fn decode(input: impl AsRef<[u8]>) -> Result<Vec<u8>, Nixbase32DecodeError> {
+pub fn decode(input: impl AsRef<[u8]>) -> Result<Vec<u8>, DecodeError> {
     let input = input.as_ref();
 
     let output_len = decode_len(input.len());
@@ -79,13 +68,14 @@ pub fn decode(input: impl AsRef<[u8]>) -> Result<Vec<u8>, Nixbase32DecodeError> 
     Ok(output)
 }
 
-pub fn decode_fixed<const K: usize>(
-    input: impl AsRef<[u8]>,
-) -> Result<[u8; K], Nixbase32DecodeError> {
+pub fn decode_fixed<const K: usize>(input: impl AsRef<[u8]>) -> Result<[u8; K], DecodeError> {
     let input = input.as_ref();
 
     if input.len() != encode_len(K) {
-        return Err(Nixbase32DecodeError::InvalidLength);
+        return Err(DecodeError {
+            position: input.len().min(encode_len(K)),
+            kind: DecodeKind::Length,
+        });
     }
 
     let mut output = [0; K];
@@ -93,7 +83,7 @@ pub fn decode_fixed<const K: usize>(
     Ok(output)
 }
 
-fn decode_inner(input: &[u8], output: &mut [u8]) -> Result<(), Nixbase32DecodeError> {
+fn decode_inner(input: &[u8], output: &mut [u8]) -> Result<(), DecodeError> {
     // loop over all characters in reverse, and keep the iteration count in n.
     let mut carry = 0;
     let mut mask = 0;
@@ -111,22 +101,27 @@ fn decode_inner(input: &[u8], output: &mut [u8]) -> Result<(), Nixbase32DecodeEr
     }
 
     if mask == 0xFF {
-        let c = find_invalid(input);
-        return Err(Nixbase32DecodeError::CharacterNotInAlphabet(c));
+        return Err(DecodeError {
+            position: find_invalid(input),
+            kind: DecodeKind::Symbol,
+        });
     }
 
     // if we're at the end, but have a nonzero carry, the encoding is invalid.
     if carry != 0 {
-        return Err(Nixbase32DecodeError::NonzeroCarry);
+        return Err(DecodeError {
+            position: 0,
+            kind: DecodeKind::Trailing,
+        });
     }
 
     Ok(())
 }
 
-fn find_invalid(input: &[u8]) -> u8 {
-    for &c in input {
+fn find_invalid(input: &[u8]) -> usize {
+    for (i, &c) in input.iter().enumerate() {
         if !ALPHABET.contains(&c) {
-            return c;
+            return i;
         }
     }
 
@@ -187,7 +182,10 @@ mod tests {
         );
         assert_eq!(
             super::decode_fixed::<32>("00").unwrap_err(),
-            super::Nixbase32DecodeError::InvalidLength
+            super::DecodeError {
+                position: 2,
+                kind: super::DecodeKind::Length
+            }
         );
     }
 

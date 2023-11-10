@@ -465,7 +465,7 @@ pub enum Error {
     MissingPrefixForHash(String),
 
     #[error("unable to decode {0}: {1}")]
-    UnableToDecodeHash(String, nixbase32::Nixbase32DecodeError),
+    UnableToDecodeHash(String, data_encoding::DecodeError),
 
     #[error("unable to parse signature #{0}: {1}")]
     UnableToParseSignature(usize, SignatureError),

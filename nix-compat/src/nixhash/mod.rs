@@ -92,7 +92,7 @@ pub enum Error {
     #[error("invalid base16 encoding: {0}")]
     InvalidBase16Encoding(data_encoding::DecodeError),
     #[error("invalid base32 encoding: {0}")]
-    InvalidBase32Encoding(nixbase32::Nixbase32DecodeError),
+    InvalidBase32Encoding(data_encoding::DecodeError),
     #[error("invalid base64 encoding: {0}")]
     InvalidBase64Encoding(data_encoding::DecodeError),
     #[error("conflicting hash algo: {0} (hash_algo) vs {1} (inline)")]

@@ -1,5 +1,5 @@
-use crate::nixbase32::{self, Nixbase32DecodeError};
-use data_encoding::BASE64;
+use crate::nixbase32;
+use data_encoding::{DecodeError, BASE64};
 use std::{
     fmt,
     path::PathBuf,
@@ -28,7 +28,7 @@ pub enum Error {
     #[error("Dash is missing between hash and name")]
     MissingDash,
     #[error("Hash encoding is invalid: {0}")]
-    InvalidHashEncoding(Nixbase32DecodeError),
+    InvalidHashEncoding(DecodeError),
     #[error("Invalid length")]
     InvalidLength,
     #[error(
