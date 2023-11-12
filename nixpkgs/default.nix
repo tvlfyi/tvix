@@ -50,13 +50,9 @@ let
   # instead (e.g. because something is broken in unstable).
   # Use `stableNixpkgs` from above.
   stableOverlay = _unstableSelf: unstableSuper: {
-    # py3status is broken on nixpkgs-unstable (2023-10-29)
-    python3Packages = unstableSuper.python3Packages // {
-      py3status = stableNixpkgs.python3Packages.py3status;
-    };
-
-    # electrum is broken on unstable (2023-10-29)
-    electrum = stableNixpkgs.electrum;
+    # build-tex-env is broken on unstable; 2023-11-12
+    # https://github.com/NixOS/nixpkgs/pull/267083
+    texlive = stableNixpkgs.texlive;
   };
 
   # Overlay to expose the nixpkgs commits we are using to other Nix code.
