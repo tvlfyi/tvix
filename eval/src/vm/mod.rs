@@ -1214,18 +1214,14 @@ async fn add_values(co: GenCo, a: Value, b: Value) -> Result<Value, ErrorKind> {
             }
         }
         (Value::String(s1), Value::String(s2)) => Value::String(s1.concat(&s2)),
-        (Value::String(s1), v) => Value::String(
-            match generators::request_string_coerce(&co, v, CoercionKind::Weak).await {
-                Ok(s2) => s1.concat(&s2),
-                Err(c) => return Ok(Value::Catchable(c)),
-            },
-        ),
-        (v, Value::String(s2)) => Value::String(
-            match generators::request_string_coerce(&co, v, CoercionKind::Weak).await {
-                Ok(s1) => s1.concat(&s2),
-                Err(c) => return Ok(Value::Catchable(c)),
-            },
-        ),
+        (Value::String(s1), v) => generators::request_string_coerce(&co, v, CoercionKind::Weak)
+            .await
+            .map(|s2| Value::String(s1.concat(&s2)))
+            .into(),
+        (v, Value::String(s2)) => generators::request_string_coerce(&co, v, CoercionKind::Weak)
+            .await
+            .map(|s1| Value::String(s1.concat(&s2)))
+            .into(),
         (a, b) => arithmetic_op!(&a, &b, +)?,
     };
 
