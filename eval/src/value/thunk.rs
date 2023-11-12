@@ -92,6 +92,28 @@ impl ThunkRepr {
             ThunkRepr::Suspended { lambda, .. } => format!("thunk({:p})", *lambda),
         }
     }
+
+    /// Return the Value within a fully-evaluated ThunkRepr; panics
+    /// if the thunk is not fully-evaluated.
+    fn expect(self) -> Value {
+        match self {
+            ThunkRepr::Evaluated(value) => value,
+            ThunkRepr::Blackhole { .. } => panic!("Thunk::expect() called on a black-holed thunk"),
+            ThunkRepr::Suspended { .. } | ThunkRepr::Native(_) => {
+                panic!("Thunk::expect() called on a suspended thunk")
+            }
+        }
+    }
+
+    fn expect_ref(&self) -> &Value {
+        match self {
+            ThunkRepr::Evaluated(value) => value,
+            ThunkRepr::Blackhole { .. } => panic!("Thunk::expect() called on a black-holed thunk"),
+            ThunkRepr::Suspended { .. } | ThunkRepr::Native(_) => {
+                panic!("Thunk::expect() called on a suspended thunk")
+            }
+        }
+    }
 }
 
 /// A thunk is created for any value which requires non-strict
@@ -178,7 +200,7 @@ impl Thunk {
         // If the current thunk is already fully evaluated, return its evaluated
         // value. The VM will continue running the code that landed us here.
         if self.is_forced() {
-            return Ok(self.value().clone());
+            return Ok(self.unwrap_or_clone());
         }
 
         // Begin evaluation of this thunk by marking it as a blackhole, meaning
@@ -278,6 +300,17 @@ impl Thunk {
                 panic!("Thunk::value called on a suspended thunk")
             }
         })
+    }
+
+    /// Returns the inner evaluated value of a thunk, cloning it if
+    /// the Rc has more than one strong reference.  It is an error
+    /// to call this on a thunk that has not been forced, or is not
+    /// otherwise known to be fully evaluated.
+    fn unwrap_or_clone(self) -> Value {
+        match Rc::try_unwrap(self.0) {
+            Ok(refcell) => refcell.into_inner().expect(),
+            Err(rc) => Ref::map(rc.borrow(), |thunkrepr| thunkrepr.expect_ref()).clone(),
+        }
     }
 
     pub fn upvalues(&self) -> Ref<'_, Upvalues> {
