@@ -13,7 +13,7 @@ use super::{BlobService, GRPCBlobService, MemoryBlobService, SledBlobService};
 /// - `grpc+*://` ([GRPCBlobService])
 ///
 /// See their `from_url` methods for more details about their syntax.
-pub fn from_addr(uri: &str) -> Result<Arc<dyn BlobService>, crate::Error> {
+pub async fn from_addr(uri: &str) -> Result<Arc<dyn BlobService>, crate::Error> {
     let url = Url::parse(uri)
         .map_err(|e| crate::Error::StorageError(format!("unable to parse url: {}", e)))?;
 
@@ -53,7 +53,7 @@ pub fn from_addr(uri: &str) -> Result<Arc<dyn BlobService>, crate::Error> {
         // - In the case of unix sockets, there must be a path, but may not be a host.
         // - In the case of non-unix sockets, there must be a host, but no path.
         // Constructing the channel is handled by tvix_castore::channel::from_url.
-        let client = BlobServiceClient::new(crate::channel::from_url(&url)?);
+        let client = BlobServiceClient::new(crate::tonic::channel_from_url(&url).await?);
         Arc::new(GRPCBlobService::from_client(client))
     } else {
         Err(crate::Error::StorageError(format!(
@@ -95,12 +95,6 @@ mod tests {
     #[test_case("memory:///", false; "memory invalid root path")]
     /// This sets a memory url path to "/foo", which is invalid.
     #[test_case("memory:///foo", false; "memory invalid root path foo")]
-    fn test_from_addr(uri_str: &str, is_ok: bool) {
-        assert_eq!(from_addr(uri_str).is_ok(), is_ok)
-    }
-
-    // the gRPC tests below don't fail, because we connect lazily.
-
     /// Correct scheme to connect to a unix socket.
     #[test_case("grpc+unix:///path/to/somewhere", true; "grpc valid unix socket")]
     /// Correct scheme for unix socket, but setting a host too, which is invalid.
@@ -115,6 +109,6 @@ mod tests {
     #[test_case("grpc+http://localhost/some-path", false; "grpc valid invalid host and path")]
     #[tokio::test]
     async fn test_from_addr_tokio(uri_str: &str, is_ok: bool) {
-        assert_eq!(from_addr(uri_str).is_ok(), is_ok)
+        assert_eq!(from_addr(uri_str).await.is_ok(), is_ok)
     }
 }

@@ -2,11 +2,11 @@ mod digests;
 mod errors;
 
 pub mod blobservice;
-pub mod channel;
 pub mod directoryservice;
 pub mod fixtures;
 pub mod import;
 pub mod proto;
+pub mod tonic;
 pub mod utils;
 
 pub use digests::{B3Digest, B3_LEN};

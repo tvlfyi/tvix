@@ -462,10 +462,16 @@ mod tests {
 
         // prepare a client
         let grpc_client = {
-            let url = url::Url::parse(&format!("grpc+unix://{}", socket_path.display()))
-                .expect("must parse");
-            let client =
-                DirectoryServiceClient::new(crate::channel::from_url(&url).expect("must succeed"));
+            let url = url::Url::parse(&format!(
+                "grpc+unix://{}?wait-connect=1",
+                socket_path.display()
+            ))
+            .expect("must parse");
+            let client = DirectoryServiceClient::new(
+                crate::tonic::channel_from_url(&url)
+                    .await
+                    .expect("must succeed"),
+            );
             GRPCDirectoryService::from_client(client)
         };
 

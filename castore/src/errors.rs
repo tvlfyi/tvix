@@ -34,8 +34,8 @@ impl From<Error> for Status {
     }
 }
 
-impl From<crate::channel::Error> for Error {
-    fn from(value: crate::channel::Error) -> Self {
+impl From<crate::tonic::Error> for Error {
+    fn from(value: crate::tonic::Error) -> Self {
         Self::StorageError(value.to_string())
     }
 }

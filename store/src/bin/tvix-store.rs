@@ -193,13 +193,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             path_info_service_addr,
         } => {
             // initialize stores
-            let blob_service = blobservice::from_addr(&blob_service_addr)?;
-            let directory_service = directoryservice::from_addr(&directory_service_addr)?;
+            let blob_service = blobservice::from_addr(&blob_service_addr).await?;
+            let directory_service = directoryservice::from_addr(&directory_service_addr).await?;
             let path_info_service = pathinfoservice::from_addr(
                 &path_info_service_addr,
                 blob_service.clone(),
                 directory_service.clone(),
-            )?;
+            )
+            .await?;
 
             let listen_address = listen_address
                 .unwrap_or_else(|| "[::]:8000".to_string())
@@ -247,13 +248,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             path_info_service_addr,
         } => {
             // FUTUREWORK: allow flat for single files?
-            let blob_service = blobservice::from_addr(&blob_service_addr)?;
-            let directory_service = directoryservice::from_addr(&directory_service_addr)?;
+            let blob_service = blobservice::from_addr(&blob_service_addr).await?;
+            let directory_service = directoryservice::from_addr(&directory_service_addr).await?;
             let path_info_service = pathinfoservice::from_addr(
                 &path_info_service_addr,
                 blob_service.clone(),
                 directory_service.clone(),
-            )?;
+            )
+            .await?;
 
             let tasks = paths
                 .into_iter()
@@ -343,13 +345,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             list_root,
             threads,
         } => {
-            let blob_service = blobservice::from_addr(&blob_service_addr)?;
-            let directory_service = directoryservice::from_addr(&directory_service_addr)?;
+            let blob_service = blobservice::from_addr(&blob_service_addr).await?;
+            let directory_service = directoryservice::from_addr(&directory_service_addr).await?;
             let path_info_service = pathinfoservice::from_addr(
                 &path_info_service_addr,
                 blob_service.clone(),
                 directory_service.clone(),
-            )?;
+            )
+            .await?;
 
             let mut fuse_daemon = tokio::task::spawn_blocking(move || {
                 let f = TvixStoreFs::new(
@@ -383,13 +386,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             path_info_service_addr,
             list_root,
         } => {
-            let blob_service = blobservice::from_addr(&blob_service_addr)?;
-            let directory_service = directoryservice::from_addr(&directory_service_addr)?;
+            let blob_service = blobservice::from_addr(&blob_service_addr).await?;
+            let directory_service = directoryservice::from_addr(&directory_service_addr).await?;
             let path_info_service = pathinfoservice::from_addr(
                 &path_info_service_addr,
                 blob_service.clone(),
                 directory_service.clone(),
-            )?;
+            )
+            .await?;
 
             tokio::task::spawn_blocking(move || {
                 let fs = TvixStoreFs::new(

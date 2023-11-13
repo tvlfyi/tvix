@@ -180,7 +180,9 @@ mod tests {
             let url = url::Url::parse(&format!("grpc+unix://{}", socket_path.display()))
                 .expect("must parse");
             let client = PathInfoServiceClient::new(
-                tvix_castore::channel::from_url(&url).expect("must succeed"),
+                tvix_castore::tonic::channel_from_url(&url)
+                    .await
+                    .expect("must succeed"),
             );
 
             GRPCPathInfoService::from_client(client)

@@ -23,7 +23,7 @@ use url::Url;
 ///
 /// As the [PathInfoService] needs to talk to [BlobService] and [DirectoryService],
 /// these also need to be passed in.
-pub fn from_addr(
+pub async fn from_addr(
     uri: &str,
     blob_service: Arc<dyn BlobService>,
     directory_service: Arc<dyn DirectoryService>,
@@ -68,7 +68,7 @@ pub fn from_addr(
         // - In the case of unix sockets, there must be a path, but may not be a host.
         // - In the case of non-unix sockets, there must be a host, but no path.
         // Constructing the channel is handled by tvix_castore::channel::from_url.
-        let client = PathInfoServiceClient::new(tvix_castore::channel::from_url(&url)?);
+        let client = PathInfoServiceClient::new(tvix_castore::tonic::channel_from_url(&url).await?);
         Arc::new(GRPCPathInfoService::from_client(client))
     } else {
         Err(Error::StorageError(format!(
@@ -91,6 +91,8 @@ mod tests {
         static ref TMPDIR_SLED_2: TempDir = TempDir::new().unwrap();
     }
 
+    // the gRPC tests below don't fail, because we connect lazily.
+
     /// This uses a unsupported scheme.
     #[test_case("http://foo.example/test", false; "unsupported scheme")]
     /// This configures sled in temporary mode.
@@ -111,15 +113,6 @@ mod tests {
     #[test_case("memory:///", false; "memory invalid root path")]
     /// This sets a memory url path to "/foo", which is invalid.
     #[test_case("memory:///foo", false; "memory invalid root path foo")]
-    fn test_from_addr(uri_str: &str, is_ok: bool) {
-        assert_eq!(
-            from_addr(uri_str, gen_blob_service(), gen_directory_service()).is_ok(),
-            is_ok
-        )
-    }
-
-    // the gRPC tests below don't fail, because we connect lazily.
-
     /// Correct scheme to connect to a unix socket.
     #[test_case("grpc+unix:///path/to/somewhere", true; "grpc valid unix socket")]
     /// Correct scheme for unix socket, but setting a host too, which is invalid.
@@ -135,7 +128,9 @@ mod tests {
     #[tokio::test]
     async fn test_from_addr_tokio(uri_str: &str, is_ok: bool) {
         assert_eq!(
-            from_addr(uri_str, gen_blob_service(), gen_directory_service()).is_ok(),
+            from_addr(uri_str, gen_blob_service(), gen_directory_service())
+                .await
+                .is_ok(),
             is_ok
         )
     }
