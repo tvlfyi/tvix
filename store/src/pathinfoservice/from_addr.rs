@@ -80,110 +80,63 @@ pub fn from_addr(
 
 #[cfg(test)]
 mod tests {
+    use super::from_addr;
+    use lazy_static::lazy_static;
     use tempfile::TempDir;
+    use test_case::test_case;
     use tvix_castore::utils::{gen_blob_service, gen_directory_service};
 
-    use super::from_addr;
-
-    /// This uses a wrong scheme.
-    #[test]
-    fn invalid_scheme() {
-        assert!(from_addr(
-            "http://foo.example/test",
-            gen_blob_service(),
-            gen_directory_service()
-        )
-        .is_err());
+    lazy_static! {
+        static ref TMPDIR_SLED_1: TempDir = TempDir::new().unwrap();
+        static ref TMPDIR_SLED_2: TempDir = TempDir::new().unwrap();
     }
 
+    /// This uses a unsupported scheme.
+    #[test_case("http://foo.example/test", false; "unsupported scheme")]
+    /// This configures sled in temporary mode.
+    #[test_case("sled://", true; "sled valid temporary")]
+    /// This configures sled with /, which should fail.
+    #[test_case("sled:///", false; "sled invalid root")]
+    /// This configures sled with a host, not path, which should fail.
+    #[test_case("sled://foo.example", false; "sled invalid host")]
+    /// This configures sled with a valid path path, which should succeed.
+    #[test_case(&format!("sled://{}", &TMPDIR_SLED_1.path().to_str().unwrap()), true; "sled valid path")]
+    /// This configures sled with a host, and a valid path path, which should fail.
+    #[test_case(&format!("sled://foo.example{}", &TMPDIR_SLED_2.path().to_str().unwrap()), false; "sled invalid host with valid path")]
     /// This correctly sets the scheme, and doesn't set a path.
-    #[test]
-    fn memory_valid_scheme() {
-        assert!(from_addr("memory://", gen_blob_service(), gen_directory_service()).is_ok())
-    }
-
+    #[test_case("memory://", true; "memory valid")]
     /// This sets a memory url host to `foo`
-    #[test]
-    fn memory_invalid_host() {
-        assert!(from_addr("memory://foo", gen_blob_service(), gen_directory_service()).is_err())
-    }
-
-    /// This sets a memory urlp path to "/", which is invalid.
-    #[test]
-    fn memory_invalid_has_path() {
-        assert!(from_addr("memory:///", gen_blob_service(), gen_directory_service()).is_err())
-    }
-
-    /// This sets a memory url path "/foo", which is invalid.
-    #[test]
-    fn memory_invalid_path2() {
-        assert!(from_addr("memory:///foo", gen_blob_service(), gen_directory_service()).is_err())
-    }
-
-    /// This uses the correct scheme, and doesn't specify a path (temporary sled).
-    #[test]
-    fn sled_valid_temporary() {
-        assert!(from_addr("sled://", gen_blob_service(), gen_directory_service()).is_ok())
-    }
-
-    /// This uses the correct scheme, and sets a tempdir as location.
-    #[test]
-    fn sled_valid_scheme_path() {
-        let tmpdir = TempDir::new().unwrap();
-
-        let mut url = url::Url::parse("sled://").expect("must parse");
-        url.set_path(tmpdir.path().to_str().unwrap());
-
-        assert!(from_addr(
-            &url.to_string(),
-            gen_blob_service(),
-            gen_directory_service()
+    #[test_case("memory://foo", false; "memory invalid host")]
+    /// This sets a memory url path to "/", which is invalid.
+    #[test_case("memory:///", false; "memory invalid root path")]
+    /// This sets a memory url path to "/foo", which is invalid.
+    #[test_case("memory:///foo", false; "memory invalid root path foo")]
+    fn test_from_addr(uri_str: &str, is_ok: bool) {
+        assert_eq!(
+            from_addr(uri_str, gen_blob_service(), gen_directory_service()).is_ok(),
+            is_ok
         )
-        .is_ok())
     }
 
-    /// This uses the correct scheme, and specifies / as path (which should fail
-    // for obvious reasons)
-    #[test]
-    fn sled_fail_invalid_path_root() {
-        assert!(from_addr("sled:///", gen_blob_service(), gen_directory_service()).is_err())
-    }
+    // the gRPC tests below don't fail, because we connect lazily.
 
-    /// This sets a host, rather than a path, which should fail.
-    #[test]
-    fn sled_invalid_host() {
-        assert!(from_addr(
-            "sled://foo.example",
-            gen_blob_service(),
-            gen_directory_service()
-        )
-        .is_err())
-    }
-
-    /// This sets a host AND a valid path, which should fail
-    #[test]
-    fn test_invalid_host_and_path() {
-        let tmpdir = TempDir::new().unwrap();
-
-        let mut url = url::Url::parse("sled://foo.example").expect("must parse");
-        url.set_path(tmpdir.path().to_str().unwrap());
-
-        assert!(from_addr(
-            &url.to_string(),
-            gen_blob_service(),
-            gen_directory_service()
-        )
-        .is_err())
-    }
-
+    /// Correct scheme to connect to a unix socket.
+    #[test_case("grpc+unix:///path/to/somewhere", true; "grpc valid unix socket")]
+    /// Correct scheme for unix socket, but setting a host too, which is invalid.
+    #[test_case("grpc+unix://host.example/path/to/somewhere", false; "grpc invalid unix socket and host")]
+    /// Correct scheme to connect to localhost, with port 12345
+    #[test_case("grpc+http://[::1]:12345", true; "grpc valid IPv6 localhost port 12345")]
+    /// Correct scheme to connect to localhost over http, without specifying a port.
+    #[test_case("grpc+http://localhost", true; "grpc valid http host without port")]
+    /// Correct scheme to connect to localhost over http, without specifying a port.
+    #[test_case("grpc+https://localhost", true; "grpc valid https host without port")]
+    /// Correct scheme to connect to localhost over http, but with additional path, which is invalid.
+    #[test_case("grpc+http://localhost/some-path", false; "grpc valid invalid host and path")]
     #[tokio::test]
-    /// This constructs a GRPC PathInfoService.
-    async fn grpc_valid() {
-        assert!(from_addr(
-            "grpc+http://[::1]:12345",
-            gen_blob_service(),
-            gen_directory_service()
+    async fn test_from_addr_tokio(uri_str: &str, is_ok: bool) {
+        assert_eq!(
+            from_addr(uri_str, gen_blob_service(), gen_directory_service()).is_ok(),
+            is_ok
         )
-        .is_ok())
     }
 }
