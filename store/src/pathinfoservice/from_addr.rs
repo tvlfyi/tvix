@@ -30,11 +30,11 @@ pub fn from_addr(
         Url::parse(uri).map_err(|e| Error::StorageError(format!("unable to parse url: {}", e)))?;
 
     Ok(if url.scheme() == "memory" {
-        Arc::new(MemoryPathInfoService::from_url(
-            &url,
-            blob_service,
-            directory_service,
-        )?)
+        // memory doesn't support host or path in the URL.
+        if url.has_host() || !url.path().is_empty() {
+            return Err(Error::StorageError("invalid url".to_string()));
+        }
+        Arc::new(MemoryPathInfoService::new(blob_service, directory_service))
     } else if url.scheme() == "sled" {
         Arc::new(SledPathInfoService::from_url(
             &url,
@@ -53,4 +53,46 @@ pub fn from_addr(
             url.scheme()
         )))?
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use tvix_castore::utils::{gen_blob_service, gen_directory_service};
+
+    use super::from_addr;
+
+    /// This uses a wrong scheme.
+    #[test]
+    fn invalid_scheme() {
+        assert!(from_addr(
+            "http://foo.example/test",
+            gen_blob_service(),
+            gen_directory_service()
+        )
+        .is_err());
+    }
+
+    /// This correctly sets the scheme, and doesn't set a path.
+    #[test]
+    fn memory_valid_scheme() {
+        assert!(from_addr("memory://", gen_blob_service(), gen_directory_service()).is_ok())
+    }
+
+    /// This sets a memory url host to `foo`
+    #[test]
+    fn memory_invalid_host() {
+        assert!(from_addr("memory://foo", gen_blob_service(), gen_directory_service()).is_err())
+    }
+
+    /// This sets a memory urlp path to "/", which is invalid.
+    #[test]
+    fn memory_invalid_has_path() {
+        assert!(from_addr("memory:///", gen_blob_service(), gen_directory_service()).is_err())
+    }
+
+    /// This sets a memory url path "/foo", which is invalid.
+    #[test]
+    fn memory_invalid_path2() {
+        assert!(from_addr("memory:///foo", gen_blob_service(), gen_directory_service()).is_err())
+    }
 }
