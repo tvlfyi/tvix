@@ -21,12 +21,6 @@ pub use self::traverse::descend_to;
 /// digest.
 #[async_trait]
 pub trait DirectoryService: Send + Sync {
-    /// Create a new instance by passing in a connection URL.
-    /// TODO: check if we want to make this async, instead of lazily connecting
-    fn from_url(url: &url::Url) -> Result<Self, Error>
-    where
-        Self: Sized;
-
     /// Get looks up a single Directory message by its digest.
     /// In case the directory is not found, Ok(None) is returned.
     async fn get(&self, digest: &B3Digest) -> Result<Option<proto::Directory>, Error>;

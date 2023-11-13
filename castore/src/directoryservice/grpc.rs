@@ -35,18 +35,6 @@ impl GRPCDirectoryService {
 
 #[async_trait]
 impl DirectoryService for GRPCDirectoryService {
-    /// Constructs a [GRPCDirectoryService] from the passed [url::Url]:
-    /// - scheme has to match `grpc+*://`.
-    ///   That's normally grpc+unix for unix sockets, and grpc+http(s) for the HTTP counterparts.
-    /// - In the case of unix sockets, there must be a path, but may not be a host.
-    /// - In the case of non-unix sockets, there must be a host, but no path.
-    fn from_url(url: &url::Url) -> Result<Self, crate::Error> {
-        let channel = crate::channel::from_url(url)?;
-        Ok(Self::from_client(
-            proto::directory_service_client::DirectoryServiceClient::new(channel),
-        ))
-    }
-
     async fn get(
         &self,
         digest: &B3Digest,
@@ -307,7 +295,7 @@ mod tests {
     use crate::{
         directoryservice::{DirectoryService, GRPCDirectoryService, MemoryDirectoryService},
         fixtures::{self, DIRECTORY_A, DIRECTORY_B},
-        proto::GRPCDirectoryServiceWrapper,
+        proto::{directory_service_client::DirectoryServiceClient, GRPCDirectoryServiceWrapper},
         utils::gen_directorysvc_grpc_client,
     };
 
@@ -476,7 +464,9 @@ mod tests {
         let grpc_client = {
             let url = url::Url::parse(&format!("grpc+unix://{}", socket_path.display()))
                 .expect("must parse");
-            GRPCDirectoryService::from_url(&url).expect("must succeed")
+            let client =
+                DirectoryServiceClient::new(crate::channel::from_url(&url).expect("must succeed"));
+            GRPCDirectoryService::from_client(client)
         };
 
         assert!(grpc_client
