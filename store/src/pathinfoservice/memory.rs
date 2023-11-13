@@ -29,15 +29,12 @@ impl MemoryPathInfoService {
             directory_service,
         }
     }
-}
 
-#[async_trait]
-impl PathInfoService for MemoryPathInfoService {
     /// Constructs a [MemoryPathInfoService] from the passed [url::Url]:
     /// - scheme has to be `memory://`
     /// - there may not be a host.
     /// - there may not be a path.
-    fn from_url(
+    pub fn from_url(
         url: &url::Url,
         blob_service: Arc<dyn BlobService>,
         directory_service: Arc<dyn DirectoryService>,
@@ -52,7 +49,10 @@ impl PathInfoService for MemoryPathInfoService {
 
         Ok(Self::new(blob_service, directory_service))
     }
+}
 
+#[async_trait]
+impl PathInfoService for MemoryPathInfoService {
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
         let db = self.db.read().unwrap();
 
@@ -113,7 +113,6 @@ mod tests {
     use crate::tests::utils::gen_directory_service;
 
     use super::MemoryPathInfoService;
-    use super::PathInfoService;
 
     /// This uses a wrong scheme.
     #[test]

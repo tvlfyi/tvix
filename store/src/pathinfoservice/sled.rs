@@ -49,15 +49,12 @@ impl SledPathInfoService {
             directory_service,
         })
     }
-}
 
-#[async_trait]
-impl PathInfoService for SledPathInfoService {
     /// Constructs a [SledPathInfoService] from the passed [url::Url]:
     /// - scheme has to be `sled://`
     /// - there may not be a host.
     /// - a path to the sled needs to be provided (which may not be `/`).
-    fn from_url(
+    pub fn from_url(
         url: &url::Url,
         blob_service: Arc<dyn BlobService>,
         directory_service: Arc<dyn DirectoryService>,
@@ -86,7 +83,10 @@ impl PathInfoService for SledPathInfoService {
                 .map_err(|e| Error::StorageError(e.to_string()))
         }
     }
+}
 
+#[async_trait]
+impl PathInfoService for SledPathInfoService {
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
         match self.db.get(digest) {
             Ok(None) => Ok(None),
@@ -180,7 +180,6 @@ mod tests {
     use crate::tests::utils::gen_blob_service;
     use crate::tests::utils::gen_directory_service;
 
-    use super::PathInfoService;
     use super::SledPathInfoService;
 
     /// This uses a wrong scheme.

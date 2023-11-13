@@ -24,17 +24,14 @@ impl GRPCPathInfoService {
     ) -> Self {
         Self { grpc_client }
     }
-}
 
-#[async_trait]
-impl PathInfoService for GRPCPathInfoService {
     /// Constructs a [GRPCPathInfoService] from the passed [url::Url]:
     /// - scheme has to match `grpc+*://`.
     ///   That's normally grpc+unix for unix sockets, and grpc+http(s) for the HTTP counterparts.
     /// - In the case of unix sockets, there must be a path, but may not be a host.
     /// - In the case of non-unix sockets, there must be a host, but no path.
     /// The blob_service and directory_service arguments are ignored, because the gRPC service already provides answers to these questions.
-    fn from_url(
+    pub fn from_url(
         url: &url::Url,
         _blob_service: Arc<dyn BlobService>,
         _directory_service: Arc<dyn DirectoryService>,
@@ -44,7 +41,10 @@ impl PathInfoService for GRPCPathInfoService {
             proto::path_info_service_client::PathInfoServiceClient::new(channel),
         ))
     }
+}
 
+#[async_trait]
+impl PathInfoService for GRPCPathInfoService {
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
         let path_info = self
             .grpc_client

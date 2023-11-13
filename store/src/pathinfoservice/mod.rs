@@ -3,13 +3,9 @@ mod grpc;
 mod memory;
 mod sled;
 
-use std::pin::Pin;
-use std::sync::Arc;
-
 use futures::Stream;
+use std::pin::Pin;
 use tonic::async_trait;
-use tvix_castore::blobservice::BlobService;
-use tvix_castore::directoryservice::DirectoryService;
 use tvix_castore::proto as castorepb;
 use tvix_castore::Error;
 
@@ -23,18 +19,6 @@ pub use self::sled::SledPathInfoService;
 /// The base trait all PathInfo services need to implement.
 #[async_trait]
 pub trait PathInfoService: Send + Sync {
-    /// Create a new instance by passing in a connection URL, as well
-    /// as instances of a [PathInfoService] and [DirectoryService] (as the
-    /// [PathInfoService] needs to talk to them).
-    /// TODO: check if we want to make this async, instead of lazily connecting
-    fn from_url(
-        url: &url::Url,
-        blob_service: Arc<dyn BlobService>,
-        directory_service: Arc<dyn DirectoryService>,
-    ) -> Result<Self, Error>
-    where
-        Self: Sized;
-
     /// Retrieve a PathInfo message by the output digest.
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error>;
 
