@@ -38,18 +38,6 @@ impl GRPCBlobService {
 
 #[async_trait]
 impl BlobService for GRPCBlobService {
-    /// Constructs a [GRPCBlobService] from the passed [url::Url]:
-    /// - scheme has to match `grpc+*://`.
-    ///   That's normally grpc+unix for unix sockets, and grpc+http(s) for the HTTP counterparts.
-    /// - In the case of unix sockets, there must be a path, but may not be a host.
-    /// - In the case of non-unix sockets, there must be a host, but no path.
-    fn from_url(url: &url::Url) -> Result<Self, crate::Error> {
-        let channel = crate::channel::from_url(url)?;
-        Ok(Self::from_client(
-            proto::blob_service_client::BlobServiceClient::new(channel),
-        ))
-    }
-
     #[instrument(skip(self, digest), fields(blob.digest=%digest))]
     async fn has(&self, digest: &B3Digest) -> Result<bool, crate::Error> {
         let mut grpc_client = self.grpc_client.clone();
@@ -251,65 +239,11 @@ mod tests {
 
     use crate::blobservice::MemoryBlobService;
     use crate::fixtures;
+    use crate::proto::blob_service_client::BlobServiceClient;
     use crate::proto::GRPCBlobServiceWrapper;
 
     use super::BlobService;
     use super::GRPCBlobService;
-
-    /// This uses the wrong scheme
-    #[test]
-    fn test_invalid_scheme() {
-        let url = url::Url::parse("http://foo.example/test").expect("must parse");
-
-        assert!(GRPCBlobService::from_url(&url).is_err());
-    }
-
-    /// This uses the correct scheme for a unix socket.
-    /// The fact that /path/to/somewhere doesn't exist yet is no problem, because we connect lazily.
-    #[tokio::test]
-    async fn test_valid_unix_path() {
-        let url = url::Url::parse("grpc+unix:///path/to/somewhere").expect("must parse");
-
-        assert!(GRPCBlobService::from_url(&url).is_ok());
-    }
-
-    /// This uses the correct scheme for a unix socket,
-    /// but sets a host, which is unsupported.
-    #[tokio::test]
-    async fn test_invalid_unix_path_with_domain() {
-        let url =
-            url::Url::parse("grpc+unix://host.example/path/to/somewhere").expect("must parse");
-
-        assert!(GRPCBlobService::from_url(&url).is_err());
-    }
-
-    /// This uses the correct scheme for a HTTP server.
-    /// The fact that nothing is listening there is no problem, because we connect lazily.
-    #[tokio::test]
-    async fn test_valid_http() {
-        let url = url::Url::parse("grpc+http://localhost").expect("must parse");
-
-        assert!(GRPCBlobService::from_url(&url).is_ok());
-    }
-
-    /// This uses the correct scheme for a HTTPS server.
-    /// The fact that nothing is listening there is no problem, because we connect lazily.
-    #[tokio::test]
-    async fn test_valid_https() {
-        let url = url::Url::parse("grpc+https://localhost").expect("must parse");
-
-        assert!(GRPCBlobService::from_url(&url).is_ok());
-    }
-
-    /// This uses the correct scheme, but also specifies
-    /// an additional path, which is not supported for gRPC.
-    /// The fact that nothing is listening there is no problem, because we connect lazily.
-    #[tokio::test]
-    async fn test_invalid_http_with_path() {
-        let url = url::Url::parse("grpc+https://localhost/some-path").expect("must parse");
-
-        assert!(GRPCBlobService::from_url(&url).is_err());
-    }
 
     /// This ensures connecting via gRPC works as expected.
     #[tokio::test]
@@ -353,7 +287,10 @@ mod tests {
         let grpc_client = {
             let url = url::Url::parse(&format!("grpc+unix://{}", socket_path.display()))
                 .expect("must parse");
-            GRPCBlobService::from_url(&url).expect("must succeed")
+            let client =
+                BlobServiceClient::new(crate::channel::from_url(&url).expect("must succeed"));
+
+            GRPCBlobService::from_client(client)
         };
 
         let has = grpc_client

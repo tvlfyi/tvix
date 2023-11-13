@@ -24,12 +24,6 @@ pub use self::sled::SledBlobService;
 /// close funtion, to finalize a blob and get its digest.
 #[async_trait]
 pub trait BlobService: Send + Sync {
-    /// Create a new instance by passing in a connection URL.
-    /// TODO: check if we want to make this async, instead of lazily connecting
-    fn from_url(url: &url::Url) -> Result<Self, Error>
-    where
-        Self: Sized;
-
     /// Check if the service has the blob, by its content hash.
     async fn has(&self, digest: &B3Digest) -> Result<bool, Error>;
 
