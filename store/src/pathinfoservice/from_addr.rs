@@ -38,11 +38,30 @@ pub fn from_addr(
         }
         Arc::new(MemoryPathInfoService::new(blob_service, directory_service))
     } else if url.scheme() == "sled" {
-        Arc::new(SledPathInfoService::from_url(
-            &url,
-            blob_service,
-            directory_service,
-        )?)
+        // sled doesn't support host, and a path can be provided (otherwise
+        // it'll live in memory only).
+        if url.has_host() {
+            return Err(Error::StorageError("no host allowed".to_string()));
+        }
+
+        if url.path() == "/" {
+            return Err(Error::StorageError(
+                "cowardly refusing to open / with sled".to_string(),
+            ));
+        }
+
+        // TODO: expose compression and other parameters as URL parameters?
+
+        if url.path().is_empty() {
+            return Ok(Arc::new(
+                SledPathInfoService::new_temporary(blob_service, directory_service)
+                    .map_err(|e| Error::StorageError(e.to_string()))?,
+            ));
+        }
+        return Ok(Arc::new(
+            SledPathInfoService::new(url.path().into(), blob_service, directory_service)
+                .map_err(|e| Error::StorageError(e.to_string()))?,
+        ));
     } else if url.scheme().starts_with("grpc+") {
         // schemes starting with grpc+ go to the GRPCPathInfoService.
         //   That's normally grpc+unix for unix sockets, and grpc+http(s) for the HTTP counterparts.
@@ -61,6 +80,7 @@ pub fn from_addr(
 
 #[cfg(test)]
 mod tests {
+    use tempfile::TempDir;
     use tvix_castore::utils::{gen_blob_service, gen_directory_service};
 
     use super::from_addr;
@@ -98,6 +118,62 @@ mod tests {
     #[test]
     fn memory_invalid_path2() {
         assert!(from_addr("memory:///foo", gen_blob_service(), gen_directory_service()).is_err())
+    }
+
+    /// This uses the correct scheme, and doesn't specify a path (temporary sled).
+    #[test]
+    fn sled_valid_temporary() {
+        assert!(from_addr("sled://", gen_blob_service(), gen_directory_service()).is_ok())
+    }
+
+    /// This uses the correct scheme, and sets a tempdir as location.
+    #[test]
+    fn sled_valid_scheme_path() {
+        let tmpdir = TempDir::new().unwrap();
+
+        let mut url = url::Url::parse("sled://").expect("must parse");
+        url.set_path(tmpdir.path().to_str().unwrap());
+
+        assert!(from_addr(
+            &url.to_string(),
+            gen_blob_service(),
+            gen_directory_service()
+        )
+        .is_ok())
+    }
+
+    /// This uses the correct scheme, and specifies / as path (which should fail
+    // for obvious reasons)
+    #[test]
+    fn sled_fail_invalid_path_root() {
+        assert!(from_addr("sled:///", gen_blob_service(), gen_directory_service()).is_err())
+    }
+
+    /// This sets a host, rather than a path, which should fail.
+    #[test]
+    fn sled_invalid_host() {
+        assert!(from_addr(
+            "sled://foo.example",
+            gen_blob_service(),
+            gen_directory_service()
+        )
+        .is_err())
+    }
+
+    /// This sets a host AND a valid path, which should fail
+    #[test]
+    fn test_invalid_host_and_path() {
+        let tmpdir = TempDir::new().unwrap();
+
+        let mut url = url::Url::parse("sled://foo.example").expect("must parse");
+        url.set_path(tmpdir.path().to_str().unwrap());
+
+        assert!(from_addr(
+            &url.to_string(),
+            gen_blob_service(),
+            gen_directory_service()
+        )
+        .is_err())
     }
 
     #[tokio::test]
