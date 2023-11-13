@@ -1,3 +1,5 @@
+use crate::proto::path_info_service_client::PathInfoServiceClient;
+
 use super::{GRPCPathInfoService, MemoryPathInfoService, PathInfoService, SledPathInfoService};
 
 use std::sync::Arc;
@@ -42,11 +44,13 @@ pub fn from_addr(
             directory_service,
         )?)
     } else if url.scheme().starts_with("grpc+") {
-        Arc::new(GRPCPathInfoService::from_url(
-            &url,
-            blob_service,
-            directory_service,
-        )?)
+        // schemes starting with grpc+ go to the GRPCPathInfoService.
+        //   That's normally grpc+unix for unix sockets, and grpc+http(s) for the HTTP counterparts.
+        // - In the case of unix sockets, there must be a path, but may not be a host.
+        // - In the case of non-unix sockets, there must be a host, but no path.
+        // Constructing the channel is handled by tvix_castore::channel::from_url.
+        let client = PathInfoServiceClient::new(tvix_castore::channel::from_url(&url)?);
+        Arc::new(GRPCPathInfoService::from_client(client))
     } else {
         Err(Error::StorageError(format!(
             "unknown scheme: {}",
@@ -94,5 +98,16 @@ mod tests {
     #[test]
     fn memory_invalid_path2() {
         assert!(from_addr("memory:///foo", gen_blob_service(), gen_directory_service()).is_err())
+    }
+
+    #[tokio::test]
+    /// This constructs a GRPC PathInfoService.
+    async fn grpc_valid() {
+        assert!(from_addr(
+            "grpc+http://[::1]:12345",
+            gen_blob_service(),
+            gen_directory_service()
+        )
+        .is_ok())
     }
 }

@@ -2,11 +2,9 @@ use super::PathInfoService;
 use crate::proto::{self, ListPathInfoRequest, PathInfo};
 use async_stream::try_stream;
 use futures::Stream;
-use std::{pin::Pin, sync::Arc};
+use std::pin::Pin;
 use tonic::{async_trait, transport::Channel, Code};
-use tvix_castore::{
-    blobservice::BlobService, directoryservice::DirectoryService, proto as castorepb, Error,
-};
+use tvix_castore::{proto as castorepb, Error};
 
 /// Connects to a (remote) tvix-store PathInfoService over gRPC.
 #[derive(Clone)]
@@ -23,23 +21,6 @@ impl GRPCPathInfoService {
         grpc_client: proto::path_info_service_client::PathInfoServiceClient<Channel>,
     ) -> Self {
         Self { grpc_client }
-    }
-
-    /// Constructs a [GRPCPathInfoService] from the passed [url::Url]:
-    /// - scheme has to match `grpc+*://`.
-    ///   That's normally grpc+unix for unix sockets, and grpc+http(s) for the HTTP counterparts.
-    /// - In the case of unix sockets, there must be a path, but may not be a host.
-    /// - In the case of non-unix sockets, there must be a host, but no path.
-    /// The blob_service and directory_service arguments are ignored, because the gRPC service already provides answers to these questions.
-    pub fn from_url(
-        url: &url::Url,
-        _blob_service: Arc<dyn BlobService>,
-        _directory_service: Arc<dyn DirectoryService>,
-    ) -> Result<Self, tvix_castore::Error> {
-        let channel = tvix_castore::channel::from_url(url)?;
-        Ok(Self::from_client(
-            proto::path_info_service_client::PathInfoServiceClient::new(channel),
-        ))
     }
 }
 
@@ -198,8 +179,11 @@ mod tests {
         let grpc_client = {
             let url = url::Url::parse(&format!("grpc+unix://{}", socket_path.display()))
                 .expect("must parse");
-            GRPCPathInfoService::from_url(&url, gen_blob_service(), gen_directory_service())
-                .expect("must succeed")
+            let client = PathInfoServiceClient::new(
+                tvix_castore::channel::from_url(&url).expect("must succeed"),
+            );
+
+            GRPCPathInfoService::from_client(client)
         };
 
         let path_info = grpc_client
