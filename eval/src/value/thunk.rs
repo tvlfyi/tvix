@@ -114,6 +114,14 @@ impl ThunkRepr {
             }
         }
     }
+
+    pub fn is_forced(&self) -> bool {
+        match self {
+            ThunkRepr::Evaluated(Value::Thunk(_)) => false,
+            ThunkRepr::Evaluated(_) => true,
+            _ => false,
+        }
+    }
 }
 
 /// A thunk is created for any value which requires non-strict
@@ -279,11 +287,7 @@ impl Thunk {
 
     /// Returns true if forcing this thunk will not change it.
     pub fn is_forced(&self) -> bool {
-        match *self.0.borrow() {
-            ThunkRepr::Evaluated(Value::Thunk(_)) => false,
-            ThunkRepr::Evaluated(_) => true,
-            _ => false,
-        }
+        self.0.borrow().is_forced()
     }
 
     /// Returns a reference to the inner evaluated value of a thunk.
