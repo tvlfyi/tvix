@@ -79,6 +79,8 @@ enum ThunkRepr {
         content_span: Option<Span>,
     },
 
+    // TODO(amjoseph): consider changing `Value` to `Rc<Value>` to avoid
+    // expensive clone()s in Thunk::force().
     /// Fully evaluated thunk.
     Evaluated(Value),
 }
@@ -203,69 +205,100 @@ impl Thunk {
         }
     }
 
-    // TODO(amjoseph): de-asyncify this
-    pub async fn force(self, co: GenCo, span: LightSpan) -> Result<Value, ErrorKind> {
-        // If the current thunk is already fully evaluated, return its evaluated
-        // value. The VM will continue running the code that landed us here.
-        if self.is_forced() {
-            return Ok(self.unwrap_or_clone());
-        }
+    pub async fn force(mut myself: Thunk, co: GenCo, span: LightSpan) -> Result<Value, ErrorKind> {
+        // This vector of "thunks which point to the thunk-being-forced", to
+        // be updated along with it, is necessary in order to write this
+        // function in iterative (and later, mutual-tail-call) form.
+        let mut also_update: Vec<Rc<RefCell<ThunkRepr>>> = vec![];
 
-        // Begin evaluation of this thunk by marking it as a blackhole, meaning
-        // that any other forcing frame encountering this thunk before its
-        // evaluation is completed detected an evaluation cycle.
-        let inner = self.0.replace(self.prepare_blackhole(span));
-
-        match inner {
-            // If there was already a blackhole in the thunk, this is an
-            // evaluation cycle.
-            ThunkRepr::Blackhole {
-                forced_at,
-                suspended_at,
-                content_span,
-            } => Err(ErrorKind::InfiniteRecursion {
-                first_force: forced_at.span(),
-                suspended_at: suspended_at.map(|s| s.span()),
-                content_span,
-            }),
-
-            // If there is a native function stored in the thunk, evaluate it
-            // and replace this thunk's representation with the result.
-            ThunkRepr::Native(native) => {
-                let value = native.0()?;
-
-                // Force the returned value again, in case the native call
-                // returned a thunk.
-                let value = generators::request_force(&co, value).await;
-
-                self.0.replace(ThunkRepr::Evaluated(value.clone()));
-                Ok(value)
+        loop {
+            // If the current thunk is already fully evaluated, return its evaluated
+            // value. The VM will continue running the code that landed us here.
+            if myself.is_forced() {
+                let val = myself.unwrap_or_clone();
+                for other_thunk in also_update.into_iter() {
+                    other_thunk.replace(ThunkRepr::Evaluated(val.clone()));
+                }
+                return Ok(val);
             }
 
-            // When encountering a suspended thunk, request that the VM enters
-            // it and produces the result.
-            ThunkRepr::Suspended {
-                lambda,
-                upvalues,
-                light_span,
-            } => {
-                let value =
-                    generators::request_enter_lambda(&co, lambda, upvalues, light_span).await;
+            // Begin evaluation of this thunk by marking it as a blackhole, meaning
+            // that any other forcing frame encountering this thunk before its
+            // evaluation is completed detected an evaluation cycle.
+            let inner = myself.0.replace(myself.prepare_blackhole(span.clone()));
 
-                // This may have returned another thunk, so we need to request
-                // that the VM forces this value, too.
-                let value = generators::request_force(&co, value).await;
+            match inner {
+                // If there was already a blackhole in the thunk, this is an
+                // evaluation cycle.
+                ThunkRepr::Blackhole {
+                    forced_at,
+                    suspended_at,
+                    content_span,
+                } => {
+                    return Err(ErrorKind::InfiniteRecursion {
+                        first_force: forced_at.span(),
+                        suspended_at: suspended_at.map(|s| s.span()),
+                        content_span,
+                    })
+                }
 
-                self.0.replace(ThunkRepr::Evaluated(value.clone()));
-                Ok(value)
-            }
+                // If there is a native function stored in the thunk, evaluate it
+                // and replace this thunk's representation with the result.
+                ThunkRepr::Native(native) => {
+                    let value = native.0()?;
+                    myself.0.replace(ThunkRepr::Evaluated(value));
+                    continue;
+                }
 
-            // If an inner value is found, force it and then update. This is
-            // most likely an inner thunk, as `Thunk:is_forced` returned false.
-            ThunkRepr::Evaluated(val) => {
-                let value = generators::request_force(&co, val).await;
-                self.0.replace(ThunkRepr::Evaluated(value.clone()));
-                Ok(value)
+                // When encountering a suspended thunk, request that the VM enters
+                // it and produces the result.
+                ThunkRepr::Suspended {
+                    lambda,
+                    upvalues,
+                    light_span,
+                } => {
+                    // TODO(amjoseph): use #[tailcall::mutual] here.  This can
+                    // be turned into a tailcall to vm::execute_bytecode() by
+                    // passing `also_update` to it.
+                    let value =
+                        generators::request_enter_lambda(&co, lambda, upvalues, light_span).await;
+                    myself.0.replace(ThunkRepr::Evaluated(value));
+                    continue;
+                }
+
+                // nested thunks -- try to flatten before forcing
+                ThunkRepr::Evaluated(Value::Thunk(inner_thunk)) => {
+                    match Rc::try_unwrap(inner_thunk.0) {
+                        Ok(refcell) => {
+                            // we are the only reference to the inner thunk,
+                            // so steal it
+                            myself.0.replace(refcell.into_inner());
+                            continue;
+                        }
+                        Err(rc) => {
+                            let inner_thunk = Thunk(rc);
+                            if inner_thunk.is_forced() {
+                                // tail call to force the inner thunk; note that
+                                // this means the outer thunk remains unforced
+                                // even after calling force() on it; however the
+                                // next time it is forced we will be one
+                                // thunk-forcing closer to it being
+                                // fully-evaluated.
+                                myself
+                                    .0
+                                    .replace(ThunkRepr::Evaluated(inner_thunk.value().clone()));
+                                continue;
+                            }
+                            also_update.push(myself.0.clone());
+                            myself = inner_thunk;
+                            continue;
+                        }
+                    }
+                }
+
+                ThunkRepr::Evaluated(val) => {
+                    return Ok(val);
+                }
             }
         }
     }

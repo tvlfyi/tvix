@@ -662,9 +662,9 @@ impl Value {
     // TODO(amjoseph): de-asyncify this (when called directly by the VM)
     pub async fn force(self, co: GenCo, span: LightSpan) -> Result<Value, ErrorKind> {
         if let Value::Thunk(thunk) = self {
-            return thunk.force(co, span).await;
+            // TODO(amjoseph): use #[tailcall::mutual]
+            return Thunk::force(thunk, co, span).await;
         }
-
         Ok(self)
     }
 

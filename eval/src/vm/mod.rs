@@ -472,7 +472,7 @@ impl<'o> VM<'o> {
 
                         self.push_call_frame(span, frame);
                         self.enqueue_generator("force", gen_span.clone(), |co| {
-                            thunk.force(co, gen_span)
+                            Thunk::force(thunk, co, gen_span)
                         });
 
                         return Ok(false);
