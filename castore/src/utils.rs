@@ -1,11 +1,8 @@
 //! A crate containing constructors to provide instances of a BlobService and
-//! DirectoryService.
-//! Only used for testing purposes, but across crates.
+//! DirectoryService. Only used for testing purposes, but across crates.
 //! Should be removed once we have a better concept of a "Service registry".
 
-use pin_project_lite::pin_project;
 use std::sync::Arc;
-use tokio::io::DuplexStream;
 use tonic::transport::{Channel, Endpoint, Server, Uri};
 
 use crate::{
@@ -25,15 +22,6 @@ pub fn gen_blob_service() -> Arc<dyn BlobService> {
 
 pub fn gen_directory_service() -> Arc<dyn DirectoryService> {
     Arc::new(MemoryDirectoryService::default())
-}
-
-pin_project! {
-    /// A wrapper around [DuplexStreamStream],
-    /// implementing [AsyncRead] and [Connected].
-    pub struct DuplexStreamWrapper {
-            #[pin]
-        inner: DuplexStream
-    }
 }
 
 /// This will spawn the a gRPC server with a DirectoryService client, connect a
