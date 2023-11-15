@@ -52,7 +52,7 @@ impl TvixStoreIO {
 
     /// for a given [StorePath] and additional [Path] inside the store path,
     /// look up the [PathInfo], and if it exists, and then use
-    /// [directoryservice::traverse_to] to return the
+    /// [directoryservice::descend_to] to return the
     /// [Node] specified by `sub_path`.
     #[instrument(skip(self), ret, err)]
     fn store_path_to_root_node(
