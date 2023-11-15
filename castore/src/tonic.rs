@@ -9,54 +9,57 @@ fn url_wants_wait_connect(url: &url::Url) -> bool {
 }
 
 /// Turn a [url::Url] to a [Channel] if it can be parsed successfully.
-/// It supports `grpc+unix:/path/to/socket`, as well as the regular schemes supported
-/// by tonic, for example `grpc+http://[::1]:8000`.
-/// It supports wait-connect=1 as a URL parameter, in which case we don't connect lazily.
+/// It supports the following schemes (and URLs):
+///  - `grpc+http://[::1]:8000`, connecting over unencrypted HTTP/2 (h2c)
+///  - `grpc+https://[::1]:8000`, connecting over encrypted HTTP/2
+///  - `grpc+unix:/path/to/socket`, connecting to a unix domain socket
+///
+/// All URLs support adding `wait-connect=1` as a URL parameter, in which case
+/// the connection is established lazily.
 pub async fn channel_from_url(url: &url::Url) -> Result<Channel, self::Error> {
-    // Stringify the URL and remove the grpc+ prefix.
-    // We can't use `url.set_scheme(rest)`, as it disallows
-    // setting something http(s) that previously wasn't.
-    let unprefixed_url_str = match url.to_string().strip_prefix("grpc+") {
-        None => return Err(Error::MissingGRPCPrefix()),
-        Some(url_str) => url_str.to_owned(),
-    };
+    match url.scheme() {
+        "grpc+unix" => {
+            if url.host_str().is_some() {
+                return Err(Error::HostSetForUnixSocket());
+            }
 
-    if url.scheme() == "grpc+unix" {
-        if url.host_str().is_some() {
-            return Err(Error::HostSetForUnixSocket());
+            let connector = tower::service_fn({
+                let url = url.clone();
+                move |_: tonic::transport::Uri| UnixStream::connect(url.path().to_string().clone())
+            });
+
+            // the URL doesn't matter
+            let endpoint = Endpoint::from_static("http://[::]:50051");
+            if url_wants_wait_connect(url) {
+                Ok(endpoint.connect_with_connector(connector).await?)
+            } else {
+                Ok(endpoint.connect_with_connector_lazy(connector))
+            }
         }
+        _ => {
+            // ensure path is empty, not supported with gRPC.
+            if !url.path().is_empty() {
+                return Err(Error::PathMayNotBeSet());
+            }
 
-        let connector = tower::service_fn({
-            let url = url.clone();
-            move |_: tonic::transport::Uri| UnixStream::connect(url.path().to_string().clone())
-        });
+            // Stringify the URL and remove the grpc+ prefix.
+            // We can't use `url.set_scheme(rest)`, as it disallows
+            // setting something http(s) that previously wasn't.
+            let unprefixed_url_str = match url.to_string().strip_prefix("grpc+") {
+                None => return Err(Error::MissingGRPCPrefix()),
+                Some(url_str) => url_str.to_owned(),
+            };
 
-        let channel = if url_wants_wait_connect(url) {
-            Endpoint::from_static("http://[::]:50051")
-                .connect_with_connector(connector)
-                .await?
-        } else {
-            Endpoint::from_static("http://[::]:50051").connect_with_connector_lazy(connector)
-        };
-
-        return Ok(channel);
+            // Use the regular tonic transport::Endpoint logic, but unprefixed_url_str,
+            // as tonic doesn't know about grpc+http[s].
+            let endpoint = Endpoint::try_from(unprefixed_url_str)?;
+            if url_wants_wait_connect(url) {
+                Ok(endpoint.connect().await?)
+            } else {
+                Ok(endpoint.connect_lazy())
+            }
+        }
     }
-
-    // ensure path is empty, not supported with gRPC.
-    if !url.path().is_empty() {
-        return Err(Error::PathMayNotBeSet());
-    }
-
-    // Use the regular tonic transport::Endpoint logic, but unprefixed_url_str,
-    // as tonic doesn't know about grpc+http[s].
-    let endpoint = Endpoint::try_from(unprefixed_url_str)?;
-    let channel = if url_wants_wait_connect(url) {
-        endpoint.connect().await?
-    } else {
-        endpoint.connect_lazy()
-    };
-
-    Ok(channel)
 }
 
 /// Errors occuring when trying to connect to a backend
