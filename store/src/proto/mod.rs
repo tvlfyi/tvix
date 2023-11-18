@@ -1,7 +1,11 @@
 #![allow(clippy::derive_partial_eq_without_eq, non_snake_case)]
+use bytes::Bytes;
 use data_encoding::BASE64;
 // https://github.com/hyperium/tonic/issues/1056
-use nix_compat::store_path;
+use nix_compat::{
+    nixhash::{CAHash, NixHash},
+    store_path,
+};
 use thiserror::Error;
 use tvix_castore::proto::{self as castorepb, NamedNode, ValidateNodeError};
 
@@ -171,5 +175,66 @@ impl PathInfo {
 
         // return the root nix path
         Ok(root_nix_path)
+    }
+}
+
+impl From<&nix_compat::narinfo::NarInfo<'_>> for NarInfo {
+    /// Converts from a NarInfo (returned from the NARInfo parser) to the proto-
+    /// level NarInfo struct.
+    fn from(value: &nix_compat::narinfo::NarInfo<'_>) -> Self {
+        let signatures = value
+            .signatures
+            .iter()
+            .map(|sig| nar_info::Signature {
+                name: sig.name().to_string(),
+                data: Bytes::copy_from_slice(sig.bytes()),
+            })
+            .collect();
+
+        let ca = value.ca.as_ref().map(|ca_hash| nar_info::Ca {
+            r#type: match ca_hash {
+                CAHash::Flat(NixHash::Md5(_)) => nar_info::ca::Hash::FlatMd5.into(),
+                CAHash::Flat(NixHash::Sha1(_)) => nar_info::ca::Hash::FlatSha1.into(),
+                CAHash::Flat(NixHash::Sha256(_)) => nar_info::ca::Hash::FlatSha256.into(),
+                CAHash::Flat(NixHash::Sha512(_)) => nar_info::ca::Hash::FlatSha512.into(),
+                CAHash::Nar(NixHash::Md5(_)) => nar_info::ca::Hash::NarMd5.into(),
+                CAHash::Nar(NixHash::Sha1(_)) => nar_info::ca::Hash::NarSha1.into(),
+                CAHash::Nar(NixHash::Sha256(_)) => nar_info::ca::Hash::NarSha256.into(),
+                CAHash::Nar(NixHash::Sha512(_)) => nar_info::ca::Hash::NarSha512.into(),
+                CAHash::Text(_) => nar_info::ca::Hash::TextSha256.into(),
+            },
+            digest: Bytes::copy_from_slice(ca_hash.digest().digest_as_bytes()),
+        });
+
+        NarInfo {
+            nar_size: value.nar_size,
+            nar_sha256: Bytes::copy_from_slice(&value.nar_hash),
+            signatures,
+            reference_names: value.references.iter().map(|r| r.to_string()).collect(),
+            deriver: value.deriver.as_ref().map(|sp| StorePath {
+                // The parser already errors out with an error if the .drv suffix was missing,
+                // so you can only miss the suffix if you're manually constructing,
+                // which means we can unwrap here.
+                name: sp.name().strip_suffix(".drv").unwrap().to_owned(),
+                digest: Bytes::copy_from_slice(sp.digest()),
+            }),
+            ca,
+        }
+    }
+}
+
+impl From<&nix_compat::narinfo::NarInfo<'_>> for PathInfo {
+    /// Converts from a NarInfo (returned from the NARInfo parser) to a PathInfo
+    /// struct with the node set to None.
+    fn from(value: &nix_compat::narinfo::NarInfo<'_>) -> Self {
+        Self {
+            node: None,
+            references: value
+                .references
+                .iter()
+                .map(|x| Bytes::copy_from_slice(x.digest()))
+                .collect(),
+            narinfo: Some(value.into()),
+        }
     }
 }

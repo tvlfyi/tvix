@@ -1,6 +1,8 @@
-use crate::proto::{PathInfo, ValidatePathInfoError};
+use crate::proto::{nar_info::Signature, NarInfo, PathInfo, ValidatePathInfoError};
 use crate::tests::fixtures::*;
 use bytes::Bytes;
+use data_encoding::BASE64;
+use nix_compat::nixbase32;
 use nix_compat::store_path::{self, StorePath};
 use std::str::FromStr;
 use test_case::test_case;
@@ -294,4 +296,111 @@ fn validate_invalid_deriver() {
         ValidatePathInfoError::InvalidDeriverField(_) => {}
         e => panic!("unexpected error: {:?}", e),
     }
+}
+
+#[test]
+fn from_nixcompat_narinfo() {
+    let narinfo_parsed = nix_compat::narinfo::NarInfo::parse(
+        r#"StorePath: /nix/store/s66mzxpvicwk07gjbjfw9izjfa797vsw-hello-2.12.1
+URL: nar/1nhgq6wcggx0plpy4991h3ginj6hipsdslv4fd4zml1n707j26yq.nar.xz
+Compression: xz
+FileHash: sha256:1nhgq6wcggx0plpy4991h3ginj6hipsdslv4fd4zml1n707j26yq
+FileSize: 50088
+NarHash: sha256:0yzhigwjl6bws649vcs2asa4lbs8hg93hyix187gc7s7a74w5h80
+NarSize: 226488
+References: 3n58xw4373jp0ljirf06d8077j15pc4j-glibc-2.37-8 s66mzxpvicwk07gjbjfw9izjfa797vsw-hello-2.12.1
+Deriver: ib3sh3pcz10wsmavxvkdbayhqivbghlq-hello-2.12.1.drv
+Sig: cache.nixos.org-1:8ijECciSFzWHwwGVOIVYdp2fOIOJAfmzGHPQVwpktfTQJF6kMPPDre7UtFw3o+VqenC5P8RikKOAAfN7CvPEAg=="#).expect("must parse");
+
+    assert_eq!(
+        PathInfo {
+            node: None,
+            references: vec![
+                Bytes::copy_from_slice(&nixbase32::decode_fixed::<20>("3n58xw4373jp0ljirf06d8077j15pc4j").unwrap()),
+                Bytes::copy_from_slice(&nixbase32::decode_fixed::<20>("s66mzxpvicwk07gjbjfw9izjfa797vsw").unwrap()),
+            ],
+            narinfo: Some(
+                NarInfo {
+                    nar_size: 226488,
+                    nar_sha256: Bytes::copy_from_slice(
+                        &nixbase32::decode_fixed::<32>("0yzhigwjl6bws649vcs2asa4lbs8hg93hyix187gc7s7a74w5h80".as_bytes())
+                            .unwrap()
+                    ),
+                    signatures: vec![Signature {
+                        name: "cache.nixos.org-1".to_string(),
+                        data: BASE64.decode("8ijECciSFzWHwwGVOIVYdp2fOIOJAfmzGHPQVwpktfTQJF6kMPPDre7UtFw3o+VqenC5P8RikKOAAfN7CvPEAg==".as_bytes()).unwrap().into(),
+                    }],
+                    reference_names: vec![
+                        "3n58xw4373jp0ljirf06d8077j15pc4j-glibc-2.37-8".to_string(),
+                        "s66mzxpvicwk07gjbjfw9izjfa797vsw-hello-2.12.1".to_string()
+                    ],
+                    deriver: Some(crate::proto::StorePath {
+                        digest: Bytes::copy_from_slice(&nixbase32::decode_fixed::<20>("ib3sh3pcz10wsmavxvkdbayhqivbghlq").unwrap()),
+                        name: "hello-2.12.1".to_string(),
+                     }),
+                    ca: None,
+                }
+            )
+        },
+        (&narinfo_parsed).into(),
+    );
+}
+
+#[test]
+fn from_nixcompat_narinfo_fod() {
+    let narinfo_parsed = nix_compat::narinfo::NarInfo::parse(
+        r#"StorePath: /nix/store/pa10z4ngm0g83kx9mssrqzz30s84vq7k-hello-2.12.1.tar.gz
+URL: nar/1zjrhzhaizsrlsvdkqfl073vivmxcqnzkff4s50i0cdf541ary1r.nar.xz
+Compression: xz
+FileHash: sha256:1zjrhzhaizsrlsvdkqfl073vivmxcqnzkff4s50i0cdf541ary1r
+FileSize: 1033524
+NarHash: sha256:1lvqpbk2k1sb39z8jfxixf7p7v8sj4z6mmpa44nnmff3w1y6h8lh
+NarSize: 1033416
+References: 
+Deriver: dyivpmlaq2km6c11i0s6bi6mbsx0ylqf-hello-2.12.1.tar.gz.drv
+Sig: cache.nixos.org-1:ywnIG629nQZQhEr6/HLDrLT/mUEp5J1LC6NmWSlJRWL/nM7oGItJQUYWGLvYGhSQvHrhIuvMpjNmBNh/WWqCDg==
+CA: fixed:sha256:086vqwk2wl8zfs47sq2xpjc9k066ilmb8z6dn0q6ymwjzlm196cd"#
+    ).expect("must parse");
+
+    assert_eq!(
+        PathInfo {
+            node: None,
+            references: vec![],
+            narinfo: Some(
+                NarInfo {
+                    nar_size: 1033416,
+                    nar_sha256: Bytes::copy_from_slice(
+                        &nixbase32::decode_fixed::<32>(
+                            "1lvqpbk2k1sb39z8jfxixf7p7v8sj4z6mmpa44nnmff3w1y6h8lh"
+                        )
+                        .unwrap()
+                    ),
+                    signatures: vec![Signature {
+                        name: "cache.nixos.org-1".to_string(),
+                        data: BASE64
+                            .decode("ywnIG629nQZQhEr6/HLDrLT/mUEp5J1LC6NmWSlJRWL/nM7oGItJQUYWGLvYGhSQvHrhIuvMpjNmBNh/WWqCDg==".as_bytes())
+                            .unwrap()
+                            .into(),
+                    }],
+                    reference_names: vec![],
+                    deriver: Some(crate::proto::StorePath {
+                        digest: Bytes::copy_from_slice(
+                            &nixbase32::decode_fixed::<20>("dyivpmlaq2km6c11i0s6bi6mbsx0ylqf").unwrap()
+                        ),
+                        name: "hello-2.12.1.tar.gz".to_string(),
+                    }),
+                    ca: Some(crate::proto::nar_info::Ca {
+                        r#type: crate::proto::nar_info::ca::Hash::FlatSha256.into(),
+                        digest: Bytes::copy_from_slice(
+                            &nixbase32::decode_fixed::<32>(
+                                "086vqwk2wl8zfs47sq2xpjc9k066ilmb8z6dn0q6ymwjzlm196cd"
+                            )
+                            .unwrap()
+                        )
+                    }),
+                }
+            ),
+        },
+        (&narinfo_parsed).into()
+    );
 }
