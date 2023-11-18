@@ -40,6 +40,16 @@ impl From<crate::tonic::Error> for Error {
     }
 }
 
+impl From<std::io::Error> for Error {
+    fn from(value: std::io::Error) -> Self {
+        if value.kind() == std::io::ErrorKind::InvalidInput {
+            Error::InvalidRequest(value.to_string())
+        } else {
+            Error::StorageError(value.to_string())
+        }
+    }
+}
+
 // TODO: this should probably go somewhere else?
 impl From<Error> for std::io::Error {
     fn from(value: Error) -> Self {
