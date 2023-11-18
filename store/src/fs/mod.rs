@@ -26,7 +26,7 @@ use std::{
     time::Duration,
 };
 use tokio::{
-    io::{AsyncBufReadExt, AsyncSeekExt},
+    io::{AsyncReadExt, AsyncSeekExt},
     sync::mpsc,
 };
 use tracing::{debug, info_span, instrument, warn};
@@ -614,24 +614,8 @@ impl FileSystem for TvixStoreFs {
 
             let mut buf: Vec<u8> = Vec::with_capacity(size as usize);
 
-            while (buf.len() as u64) < size as u64 {
-                let int_buf = blob_reader.fill_buf().await?;
-                // copy things from the internal buffer into buf to fill it till up until size
-
-                // an empty buffer signals we reached EOF.
-                if int_buf.is_empty() {
-                    break;
-                }
-
-                // calculate how many bytes we can read from int_buf.
-                // It's either all of int_buf, or the number of bytes missing in buf to reach size.
-                let len_to_copy = std::cmp::min(int_buf.len(), size as usize - buf.len());
-
-                // copy these bytes into our buffer
-                buf.extend_from_slice(&int_buf[..len_to_copy]);
-                // and consume them in the buffered reader.
-                blob_reader.consume(len_to_copy);
-            }
+            // copy things from the internal buffer into buf to fill it till up until size
+            tokio::io::copy(&mut blob_reader.as_mut().take(size as u64), &mut buf).await?;
 
             Ok(buf)
         });
