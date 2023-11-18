@@ -94,7 +94,7 @@ impl StorePath {
     /// Construct a [StorePath] by passing the `$digest-$name` string
     /// that comes after [STORE_DIR_WITH_SLASH].
     pub fn from_bytes(s: &[u8]) -> Result<StorePath, Error> {
-        Ok(StorePathRef::from_bytes(s)?.into())
+        Ok(StorePathRef::from_bytes(s)?.to_owned())
     }
 
     /// Construct a [StorePath] from an absolute store path string.
@@ -162,15 +162,6 @@ pub struct StorePathRef<'a> {
     name: &'a str,
 }
 
-impl From<StorePathRef<'_>> for StorePath {
-    fn from(StorePathRef { digest, name }: StorePathRef<'_>) -> Self {
-        StorePath {
-            digest,
-            name: name.to_owned(),
-        }
-    }
-}
-
 impl<'a> From<&'a StorePath> for StorePathRef<'a> {
     fn from(&StorePath { digest, ref name }: &'a StorePath) -> Self {
         StorePathRef {
@@ -187,6 +178,13 @@ impl<'a> StorePathRef<'a> {
 
     pub fn name(&self) -> &'a str {
         self.name
+    }
+
+    pub fn to_owned(&self) -> StorePath {
+        StorePath {
+            digest: self.digest,
+            name: self.name.to_owned(),
+        }
     }
 
     /// Construct a [StorePathRef] by passing the `$digest-$name` string
