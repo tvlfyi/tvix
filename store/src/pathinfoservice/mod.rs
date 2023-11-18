@@ -1,6 +1,7 @@
 mod from_addr;
 mod grpc;
 mod memory;
+mod nix_http;
 mod sled;
 
 use futures::Stream;
@@ -14,6 +15,7 @@ use crate::proto::PathInfo;
 pub use self::from_addr::from_addr;
 pub use self::grpc::GRPCPathInfoService;
 pub use self::memory::MemoryPathInfoService;
+pub use self::nix_http::NixHTTPPathInfoService;
 pub use self::sled::SledPathInfoService;
 
 /// The base trait all PathInfo services need to implement.

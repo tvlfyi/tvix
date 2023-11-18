@@ -32,6 +32,8 @@ tvix-castore = { path = "../castore" }
 url = "2.4.0"
 walkdir = "2.4.0"
 async-recursion = "1.0.5"
+reqwest = { version = "0.11.22", features = ["rustls-tls", "stream"], default-features = false }
+xz2 = "0.1.7"
 
 [dependencies.fuse-backend-rs]
 optional = true

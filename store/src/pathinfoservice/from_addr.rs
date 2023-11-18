@@ -1,6 +1,9 @@
 use crate::proto::path_info_service_client::PathInfoServiceClient;
 
-use super::{GRPCPathInfoService, MemoryPathInfoService, PathInfoService, SledPathInfoService};
+use super::{
+    GRPCPathInfoService, MemoryPathInfoService, NixHTTPPathInfoService, PathInfoService,
+    SledPathInfoService,
+};
 
 use std::sync::Arc;
 use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService, Error};
@@ -62,6 +65,16 @@ pub async fn from_addr(
             SledPathInfoService::new(url.path().into(), blob_service, directory_service)
                 .map_err(|e| Error::StorageError(e.to_string()))?,
         ));
+    } else if url.scheme() == "nix+http" || url.scheme() == "nix+https" {
+        // Stringify the URL and remove the nix+ prefix.
+        // We can't use `url.set_scheme(rest)`, as it disallows
+        // setting something http(s) that previously wasn't.
+        let url = Url::parse(url.to_string().strip_prefix("nix+").unwrap()).unwrap();
+        Arc::new(NixHTTPPathInfoService::new(
+            url,
+            blob_service,
+            directory_service,
+        ))
     } else if url.scheme().starts_with("grpc+") {
         // schemes starting with grpc+ go to the GRPCPathInfoService.
         //   That's normally grpc+unix for unix sockets, and grpc+http(s) for the HTTP counterparts.
@@ -113,6 +126,14 @@ mod tests {
     #[test_case("memory:///", false; "memory invalid root path")]
     /// This sets a memory url path to "/foo", which is invalid.
     #[test_case("memory:///foo", false; "memory invalid root path foo")]
+    /// Correct Scheme for the cache.nixos.org binary cache.
+    #[test_case("nix+https://cache.nixos.org", true; "correct nix+https")]
+    /// Correct Scheme for the cache.nixos.org binary cache (HTTP URL).
+    #[test_case("nix+http://cache.nixos.org", true; "correct nix+http")]
+    /// Correct Scheme for Nix HTTP Binary cache, with a subpath.
+    #[test_case("nix+http://192.0.2.1/foo", true; "correct nix http with subpath")]
+    /// Correct Scheme for Nix HTTP Binary cache, with a subpath and port.
+    #[test_case("nix+http://[::1]:8080/foo", true; "correct nix http with subpath and port")]
     /// Correct scheme to connect to a unix socket.
     #[test_case("grpc+unix:///path/to/somewhere", true; "grpc valid unix socket")]
     /// Correct scheme for unix socket, but setting a host too, which is invalid.
@@ -127,11 +148,8 @@ mod tests {
     #[test_case("grpc+http://localhost/some-path", false; "grpc valid invalid host and path")]
     #[tokio::test]
     async fn test_from_addr_tokio(uri_str: &str, is_ok: bool) {
-        assert_eq!(
-            from_addr(uri_str, gen_blob_service(), gen_directory_service())
-                .await
-                .is_ok(),
-            is_ok
-        )
+        let resp = from_addr(uri_str, gen_blob_service(), gen_directory_service()).await;
+
+        assert_eq!(resp.is_ok(), is_ok);
     }
 }
