@@ -17,12 +17,13 @@ pub struct MemoryBlobService {
 
 #[async_trait]
 impl BlobService for MemoryBlobService {
-    #[instrument(skip(self, digest), fields(blob.digest=%digest))]
+    #[instrument(skip_all, ret, err, fields(blob.digest=%digest))]
     async fn has(&self, digest: &B3Digest) -> Result<bool, Error> {
         let db = self.db.read().unwrap();
         Ok(db.contains_key(digest))
     }
 
+    #[instrument(skip_all, err, fields(blob.digest=%digest))]
     async fn open_read(&self, digest: &B3Digest) -> Result<Option<Box<dyn BlobReader>>, Error> {
         let db = self.db.read().unwrap();
 
@@ -32,7 +33,7 @@ impl BlobService for MemoryBlobService {
         }
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip_all)]
     async fn open_write(&self) -> Box<dyn BlobWriter> {
         Box::new(MemoryBlobWriter::new(self.db.clone()))
     }
