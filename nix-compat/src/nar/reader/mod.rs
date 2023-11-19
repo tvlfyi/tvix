@@ -5,7 +5,7 @@
 //! and transferring store paths between Nix stores.
 
 use std::io::{
-    self,
+    self, BufRead,
     ErrorKind::{InvalidData, UnexpectedEof},
     Read,
 };
@@ -17,7 +17,7 @@ mod read;
 #[cfg(test)]
 mod test;
 
-pub type Reader<'a> = dyn Read + Send + 'a;
+pub type Reader<'a> = dyn BufRead + Send + 'a;
 
 /// Start reading a NAR file from `reader`.
 pub fn open<'a, 'r>(reader: &'a mut Reader<'r>) -> io::Result<Node<'a, 'r>> {

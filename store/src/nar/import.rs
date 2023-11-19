@@ -1,5 +1,5 @@
 use std::{
-    io::{self, Read},
+    io::{self, BufRead},
     sync::Arc,
 };
 
@@ -21,7 +21,7 @@ use tvix_castore::{
 /// This function is not async (because the NAR reader is not)
 /// and calls [tokio::task::block_in_place] when interacting with backing
 /// services, so make sure to only call this with spawn_blocking.
-pub fn read_nar<R: Read + Send>(
+pub fn read_nar<R: BufRead + Send>(
     r: &mut R,
     blob_service: Arc<dyn BlobService>,
     directory_service: Arc<dyn DirectoryService>,
