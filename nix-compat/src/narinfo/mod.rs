@@ -509,8 +509,10 @@ mod test {
 
     lazy_static! {
         static ref CASES: &'static [&'static str] = {
-            let data = zstd::decode_all(io::Cursor::new(include_bytes!("../testdata/narinfo.zst")))
-                .unwrap();
+            let data = zstd::decode_all(io::Cursor::new(include_bytes!(
+                "../../testdata/narinfo.zst"
+            )))
+            .unwrap();
             let data = str::from_utf8(Vec::leak(data)).unwrap();
             Vec::leak(
                 data.split_inclusive("\n\n")
