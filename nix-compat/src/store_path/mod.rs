@@ -261,7 +261,8 @@ pub(crate) fn validate_name(s: &(impl AsRef<[u8]> + ?Sized)) -> Result<&str, Err
         unreachable!();
     }
 
-    Ok(str::from_utf8(s).unwrap())
+    // SAFETY: We permit a subset of ASCII, which guarantees valid UTF-8.
+    Ok(unsafe { str::from_utf8_unchecked(s) })
 }
 
 impl fmt::Display for StorePath {
