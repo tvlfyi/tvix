@@ -36,3 +36,14 @@ members = [
 [profile.release-with-debug]
 inherits = "release"
 debug = true
+
+[patch.crates-io]
+# https://github.com/rust-lang/futures-rs/pull/2801
+futures-channel = { git = "https://github.com/edef1c/futures-rs", rev = "23e25061f2261794d6d611675a6372c96b70fa85" }
+futures-core = { git = "https://github.com/edef1c/futures-rs", rev = "23e25061f2261794d6d611675a6372c96b70fa85" }
+futures-executor = { git = "https://github.com/edef1c/futures-rs", rev = "23e25061f2261794d6d611675a6372c96b70fa85" }
+futures-io = { git = "https://github.com/edef1c/futures-rs", rev = "23e25061f2261794d6d611675a6372c96b70fa85" }
+futures-macro = { git = "https://github.com/edef1c/futures-rs", rev = "23e25061f2261794d6d611675a6372c96b70fa85" }
+futures-sink = { git = "https://github.com/edef1c/futures-rs", rev = "23e25061f2261794d6d611675a6372c96b70fa85" }
+futures-task = { git = "https://github.com/edef1c/futures-rs", rev = "23e25061f2261794d6d611675a6372c96b70fa85" }
+futures-util = { git = "https://github.com/edef1c/futures-rs", rev = "23e25061f2261794d6d611675a6372c96b70fa85" }
