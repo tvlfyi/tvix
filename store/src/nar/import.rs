@@ -135,13 +135,13 @@ fn process_file_reader(
 
     // write the blob.
     let mut blob_writer = {
-        let mut dest = SyncIoBridge::new(blob_writer);
-        io::copy(&mut file_reader, &mut dest)?;
+        let mut dst = SyncIoBridge::new(blob_writer);
 
-        dest.shutdown()?;
+        file_reader.copy(&mut dst)?;
+        dst.shutdown()?;
 
-        // return back the blob_reader
-        dest.into_inner()
+        // return back the blob_writer
+        dst.into_inner()
     };
 
     // close the blob_writer, retrieve the digest.
