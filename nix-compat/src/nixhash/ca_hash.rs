@@ -10,13 +10,11 @@ use super::algos::SUPPORTED_ALGOS;
 use super::from_algo_and_digest;
 
 /// A Nix CAHash describes a content-addressed hash of a path.
-/// Semantically, it can be split into the following components:
 ///
-///  - "content address prefix". Currently, "fixed" and "text" are supported.
-///  - "hash mode". Currently, "flat" and "recursive" are supported.
-///  - "hash type". The underlying hash function used.
-///    Currently, sha1, md5, sha256, sha512.
-///  - "digest". The digest itself.
+/// The way Nix prints it as a string is a bit confusing, but there's essentially
+/// three modes, `Flat`, `Nar` and `Text`.
+/// `Flat` and `Nar` support all 4 algos that [NixHash] supports
+/// (sha1, md5, sha256, sha512), `Text` only supports sha256.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CAHash {
     Flat(NixHash),  // "fixed flat"
@@ -30,6 +28,44 @@ impl CAHash {
             CAHash::Flat(ref digest) => Cow::Borrowed(digest),
             CAHash::Nar(ref digest) => Cow::Borrowed(digest),
             CAHash::Text(digest) => Cow::Owned(NixHash::Sha256(digest)),
+        }
+    }
+
+    /// Constructs a [CAHash] from the textual representation,
+    /// which is one of the three:
+    /// - `text:sha256:$nixbase32sha256digest`
+    /// - `fixed:r:$algo:$nixbase32digest`
+    /// - `fixed:$algo:$nixbase32digest`
+    /// which is the format that's used in the NARInfo for example.
+    pub fn from_nix_hex_str(s: &str) -> Option<Self> {
+        let (tag, s) = s.split_once(':')?;
+
+        match tag {
+            "text" => {
+                let digest = s.strip_prefix("sha256:")?;
+                let digest = nixbase32::decode_fixed(digest).ok()?;
+                Some(CAHash::Text(digest))
+            }
+            "fixed" => {
+                if let Some(s) = s.strip_prefix("r:") {
+                    NixHash::from_nix_hex_str(s).map(CAHash::Nar)
+                } else {
+                    NixHash::from_nix_hex_str(s).map(CAHash::Flat)
+                }
+            }
+            _ => None,
+        }
+    }
+
+    /// Formats a [CAHash] in the Nix default hash format, which is the format
+    /// that's used in NARInfos for example.
+    pub fn to_nix_nixbase32_string(&self) -> String {
+        match self {
+            CAHash::Flat(nh) => format!("fixed:{}", nh.to_nix_nixbase32_string()),
+            CAHash::Nar(nh) => format!("fixed:r:{}", nh.to_nix_nixbase32_string()),
+            CAHash::Text(digest) => {
+                format!("text:sha256:{}", nixbase32::encode(digest))
+            }
         }
     }
 

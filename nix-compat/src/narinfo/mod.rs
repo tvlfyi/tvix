@@ -24,11 +24,7 @@ use std::{
     mem,
 };
 
-use crate::{
-    nixbase32,
-    nixhash::{CAHash, NixHash},
-    store_path::StorePathRef,
-};
+use crate::{nixbase32, nixhash::CAHash, store_path::StorePathRef};
 
 mod fingerprint;
 mod signature;
@@ -249,8 +245,8 @@ impl<'a> NarInfo<'a> {
                     signatures.push(val);
                 }
                 "CA" => {
-                    let val =
-                        parse_ca(val).ok_or_else(|| Error::UnableToParseCA(val.to_string()))?;
+                    let val = CAHash::from_nix_hex_str(val)
+                        .ok_or_else(|| Error::UnableToParseCA(val.to_string()))?;
 
                     if ca.replace(val).is_some() {
                         return Err(Error::DuplicateField(tag.to_string()));
@@ -308,14 +304,14 @@ impl Display for NarInfo<'_> {
         }
 
         if let Some(file_hash) = self.file_hash {
-            writeln!(w, "FileHash: {}", fmt_hash(&NixHash::Sha256(file_hash)))?;
+            writeln!(w, "FileHash: sha256:{}", nixbase32::encode(&file_hash),)?;
         }
 
         if let Some(file_size) = self.file_size {
             writeln!(w, "FileSize: {file_size}")?;
         }
 
-        writeln!(w, "NarHash: {}", fmt_hash(&NixHash::Sha256(self.nar_hash)))?;
+        writeln!(w, "NarHash: sha256:{}", nixbase32::encode(&self.nar_hash),)?;
         writeln!(w, "NarSize: {}", self.nar_size)?;
 
         write!(w, "References:")?;
@@ -341,80 +337,10 @@ impl Display for NarInfo<'_> {
         }
 
         if let Some(ca) = &self.ca {
-            writeln!(w, "CA: {}", fmt_ca(ca))?;
+            writeln!(w, "CA: {}", ca.to_nix_nixbase32_string())?;
         }
 
         Ok(())
-    }
-}
-
-pub fn parse_ca(s: &str) -> Option<CAHash> {
-    let (tag, s) = s.split_once(':')?;
-
-    match tag {
-        "text" => {
-            let digest = s.strip_prefix("sha256:")?;
-            let digest = nixbase32::decode_fixed(digest).ok()?;
-            Some(CAHash::Text(digest))
-        }
-        "fixed" => {
-            if let Some(s) = s.strip_prefix("r:") {
-                parse_hash(s).map(CAHash::Nar)
-            } else {
-                parse_hash(s).map(CAHash::Flat)
-            }
-        }
-        _ => None,
-    }
-}
-
-#[allow(non_camel_case_types)]
-struct fmt_ca<'a>(&'a CAHash);
-
-impl Display for fmt_ca<'_> {
-    fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
-        match self.0 {
-            CAHash::Flat(h) => {
-                write!(w, "fixed:{}", fmt_hash(h))
-            }
-            &CAHash::Text(d) => {
-                write!(w, "text:{}", fmt_hash(&NixHash::Sha256(d)))
-            }
-            CAHash::Nar(h) => {
-                write!(w, "fixed:r:{}", fmt_hash(h))
-            }
-        }
-    }
-}
-
-fn parse_hash(s: &str) -> Option<NixHash> {
-    let (tag, digest) = s.split_once(':')?;
-
-    (match tag {
-        "md5" => nixbase32::decode_fixed(digest).map(NixHash::Md5),
-        "sha1" => nixbase32::decode_fixed(digest).map(NixHash::Sha1),
-        "sha256" => nixbase32::decode_fixed(digest).map(NixHash::Sha256),
-        "sha512" => nixbase32::decode_fixed(digest)
-            .map(Box::new)
-            .map(NixHash::Sha512),
-        _ => return None,
-    })
-    .ok()
-}
-
-#[allow(non_camel_case_types)]
-struct fmt_hash<'a>(&'a NixHash);
-
-impl Display for fmt_hash<'_> {
-    fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
-        let (tag, digest) = match self.0 {
-            NixHash::Md5(d) => ("md5", &d[..]),
-            NixHash::Sha1(d) => ("sha1", &d[..]),
-            NixHash::Sha256(d) => ("sha256", &d[..]),
-            NixHash::Sha512(d) => ("sha512", &d[..]),
-        };
-
-        write!(w, "{tag}:{}", nixbase32::encode(digest))
     }
 }
 

@@ -93,7 +93,7 @@ pub fn build_ca_path<B: AsRef<[u8]>, S: AsRef<str>, I: IntoIterator<Item = S>>(
                     NixHash::Sha256(
                         Sha256::new_with_prefix(format!(
                             "fixed:out:r:{}:",
-                            hash.to_nix_hash_string()
+                            hash.to_nix_hex_string()
                         ))
                         .finalize()
                         .into(),
@@ -115,12 +115,9 @@ pub fn build_ca_path<B: AsRef<[u8]>, S: AsRef<str>, I: IntoIterator<Item = S>>(
                 "output:out",
                 &{
                     NixHash::Sha256(
-                        Sha256::new_with_prefix(format!(
-                            "fixed:out:{}:",
-                            hash.to_nix_hash_string()
-                        ))
-                        .finalize()
-                        .into(),
+                        Sha256::new_with_prefix(format!("fixed:out:{}:", hash.to_nix_hex_string()))
+                            .finalize()
+                            .into(),
                     )
                 },
                 name,
@@ -170,7 +167,7 @@ fn build_store_path_from_fingerprint_parts<B: AsRef<[u8]>>(
 
     let digest = compress_hash(&{
         let mut h = Sha256::new();
-        write!(h, "{ty}:{}:{STORE_DIR}:{name}", hash.to_nix_hash_string()).unwrap();
+        write!(h, "{ty}:{}:{STORE_DIR}:{name}", hash.to_nix_hex_string()).unwrap();
         h.finalize()
     });
 

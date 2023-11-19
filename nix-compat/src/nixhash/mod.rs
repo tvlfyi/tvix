@@ -41,13 +41,40 @@ impl NixHash {
         }
     }
 
+    /// Constructs a [NixHash] from the Nix default hash format,
+    /// the inverse of [to_nix_hex_string].
+    pub fn from_nix_hex_str(s: &str) -> Option<Self> {
+        let (tag, digest) = s.split_once(':')?;
+
+        (match tag {
+            "md5" => nixbase32::decode_fixed(digest).map(NixHash::Md5),
+            "sha1" => nixbase32::decode_fixed(digest).map(NixHash::Sha1),
+            "sha256" => nixbase32::decode_fixed(digest).map(NixHash::Sha256),
+            "sha512" => nixbase32::decode_fixed(digest)
+                .map(Box::new)
+                .map(NixHash::Sha512),
+            _ => return None,
+        })
+        .ok()
+    }
+
     /// Formats a [NixHash] in the Nix default hash format,
     /// which is the algo, followed by a colon, then the lower hex encoded digest.
-    pub fn to_nix_hash_string(&self) -> String {
+    pub fn to_nix_hex_string(&self) -> String {
         format!(
             "{}:{}",
             self.algo(),
             HEXLOWER.encode(self.digest_as_bytes())
+        )
+    }
+
+    /// Formats a [NixHash] in the format that's used inside CAHash,
+    /// which is the algo, followed by a colon, then the nixbase32-encoded digest.
+    pub(crate) fn to_nix_nixbase32_string(&self) -> String {
+        format!(
+            "{}:{}",
+            self.algo(),
+            nixbase32::encode(self.digest_as_bytes())
         )
     }
 }

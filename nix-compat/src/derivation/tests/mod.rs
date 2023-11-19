@@ -193,7 +193,7 @@ fn derivation_or_fod_hash(drv_path: &str, expected_nix_hash_string: &str) {
 
     let actual = drv.derivation_or_fod_hash(|_| panic!("must not be called"));
 
-    assert_eq!(expected_nix_hash_string, actual.to_nix_hash_string());
+    assert_eq!(expected_nix_hash_string, actual.to_nix_hex_string());
 }
 
 /// This reads a Derivation (in A-Term), trims out all fields containing
