@@ -3,7 +3,7 @@ use crate::tests::fixtures::*;
 use bytes::Bytes;
 use data_encoding::BASE64;
 use nix_compat::nixbase32;
-use nix_compat::store_path::{self, StorePath};
+use nix_compat::store_path::{self, StorePath, StorePathRef};
 use std::str::FromStr;
 use test_case::test_case;
 use tvix_castore::proto as castorepb;
@@ -402,5 +402,47 @@ CA: fixed:sha256:086vqwk2wl8zfs47sq2xpjc9k066ilmb8z6dn0q6ymwjzlm196cd"#
             ),
         },
         (&narinfo_parsed).into()
+    );
+}
+
+/// Exercise .as_narinfo() on a PathInfo and ensure important fields are preserved..
+#[test]
+fn as_narinfo() {
+    let narinfo_parsed = nix_compat::narinfo::NarInfo::parse(
+        r#"StorePath: /nix/store/pa10z4ngm0g83kx9mssrqzz30s84vq7k-hello-2.12.1.tar.gz
+URL: nar/1zjrhzhaizsrlsvdkqfl073vivmxcqnzkff4s50i0cdf541ary1r.nar.xz
+Compression: xz
+FileHash: sha256:1zjrhzhaizsrlsvdkqfl073vivmxcqnzkff4s50i0cdf541ary1r
+FileSize: 1033524
+NarHash: sha256:1lvqpbk2k1sb39z8jfxixf7p7v8sj4z6mmpa44nnmff3w1y6h8lh
+NarSize: 1033416
+References: 
+Deriver: dyivpmlaq2km6c11i0s6bi6mbsx0ylqf-hello-2.12.1.tar.gz.drv
+Sig: cache.nixos.org-1:ywnIG629nQZQhEr6/HLDrLT/mUEp5J1LC6NmWSlJRWL/nM7oGItJQUYWGLvYGhSQvHrhIuvMpjNmBNh/WWqCDg==
+CA: fixed:sha256:086vqwk2wl8zfs47sq2xpjc9k066ilmb8z6dn0q6ymwjzlm196cd"#
+    ).expect("must parse");
+
+    let path_info: PathInfo = (&narinfo_parsed).into();
+
+    let mut narinfo_returned = path_info
+        .as_narinfo(
+            StorePathRef::from_bytes(b"pa10z4ngm0g83kx9mssrqzz30s84vq7k-hello-2.12.1.tar.gz")
+                .expect("invalid storepath"),
+        )
+        .expect("must be some");
+    narinfo_returned.url = "some.nar";
+
+    assert_eq!(
+        r#"StorePath: /nix/store/pa10z4ngm0g83kx9mssrqzz30s84vq7k-hello-2.12.1.tar.gz
+URL: some.nar
+Compression: none
+NarHash: sha256:1lvqpbk2k1sb39z8jfxixf7p7v8sj4z6mmpa44nnmff3w1y6h8lh
+NarSize: 1033416
+References: 
+Deriver: dyivpmlaq2km6c11i0s6bi6mbsx0ylqf-hello-2.12.1.tar.gz.drv
+Sig: cache.nixos.org-1:ywnIG629nQZQhEr6/HLDrLT/mUEp5J1LC6NmWSlJRWL/nM7oGItJQUYWGLvYGhSQvHrhIuvMpjNmBNh/WWqCDg==
+CA: fixed:sha256:086vqwk2wl8zfs47sq2xpjc9k066ilmb8z6dn0q6ymwjzlm196cd
+"#,
+        narinfo_returned.to_string(),
     );
 }

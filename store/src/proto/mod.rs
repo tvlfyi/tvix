@@ -3,8 +3,9 @@ use bytes::Bytes;
 use data_encoding::BASE64;
 // https://github.com/hyperium/tonic/issues/1056
 use nix_compat::{
+    narinfo::Flags,
     nixhash::{CAHash, NixHash},
-    store_path,
+    store_path::{self, StorePathRef},
 };
 use thiserror::Error;
 use tvix_castore::proto::{self as castorepb, NamedNode, ValidateNodeError};
@@ -173,6 +174,67 @@ impl PathInfo {
 
         // return the root nix path
         Ok(root_nix_path)
+    }
+
+    /// With self and a given StorePathRef, this reconstructs a
+    /// [nix_compat::narinfo::NarInfo<'_>].
+    /// It can be used to validate Signatures, or get back a (sparse) NarInfo
+    /// struct to prepare writing it out.
+    ///
+    /// This doesn't allocate any new data.
+    ///
+    /// Keep in mind this is not able to reconstruct all data present in the
+    /// NarInfo<'_>, as some of it is not stored at all:
+    /// - the `system`, `file_hash` and `file_size` fields are set to `None`.
+    /// - the URL is set to an empty string.
+    /// - Compression is set to "none"
+    ///
+    /// If you want to render it out to a string and be able to parse it back
+    /// in, at least URL *must* be set again.
+    pub fn as_narinfo<'a>(
+        &'a self,
+        store_path: store_path::StorePathRef<'a>,
+    ) -> Option<nix_compat::narinfo::NarInfo<'_>> {
+        let narinfo = &self.narinfo.as_ref()?;
+
+        Some(nix_compat::narinfo::NarInfo {
+            flags: Flags::empty(),
+            store_path,
+            nar_hash: narinfo.nar_sha256.to_vec().try_into().unwrap(),
+            nar_size: narinfo.nar_size,
+            references: narinfo
+                .reference_names
+                .iter()
+                .map(|ref_name| {
+                    // This shouldn't pass validation
+                    StorePathRef::from_bytes(ref_name.as_bytes()).expect("invalid reference")
+                })
+                .collect(),
+            signatures: narinfo
+                .signatures
+                .iter()
+                .map(|sig| {
+                    nix_compat::narinfo::Signature::new(
+                        &sig.name,
+                        // This shouldn't pass validation
+                        sig.data[..].try_into().expect("invalid signature len"),
+                    )
+                })
+                .collect(),
+            ca: narinfo
+                .ca
+                .as_ref()
+                .map(|ca| ca.try_into().expect("invalid ca")),
+            system: None,
+            deriver: narinfo.deriver.as_ref().map(|deriver| {
+                StorePathRef::from_name_and_digest(&deriver.name, &deriver.digest)
+                    .expect("invalid deriver")
+            }),
+            url: "",
+            compression: Some("none"),
+            file_hash: None,
+            file_size: None,
+        })
     }
 }
 
