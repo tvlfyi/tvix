@@ -151,11 +151,9 @@ impl PathInfo {
                 // recursive Nix end with multiple .drv suffixes, and only one is popped when
                 // converting to this field.
                 if let Some(deriver) = &narinfo.deriver {
-                    store_path::StorePath::from_name_and_digest(
-                        deriver.name.clone(),
-                        &deriver.digest,
-                    )
-                    .map_err(ValidatePathInfoError::InvalidDeriverField)?;
+                    store_path::StorePathRef::from_name_and_digest(&deriver.name, &deriver.digest)
+                        .map_err(ValidatePathInfoError::InvalidDeriverField)?
+                        .to_owned();
                 }
             }
         }

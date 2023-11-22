@@ -107,14 +107,6 @@ impl StorePath {
         }
     }
 
-    /// Construct a [StorePath] from a name and digest.
-    pub fn from_name_and_digest(name: String, digest: &[u8]) -> Result<StorePath, Error> {
-        Ok(Self {
-            name: validate_name(name.as_bytes())?.to_owned(),
-            digest: digest.try_into().map_err(|_| Error::InvalidLength)?,
-        })
-    }
-
     /// Decompose a string into a [StorePath] and a [PathBuf] containing the
     /// rest of the path, or an error.
     #[cfg(target_family = "unix")]
@@ -185,6 +177,14 @@ impl<'a> StorePathRef<'a> {
             digest: self.digest,
             name: self.name.to_owned(),
         }
+    }
+
+    /// Construct a [StorePathRef] from a name and digest.
+    pub fn from_name_and_digest(name: &'a str, digest: &[u8]) -> Result<Self, Error> {
+        Ok(Self {
+            name: validate_name(name.as_bytes())?,
+            digest: digest.try_into().map_err(|_| Error::InvalidLength)?,
+        })
     }
 
     /// Construct a [StorePathRef] by passing the `$digest-$name` string
