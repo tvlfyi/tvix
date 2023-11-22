@@ -176,6 +176,30 @@ impl PathInfo {
     }
 }
 
+impl From<&nix_compat::nixhash::CAHash> for nar_info::Ca {
+    fn from(value: &nix_compat::nixhash::CAHash) -> Self {
+        nar_info::Ca {
+            r#type: match value {
+                CAHash::Flat(NixHash::Md5(_)) => nar_info::ca::Hash::FlatMd5.into(),
+                CAHash::Flat(NixHash::Sha1(_)) => nar_info::ca::Hash::FlatSha1.into(),
+                CAHash::Flat(NixHash::Sha256(_)) => nar_info::ca::Hash::FlatSha256.into(),
+                CAHash::Flat(NixHash::Sha512(_)) => nar_info::ca::Hash::FlatSha512.into(),
+                CAHash::Nar(NixHash::Md5(_)) => nar_info::ca::Hash::NarMd5.into(),
+                CAHash::Nar(NixHash::Sha1(_)) => nar_info::ca::Hash::NarSha1.into(),
+                CAHash::Nar(NixHash::Sha256(_)) => nar_info::ca::Hash::NarSha256.into(),
+                CAHash::Nar(NixHash::Sha512(_)) => nar_info::ca::Hash::NarSha512.into(),
+                CAHash::Text(_) => nar_info::ca::Hash::TextSha256.into(),
+            },
+            digest: match value {
+                CAHash::Flat(ref nixhash) | CAHash::Nar(ref nixhash) => {
+                    nixhash.digest_as_bytes().to_vec().into()
+                }
+                CAHash::Text(digest) => digest.to_vec().into(),
+            },
+        }
+    }
+}
+
 impl From<&nix_compat::narinfo::NarInfo<'_>> for NarInfo {
     /// Converts from a NarInfo (returned from the NARInfo parser) to the proto-
     /// level NarInfo struct.
@@ -189,21 +213,6 @@ impl From<&nix_compat::narinfo::NarInfo<'_>> for NarInfo {
             })
             .collect();
 
-        let ca = value.ca.as_ref().map(|ca_hash| nar_info::Ca {
-            r#type: match ca_hash {
-                CAHash::Flat(NixHash::Md5(_)) => nar_info::ca::Hash::FlatMd5.into(),
-                CAHash::Flat(NixHash::Sha1(_)) => nar_info::ca::Hash::FlatSha1.into(),
-                CAHash::Flat(NixHash::Sha256(_)) => nar_info::ca::Hash::FlatSha256.into(),
-                CAHash::Flat(NixHash::Sha512(_)) => nar_info::ca::Hash::FlatSha512.into(),
-                CAHash::Nar(NixHash::Md5(_)) => nar_info::ca::Hash::NarMd5.into(),
-                CAHash::Nar(NixHash::Sha1(_)) => nar_info::ca::Hash::NarSha1.into(),
-                CAHash::Nar(NixHash::Sha256(_)) => nar_info::ca::Hash::NarSha256.into(),
-                CAHash::Nar(NixHash::Sha512(_)) => nar_info::ca::Hash::NarSha512.into(),
-                CAHash::Text(_) => nar_info::ca::Hash::TextSha256.into(),
-            },
-            digest: Bytes::copy_from_slice(ca_hash.digest().digest_as_bytes()),
-        });
-
         NarInfo {
             nar_size: value.nar_size,
             nar_sha256: Bytes::copy_from_slice(&value.nar_hash),
@@ -213,7 +222,7 @@ impl From<&nix_compat::narinfo::NarInfo<'_>> for NarInfo {
                 name: sp.name().to_owned(),
                 digest: Bytes::copy_from_slice(sp.digest()),
             }),
-            ca,
+            ca: value.ca.as_ref().map(|ca| ca.into()),
         }
     }
 }
