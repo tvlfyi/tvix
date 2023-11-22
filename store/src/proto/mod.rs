@@ -176,6 +176,68 @@ impl PathInfo {
     }
 }
 
+/// Errors that can occur when converting from a [&nar_info::Ca] to a (stricter)
+/// [nix_compat::nixhash::CAHash].
+#[derive(Debug, Error, PartialEq)]
+pub enum ConvertCAError {
+    /// Invalid length of a reference
+    #[error("Invalid digest length '{0}' for type {1}")]
+    InvalidReferenceDigestLen(usize, &'static str),
+    /// Unknown Hash type
+    #[error("Unknown hash type: {0}")]
+    UnknownHashType(i32),
+}
+
+impl TryFrom<&nar_info::Ca> for nix_compat::nixhash::CAHash {
+    type Error = ConvertCAError;
+
+    fn try_from(value: &nar_info::Ca) -> Result<Self, Self::Error> {
+        Ok(match value.r#type {
+            typ if typ == nar_info::ca::Hash::FlatMd5 as i32 => {
+                Self::Flat(NixHash::Md5(value.digest[..].try_into().map_err(|_| {
+                    ConvertCAError::InvalidReferenceDigestLen(value.digest.len(), "FlatMd5")
+                })?))
+            }
+            typ if typ == nar_info::ca::Hash::FlatSha1 as i32 => {
+                Self::Flat(NixHash::Sha1(value.digest[..].try_into().map_err(
+                    |_| ConvertCAError::InvalidReferenceDigestLen(value.digest.len(), "FlatSha1"),
+                )?))
+            }
+            typ if typ == nar_info::ca::Hash::FlatSha256 as i32 => {
+                Self::Flat(NixHash::Sha256(value.digest[..].try_into().map_err(
+                    |_| ConvertCAError::InvalidReferenceDigestLen(value.digest.len(), "FlatSha256"),
+                )?))
+            }
+            typ if typ == nar_info::ca::Hash::FlatSha512 as i32 => Self::Flat(NixHash::Sha512(
+                Box::new(value.digest[..].try_into().map_err(|_| {
+                    ConvertCAError::InvalidReferenceDigestLen(value.digest.len(), "FlatSha512")
+                })?),
+            )),
+            typ if typ == nar_info::ca::Hash::NarMd5 as i32 => {
+                Self::Nar(NixHash::Md5(value.digest[..].try_into().map_err(|_| {
+                    ConvertCAError::InvalidReferenceDigestLen(value.digest.len(), "NarMd5")
+                })?))
+            }
+            typ if typ == nar_info::ca::Hash::NarSha1 as i32 => {
+                Self::Nar(NixHash::Sha1(value.digest[..].try_into().map_err(
+                    |_| ConvertCAError::InvalidReferenceDigestLen(value.digest.len(), "NarSha1"),
+                )?))
+            }
+            typ if typ == nar_info::ca::Hash::NarSha256 as i32 => {
+                Self::Nar(NixHash::Sha256(value.digest[..].try_into().map_err(
+                    |_| ConvertCAError::InvalidReferenceDigestLen(value.digest.len(), "NarSha256"),
+                )?))
+            }
+            typ if typ == nar_info::ca::Hash::NarSha512 as i32 => Self::Nar(NixHash::Sha512(
+                Box::new(value.digest[..].try_into().map_err(|_| {
+                    ConvertCAError::InvalidReferenceDigestLen(value.digest.len(), "NarSha512")
+                })?),
+            )),
+            typ => return Err(ConvertCAError::UnknownHashType(typ)),
+        })
+    }
+}
+
 impl From<&nix_compat::nixhash::CAHash> for nar_info::Ca {
     fn from(value: &nix_compat::nixhash::CAHash) -> Self {
         nar_info::Ca {
