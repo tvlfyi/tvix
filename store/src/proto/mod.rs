@@ -212,10 +212,7 @@ impl From<&nix_compat::narinfo::NarInfo<'_>> for NarInfo {
             signatures,
             reference_names: value.references.iter().map(|r| r.to_string()).collect(),
             deriver: value.deriver.as_ref().map(|sp| StorePath {
-                // The parser already errors out with an error if the .drv suffix was missing,
-                // so you can only miss the suffix if you're manually constructing,
-                // which means we can unwrap here.
-                name: sp.name().strip_suffix(".drv").unwrap().to_owned(),
+                name: sp.name().to_owned(),
                 digest: Bytes::copy_from_slice(sp.digest()),
             }),
             ca,

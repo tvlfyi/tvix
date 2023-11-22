@@ -53,7 +53,7 @@ pub struct NarInfo<'a> {
     // derivation metadata
     /// Nix system triple of [deriver]
     pub system: Option<&'a str>,
-    /// Store path of the derivation that produced this
+    /// Store path of the derivation that produced this. The last .drv suffix is stripped.
     pub deriver: Option<StorePathRef<'a>>,
     // cache-specific untrusted metadata
     /// Relative URL of the compressed NAR file
@@ -227,16 +227,19 @@ impl<'a> NarInfo<'a> {
                     }
                 }
                 "Deriver" => {
-                    let val = StorePathRef::from_bytes(val.as_bytes())
-                        .map_err(Error::InvalidDeriverStorePath)?;
+                    match val.strip_suffix(".drv") {
+                        Some(val) => {
+                            let val = StorePathRef::from_bytes(val.as_bytes())
+                                .map_err(Error::InvalidDeriverStorePath)?;
 
-                    if !val.name().ends_with(".drv") {
-                        return Err(Error::InvalidDeriverStorePathMissingSuffix);
-                    }
-
-                    if deriver.replace(val).is_some() {
-                        return Err(Error::DuplicateField(tag.to_string()));
-                    }
+                            if deriver.replace(val).is_some() {
+                                return Err(Error::DuplicateField(tag.to_string()));
+                            }
+                        }
+                        None => {
+                            return Err(Error::InvalidDeriverStorePathMissingSuffix);
+                        }
+                    };
                 }
                 "Sig" => {
                     let val = Signature::parse(val)
@@ -325,7 +328,7 @@ impl Display for NarInfo<'_> {
         writeln!(w)?;
 
         if let Some(deriver) = &self.deriver {
-            writeln!(w, "Deriver: {deriver}")?;
+            writeln!(w, "Deriver: {deriver}.drv")?;
         }
 
         if let Some(system) = self.system {
