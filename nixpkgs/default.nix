@@ -50,9 +50,11 @@ let
   # instead (e.g. because something is broken in unstable).
   # Use `stableNixpkgs` from above.
   stableOverlay = _unstableSelf: unstableSuper: {
-    # build-tex-env is broken on unstable; 2023-11-12
-    # https://github.com/NixOS/nixpkgs/pull/267083
-    texlive = stableNixpkgs.texlive;
+    # avrdude is broken on unstable; 2023-11-22
+    avrdude = stableNixpkgs.avrdude;
+
+    # awscli2 is broken on unstable; 2023-11-22
+    awscli2 = stableNixpkgs.awscli2;
   };
 
   # Overlay to expose the nixpkgs commits we are using to other Nix code.
