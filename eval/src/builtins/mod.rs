@@ -457,9 +457,7 @@ mod pure_builtins {
             .await
             .to_str()?;
 
-            res.entry(key)
-                .or_insert_with(imbl::Vector::new)
-                .push_back(val);
+            res.entry(key).or_default().push_back(val);
         }
         Ok(Value::attrs(NixAttrs::from_iter(
             res.into_iter()
