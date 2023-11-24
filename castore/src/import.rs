@@ -209,5 +209,5 @@ pub async fn ingest_path<P: AsRef<Path> + Debug>(
         }
     }
     // unreachable, we already bailed out before if root doesn't exist.
-    panic!("tvix bug")
+    unreachable!()
 }
