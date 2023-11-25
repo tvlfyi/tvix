@@ -288,7 +288,7 @@ impl<'o> VM<'o> {
                         VMRequest::ForceValue(value) => {
                             self.reenqueue_generator(name, span.clone(), generator);
                             self.enqueue_generator("force", span.clone(), |co| {
-                                value.force(co, span)
+                                value.force_owned_genco(co, span)
                             });
                             return Ok(false);
                         }
@@ -310,7 +310,7 @@ impl<'o> VM<'o> {
 
                             let value = self.stack[self.with_stack[idx]].clone();
                             self.enqueue_generator("force", span.clone(), |co| {
-                                value.force(co, span)
+                                value.force_owned_genco(co, span)
                             });
 
                             return Ok(false);
@@ -327,7 +327,7 @@ impl<'o> VM<'o> {
 
                             let value = call_frame.upvalues.with_stack().unwrap()[idx].clone();
                             self.enqueue_generator("force", span.clone(), |co| {
-                                value.force(co, span)
+                                value.force_owned_genco(co, span)
                             });
 
                             return Ok(false);
@@ -336,8 +336,8 @@ impl<'o> VM<'o> {
                         VMRequest::NixEquality(values, ptr_eq) => {
                             let values = *values;
                             self.reenqueue_generator(name, span.clone(), generator);
-                            self.enqueue_generator("nix_eq", span, |co| {
-                                values.0.nix_eq(values.1, co, ptr_eq)
+                            self.enqueue_generator("nix_eq", span.clone(), |co| {
+                                values.0.nix_eq(values.1, co, ptr_eq, span)
                             });
                             return Ok(false);
                         }
@@ -465,7 +465,7 @@ impl<'o> VM<'o> {
                             );
 
                             self.enqueue_generator("force", span.clone(), |co| {
-                                value.force(co, span)
+                                value.force_owned_genco(co, span)
                             });
                             return Ok(false);
                         }

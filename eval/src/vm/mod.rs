@@ -615,8 +615,8 @@ impl<'o> VM<'o> {
                     let a = self.stack_pop();
                     let gen_span = frame.current_light_span();
                     self.push_call_frame(span, frame);
-                    self.enqueue_generator("nix_eq", gen_span, |co| {
-                        a.nix_eq(b, co, PointerEquality::ForbidAll)
+                    self.enqueue_generator("nix_eq", gen_span.clone(), |co| {
+                        a.nix_eq(b, co, PointerEquality::ForbidAll, gen_span)
                     });
                     return Ok(false);
                 }

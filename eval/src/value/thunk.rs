@@ -205,7 +205,14 @@ impl Thunk {
         }
     }
 
-    pub async fn force(mut myself: Thunk, co: GenCo, span: LightSpan) -> Result<Value, ErrorKind> {
+    pub async fn force(myself: Thunk, co: GenCo, span: LightSpan) -> Result<Value, ErrorKind> {
+        Self::force_(myself, &co, span).await
+    }
+    pub async fn force_(
+        mut myself: Thunk,
+        co: &GenCo,
+        span: LightSpan,
+    ) -> Result<Value, ErrorKind> {
         // This vector of "thunks which point to the thunk-being-forced", to
         // be updated along with it, is necessary in order to write this
         // function in iterative (and later, mutual-tail-call) form.
@@ -261,7 +268,7 @@ impl Thunk {
                     // be turned into a tailcall to vm::execute_bytecode() by
                     // passing `also_update` to it.
                     let value =
-                        generators::request_enter_lambda(&co, lambda, upvalues, light_span).await;
+                        generators::request_enter_lambda(co, lambda, upvalues, light_span).await;
                     myself.0.replace(ThunkRepr::Evaluated(value));
                     continue;
                 }

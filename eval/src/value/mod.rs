@@ -375,7 +375,6 @@ impl Value {
         }
     }
 
-    // TODO(amjoseph): de-asyncify this (when called directly by the VM)
     /// Compare two Nix values for equality, forcing nested parts of the structure
     /// as needed.
     ///
@@ -391,156 +390,163 @@ impl Value {
         other: Value,
         co: GenCo,
         ptr_eq: PointerEquality,
+        span: LightSpan,
     ) -> Result<Value, ErrorKind> {
-        let a = match self {
-            Value::Thunk(ref thunk) => {
-                // If both values are thunks, and thunk comparisons are allowed by
-                // pointer, do that and move on.
-                if ptr_eq == PointerEquality::AllowAll {
-                    if let Value::Thunk(t1) = &other {
-                        if t1.ptr_eq(thunk) {
-                            return Ok(Value::Bool(true));
-                        }
-                    }
-                };
+        // this is a stack of ((v1,v2),peq) triples to be compared;
+        // after each triple is popped off of the stack, v1 is
+        // compared to v2 using peq-mode PointerEquality
+        let mut vals = vec![((self, other), ptr_eq)];
 
-                generators::request_force(&co, self).await
-            }
-
-            _ => self,
-        };
-
-        let b = match other {
-            Value::Thunk(_) => generators::request_force(&co, other).await,
-            _ => other,
-        };
-
-        debug_assert!(!matches!(a, Value::Thunk(_)));
-        debug_assert!(!matches!(b, Value::Thunk(_)));
-
-        let result = match (a, b) {
-            // Trivial comparisons
-            (c @ Value::Catchable(_), _) => return Ok(c),
-            (_, c @ Value::Catchable(_)) => return Ok(c),
-            (Value::Null, Value::Null) => true,
-            (Value::Bool(b1), Value::Bool(b2)) => b1 == b2,
-            (Value::String(s1), Value::String(s2)) => s1 == s2,
-            (Value::Path(p1), Value::Path(p2)) => p1 == p2,
-
-            // Numerical comparisons (they work between float & int)
-            (Value::Integer(i1), Value::Integer(i2)) => i1 == i2,
-            (Value::Integer(i), Value::Float(f)) => i as f64 == f,
-            (Value::Float(f1), Value::Float(f2)) => f1 == f2,
-            (Value::Float(f), Value::Integer(i)) => i as f64 == f,
-
-            // List comparisons
-            (Value::List(l1), Value::List(l2)) => {
-                if ptr_eq >= PointerEquality::AllowNested && l1.ptr_eq(&l2) {
-                    return Ok(Value::Bool(true));
-                }
-
-                if l1.len() != l2.len() {
-                    return Ok(Value::Bool(false));
-                }
-
-                for (vi1, vi2) in l1.into_iter().zip(l2.into_iter()) {
-                    if !generators::check_equality(
-                        &co,
-                        vi1,
-                        vi2,
-                        std::cmp::max(ptr_eq, PointerEquality::AllowNested),
-                    )
-                    .await?
-                    {
-                        return Ok(Value::Bool(false));
-                    }
-                }
-
-                true
-            }
-
-            (_, Value::List(_)) | (Value::List(_), _) => false,
-
-            // Attribute set comparisons
-            (Value::Attrs(a1), Value::Attrs(a2)) => {
-                if ptr_eq >= PointerEquality::AllowNested && a1.ptr_eq(&a2) {
-                    return Ok(Value::Bool(true));
-                }
-
-                // Special-case for derivation comparisons: If both attribute sets
-                // have `type = derivation`, compare them by `outPath`.
-                #[allow(clippy::single_match)] // might need more match arms later
-                match (a1.select("type"), a2.select("type")) {
-                    (Some(v1), Some(v2)) => {
-                        let s1 = generators::request_force(&co, v1.clone()).await.to_str();
-                        let s2 = generators::request_force(&co, v2.clone()).await.to_str();
-
-                        if let (Ok(s1), Ok(s2)) = (s1, s2) {
-                            if s1.as_str() == "derivation" && s2.as_str() == "derivation" {
-                                // TODO(tazjin): are the outPaths really required,
-                                // or should it fall through?
-                                let out1 = a1
-                                    .select_required("outPath")
-                                    .context("comparing derivations")?
-                                    .clone();
-
-                                let out2 = a2
-                                    .select_required("outPath")
-                                    .context("comparing derivations")?
-                                    .clone();
-
-                                let result = generators::request_force(&co, out1.clone())
-                                    .await
-                                    .to_str()?
-                                    == generators::request_force(&co, out2.clone())
-                                        .await
-                                        .to_str()?;
-                                return Ok(Value::Bool(result));
+        loop {
+            let ((a, b), ptr_eq) = if let Some(abp) = vals.pop() {
+                abp
+            } else {
+                // stack is empty, so comparison has succeeded
+                return Ok(Value::Bool(true));
+            };
+            let a = match a {
+                Value::Thunk(thunk) => {
+                    // If both values are thunks, and thunk comparisons are allowed by
+                    // pointer, do that and move on.
+                    if ptr_eq == PointerEquality::AllowAll {
+                        if let Value::Thunk(t1) = &b {
+                            if t1.ptr_eq(&thunk) {
+                                continue;
                             }
                         }
-                    }
-                    _ => {}
-                };
+                    };
 
-                if a1.len() != a2.len() {
-                    return Ok(Value::Bool(false));
+                    Thunk::force_(thunk, &co, span.clone()).await?
                 }
 
-                let iter1 = a1.iter_sorted();
-                let iter2 = a2.iter_sorted();
+                _ => a,
+            };
 
-                for ((k1, v1), (k2, v2)) in iter1.zip(iter2) {
-                    if k1 != k2 {
+            let b = b.force(&co, span.clone()).await?;
+
+            debug_assert!(!matches!(a, Value::Thunk(_)));
+            debug_assert!(!matches!(b, Value::Thunk(_)));
+
+            let result = match (a, b) {
+                // Trivial comparisons
+                (c @ Value::Catchable(_), _) => return Ok(c),
+                (_, c @ Value::Catchable(_)) => return Ok(c),
+                (Value::Null, Value::Null) => true,
+                (Value::Bool(b1), Value::Bool(b2)) => b1 == b2,
+                (Value::String(s1), Value::String(s2)) => s1 == s2,
+                (Value::Path(p1), Value::Path(p2)) => p1 == p2,
+
+                // Numerical comparisons (they work between float & int)
+                (Value::Integer(i1), Value::Integer(i2)) => i1 == i2,
+                (Value::Integer(i), Value::Float(f)) => i as f64 == f,
+                (Value::Float(f1), Value::Float(f2)) => f1 == f2,
+                (Value::Float(f), Value::Integer(i)) => i as f64 == f,
+
+                // List comparisons
+                (Value::List(l1), Value::List(l2)) => {
+                    if ptr_eq >= PointerEquality::AllowNested && l1.ptr_eq(&l2) {
+                        continue;
+                    }
+
+                    if l1.len() != l2.len() {
                         return Ok(Value::Bool(false));
                     }
 
-                    if !generators::check_equality(
-                        &co,
-                        v1.clone(),
-                        v2.clone(),
-                        std::cmp::max(ptr_eq, PointerEquality::AllowNested),
-                    )
-                    .await?
-                    {
+                    vals.extend(l1.into_iter().rev().zip(l2.into_iter().rev()).zip(
+                        std::iter::repeat(std::cmp::max(ptr_eq, PointerEquality::AllowNested)),
+                    ));
+                    continue;
+                }
+
+                (_, Value::List(_)) | (Value::List(_), _) => return Ok(Value::Bool(false)),
+
+                // Attribute set comparisons
+                (Value::Attrs(a1), Value::Attrs(a2)) => {
+                    if ptr_eq >= PointerEquality::AllowNested && a1.ptr_eq(&a2) {
+                        continue;
+                    }
+
+                    // Special-case for derivation comparisons: If both attribute sets
+                    // have `type = derivation`, compare them by `outPath`.
+                    #[allow(clippy::single_match)] // might need more match arms later
+                    match (a1.select("type"), a2.select("type")) {
+                        (Some(v1), Some(v2)) => {
+                            let s1 = v1.clone().force(&co, span.clone()).await?.to_str();
+                            let s2 = v2.clone().force(&co, span.clone()).await?.to_str();
+
+                            if let (Ok(s1), Ok(s2)) = (s1, s2) {
+                                if s1.as_str() == "derivation" && s2.as_str() == "derivation" {
+                                    // TODO(tazjin): are the outPaths really required,
+                                    // or should it fall through?
+                                    let out1 = a1
+                                        .select_required("outPath")
+                                        .context("comparing derivations")?
+                                        .clone();
+
+                                    let out2 = a2
+                                        .select_required("outPath")
+                                        .context("comparing derivations")?
+                                        .clone();
+
+                                    let result = out1
+                                        .clone()
+                                        .force(&co, span.clone())
+                                        .await?
+                                        .to_str()?
+                                        == out2.clone().force(&co, span.clone()).await?.to_str()?;
+                                    if !result {
+                                        return Ok(Value::Bool(false));
+                                    } else {
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+                        _ => {}
+                    };
+
+                    if a1.len() != a2.len() {
+                        return Ok(Value::Bool(false));
+                    }
+
+                    // note that it is important to be careful here with the
+                    // order we push the keys and values in order to properly
+                    // compare attrsets containing `throw` elements.
+                    let iter1 = a1.into_iter_sorted().rev();
+                    let iter2 = a2.into_iter_sorted().rev();
+                    for ((k1, v1), (k2, v2)) in iter1.zip(iter2) {
+                        vals.push((
+                            (v1, v2),
+                            std::cmp::max(ptr_eq, PointerEquality::AllowNested),
+                        ));
+                        vals.push((
+                            (k1.into(), k2.into()),
+                            std::cmp::max(ptr_eq, PointerEquality::AllowNested),
+                        ));
+                    }
+                    continue;
+                }
+
+                (Value::Attrs(_), _) | (_, Value::Attrs(_)) => return Ok(Value::Bool(false)),
+
+                (Value::Closure(c1), Value::Closure(c2))
+                    if ptr_eq >= PointerEquality::AllowNested =>
+                {
+                    if Rc::ptr_eq(&c1, &c2) {
+                        continue;
+                    } else {
                         return Ok(Value::Bool(false));
                     }
                 }
 
-                true
+                // Everything else is either incomparable (e.g. internal types) or
+                // false.
+                _ => return Ok(Value::Bool(false)),
+            };
+            if !result {
+                return Ok(Value::Bool(false));
             }
-
-            (Value::Attrs(_), _) | (_, Value::Attrs(_)) => false,
-
-            (Value::Closure(c1), Value::Closure(c2)) if ptr_eq >= PointerEquality::AllowNested => {
-                Rc::ptr_eq(&c1, &c2)
-            }
-
-            // Everything else is either incomparable (e.g. internal types) or
-            // false.
-            _ => false,
-        };
-
-        Ok(Value::Bool(result))
+        }
     }
 
     pub fn type_of(&self) -> &'static str {
@@ -660,10 +666,19 @@ impl Value {
     }
 
     // TODO(amjoseph): de-asyncify this (when called directly by the VM)
-    pub async fn force(self, co: GenCo, span: LightSpan) -> Result<Value, ErrorKind> {
+    pub async fn force(self, co: &GenCo, span: LightSpan) -> Result<Value, ErrorKind> {
         if let Value::Thunk(thunk) = self {
             // TODO(amjoseph): use #[tailcall::mutual]
-            return Thunk::force(thunk, co, span).await;
+            return Thunk::force_(thunk, co, span).await;
+        }
+        Ok(self)
+    }
+
+    // need two flavors, because async
+    pub async fn force_owned_genco(self, co: GenCo, span: LightSpan) -> Result<Value, ErrorKind> {
+        if let Value::Thunk(thunk) = self {
+            // TODO(amjoseph): use #[tailcall::mutual]
+            return Thunk::force_(thunk, &co, span).await;
         }
         Ok(self)
     }
