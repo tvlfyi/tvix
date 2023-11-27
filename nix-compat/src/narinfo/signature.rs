@@ -14,21 +14,19 @@ impl<'a> Signature<'a> {
         Self { name, bytes }
     }
 
-    pub fn parse(input: &'a str) -> Result<Self, SignatureError> {
-        let (name, bytes64) = input
-            .split_once(':')
-            .ok_or(SignatureError::MissingSeparator)?;
+    pub fn parse(input: &'a str) -> Result<Self, Error> {
+        let (name, bytes64) = input.split_once(':').ok_or(Error::MissingSeparator)?;
 
         if name.is_empty()
             || !name
                 .chars()
                 .all(|c| char::is_alphanumeric(c) || c == '-' || c == '.')
         {
-            return Err(SignatureError::InvalidName(name.to_string()));
+            return Err(Error::InvalidName(name.to_string()));
         }
 
         if bytes64.len() != BASE64.encode_len(SIGNATURE_LENGTH) {
-            return Err(SignatureError::InvalidSignatureLen(bytes64.len()));
+            return Err(Error::InvalidSignatureLen(bytes64.len()));
         }
 
         let mut bytes = [0; SIGNATURE_LENGTH];
@@ -37,7 +35,7 @@ impl<'a> Signature<'a> {
             Ok(SIGNATURE_LENGTH) => bytes.copy_from_slice(&buf[..SIGNATURE_LENGTH]),
             Ok(_) => unreachable!(),
             // keeping DecodePartial gets annoying lifetime-wise
-            Err(_) => return Err(SignatureError::DecodeError(input.to_string())),
+            Err(_) => return Err(Error::DecodeError(input.to_string())),
         }
 
         Ok(Signature { name, bytes })
@@ -60,7 +58,7 @@ impl<'a> Signature<'a> {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum SignatureError {
+pub enum Error {
     #[error("Invalid name: {0}")]
     InvalidName(String),
     #[error("Missing separator")]

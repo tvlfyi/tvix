@@ -31,7 +31,7 @@ mod signature;
 
 pub use fingerprint::fingerprint;
 
-pub use signature::{Signature, SignatureError};
+pub use signature::{Error as SignatureError, Signature};
 
 #[derive(Debug)]
 pub struct NarInfo<'a> {
