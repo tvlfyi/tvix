@@ -6,7 +6,10 @@ use std::{
 
 use data_encoding::BASE64;
 use futures::{Stream, TryStreamExt};
-use nix_compat::{narinfo::NarInfo, nixbase32};
+use nix_compat::{
+    narinfo::{self, NarInfo},
+    nixbase32,
+};
 use reqwest::StatusCode;
 use sha2::{digest::FixedOutput, Digest, Sha256};
 use tonic::async_trait;
@@ -41,6 +44,10 @@ pub struct NixHTTPPathInfoService {
 
     blob_service: Arc<dyn BlobService>,
     directory_service: Arc<dyn DirectoryService>,
+
+    /// An optional list of [narinfo::PubKey].
+    /// If set, the .narinfo files received need to have correct signature by at least one of these.
+    public_keys: Option<Vec<narinfo::PubKey>>,
 }
 
 impl NixHTTPPathInfoService {
@@ -54,7 +61,14 @@ impl NixHTTPPathInfoService {
             http_client: reqwest::Client::new(),
             blob_service,
             directory_service,
+
+            public_keys: None,
         }
+    }
+
+    /// Configures [Self] to validate NARInfo fingerprints with the public keys passed.
+    pub fn set_public_keys(&mut self, public_keys: Vec<narinfo::PubKey>) {
+        self.public_keys = Some(public_keys);
     }
 }
 
@@ -108,6 +122,24 @@ impl PathInfoService for NixHTTPPathInfoService {
                 "unable to parse response as NarInfo",
             )
         })?;
+
+        // if [self.public_keys] is set, ensure there's at least one valid signature.
+        if let Some(public_keys) = &self.public_keys {
+            let fingerprint = narinfo.fingerprint();
+
+            if !public_keys.iter().any(|pubkey| {
+                narinfo
+                    .signatures
+                    .iter()
+                    .any(|sig| pubkey.verify(&fingerprint, sig))
+            }) {
+                warn!("no valid signature found");
+                Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "no valid signature found",
+                ))?;
+            }
+        }
 
         // Convert to a (sparse) PathInfo. We still need to populate the node field,
         // and for this we need to download the NAR file.
