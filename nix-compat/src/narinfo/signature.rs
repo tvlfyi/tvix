@@ -20,13 +20,15 @@ impl<'a> Signature<'a> {
             .split_once(':')
             .ok_or(SignatureError::MissingSeparator)?;
 
-        let mut buf = [0; SIGNATURE_LENGTH + 2];
+        if bytes64.len() != BASE64.encode_len(SIGNATURE_LENGTH) {
+            return Err(SignatureError::InvalidSignatureLen(bytes64.len()));
+        }
+
         let mut bytes = [0; SIGNATURE_LENGTH];
+        let mut buf = [0; SIGNATURE_LENGTH + 2];
         match BASE64.decode_mut(bytes64.as_bytes(), &mut buf) {
-            Ok(SIGNATURE_LENGTH) => {
-                bytes.copy_from_slice(&buf[..SIGNATURE_LENGTH]);
-            }
-            Ok(n) => return Err(SignatureError::InvalidSignatureLen(n)),
+            Ok(SIGNATURE_LENGTH) => bytes.copy_from_slice(&buf[..SIGNATURE_LENGTH]),
+            Ok(_) => unreachable!(),
             // keeping DecodePartial gets annoying lifetime-wise
             Err(_) => return Err(SignatureError::DecodeError(input.to_string())),
         }
@@ -54,7 +56,7 @@ impl<'a> Signature<'a> {
 pub enum SignatureError {
     #[error("Missing separator")]
     MissingSeparator,
-    #[error("Invalid signature len: {0}")]
+    #[error("Invalid signature len: (expected {} b64-encoded, got {}", BASE64.encode_len(SIGNATURE_LENGTH), .0)]
     InvalidSignatureLen(usize),
     #[error("Unable to base64-decode signature: {0}")]
     DecodeError(String),
@@ -110,5 +112,10 @@ mod test {
     ) {
         let sig = Signature::parse(sig_str).expect("must parse");
         assert_eq!(expect_valid, sig.verify(fp.as_bytes(), verifying_key));
+    }
+
+    #[test_case("cache.nixos.org-1:o1DTsjCz0PofLJ216P2RBuSulI8BAb6zHxWE4N+tzlcELk5Uk/GO2SCxWTRN5wJutLZZ+cHTMdWqOHF8"; "wrong_length")]
+    fn parse_fail(input: &'static str) {
+        Signature::parse(input).expect_err("must fail");
     }
 }
