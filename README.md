@@ -51,7 +51,6 @@ This folder contains the following components:
 * `//tvix/eval` - an implementation of the Nix programming language
 * `//tvix/nar-bridge`
   * `nar-bridge-http`: A HTTP webserver providing a Nix HTTP Binary Cache interface in front of a tvix-store
-  * `nar-bridge-pathinfo`: A gRPC server, exposing a Nix HTTP Binary Cache as a tvix-store PathInfoService
 * `//tvix/nix-compat` - a Rust library for compatibility with C++ Nix, features like encodings and hashing schemes and formats
 * `//tvix/serde` - a Rust library for using the Nix language for app configuration
 * `//tvix/store` - a "filesystem" linking Nix store paths and metadata with the content-addressed layer
