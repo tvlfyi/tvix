@@ -232,19 +232,17 @@ impl TvixStoreFs {
         }
 
         // We don't have it yet, look it up in [self.path_info_service].
-        match self
-            .tokio_handle
-            .block_on({
-                let path_info_service = self.path_info_service.clone();
-                let digest = *store_path.digest();
-                async move { path_info_service.get(digest).await }
-            })
-            .unwrap()
-        {
+        match self.tokio_handle.block_on({
+            let path_info_service = self.path_info_service.clone();
+            let digest = *store_path.digest();
+            async move { path_info_service.get(digest).await }
+        }) {
+            // if there was an error looking up the path_info, propagate up an IO error.
+            Err(_e) => Err(io::Error::from_raw_os_error(libc::EIO)),
             // the pathinfo doesn't exist, so the file doesn't exist.
-            None => Err(io::Error::from_raw_os_error(libc::ENOENT)),
+            Ok(None) => Err(io::Error::from_raw_os_error(libc::ENOENT)),
             // The pathinfo does exist
-            Some(path_info) => {
+            Ok(Some(path_info)) => {
                 // There must be a root node (ensured by the validation happening inside clients)
                 let root_node = path_info.node.unwrap().node.unwrap();
 
