@@ -5,7 +5,6 @@ use ed25519_dalek::SIGNATURE_LENGTH;
 
 #[derive(Debug)]
 pub struct Signature<'a> {
-    /// TODO(edef): be stricter with signature names here, they especially shouldn't have newlines!
     name: &'a str,
     bytes: [u8; SIGNATURE_LENGTH],
 }
@@ -19,6 +18,14 @@ impl<'a> Signature<'a> {
         let (name, bytes64) = input
             .split_once(':')
             .ok_or(SignatureError::MissingSeparator)?;
+
+        if name.is_empty()
+            || !name
+                .chars()
+                .all(|c| char::is_alphanumeric(c) || c == '-' || c == '.')
+        {
+            return Err(SignatureError::InvalidName(name.to_string()));
+        }
 
         if bytes64.len() != BASE64.encode_len(SIGNATURE_LENGTH) {
             return Err(SignatureError::InvalidSignatureLen(bytes64.len()));
@@ -54,6 +61,8 @@ impl<'a> Signature<'a> {
 
 #[derive(Debug, thiserror::Error)]
 pub enum SignatureError {
+    #[error("Invalid name: {0}")]
+    InvalidName(String),
     #[error("Missing separator")]
     MissingSeparator,
     #[error("Invalid signature len: (expected {} b64-encoded, got {}", BASE64.encode_len(SIGNATURE_LENGTH), .0)]
@@ -114,7 +123,11 @@ mod test {
         assert_eq!(expect_valid, sig.verify(fp.as_bytes(), verifying_key));
     }
 
-    #[test_case("cache.nixos.org-1:o1DTsjCz0PofLJ216P2RBuSulI8BAb6zHxWE4N+tzlcELk5Uk/GO2SCxWTRN5wJutLZZ+cHTMdWqOHF8"; "wrong_length")]
+    #[test_case("cache.nixos.org-1:o1DTsjCz0PofLJ216P2RBuSulI8BAb6zHxWE4N+tzlcELk5Uk/GO2SCxWTRN5wJutLZZ+cHTMdWqOHF8"; "wrong length")]
+    #[test_case("test\n:u01BybwQhyI5H1bW1EIWXssMDhDDIvXOG5uh8Qzgdyjz6U1qg6DHhMAvXZOUStIj6X5t4/ufFgR8i3fjf0bMAw=="; "wrong name newline")]
+    #[test_case("test :u01BybwQhyI5H1bW1EIWXssMDhDDIvXOG5uh8Qzgdyjz6U1qg6DHhMAvXZOUStIj6X5t4/ufFgR8i3fjf0bMAw=="; "wrong name space")]
+    #[test_case(":u01BybwQhyI5H1bW1EIWXssMDhDDIvXOG5uh8Qzgdyjz6U1qg6DHhMAvXZOUStIj6X5t4/ufFgR8i3fjf0bMAw=="; "empty name")]
+    #[test_case("u01BybwQhyI5H1bW1EIWXssMDhDDIvXOG5uh8Qzgdyjz6U1qg6DHhMAvXZOUStIj6X5t4/ufFgR8i3fjf0bMAw=="; "b64 only")]
     fn parse_fail(input: &'static str) {
         Signature::parse(input).expect_err("must fail");
     }
