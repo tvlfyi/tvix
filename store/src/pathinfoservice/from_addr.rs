@@ -5,6 +5,7 @@ use super::{
     SledPathInfoService,
 };
 
+use nix_compat::narinfo;
 use std::sync::Arc;
 use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService, Error};
 use url::Url;
@@ -69,12 +70,29 @@ pub async fn from_addr(
         // Stringify the URL and remove the nix+ prefix.
         // We can't use `url.set_scheme(rest)`, as it disallows
         // setting something http(s) that previously wasn't.
-        let url = Url::parse(url.to_string().strip_prefix("nix+").unwrap()).unwrap();
-        Arc::new(NixHTTPPathInfoService::new(
-            url,
-            blob_service,
-            directory_service,
-        ))
+        let new_url = Url::parse(url.to_string().strip_prefix("nix+").unwrap()).unwrap();
+
+        let mut nix_http_path_info_service =
+            NixHTTPPathInfoService::new(new_url, blob_service, directory_service);
+
+        let pairs = &url.query_pairs();
+        for (k, v) in pairs.into_iter() {
+            if k == "trusted-public-keys" {
+                let pubkey_strs: Vec<_> = v.split_ascii_whitespace().collect();
+
+                let mut pubkeys: Vec<narinfo::PubKey> = Vec::with_capacity(pubkey_strs.len());
+                for pubkey_str in pubkey_strs {
+                    pubkeys
+                        .push(narinfo::PubKey::parse(pubkey_str).map_err(|e| {
+                            Error::StorageError(format!("invalid public key: {e}"))
+                        })?);
+                }
+
+                nix_http_path_info_service.set_public_keys(pubkeys);
+            }
+        }
+
+        Arc::new(nix_http_path_info_service)
     } else if url.scheme().starts_with("grpc+") {
         // schemes starting with grpc+ go to the GRPCPathInfoService.
         //   That's normally grpc+unix for unix sockets, and grpc+http(s) for the HTTP counterparts.
@@ -134,6 +152,10 @@ mod tests {
     #[test_case("nix+http://192.0.2.1/foo", true; "correct nix http with subpath")]
     /// Correct Scheme for Nix HTTP Binary cache, with a subpath and port.
     #[test_case("nix+http://[::1]:8080/foo", true; "correct nix http with subpath and port")]
+    /// Correct Scheme for the cache.nixos.org binary cache, and correct trusted public key set
+    #[test_case("nix+https://cache.nixos.org?trusted-public-keys=cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=", true; "correct nix+https with trusted-public-key")]
+    /// Correct Scheme for the cache.nixos.org binary cache, and two correct trusted public keys set
+    #[test_case("nix+https://cache.nixos.org?trusted-public-keys=cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=%20foo:jp4fCEx9tBEId/L0ZsVJ26k0wC0fu7vJqLjjIGFkup8=", true; "correct nix+https with two trusted-public-key")]
     /// Correct scheme to connect to a unix socket.
     #[test_case("grpc+unix:///path/to/somewhere", true; "grpc valid unix socket")]
     /// Correct scheme for unix socket, but setting a host too, which is invalid.
