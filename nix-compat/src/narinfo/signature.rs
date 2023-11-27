@@ -1,29 +1,30 @@
 use std::fmt::{self, Display};
 
 use data_encoding::BASE64;
+use ed25519_dalek::SIGNATURE_LENGTH;
 
 #[derive(Debug)]
 pub struct Signature<'a> {
     /// TODO(edef): be stricter with signature names here, they especially shouldn't have newlines!
     name: &'a str,
-    bytes: [u8; 64],
+    bytes: [u8; SIGNATURE_LENGTH],
 }
 
 impl<'a> Signature<'a> {
-    pub fn new(name: &'a str, bytes: [u8; 64]) -> Self {
+    pub fn new(name: &'a str, bytes: [u8; SIGNATURE_LENGTH]) -> Self {
         Self { name, bytes }
     }
 
-    pub fn parse(input: &'a str) -> Result<Signature<'a>, SignatureError> {
+    pub fn parse(input: &'a str) -> Result<Self, SignatureError> {
         let (name, bytes64) = input
             .split_once(':')
             .ok_or(SignatureError::MissingSeparator)?;
 
-        let mut buf = [0; 66];
-        let mut bytes = [0; 64];
+        let mut buf = [0; SIGNATURE_LENGTH + 2];
+        let mut bytes = [0; SIGNATURE_LENGTH];
         match BASE64.decode_mut(bytes64.as_bytes(), &mut buf) {
-            Ok(64) => {
-                bytes.copy_from_slice(&buf[..64]);
+            Ok(SIGNATURE_LENGTH) => {
+                bytes.copy_from_slice(&buf[..SIGNATURE_LENGTH]);
             }
             Ok(n) => return Err(SignatureError::InvalidSignatureLen(n)),
             // keeping DecodePartial gets annoying lifetime-wise
@@ -37,7 +38,7 @@ impl<'a> Signature<'a> {
         self.name
     }
 
-    pub fn bytes(&self) -> &[u8; 64] {
+    pub fn bytes(&self) -> &[u8; SIGNATURE_LENGTH] {
         &self.bytes
     }
 
