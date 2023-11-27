@@ -27,10 +27,12 @@ use std::{
 use crate::{nixbase32, nixhash::CAHash, store_path::StorePathRef};
 
 mod fingerprint;
+mod public_keys;
 mod signature;
 
 pub use fingerprint::fingerprint;
 
+pub use public_keys::{Error as PubKeyError, PubKey};
 pub use signature::{Error as SignatureError, Signature};
 
 #[derive(Debug)]
