@@ -55,6 +55,9 @@ let
 
     # awscli2 is broken on unstable; 2023-11-22
     awscli2 = stableNixpkgs.awscli2;
+
+    # TPM authentication seems broken on unstable; 2023-11-29
+    tpm2-pkcs11 = stableNixpkgs.tpm2-pkcs11;
   };
 
   # Overlay to expose the nixpkgs commits we are using to other Nix code.
