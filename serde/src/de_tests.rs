@@ -213,6 +213,7 @@ fn deserialize_with_config() {
 
 #[builtins]
 mod test_builtins {
+    use bstr::ByteSlice;
     use tvix_eval::generators::{Gen, GenCo};
     use tvix_eval::{ErrorKind, NixString, Value};
 
@@ -220,7 +221,7 @@ mod test_builtins {
     pub async fn builtin_prepend_hello(co: GenCo, x: Value) -> Result<Value, ErrorKind> {
         match x {
             Value::String(s) => {
-                let new_string = NixString::from(format!("hello {}", s.as_str()));
+                let new_string = NixString::from(format!("hello {}", s.to_str().unwrap()));
                 Ok(Value::String(new_string))
             }
             _ => Err(ErrorKind::TypeError {

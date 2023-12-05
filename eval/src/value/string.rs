@@ -3,14 +3,13 @@
 //! Nix language strings never need to be modified on the language
 //! level, allowing us to shave off some memory overhead and only
 //! paying the cost when creating new strings.
+use bstr::{BStr, BString, ByteSlice, Chars};
 use rnix::ast;
+use std::borrow::{Borrow, Cow};
 use std::collections::HashSet;
-use std::ffi::OsStr;
+use std::fmt::Display;
 use std::hash::Hash;
 use std::ops::Deref;
-use std::path::Path;
-use std::str::{self, Utf8Error};
-use std::{borrow::Cow, fmt::Display, str::Chars};
 
 use serde::de::{Deserializer, Visitor};
 use serde::{Deserialize, Serialize};
@@ -147,15 +146,27 @@ impl NixContext {
 
 // FIXME: when serializing, ignore the context?
 #[derive(Clone, Debug, Serialize)]
-pub struct NixString(Box<str>, Option<NixContext>);
+pub struct NixString(BString, Option<NixContext>);
 
 impl PartialEq for NixString {
     fn eq(&self, other: &Self) -> bool {
-        self.as_str() == other.as_str()
+        self.as_bstr() == other.as_bstr()
     }
 }
 
 impl Eq for NixString {}
+
+impl PartialEq<&[u8]> for NixString {
+    fn eq(&self, other: &&[u8]) -> bool {
+        **self == **other
+    }
+}
+
+impl PartialEq<&str> for NixString {
+    fn eq(&self, other: &&str) -> bool {
+        **self == other.as_bytes()
+    }
+}
 
 impl PartialOrd for NixString {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -165,39 +176,49 @@ impl PartialOrd for NixString {
 
 impl Ord for NixString {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.as_str().cmp(other.as_str())
+        self.as_bstr().cmp(other.as_bstr())
     }
 }
 
-impl TryFrom<&[u8]> for NixString {
-    type Error = Utf8Error;
+impl From<&BStr> for NixString {
+    fn from(value: &BStr) -> Self {
+        Self(value.to_owned(), None)
+    }
+}
 
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        Ok(Self(Box::from(str::from_utf8(value)?), None))
+impl From<&[u8]> for NixString {
+    fn from(value: &[u8]) -> Self {
+        Self(value.into(), None)
+    }
+}
+
+impl From<Vec<u8>> for NixString {
+    fn from(value: Vec<u8>) -> Self {
+        Self(value.into(), None)
     }
 }
 
 impl From<&str> for NixString {
     fn from(s: &str) -> Self {
-        NixString(Box::from(s), None)
+        Self(s.as_bytes().into(), None)
     }
 }
 
 impl From<String> for NixString {
     fn from(s: String) -> Self {
-        NixString(s.into_boxed_str(), None)
+        Self(s.into(), None)
     }
 }
 
 impl From<(String, Option<NixContext>)> for NixString {
-    fn from(s: (String, Option<NixContext>)) -> Self {
-        NixString(s.0.into_boxed_str(), s.1)
+    fn from((s, ctx): (String, Option<NixContext>)) -> Self {
+        NixString(s.into(), ctx)
     }
 }
 
 impl From<Box<str>> for NixString {
     fn from(s: Box<str>) -> Self {
-        Self(s, None)
+        Self(s.into_boxed_bytes().into_vec().into(), None)
     }
 }
 
@@ -207,9 +228,33 @@ impl From<ast::Ident> for NixString {
     }
 }
 
+impl<'a> From<&'a NixString> for &'a BStr {
+    fn from(s: &'a NixString) -> Self {
+        BStr::new(&*s.0)
+    }
+}
+
+impl From<NixString> for BString {
+    fn from(s: NixString) -> Self {
+        s.0
+    }
+}
+
+impl AsRef<[u8]> for NixString {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl Borrow<BStr> for NixString {
+    fn borrow(&self) -> &BStr {
+        self.as_bstr()
+    }
+}
+
 impl Hash for NixString {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.as_str().hash(state)
+        self.as_bstr().hash(state)
     }
 }
 
@@ -246,6 +291,14 @@ impl<'de> Deserialize<'de> for NixString {
     }
 }
 
+impl Deref for NixString {
+    type Target = BString;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 #[cfg(feature = "arbitrary")]
 mod arbitrary {
     use super::*;
@@ -264,13 +317,13 @@ mod arbitrary {
 }
 
 impl NixString {
-    pub fn new_inherit_context_from(other: &NixString, new_contents: &str) -> Self {
-        Self(Box::from(new_contents), other.1.clone())
+    pub fn new_inherit_context_from(other: &NixString, new_contents: BString) -> Self {
+        Self(new_contents, other.1.clone())
     }
 
-    pub fn new_context_from(context: NixContext, contents: &str) -> Self {
+    pub fn new_context_from(context: NixContext, contents: BString) -> Self {
         Self(
-            Box::from(contents),
+            contents,
             if context.is_empty() {
                 None
             } else {
@@ -279,8 +332,20 @@ impl NixString {
         )
     }
 
-    pub fn as_str(&self) -> &str {
+    pub fn as_mut_bstring(&mut self) -> &mut BString {
+        &mut self.0
+    }
+
+    pub fn as_bstr(&self) -> &BStr {
+        BStr::new(self.as_bytes())
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
         &self.0
+    }
+
+    pub fn into_bstring(self) -> BString {
+        self.0
     }
 
     /// Return a displayable representation of the string as an
@@ -290,8 +355,10 @@ impl NixString {
     /// set keys, as those are only escaped in the presence of special
     /// characters.
     pub fn ident_str(&self) -> Cow<str> {
-        let escaped = nix_escape_string(self.as_str());
-
+        let escaped = match self.to_str_lossy() {
+            Cow::Borrowed(s) => nix_escape_string(s),
+            Cow::Owned(s) => nix_escape_string(&s).into_owned().into(),
+        };
         match escaped {
             // A borrowed string is unchanged and can be returned as
             // is.
@@ -310,8 +377,8 @@ impl NixString {
     }
 
     pub fn concat(&self, other: &Self) -> Self {
-        let mut s = self.as_str().to_owned();
-        s.push_str(other.as_str());
+        let mut s = self.to_vec();
+        s.extend(other.0.as_slice());
 
         let context = [&self.1, &other.1]
             .into_iter()
@@ -319,7 +386,7 @@ impl NixString {
             .fold(NixContext::new(), |acc_ctx, new_ctx| {
                 acc_ctx.join(&mut new_ctx.clone())
             });
-        Self::new_context_from(context, &s.into_boxed_str())
+        Self::new_context_from(context, s.into())
     }
 
     pub(crate) fn context_mut(&mut self) -> Option<&mut NixContext> {
@@ -436,34 +503,8 @@ fn nix_escape_string(input: &str) -> Cow<str> {
 impl Display for NixString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("\"")?;
-        f.write_str(&nix_escape_string(self.as_str()))?;
+        f.write_str(&nix_escape_string(&self.to_str_lossy()))?;
         f.write_str("\"")
-    }
-}
-
-impl AsRef<str> for NixString {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-
-impl AsRef<OsStr> for NixString {
-    fn as_ref(&self) -> &OsStr {
-        self.as_str().as_ref()
-    }
-}
-
-impl AsRef<Path> for NixString {
-    fn as_ref(&self) -> &Path {
-        self.as_str().as_ref()
-    }
-}
-
-impl Deref for NixString {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        self.as_str()
     }
 }
 

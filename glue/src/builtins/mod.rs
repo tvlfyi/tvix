@@ -74,10 +74,7 @@ mod tests {
 
         match value {
             tvix_eval::Value::String(s) => {
-                assert_eq!(
-                    "/nix/store/xpcvxsx5sw4rbq666blz6sxqlmsqphmr-foo",
-                    s.as_str()
-                );
+                assert_eq!(s, "/nix/store/xpcvxsx5sw4rbq666blz6sxqlmsqphmr-foo",);
             }
             _ => panic!("unexpected value type: {:?}", value),
         }
@@ -162,7 +159,7 @@ mod tests {
 
         match value {
             tvix_eval::Value::String(s) => {
-                assert_eq!(expected_path, s.as_str());
+                assert_eq!(s, expected_path);
             }
             _ => panic!("unexpected value type: {:?}", value),
         }
@@ -285,7 +282,7 @@ mod tests {
 
         match value {
             tvix_eval::Value::String(s) => {
-                assert_eq!(expected_drvpath, s.as_str());
+                assert_eq!(s, expected_drvpath);
             }
 
             _ => panic!("unexpected value type: {:?}", value),
@@ -314,7 +311,7 @@ mod tests {
 
         match value {
             tvix_eval::Value::String(s) => {
-                assert_eq!(expected_path, s.as_str());
+                assert_eq!(s, expected_path);
             }
             _ => panic!("unexpected value type: {:?}", value),
         }

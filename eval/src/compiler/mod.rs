@@ -727,7 +727,7 @@ impl Compiler<'_> {
                 if let (Some(attr), None) = (path_iter.next(), path_iter.next()) {
                     // Only do this optimisation for statically known attrs.
                     if let Some(ident) = expr_static_attr_str(&attr) {
-                        if let Some(selected_value) = attrs.select(ident.as_str()) {
+                        if let Some(selected_value) = attrs.select(ident.as_bytes()) {
                             *constant = selected_value.clone();
 
                             // If this worked, we can unthunk the current thunk.

@@ -17,12 +17,17 @@ use crate::{
 
 #[builtins]
 mod impure_builtins {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+
     use super::*;
     use crate::builtins::coerce_value_to_path;
 
     #[builtin("getEnv")]
     async fn builtin_get_env(co: GenCo, var: Value) -> Result<Value, ErrorKind> {
-        Ok(env::var(var.to_str()?).unwrap_or_else(|_| "".into()).into())
+        Ok(env::var(OsStr::from_bytes(&var.to_str()?))
+            .unwrap_or_else(|_| "".into())
+            .into())
     }
 
     #[builtin("pathExists")]

@@ -5163,6 +5163,30 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "std" ];
       };
+      "os_str_bytes" = rec {
+        crateName = "os_str_bytes";
+        version = "6.6.1";
+        edition = "2021";
+        sha256 = "1885z1x4sm86v5p41ggrl49m58rbzzhd1kj72x46yy53p62msdg2";
+        authors = [
+          "dylni"
+        ];
+        dependencies = [
+          {
+            name = "memchr";
+            packageId = "memchr";
+            optional = true;
+          }
+        ];
+        features = {
+          "checked_conversions" = [ "conversions" ];
+          "default" = [ "memchr" "raw_os_str" ];
+          "memchr" = [ "dep:memchr" ];
+          "print_bytes" = [ "dep:print_bytes" ];
+          "uniquote" = [ "dep:uniquote" ];
+        };
+        resolvedDefaultFeatures = [ "conversions" "default" "memchr" "raw_os_str" ];
+      };
       "overload" = rec {
         crateName = "overload";
         version = "0.1.1";
@@ -10403,6 +10427,11 @@ rec {
         libName = "tvix_eval";
         dependencies = [
           {
+            name = "bstr";
+            packageId = "bstr";
+            features = [ "serde" ];
+          }
+          {
             name = "bytes";
             packageId = "bytes";
           }
@@ -10440,6 +10469,11 @@ rec {
             name = "lexical-core";
             packageId = "lexical-core";
             features = [ "format" "parse-floats" ];
+          }
+          {
+            name = "os_str_bytes";
+            packageId = "os_str_bytes";
+            features = [ "conversions" ];
           }
           {
             name = "path-clean";
@@ -10684,6 +10718,11 @@ rec {
           then lib.cleanSourceWith { filter = sourceFilter; src = ./serde; }
           else ./serde;
         dependencies = [
+          {
+            name = "bstr";
+            packageId = "bstr";
+            features = [ "serde" ];
+          }
           {
             name = "serde";
             packageId = "serde";

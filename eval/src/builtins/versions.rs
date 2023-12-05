@@ -2,13 +2,15 @@ use std::cmp::Ordering;
 use std::iter::{once, Chain, Once};
 use std::ops::RangeInclusive;
 
+use bstr::{BStr, ByteSlice, B};
+
 /// Version strings can be broken up into Parts.
 /// One Part represents either a string of digits or characters.
 /// '.' and '_' represent deviders between parts and are not included in any part.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum VersionPart<'a> {
-    Word(&'a str),
-    Number(&'a str),
+    Word(&'a BStr),
+    Number(&'a BStr),
 }
 
 impl PartialOrd for VersionPart<'_> {
@@ -23,15 +25,17 @@ impl Ord for VersionPart<'_> {
             (VersionPart::Number(s1), VersionPart::Number(s2)) => {
                 // Note: C++ Nix uses `int`, but probably doesn't make a difference
                 // We trust that the splitting was done correctly and parsing will work
-                let n1: u64 = s1.parse().unwrap();
-                let n2: u64 = s2.parse().unwrap();
+                let n1: u64 = s1.to_str_lossy().parse().unwrap();
+                let n2: u64 = s2.to_str_lossy().parse().unwrap();
                 n1.cmp(&n2)
             }
 
             // `pre` looses unless the other part is also a `pre`
-            (VersionPart::Word("pre"), VersionPart::Word("pre")) => Ordering::Equal,
-            (VersionPart::Word("pre"), _) => Ordering::Less,
-            (_, VersionPart::Word("pre")) => Ordering::Greater,
+            (VersionPart::Word(x), VersionPart::Word(y)) if *x == B("pre") && *y == B("pre") => {
+                Ordering::Equal
+            }
+            (VersionPart::Word(x), _) if *x == B("pre") => Ordering::Less,
+            (_, VersionPart::Word(y)) if *y == B("pre") => Ordering::Greater,
 
             // Number wins against Word
             (VersionPart::Number(_), VersionPart::Word(_)) => Ordering::Greater,
@@ -54,12 +58,12 @@ enum InternalPart {
 /// This can then be directly used to compare two versions
 pub struct VersionPartsIter<'a> {
     cached_part: InternalPart,
-    iter: std::str::CharIndices<'a>,
-    version: &'a str,
+    iter: bstr::CharIndices<'a>,
+    version: &'a BStr,
 }
 
 impl<'a> VersionPartsIter<'a> {
-    pub fn new(version: &'a str) -> Self {
+    pub fn new(version: &'a BStr) -> Self {
         Self {
             cached_part: InternalPart::Break,
             iter: version.char_indices(),
@@ -77,8 +81,8 @@ impl<'a> VersionPartsIter<'a> {
     /// like `2.3 < 2.3.0pre` ensues. Luckily for us, this means that we can
     /// lexicographically compare two version strings, _if_ we append an extra
     /// component to both versions.
-    pub fn new_for_cmp(version: &'a str) -> Chain<Self, Once<VersionPart>> {
-        Self::new(version).chain(once(VersionPart::Word("")))
+    pub fn new_for_cmp(version: &'a BStr) -> Chain<Self, Once<VersionPart>> {
+        Self::new(version).chain(once(VersionPart::Word("".into())))
     }
 }
 
@@ -101,7 +105,7 @@ impl<'a> Iterator for VersionPartsIter<'a> {
             }
         }
 
-        let (pos, char) = char.unwrap();
+        let (start, end, char) = char.unwrap();
         match char {
             // Divider encountered
             '.' | '-' => {
@@ -119,7 +123,9 @@ impl<'a> Iterator for VersionPartsIter<'a> {
             _ if char.is_ascii_digit() => {
                 let cached_part = std::mem::replace(
                     &mut self.cached_part,
-                    InternalPart::Number { range: pos..=pos },
+                    InternalPart::Number {
+                        range: start..=(end - 1),
+                    },
                 );
                 match cached_part {
                     InternalPart::Number { range } => {
@@ -135,7 +141,9 @@ impl<'a> Iterator for VersionPartsIter<'a> {
 
             // char encountered
             _ => {
-                let mut cached_part = InternalPart::Word { range: pos..=pos };
+                let mut cached_part = InternalPart::Word {
+                    range: start..=(end - 1),
+                };
                 std::mem::swap(&mut cached_part, &mut self.cached_part);
                 match cached_part {
                     InternalPart::Word { range } => {

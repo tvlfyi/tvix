@@ -6,6 +6,7 @@
 //! instance, or observers).
 
 use super::GlobalsMap;
+use bstr::ByteSlice;
 use genawaiter::rc::Gen;
 use std::rc::Weak;
 
@@ -40,11 +41,11 @@ async fn import_impl(
 
     // TODO(tazjin): make this return a string directly instead
     let contents: Value = generators::request_read_to_string(&co, path.clone()).await;
-    let contents = contents.to_str()?.as_str().to_string();
+    let contents = contents.to_str()?.to_str()?.to_owned();
 
     let parsed = rnix::ast::Root::parse(&contents);
     let errors = parsed.errors();
-    let file = source.add_file(path.to_string_lossy().to_string(), contents);
+    let file = source.add_file(path.to_string_lossy().to_string(), contents.to_owned());
 
     if !errors.is_empty() {
         return Err(ErrorKind::ImportParseError {

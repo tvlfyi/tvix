@@ -1713,6 +1713,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "os_str_bytes"
+version = "6.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2355d85b9a3786f481747ced0e0ff2ba35213a1f9bd406ed906554d7af805a1"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "overload"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3320,6 +3329,7 @@ dependencies = [
 name = "tvix-eval"
 version = "0.1.0"
 dependencies = [
+ "bstr",
  "bytes",
  "codemap",
  "codemap-diagnostic",
@@ -3330,6 +3340,7 @@ dependencies = [
  "itertools 0.12.0",
  "lazy_static",
  "lexical-core",
+ "os_str_bytes",
  "path-clean",
  "pretty_assertions",
  "proptest",
@@ -3389,6 +3400,7 @@ dependencies = [
 name = "tvix-serde"
 version = "0.1.0"
 dependencies = [
+ "bstr",
  "serde",
  "tvix-eval",
 ]

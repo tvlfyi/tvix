@@ -6,6 +6,7 @@ use std::num::{NonZeroI32, NonZeroUsize};
 use std::path::PathBuf;
 use std::rc::Rc;
 
+use bstr::{BString, ByteVec};
 use lexical_core::format::CXX_LITERAL;
 use serde::Deserialize;
 
@@ -313,7 +314,7 @@ impl Value {
         kind: CoercionKind,
         span: LightSpan,
     ) -> Result<Value, ErrorKind> {
-        let mut result = String::new();
+        let mut result = BString::default();
         let mut vals = vec![self];
         // Track if we are coercing the first value of a list to correctly emit
         // separating white spaces.
@@ -326,18 +327,15 @@ impl Value {
             let value = if let Some(v) = vals.pop() {
                 v.force(co, span.clone()).await?
             } else {
-                return Ok(Value::String(NixString::new_context_from(
-                    context,
-                    result.as_str(),
-                )));
+                return Ok(Value::String(NixString::new_context_from(context, result)));
             };
-            let coerced = match (value, kind) {
+            let coerced: Result<BString, _> = match (value, kind) {
                 // coercions that are always done
                 (Value::String(mut s), _) => {
                     if let Some(ctx) = s.context_mut() {
                         context = context.join(ctx);
                     }
-                    Ok(s.as_str().to_owned())
+                    Ok(s.into())
                 }
 
                 // TODO(sterni): Think about proper encoding handling here. This needs
@@ -357,7 +355,7 @@ impl Value {
                     context = context.append(NixContextElement::Plain(
                         imported.to_string_lossy().to_string(),
                     ));
-                    Ok(imported.to_string_lossy().into_owned())
+                    Ok(imported.into_os_string().into_encoded_bytes().into())
                 }
                 (
                     Value::Path(p),
@@ -365,7 +363,7 @@ impl Value {
                         import_paths: false,
                         ..
                     },
-                ) => Ok(p.to_string_lossy().into_owned()),
+                ) => Ok(p.into_os_string().into_encoded_bytes().into()),
 
                 // Attribute sets can be converted to strings if they either have an
                 // `__toString` attribute which holds a function that receives the
@@ -397,14 +395,14 @@ impl Value {
 
                 // strong coercions
                 (Value::Null, CoercionKind { strong: true, .. })
-                | (Value::Bool(false), CoercionKind { strong: true, .. }) => Ok("".to_owned()),
-                (Value::Bool(true), CoercionKind { strong: true, .. }) => Ok("1".to_owned()),
+                | (Value::Bool(false), CoercionKind { strong: true, .. }) => Ok("".into()),
+                (Value::Bool(true), CoercionKind { strong: true, .. }) => Ok("1".into()),
 
-                (Value::Integer(i), CoercionKind { strong: true, .. }) => Ok(format!("{i}")),
+                (Value::Integer(i), CoercionKind { strong: true, .. }) => Ok(format!("{i}").into()),
                 (Value::Float(f), CoercionKind { strong: true, .. }) => {
                     // contrary to normal Display, coercing a float to a string will
                     // result in unconditional 6 decimal places
-                    Ok(format!("{:.6}", f))
+                    Ok(format!("{:.6}", f).into())
                 }
 
                 // Lists are coerced by coercing their elements and interspersing spaces
@@ -448,7 +446,7 @@ impl Value {
 
             if let Some(head) = is_list_head {
                 if !head {
-                    result.push(' ');
+                    result.push(b' ');
                 } else {
                     is_list_head = Some(false);
                 }
@@ -576,7 +574,7 @@ impl Value {
                             let s2 = s2.to_str();
 
                             if let (Ok(s1), Ok(s2)) = (s1, s2) {
-                                if s1.as_str() == "derivation" && s2.as_str() == "derivation" {
+                                if s1 == "derivation" && s2 == "derivation" {
                                     // TODO(tazjin): are the outPaths really required,
                                     // or should it fall through?
                                     let out1 = a1

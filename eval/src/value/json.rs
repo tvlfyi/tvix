@@ -7,6 +7,7 @@ use super::{CoercionKind, Value};
 use crate::errors::{CatchableErrorKind, ErrorKind};
 use crate::generators::{self, GenCo};
 
+use bstr::ByteSlice;
 use serde_json::value::to_value;
 use serde_json::Value as Json; // name clash with *our* `Value`
 use serde_json::{Map, Number};
@@ -23,7 +24,7 @@ impl Value {
             Value::Bool(b) => Json::Bool(b),
             Value::Integer(i) => Json::Number(Number::from(i)),
             Value::Float(f) => to_value(f)?,
-            Value::String(s) => Json::String(s.as_str().into()),
+            Value::String(s) => Json::String(s.to_str()?.to_owned()),
 
             Value::Path(p) => {
                 let imported = generators::request_path_import(co, *p).await;
@@ -61,7 +62,7 @@ impl Value {
                         .await?
                     {
                         Value::Catchable(cek) => return Ok(Err(cek)),
-                        Value::String(s) => return Ok(Ok(Json::String(s.as_str().to_owned()))),
+                        Value::String(s) => return Ok(Ok(Json::String(s.to_str()?.to_owned()))),
                         _ => panic!("Value::coerce_to_string_() returned a non-string!"),
                     }
                 }
@@ -76,7 +77,7 @@ impl Value {
                 let mut out = Map::with_capacity(attrs.len());
                 for (name, value) in attrs.into_iter_sorted() {
                     out.insert(
-                        name.as_str().to_string(),
+                        name.to_str()?.to_owned(),
                         match generators::request_to_json(co, value).await {
                             Ok(v) => v,
                             Err(cek) => return Ok(Err(cek)),

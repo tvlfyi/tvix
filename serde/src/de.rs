@@ -1,5 +1,6 @@
 //! Deserialisation from Nix to Rust values.
 
+use bstr::ByteSlice;
 use serde::de::value::{MapDeserializer, SeqDeserializer};
 use serde::de::{self, EnumAccess, VariantAccess};
 pub use tvix_eval::Evaluation;
@@ -209,7 +210,7 @@ impl<'de> de::Deserializer<'de> for NixDeserializer {
         V: de::Visitor<'de>,
     {
         if let Value::String(s) = &self.value {
-            let chars = s.as_str().chars().collect::<Vec<_>>();
+            let chars = s.chars().collect::<Vec<_>>();
             if chars.len() == 1 {
                 return visitor.visit_char(chars[0]);
             }
@@ -223,7 +224,9 @@ impl<'de> de::Deserializer<'de> for NixDeserializer {
         V: de::Visitor<'de>,
     {
         if let Value::String(s) = &self.value {
-            return visitor.visit_str(s.as_str());
+            if let Ok(s) = s.to_str() {
+                return visitor.visit_str(s);
+            }
         }
 
         Err(unexpected("string", &self.value))
@@ -234,7 +237,9 @@ impl<'de> de::Deserializer<'de> for NixDeserializer {
         V: de::Visitor<'de>,
     {
         if let Value::String(s) = &self.value {
-            return visitor.visit_str(s.as_str());
+            if let Ok(s) = s.to_str() {
+                return visitor.visit_str(s);
+            }
         }
 
         Err(unexpected("string", &self.value))
@@ -379,7 +384,13 @@ impl<'de> de::Deserializer<'de> for NixDeserializer {
     {
         match self.value {
             // a string represents a unit variant
-            Value::String(s) => visitor.visit_enum(de::value::StrDeserializer::new(s.as_str())),
+            Value::String(ref s) => {
+                if let Ok(s) = s.to_str() {
+                    visitor.visit_enum(de::value::StrDeserializer::new(s))
+                } else {
+                    Err(unexpected(name, &self.value))
+                }
+            }
 
             // an attribute set however represents an externally
             // tagged enum with content
@@ -420,9 +431,12 @@ impl<'de> EnumAccess<'de> for Enum {
         }
 
         let (key, value) = self.0.into_iter().next().expect("length asserted above");
-        let val = seed.deserialize(de::value::StrDeserializer::<Error>::new(key.as_str()))?;
-
-        Ok((val, NixDeserializer::new(value)))
+        if let Ok(k) = key.to_str() {
+            let val = seed.deserialize(de::value::StrDeserializer::<Error>::new(k))?;
+            Ok((val, NixDeserializer::new(value)))
+        } else {
+            Err(unexpected("string", &key.clone().into()))
+        }
     }
 }
 

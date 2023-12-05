@@ -1,3 +1,5 @@
+use bstr::B;
+
 use super::*;
 
 #[test]
@@ -99,6 +101,6 @@ fn test_map_attrs_iter() {
     let mut iter = attrs.iter().collect::<Vec<_>>().into_iter();
     let (k, v) = iter.next().unwrap();
     assert!(k == &NixString::from("key"));
-    assert!(v.to_str().unwrap().as_str() == "value");
+    assert_eq!(v.to_str().unwrap(), B("value"));
     assert!(iter.next().is_none());
 }

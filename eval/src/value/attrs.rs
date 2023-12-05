@@ -5,8 +5,10 @@
 //!
 //! Due to this, construction and management of attribute sets has
 //! some peculiarities that are encapsulated within this module.
+use std::borrow::Borrow;
 use std::iter::FromIterator;
 
+use bstr::BStr;
 use imbl::{ordmap, OrdMap};
 use lazy_static::lazy_static;
 use serde::de::{Deserializer, Error, Visitor};
@@ -67,25 +69,25 @@ impl AttrsRep {
         }
     }
 
-    fn select(&self, key: &str) -> Option<&Value> {
+    fn select(&self, key: &BStr) -> Option<&Value> {
         match self {
             AttrsRep::Empty => None,
 
-            AttrsRep::KV { name, value } => match key {
-                "name" => Some(name),
-                "value" => Some(value),
+            AttrsRep::KV { name, value } => match &**key {
+                b"name" => Some(name),
+                b"value" => Some(value),
                 _ => None,
             },
 
-            AttrsRep::Im(map) => map.get(&key.into()),
+            AttrsRep::Im(map) => map.get(key),
         }
     }
 
-    fn contains(&self, key: &str) -> bool {
+    fn contains(&self, key: &BStr) -> bool {
         match self {
             AttrsRep::Empty => false,
             AttrsRep::KV { .. } => key == "name" || key == "value",
-            AttrsRep::Im(map) => map.contains_key(&key.into()),
+            AttrsRep::Im(map) => map.contains_key(key),
         }
     }
 }
@@ -264,19 +266,30 @@ impl NixAttrs {
     }
 
     /// Select a value from an attribute set by key.
-    pub fn select(&self, key: &str) -> Option<&Value> {
-        self.0.select(key)
+    pub fn select<K>(&self, key: &K) -> Option<&Value>
+    where
+        K: Borrow<BStr> + ?Sized,
+    {
+        self.0.select(key.borrow())
     }
 
     /// Select a required value from an attribute set by key, return
     /// an `AttributeNotFound` error if it is missing.
-    pub fn select_required(&self, key: &str) -> Result<&Value, ErrorKind> {
+    pub fn select_required<K>(&self, key: &K) -> Result<&Value, ErrorKind>
+    where
+        K: Borrow<BStr> + ?Sized,
+    {
         self.select(key)
-            .ok_or_else(|| ErrorKind::AttributeNotFound { name: key.into() })
+            .ok_or_else(|| ErrorKind::AttributeNotFound {
+                name: key.borrow().to_string(),
+            })
     }
 
-    pub fn contains(&self, key: &str) -> bool {
-        self.0.contains(key)
+    pub fn contains<'a, K: 'a>(&self, key: K) -> bool
+    where
+        &'a BStr: From<K>,
+    {
+        self.0.contains(key.into())
     }
 
     /// Construct an iterator over all the key-value pairs in the attribute set.
@@ -423,7 +436,7 @@ fn attempt_optimise_kv(slice: &mut [Value]) -> Option<NixAttrs> {
 fn set_attr(attrs: &mut NixAttrs, key: NixString, value: Value) -> Result<(), ErrorKind> {
     match attrs.0.map_mut().entry(key) {
         imbl::ordmap::Entry::Occupied(entry) => Err(ErrorKind::DuplicateAttrsKey {
-            key: entry.key().as_str().to_string(),
+            key: entry.key().to_string(),
         }),
 
         imbl::ordmap::Entry::Vacant(entry) => {

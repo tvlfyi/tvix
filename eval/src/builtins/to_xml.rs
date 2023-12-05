@@ -2,6 +2,7 @@
 //! of value information as well as internal tvix state that several
 //! things in nixpkgs rely on.
 
+use bstr::ByteSlice;
 use std::{io::Write, rc::Rc};
 use xml::writer::events::XmlEvent;
 use xml::writer::EmitterConfig;
@@ -60,7 +61,7 @@ fn value_variant_to_xml<W: Write>(w: &mut EventWriter<W>, value: &Value) -> Resu
         Value::Bool(b) => return write_typed_value(w, "bool", b),
         Value::Integer(i) => return write_typed_value(w, "int", i),
         Value::Float(f) => return write_typed_value(w, "float", f),
-        Value::String(s) => return write_typed_value(w, "string", s.as_str()),
+        Value::String(s) => return write_typed_value(w, "string", s.to_str()?),
         Value::Path(p) => return write_typed_value(w, "path", p.to_string_lossy()),
 
         Value::List(list) => {
@@ -77,7 +78,7 @@ fn value_variant_to_xml<W: Write>(w: &mut EventWriter<W>, value: &Value) -> Resu
             w.write(XmlEvent::start_element("attrs"))?;
 
             for elem in attrs.iter() {
-                w.write(XmlEvent::start_element("attr").attr("name", elem.0.as_str()))?;
+                w.write(XmlEvent::start_element("attr").attr("name", &elem.0.to_str_lossy()))?;
                 value_variant_to_xml(w, elem.1)?;
                 w.write(XmlEvent::end_element())?;
             }
@@ -101,7 +102,9 @@ fn value_variant_to_xml<W: Write>(w: &mut EventWriter<W>, value: &Value) -> Resu
                     w.write(attrspat)?;
 
                     for arg in formals.arguments.iter() {
-                        w.write(XmlEvent::start_element("attr").attr("name", arg.0.as_str()))?;
+                        w.write(
+                            XmlEvent::start_element("attr").attr("name", &arg.0.to_str_lossy()),
+                        )?;
                         w.write(XmlEvent::end_element())?;
                     }
 

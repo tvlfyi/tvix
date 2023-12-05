@@ -226,7 +226,7 @@ fn run_file(mut path: PathBuf, args: &Args) {
 
 fn println_result(result: &Value, raw: bool) {
     if raw {
-        println!("{}", result.to_contextful_str().unwrap().as_str())
+        println!("{}", result.to_contextful_str().unwrap())
     } else {
         println!("=> {} :: {}", result, result.type_of())
     }

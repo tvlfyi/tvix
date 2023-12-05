@@ -125,6 +125,7 @@ pub(crate) mod derivation_builtins {
     use std::collections::BTreeMap;
 
     use super::*;
+    use bstr::{ByteSlice, ByteVec};
     use nix_compat::store_path::hash_placeholder;
     use tvix_eval::generators::Gen;
     use tvix_eval::{NixContext, NixContextElement, NixString};
@@ -139,7 +140,7 @@ pub(crate) mod derivation_builtins {
             input
                 .to_str()
                 .context("looking at output name in builtins.placeholder")?
-                .as_str(),
+                .to_str()?,
         );
 
         Ok(placeholder.into())
@@ -167,10 +168,10 @@ pub(crate) mod derivation_builtins {
         }
 
         let name = name.to_str().context("determining derivation name")?;
-
         if name.is_empty() {
             return Err(ErrorKind::Abort("derivation has empty name".to_string()));
         }
+        let name = name.to_str()?;
 
         let mut drv = Derivation::default();
         drv.outputs.insert("out".to_string(), Default::default());
@@ -199,7 +200,11 @@ pub(crate) mod derivation_builtins {
 
         /// Inserts a key and value into the drv.environment BTreeMap, and fails if the
         /// key did already exist before.
-        fn insert_env(drv: &mut Derivation, k: &str, v: BString) -> Result<(), DerivationError> {
+        fn insert_env(
+            drv: &mut Derivation,
+            k: &str, /* TODO: non-utf8 env keys */
+            v: BString,
+        ) -> Result<(), DerivationError> {
             if drv.environment.insert(k.into(), v).is_some() {
                 return Err(DerivationError::DuplicateEnvVar(k.into()));
             }
@@ -228,6 +233,7 @@ pub(crate) mod derivation_builtins {
         // Some set special fields in the Derivation struct, some change
         // behaviour of other functionality.
         for (arg_name, arg_value) in input.clone().into_iter_sorted() {
+            let arg_name = arg_name.to_str()?;
             // force the current value.
             let value = generators::request_force(&co, arg_value).await;
 
@@ -236,7 +242,7 @@ pub(crate) mod derivation_builtins {
                 continue;
             }
 
-            match arg_name.as_str() {
+            match arg_name {
                 // Command line arguments to the builder.
                 // These are only set in drv.arguments.
                 "args" => {
@@ -245,7 +251,7 @@ pub(crate) mod derivation_builtins {
                             Err(cek) => return Ok(Value::Catchable(cek)),
                             Ok(s) => {
                                 input_context.mimic(&s);
-                                drv.arguments.push(s.as_str().to_string())
+                                drv.arguments.push((**s).clone().into_string()?)
                             }
                         }
                     }
@@ -274,18 +280,18 @@ pub(crate) mod derivation_builtins {
                         // Populate drv.outputs
                         if drv
                             .outputs
-                            .insert(output_name.as_str().to_string(), Default::default())
+                            .insert((**output_name).clone().into_string()?, Default::default())
                             .is_some()
                         {
                             Err(DerivationError::DuplicateOutput(
-                                output_name.as_str().into(),
+                                (**output_name).clone().into_string_lossy(),
                             ))?
                         }
-                        output_names.push(output_name.as_str().to_string());
+                        output_names.push((**output_name).clone().into_string()?);
                     }
 
                     // Add drv.environment[outputs] unconditionally.
-                    insert_env(&mut drv, arg_name.as_str(), output_names.join(" ").into())?;
+                    insert_env(&mut drv, arg_name, output_names.join(" ").into())?;
                     // drv.environment[$output_name] is added after the loop,
                     // with whatever is in drv.outputs[$output_name].
                 }
@@ -297,19 +303,21 @@ pub(crate) mod derivation_builtins {
                         Ok(val_str) => {
                             input_context.mimic(&val_str);
 
-                            if arg_name.as_str() == "builder" {
-                                drv.builder = val_str.as_str().to_owned();
+                            if arg_name == "builder" {
+                                drv.builder = (**val_str).clone().into_string()?;
                             } else {
-                                drv.system = val_str.as_str().to_owned();
+                                drv.system = (**val_str).clone().into_string()?;
                             }
 
                             // Either populate drv.environment or structured_attrs.
                             if let Some(ref mut structured_attrs) = structured_attrs {
                                 // No need to check for dups, we only iterate over every attribute name once
-                                structured_attrs
-                                    .insert(arg_name.as_str().into(), val_str.as_str().into());
+                                structured_attrs.insert(
+                                    arg_name.to_owned(),
+                                    (**val_str).clone().into_string()?.into(),
+                                );
                             } else {
-                                insert_env(&mut drv, arg_name.as_str(), val_str.as_bytes().into())?;
+                                insert_env(&mut drv, arg_name, val_str.as_bytes().into())?;
                             }
                         }
                     }
@@ -339,14 +347,14 @@ pub(crate) mod derivation_builtins {
                         };
 
                         // No need to check for dups, we only iterate over every attribute name once
-                        structured_attrs.insert(arg_name.as_str().to_string(), val_json);
+                        structured_attrs.insert(arg_name.to_owned(), val_json);
                     } else {
                         match strong_importing_coerce_to_string(&co, value).await {
                             Err(cek) => return Ok(Value::Catchable(cek)),
                             Ok(val_str) => {
                                 input_context.mimic(&val_str);
 
-                                insert_env(&mut drv, arg_name.as_str(), val_str.as_bytes().into())?;
+                                insert_env(&mut drv, arg_name, val_str.as_bytes().into())?;
                             }
                         }
                     }
@@ -365,7 +373,7 @@ pub(crate) mod derivation_builtins {
                 if let Some(attr) = attrs.select(key) {
                     match strong_importing_coerce_to_string(co, attr.clone()).await {
                         Err(cek) => return Ok(Err(cek)),
-                        Ok(str) => return Ok(Ok(Some(str.as_str().to_string()))),
+                        Ok(str) => return Ok(Ok(Some((**str).clone().into_string()?))),
                     }
                 }
 
@@ -438,11 +446,11 @@ pub(crate) mod derivation_builtins {
         });
 
         // Mutate the Derivation struct and set output paths
-        drv.calculate_output_paths(&name, &derivation_or_fod_hash_tmp)
+        drv.calculate_output_paths(name, &derivation_or_fod_hash_tmp)
             .map_err(DerivationError::InvalidDerivation)?;
 
         let drv_path = drv
-            .calculate_derivation_path(&name)
+            .calculate_derivation_path(name)
             .map_err(DerivationError::InvalidDerivation)?;
 
         // recompute the hash derivation modulo and add to known_paths
@@ -508,21 +516,23 @@ pub(crate) mod derivation_builtins {
             return Err(ErrorKind::UnexpectedContext);
         }
 
-        let path = nix_compat::store_path::build_text_path(
-            name.as_str(),
-            content.as_str(),
-            content.iter_plain(),
-        )
-        .map_err(|_e| {
-            nix_compat::derivation::DerivationError::InvalidOutputName(name.as_str().to_string())
-        })
-        .map_err(DerivationError::InvalidDerivation)?
-        .to_absolute_path();
+        let path =
+            nix_compat::store_path::build_text_path(name.to_str()?, &content, content.iter_plain())
+                .map_err(|_e| {
+                    nix_compat::derivation::DerivationError::InvalidOutputName(
+                        (**name).clone().into_string_lossy(),
+                    )
+                })
+                .map_err(DerivationError::InvalidDerivation)?
+                .to_absolute_path();
 
         let context: NixContext = NixContextElement::Plain(path.clone()).into();
 
         // TODO: actually persist the file in the store at that path ...
 
-        Ok(Value::String(NixString::new_context_from(context, &path)))
+        Ok(Value::String(NixString::new_context_from(
+            context,
+            path.into(),
+        )))
     }
 }
