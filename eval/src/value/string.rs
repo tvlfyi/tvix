@@ -8,6 +8,7 @@ use std::ffi::OsStr;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::path::Path;
+use std::str::{self, Utf8Error};
 use std::{borrow::Cow, fmt::Display, str::Chars};
 
 use serde::de::{Deserializer, Visitor};
@@ -34,6 +35,14 @@ impl PartialOrd for NixString {
 impl Ord for NixString {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.as_str().cmp(other.as_str())
+    }
+}
+
+impl TryFrom<&[u8]> for NixString {
+    type Error = Utf8Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        Ok(Self(Box::from(str::from_utf8(value)?)))
     }
 }
 

@@ -951,7 +951,7 @@ mod pure_builtins {
             cmp::min(beg + (len as usize), x.as_str().len())
         };
 
-        Ok(Value::String(x.as_str()[beg..end].into()))
+        Ok(Value::String(x.as_bytes()[beg..end].try_into()?))
     }
 
     #[builtin("tail")]
