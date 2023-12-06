@@ -5,6 +5,6 @@
 set -euo pipefail
 
 echo "Running benchmarks for tvix/eval..."
-cd tvix/eval
+cd "$(dirname "$(dirname "$0")")/eval"
 docker run --rm -v "$(pwd):/app" -w /app rust cargo bench
 windtunnel-cli report -f criterion-rust .
