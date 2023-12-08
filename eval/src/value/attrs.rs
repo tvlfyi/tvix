@@ -615,3 +615,13 @@ impl ExactSizeIterator for OwnedAttrsIterator {
         }
     }
 }
+
+impl DoubleEndedIterator for OwnedAttrsIterator {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        match &mut self.0 {
+            IntoIterRepr::Empty => None,
+            IntoIterRepr::Finite(inner) => inner.next_back(),
+            IntoIterRepr::Im(inner) => inner.next_back(),
+        }
+    }
+}
