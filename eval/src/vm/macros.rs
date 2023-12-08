@@ -42,7 +42,8 @@ macro_rules! cmp_op {
         async fn compare(a: Value, b: Value, co: GenCo) -> Result<Value, ErrorKind> {
             let a = generators::request_force(&co, a).await;
             let b = generators::request_force(&co, b).await;
-            let ordering = a.nix_cmp_ordering(b, co).await?;
+            let span = generators::request_span(&co).await;
+            let ordering = a.nix_cmp_ordering(b, co, span).await?;
             Ok(Value::Bool(cmp_op!(@order $op ordering)))
         }
 

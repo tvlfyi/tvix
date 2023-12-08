@@ -337,7 +337,7 @@ impl<'o> VM<'o> {
                             let values = *values;
                             self.reenqueue_generator(name, span.clone(), generator);
                             self.enqueue_generator("nix_eq", span.clone(), |co| {
-                                values.0.nix_eq(values.1, co, ptr_eq, span)
+                                values.0.nix_eq_owned_genco(values.1, co, ptr_eq, span)
                             });
                             return Ok(false);
                         }

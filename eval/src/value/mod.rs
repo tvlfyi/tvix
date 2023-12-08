@@ -375,6 +375,16 @@ impl Value {
         }
     }
 
+    pub(crate) async fn nix_eq_owned_genco(
+        self,
+        other: Value,
+        co: GenCo,
+        ptr_eq: PointerEquality,
+        span: LightSpan,
+    ) -> Result<Value, ErrorKind> {
+        self.nix_eq(other, &co, ptr_eq, span).await
+    }
+
     /// Compare two Nix values for equality, forcing nested parts of the structure
     /// as needed.
     ///
@@ -388,7 +398,7 @@ impl Value {
     pub(crate) async fn nix_eq(
         self,
         other: Value,
-        co: GenCo,
+        co: &GenCo,
         ptr_eq: PointerEquality,
         span: LightSpan,
     ) -> Result<Value, ErrorKind> {
@@ -416,13 +426,13 @@ impl Value {
                         }
                     };
 
-                    Thunk::force_(thunk, &co, span.clone()).await?
+                    Thunk::force_(thunk, co, span.clone()).await?
                 }
 
                 _ => a,
             };
 
-            let b = b.force(&co, span.clone()).await?;
+            let b = b.force(co, span.clone()).await?;
 
             debug_assert!(!matches!(a, Value::Thunk(_)));
             debug_assert!(!matches!(b, Value::Thunk(_)));
@@ -471,8 +481,8 @@ impl Value {
                     #[allow(clippy::single_match)] // might need more match arms later
                     match (a1.select("type"), a2.select("type")) {
                         (Some(v1), Some(v2)) => {
-                            let s1 = v1.clone().force(&co, span.clone()).await?.to_str();
-                            let s2 = v2.clone().force(&co, span.clone()).await?.to_str();
+                            let s1 = v1.clone().force(co, span.clone()).await?.to_str();
+                            let s2 = v2.clone().force(co, span.clone()).await?.to_str();
 
                             if let (Ok(s1), Ok(s2)) = (s1, s2) {
                                 if s1.as_str() == "derivation" && s2.as_str() == "derivation" {
@@ -490,10 +500,10 @@ impl Value {
 
                                     let result = out1
                                         .clone()
-                                        .force(&co, span.clone())
+                                        .force(co, span.clone())
                                         .await?
                                         .to_str()?
-                                        == out2.clone().force(&co, span.clone()).await?.to_str()?;
+                                        == out2.clone().force(co, span.clone()).await?.to_str()?;
                                     if !result {
                                         return Ok(Value::Bool(false));
                                     } else {
@@ -597,55 +607,71 @@ impl Value {
     gen_is!(is_bool, Value::Bool(_));
     gen_is!(is_attrs, Value::Attrs(_));
 
-    // TODO(amjoseph): de-asyncify this (when called directly by the VM)
     /// Compare `self` against other using (fallible) Nix ordering semantics.
     ///
     /// The function is intended to be used from within other generator
     /// functions or `gen!` blocks.
-    pub async fn nix_cmp_ordering(self, other: Self, co: GenCo) -> Result<Ordering, ErrorKind> {
-        Self::nix_cmp_ordering_(self, other, co).await
+    pub async fn nix_cmp_ordering(
+        self,
+        other: Self,
+        co: GenCo,
+        span: LightSpan,
+    ) -> Result<Ordering, ErrorKind> {
+        Self::nix_cmp_ordering_(self, other, co, span).await
     }
 
     async fn nix_cmp_ordering_(
-        mut myself: Self,
-        mut other: Self,
+        myself: Self,
+        other: Self,
         co: GenCo,
+        span: LightSpan,
     ) -> Result<Ordering, ErrorKind> {
-        'outer: loop {
-            match (myself, other) {
+        // this is a stack of ((v1,v2),peq) triples to be compared;
+        // after each triple is popped off of the stack, v1 is
+        // compared to v2 using peq-mode PointerEquality
+        let mut vals = vec![((myself, other), PointerEquality::ForbidAll)];
+
+        loop {
+            let ((mut a, mut b), ptr_eq) = if let Some(abp) = vals.pop() {
+                abp
+            } else {
+                // stack is empty, so they are equal
+                return Ok(Ordering::Equal);
+            };
+            if ptr_eq == PointerEquality::AllowAll {
+                if a.clone()
+                    .nix_eq(b.clone(), &co, PointerEquality::AllowAll, span.clone())
+                    .await?
+                    .as_bool()?
+                {
+                    continue;
+                }
+                a = a.force(&co, span.clone()).await?;
+                b = b.force(&co, span.clone()).await?;
+            }
+            let result = match (a, b) {
                 // same types
-                // Nix does not support NaN or "negative infinity",
-                // so its floats are in fact totally ordered.
-                (Value::Integer(i1), Value::Integer(i2)) => return Ok(i1.cmp(&i2)),
-                (Value::Float(f1), Value::Float(f2)) => return Ok(f1.total_cmp(&f2)),
-                (Value::String(s1), Value::String(s2)) => return Ok(s1.cmp(&s2)),
+                (Value::Integer(i1), Value::Integer(i2)) => i1.cmp(&i2),
+                (Value::Float(f1), Value::Float(f2)) => f1.total_cmp(&f2),
+                (Value::String(s1), Value::String(s2)) => s1.cmp(&s2),
                 (Value::List(l1), Value::List(l2)) => {
-                    for i in 0.. {
-                        if i == l2.len() {
-                            return Ok(Ordering::Greater);
-                        } else if i == l1.len() {
-                            return Ok(Ordering::Less);
-                        } else if !generators::check_equality(
-                            &co,
-                            l1[i].clone(),
-                            l2[i].clone(),
-                            PointerEquality::AllowAll,
-                        )
-                        .await?
-                        {
-                            // TODO: do we need to control `top_level` here?
-                            myself = generators::request_force(&co, l1[i].clone()).await;
-                            other = generators::request_force(&co, l2[i].clone()).await;
-                            continue 'outer;
+                    let max = l1.len().max(l2.len());
+                    for j in 0..max {
+                        let i = max - 1 - j;
+                        if i >= l2.len() {
+                            vals.push(((1.into(), 0.into()), PointerEquality::ForbidAll));
+                        } else if i >= l1.len() {
+                            vals.push(((0.into(), 1.into()), PointerEquality::ForbidAll));
+                        } else {
+                            vals.push(((l1[i].clone(), l2[i].clone()), PointerEquality::AllowAll));
                         }
                     }
-
-                    unreachable!()
+                    continue;
                 }
 
                 // different types
-                (Value::Integer(i1), Value::Float(f2)) => return Ok((i1 as f64).total_cmp(&f2)),
-                (Value::Float(f1), Value::Integer(i2)) => return Ok(f1.total_cmp(&(i2 as f64))),
+                (Value::Integer(i1), Value::Float(f2)) => (i1 as f64).total_cmp(&f2),
+                (Value::Float(f1), Value::Integer(i2)) => f1.total_cmp(&(i2 as f64)),
 
                 // unsupported types
                 (lhs, rhs) => {
@@ -654,6 +680,9 @@ impl Value {
                         rhs: rhs.type_of(),
                     })
                 }
+            };
+            if result != Ordering::Equal {
+                return Ok(result);
             }
         }
     }

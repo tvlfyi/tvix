@@ -610,8 +610,9 @@ mod pure_builtins {
 
     #[builtin("lessThan")]
     async fn builtin_less_than(co: GenCo, x: Value, y: Value) -> Result<Value, ErrorKind> {
+        let span = generators::request_span(&co).await;
         Ok(Value::Bool(matches!(
-            x.nix_cmp_ordering(y, co).await?,
+            x.nix_cmp_ordering(y, co, span).await?,
             Ordering::Less
         )))
     }
