@@ -102,12 +102,7 @@ mod tests {
 
     #[test]
     fn parse_string_field_invalid_encoding_fail() {
-        let mut input: Vec<u8> = Vec::new();
-        input.push(b'"');
-        input.push(0xc5);
-        input.push(0xc4);
-        input.push(0xd6);
-        input.push(b'"');
+        let input: Vec<_> = vec![b'"', 0xc5, 0xc4, 0xd6, b'"'];
 
         super::parse_string_field(&input).expect_err("must fail");
     }
