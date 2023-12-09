@@ -871,7 +871,7 @@ async fn check_attributes() {
     assert_eq!(fixtures::BLOB_A.len() as u64, metadata_file.len());
     // directories should have their "size" as filesize
     assert_eq!(
-        fixtures::DIRECTORY_WITH_KEEP.size() as u64,
+        { fixtures::DIRECTORY_WITH_KEEP.size() },
         metadata_directory.size()
     );
 
