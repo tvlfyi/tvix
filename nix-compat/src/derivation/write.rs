@@ -105,19 +105,19 @@ pub fn write_input_derivations(
 ) -> Result<(), io::Error> {
     write_char(writer, BRACKET_OPEN)?;
 
-    for (ii, (input_derivation_path, input_derivation)) in input_derivations.iter().enumerate() {
+    for (ii, (input_derivation, output_names)) in input_derivations.iter().enumerate() {
         if ii > 0 {
             write_char(writer, COMMA)?;
         }
 
         write_char(writer, PAREN_OPEN)?;
-        write_field(writer, input_derivation_path.as_str(), false)?;
+        write_field(writer, input_derivation.as_str(), false)?;
         write_char(writer, COMMA)?;
 
         write_char(writer, BRACKET_OPEN)?;
         write_array_elements(
             writer,
-            &input_derivation
+            &output_names
                 .iter()
                 .map(String::as_bytes)
                 .collect::<Vec<_>>(),
