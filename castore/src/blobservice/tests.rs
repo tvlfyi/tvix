@@ -217,20 +217,17 @@ fn put_seek(blob_service: impl BlobService) {
         }
 
         // seeking past the end…
-        match r
+        // should either be ok, but then return 0 bytes.
+        // this matches the behaviour or a Cursor<Vec<u8>>.
+        if let Ok(_pos) = r
             .seek(io::SeekFrom::Start(fixtures::BLOB_B.len() as u64 + 1))
             .await
         {
-            // should either be ok, but then return 0 bytes.
-            // this matches the behaviour or a Cursor<Vec<u8>>.
-            Ok(_pos) => {
-                let mut buf: Vec<u8> = Vec::new();
-                r.read_to_end(&mut buf).await.expect("must not fail");
-                assert!(buf.is_empty(), "expected no more data to be read");
-            }
-            // or not be okay.
-            Err(_) => {}
+            let mut buf: Vec<u8> = Vec::new();
+            r.read_to_end(&mut buf).await.expect("must not fail");
+            assert!(buf.is_empty(), "expected no more data to be read");
         }
+        // or not be okay.
 
         // TODO: this is only broken for the gRPC version
         // We expect seeking backwards or relative to the end to fail.
