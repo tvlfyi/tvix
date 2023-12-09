@@ -24,8 +24,8 @@ const (
 )
 
 // A Directory can contain Directory, File or Symlink nodes.
-// Each of these nodes have a name attribute, which is the basename in that directory
-// and node type specific attributes.
+// Each of these nodes have a name attribute, which is the basename in that
+// directory and node type specific attributes.
 // The name attribute:
 //   - MUST not contain slashes or null bytes
 //   - MUST not be '.' or '..'
@@ -108,14 +108,14 @@ type DirectoryNode struct {
 	Digest []byte `protobuf:"bytes,2,opt,name=digest,proto3" json:"digest,omitempty"`
 	// Number of child elements in the Directory referred to by `digest`.
 	// Calculated by summing up the numbers of `directories`, `files` and
-	// `symlinks`, and for each directory, its size field. Used for inode
-	// number calculation.
+	// `symlinks`, and for each directory, its size field. Used for inode number
+	// calculation.
 	// This field is precisely as verifiable as any other Merkle tree edge.
-	// Resolve `digest`, and you can compute it incrementally. Resolve the
-	// entire tree, and you can fully compute it from scratch.
+	// Resolve `digest`, and you can compute it incrementally. Resolve the entire
+	// tree, and you can fully compute it from scratch.
 	// A credulous implementation won't reject an excessive size, but this is
-	// harmless: you'll have some ordinals without nodes. Undersizing is
-	// obvious and easy to reject: you won't have an ordinal for some nodes.
+	// harmless: you'll have some ordinals without nodes. Undersizing is obvious
+	// and easy to reject: you won't have an ordinal for some nodes.
 	Size uint64 `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"`
 }
 

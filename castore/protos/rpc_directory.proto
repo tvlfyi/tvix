@@ -30,10 +30,10 @@ service DirectoryService {
 
 message GetDirectoryRequest {
   oneof by_what {
-      // The blake3 hash of the (root) Directory message, serialized in
-      // protobuf canonical form.
-      // Keep in mind this can be a subtree of another root.
-      bytes digest = 1;
+    // The blake3 hash of the (root) Directory message, serialized in
+    // protobuf canonical form.
+    // Keep in mind this can be a subtree of another root.
+    bytes digest = 1;
   }
 
   // If set to true, recursively resolve all child Directory messages.

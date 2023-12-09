@@ -8,8 +8,8 @@ package tvix.castore.v1;
 option go_package = "code.tvl.fyi/tvix/castore-go;castorev1";
 
 // A Directory can contain Directory, File or Symlink nodes.
-// Each of these nodes have a name attribute, which is the basename in that directory
-// and node type specific attributes.
+// Each of these nodes have a name attribute, which is the basename in that
+// directory and node type specific attributes.
 // The name attribute:
 //  - MUST not contain slashes or null bytes
 //  - MUST not be '.' or '..'
@@ -17,56 +17,55 @@ option go_package = "code.tvl.fyi/tvix/castore-go;castorev1";
 // Elements in each list need to be lexicographically ordered by the name
 // attribute.
 message Directory {
-    repeated DirectoryNode directories = 1;
-    repeated FileNode files = 2;
-    repeated SymlinkNode symlinks = 3;
+  repeated DirectoryNode directories = 1;
+  repeated FileNode files = 2;
+  repeated SymlinkNode symlinks = 3;
 }
 
 // A DirectoryNode represents a directory in a Directory.
 message DirectoryNode {
-    // The (base)name of the directory
-    bytes name = 1;
-    // The blake3 hash of a Directory message, serialized in protobuf canonical form.
-    bytes digest = 2;
-    // Number of child elements in the Directory referred to by `digest`.
-    // Calculated by summing up the numbers of `directories`, `files` and
-    // `symlinks`, and for each directory, its size field. Used for inode
-    // number calculation.
-    // This field is precisely as verifiable as any other Merkle tree edge.
-    // Resolve `digest`, and you can compute it incrementally. Resolve the
-    // entire tree, and you can fully compute it from scratch.
-    // A credulous implementation won't reject an excessive size, but this is
-    // harmless: you'll have some ordinals without nodes. Undersizing is
-    // obvious and easy to reject: you won't have an ordinal for some nodes.
-    uint64 size = 3;
+  // The (base)name of the directory
+  bytes name = 1;
+  // The blake3 hash of a Directory message, serialized in protobuf canonical form.
+  bytes digest = 2;
+  // Number of child elements in the Directory referred to by `digest`.
+  // Calculated by summing up the numbers of `directories`, `files` and
+  // `symlinks`, and for each directory, its size field. Used for inode number
+  // calculation.
+  // This field is precisely as verifiable as any other Merkle tree edge.
+  // Resolve `digest`, and you can compute it incrementally. Resolve the entire
+  // tree, and you can fully compute it from scratch.
+  // A credulous implementation won't reject an excessive size, but this is
+  // harmless: you'll have some ordinals without nodes. Undersizing is obvious
+  // and easy to reject: you won't have an ordinal for some nodes.
+  uint64 size = 3;
 }
 
 // A FileNode represents a regular or executable file in a Directory.
 message FileNode {
-    // The (base)name of the file
-    bytes name = 1;
-    // The blake3 digest of the file contents
-    bytes digest = 2;
-    // The file content size
-    uint64 size = 3;
-    // Whether the file is executable
-    bool executable = 4;
+  // The (base)name of the file
+  bytes name = 1;
+  // The blake3 digest of the file contents
+  bytes digest = 2;
+  // The file content size
+  uint64 size = 3;
+  // Whether the file is executable
+  bool executable = 4;
 }
 
 // A SymlinkNode represents a symbolic link in a Directory.
 message SymlinkNode {
-    // The (base)name of the symlink
-    bytes name = 1;
-    // The target of the symlink.
-    bytes target = 2;
+  // The (base)name of the symlink
+  bytes name = 1;
+  // The target of the symlink.
+  bytes target = 2;
 }
 
 // A Node is either a DirectoryNode, FileNode or SymlinkNode.
 message Node {
-    oneof node {
-        DirectoryNode directory = 1;
-        FileNode file = 2;
-        SymlinkNode symlink = 3;
-    }
+  oneof node {
+    DirectoryNode directory = 1;
+    FileNode file = 2;
+    SymlinkNode symlink = 3;
+  }
 }
-
