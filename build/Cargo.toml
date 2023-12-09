@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+bytes = "1.4.0"
 prost = "0.12.1"
 tonic = "0.10.2"
 tvix-castore = { path = "../castore" }

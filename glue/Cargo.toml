@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 nix-compat = { path = "../nix-compat" }
+tvix-build = { path = "../build", default-features = false, features = []}
 tvix-eval = { path = "../eval" }
 tvix-castore = { path = "../castore" }
 tvix-store = { path = "../store", default-features = false, features = []}
@@ -17,4 +18,5 @@ thiserror = "1.0.38"
 git = "https://github.com/tvlfyi/wu-manber.git"
 
 [dev-dependencies]
+lazy_static = "1.4.0"
 test-case = "2.2.2"
