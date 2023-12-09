@@ -32,7 +32,7 @@ toml = "0.6.0"
 xml-rs = "0.8.4"
 
 [dev-dependencies]
-criterion = "0.4"
+criterion = "0.5"
 pretty_assertions = "1.2.1"
 itertools = "0.10.3"
 tempfile = "3.3.0"

@@ -1164,59 +1164,7 @@ rec {
           "std" = [ "alloc" ];
         };
       };
-      "clap 3.2.25" = rec {
-        crateName = "clap";
-        version = "3.2.25";
-        edition = "2021";
-        crateBin = [ ];
-        sha256 = "08vi402vfqmfj9f07c4gl6082qxgf4c9x98pbndcnwbgaszq38af";
-        dependencies = [
-          {
-            name = "bitflags";
-            packageId = "bitflags 1.3.2";
-          }
-          {
-            name = "clap_lex";
-            packageId = "clap_lex 0.2.4";
-          }
-          {
-            name = "indexmap";
-            packageId = "indexmap";
-          }
-          {
-            name = "textwrap";
-            packageId = "textwrap";
-            usesDefaultFeatures = false;
-          }
-        ];
-        features = {
-          "atty" = [ "dep:atty" ];
-          "backtrace" = [ "dep:backtrace" ];
-          "cargo" = [ "once_cell" ];
-          "clap_derive" = [ "dep:clap_derive" ];
-          "color" = [ "atty" "termcolor" ];
-          "debug" = [ "clap_derive/debug" "backtrace" ];
-          "default" = [ "std" "color" "suggestions" ];
-          "deprecated" = [ "clap_derive/deprecated" ];
-          "derive" = [ "clap_derive" "once_cell" ];
-          "once_cell" = [ "dep:once_cell" ];
-          "regex" = [ "dep:regex" ];
-          "std" = [ "indexmap/std" ];
-          "strsim" = [ "dep:strsim" ];
-          "suggestions" = [ "strsim" ];
-          "termcolor" = [ "dep:termcolor" ];
-          "terminal_size" = [ "dep:terminal_size" ];
-          "unicase" = [ "dep:unicase" ];
-          "unicode" = [ "textwrap/unicode-width" "unicase" ];
-          "unstable-doc" = [ "derive" "cargo" "wrap_help" "yaml" "env" "unicode" "regex" "unstable-replace" "unstable-grouped" ];
-          "unstable-v4" = [ "clap_derive/unstable-v4" "deprecated" ];
-          "wrap_help" = [ "terminal_size" "textwrap/terminal_size" ];
-          "yaml" = [ "yaml-rust" ];
-          "yaml-rust" = [ "dep:yaml-rust" ];
-        };
-        resolvedDefaultFeatures = [ "std" ];
-      };
-      "clap 4.2.7" = rec {
+      "clap" = rec {
         crateName = "clap";
         version = "4.2.7";
         edition = "2021";
@@ -1282,7 +1230,7 @@ rec {
           }
           {
             name = "clap_lex";
-            packageId = "clap_lex 0.4.1";
+            packageId = "clap_lex";
           }
           {
             name = "strsim";
@@ -1336,22 +1284,7 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" ];
       };
-      "clap_lex 0.2.4" = rec {
-        crateName = "clap_lex";
-        version = "0.2.4";
-        edition = "2021";
-        sha256 = "1ib1a9v55ybnaws11l63az0jgz5xiy24jkdgsmyl7grcm3sz4l18";
-        dependencies = [
-          {
-            name = "os_str_bytes";
-            packageId = "os_str_bytes";
-            usesDefaultFeatures = false;
-            features = [ "raw_os_str" ];
-          }
-        ];
-
-      };
-      "clap_lex 0.4.1" = rec {
+      "clap_lex" = rec {
         crateName = "clap_lex";
         version = "0.4.1";
         edition = "2021";
@@ -1570,9 +1503,9 @@ rec {
       };
       "criterion" = rec {
         crateName = "criterion";
-        version = "0.4.0";
+        version = "0.5.1";
         edition = "2018";
-        sha256 = "1jsl4r0yc3fpkyjbi8aa1jrm69apqq9rxwnjnd9brqmaq44nxiz7";
+        sha256 = "0bv9ipygam3z8kk6k771gh9zi0j0lb9ir0xi1pc075ljg80jvcgj";
         authors = [
           "Jorge Aparicio <japaricious@gmail.com>"
           "Brook Heisler <brookheisler@gmail.com>"
@@ -1581,10 +1514,6 @@ rec {
           {
             name = "anes";
             packageId = "anes";
-          }
-          {
-            name = "atty";
-            packageId = "atty";
           }
           {
             name = "cast";
@@ -1596,7 +1525,7 @@ rec {
           }
           {
             name = "clap";
-            packageId = "clap 3.2.25";
+            packageId = "clap";
             usesDefaultFeatures = false;
             features = [ "std" ];
           }
@@ -1605,18 +1534,22 @@ rec {
             packageId = "criterion-plot";
           }
           {
-            name = "itertools";
-            packageId = "itertools";
+            name = "is-terminal";
+            packageId = "is-terminal";
           }
           {
-            name = "lazy_static";
-            packageId = "lazy_static";
+            name = "itertools";
+            packageId = "itertools";
           }
           {
             name = "num-traits";
             packageId = "num-traits";
             usesDefaultFeatures = false;
             features = [ "std" ];
+          }
+          {
+            name = "once_cell";
+            packageId = "once_cell";
           }
           {
             name = "oorandom";
@@ -4910,22 +4843,6 @@ rec {
         ];
 
       };
-      "os_str_bytes" = rec {
-        crateName = "os_str_bytes";
-        version = "6.5.0";
-        edition = "2021";
-        sha256 = "0rz2711gl575ng6vm9a97q42wqnf4wk1165wn221jb8gn17z9vff";
-        authors = [
-          "dylni"
-        ];
-        features = {
-          "default" = [ "memchr" "raw_os_str" ];
-          "memchr" = [ "dep:memchr" ];
-          "print_bytes" = [ "dep:print_bytes" ];
-          "uniquote" = [ "dep:uniquote" ];
-        };
-        resolvedDefaultFeatures = [ "raw_os_str" ];
-      };
       "overload" = rec {
         crateName = "overload";
         version = "0.1.1";
@@ -8147,23 +8064,6 @@ rec {
           "serde" = [ "dep:serde" ];
         };
       };
-      "textwrap" = rec {
-        crateName = "textwrap";
-        version = "0.16.0";
-        edition = "2021";
-        sha256 = "0gbwkjf15l6p3x2rkr75fa4cpcs1ly4c8pmlfx5bl6zybcm24ai2";
-        authors = [
-          "Martin Geisler <martin@geisler.net>"
-        ];
-        features = {
-          "default" = [ "unicode-linebreak" "unicode-width" "smawk" ];
-          "hyphenation" = [ "dep:hyphenation" ];
-          "smawk" = [ "dep:smawk" ];
-          "terminal_size" = [ "dep:terminal_size" ];
-          "unicode-linebreak" = [ "dep:unicode-linebreak" ];
-          "unicode-width" = [ "dep:unicode-width" ];
-        };
-      };
       "thiserror" = rec {
         crateName = "thiserror";
         version = "1.0.40";
@@ -9603,7 +9503,7 @@ rec {
           }
           {
             name = "clap";
-            packageId = "clap 4.2.7";
+            packageId = "clap";
             features = [ "derive" "env" ];
           }
           {
@@ -9954,7 +9854,7 @@ rec {
           }
           {
             name = "clap";
-            packageId = "clap 4.2.7";
+            packageId = "clap";
             features = [ "derive" "env" ];
           }
           {
