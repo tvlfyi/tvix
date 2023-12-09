@@ -35,4 +35,13 @@ pkgs.mkShell {
     pkgs.libiconv
     pkgs.buildPackages.darwin.apple_sdk.frameworks.Security
   ];
+
+  # Set TVIX_BENCH_NIX_PATH to a somewhat pinned nixpkgs path.
+  # This is for invoking `cargo bench` imperatively on the developer machine.
+  # For tvix benchmarking across longer periods of time (by CI), we probably
+  # should also benchmark with a more static nixpkgs checkout, so nixpkgs
+  # refactorings are not observed as eval perf changes.
+  shellHook = ''
+    export TVIX_BENCH_NIX_PATH=nixpkgs=${pkgs.path}
+  '';
 }

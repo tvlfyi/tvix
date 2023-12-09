@@ -9841,6 +9841,11 @@ rec {
         ];
         devDependencies = [
           {
+            name = "criterion";
+            packageId = "criterion";
+            features = [ "html_reports" ];
+          }
+          {
             name = "lazy_static";
             packageId = "lazy_static";
           }
