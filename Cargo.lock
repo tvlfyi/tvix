@@ -1532,14 +1532,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nix-cli"
-version = "0.1.0"
-dependencies = [
- "clap 4.2.7",
- "tempfile",
-]
-
-[[package]]
 name = "nix-compat"
 version = "0.1.0"
 dependencies = [

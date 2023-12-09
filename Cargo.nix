@@ -33,16 +33,6 @@ rec {
   # You can override the features with
   # workspaceMembers."${crateName}".build.override { features = [ "default" "feature1" ... ]; }.
   workspaceMembers = {
-    "nix-cli" = rec {
-      packageId = "nix-cli";
-      build = internal.buildRustCrateWithFeatures {
-        packageId = "nix-cli";
-      };
-
-      # Debug support which might change between releases.
-      # File a bug if you depend on any for non-debug work!
-      debug = internal.debugCrate { inherit packageId; };
-    };
     "nix-compat" = rec {
       packageId = "nix-compat";
       build = internal.buildRustCrateWithFeatures {
@@ -4606,41 +4596,6 @@ rec {
           "zerocopy" = [ "fs" "uio" ];
         };
         resolvedDefaultFeatures = [ "feature" "fs" "user" ];
-      };
-      "nix-cli" = rec {
-        crateName = "nix-cli";
-        version = "0.1.0";
-        edition = "2021";
-        crateBin = [
-          {
-            name = "nix-cli";
-            path = "src/main.rs";
-            requiredFeatures = [ ];
-          }
-          {
-            name = "nix-store";
-            path = "src/bin/nix-store.rs";
-            requiredFeatures = [ ];
-          }
-        ];
-        # We can't filter paths with references in Nix 2.4
-        # See https://github.com/NixOS/nix/issues/5410
-        src =
-          if ((lib.versionOlder builtins.nixVersion "2.4pre20211007") || (lib.versionOlder "2.5" builtins.nixVersion))
-          then lib.cleanSourceWith { filter = sourceFilter; src = ./nix_cli; }
-          else ./nix_cli;
-        dependencies = [
-          {
-            name = "clap";
-            packageId = "clap 4.2.7";
-          }
-          {
-            name = "tempfile";
-            packageId = "tempfile";
-          }
-        ];
-        features = { };
-        resolvedDefaultFeatures = [ "integration_tests" ];
       };
       "nix-compat" = rec {
         crateName = "nix-compat";
