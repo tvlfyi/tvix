@@ -1,12 +1,9 @@
 //! Utilities for dealing with span tracking in the compiler and in
 //! error reporting.
 
-use crate::opcode::CodeIdx;
-use crate::value::Lambda;
 use codemap::{File, Span};
 use rnix::ast;
 use rowan::ast::AstNode;
-use std::rc::Rc;
 
 /// Helper struct to carry information required for making a span, but
 /// without actually performing the (expensive) span lookup.
@@ -19,17 +16,9 @@ pub enum LightSpan {
     /// The span has already been computed and can just be used right
     /// away.
     Actual { span: Span },
-
-    /// The span needs to be computed from the provided data, but only
-    /// when it is required.
-    Delayed { lambda: Rc<Lambda>, offset: CodeIdx },
 }
 
 impl LightSpan {
-    pub fn new_delayed(lambda: Rc<Lambda>, offset: CodeIdx) -> Self {
-        Self::Delayed { lambda, offset }
-    }
-
     pub fn new_actual(span: Span) -> Self {
         Self::Actual { span }
     }
@@ -37,7 +26,6 @@ impl LightSpan {
     pub fn span(&self) -> Span {
         match self {
             LightSpan::Actual { span } => *span,
-            LightSpan::Delayed { lambda, offset } => lambda.chunk.get_span(*offset),
         }
     }
 }

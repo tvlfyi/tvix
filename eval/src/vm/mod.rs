@@ -161,7 +161,7 @@ impl CallFrame {
     /// but without performing that calculation.
     // TODO: why pub?
     pub(crate) fn current_light_span(&self) -> LightSpan {
-        LightSpan::new_delayed(self.lambda.clone(), self.ip - 1)
+        LightSpan::new_actual(self.current_span())
     }
 }
 
