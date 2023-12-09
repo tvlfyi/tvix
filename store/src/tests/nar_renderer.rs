@@ -129,12 +129,9 @@ async fn single_file() {
 
     // insert blob into the store
     let mut writer = blob_service.open_write().await;
-    tokio::io::copy(
-        &mut io::Cursor::new(HELLOWORLD_BLOB_CONTENTS.clone()),
-        &mut writer,
-    )
-    .await
-    .unwrap();
+    tokio::io::copy(&mut io::Cursor::new(HELLOWORLD_BLOB_CONTENTS), &mut writer)
+        .await
+        .unwrap();
 
     assert_eq!(
         HELLOWORLD_BLOB_DIGEST.clone(),
@@ -168,12 +165,9 @@ async fn test_complicated() {
     // put all data into the stores.
     // insert blob into the store
     let mut writer = blob_service.open_write().await;
-    tokio::io::copy(
-        &mut io::Cursor::new(EMPTY_BLOB_CONTENTS.clone()),
-        &mut writer,
-    )
-    .await
-    .unwrap();
+    tokio::io::copy(&mut io::Cursor::new(EMPTY_BLOB_CONTENTS), &mut writer)
+        .await
+        .unwrap();
     assert_eq!(EMPTY_BLOB_DIGEST.clone(), writer.close().await.unwrap());
 
     directory_service
