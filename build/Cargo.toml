@@ -1,0 +1,21 @@
+[package]
+name = "tvix-build"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+prost = "0.12.1"
+tonic = "0.10.2"
+tvix-castore = { path = "../castore" }
+
+[dependencies.tonic-reflection]
+optional = true
+version = "0.10.2"
+
+[build-dependencies]
+prost-build = "0.12.1"
+tonic-build = "0.10.2"
+
+[features]
+default = []
+tonic-reflection = ["dep:tonic-reflection"]

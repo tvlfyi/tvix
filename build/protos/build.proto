@@ -1,0 +1,121 @@
+// SPDX-License-Identifier: MIT
+// Copyright © 2022 The Tvix Authors
+
+syntax = "proto3";
+
+package tvix.build.v1;
+
+import "tvix/castore/protos/castore.proto";
+
+option go_package = "code.tvl.fyi/tvix/build-go;buildv1";
+
+// A BuildRequest describes the request of something to be run on the builder.
+// It is distinct from an actual [Build] that has already happened, or might be
+// currently ongoing.
+//
+// A BuildRequest can be seen as a more normalized version of a Derivation
+// (parsed from A-Term), "writing out" some of the Nix-internal details about
+// how e.g. environment variables in the build are set.
+//
+// Nix has some impurities when building a Derivation, for example the --cores option
+// ends up as an environment variable in the build, that's not part of the ATerm.
+//
+// As of now, we serialize this into the BuildRequest, so builders can stay dumb.
+// This might change in the future.
+//
+// There's also a big difference when it comes to how inputs are modelled:
+//  - Nix only uses store path (strings) to describe the inputs.
+//    As store paths can be input-addressed, a certain store path can contain
+//    different contents (as not all store paths are binary reproducible).
+//    This requires that for every input-addressed input, the builder has access
+//    to either the input's deriver (and needs to build it) or else a trusted
+//    source for the built input.
+//    to upload input-addressed paths, requiring the trusted users concept.
+//  - tvix-build records a list of tvix.castore.v1.Node as inputs.
+//    These map from the store path base name to their contents, relieving the
+//    builder from having to "trust" any input-addressed paths, contrary to Nix.
+//
+// While this approach gives a better hermeticity, it has one downside:
+// A BuildRequest can only be sent once the contents of all its inputs are known.
+//
+// As of now, we're okay to accept this, but it prevents uploading an
+// entirely-non-IFD subgraph of BuildRequests eagerly.
+//
+// FUTUREWORK: We might be introducing another way to refer to inputs, to
+// support "send all BuildRequest for a nixpkgs eval to a remote builder and put
+// the laptop to sleep" usecases later.
+message BuildRequest {
+  // The command (and its args) executed as the build script.
+  // In the case of a Nix derivation, this is usually
+  // ["/path/to/some-bash/bin/bash", "-e", "/path/to/some/builder.sh"].
+  repeated string command_args = 1;
+
+  // The list of outputs the build is expected to produce.
+  // These are basenames inside /nix/store.
+  // If the path is not produced, the build is considered to have failed.
+  // Outputs are sorted.
+  repeated string outputs = 2;
+
+  // The list of environment variables and their values that should be set
+  // inside the build environment.
+  // This includes both environment vars set inside the derivation, as well as
+  // more "ephemeral" ones like NIX_BUILD_CORES, controlled by the `--cores`
+  // CLI option of `nix-build`.
+  // For now, we consume this as an option when turning a Derivation into a BuildRequest,
+  // similar to how Nix has a `--cores` option.
+  // We don't want to bleed these very nix-specific sandbox impl details into
+  // (dumber) builders if we don't have to.
+  // Environment variables are sorted by their keys.
+  repeated EnvVar environment_vars = 3;
+
+  message EnvVar {
+    string key = 1;
+    bytes value = 2;
+  }
+
+  // The list of all root nodes that should be visible in /nix/store at the
+  // time of the build.
+  // As root nodes are content-addressed, no additional signatures are needed
+  // to substitute / make these available in the build environment.
+  // Inputs are sorted by their names.
+  repeated tvix.castore.v1.Node inputs = 4;
+
+  // A set of constraints that need to be satisfied on a build host before a
+  // Build can be started.
+  BuildConstraints constraints = 5;
+
+  // BuildConstraints represents certain conditions that must be fulfilled
+  // inside the build environment to be able to build this.
+  // Constraints can be things like required architecture and minimum amount of memory.
+  // The required input paths are *not* represented in here, because it
+  // wouldn't be hermetic enough - see the comment around inputs too.
+  message BuildConstraints {
+    // The system that's needed to execute the build.
+    string system = 1;
+
+    // The amount of memory required to be available for the build, in bytes.
+    uint64 min_memory = 2;
+
+    // A list of (absolute) paths that need to be available in the build
+    // environment.
+    // TBD, This is probably things like /dev/kvm, but no nix store paths.
+    repeated string available_ro_paths = 3;
+  }
+
+  // TODO: allow describing something like "preferLocal", to influence composition?
+}
+
+// A Build is (one possible) outcome of executing a [BuildRequest].
+message Build {
+  // The orginal build request producing the build.
+  BuildRequest build_request = 1; // <- TODO: define hashing scheme for BuildRequest, refer to it by hash?
+
+  // The outputs that were produced after successfully building.
+  // They are sorted by their names.
+  repeated tvix.castore.v1.Node outputs = 2;
+
+  // TODO: where did this run, how long, logs, …
+}
+
+/// TODO: check remarkable notes on constraints again
+/// TODO: https://github.com/adisbladis/go-nix/commit/603df5db86ab97ba29f6f94d74f4e51642c56834

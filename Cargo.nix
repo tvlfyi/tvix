@@ -43,6 +43,16 @@ rec {
       # File a bug if you depend on any for non-debug work!
       debug = internal.debugCrate { inherit packageId; };
     };
+    "tvix-build" = rec {
+      packageId = "tvix-build";
+      build = internal.buildRustCrateWithFeatures {
+        packageId = "tvix-build";
+      };
+
+      # Debug support which might change between releases.
+      # File a bug if you depend on any for non-debug work!
+      debug = internal.debugCrate { inherit packageId; };
+    };
     "tvix-castore" = rec {
       packageId = "tvix-castore";
       build = internal.buildRustCrateWithFeatures {
@@ -9347,6 +9357,50 @@ rec {
           "Sean McArthur <sean@seanmonstar.com>"
         ];
 
+      };
+      "tvix-build" = rec {
+        crateName = "tvix-build";
+        version = "0.1.0";
+        edition = "2021";
+        # We can't filter paths with references in Nix 2.4
+        # See https://github.com/NixOS/nix/issues/5410
+        src =
+          if ((lib.versionOlder builtins.nixVersion "2.4pre20211007") || (lib.versionOlder "2.5" builtins.nixVersion))
+          then lib.cleanSourceWith { filter = sourceFilter; src = ./build; }
+          else ./build;
+        dependencies = [
+          {
+            name = "prost";
+            packageId = "prost";
+          }
+          {
+            name = "tonic";
+            packageId = "tonic";
+          }
+          {
+            name = "tonic-reflection";
+            packageId = "tonic-reflection";
+            optional = true;
+          }
+          {
+            name = "tvix-castore";
+            packageId = "tvix-castore";
+          }
+        ];
+        buildDependencies = [
+          {
+            name = "prost-build";
+            packageId = "prost-build";
+          }
+          {
+            name = "tonic-build";
+            packageId = "tonic-build";
+          }
+        ];
+        features = {
+          "tonic-reflection" = [ "dep:tonic-reflection" ];
+        };
+        resolvedDefaultFeatures = [ "default" "tonic-reflection" ];
       };
       "tvix-castore" = rec {
         crateName = "tvix-castore";

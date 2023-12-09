@@ -19,6 +19,7 @@
 resolver = "2"
 
 members = [
+  "build",
   "castore",
   "cli",
   "eval",
