@@ -473,7 +473,7 @@ mod tests {
         ("out".to_string(), Output {
             path: "/nix/store/4q0pg5zpfmznxscq3avycvf9xdvx50n3-bar".to_string(),
             ca_hash: Some(from_algo_and_mode_and_digest("r:sha256",
-                   &data_encoding::HEXLOWER.decode(b"08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba").unwrap()            ).unwrap()),
+                   data_encoding::HEXLOWER.decode(b"08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba").unwrap()            ).unwrap()),
         }); "fod"
      )]
     fn parse_output(input: &[u8], expected: (String, Output)) {
@@ -504,7 +504,7 @@ mod tests {
 
     #[test]
     fn from_algo_and_mode_and_digest_failure() {
-        assert!(from_algo_and_mode_and_digest("r:sha256", &[]).is_err());
-        assert!(from_algo_and_mode_and_digest("ha256", &DIGEST_SHA256).is_err());
+        assert!(from_algo_and_mode_and_digest("r:sha256", []).is_err());
+        assert!(from_algo_and_mode_and_digest("ha256", DIGEST_SHA256).is_err());
     }
 }
