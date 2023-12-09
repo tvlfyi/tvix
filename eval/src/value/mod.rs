@@ -870,7 +870,7 @@ mod tests {
 
         #[test]
         fn format_float() {
-            let ff = vec![
+            let ff = [
                 (0f64, "0"),
                 (1.0f64, "1"),
                 (-0.01, "-0.01"),

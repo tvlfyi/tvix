@@ -15,7 +15,7 @@ mod builtins {
     }
 
     #[builtin("tryEval")]
-    pub async fn builtin_try_eval(co: GenCo, #[lazy] _x: Value) -> Result<Value, ErrorKind> {
+    pub async fn builtin_try_eval(_co: GenCo, #[lazy] _x: Value) -> Result<Value, ErrorKind> {
         unimplemented!("builtin is never called")
     }
 }
