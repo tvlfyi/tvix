@@ -111,7 +111,7 @@ mod test {
     use crate::narinfo::Signature;
 
     use super::PubKey;
-    const FINGERPRINT: &'static str = "1;/nix/store/syd87l2rxw8cbsxmxl853h0r6pdwhwjr-curl-7.82.0-bin;sha256:1b4sb93wp679q4zx9k1ignby1yna3z7c4c2ri3wphylbc2dwsys0;196040;/nix/store/0jqd0rlxzra1rs38rdxl43yh6rxchgc6-curl-7.82.0,/nix/store/6w8g7njm4mck5dmjxws0z1xnrxvl81xa-glibc-2.34-115,/nix/store/j5jxw3iy7bbz4a57fh9g2xm2gxmyal8h-zlib-1.2.12,/nix/store/yxvjs9drzsphm9pcf42a4byzj1kb9m7k-openssl-1.1.1n";
+    const FINGERPRINT: &str = "1;/nix/store/syd87l2rxw8cbsxmxl853h0r6pdwhwjr-curl-7.82.0-bin;sha256:1b4sb93wp679q4zx9k1ignby1yna3z7c4c2ri3wphylbc2dwsys0;196040;/nix/store/0jqd0rlxzra1rs38rdxl43yh6rxchgc6-curl-7.82.0,/nix/store/6w8g7njm4mck5dmjxws0z1xnrxvl81xa-glibc-2.34-115,/nix/store/j5jxw3iy7bbz4a57fh9g2xm2gxmyal8h-zlib-1.2.12,/nix/store/yxvjs9drzsphm9pcf42a4byzj1kb9m7k-openssl-1.1.1n";
 
     #[test_case("cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=", "cache.nixos.org-1", BASE64.decode(b"6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=").unwrap()[..].try_into().unwrap(); "cache.nixos.org")]
     #[test_case("cheesecake:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=", "cheesecake", BASE64.decode(b"6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=").unwrap()[..].try_into().unwrap(); "cache.nixos.org different name")]

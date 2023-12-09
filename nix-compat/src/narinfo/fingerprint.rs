@@ -26,7 +26,7 @@ pub fn fingerprint<'a, R: Iterator<Item = &'a StorePathRef<'a>>>(
 mod tests {
     use crate::narinfo::NarInfo;
 
-    const NARINFO_STR: &'static str = r#"StorePath: /nix/store/syd87l2rxw8cbsxmxl853h0r6pdwhwjr-curl-7.82.0-bin
+    const NARINFO_STR: &str = r#"StorePath: /nix/store/syd87l2rxw8cbsxmxl853h0r6pdwhwjr-curl-7.82.0-bin
 URL: nar/05ra3y72i3qjri7xskf9qj8kb29r6naqy1sqpbs3azi3xcigmj56.nar.xz
 Compression: xz
 FileHash: sha256:05ra3y72i3qjri7xskf9qj8kb29r6naqy1sqpbs3azi3xcigmj56
