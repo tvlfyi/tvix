@@ -90,7 +90,7 @@ configuration.
 
 When making changes to Cargo dependency configuration in any of the
 Rust projects under `//tvix`, be sure to run
-`mg run //tvix:crate2nixGenerate --` in `//tvix` itself and commit the changes
+`mg run //tvix:crate2nix-generate` in `//tvix` itself and commit the changes
 to the generated `Cargo.nix` file. This only applies to the full TVL checkout.
 
 ## License structure
