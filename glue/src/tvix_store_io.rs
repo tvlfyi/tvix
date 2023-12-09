@@ -273,7 +273,7 @@ impl EvalIO for TvixStoreIO {
             import_path_with_pathinfo(blob_service, directory_service, path_info_service, &p).await
         });
 
-        let path_info = self.tokio_handle.block_on(task).unwrap()?;
+        let path_info = self.tokio_handle.block_on(task)??;
 
         // from the [PathInfo], extract the store path (as string).
         Ok({
