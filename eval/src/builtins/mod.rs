@@ -612,7 +612,7 @@ mod pure_builtins {
     async fn builtin_less_than(co: GenCo, x: Value, y: Value) -> Result<Value, ErrorKind> {
         Ok(Value::Bool(matches!(
             x.nix_cmp_ordering(y, co).await?,
-            Some(Ordering::Less)
+            Ordering::Less
         )))
     }
 

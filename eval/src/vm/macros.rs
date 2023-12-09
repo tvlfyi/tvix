@@ -53,18 +53,18 @@ macro_rules! cmp_op {
     }};
 
     (@order < $ordering:expr) => {
-        $ordering == Some(Ordering::Less)
+        $ordering == Ordering::Less
     };
 
     (@order > $ordering:expr) => {
-        $ordering == Some(Ordering::Greater)
+        $ordering == Ordering::Greater
     };
 
     (@order <= $ordering:expr) => {
-        !matches!($ordering, None | Some(Ordering::Greater))
+        matches!($ordering, Ordering::Equal | Ordering::Less)
     };
 
     (@order >= $ordering:expr) => {
-        !matches!($ordering, None | Some(Ordering::Less))
+        matches!($ordering, Ordering::Equal | Ordering::Greater)
     };
 }
