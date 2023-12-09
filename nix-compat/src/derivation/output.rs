@@ -1,6 +1,6 @@
 use crate::derivation::OutputError;
 use crate::nixhash::CAHash;
-use crate::store_path::StorePath;
+use crate::store_path::StorePathRef;
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
 
@@ -51,7 +51,7 @@ impl Output {
         }
 
         if validate_output_paths {
-            if let Err(e) = StorePath::from_absolute_path(self.path.as_bytes()) {
+            if let Err(e) = StorePathRef::from_absolute_path(self.path.as_bytes()) {
                 return Err(OutputError::InvalidOutputPath(self.path.to_string(), e));
             }
         }

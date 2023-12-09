@@ -97,16 +97,6 @@ impl StorePath {
         Ok(StorePathRef::from_bytes(s)?.to_owned())
     }
 
-    /// Construct a [StorePath] from an absolute store path string.
-    /// This is equivalent to calling [StorePath::from_bytes], but stripping the
-    /// [STORE_DIR_WITH_SLASH] prefix before.
-    pub fn from_absolute_path(s: &[u8]) -> Result<StorePath, Error> {
-        match s.strip_prefix(STORE_DIR_WITH_SLASH.as_bytes()) {
-            Some(s_stripped) => Self::from_bytes(s_stripped),
-            None => Err(Error::MissingStoreDir),
-        }
-    }
-
     /// Decompose a string into a [StorePath] and a [PathBuf] containing the
     /// rest of the path, or an error.
     #[cfg(target_family = "unix")]
@@ -185,6 +175,16 @@ impl<'a> StorePathRef<'a> {
             name: validate_name(name.as_bytes())?,
             digest: digest.try_into().map_err(|_| Error::InvalidLength)?,
         })
+    }
+
+    /// Construct a [StorePathRef] from an absolute store path string.
+    /// This is equivalent to calling [StorePathRef::from_bytes], but stripping
+    /// the [STORE_DIR_WITH_SLASH] prefix before.
+    pub fn from_absolute_path(s: &'a [u8]) -> Result<Self, Error> {
+        match s.strip_prefix(STORE_DIR_WITH_SLASH.as_bytes()) {
+            Some(s_stripped) => Self::from_bytes(s_stripped),
+            None => Err(Error::MissingStoreDir),
+        }
     }
 
     /// Construct a [StorePathRef] by passing the `$digest-$name` string
@@ -284,7 +284,7 @@ impl fmt::Display for StorePathRef<'_> {
 mod tests {
     use std::path::PathBuf;
 
-    use crate::store_path::DIGEST_SIZE;
+    use crate::store_path::{StorePathRef, DIGEST_SIZE};
     use hex_literal::hex;
     use test_case::test_case;
 
@@ -360,10 +360,11 @@ mod tests {
         let nixpath_expected =
             StorePath::from_bytes(example_nix_path_str.as_bytes()).expect("must parse");
 
-        let nixpath_actual = StorePath::from_absolute_path(
+        let nixpath_actual = StorePathRef::from_absolute_path(
             "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432".as_bytes(),
         )
-        .expect("must parse");
+        .expect("must parse")
+        .to_owned();
 
         assert_eq!(nixpath_expected, nixpath_actual);
 
@@ -377,7 +378,7 @@ mod tests {
     fn absolute_path_missing_prefix() {
         assert_eq!(
             Error::MissingStoreDir,
-            StorePath::from_absolute_path(b"foobar-123").expect_err("must fail")
+            StorePathRef::from_absolute_path(b"foobar-123").expect_err("must fail")
         );
     }
 
