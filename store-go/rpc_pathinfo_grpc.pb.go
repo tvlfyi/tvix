@@ -45,22 +45,22 @@ type PathInfoServiceClient interface {
 	// Uploading clients SHOULD obviously not steer other machines to try to
 	// substitute before from the remote end before having finished uploading
 	// PathInfo, Directories and Blobs.
-	// The returned PathInfo object MAY contain additional narinfo signatures,
-	// but is otherwise left untouched.
+	// The returned PathInfo object MAY contain additional narinfo signatures, but
+	// is otherwise left untouched.
 	Put(ctx context.Context, in *PathInfo, opts ...grpc.CallOption) (*PathInfo, error)
 	// Calculate the NAR representation of the contents specified by the
 	// root_node. The calculation SHOULD be cached server-side for subsequent
 	// requests.
 	//
-	// All references (to blobs or Directory messages) MUST already exist in
-	// the store.
+	// All references (to blobs or Directory messages) MUST already exist in the
+	// store.
 	//
-	// The method can be used to produce a Nix fixed-output path, which
-	// contains the (compressed) sha256 of the NAR content representation in
-	// the root_node name (suffixed with the name).
+	// The method can be used to produce a Nix fixed-output path, which contains
+	// the (compressed) sha256 of the NAR content representation in the root_node
+	// name (suffixed with the name).
 	//
-	// It can also be used to calculate arbitrary NAR hashes of output paths,
-	// in case a legacy Nix Binary Cache frontend is provided.
+	// It can also be used to calculate arbitrary NAR hashes of output paths, in
+	// case a legacy Nix Binary Cache frontend is provided.
 	CalculateNAR(ctx context.Context, in *castore_go.Node, opts ...grpc.CallOption) (*CalculateNARResponse, error)
 	// Return a stream of PathInfo messages matching the criteria specified in
 	// ListPathInfoRequest.
@@ -150,22 +150,22 @@ type PathInfoServiceServer interface {
 	// Uploading clients SHOULD obviously not steer other machines to try to
 	// substitute before from the remote end before having finished uploading
 	// PathInfo, Directories and Blobs.
-	// The returned PathInfo object MAY contain additional narinfo signatures,
-	// but is otherwise left untouched.
+	// The returned PathInfo object MAY contain additional narinfo signatures, but
+	// is otherwise left untouched.
 	Put(context.Context, *PathInfo) (*PathInfo, error)
 	// Calculate the NAR representation of the contents specified by the
 	// root_node. The calculation SHOULD be cached server-side for subsequent
 	// requests.
 	//
-	// All references (to blobs or Directory messages) MUST already exist in
-	// the store.
+	// All references (to blobs or Directory messages) MUST already exist in the
+	// store.
 	//
-	// The method can be used to produce a Nix fixed-output path, which
-	// contains the (compressed) sha256 of the NAR content representation in
-	// the root_node name (suffixed with the name).
+	// The method can be used to produce a Nix fixed-output path, which contains
+	// the (compressed) sha256 of the NAR content representation in the root_node
+	// name (suffixed with the name).
 	//
-	// It can also be used to calculate arbitrary NAR hashes of output paths,
-	// in case a legacy Nix Binary Cache frontend is provided.
+	// It can also be used to calculate arbitrary NAR hashes of output paths, in
+	// case a legacy Nix Binary Cache frontend is provided.
 	CalculateNAR(context.Context, *castore_go.Node) (*CalculateNARResponse, error)
 	// Return a stream of PathInfo messages matching the criteria specified in
 	// ListPathInfoRequest.

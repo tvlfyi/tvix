@@ -249,11 +249,11 @@ type NARInfo struct {
 	NarSha256 []byte `protobuf:"bytes,2,opt,name=nar_sha256,json=narSha256,proto3" json:"nar_sha256,omitempty"`
 	// The signatures in a .narinfo file.
 	Signatures []*NARInfo_Signature `protobuf:"bytes,3,rep,name=signatures,proto3" json:"signatures,omitempty"`
-	// A list of references. To validate .narinfo signatures, a fingerprint
-	// needs to be constructed.
-	// This fingerprint doesn't just contain the hashes of the output paths of
-	// all references (like PathInfo.references), but their whole (base)names,
-	// so we need to keep them somewhere.
+	// A list of references. To validate .narinfo signatures, a fingerprint needs
+	// to be constructed.
+	// This fingerprint doesn't just contain the hashes of the output paths of all
+	// references (like PathInfo.references), but their whole (base)names, so we
+	// need to keep them somewhere.
 	ReferenceNames []string `protobuf:"bytes,4,rep,name=reference_names,json=referenceNames,proto3" json:"reference_names,omitempty"`
 	// The StorePath of the .drv file producing this output.
 	// The .drv suffix is omitted in its `name` field.
@@ -278,8 +278,8 @@ type NARInfo struct {
 	// There are some restrictions on the possible combinations.
 	// For example, `text` and `fixed:recursive` always imply sha256.
 	//
-	// We use an enum to encode the possible combinations, and optimize
-	// for the common case, `fixed:recursive`, identified as `NAR_SHA256`.
+	// We use an enum to encode the possible combinations, and optimize for the
+	// common case, `fixed:recursive`, identified as `NAR_SHA256`.
 	Ca *NARInfo_CA `protobuf:"bytes,6,opt,name=ca,proto3" json:"ca,omitempty"`
 }
 

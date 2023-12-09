@@ -4,74 +4,73 @@ syntax = "proto3";
 
 package tvix.store.v1;
 
-import "tvix/store/protos/pathinfo.proto";
 import "tvix/castore/protos/castore.proto";
+import "tvix/store/protos/pathinfo.proto";
 
 option go_package = "code.tvl.fyi/tvix/store-go;storev1";
 
 service PathInfoService {
-    // Return a PathInfo message matching the criteria specified in the
-    // GetPathInfoRequest message.
-    rpc Get(GetPathInfoRequest) returns (PathInfo);
+  // Return a PathInfo message matching the criteria specified in the
+  // GetPathInfoRequest message.
+  rpc Get(GetPathInfoRequest) returns (PathInfo);
 
-    // Upload a PathInfo object to the remote end. It MUST not return until the
-    // PathInfo object has been written on the the remote end.
-    //
-    // The remote end MAY check if a potential DirectoryNode has already been
-    // uploaded.
-    //
-    // Uploading clients SHOULD obviously not steer other machines to try to
-    // substitute before from the remote end before having finished uploading
-    // PathInfo, Directories and Blobs.
-    // The returned PathInfo object MAY contain additional narinfo signatures,
-    // but is otherwise left untouched.
-    rpc Put(PathInfo) returns (PathInfo);
+  // Upload a PathInfo object to the remote end. It MUST not return until the
+  // PathInfo object has been written on the the remote end.
+  //
+  // The remote end MAY check if a potential DirectoryNode has already been
+  // uploaded.
+  //
+  // Uploading clients SHOULD obviously not steer other machines to try to
+  // substitute before from the remote end before having finished uploading
+  // PathInfo, Directories and Blobs.
+  // The returned PathInfo object MAY contain additional narinfo signatures, but
+  // is otherwise left untouched.
+  rpc Put(PathInfo) returns (PathInfo);
 
+  // Calculate the NAR representation of the contents specified by the
+  // root_node. The calculation SHOULD be cached server-side for subsequent
+  // requests.
+  //
+  // All references (to blobs or Directory messages) MUST already exist in the
+  // store.
+  //
+  // The method can be used to produce a Nix fixed-output path, which contains
+  // the (compressed) sha256 of the NAR content representation in the root_node
+  // name (suffixed with the name).
+  //
+  // It can also be used to calculate arbitrary NAR hashes of output paths, in
+  // case a legacy Nix Binary Cache frontend is provided.
+  rpc CalculateNAR(tvix.castore.v1.Node) returns (CalculateNARResponse);
 
-    // Calculate the NAR representation of the contents specified by the
-    // root_node. The calculation SHOULD be cached server-side for subsequent
-    // requests.
-    //
-    // All references (to blobs or Directory messages) MUST already exist in
-    // the store.
-    //
-    // The method can be used to produce a Nix fixed-output path, which
-    // contains the (compressed) sha256 of the NAR content representation in
-    // the root_node name (suffixed with the name).
-    //
-    // It can also be used to calculate arbitrary NAR hashes of output paths,
-    // in case a legacy Nix Binary Cache frontend is provided.
-    rpc CalculateNAR(tvix.castore.v1.Node) returns (CalculateNARResponse);
-
-    // Return a stream of PathInfo messages matching the criteria specified in
-    // ListPathInfoRequest.
-    rpc List(ListPathInfoRequest) returns (stream PathInfo);
+  // Return a stream of PathInfo messages matching the criteria specified in
+  // ListPathInfoRequest.
+  rpc List(ListPathInfoRequest) returns (stream PathInfo);
 }
 
 // The parameters that can be used to lookup a (single) PathInfo object.
 // Currently, only a lookup by output hash is supported.
 message GetPathInfoRequest {
-    oneof by_what {
-      // The output hash of a nix path (20 bytes).
-      // This is the nixbase32-decoded portion of a Nix output path, so to substitute
-      // /nix/store/xm35nga2g20mz5sm5l6n8v3bdm86yj83-cowsay-3.04
-      // this field would contain nixbase32dec("xm35nga2g20mz5sm5l6n8v3bdm86yj83").
-      bytes by_output_hash = 1;
-    };
+  oneof by_what {
+    // The output hash of a nix path (20 bytes).
+    // This is the nixbase32-decoded portion of a Nix output path, so to substitute
+    // /nix/store/xm35nga2g20mz5sm5l6n8v3bdm86yj83-cowsay-3.04
+    // this field would contain nixbase32dec("xm35nga2g20mz5sm5l6n8v3bdm86yj83").
+    bytes by_output_hash = 1;
+  }
 }
 
 // The parameters that can be used to lookup (multiple) PathInfo objects.
 // Currently no filtering is possible, all objects are returned.
-message ListPathInfoRequest { }
+message ListPathInfoRequest {}
 
 // CalculateNARResponse is the response returned by the CalculateNAR request.
 //
 // It contains the size of the NAR representation (in bytes), and the sha56
 // digest.
 message CalculateNARResponse {
-    // This size of the NAR file, in bytes.
-    uint64 nar_size = 1;
+  // This size of the NAR file, in bytes.
+  uint64 nar_size = 1;
 
-    // The sha256 of the NAR file representation.
-    bytes nar_sha256 = 2;
+  // The sha256 of the NAR file representation.
+  bytes nar_sha256 = 2;
 }
