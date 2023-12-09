@@ -616,7 +616,7 @@ impl Value {
         other: Self,
         co: GenCo,
         span: LightSpan,
-    ) -> Result<Ordering, ErrorKind> {
+    ) -> Result<Result<Ordering, CatchableErrorKind>, ErrorKind> {
         Self::nix_cmp_ordering_(self, other, co, span).await
     }
 
@@ -625,7 +625,7 @@ impl Value {
         other: Self,
         co: GenCo,
         span: LightSpan,
-    ) -> Result<Ordering, ErrorKind> {
+    ) -> Result<Result<Ordering, CatchableErrorKind>, ErrorKind> {
         // this is a stack of ((v1,v2),peq) triples to be compared;
         // after each triple is popped off of the stack, v1 is
         // compared to v2 using peq-mode PointerEquality
@@ -636,7 +636,7 @@ impl Value {
                 abp
             } else {
                 // stack is empty, so they are equal
-                return Ok(Ordering::Equal);
+                return Ok(Ok(Ordering::Equal));
             };
             if ptr_eq == PointerEquality::AllowAll {
                 if a.clone()
@@ -650,6 +650,8 @@ impl Value {
                 b = b.force(&co, span.clone()).await?;
             }
             let result = match (a, b) {
+                (Value::Catchable(c), _) => return Ok(Err(c)),
+                (_, Value::Catchable(c)) => return Ok(Err(c)),
                 // same types
                 (Value::Integer(i1), Value::Integer(i2)) => i1.cmp(&i2),
                 (Value::Float(f1), Value::Float(f2)) => f1.total_cmp(&f2),
@@ -682,7 +684,7 @@ impl Value {
                 }
             };
             if result != Ordering::Equal {
-                return Ok(result);
+                return Ok(Ok(result));
             }
         }
     }

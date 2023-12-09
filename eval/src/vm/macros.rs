@@ -44,7 +44,10 @@ macro_rules! cmp_op {
             let b = generators::request_force(&co, b).await;
             let span = generators::request_span(&co).await;
             let ordering = a.nix_cmp_ordering(b, co, span).await?;
-            Ok(Value::Bool(cmp_op!(@order $op ordering)))
+            match ordering {
+                Err(cek) => Ok(Value::Catchable(cek)),
+                Ok(ordering) => Ok(Value::Bool(cmp_op!(@order $op ordering))),
+            }
         }
 
         let gen_span = $frame.current_light_span();

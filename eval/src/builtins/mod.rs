@@ -611,10 +611,11 @@ mod pure_builtins {
     #[builtin("lessThan")]
     async fn builtin_less_than(co: GenCo, x: Value, y: Value) -> Result<Value, ErrorKind> {
         let span = generators::request_span(&co).await;
-        Ok(Value::Bool(matches!(
-            x.nix_cmp_ordering(y, co, span).await?,
-            Ordering::Less
-        )))
+        match x.nix_cmp_ordering(y, co, span).await? {
+            Err(cek) => Ok(Value::Catchable(cek)),
+            Ok(Ordering::Less) => Ok(Value::Bool(true)),
+            Ok(_) => Ok(Value::Bool(false)),
+        }
     }
 
     #[builtin("listToAttrs")]
