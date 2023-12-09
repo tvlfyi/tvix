@@ -148,7 +148,7 @@ mod tests {
     #[test_case("00bgd045z0d4icpbc2yyz4gx48ak44la", &hex!("8a12321522fd91efbd60ebb2481af88580f61600"); "store path")]
     #[test_case("0c5b8vw40dy178xlpddw65q9gf1h2186jcc3p4swinwggbllv8mk", &hex!("b3a24de97a8fdbc835b9833169501030b8977031bcb54b3b3ac13740f846ab30"); "sha256")]
     fn encode(enc: &str, dec: &[u8]) {
-        assert_eq!(enc, super::encode(&dec));
+        assert_eq!(enc, super::encode(dec));
     }
 
     #[test_case("", Some(&[]) ; "empty bytes")]
