@@ -44,8 +44,7 @@ pub async fn from_addr(uri: &str) -> Result<Arc<dyn BlobService>, crate::Error> 
             ));
         }
         return Ok(Arc::new(
-            SledBlobService::new(url.path().into())
-                .map_err(|e| Error::StorageError(e.to_string()))?,
+            SledBlobService::new(url.path()).map_err(|e| Error::StorageError(e.to_string()))?,
         ));
     } else if url.scheme().starts_with("grpc+") {
         // schemes starting with grpc+ go to the GRPCPathInfoService.

@@ -3,7 +3,7 @@ use crate::nar::calculate_size_and_sha256;
 use crate::proto::PathInfo;
 use futures::{stream::iter, Stream};
 use prost::Message;
-use std::{path::PathBuf, pin::Pin, sync::Arc};
+use std::{path::Path, pin::Pin, sync::Arc};
 use tonic::async_trait;
 use tracing::warn;
 use tvix_castore::proto as castorepb;
@@ -21,8 +21,8 @@ pub struct SledPathInfoService {
 }
 
 impl SledPathInfoService {
-    pub fn new(
-        p: PathBuf,
+    pub fn new<P: AsRef<Path>>(
+        p: P,
         blob_service: Arc<dyn BlobService>,
         directory_service: Arc<dyn DirectoryService>,
     ) -> Result<Self, sled::Error> {

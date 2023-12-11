@@ -2,7 +2,7 @@ use super::{BlobReader, BlobService, BlobWriter};
 use crate::{B3Digest, Error};
 use std::{
     io::{self, Cursor, Write},
-    path::PathBuf,
+    path::Path,
     task::Poll,
 };
 use tonic::async_trait;
@@ -14,7 +14,7 @@ pub struct SledBlobService {
 }
 
 impl SledBlobService {
-    pub fn new(p: PathBuf) -> Result<Self, sled::Error> {
+    pub fn new<P: AsRef<Path>>(p: P) -> Result<Self, sled::Error> {
         let config = sled::Config::default()
             .use_compression(false) // is a required parameter
             .path(p);

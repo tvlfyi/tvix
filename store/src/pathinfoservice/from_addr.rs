@@ -63,7 +63,7 @@ pub async fn from_addr(
             ));
         }
         return Ok(Arc::new(
-            SledPathInfoService::new(url.path().into(), blob_service, directory_service)
+            SledPathInfoService::new(url.path(), blob_service, directory_service)
                 .map_err(|e| Error::StorageError(e.to_string()))?,
         ));
     } else if url.scheme() == "nix+http" || url.scheme() == "nix+https" {

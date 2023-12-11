@@ -3,7 +3,7 @@ use crate::proto::Directory;
 use crate::{proto, B3Digest, Error};
 use futures::Stream;
 use prost::Message;
-use std::path::PathBuf;
+use std::path::Path;
 use std::pin::Pin;
 use tonic::async_trait;
 use tracing::{instrument, warn};
@@ -17,7 +17,7 @@ pub struct SledDirectoryService {
 }
 
 impl SledDirectoryService {
-    pub fn new(p: PathBuf) -> Result<Self, sled::Error> {
+    pub fn new<P: AsRef<Path>>(p: P) -> Result<Self, sled::Error> {
         let config = sled::Config::default()
             .use_compression(false) // is a required parameter
             .path(p);

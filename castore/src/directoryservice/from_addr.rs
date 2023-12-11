@@ -51,7 +51,7 @@ pub async fn from_addr(uri: &str) -> Result<Arc<dyn DirectoryService>, crate::Er
             ));
         }
         return Ok(Arc::new(
-            SledDirectoryService::new(url.path().into())
+            SledDirectoryService::new(url.path())
                 .map_err(|e| Error::StorageError(e.to_string()))?,
         ));
     } else if url.scheme().starts_with("grpc+") {
