@@ -413,8 +413,11 @@ impl TotalDisplay for Thunk {
     }
 }
 
-/// A wrapper type for tracking which thunks have already been seen in a
-/// context. This is necessary for cycle detection.
+/// A wrapper type for tracking which thunks have already been seen
+/// in a context. This is necessary for printing and deeply forcing
+/// cyclic non-diverging data structures like `rec { f = [ f ]; }`.
+/// This is separate from the ThunkRepr::Blackhole mechanism, which
+/// detects diverging data structures like `(rec { f = f; }).f`.
 ///
 /// The inner `HashSet` is not available on the outside, as it would be
 /// potentially unsafe to interact with the pointers in the set.
