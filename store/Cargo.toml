@@ -18,7 +18,7 @@ parking_lot = "0.12.1"
 pin-project-lite = "0.2.13"
 prost = "0.12.1"
 sha2 = "0.10.6"
-sled = { version = "0.34.7", features = ["compression"] }
+sled = { version = "0.34.7" }
 thiserror = "1.0.38"
 tokio = { version = "1.32.0", features = ["fs", "macros", "net", "rt", "rt-multi-thread", "signal"] }
 tokio-listener = { version = "0.2.2", features = [ "tonic010" ] }

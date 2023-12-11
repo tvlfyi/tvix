@@ -15,7 +15,9 @@ pub struct SledBlobService {
 
 impl SledBlobService {
     pub fn new(p: PathBuf) -> Result<Self, sled::Error> {
-        let config = sled::Config::default().use_compression(true).path(p);
+        let config = sled::Config::default()
+            .use_compression(false) // is a required parameter
+            .path(p);
         let db = config.open()?;
 
         Ok(Self { db })

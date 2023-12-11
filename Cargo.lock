@@ -2448,7 +2448,6 @@ dependencies = [
  "libc",
  "log",
  "parking_lot 0.11.2",
- "zstd",
 ]
 
 [[package]]

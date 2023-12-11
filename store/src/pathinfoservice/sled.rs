@@ -26,7 +26,9 @@ impl SledPathInfoService {
         blob_service: Arc<dyn BlobService>,
         directory_service: Arc<dyn DirectoryService>,
     ) -> Result<Self, sled::Error> {
-        let config = sled::Config::default().use_compression(true).path(p);
+        let config = sled::Config::default()
+            .use_compression(false) // is a required parameter
+            .path(p);
         let db = config.open()?;
 
         Ok(Self {

@@ -12,7 +12,7 @@ futures = "0.3.28"
 lazy_static = "1.4.0"
 pin-project-lite = "0.2.13"
 prost = "0.12.1"
-sled = { version = "0.34.7", features = ["compression"] }
+sled = { version = "0.34.7" }
 thiserror = "1.0.38"
 tokio-stream = { version = "0.1.14", features = ["fs", "net"] }
 tokio-util = { version = "0.7.9", features = ["io", "io-util"] }

@@ -36,7 +36,7 @@ pub async fn from_addr(uri: &str) -> Result<Arc<dyn BlobService>, crate::Error> 
             ));
         }
 
-        // TODO: expose compression and other parameters as URL parameters?
+        // TODO: expose other parameters as URL parameters?
 
         if url.path().is_empty() {
             return Ok(Arc::new(
