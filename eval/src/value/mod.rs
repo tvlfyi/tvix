@@ -34,7 +34,7 @@ pub use path::canon_path;
 pub use string::NixString;
 pub use thunk::Thunk;
 
-pub use self::thunk::{SharedThunkSet, ThunkSet};
+pub use self::thunk::ThunkSet;
 
 use lazy_static::lazy_static;
 
@@ -206,74 +206,87 @@ pub enum PointerEquality {
 }
 
 impl Value {
-    // TODO(amjoseph): de-asyncify this (when called directly by the VM)
     /// Deeply forces a value, traversing e.g. lists and attribute sets and forcing
     /// their contents, too.
     ///
     /// This is a generator function.
-    pub(super) async fn deep_force(
-        self,
-        co: GenCo,
-        thunk_set: SharedThunkSet,
-    ) -> Result<Value, ErrorKind> {
-        // Get rid of any top-level thunks, and bail out of self-recursive
-        // thunks.
-        let value = if let Value::Thunk(ref t) = &self {
-            if !thunk_set.insert(t) {
-                return Ok(self);
-            }
-            generators::request_force(&co, self).await
+    pub(super) async fn deep_force(self, co: GenCo, span: LightSpan) -> Result<Value, ErrorKind> {
+        if let Some(v) = Self::deep_force_(self.clone(), co, span).await? {
+            Ok(v)
         } else {
-            self
-        };
+            Ok(self)
+        }
+    }
 
-        match &value {
-            // Short-circuit on already evaluated values, or fail on internal values.
-            Value::Null
-            | Value::Bool(_)
-            | Value::Integer(_)
-            | Value::Float(_)
-            | Value::String(_)
-            | Value::Path(_)
-            | Value::Closure(_)
-            | Value::Builtin(_) => return Ok(value),
+    /// Returns Some(v) or None to indicate the returned value is myself
+    async fn deep_force_(
+        myself: Value,
+        co: GenCo,
+        span: LightSpan,
+    ) -> Result<Option<Value>, ErrorKind> {
+        // This is a stack of values which still remain to be forced.
+        let mut vals = vec![myself];
 
-            Value::List(list) => {
-                for val in list {
-                    if let c @ Value::Catchable(_) =
-                        generators::request_deep_force(&co, val.clone(), thunk_set.clone()).await
-                    {
-                        return Ok(c);
-                    }
+        let mut thunk_set: ThunkSet = Default::default();
+
+        loop {
+            let v = if let Some(v) = vals.pop() {
+                v
+            } else {
+                return Ok(None);
+            };
+
+            // Get rid of any top-level thunks, and bail out of self-recursive
+            // thunks.
+            let value = if let Value::Thunk(t) = &v {
+                if !thunk_set.insert(t) {
+                    continue;
                 }
-            }
+                Thunk::force_(t.clone(), &co, span.clone()).await?
+            } else {
+                v
+            };
 
-            Value::Attrs(attrs) => {
-                for (_, val) in attrs.iter() {
-                    if let c @ Value::Catchable(_) =
-                        generators::request_deep_force(&co, val.clone(), thunk_set.clone()).await
-                    {
-                        return Ok(c);
+            match value {
+                // Short-circuit on already evaluated values, or fail on internal values.
+                Value::Null
+                | Value::Bool(_)
+                | Value::Integer(_)
+                | Value::Float(_)
+                | Value::String(_)
+                | Value::Path(_)
+                | Value::Closure(_)
+                | Value::Builtin(_) => continue,
+
+                Value::List(list) => {
+                    for val in list.into_iter().rev() {
+                        vals.push(val);
                     }
+                    continue;
                 }
+
+                Value::Attrs(attrs) => {
+                    for (_, val) in attrs.into_iter().rev() {
+                        vals.push(val);
+                    }
+                    continue;
+                }
+
+                Value::Thunk(_) => panic!("Tvix bug: force_value() returned a thunk"),
+
+                Value::Catchable(_) => return Ok(Some(value)),
+
+                Value::AttrNotFound
+                | Value::Blueprint(_)
+                | Value::DeferredUpvalue(_)
+                | Value::UnresolvedPath(_)
+                | Value::Json(_)
+                | Value::FinaliseRequest(_) => panic!(
+                    "Tvix bug: internal value left on stack: {}",
+                    value.type_of()
+                ),
             }
-
-            Value::Thunk(_) => panic!("Tvix bug: force_value() returned a thunk"),
-
-            Value::Catchable(_) => return Ok(value),
-
-            Value::AttrNotFound
-            | Value::Blueprint(_)
-            | Value::DeferredUpvalue(_)
-            | Value::UnresolvedPath(_)
-            | Value::Json(_)
-            | Value::FinaliseRequest(_) => panic!(
-                "Tvix bug: internal value left on stack: {}",
-                value.type_of()
-            ),
-        };
-
-        Ok(value)
+        }
     }
 
     // TODO(amjoseph): de-asyncify this (when called directly by the VM)

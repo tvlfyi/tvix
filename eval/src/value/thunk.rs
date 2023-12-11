@@ -432,14 +432,3 @@ impl ThunkSet {
         self.0.insert(ptr)
     }
 }
-
-#[derive(Default, Clone)]
-pub struct SharedThunkSet(Rc<RefCell<ThunkSet>>);
-
-impl SharedThunkSet {
-    /// Check whether the given thunk has already been seen. Will mark the thunk
-    /// as seen otherwise.
-    pub fn insert(&self, thunk: &Thunk) -> bool {
-        self.0.borrow_mut().insert(thunk)
-    }
-}

@@ -19,7 +19,7 @@ use crate::warnings::WarningKind;
 use crate::{
     self as tvix_eval,
     errors::{CatchableErrorKind, ErrorKind},
-    value::{CoercionKind, NixAttrs, NixList, NixString, SharedThunkSet, Thunk, Value},
+    value::{CoercionKind, NixAttrs, NixList, NixString, Thunk, Value},
 };
 
 use self::versions::{VersionPart, VersionPartsIter};
@@ -236,7 +236,7 @@ mod pure_builtins {
 
     #[builtin("deepSeq")]
     async fn builtin_deep_seq(co: GenCo, x: Value, y: Value) -> Result<Value, ErrorKind> {
-        generators::request_deep_force(&co, x, SharedThunkSet::default()).await;
+        generators::request_deep_force(&co, x).await;
         Ok(y)
     }
 
@@ -983,7 +983,7 @@ mod pure_builtins {
 
     #[builtin("toXML")]
     async fn builtin_to_xml(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
-        let value = generators::request_deep_force(&co, value, SharedThunkSet::default()).await;
+        let value = generators::request_deep_force(&co, value).await;
         let mut buf: Vec<u8> = vec![];
         to_xml::value_to_xml(&mut buf, &value)?;
         Ok(String::from_utf8(buf)?.into())

@@ -13,7 +13,7 @@ pub use genawaiter::rc::Gen;
 use std::fmt::Display;
 use std::future::Future;
 
-use crate::value::{PointerEquality, SharedThunkSet};
+use crate::value::PointerEquality;
 use crate::warnings::{EvalWarning, WarningKind};
 use crate::FileType;
 use crate::NixString;
@@ -43,7 +43,7 @@ pub enum VMRequest {
     ForceValue(Value),
 
     /// Request that the VM deep-forces the value.
-    DeepForceValue(Value, SharedThunkSet),
+    DeepForceValue(Value),
 
     /// Request the value at the given index from the VM's with-stack, in forced
     /// state.
@@ -128,7 +128,7 @@ impl Display for VMRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             VMRequest::ForceValue(v) => write!(f, "force_value({})", v.type_of()),
-            VMRequest::DeepForceValue(v, _) => {
+            VMRequest::DeepForceValue(v) => {
                 write!(f, "deep_force_value({})", v.type_of())
             }
             VMRequest::WithValue(_) => write!(f, "with_value"),
@@ -294,10 +294,10 @@ impl<'o> VM<'o> {
                         }
 
                         // Generator has requested a deep-force.
-                        VMRequest::DeepForceValue(value, thunk_set) => {
+                        VMRequest::DeepForceValue(value) => {
                             self.reenqueue_generator(name, span.clone(), generator);
-                            self.enqueue_generator("deep_force", span, |co| {
-                                value.deep_force(co, thunk_set)
+                            self.enqueue_generator("deep_force", span.clone(), |co| {
+                                value.deep_force(co, span)
                             });
                             return Ok(false);
                         }
@@ -606,8 +606,8 @@ pub async fn request_string_coerce(
 }
 
 /// Deep-force any value and return the evaluated result from the VM.
-pub async fn request_deep_force(co: &GenCo, val: Value, thunk_set: SharedThunkSet) -> Value {
-    match co.yield_(VMRequest::DeepForceValue(val, thunk_set)).await {
+pub async fn request_deep_force(co: &GenCo, val: Value) -> Value {
+    match co.yield_(VMRequest::DeepForceValue(val)).await {
         VMResponse::Value(value) => value,
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",

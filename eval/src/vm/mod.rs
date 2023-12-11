@@ -30,7 +30,7 @@ use crate::{
     upvalues::Upvalues,
     value::{
         Builtin, BuiltinResult, Closure, CoercionKind, Lambda, NixAttrs, NixList, PointerEquality,
-        SharedThunkSet, Thunk, Value,
+        Thunk, Value,
     },
     vm::generators::GenCo,
     warnings::{EvalWarning, WarningKind},
@@ -1202,7 +1202,7 @@ pub struct RuntimeResult {
 /// before returning.
 async fn final_deep_force(co: GenCo) -> Result<Value, ErrorKind> {
     let value = generators::request_stack_pop(&co).await;
-    Ok(generators::request_deep_force(&co, value, SharedThunkSet::default()).await)
+    Ok(generators::request_deep_force(&co, value).await)
 }
 
 pub fn run_lambda(
