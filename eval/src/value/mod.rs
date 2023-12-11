@@ -289,102 +289,122 @@ impl Value {
         }
     }
 
-    // TODO(amjoseph): de-asyncify this (when called directly by the VM)
+    pub async fn coerce_to_string(
+        self,
+        co: GenCo,
+        kind: CoercionKind,
+        span: LightSpan,
+    ) -> Result<Value, ErrorKind> {
+        self.coerce_to_string_(&co, kind, span).await
+    }
+
     /// Coerce a `Value` to a string. See `CoercionKind` for a rundown of what
     /// input types are accepted under what circumstances.
-    pub async fn coerce_to_string(self, co: GenCo, kind: CoercionKind) -> Result<Value, ErrorKind> {
-        let value = generators::request_force(&co, self).await;
+    pub async fn coerce_to_string_(
+        self,
+        co: &GenCo,
+        kind: CoercionKind,
+        span: LightSpan,
+    ) -> Result<Value, ErrorKind> {
+        let mut result = String::new();
+        let mut vals = vec![self];
+        loop {
+            let value = if let Some(v) = vals.pop() {
+                v.force(co, span.clone()).await?
+            } else {
+                return Ok(Value::String(result.into()));
+            };
+            let coerced = match (value, kind) {
+                // coercions that are always done
+                (Value::String(s), _) => Ok(s.as_str().to_owned()),
 
-        match (value, kind) {
-            // coercions that are always done
-            tuple @ (Value::String(_), _) => Ok(tuple.0),
-
-            // TODO(sterni): Think about proper encoding handling here. This needs
-            // general consideration anyways, since one current discrepancy between
-            // C++ Nix and Tvix is that the former's strings are arbitrary byte
-            // sequences without NUL bytes, whereas Tvix only allows valid
-            // Unicode. See also b/189.
-            (Value::Path(p), _) => {
-                // TODO(tazjin): there are cases where coerce_to_string does not import
-                let imported = generators::request_path_import(&co, *p).await;
-                Ok(imported.to_string_lossy().into_owned().into())
-            }
-
-            // Attribute sets can be converted to strings if they either have an
-            // `__toString` attribute which holds a function that receives the
-            // set itself or an `outPath` attribute which should be a string.
-            // `__toString` is preferred.
-            (Value::Attrs(attrs), kind) => {
-                if let Some(s) = attrs.try_to_string(&co, kind).await {
-                    return Ok(Value::String(s));
+                // TODO(sterni): Think about proper encoding handling here. This needs
+                // general consideration anyways, since one current discrepancy between
+                // C++ Nix and Tvix is that the former's strings are arbitrary byte
+                // sequences without NUL bytes, whereas Tvix only allows valid
+                // Unicode. See also b/189.
+                (Value::Path(p), _) => {
+                    // TODO(tazjin): there are cases where coerce_to_string does not import
+                    let imported = generators::request_path_import(co, *p).await;
+                    Ok(imported.to_string_lossy().into_owned())
                 }
 
-                if let Some(out_path) = attrs.select("outPath") {
-                    return match generators::request_string_coerce(&co, out_path.clone(), kind)
-                        .await
-                    {
-                        Ok(s) => Ok(Value::String(s)),
-                        Err(c) => Ok(Value::Catchable(c)),
-                    };
-                }
+                // Attribute sets can be converted to strings if they either have an
+                // `__toString` attribute which holds a function that receives the
+                // set itself or an `outPath` attribute which should be a string.
+                // `__toString` is preferred.
+                (Value::Attrs(attrs), kind) => {
+                    if let Some(to_string) = attrs.select("__toString") {
+                        let callable = to_string.clone().force(co, span.clone()).await?;
 
-                Err(ErrorKind::NotCoercibleToString { from: "set", kind })
-            }
+                        // Leave the attribute set on the stack as an argument
+                        // to the function call.
+                        generators::request_stack_push(co, Value::Attrs(attrs.clone())).await;
 
-            // strong coercions
-            (Value::Null, CoercionKind::Strong) | (Value::Bool(false), CoercionKind::Strong) => {
-                Ok("".into())
-            }
-            (Value::Bool(true), CoercionKind::Strong) => Ok("1".into()),
+                        // Call the callable ...
+                        let result = generators::request_call(co, callable).await;
 
-            (Value::Integer(i), CoercionKind::Strong) => Ok(format!("{i}").into()),
-            (Value::Float(f), CoercionKind::Strong) => {
-                // contrary to normal Display, coercing a float to a string will
-                // result in unconditional 6 decimal places
-                Ok(format!("{:.6}", f).into())
-            }
-
-            // Lists are coerced by coercing their elements and interspersing spaces
-            (Value::List(list), CoercionKind::Strong) => {
-                let mut out = String::new();
-
-                for (idx, elem) in list.into_iter().enumerate() {
-                    if idx > 0 {
-                        out.push(' ');
-                    }
-
-                    match generators::request_string_coerce(&co, elem, kind).await {
-                        Ok(s) => out.push_str(s.as_str()),
-                        Err(c) => return Ok(Value::Catchable(c)),
+                        // Recurse on the result, as attribute set coercion
+                        // actually works recursively, e.g. you can even return
+                        // /another/ set with a __toString attr.
+                        vals.push(result);
+                        continue;
+                    } else if let Some(out_path) = attrs.select("outPath") {
+                        vals.push(out_path.clone());
+                        continue;
+                    } else {
+                        return Err(ErrorKind::NotCoercibleToString { from: "set", kind });
                     }
                 }
 
-                Ok(Value::String(out.into()))
+                // strong coercions
+                (Value::Null, CoercionKind::Strong)
+                | (Value::Bool(false), CoercionKind::Strong) => Ok("".to_owned()),
+                (Value::Bool(true), CoercionKind::Strong) => Ok("1".to_owned()),
+
+                (Value::Integer(i), CoercionKind::Strong) => Ok(format!("{i}")),
+                (Value::Float(f), CoercionKind::Strong) => {
+                    // contrary to normal Display, coercing a float to a string will
+                    // result in unconditional 6 decimal places
+                    Ok(format!("{:.6}", f))
+                }
+
+                // Lists are coerced by coercing their elements and interspersing spaces
+                (Value::List(list), CoercionKind::Strong) => {
+                    for elem in list.into_iter().rev() {
+                        vals.push(elem);
+                    }
+                    continue;
+                }
+
+                (Value::Thunk(_), _) => panic!("Tvix bug: force returned unforced thunk"),
+
+                val @ (Value::Closure(_), _)
+                | val @ (Value::Builtin(_), _)
+                | val @ (Value::Null, _)
+                | val @ (Value::Bool(_), _)
+                | val @ (Value::Integer(_), _)
+                | val @ (Value::Float(_), _)
+                | val @ (Value::List(_), _) => Err(ErrorKind::NotCoercibleToString {
+                    from: val.0.type_of(),
+                    kind,
+                }),
+
+                (c @ Value::Catchable(_), _) => return Ok(c),
+
+                (Value::AttrNotFound, _)
+                | (Value::Blueprint(_), _)
+                | (Value::DeferredUpvalue(_), _)
+                | (Value::UnresolvedPath(_), _)
+                | (Value::Json(_), _)
+                | (Value::FinaliseRequest(_), _) => {
+                    panic!("tvix bug: .coerce_to_string() called on internal value")
+                }
+            };
+            if !result.is_empty() {
+                result.push(' ');
             }
-
-            (Value::Thunk(_), _) => panic!("Tvix bug: force returned unforced thunk"),
-
-            val @ (Value::Closure(_), _)
-            | val @ (Value::Builtin(_), _)
-            | val @ (Value::Null, _)
-            | val @ (Value::Bool(_), _)
-            | val @ (Value::Integer(_), _)
-            | val @ (Value::Float(_), _)
-            | val @ (Value::List(_), _) => Err(ErrorKind::NotCoercibleToString {
-                from: val.0.type_of(),
-                kind,
-            }),
-
-            (c @ Value::Catchable(_), _) => Ok(c),
-
-            (Value::AttrNotFound, _)
-            | (Value::Blueprint(_), _)
-            | (Value::DeferredUpvalue(_), _)
-            | (Value::UnresolvedPath(_), _)
-            | (Value::Json(_), _)
-            | (Value::FinaliseRequest(_), _) => {
-                panic!("tvix bug: .coerce_to_string() called on internal value")
-            }
+            result.push_str(&coerced?);
         }
     }
 

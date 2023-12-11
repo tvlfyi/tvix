@@ -744,8 +744,8 @@ impl<'o> VM<'o> {
                     let gen_span = frame.current_light_span();
                     self.push_call_frame(span, frame);
 
-                    self.enqueue_generator("coerce_to_string", gen_span, |co| {
-                        value.coerce_to_string(co, CoercionKind::Weak)
+                    self.enqueue_generator("coerce_to_string", gen_span.clone(), |co| {
+                        value.coerce_to_string(co, CoercionKind::Weak, gen_span)
                     });
 
                     return Ok(false);

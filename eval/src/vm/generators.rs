@@ -344,8 +344,8 @@ impl<'o> VM<'o> {
 
                         VMRequest::StringCoerce(val, kind) => {
                             self.reenqueue_generator(name, span.clone(), generator);
-                            self.enqueue_generator("coerce_to_string", span, |co| {
-                                val.coerce_to_string(co, kind)
+                            self.enqueue_generator("coerce_to_string", span.clone(), |co| {
+                                val.coerce_to_string(co, kind, span)
                             });
                             return Ok(false);
                         }

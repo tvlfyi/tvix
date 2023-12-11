@@ -44,8 +44,16 @@ impl Value {
                 // Attribute sets with a callable `__toString` attribute
                 // serialise to the string-coerced version of the result of
                 // calling that.
-                if let Some(s) = attrs.try_to_string(co, CoercionKind::Weak).await {
-                    return Ok(Ok(Json::String(s.as_str().to_string())));
+                if attrs.select("__toString").is_some() {
+                    let span = generators::request_span(co).await;
+                    match Value::Attrs(attrs)
+                        .coerce_to_string_(co, CoercionKind::Weak, span)
+                        .await?
+                    {
+                        Value::Catchable(cek) => return Ok(Err(cek)),
+                        Value::String(s) => return Ok(Ok(Json::String(s.as_str().to_owned()))),
+                        _ => panic!("Value::coerce_to_string_() returned a non-string!"),
+                    }
                 }
 
                 // Attribute sets with an `outPath` attribute

@@ -133,7 +133,11 @@ mod pure_builtins {
 
     #[builtin("baseNameOf")]
     async fn builtin_base_name_of(co: GenCo, s: Value) -> Result<Value, ErrorKind> {
-        let s = s.coerce_to_string(co, CoercionKind::Weak).await?.to_str()?;
+        let span = generators::request_span(&co).await;
+        let s = s
+            .coerce_to_string(co, CoercionKind::Weak, span)
+            .await?
+            .to_str()?;
         let result: String = s.rsplit_once('/').map(|(_, x)| x).unwrap_or(&s).into();
         Ok(result.into())
     }
@@ -248,7 +252,11 @@ mod pure_builtins {
     #[builtin("dirOf")]
     async fn builtin_dir_of(co: GenCo, s: Value) -> Result<Value, ErrorKind> {
         let is_path = s.is_path();
-        let str = s.coerce_to_string(co, CoercionKind::Weak).await?.to_str()?;
+        let span = generators::request_span(&co).await;
+        let str = s
+            .coerce_to_string(co, CoercionKind::Weak, span)
+            .await?
+            .to_str()?;
         let result = str
             .rsplit_once('/')
             .map(|(x, _)| match x {
@@ -915,7 +923,8 @@ mod pure_builtins {
     #[builtin("stringLength")]
     async fn builtin_string_length(co: GenCo, #[lazy] s: Value) -> Result<Value, ErrorKind> {
         // also forces the value
-        let s = s.coerce_to_string(co, CoercionKind::Weak).await?;
+        let span = generators::request_span(&co).await;
+        let s = s.coerce_to_string(co, CoercionKind::Weak, span).await?;
         Ok(Value::Integer(s.to_str()?.as_str().len() as i64))
     }
 
@@ -933,7 +942,11 @@ mod pure_builtins {
     ) -> Result<Value, ErrorKind> {
         let beg = start.as_int()?;
         let len = len.as_int()?;
-        let x = s.coerce_to_string(co, CoercionKind::Weak).await?.to_str()?;
+        let span = generators::request_span(&co).await;
+        let x = s
+            .coerce_to_string(co, CoercionKind::Weak, span)
+            .await?
+            .to_str()?;
 
         if beg < 0 {
             return Err(ErrorKind::IndexOutOfBounds { index: beg });
@@ -978,7 +991,8 @@ mod pure_builtins {
     #[builtin("toString")]
     async fn builtin_to_string(co: GenCo, #[lazy] x: Value) -> Result<Value, ErrorKind> {
         // coerce_to_string forces for us
-        x.coerce_to_string(co, CoercionKind::Strong).await
+        let span = generators::request_span(&co).await;
+        x.coerce_to_string(co, CoercionKind::Strong, span).await
     }
 
     #[builtin("toXML")]
@@ -1010,7 +1024,8 @@ mod pure_builtins {
             Err(cek) => Ok(Value::Catchable(cek)),
             Ok(path) => {
                 let path: Value = crate::value::canon_path(path).into();
-                Ok(path.coerce_to_string(co, CoercionKind::Weak).await?)
+                let span = generators::request_span(&co).await;
+                Ok(path.coerce_to_string(co, CoercionKind::Weak, span).await?)
             }
         }
     }
