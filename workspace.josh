@@ -2,8 +2,7 @@
     ::nixpkgs/
     ::sources/
 ]
-
 ::tvix:exclude[
-  ::tvix/default.nix,
-  ::tvix/**/default.nix:exclude[::tvix/eval/src/tests/tvix_tests/directory/default.nix]
+    ::tvix/default.nix
+    ::tvix/**/default.nix:exclude[::tvix/eval/src/tests/tvix_tests/directory/default.nix]
 ]:/tvix
