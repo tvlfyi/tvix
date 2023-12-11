@@ -94,6 +94,7 @@ impl KnownPaths {
                     // These variant combinations require no "merging action".
                     (PathKind::Plain, PathKind::Plain) => (),
 
+                    #[allow(unused_variables)]
                     (
                         PathKind::Output {
                             name: name1,
