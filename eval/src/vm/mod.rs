@@ -538,19 +538,27 @@ impl<'o> VM<'o> {
                 }
 
                 OpCode::OpAttrsSelect => {
-                    let key = self.stack_pop().to_str().with_span(&frame, self)?;
-                    let attrs = self.stack_pop().to_attrs().with_span(&frame, self)?;
+                    let key = self.stack_pop();
+                    let attrs = self.stack_pop();
+                    if key.is_catchable() {
+                        self.stack.push(key);
+                    } else if attrs.is_catchable() {
+                        self.stack.push(attrs);
+                    } else {
+                        let key = key.to_str().with_span(&frame, self)?;
+                        let attrs = attrs.to_attrs().with_span(&frame, self)?;
 
-                    match attrs.select(key.as_str()) {
-                        Some(value) => self.stack.push(value.clone()),
+                        match attrs.select(key.as_str()) {
+                            Some(value) => self.stack.push(value.clone()),
 
-                        None => {
-                            return frame.error(
-                                self,
-                                ErrorKind::AttributeNotFound {
-                                    name: key.as_str().to_string(),
-                                },
-                            );
+                            None => {
+                                return frame.error(
+                                    self,
+                                    ErrorKind::AttributeNotFound {
+                                        name: key.as_str().to_string(),
+                                    },
+                                );
+                            }
                         }
                     }
                 }
