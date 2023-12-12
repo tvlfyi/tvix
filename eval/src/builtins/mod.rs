@@ -518,6 +518,18 @@ mod pure_builtins {
         )))
     }
 
+    #[builtin("hashString")]
+    #[allow(non_snake_case)]
+    async fn builtin_hashString(
+        co: GenCo,
+        _algo: Value,
+        _string: Value,
+    ) -> Result<Value, ErrorKind> {
+        Ok(Value::Catchable(CatchableErrorKind::UnimplementedFeature(
+            "hashString".to_string(),
+        )))
+    }
+
     #[builtin("head")]
     async fn builtin_head(co: GenCo, list: Value) -> Result<Value, ErrorKind> {
         match list.to_list()?.get(0) {
