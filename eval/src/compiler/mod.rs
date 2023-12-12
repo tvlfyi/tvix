@@ -957,7 +957,7 @@ impl Compiler<'_> {
     ///    by the caller. We need to take this into account and skip any
     ///    operations specific to the expression like thunk finalisation in such
     ///    cases.
-    fn compile_param_pattern(&mut self, pattern: &ast::Pattern) -> Formals {
+    fn compile_param_pattern(&mut self, pattern: &ast::Pattern) -> (Formals, CodeIdx) {
         let span = self.span_for(pattern);
         let set_idx = match pattern.pat_bind() {
             Some(name) => self.declare_local(&name, name.ident().unwrap().to_string()),
@@ -967,6 +967,7 @@ impl Compiler<'_> {
         // At call time, the attribute set is already at the top of the stack.
         self.scope_mut().mark_initialised(set_idx);
         self.emit_force(pattern);
+        let throw_idx = self.push_op(OpCode::OpJumpIfCatchable(JumpOffset(0)), pattern);
         // Evaluation fails on a type error, even if the argument(s) are unused.
         self.push_op(OpCode::OpAssertAttrs, pattern);
 
@@ -1106,14 +1107,17 @@ impl Compiler<'_> {
             }
         }
 
-        Formals {
-            arguments,
-            ellipsis,
-            span,
-        }
+        (
+            (Formals {
+                arguments,
+                ellipsis,
+                span,
+            }),
+            throw_idx,
+        )
     }
 
-    fn compile_lambda(&mut self, slot: LocalIdx, node: &ast::Lambda) {
+    fn compile_lambda(&mut self, slot: LocalIdx, node: &ast::Lambda) -> Option<CodeIdx> {
         // Compile the function itself, recording its formal arguments (if any)
         // for later use
         let formals = match node.param().unwrap() {
@@ -1135,7 +1139,13 @@ impl Compiler<'_> {
         };
 
         self.compile(slot, node.body().unwrap());
-        self.context_mut().lambda.formals = formals;
+        if let Some((formals, throw_idx)) = formals {
+            self.context_mut().lambda.formals = Some(formals);
+            Some(throw_idx)
+        } else {
+            self.context_mut().lambda.formals = None;
+            None
+        }
     }
 
     fn thunk<N, F>(&mut self, outer_slot: LocalIdx, node: &N, content: F)
@@ -1143,7 +1153,10 @@ impl Compiler<'_> {
         N: ToSpan,
         F: FnOnce(&mut Compiler, LocalIdx),
     {
-        self.compile_lambda_or_thunk(true, outer_slot, node, content)
+        self.compile_lambda_or_thunk(true, outer_slot, node, |comp, idx| {
+            content(comp, idx);
+            None
+        })
     }
 
     /// Mark the current thunk as redundant, i.e. possible to merge directly
@@ -1161,7 +1174,7 @@ impl Compiler<'_> {
         content: F,
     ) where
         N: ToSpan,
-        F: FnOnce(&mut Compiler, LocalIdx),
+        F: FnOnce(&mut Compiler, LocalIdx) -> Option<CodeIdx>,
     {
         let name = self.scope()[outer_slot].name();
         self.new_context();
@@ -1174,8 +1187,11 @@ impl Compiler<'_> {
         let slot = self.scope_mut().declare_phantom(span, false);
         self.scope_mut().begin_scope();
 
-        content(self, slot);
+        let throw_idx = content(self, slot);
         self.cleanup_scope(node);
+        if let Some(throw_idx) = throw_idx {
+            self.patch_jump(throw_idx);
+        }
 
         // TODO: determine and insert enclosing name, if available.
 
