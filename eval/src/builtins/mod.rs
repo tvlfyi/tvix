@@ -466,6 +466,12 @@ mod pure_builtins {
 
     #[builtin("getAttr")]
     async fn builtin_get_attr(co: GenCo, key: Value, set: Value) -> Result<Value, ErrorKind> {
+        if key.is_catchable() {
+            return Ok(key);
+        }
+        if set.is_catchable() {
+            return Ok(set);
+        }
         let k = key.to_str()?;
         let xs = set.to_attrs()?;
 
