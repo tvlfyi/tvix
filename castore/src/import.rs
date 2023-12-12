@@ -155,7 +155,7 @@ pub async fn ingest_path<P: AsRef<Path> + Debug>(
 
     let mut directory_putter = directory_service.put_multiple_start();
 
-    for entry in WalkDir::new(p)
+    for entry in WalkDir::new(p.as_ref())
         .follow_links(false)
         .follow_root_links(false)
         // We need to process a directory's children before processing
@@ -164,7 +164,13 @@ pub async fn ingest_path<P: AsRef<Path> + Debug>(
         .contents_first(true)
         .sort_by_file_name()
     {
-        let entry = entry.unwrap();
+        // Entry could be a NotFound, if the root path specified does not exist.
+        let entry = entry.map_err(|e| {
+            Error::UnableToOpen(
+                PathBuf::from(p.as_ref()),
+                e.into_io_error().expect("walkdir err must be some"),
+            )
+        })?;
 
         // process_entry wants an Option<Directory> in case the entry points to a directory.
         // make sure to provide it.
