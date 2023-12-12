@@ -661,10 +661,17 @@ impl<'o> VM<'o> {
                 OpCode::OpAttrs(Count(count)) => self.run_attrset(&frame, count)?,
 
                 OpCode::OpAttrsUpdate => {
-                    let rhs = self.stack_pop().to_attrs().with_span(&frame, self)?;
-                    let lhs = self.stack_pop().to_attrs().with_span(&frame, self)?;
-
-                    self.stack.push(Value::attrs(lhs.update(*rhs)))
+                    let rhs = self.stack_pop();
+                    let lhs = self.stack_pop();
+                    if lhs.is_catchable() {
+                        self.stack.push(lhs);
+                    } else if rhs.is_catchable() {
+                        self.stack.push(rhs);
+                    } else {
+                        let rhs = rhs.to_attrs().with_span(&frame, self)?;
+                        let lhs = lhs.to_attrs().with_span(&frame, self)?;
+                        self.stack.push(Value::attrs(lhs.update(*rhs)))
+                    }
                 }
 
                 OpCode::OpInvert => {
