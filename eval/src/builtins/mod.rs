@@ -135,6 +135,7 @@ mod pure_builtins {
     async fn builtin_base_name_of(co: GenCo, s: Value) -> Result<Value, ErrorKind> {
         let span = generators::request_span(&co).await;
         let s = match s {
+            val @ Value::Catchable(_) => return Ok(val),
             // it is important that builtins.baseNameOf does not
             // coerce paths into strings, since this will turn them
             // into store paths, and `builtins.baseNameOf
