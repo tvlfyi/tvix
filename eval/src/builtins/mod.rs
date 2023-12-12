@@ -316,8 +316,11 @@ mod pure_builtins {
 
         for value in list {
             let result = generators::request_call_with(&co, pred.clone(), [value.clone()]).await;
-
-            if generators::request_force(&co, result).await.as_bool()? {
+            let verdict = generators::request_force(&co, result).await;
+            if verdict.is_catchable() {
+                return Ok(verdict);
+            }
+            if verdict.as_bool()? {
                 out.push_back(value);
             }
         }
