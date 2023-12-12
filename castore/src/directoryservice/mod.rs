@@ -73,8 +73,4 @@ pub trait DirectoryPutter: Send {
     /// If there's been any invalid Directory message uploaded, and error *must*
     /// be returned.
     async fn close(&mut self) -> Result<B3Digest, Error>;
-
-    /// Return whether the stream is closed or not.
-    /// Used from some [DirectoryService] implementations only.
-    fn is_closed(&self) -> bool;
 }

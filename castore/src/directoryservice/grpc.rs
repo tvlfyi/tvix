@@ -228,6 +228,16 @@ impl GRPCPutter {
             rq: Some((task, directory_sender)),
         }
     }
+
+    // allows checking if the tx part of the channel is closed.
+    // only used in the test case.
+    #[cfg(test)]
+    fn is_closed(&self) -> bool {
+        match self.rq {
+            None => true,
+            Some((_, ref directory_sender)) => directory_sender.is_closed(),
+        }
+    }
 }
 
 #[async_trait]
@@ -272,28 +282,23 @@ impl DirectoryPutter for GRPCPutter {
             }
         }
     }
-
-    // allows checking if the tx part of the channel is closed.
-    fn is_closed(&self) -> bool {
-        match self.rq {
-            None => true,
-            Some((_, ref directory_sender)) => directory_sender.is_closed(),
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use core::time;
     use futures::StreamExt;
-    use std::{sync::Arc, time::Duration};
+    use std::{any::Any, sync::Arc, time::Duration};
     use tempfile::TempDir;
     use tokio::net::UnixListener;
     use tokio_retry::{strategy::ExponentialBackoff, Retry};
     use tokio_stream::wrappers::UnixListenerStream;
 
     use crate::{
-        directoryservice::{DirectoryService, GRPCDirectoryService, MemoryDirectoryService},
+        directoryservice::{
+            grpc::GRPCPutter, DirectoryPutter, DirectoryService, GRPCDirectoryService,
+            MemoryDirectoryService,
+        },
         fixtures::{self, DIRECTORY_A, DIRECTORY_B},
         proto::{directory_service_client::DirectoryServiceClient, GRPCDirectoryServiceWrapper},
         utils::gen_directorysvc_grpc_client,
@@ -400,6 +405,23 @@ mod tests {
             let mut handle = directory_service.put_multiple_start();
             handle.put(DIRECTORY_B.clone()).await.expect("must succeed");
 
+            // get a GRPCPutter, so we can peek at [is_closed].
+            let handle_any = &mut handle as &mut dyn Any;
+
+            // `unchecked_downcast_mut` is unstable for now,
+            // https://github.com/rust-lang/rust/issues/90850
+            // We do the same thing here.
+            // The reason for why we cannot use the checked downcast lies
+            // in the fact that:
+            // - GRPCPutter has type ID A
+            // - Box<GRPCPutter> has type ID B
+            // - "Box<dyn GRPCPutter>" (invalid type) has type ID C
+            // B seems different from C in this context.
+            // We cannot unpack and perform upcast coercion of the traits as it's an unstable
+            // feature.
+            // We cannot add `as_any` in `DirectoryPutter` as that would defeat the whole purpose
+            // of not making leak `is_closed` in the original trait.
+            let handle = unsafe { &mut *(handle_any as *mut dyn Any as *mut Box<GRPCPutter>) };
             let mut is_closed = false;
             for _try in 1..1000 {
                 if handle.is_closed() {

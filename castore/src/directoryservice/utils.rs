@@ -103,7 +103,7 @@ impl<DS: DirectoryService> SimplePutter<DS> {
 }
 
 #[async_trait]
-impl<DS: DirectoryService> DirectoryPutter for SimplePutter<DS> {
+impl<DS: DirectoryService + 'static> DirectoryPutter for SimplePutter<DS> {
     async fn put(&mut self, directory: proto::Directory) -> Result<(), Error> {
         if self.closed {
             return Err(Error::StorageError("already closed".to_string()));
@@ -117,7 +117,6 @@ impl<DS: DirectoryService> DirectoryPutter for SimplePutter<DS> {
         Ok(())
     }
 
-    /// We need to be mutable here, as that's the signature of the trait.
     async fn close(&mut self) -> Result<B3Digest, Error> {
         if self.closed {
             return Err(Error::StorageError("already closed".to_string()));
@@ -132,9 +131,5 @@ impl<DS: DirectoryService> DirectoryPutter for SimplePutter<DS> {
                 "no directories sent, can't show root digest".to_string(),
             )),
         }
-    }
-
-    fn is_closed(&self) -> bool {
-        self.closed
     }
 }
