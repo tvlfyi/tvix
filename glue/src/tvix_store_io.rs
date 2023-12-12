@@ -59,7 +59,7 @@ impl TvixStoreIO {
         &self,
         store_path: &StorePath,
         sub_path: &Path,
-    ) -> Result<Option<Node>, io::Error> {
+    ) -> io::Result<Option<Node>> {
         let path_info_service = self.path_info_service.clone();
         let task = self.tokio_handle.spawn({
             let digest = *store_path.digest();
@@ -102,7 +102,7 @@ impl TvixStoreIO {
 
 impl EvalIO for TvixStoreIO {
     #[instrument(skip(self), ret, err)]
-    fn path_exists(&self, path: &Path) -> Result<bool, io::Error> {
+    fn path_exists(&self, path: &Path) -> io::Result<bool> {
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
         {
@@ -123,7 +123,7 @@ impl EvalIO for TvixStoreIO {
     }
 
     #[instrument(skip(self), ret, err)]
-    fn read_to_string(&self, path: &Path) -> Result<String, io::Error> {
+    fn read_to_string(&self, path: &Path) -> io::Result<String> {
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
         {
@@ -195,7 +195,7 @@ impl EvalIO for TvixStoreIO {
     }
 
     #[instrument(skip(self), ret, err)]
-    fn read_dir(&self, path: &Path) -> Result<Vec<(bytes::Bytes, FileType)>, io::Error> {
+    fn read_dir(&self, path: &Path) -> io::Result<Vec<(bytes::Bytes, FileType)>> {
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
         {
@@ -263,7 +263,7 @@ impl EvalIO for TvixStoreIO {
     }
 
     #[instrument(skip(self), ret, err)]
-    fn import_path(&self, path: &std::path::Path) -> Result<PathBuf, std::io::Error> {
+    fn import_path(&self, path: &std::path::Path) -> io::Result<PathBuf> {
         let p = path.to_owned();
         let blob_service = self.blob_service.clone();
         let directory_service = self.directory_service.clone();
@@ -307,7 +307,7 @@ async fn import_path_with_pathinfo(
     directory_service: Arc<dyn DirectoryService>,
     path_info_service: Arc<dyn PathInfoService>,
     path: &std::path::Path,
-) -> Result<PathInfo, io::Error> {
+) -> io::Result<PathInfo> {
     // Call [import::ingest_path], which will walk over the given path and return a root_node.
     let root_node = import::ingest_path(blob_service.clone(), directory_service.clone(), path)
         .await

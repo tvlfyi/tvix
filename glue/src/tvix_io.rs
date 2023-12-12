@@ -40,7 +40,7 @@ impl<T: EvalIO> EvalIO for TvixIO<T> {
         self.actual.store_dir()
     }
 
-    fn import_path(&self, path: &Path) -> Result<PathBuf, io::Error> {
+    fn import_path(&self, path: &Path) -> io::Result<PathBuf> {
         let imported_path = self.actual.import_path(path)?;
         self.known_paths
             .borrow_mut()
@@ -49,7 +49,7 @@ impl<T: EvalIO> EvalIO for TvixIO<T> {
         Ok(imported_path)
     }
 
-    fn path_exists(&self, path: &Path) -> Result<bool, io::Error> {
+    fn path_exists(&self, path: &Path) -> io::Result<bool> {
         if path.starts_with("/__corepkgs__") {
             return Ok(true);
         }
@@ -57,7 +57,7 @@ impl<T: EvalIO> EvalIO for TvixIO<T> {
         self.actual.path_exists(path)
     }
 
-    fn read_to_string(&self, path: &Path) -> Result<String, io::Error> {
+    fn read_to_string(&self, path: &Path) -> io::Result<String> {
         // Bundled version of corepkgs/fetchurl.nix. The counterpart
         // of this happens in [crate::configure_nix_path], where the `nix_path`
         // of the evaluation has `nix=/__corepkgs__` added to it.
@@ -74,7 +74,7 @@ impl<T: EvalIO> EvalIO for TvixIO<T> {
         self.actual.read_to_string(path)
     }
 
-    fn read_dir(&self, path: &Path) -> Result<Vec<(bytes::Bytes, FileType)>, io::Error> {
+    fn read_dir(&self, path: &Path) -> io::Result<Vec<(bytes::Bytes, FileType)>> {
         self.actual.read_dir(path)
     }
 }
