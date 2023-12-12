@@ -593,6 +593,7 @@ impl Compiler<'_> {
         // Leave left-hand side value on the stack and invert it.
         self.compile(slot, node.lhs().unwrap());
         self.emit_force(&node.lhs().unwrap());
+        let throw_idx = self.push_op(OpCode::OpJumpIfCatchable(JumpOffset(0)), node);
         self.push_op(OpCode::OpInvert, node);
 
         // Exactly as `||` (because `a -> b` = `!a || b`).
@@ -603,6 +604,7 @@ impl Compiler<'_> {
 
         self.patch_jump(end_idx);
         self.push_op(OpCode::OpAssertBool, node);
+        self.patch_jump(throw_idx);
     }
 
     /// Compile list literals into equivalent bytecode. List
