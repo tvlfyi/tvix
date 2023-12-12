@@ -291,6 +291,12 @@ mod pure_builtins {
 
     #[builtin("elemAt")]
     async fn builtin_elem_at(co: GenCo, xs: Value, i: Value) -> Result<Value, ErrorKind> {
+        if xs.is_catchable() {
+            return Ok(xs);
+        }
+        if i.is_catchable() {
+            return Ok(i);
+        }
         let xs = xs.to_list()?;
         let i = i.as_int()?;
         if i < 0 {
