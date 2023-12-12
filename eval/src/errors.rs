@@ -42,6 +42,7 @@ use crate::{SourceCode, Value};
 pub enum CatchableErrorKind {
     Throw(String),
     AssertionFailed,
+    UnimplementedFeature(String),
     /// Resolving a user-supplied angle brackets path literal failed in some way.
     NixPathResolution(String),
 }

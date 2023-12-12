@@ -147,6 +147,7 @@ const GLOBAL_BUILTINS: &[&str] = &[
     "scopedImport",
     "throw",
     "toString",
+    "__curPos",
 ];
 
 pub struct Compiler<'observer> {

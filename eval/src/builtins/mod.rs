@@ -377,6 +377,15 @@ mod pure_builtins {
         toml::from_str(&toml_str).map_err(|err| err.into())
     }
 
+    #[builtin("filterSource")]
+    #[allow(non_snake_case)]
+    async fn builtin_filterSource(_co: GenCo, #[lazy] _e: Value) -> Result<Value, ErrorKind> {
+        // TODO: implement for nixpkgs compatibility
+        Ok(Value::Catchable(CatchableErrorKind::UnimplementedFeature(
+            "filterSource".to_string(),
+        )))
+    }
+
     #[builtin("genericClosure")]
     async fn builtin_generic_closure(co: GenCo, input: Value) -> Result<Value, ErrorKind> {
         let attrs = input.to_attrs()?;
@@ -1082,6 +1091,14 @@ pub fn pure_builtins() -> Vec<(&'static str, Value)> {
     result.push((
         "currentSystem",
         crate::systems::llvm_triple_to_nix_double(CURRENT_PLATFORM).into(),
+    ));
+
+    // TODO: implement for nixpkgs compatibility
+    result.push((
+        "__curPos",
+        Value::Catchable(CatchableErrorKind::UnimplementedFeature(
+            "__curPos".to_string(),
+        )),
     ));
 
     result
