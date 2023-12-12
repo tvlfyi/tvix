@@ -1056,6 +1056,12 @@ impl<'o> VM<'o> {
                 self.enqueue_generator("__functor call", span, |co| call_functor(co, val));
                 Ok(())
             }
+
+            val @ Value::Catchable(_) => {
+                self.stack.push(val);
+                Ok(())
+            }
+
             v => Err(ErrorKind::NotCallable(v.type_of())).with_span(&span, self),
         }
     }
