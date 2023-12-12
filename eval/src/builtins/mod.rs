@@ -931,6 +931,9 @@ mod pure_builtins {
 
     #[builtin("splitVersion")]
     async fn builtin_split_version(co: GenCo, s: Value) -> Result<Value, ErrorKind> {
+        if s.is_catchable() {
+            return Ok(s);
+        }
         let s = s.to_str()?;
         let s = VersionPartsIter::new(s.as_str());
 
