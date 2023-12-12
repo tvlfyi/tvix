@@ -707,16 +707,24 @@ impl<'o> VM<'o> {
                 }
 
                 OpCode::OpHasAttr => {
-                    let key = self.stack_pop().to_str().with_span(&frame, self)?;
-                    let result = match self.stack_pop() {
-                        Value::Attrs(attrs) => attrs.contains(key.as_str()),
+                    let key = self.stack_pop();
+                    let attrs = self.stack_pop();
+                    if key.is_catchable() {
+                        self.stack.push(key);
+                    } else if attrs.is_catchable() {
+                        self.stack.push(attrs);
+                    } else {
+                        let key = key.to_str().with_span(&frame, self)?;
+                        let result = match attrs {
+                            Value::Attrs(attrs) => attrs.contains(key.as_str()),
 
-                        // Nix allows use of `?` on non-set types, but
-                        // always returns false in those cases.
-                        _ => false,
-                    };
+                            // Nix allows use of `?` on non-set types, but
+                            // always returns false in those cases.
+                            _ => false,
+                        };
 
-                    self.stack.push(Value::Bool(result));
+                        self.stack.push(Value::Bool(result));
+                    }
                 }
 
                 OpCode::OpConcat => {
