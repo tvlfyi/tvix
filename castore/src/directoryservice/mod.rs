@@ -22,10 +22,12 @@ pub use self::traverse::descend_to;
 #[async_trait]
 pub trait DirectoryService: Send + Sync {
     /// Looks up a single Directory message by its digest.
+    /// The returned Directory message *must* be valid.
     /// In case the directory is not found, Ok(None) is returned.
     async fn get(&self, digest: &B3Digest) -> Result<Option<proto::Directory>, Error>;
     /// Uploads a single Directory message, and returns the calculated
-    /// digest, or an error.
+    /// digest, or an error. An error *must* also be returned if the message is
+    /// not valid.
     async fn put(&self, directory: proto::Directory) -> Result<B3Digest, Error>;
 
     /// Looks up a closure of [proto::Directory].
@@ -37,6 +39,8 @@ pub trait DirectoryService: Send + Sync {
     /// and the box allows different underlying stream implementations to be returned since
     /// Rust doesn't support this as a generic in traits yet. This is the same thing that
     /// [async_trait] generates, but for streams instead of futures.
+    ///
+    /// The individual Directory messages *must* be valid.
     fn get_recursive(
         &self,
         root_directory_digest: &B3Digest,
@@ -66,6 +70,8 @@ pub trait DirectoryPutter: Send {
     async fn put(&mut self, directory: proto::Directory) -> Result<(), Error>;
 
     /// Close the stream, and wait for any errors.
+    /// If there's been any invalid Directory message uploaded, and error *must*
+    /// be returned.
     async fn close(&mut self) -> Result<B3Digest, Error>;
 
     /// Return whether the stream is closed or not.
