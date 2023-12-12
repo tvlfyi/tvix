@@ -546,6 +546,7 @@ impl Compiler<'_> {
         self.compile(slot, node.lhs().unwrap());
         self.emit_force(&node.lhs().unwrap());
 
+        let throw_idx = self.push_op(OpCode::OpJumpIfCatchable(JumpOffset(0)), node);
         // If this value is false, jump over the right-hand side - the
         // whole expression is false.
         let end_idx = self.push_op(OpCode::OpJumpIfFalse(JumpOffset(0)), node);
@@ -559,6 +560,7 @@ impl Compiler<'_> {
 
         self.patch_jump(end_idx);
         self.push_op(OpCode::OpAssertBool, node);
+        self.patch_jump(throw_idx);
     }
 
     fn compile_or(&mut self, slot: LocalIdx, node: &ast::BinOp) {
