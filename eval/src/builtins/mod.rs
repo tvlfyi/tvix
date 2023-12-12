@@ -498,6 +498,14 @@ mod pure_builtins {
         Ok(Value::Bool(xs.contains(k.as_str())))
     }
 
+    #[builtin("hasContext")]
+    #[allow(non_snake_case)]
+    async fn builtin_hasContext(_co: GenCo, #[lazy] _e: Value) -> Result<Value, ErrorKind> {
+        Ok(Value::Catchable(CatchableErrorKind::UnimplementedFeature(
+            "hasContext".to_string(),
+        )))
+    }
+
     #[builtin("head")]
     async fn builtin_head(co: GenCo, list: Value) -> Result<Value, ErrorKind> {
         match list.to_list()?.get(0) {
