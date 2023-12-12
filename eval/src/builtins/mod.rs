@@ -134,10 +134,18 @@ mod pure_builtins {
     #[builtin("baseNameOf")]
     async fn builtin_base_name_of(co: GenCo, s: Value) -> Result<Value, ErrorKind> {
         let span = generators::request_span(&co).await;
-        let s = s
-            .coerce_to_string(co, CoercionKind::Weak, span)
-            .await?
-            .to_str()?;
+        let s = match s {
+            // it is important that builtins.baseNameOf does not
+            // coerce paths into strings, since this will turn them
+            // into store paths, and `builtins.baseNameOf
+            // ./config.nix` will return a hash-prefixed value like
+            // "hpmyf3vlqg5aadri97xglcvvjbk8xw3g-config.nix"
+            Value::Path(p) => NixString::from(p.to_string_lossy().to_string()),
+            _ => s
+                .coerce_to_string(co, CoercionKind::Weak, span)
+                .await?
+                .to_str()?,
+        };
         let result: String = s.rsplit_once('/').map(|(_, x)| x).unwrap_or(&s).into();
         Ok(result.into())
     }
