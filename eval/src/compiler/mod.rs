@@ -572,6 +572,7 @@ impl Compiler<'_> {
         self.compile(slot, node.lhs().unwrap());
         self.emit_force(&node.lhs().unwrap());
 
+        let throw_idx = self.push_op(OpCode::OpJumpIfCatchable(JumpOffset(0)), node);
         // Opposite of above: If this value is **true**, we can
         // short-circuit the right-hand side.
         let end_idx = self.push_op(OpCode::OpJumpIfTrue(JumpOffset(0)), node);
@@ -581,6 +582,7 @@ impl Compiler<'_> {
 
         self.patch_jump(end_idx);
         self.push_op(OpCode::OpAssertBool, node);
+        self.patch_jump(throw_idx);
     }
 
     fn compile_implication(&mut self, slot: LocalIdx, node: &ast::BinOp) {
