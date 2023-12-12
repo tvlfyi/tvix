@@ -21,10 +21,10 @@ pub use self::traverse::descend_to;
 /// digest.
 #[async_trait]
 pub trait DirectoryService: Send + Sync {
-    /// Get looks up a single Directory message by its digest.
+    /// Looks up a single Directory message by its digest.
     /// In case the directory is not found, Ok(None) is returned.
     async fn get(&self, digest: &B3Digest) -> Result<Option<proto::Directory>, Error>;
-    /// Get uploads a single Directory message, and returns the calculated
+    /// Uploads a single Directory message, and returns the calculated
     /// digest, or an error.
     async fn put(&self, directory: proto::Directory) -> Result<B3Digest, Error>;
 
