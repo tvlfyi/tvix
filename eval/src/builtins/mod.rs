@@ -1002,10 +1002,11 @@ mod pure_builtins {
         let beg = start.as_int()?;
         let len = len.as_int()?;
         let span = generators::request_span(&co).await;
-        let x = s
-            .coerce_to_string(co, CoercionKind::Weak, span)
-            .await?
-            .to_str()?;
+        let x = s.coerce_to_string(co, CoercionKind::Weak, span).await?;
+        if x.is_catchable() {
+            return Ok(x);
+        }
+        let x = x.to_str()?;
 
         if beg < 0 {
             return Err(ErrorKind::IndexOutOfBounds { index: beg });
