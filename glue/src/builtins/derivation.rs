@@ -247,7 +247,9 @@ pub(crate) mod derivation_builtins {
         // TODO: the JSON serialisation has to happen here.
         if let Some(sa) = input.select(STRUCTURED_ATTRS) {
             if generators::request_force(&co, sa.clone()).await.as_bool()? {
-                return Err(ErrorKind::NotImplemented(STRUCTURED_ATTRS));
+                return Ok(Value::Catchable(CatchableErrorKind::UnimplementedFeature(
+                    STRUCTURED_ATTRS.to_string(),
+                )));
             }
         }
 
