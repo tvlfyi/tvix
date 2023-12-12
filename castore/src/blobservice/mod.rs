@@ -1,7 +1,7 @@
 use std::io;
 use tonic::async_trait;
 
-use crate::{B3Digest, Error};
+use crate::B3Digest;
 
 mod from_addr;
 mod grpc;
@@ -25,10 +25,10 @@ pub use self::sled::SledBlobService;
 #[async_trait]
 pub trait BlobService: Send + Sync {
     /// Check if the service has the blob, by its content hash.
-    async fn has(&self, digest: &B3Digest) -> Result<bool, Error>;
+    async fn has(&self, digest: &B3Digest) -> io::Result<bool>;
 
     /// Request a blob from the store, by its content hash.
-    async fn open_read(&self, digest: &B3Digest) -> Result<Option<Box<dyn BlobReader>>, Error>;
+    async fn open_read(&self, digest: &B3Digest) -> io::Result<Option<Box<dyn BlobReader>>>;
 
     /// Insert a new blob into the store. Returns a [BlobWriter], which
     /// implements [io::Write] and a [BlobWriter::close].
@@ -43,7 +43,7 @@ pub trait BlobWriter: tokio::io::AsyncWrite + Send + Sync + Unpin + 'static {
     /// contents written.
     ///
     /// Closing a already-closed BlobWriter is a no-op.
-    async fn close(&mut self) -> Result<B3Digest, Error>;
+    async fn close(&mut self) -> io::Result<B3Digest>;
 }
 
 /// A [tokio::io::AsyncRead] that also allows seeking.

@@ -8,7 +8,7 @@ use tonic::async_trait;
 use tracing::instrument;
 
 use super::{BlobReader, BlobService, BlobWriter};
-use crate::{B3Digest, Error};
+use crate::B3Digest;
 
 #[derive(Clone, Default)]
 pub struct MemoryBlobService {
@@ -18,13 +18,13 @@ pub struct MemoryBlobService {
 #[async_trait]
 impl BlobService for MemoryBlobService {
     #[instrument(skip_all, ret, err, fields(blob.digest=%digest))]
-    async fn has(&self, digest: &B3Digest) -> Result<bool, Error> {
+    async fn has(&self, digest: &B3Digest) -> io::Result<bool> {
         let db = self.db.read().unwrap();
         Ok(db.contains_key(digest))
     }
 
     #[instrument(skip_all, err, fields(blob.digest=%digest))]
-    async fn open_read(&self, digest: &B3Digest) -> Result<Option<Box<dyn BlobReader>>, Error> {
+    async fn open_read(&self, digest: &B3Digest) -> io::Result<Option<Box<dyn BlobReader>>> {
         let db = self.db.read().unwrap();
 
         match db.get(digest).map(|x| Cursor::new(x.clone())) {
@@ -100,13 +100,11 @@ impl tokio::io::AsyncWrite for MemoryBlobWriter {
 
 #[async_trait]
 impl BlobWriter for MemoryBlobWriter {
-    async fn close(&mut self) -> Result<B3Digest, Error> {
+    async fn close(&mut self) -> io::Result<B3Digest> {
         if self.writers.is_none() {
             match &self.digest {
                 Some(digest) => Ok(digest.clone()),
-                None => Err(crate::Error::StorageError(
-                    "previously closed with error".to_string(),
-                )),
+                None => Err(io::Error::new(io::ErrorKind::BrokenPipe, "already closed")),
             }
         } else {
             let (buf, hasher) = self.writers.take().unwrap();
@@ -115,13 +113,17 @@ impl BlobWriter for MemoryBlobWriter {
             let digest: B3Digest = hasher.finalize().as_bytes().into();
 
             // Only insert if the blob doesn't already exist.
-            let db = self.db.read()?;
+            let db = self.db.read().map_err(|e| {
+                io::Error::new(io::ErrorKind::BrokenPipe, format!("RwLock poisoned: {}", e))
+            })?;
             if !db.contains_key(&digest) {
                 // drop the read lock, so we can open for writing.
                 drop(db);
 
                 // open the database for writing.
-                let mut db = self.db.write()?;
+                let mut db = self.db.write().map_err(|e| {
+                    io::Error::new(io::ErrorKind::BrokenPipe, format!("RwLock poisoned: {}", e))
+                })?;
 
                 // and put buf in there. This will move buf out.
                 db.insert(digest.clone(), buf);

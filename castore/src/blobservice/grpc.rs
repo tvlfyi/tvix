@@ -1,7 +1,6 @@
 use super::{naive_seeker::NaiveSeeker, BlobReader, BlobService, BlobWriter};
 use crate::{proto, B3Digest};
 use futures::sink::SinkExt;
-use futures::TryFutureExt;
 use std::{
     collections::VecDeque,
     io::{self},
@@ -39,7 +38,7 @@ impl GRPCBlobService {
 #[async_trait]
 impl BlobService for GRPCBlobService {
     #[instrument(skip(self, digest), fields(blob.digest=%digest))]
-    async fn has(&self, digest: &B3Digest) -> Result<bool, crate::Error> {
+    async fn has(&self, digest: &B3Digest) -> io::Result<bool> {
         let mut grpc_client = self.grpc_client.clone();
         let resp = grpc_client
             .stat(proto::StatBlobRequest {
@@ -51,16 +50,13 @@ impl BlobService for GRPCBlobService {
         match resp {
             Ok(_blob_meta) => Ok(true),
             Err(e) if e.code() == Code::NotFound => Ok(false),
-            Err(e) => Err(crate::Error::StorageError(e.to_string())),
+            Err(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
         }
     }
 
     // On success, this returns a Ok(Some(io::Read)), which can be used to read
     // the contents of the Blob, identified by the digest.
-    async fn open_read(
-        &self,
-        digest: &B3Digest,
-    ) -> Result<Option<Box<dyn BlobReader>>, crate::Error> {
+    async fn open_read(&self, digest: &B3Digest) -> io::Result<Option<Box<dyn BlobReader>>> {
         // Get a stream of [proto::BlobChunk], or return an error if the blob
         // doesn't exist.
         let resp = self
@@ -90,7 +86,7 @@ impl BlobService for GRPCBlobService {
                 Ok(Some(Box::new(NaiveSeeker::new(data_reader))))
             }
             Err(e) if e.code() == Code::NotFound => Ok(None),
-            Err(e) => Err(crate::Error::StorageError(e.to_string())),
+            Err(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
         }
     }
 
@@ -141,25 +137,20 @@ pub struct GRPCBlobWriter<W: tokio::io::AsyncWrite> {
 
 #[async_trait]
 impl<W: tokio::io::AsyncWrite + Send + Sync + Unpin + 'static> BlobWriter for GRPCBlobWriter<W> {
-    async fn close(&mut self) -> Result<B3Digest, crate::Error> {
+    async fn close(&mut self) -> io::Result<B3Digest> {
         if self.task_and_writer.is_none() {
             // if we're already closed, return the b3 digest, which must exist.
             // If it doesn't, we already closed and failed once, and didn't handle the error.
             match &self.digest {
                 Some(digest) => Ok(digest.clone()),
-                None => Err(crate::Error::StorageError(
-                    "previously closed with error".to_string(),
-                )),
+                None => Err(io::Error::new(io::ErrorKind::BrokenPipe, "already closed")),
             }
         } else {
             let (task, mut writer) = self.task_and_writer.take().unwrap();
 
             // invoke shutdown, so the inner writer closes its internal tx side of
             // the channel.
-            writer
-                .shutdown()
-                .map_err(|e| crate::Error::StorageError(e.to_string()))
-                .await?;
+            writer.shutdown().await?;
 
             // block on the RPC call to return.
             // This ensures all chunks are sent out, and have been received by the
@@ -168,15 +159,17 @@ impl<W: tokio::io::AsyncWrite + Send + Sync + Unpin + 'static> BlobWriter for GR
             match task.await? {
                 Ok(resp) => {
                     // return the digest from the response, and store it in self.digest for subsequent closes.
+                    let digest_len = resp.digest.len();
                     let digest: B3Digest = resp.digest.try_into().map_err(|_| {
-                        crate::Error::StorageError(
-                            "invalid root digest length in response".to_string(),
+                        io::Error::new(
+                            io::ErrorKind::Other,
+                            format!("invalid root digest length {} in response", digest_len),
                         )
                     })?;
                     self.digest = Some(digest.clone());
                     Ok(digest)
                 }
-                Err(e) => Err(crate::Error::StorageError(e.to_string())),
+                Err(e) => Err(io::Error::new(io::ErrorKind::Other, e.to_string())),
             }
         }
     }

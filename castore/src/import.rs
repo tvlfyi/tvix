@@ -117,7 +117,10 @@ async fn process_entry<'a>(
             return Err(Error::UnableToRead(entry.path().to_path_buf(), e));
         };
 
-        let digest = writer.close().await?;
+        let digest = writer
+            .close()
+            .await
+            .map_err(|e| Error::UnableToRead(entry.path().to_path_buf(), e))?;
 
         return Ok(Node::File(FileNode {
             name: entry.file_name().as_bytes().to_vec().into(),

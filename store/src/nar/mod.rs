@@ -1,5 +1,5 @@
 use data_encoding::BASE64;
-use tvix_castore::{B3Digest, Error};
+use tvix_castore::B3Digest;
 
 mod import;
 mod renderer;
@@ -11,7 +11,7 @@ pub use renderer::write_nar;
 #[derive(Debug, thiserror::Error)]
 pub enum RenderError {
     #[error("failure talking to a backing store client: {0}")]
-    StoreError(Error),
+    StoreError(#[source] std::io::Error),
 
     #[error("unable to find directory {}, referred from {:?}", .0, .1)]
     DirectoryNotFound(B3Digest, bytes::Bytes),

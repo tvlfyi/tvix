@@ -34,19 +34,19 @@ impl SledBlobService {
 #[async_trait]
 impl BlobService for SledBlobService {
     #[instrument(skip(self), fields(blob.digest=%digest))]
-    async fn has(&self, digest: &B3Digest) -> Result<bool, Error> {
+    async fn has(&self, digest: &B3Digest) -> io::Result<bool> {
         match self.db.contains_key(digest.as_slice()) {
             Ok(has) => Ok(has),
-            Err(e) => Err(Error::StorageError(e.to_string())),
+            Err(e) => Err(io::Error::new(io::ErrorKind::Other, e.to_string())),
         }
     }
 
     #[instrument(skip(self), fields(blob.digest=%digest))]
-    async fn open_read(&self, digest: &B3Digest) -> Result<Option<Box<dyn BlobReader>>, Error> {
+    async fn open_read(&self, digest: &B3Digest) -> io::Result<Option<Box<dyn BlobReader>>> {
         match self.db.get(digest.as_slice()) {
             Ok(None) => Ok(None),
             Ok(Some(data)) => Ok(Some(Box::new(Cursor::new(data[..].to_vec())))),
-            Err(e) => Err(Error::StorageError(e.to_string())),
+            Err(e) => Err(io::Error::new(io::ErrorKind::Other, e.to_string())),
         }
     }
 
@@ -118,12 +118,13 @@ impl tokio::io::AsyncWrite for SledBlobWriter {
 
 #[async_trait]
 impl BlobWriter for SledBlobWriter {
-    async fn close(&mut self) -> Result<B3Digest, Error> {
+    async fn close(&mut self) -> io::Result<B3Digest> {
         if self.writers.is_none() {
             match &self.digest {
                 Some(digest) => Ok(digest.clone()),
-                None => Err(crate::Error::StorageError(
-                    "previously closed with error".to_string(),
+                None => Err(io::Error::new(
+                    io::ErrorKind::NotConnected,
+                    "already closed",
                 )),
             }
         } else {

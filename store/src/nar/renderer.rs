@@ -10,12 +10,10 @@ use std::{
 };
 use tokio::io::{self, AsyncWrite, BufReader};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
-use tracing::warn;
 use tvix_castore::{
     blobservice::BlobService,
     directoryservice::DirectoryService,
     proto::{self as castorepb, NamedNode},
-    Error,
 };
 
 /// Invoke [write_nar], and return the size and sha256 digest of the produced
@@ -110,14 +108,11 @@ async fn walk_node(
                 .map_err(RenderError::NARWriterError)?;
         }
         castorepb::node::Node::File(proto_file_node) => {
-            let digest = proto_file_node.digest.clone().try_into().map_err(|_e| {
-                warn!(
-                    file_node = ?proto_file_node,
-                    "invalid digest length in file node",
-                );
-
-                RenderError::StoreError(Error::StorageError(
-                    "invalid digest len in file node".to_string(),
+            let digest_len = proto_file_node.digest.len();
+            let digest = proto_file_node.digest.clone().try_into().map_err(|_| {
+                RenderError::StoreError(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("invalid digest len {} in file node", digest_len),
                 ))
             })?;
 
@@ -143,13 +138,15 @@ async fn walk_node(
                 .map_err(RenderError::NARWriterError)?;
         }
         castorepb::node::Node::Directory(proto_directory_node) => {
+            let digest_len = proto_directory_node.digest.len();
             let digest = proto_directory_node
                 .digest
                 .clone()
                 .try_into()
-                .map_err(|_e| {
-                    RenderError::StoreError(Error::StorageError(
-                        "invalid digest len in directory node".to_string(),
+                .map_err(|_| {
+                    RenderError::StoreError(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!("invalid digest len {} in directory node", digest_len),
                     ))
                 })?;
 
@@ -157,7 +154,7 @@ async fn walk_node(
             match directory_service
                 .get(&digest)
                 .await
-                .map_err(RenderError::StoreError)?
+                .map_err(|e| RenderError::StoreError(e.into()))?
             {
                 // if it's None, that's an error!
                 None => {
