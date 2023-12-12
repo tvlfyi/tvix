@@ -675,8 +675,13 @@ impl<'o> VM<'o> {
                 }
 
                 OpCode::OpInvert => {
-                    let v = self.stack_pop().as_bool().with_span(&frame, self)?;
-                    self.stack.push(Value::Bool(!v));
+                    let v = self.stack_pop();
+                    if v.is_catchable() {
+                        self.stack.push(v);
+                    } else {
+                        let v = v.as_bool().with_span(&frame, self)?;
+                        self.stack.push(Value::Bool(!v));
+                    }
                 }
 
                 OpCode::OpList(Count(count)) => {
