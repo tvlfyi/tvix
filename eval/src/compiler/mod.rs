@@ -836,6 +836,7 @@ impl Compiler<'_> {
         // Compile the assertion condition to leave its value on the stack.
         self.compile(slot, node.condition().unwrap());
         self.emit_force(&node.condition().unwrap());
+        let throw_idx = self.push_op(OpCode::OpJumpIfCatchable(JumpOffset(0)), node);
         let then_idx = self.push_op(OpCode::OpJumpIfFalse(JumpOffset(0)), node);
 
         self.push_op(OpCode::OpPop, node);
@@ -848,6 +849,7 @@ impl Compiler<'_> {
         self.push_op(OpCode::OpAssertFail, &node.condition().unwrap());
 
         self.patch_jump(else_idx);
+        self.patch_jump(throw_idx);
     }
 
     /// Compile conditional expressions using jumping instructions in the VM.
