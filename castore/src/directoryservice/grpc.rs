@@ -393,9 +393,9 @@ mod tests {
         }
 
         // Now we do the same test as before, send B, then A, but wait
-        // sufficiently enough for the server to have s
-        // to close us the stream,
-        // and then assert that uploading anything else via the handle will fail.
+        // a long long time so we already received the error from the server
+        // (causing the internal stream to be closed).
+        // Uploading anything else subsequently should then fail.
         {
             let mut handle = directory_service.put_multiple_start();
             handle.put(DIRECTORY_B.clone()).await.expect("must succeed");
