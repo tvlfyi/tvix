@@ -145,7 +145,7 @@ async fn process_entry<'a>(
 /// else giving it a "non-content-addressed name".
 /// It's up to the caller to possibly register it somewhere (and potentially
 /// rename it based on some naming scheme)
-#[instrument(skip(blob_service, directory_service), fields(path=?p))]
+#[instrument(skip(blob_service, directory_service), fields(path=?p), err)]
 pub async fn ingest_path<P: AsRef<Path> + Debug>(
     blob_service: Arc<dyn BlobService>,
     directory_service: Arc<dyn DirectoryService>,
