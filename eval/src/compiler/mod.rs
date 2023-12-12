@@ -864,6 +864,10 @@ impl Compiler<'_> {
         self.compile(slot, node.condition().unwrap());
         self.emit_force(&node.condition().unwrap());
 
+        let throw_idx = self.push_op(
+            OpCode::OpJumpIfCatchable(JumpOffset(0)),
+            &node.condition().unwrap(),
+        );
         let then_idx = self.push_op(
             OpCode::OpJumpIfFalse(JumpOffset(0)),
             &node.condition().unwrap(),
@@ -879,6 +883,7 @@ impl Compiler<'_> {
         self.compile(slot, node.else_body().unwrap());
 
         self.patch_jump(else_idx); // patch jump *over* else body
+        self.patch_jump(throw_idx); // patch jump *over* else body
     }
 
     /// Compile `with` expressions by emitting instructions that
@@ -1328,6 +1333,7 @@ impl Compiler<'_> {
             OpCode::OpJump(n)
             | OpCode::OpJumpIfFalse(n)
             | OpCode::OpJumpIfTrue(n)
+            | OpCode::OpJumpIfCatchable(n)
             | OpCode::OpJumpIfNotFound(n)
             | OpCode::OpJumpIfNoFinaliseRequest(n) => {
                 *n = offset;

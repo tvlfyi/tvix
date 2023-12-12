@@ -562,6 +562,13 @@ impl<'o> VM<'o> {
                     }
                 }
 
+                OpCode::OpJumpIfCatchable(JumpOffset(offset)) => {
+                    debug_assert!(offset != 0);
+                    if self.stack_peek(0).is_catchable() {
+                        frame.ip += offset;
+                    }
+                }
+
                 OpCode::OpJumpIfNoFinaliseRequest(JumpOffset(offset)) => {
                     debug_assert!(offset != 0);
                     match self.stack_peek(0) {

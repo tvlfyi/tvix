@@ -130,6 +130,12 @@ pub enum OpCode {
     /// of the stack is `false`.
     OpJumpIfFalse(JumpOffset),
 
+    /// Pop one stack item and jump forward in the bytecode
+    /// specified by the number of instructions in its usize
+    /// operand, *if* the value at the top of the stack is a
+    /// Value::Catchable.
+    OpJumpIfCatchable(JumpOffset),
+
     /// Jump forward in the bytecode specified by the number of
     /// instructions in its usize operand, *if* the value at the top
     /// of the stack is the internal value representing a missing

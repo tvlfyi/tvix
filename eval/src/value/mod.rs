@@ -639,6 +639,7 @@ impl Value {
     gen_is!(is_number, Value::Integer(_) | Value::Float(_));
     gen_is!(is_bool, Value::Bool(_));
     gen_is!(is_attrs, Value::Attrs(_));
+    gen_is!(is_catchable, Value::Catchable(_));
 
     /// Compare `self` against other using (fallible) Nix ordering semantics.
     ///
