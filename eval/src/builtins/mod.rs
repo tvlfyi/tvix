@@ -665,6 +665,9 @@ mod pure_builtins {
 
     #[builtin("length")]
     async fn builtin_length(co: GenCo, list: Value) -> Result<Value, ErrorKind> {
+        if list.is_catchable() {
+            return Ok(list);
+        }
         Ok(Value::Integer(list.to_list()?.len() as i64))
     }
 
