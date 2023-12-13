@@ -162,15 +162,22 @@ macro_rules! gen_is {
 
 /// Describes what input types are allowed when coercing a `Value` to a string
 #[derive(Clone, Copy, PartialEq, Debug)]
-pub enum CoercionKind {
-    /// Only coerce already "stringly" types like strings and paths, but also
-    /// coerce sets that have a `__toString` attribute. Equivalent to
-    /// `!coerceMore` in C++ Nix.
-    Weak,
-    /// Coerce all value types included by `Weak`, but also coerce `null`,
-    /// booleans, integers, floats and lists of coercible types. Equivalent to
-    /// `coerceMore` in C++ Nix.
-    Strong,
+pub struct CoercionKind {
+    /// If false only coerce already "stringly" types like strings and paths, but
+    /// also coerce sets that have a `__toString` attribute. In Tvix, this is
+    /// usually called a weak coercion. Equivalent to passing `false` as the
+    /// `coerceMore` argument of `EvalState::coerceToString` in C++ Nix.
+    ///
+    /// If true coerce all value types included by a weak coercion, but also
+    /// coerce `null`, booleans, integers, floats and lists of coercible types.
+    /// Consequently, we call this a strong coercion. Equivalent to passing
+    /// `true` as `coerceMore` in C++ Nix.
+    pub strong: bool,
+
+    /// If `import_paths` is `true`, paths are imported into the store and their
+    /// store path is the result of the coercion (equivalent to the
+    /// `copyToStore` argument of `EvalState::coerceToString` in C++ Nix).
+    pub import_paths: bool,
 }
 
 impl<T> From<T> for Value
@@ -323,11 +330,22 @@ impl Value {
                 // C++ Nix and Tvix is that the former's strings are arbitrary byte
                 // sequences without NUL bytes, whereas Tvix only allows valid
                 // Unicode. See also b/189.
-                (Value::Path(p), _) => {
-                    // TODO(tazjin): there are cases where coerce_to_string does not import
+                (
+                    Value::Path(p),
+                    CoercionKind {
+                        import_paths: true, ..
+                    },
+                ) => {
                     let imported = generators::request_path_import(co, *p).await;
                     Ok(imported.to_string_lossy().into_owned())
                 }
+                (
+                    Value::Path(p),
+                    CoercionKind {
+                        import_paths: false,
+                        ..
+                    },
+                ) => Ok(p.to_string_lossy().into_owned()),
 
                 // Attribute sets can be converted to strings if they either have an
                 // `__toString` attribute which holds a function that receives the
@@ -358,19 +376,19 @@ impl Value {
                 }
 
                 // strong coercions
-                (Value::Null, CoercionKind::Strong)
-                | (Value::Bool(false), CoercionKind::Strong) => Ok("".to_owned()),
-                (Value::Bool(true), CoercionKind::Strong) => Ok("1".to_owned()),
+                (Value::Null, CoercionKind { strong: true, .. })
+                | (Value::Bool(false), CoercionKind { strong: true, .. }) => Ok("".to_owned()),
+                (Value::Bool(true), CoercionKind { strong: true, .. }) => Ok("1".to_owned()),
 
-                (Value::Integer(i), CoercionKind::Strong) => Ok(format!("{i}")),
-                (Value::Float(f), CoercionKind::Strong) => {
+                (Value::Integer(i), CoercionKind { strong: true, .. }) => Ok(format!("{i}")),
+                (Value::Float(f), CoercionKind { strong: true, .. }) => {
                     // contrary to normal Display, coercing a float to a string will
                     // result in unconditional 6 decimal places
                     Ok(format!("{:.6}", f))
                 }
 
                 // Lists are coerced by coercing their elements and interspersing spaces
-                (Value::List(list), CoercionKind::Strong) => {
+                (Value::List(list), CoercionKind { strong: true, .. }) => {
                     for elem in list.into_iter().rev() {
                         vals.push(elem);
                     }

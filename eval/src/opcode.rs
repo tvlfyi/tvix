@@ -202,7 +202,8 @@ pub enum OpCode {
     OpInterpolate(Count),
 
     /// Force the Value on the stack and coerce it to a string, always using
-    /// `CoercionKind::Weak`.
+    /// `CoercionKind::Weak { import_paths: true }`. This is the behavior
+    /// necessary for path interpolation.
     OpCoerceToString,
 
     // Paths

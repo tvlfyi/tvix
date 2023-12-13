@@ -47,7 +47,14 @@ impl Value {
                 if attrs.select("__toString").is_some() {
                     let span = generators::request_span(co).await;
                     match Value::Attrs(attrs)
-                        .coerce_to_string_(co, CoercionKind::Weak, span)
+                        .coerce_to_string_(
+                            co,
+                            CoercionKind {
+                                strong: false,
+                                import_paths: false,
+                            },
+                            span,
+                        )
                         .await?
                     {
                         Value::Catchable(cek) => return Ok(Err(cek)),

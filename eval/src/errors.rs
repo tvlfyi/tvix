@@ -378,10 +378,7 @@ to a missing value in the attribute set(s) included via `with`."#,
             ErrorKind::BytecodeError(_) => write!(f, "while evaluating this Nix code"),
 
             ErrorKind::NotCoercibleToString { kind, from } => {
-                let kindly = match kind {
-                    CoercionKind::Strong => "strongly",
-                    CoercionKind::Weak => "weakly",
-                };
+                let kindly = if kind.strong { "strongly" } else { "weakly" };
 
                 let hint = if *from == "set" {
                     ", missing a `__toString` or `outPath` attribute"

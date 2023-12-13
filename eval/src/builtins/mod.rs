@@ -41,6 +41,8 @@ pub const CURRENT_PLATFORM: &str = env!("TVIX_CURRENT_SYSTEM");
 /// builtin. This coercion can _never_ be performed in a Nix program
 /// without using builtins (i.e. the trick `path: /. + path` to
 /// convert from a string to a path wouldn't hit this code).
+///
+/// This operation doesn't import a Nix path value into the store.
 pub async fn coerce_value_to_path(
     co: &GenCo,
     v: Value,
@@ -50,7 +52,16 @@ pub async fn coerce_value_to_path(
         return Ok(Ok(*p));
     }
 
-    match generators::request_string_coerce(co, value, CoercionKind::Weak).await {
+    match generators::request_string_coerce(
+        co,
+        value,
+        CoercionKind {
+            strong: false,
+            import_paths: false,
+        },
+    )
+    .await
+    {
         Ok(vs) => {
             let path = PathBuf::from(vs.as_str());
             if path.is_absolute() {
@@ -71,6 +82,7 @@ mod pure_builtins {
 
     #[builtin("abort")]
     async fn builtin_abort(co: GenCo, message: Value) -> Result<Value, ErrorKind> {
+        // TODO(sterni): coerces to string
         Err(ErrorKind::Abort(message.to_str()?.to_string()))
     }
 
@@ -136,14 +148,15 @@ mod pure_builtins {
         let span = generators::request_span(&co).await;
         let s = match s {
             val @ Value::Catchable(_) => return Ok(val),
-            // it is important that builtins.baseNameOf does not
-            // coerce paths into strings, since this will turn them
-            // into store paths, and `builtins.baseNameOf
-            // ./config.nix` will return a hash-prefixed value like
-            // "hpmyf3vlqg5aadri97xglcvvjbk8xw3g-config.nix"
-            Value::Path(p) => NixString::from(p.to_string_lossy().to_string()),
             _ => s
-                .coerce_to_string(co, CoercionKind::Weak, span)
+                .coerce_to_string(
+                    co,
+                    CoercionKind {
+                        strong: false,
+                        import_paths: false,
+                    },
+                    span,
+                )
                 .await?
                 .to_str()?,
         };
@@ -239,7 +252,16 @@ mod pure_builtins {
             if i != 0 {
                 res.push_str(&separator);
             }
-            match generators::request_string_coerce(&co, val, CoercionKind::Weak).await {
+            match generators::request_string_coerce(
+                &co,
+                val,
+                CoercionKind {
+                    strong: false,
+                    import_paths: true,
+                },
+            )
+            .await
+            {
                 Ok(s) => res.push_str(s.as_str()),
                 Err(c) => return Ok(Value::Catchable(c)),
             }
@@ -263,7 +285,14 @@ mod pure_builtins {
         let is_path = s.is_path();
         let span = generators::request_span(&co).await;
         let str = s
-            .coerce_to_string(co, CoercionKind::Weak, span)
+            .coerce_to_string(
+                co,
+                CoercionKind {
+                    strong: false,
+                    import_paths: false,
+                },
+                span,
+            )
             .await?
             .to_str()?;
         let result = str
@@ -983,7 +1012,16 @@ mod pure_builtins {
     async fn builtin_string_length(co: GenCo, #[lazy] s: Value) -> Result<Value, ErrorKind> {
         // also forces the value
         let span = generators::request_span(&co).await;
-        let s = s.coerce_to_string(co, CoercionKind::Weak, span).await?;
+        let s = s
+            .coerce_to_string(
+                co,
+                CoercionKind {
+                    strong: false,
+                    import_paths: true,
+                },
+                span,
+            )
+            .await?;
         Ok(Value::Integer(s.to_str()?.as_str().len() as i64))
     }
 
@@ -1002,7 +1040,16 @@ mod pure_builtins {
         let beg = start.as_int()?;
         let len = len.as_int()?;
         let span = generators::request_span(&co).await;
-        let x = s.coerce_to_string(co, CoercionKind::Weak, span).await?;
+        let x = s
+            .coerce_to_string(
+                co,
+                CoercionKind {
+                    strong: false,
+                    import_paths: true,
+                },
+                span,
+            )
+            .await?;
         if x.is_catchable() {
             return Ok(x);
         }
@@ -1043,6 +1090,7 @@ mod pure_builtins {
 
     #[builtin("throw")]
     async fn builtin_throw(co: GenCo, message: Value) -> Result<Value, ErrorKind> {
+        // TODO(sterni): coerces to string
         Ok(Value::Catchable(CatchableErrorKind::Throw(
             message.to_str()?.to_string(),
         )))
@@ -1052,7 +1100,15 @@ mod pure_builtins {
     async fn builtin_to_string(co: GenCo, #[lazy] x: Value) -> Result<Value, ErrorKind> {
         // coerce_to_string forces for us
         let span = generators::request_span(&co).await;
-        x.coerce_to_string(co, CoercionKind::Strong, span).await
+        x.coerce_to_string(
+            co,
+            CoercionKind {
+                strong: true,
+                import_paths: false,
+            },
+            span,
+        )
+        .await
     }
 
     #[builtin("toXML")]
@@ -1085,7 +1141,16 @@ mod pure_builtins {
             Ok(path) => {
                 let path: Value = crate::value::canon_path(path).into();
                 let span = generators::request_span(&co).await;
-                Ok(path.coerce_to_string(co, CoercionKind::Weak, span).await?)
+                Ok(path
+                    .coerce_to_string(
+                        co,
+                        CoercionKind {
+                            strong: false,
+                            import_paths: false,
+                        },
+                        span,
+                    )
+                    .await?)
             }
         }
     }

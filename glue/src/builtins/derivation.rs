@@ -161,7 +161,7 @@ async fn handle_derivation_parameters(
         "args" => {
             let args = value.to_list()?;
             for arg in args {
-                match strong_coerce_to_string(co, arg).await? {
+                match strong_importing_coerce_to_string(co, arg).await? {
                     Err(cek) => return Ok(Err(cek)),
                     Ok(s) => drv.arguments.push(s),
                 }
@@ -194,12 +194,21 @@ async fn handle_derivation_parameters(
     Ok(Ok(true))
 }
 
-async fn strong_coerce_to_string(
+async fn strong_importing_coerce_to_string(
     co: &GenCo,
     val: Value,
 ) -> Result<Result<String, CatchableErrorKind>, ErrorKind> {
     let val = generators::request_force(co, val).await;
-    match generators::request_string_coerce(co, val, CoercionKind::Strong).await {
+    match generators::request_string_coerce(
+        co,
+        val,
+        CoercionKind {
+            strong: true,
+            import_paths: true,
+        },
+    )
+    .await
+    {
         Err(cek) => Ok(Err(cek)),
         Ok(val_str) => Ok(Ok(val_str.as_str().to_string())),
     }
@@ -268,7 +277,7 @@ pub(crate) mod derivation_builtins {
             key: &str,
         ) -> Result<Result<Option<String>, CatchableErrorKind>, ErrorKind> {
             if let Some(attr) = attrs.select(key) {
-                match strong_coerce_to_string(co, attr.clone()).await? {
+                match strong_importing_coerce_to_string(co, attr.clone()).await? {
                     Err(cek) => return Ok(Err(cek)),
                     Ok(str) => return Ok(Ok(Some(str))),
                 }
@@ -283,7 +292,7 @@ pub(crate) mod derivation_builtins {
                 continue;
             }
 
-            match strong_coerce_to_string(&co, value.clone()).await? {
+            match strong_importing_coerce_to_string(&co, value.clone()).await? {
                 Err(cek) => return Ok(Value::Catchable(cek)),
                 Ok(val_str) => {
                     // handle_derivation_parameters tells us whether the
