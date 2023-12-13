@@ -469,4 +469,22 @@ mod tests {
             import_path_and_compare(tmpdir.path().join("hello.txt"))
         );
     }
+
+    /// Invoke toString on a nonexisting file, and access the .file attribute.
+    /// This should not cause an error, because it shouldn't trigger an import,
+    /// and leave the path as-is.
+    #[test]
+    fn nonexisting_path_without_import() {
+        let result = eval("toString ({ line = 42; col = 42; file = /deep/thought; }.file)");
+
+        assert!(result.errors.is_empty(), "expect evaluation to succeed");
+        let value = result.value.expect("must be some");
+
+        match value {
+            tvix_eval::Value::String(s) => {
+                assert_eq!("/deep/thought", s.as_str());
+            }
+            _ => panic!("unexpected value type: {:?}", value),
+        }
+    }
 }
