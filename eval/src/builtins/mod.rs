@@ -121,6 +121,9 @@ mod pure_builtins {
 
     #[builtin("attrNames")]
     async fn builtin_attr_names(co: GenCo, set: Value) -> Result<Value, ErrorKind> {
+        if set.is_catchable() {
+            return Ok(set);
+        }
         let xs = set.to_attrs()?;
         let mut output = Vec::with_capacity(xs.len());
 
