@@ -1202,6 +1202,7 @@ async fn resolve_with(
 
 // TODO(amjoseph): de-asyncify this
 async fn add_values(co: GenCo, a: Value, b: Value) -> Result<Value, ErrorKind> {
+    // What we try to do is solely determined by the type of the first value!
     let result = match (a, b) {
         (Value::Path(p), v) => {
             let mut path = p.to_string_lossy().into_owned();
@@ -1218,11 +1219,16 @@ async fn add_values(co: GenCo, a: Value, b: Value) -> Result<Value, ErrorKind> {
             .await
             .map(|s2| Value::String(s1.concat(&s2)))
             .into(),
-        (v, Value::String(s2)) => generators::request_string_coerce(&co, v, CoercionKind::Weak)
-            .await
-            .map(|s1| Value::String(s1.concat(&s2)))
-            .into(),
-        (a, b) => arithmetic_op!(&a, &b, +)?,
+        (a @ Value::Integer(_), b) | (a @ Value::Float(_), b) => arithmetic_op!(&a, &b, +)?,
+        (a, b) => {
+            let r1 = generators::request_string_coerce(&co, a, CoercionKind::Weak).await;
+            let r2 = generators::request_string_coerce(&co, b, CoercionKind::Weak).await;
+            match (r1, r2) {
+                (Ok(s1), Ok(s2)) => Value::String(s1.concat(&s2)),
+                (Err(c), _) => return Ok(Value::Catchable(c)),
+                (_, Err(c)) => return Ok(Value::Catchable(c)),
+            }
+        }
     };
 
     Ok(result)
