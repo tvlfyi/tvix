@@ -201,10 +201,8 @@ pub enum OpCode {
     /// Interpolate the given number of string fragments into a single string.
     OpInterpolate(Count),
 
-    /// Force the Value on the stack and coerce it to a string, always using
-    /// `CoercionKind::Weak { import_paths: true }`. This is the behavior
-    /// necessary for path interpolation.
-    OpCoerceToString,
+    /// Force the Value on the stack and coerce it to a string
+    OpCoerceToString(crate::CoercionKind),
 
     // Paths
     /// Attempt to resolve the Value on the stack using the configured [`NixSearchPath`][]

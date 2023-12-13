@@ -777,20 +777,13 @@ impl<'o> VM<'o> {
                     _ => panic!("attempted to finalise a non-thunk"),
                 },
 
-                OpCode::OpCoerceToString => {
+                OpCode::OpCoerceToString(kind) => {
                     let value = self.stack_pop();
                     let gen_span = frame.current_light_span();
                     self.push_call_frame(span, frame);
 
                     self.enqueue_generator("coerce_to_string", gen_span.clone(), |co| {
-                        value.coerce_to_string(
-                            co,
-                            CoercionKind {
-                                strong: false,
-                                import_paths: true,
-                            },
-                            gen_span,
-                        )
+                        value.coerce_to_string(co, kind, gen_span)
                     });
 
                     return Ok(false);

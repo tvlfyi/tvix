@@ -34,6 +34,7 @@ use crate::spans::LightSpan;
 use crate::spans::ToSpan;
 use crate::value::{Closure, Formals, Lambda, NixAttrs, Thunk, Value};
 use crate::warnings::{EvalWarning, WarningKind};
+use crate::CoercionKind;
 use crate::SourceCode;
 
 use self::scope::{LocalIdx, LocalPosition, Scope, Upvalue, UpvalueKind};
@@ -444,7 +445,13 @@ impl Compiler<'_> {
                 ast::InterpolPart::Interpolation(ipol) => {
                     self.compile(slot, ipol.expr().unwrap());
                     // implicitly forces as well
-                    self.push_op(OpCode::OpCoerceToString, ipol);
+                    self.push_op(
+                        OpCode::OpCoerceToString(CoercionKind {
+                            strong: false,
+                            import_paths: true,
+                        }),
+                        ipol,
+                    );
                 }
 
                 ast::InterpolPart::Literal(lit) => {
