@@ -983,8 +983,16 @@ impl<'o> VM<'o> {
     fn run_interpolate(&mut self, frame: &CallFrame, count: usize) -> EvalResult<()> {
         let mut out = String::new();
 
-        for _ in 0..count {
-            out.push_str(self.stack_pop().to_str().with_span(frame, self)?.as_str());
+        for i in 0..count {
+            let val = self.stack_pop();
+            if val.is_catchable() {
+                for _ in (i + 1)..count {
+                    self.stack.pop();
+                }
+                self.stack.push(val);
+                return Ok(());
+            }
+            out.push_str(val.to_str().with_span(frame, self)?.as_str());
         }
 
         self.stack.push(Value::String(out.into()));
