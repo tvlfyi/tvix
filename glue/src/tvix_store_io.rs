@@ -446,4 +446,27 @@ mod tests {
             import_path_and_compare(src_path.join("."))
         );
     }
+
+    /// Import a file into the store. Nix uses the "recursive"/NAR-based hashing
+    /// scheme for these.
+    #[test]
+    fn import_file() {
+        let tmpdir = TempDir::new().unwrap();
+
+        // write a regular file `empty`.
+        std::fs::write(tmpdir.path().join("empty"), vec![]).unwrap();
+
+        assert_eq!(
+            Some("/nix/store/lx5i78a4izwk2qj1nq8rdc07y8zrwy90-empty".to_string()),
+            import_path_and_compare(tmpdir.path().join("empty"))
+        );
+
+        // write a regular file `hello.txt`.
+        std::fs::write(tmpdir.path().join("hello.txt"), b"Hello World!").unwrap();
+
+        assert_eq!(
+            Some("/nix/store/925f1jb1ajrypjbyq7rylwryqwizvhp0-hello.txt".to_string()),
+            import_path_and_compare(tmpdir.path().join("hello.txt"))
+        );
+    }
 }
