@@ -576,6 +576,12 @@ mod pure_builtins {
 
     #[builtin("intersectAttrs")]
     async fn builtin_intersect_attrs(co: GenCo, x: Value, y: Value) -> Result<Value, ErrorKind> {
+        if x.is_catchable() {
+            return Ok(x);
+        }
+        if y.is_catchable() {
+            return Ok(y);
+        }
         let left_set = x.to_attrs()?;
         if left_set.is_empty() {
             return Ok(Value::attrs(NixAttrs::empty()));
