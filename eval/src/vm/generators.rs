@@ -631,12 +631,13 @@ pub(crate) async fn check_equality(
     a: Value,
     b: Value,
     ptr_eq: PointerEquality,
-) -> Result<bool, ErrorKind> {
+) -> Result<Result<bool, CatchableErrorKind>, ErrorKind> {
     match co
         .yield_(VMRequest::NixEquality(Box::new((a, b)), ptr_eq))
         .await
     {
-        VMResponse::Value(value) => value.as_bool(),
+        VMResponse::Value(Value::Bool(b)) => Ok(Ok(b)),
+        VMResponse::Value(Value::Catchable(cek)) => Ok(Err(cek)),
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg

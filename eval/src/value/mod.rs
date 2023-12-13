@@ -547,8 +547,16 @@ impl Value {
                     #[allow(clippy::single_match)] // might need more match arms later
                     match (a1.select("type"), a2.select("type")) {
                         (Some(v1), Some(v2)) => {
-                            let s1 = v1.clone().force(co, span.clone()).await?.to_str();
-                            let s2 = v2.clone().force(co, span.clone()).await?.to_str();
+                            let s1 = v1.clone().force(co, span.clone()).await?;
+                            if s1.is_catchable() {
+                                return Ok(s1);
+                            }
+                            let s2 = v2.clone().force(co, span.clone()).await?;
+                            if s2.is_catchable() {
+                                return Ok(s2);
+                            }
+                            let s1 = s1.to_str();
+                            let s2 = s2.to_str();
 
                             if let (Ok(s1), Ok(s2)) = (s1, s2) {
                                 if s1.as_str() == "derivation" && s2.as_str() == "derivation" {

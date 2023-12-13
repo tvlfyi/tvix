@@ -312,8 +312,11 @@ mod pure_builtins {
     #[builtin("elem")]
     async fn builtin_elem(co: GenCo, x: Value, xs: Value) -> Result<Value, ErrorKind> {
         for val in xs.to_list()? {
-            if generators::check_equality(&co, x.clone(), val, PointerEquality::AllowAll).await? {
-                return Ok(true.into());
+            match generators::check_equality(&co, x.clone(), val, PointerEquality::AllowAll).await?
+            {
+                Ok(true) => return Ok(true.into()),
+                Ok(false) => continue,
+                Err(cek) => return Ok(Value::Catchable(cek)),
             }
         }
         Ok(false.into())
@@ -1183,7 +1186,7 @@ mod pure_builtins {
 /// value has been seen before.
 async fn bgc_insert_key(co: &GenCo, key: Value, done: &mut Vec<Value>) -> Result<bool, ErrorKind> {
     for existing in done.iter() {
-        if generators::check_equality(
+        match generators::check_equality(
             co,
             existing.clone(),
             key.clone(),
@@ -1192,7 +1195,11 @@ async fn bgc_insert_key(co: &GenCo, key: Value, done: &mut Vec<Value>) -> Result
         )
         .await?
         {
-            return Ok(false);
+            Ok(true) => return Ok(false),
+            Ok(false) => (),
+            Err(_cek) => {
+                unimplemented!("TODO(amjoseph): not sure what the correct behavior is here")
+            }
         }
     }
 
