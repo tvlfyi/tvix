@@ -766,8 +766,16 @@ mod pure_builtins {
 
     #[builtin("match")]
     async fn builtin_match(co: GenCo, regex: Value, str: Value) -> Result<Value, ErrorKind> {
-        let s = str.to_str()?;
-        let re = regex.to_str()?;
+        let s = str;
+        if s.is_catchable() {
+            return Ok(s);
+        }
+        let s = s.to_str()?;
+        let re = regex;
+        if re.is_catchable() {
+            return Ok(re);
+        }
+        let re = re.to_str()?;
         let re: Regex = Regex::new(&format!("^{}$", re.as_str())).unwrap();
         match re.captures(&s) {
             Some(caps) => Ok(Value::List(
