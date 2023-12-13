@@ -357,3 +357,93 @@ async fn import_path_with_pathinfo(
 
     Ok(path_info)
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{cell::RefCell, path::Path, rc::Rc, sync::Arc};
+
+    use tempfile::TempDir;
+    use tvix_castore::{blobservice::MemoryBlobService, directoryservice::MemoryDirectoryService};
+    use tvix_eval::EvaluationResult;
+    use tvix_store::pathinfoservice::MemoryPathInfoService;
+
+    use crate::{builtins::add_derivation_builtins, known_paths::KnownPaths};
+
+    use super::TvixStoreIO;
+
+    /// evaluates a given nix expression and returns the result.
+    /// Takes care of setting up the evaluator so it knows about the
+    // `derivation` builtin.
+    fn eval(str: &str) -> EvaluationResult {
+        let mut eval = tvix_eval::Evaluation::new_impure(str, None);
+
+        let blob_service = Arc::new(MemoryBlobService::default());
+        let directory_service = Arc::new(MemoryDirectoryService::default());
+        let path_info_service = Arc::new(MemoryPathInfoService::new(
+            blob_service.clone(),
+            directory_service.clone(),
+        ));
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+
+        eval.io_handle = Box::new(TvixStoreIO::new(
+            blob_service,
+            directory_service,
+            path_info_service,
+            runtime.handle().clone(),
+        ));
+
+        let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
+
+        add_derivation_builtins(&mut eval, known_paths.clone());
+
+        // run the evaluation itself.
+        eval.evaluate()
+    }
+
+    /// Helper function that takes a &Path, and invokes a tvix evaluator coercing that path to a string
+    /// (via "${/this/path}"). The path can be both absolute or not.
+    /// It returns Option<String>, depending on whether the evaluation succeeded or not.
+    fn import_path_and_compare<P: AsRef<Path>>(p: P) -> Option<String> {
+        // Try to import the path using "${/tmp/path/to/test}".
+        // The format string looks funny, the {} passed to Nix needs to be
+        // escaped.
+        let code = format!(r#""${{{}}}""#, p.as_ref().display());
+        let result = eval(&code);
+
+        if !result.errors.is_empty() {
+            return None;
+        }
+
+        let value = result.value.expect("must be some");
+        match value {
+            tvix_eval::Value::String(s) => return Some(s.as_str().to_owned()),
+            _ => panic!("unexpected value type: {:?}", value),
+        }
+    }
+
+    /// Import a directory with a zero-sized ".keep" regular file.
+    /// Ensure it matches the (pre-recorded) store path that Nix would produce.
+    #[test]
+    fn import_directory() {
+        let tmpdir = TempDir::new().unwrap();
+
+        // create a directory named "test"
+        let src_path = tmpdir.path().join("test");
+        std::fs::create_dir(&src_path).unwrap();
+
+        // write a regular file `.keep`.
+        std::fs::write(src_path.join(".keep"), vec![]).unwrap();
+
+        // importing the path with .../test at the end.
+        assert_eq!(
+            Some("/nix/store/gq3xcv4xrj4yr64dflyr38acbibv3rm9-test".to_string()),
+            import_path_and_compare(&src_path)
+        );
+
+        // importing the path with .../test/. at the end.
+        assert_eq!(
+            Some("/nix/store/gq3xcv4xrj4yr64dflyr38acbibv3rm9-test".to_string()),
+            import_path_and_compare(src_path.join("."))
+        );
+    }
+}

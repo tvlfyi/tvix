@@ -20,6 +20,7 @@ git = "https://github.com/tvlfyi/wu-manber.git"
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 lazy_static = "1.4.0"
+tempfile = "3.8.1"
 test-case = "2.2.2"
 
 [[bench]]
