@@ -486,6 +486,9 @@ impl<'o> VM<'o> {
 
                 // Discard the current frame.
                 OpCode::OpReturn => {
+                    // TODO(amjoseph): I think this should assert `==` rather
+                    // than `<=` but it fails with the stricter condition.
+                    debug_assert!(self.stack.len() - 1 <= frame.stack_offset);
                     return Ok(true);
                 }
 
@@ -1081,6 +1084,10 @@ impl<'o> VM<'o> {
             }
 
             val @ Value::Catchable(_) => {
+                // the argument that we tried to apply a catchable to
+                self.stack.pop();
+                // applying a `throw` to anything is still a `throw`, so we just
+                // push it back on the stack.
                 self.stack.push(val);
                 Ok(())
             }
