@@ -1,21 +1,21 @@
+use crate::pathinfoservice::PathInfoService;
+use crate::proto::PathInfo;
+use crate::tests::fixtures;
+use crate::tests::utils::{gen_blob_service, gen_directory_service, gen_pathinfo_service};
 use futures::StreamExt;
 use std::io::Cursor;
 use std::os::unix::prelude::MetadataExt;
 use std::path::Path;
 use std::sync::Arc;
+use tempfile::TempDir;
 use tokio::{fs, io};
 use tokio_stream::wrappers::ReadDirStream;
 use tvix_castore::blobservice::BlobService;
 use tvix_castore::directoryservice::DirectoryService;
-
-use tempfile::TempDir;
-
-use crate::fs::{fuse::FuseDaemon, TvixStoreFs};
-use crate::pathinfoservice::PathInfoService;
-use crate::proto::PathInfo;
-use crate::tests::fixtures;
-use crate::tests::utils::{gen_blob_service, gen_directory_service, gen_pathinfo_service};
+use tvix_castore::fs::fuse::FuseDaemon;
 use tvix_castore::proto as castorepb;
+
+use super::make_fs;
 
 const BLOB_A_NAME: &str = "00000000000000000000000000000000-test";
 const BLOB_B_NAME: &str = "55555555555555555555555555555555-test";
@@ -44,7 +44,7 @@ fn do_mount<P: AsRef<Path>>(
     mountpoint: P,
     list_root: bool,
 ) -> io::Result<FuseDaemon> {
-    let fs = TvixStoreFs::new(
+    let fs = make_fs(
         blob_service,
         directory_service,
         path_info_service,

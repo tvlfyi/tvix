@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use super::inodes::{DirectoryInodeData, InodeData};
-use tvix_castore::B3Digest;
+use crate::B3Digest;
 
 /// InodeTracker keeps track of inodes, stores data being these inodes and deals
 /// with inode allocation.
@@ -132,7 +132,7 @@ impl InodeTracker {
 
 #[cfg(test)]
 mod tests {
-    use crate::tests::fixtures;
+    use crate::fixtures;
 
     use super::InodeData;
     use super::InodeTracker;

@@ -10,6 +10,7 @@ bytes = "1.4.0"
 data-encoding = "2.3.3"
 futures = "0.3.28"
 lazy_static = "1.4.0"
+parking_lot = "0.12.1"
 pin-project-lite = "0.2.13"
 prost = "0.12.1"
 sled = { version = "0.34.7" }
@@ -25,9 +26,41 @@ walkdir = "2.4.0"
 bstr = "1.6.0"
 async-tempfile = "0.4.0"
 
+[dependencies.fuse-backend-rs]
+optional = true
+version = "0.11.0"
+
+[dependencies.libc]
+optional = true
+version = "0.2.144"
+
 [dependencies.tonic-reflection]
 optional = true
 version = "0.10.2"
+
+[dependencies.vhost]
+optional = true
+version = "0.6"
+
+[dependencies.vhost-user-backend]
+optional = true
+version = "0.8"
+
+[dependencies.virtio-queue]
+optional = true
+version = "0.7"
+
+[dependencies.vm-memory]
+optional = true
+version = "0.10"
+
+[dependencies.vmm-sys-util]
+optional = true
+version = "0.11"
+
+[dependencies.virtio-bindings]
+optional = true
+version = "0.2.1"
 
 [build-dependencies]
 prost-build = "0.12.1"
@@ -41,4 +74,17 @@ hex-literal = "0.4.1"
 
 [features]
 default = []
+fs = ["dep:libc", "dep:fuse-backend-rs"]
+virtiofs = [
+  "fs",
+  "dep:vhost",
+  "dep:vhost-user-backend",
+  "dep:virtio-queue",
+  "dep:vm-memory",
+  "dep:vmm-sys-util",
+  "dep:virtio-bindings",
+  "fuse-backend-rs?/vhost-user-fs", # impl FsCacheReqHandler for SlaveFsCacheReq
+  "fuse-backend-rs?/virtiofs",
+]
+fuse = ["fs"]
 tonic-reflection = ["dep:tonic-reflection"]

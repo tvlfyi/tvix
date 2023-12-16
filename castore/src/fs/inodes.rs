@@ -1,7 +1,7 @@
 //! This module contains all the data structures used to track information
-//! about inodes, which present tvix-store nodes in a filesystem.
-use tvix_castore::proto as castorepb;
-use tvix_castore::B3Digest;
+//! about inodes, which present tvix-castore nodes in a filesystem.
+use crate::proto as castorepb;
+use crate::B3Digest;
 
 #[derive(Clone, Debug)]
 pub enum InodeData {

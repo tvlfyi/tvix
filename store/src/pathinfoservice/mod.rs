@@ -4,6 +4,9 @@ mod memory;
 mod nix_http;
 mod sled;
 
+#[cfg(any(feature = "fuse", feature = "virtiofs"))]
+mod fs;
+
 use futures::Stream;
 use std::pin::Pin;
 use tonic::async_trait;
@@ -17,6 +20,9 @@ pub use self::grpc::GRPCPathInfoService;
 pub use self::memory::MemoryPathInfoService;
 pub use self::nix_http::NixHTTPPathInfoService;
 pub use self::sled::SledPathInfoService;
+
+#[cfg(any(feature = "fuse", feature = "virtiofs"))]
+pub use self::fs::make_fs;
 
 /// The base trait all PathInfo services need to implement.
 #[async_trait]

@@ -9609,12 +9609,26 @@ rec {
             packageId = "data-encoding";
           }
           {
+            name = "fuse-backend-rs";
+            packageId = "fuse-backend-rs";
+            optional = true;
+          }
+          {
             name = "futures";
             packageId = "futures";
           }
           {
             name = "lazy_static";
             packageId = "lazy_static";
+          }
+          {
+            name = "libc";
+            packageId = "libc";
+            optional = true;
+          }
+          {
+            name = "parking_lot";
+            packageId = "parking_lot 0.12.1";
           }
           {
             name = "pin-project-lite";
@@ -9669,6 +9683,36 @@ rec {
             packageId = "url";
           }
           {
+            name = "vhost";
+            packageId = "vhost";
+            optional = true;
+          }
+          {
+            name = "vhost-user-backend";
+            packageId = "vhost-user-backend";
+            optional = true;
+          }
+          {
+            name = "virtio-bindings";
+            packageId = "virtio-bindings 0.2.1";
+            optional = true;
+          }
+          {
+            name = "virtio-queue";
+            packageId = "virtio-queue";
+            optional = true;
+          }
+          {
+            name = "vm-memory";
+            packageId = "vm-memory";
+            optional = true;
+          }
+          {
+            name = "vmm-sys-util";
+            packageId = "vmm-sys-util";
+            optional = true;
+          }
+          {
             name = "walkdir";
             packageId = "walkdir";
           }
@@ -9702,9 +9746,12 @@ rec {
           }
         ];
         features = {
+          "fs" = [ "dep:libc" "dep:fuse-backend-rs" ];
+          "fuse" = [ "fs" ];
           "tonic-reflection" = [ "dep:tonic-reflection" ];
+          "virtiofs" = [ "fs" "dep:vhost" "dep:vhost-user-backend" "dep:virtio-queue" "dep:vm-memory" "dep:vmm-sys-util" "dep:virtio-bindings" "fuse-backend-rs?/vhost-user-fs" "fuse-backend-rs?/virtiofs" ];
         };
-        resolvedDefaultFeatures = [ "default" "tonic-reflection" ];
+        resolvedDefaultFeatures = [ "default" "fs" "fuse" "tonic-reflection" "virtiofs" ];
       };
       "tvix-cli" = rec {
         crateName = "tvix-cli";
@@ -10111,11 +10158,6 @@ rec {
             packageId = "data-encoding";
           }
           {
-            name = "fuse-backend-rs";
-            packageId = "fuse-backend-rs";
-            optional = true;
-          }
-          {
             name = "futures";
             packageId = "futures";
           }
@@ -10124,18 +10166,9 @@ rec {
             packageId = "lazy_static";
           }
           {
-            name = "libc";
-            packageId = "libc";
-            optional = true;
-          }
-          {
             name = "nix-compat";
             packageId = "nix-compat";
             features = [ "async" ];
-          }
-          {
-            name = "parking_lot";
-            packageId = "parking_lot 0.12.1";
           }
           {
             name = "pin-project-lite";
@@ -10215,36 +10248,6 @@ rec {
             packageId = "url";
           }
           {
-            name = "vhost";
-            packageId = "vhost";
-            optional = true;
-          }
-          {
-            name = "vhost-user-backend";
-            packageId = "vhost-user-backend";
-            optional = true;
-          }
-          {
-            name = "virtio-bindings";
-            packageId = "virtio-bindings 0.2.1";
-            optional = true;
-          }
-          {
-            name = "virtio-queue";
-            packageId = "virtio-queue";
-            optional = true;
-          }
-          {
-            name = "vm-memory";
-            packageId = "vm-memory";
-            optional = true;
-          }
-          {
-            name = "vmm-sys-util";
-            packageId = "vmm-sys-util";
-            optional = true;
-          }
-          {
             name = "walkdir";
             packageId = "walkdir";
           }
@@ -10265,6 +10268,10 @@ rec {
         ];
         devDependencies = [
           {
+            name = "libc";
+            packageId = "libc";
+          }
+          {
             name = "tempfile";
             packageId = "tempfile";
           }
@@ -10279,12 +10286,11 @@ rec {
         ];
         features = {
           "default" = [ "fuse" "tonic-reflection" ];
-          "fs" = [ "dep:libc" "dep:fuse-backend-rs" ];
-          "fuse" = [ "fs" ];
+          "fuse" = [ "tvix-castore/fuse" ];
           "tonic-reflection" = [ "dep:tonic-reflection" "tvix-castore/tonic-reflection" ];
-          "virtiofs" = [ "fs" "dep:vhost" "dep:vhost-user-backend" "dep:virtio-queue" "dep:vm-memory" "dep:vmm-sys-util" "dep:virtio-bindings" "fuse-backend-rs?/vhost-user-fs" "fuse-backend-rs?/virtiofs" ];
+          "virtiofs" = [ "tvix-castore/virtiofs" ];
         };
-        resolvedDefaultFeatures = [ "default" "fs" "fuse" "tonic-reflection" "virtiofs" ];
+        resolvedDefaultFeatures = [ "default" "fuse" "tonic-reflection" "virtiofs" ];
       };
       "typenum" = rec {
         crateName = "typenum";

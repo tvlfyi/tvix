@@ -4,6 +4,10 @@ mod errors;
 pub mod blobservice;
 pub mod directoryservice;
 pub mod fixtures;
+
+#[cfg(feature = "fs")]
+pub mod fs;
+
 pub mod import;
 pub mod proto;
 pub mod tonic;

@@ -29,14 +29,14 @@ use tvix_store::proto::GRPCPathInfoServiceWrapper;
 use tvix_store::proto::NarInfo;
 use tvix_store::proto::PathInfo;
 
-#[cfg(feature = "fs")]
-use tvix_store::fs::TvixStoreFs;
+#[cfg(any(feature = "fuse", feature = "virtiofs"))]
+use tvix_store::pathinfoservice::make_fs;
 
 #[cfg(feature = "fuse")]
-use tvix_store::fs::fuse::FuseDaemon;
+use tvix_castore::fs::fuse::FuseDaemon;
 
 #[cfg(feature = "virtiofs")]
-use tvix_store::fs::virtiofs::start_virtiofs_daemon;
+use tvix_castore::fs::virtiofs::start_virtiofs_daemon;
 
 #[cfg(feature = "tonic-reflection")]
 use tvix_castore::proto::FILE_DESCRIPTOR_SET as CASTORE_FILE_DESCRIPTOR_SET;
@@ -365,7 +365,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let path_info_service: Arc<dyn PathInfoService> = path_info_service.into();
 
             let mut fuse_daemon = tokio::task::spawn_blocking(move || {
-                let f = TvixStoreFs::new(
+                let fs = make_fs(
                     blob_service,
                     directory_service,
                     path_info_service,
@@ -373,7 +373,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 );
                 info!("mounting tvix-store on {:?}", &dest);
 
-                FuseDaemon::new(f, &dest, threads)
+                FuseDaemon::new(fs, &dest, threads)
             })
             .await??;
 
@@ -409,7 +409,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let path_info_service: Arc<dyn PathInfoService> = path_info_service.into();
 
             tokio::task::spawn_blocking(move || {
-                let fs = TvixStoreFs::new(
+                let fs = make_fs(
                     blob_service,
                     directory_service,
                     path_info_service,

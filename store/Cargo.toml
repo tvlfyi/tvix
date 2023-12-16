@@ -14,7 +14,6 @@ data-encoding = "2.3.3"
 futures = "0.3.28"
 lazy_static = "1.4.0"
 nix-compat = { path = "../nix-compat", features = ["async"] }
-parking_lot = "0.12.1"
 pin-project-lite = "0.2.13"
 prost = "0.12.1"
 sha2 = "0.10.6"
@@ -35,41 +34,9 @@ async-recursion = "1.0.5"
 reqwest = { version = "0.11.22", features = ["rustls-tls", "stream"], default-features = false }
 xz2 = "0.1.7"
 
-[dependencies.fuse-backend-rs]
-optional = true
-version = "0.11.0"
-
-[dependencies.vhost]
-optional = true
-version = "0.6"
-
-[dependencies.vhost-user-backend]
-optional = true
-version = "0.8"
-
-[dependencies.virtio-queue]
-optional = true
-version = "0.7"
-
-[dependencies.vm-memory]
-optional = true
-version = "0.10"
-
-[dependencies.vmm-sys-util]
-optional = true
-version = "0.11"
-
-[dependencies.virtio-bindings]
-optional = true
-version = "0.2.1"
-
 [dependencies.tonic-reflection]
 optional = true
 version = "0.10.2"
-
-[dependencies.libc]
-optional = true
-version = "0.2.144"
 
 [build-dependencies]
 prost-build = "0.12.1"
@@ -80,19 +47,11 @@ test-case = "2.2.2"
 tempfile = "3.3.0"
 tokio-retry = "0.3.0"
 
+[dev-dependencies.libc]
+version = "0.2.144"
+
 [features]
 default = ["fuse", "tonic-reflection"]
-fs = ["dep:libc", "dep:fuse-backend-rs"]
-virtiofs = [
-  "fs",
-  "dep:vhost",
-  "dep:vhost-user-backend",
-  "dep:virtio-queue",
-  "dep:vm-memory",
-  "dep:vmm-sys-util",
-  "dep:virtio-bindings",
-  "fuse-backend-rs?/vhost-user-fs", # impl FsCacheReqHandler for SlaveFsCacheReq
-  "fuse-backend-rs?/virtiofs",
-]
-fuse = ["fs"]
+fuse = ["tvix-castore/fuse"]
+virtiofs = ["tvix-castore/virtiofs"]
 tonic-reflection = ["dep:tonic-reflection", "tvix-castore/tonic-reflection"]
