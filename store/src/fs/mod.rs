@@ -16,6 +16,7 @@ use fuse_backend_rs::abi::fuse_abi::stat64;
 use fuse_backend_rs::api::filesystem::{Context, FileSystem, FsOptions, ROOT_ID};
 use futures::StreamExt;
 use parking_lot::RwLock;
+use std::ops::Deref;
 use std::{
     collections::HashMap,
     io,
@@ -72,9 +73,9 @@ use self::{
 /// Due to the above being valid across the whole store, and considering the
 /// merkle structure is a DAG, not a tree, this also means we can't do "bucketed
 /// allocation", aka reserve Directory.size inodes for each PathInfo.
-pub struct TvixStoreFs<RN> {
-    blob_service: Arc<dyn BlobService>,
-    directory_service: Arc<dyn DirectoryService>,
+pub struct TvixStoreFs<BS, DS, RN> {
+    blob_service: BS,
+    directory_service: DS,
     root_nodes_provider: RN,
 
     /// Whether to (try) listing elements in the root.
@@ -95,13 +96,15 @@ pub struct TvixStoreFs<RN> {
     tokio_handle: tokio::runtime::Handle,
 }
 
-impl<RN> TvixStoreFs<RN>
+impl<BS, DS, RN> TvixStoreFs<BS, DS, RN>
 where
+    BS: Deref<Target = dyn BlobService> + Clone + Send,
+    DS: Deref<Target = dyn DirectoryService> + Clone + Send + 'static,
     RN: RootNodes + Clone + 'static,
 {
     pub fn new(
-        blob_service: Arc<dyn BlobService>,
-        directory_service: Arc<dyn DirectoryService>,
+        blob_service: BS,
+        directory_service: DS,
         root_nodes_provider: RN,
         list_root: bool,
     ) -> Self {
@@ -262,8 +265,10 @@ where
     }
 }
 
-impl<RN> FileSystem for TvixStoreFs<RN>
+impl<BS, DS, RN> FileSystem for TvixStoreFs<BS, DS, RN>
 where
+    BS: Deref<Target = dyn BlobService> + Clone + Send + 'static,
+    DS: Deref<Target = dyn DirectoryService> + Send + Clone + 'static,
     RN: RootNodes + Clone + 'static,
 {
     type Handle = u64;
