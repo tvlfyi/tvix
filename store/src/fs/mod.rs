@@ -54,13 +54,14 @@ use self::{
 /// corresponding store nodes.
 ///
 /// We internally delegate all inode allocation and state keeping to the
-/// inode tracker, and store the currently "explored" root nodes together with
-/// root inode of the root.
+/// inode tracker.
+/// We store a mapping from currently "explored" names in the root to their
+/// inode.
 ///
 /// There's some places where inodes are allocated / data inserted into
 /// the inode tracker, if not allocated before already:
 ///  - Processing a `lookup` request, either in the mount root, or somewhere
-///    deeper
+///    deeper.
 ///  - Processing a `readdir` request
 ///
 ///  Things pointing to the same contents get the same inodes, irrespective of
@@ -72,7 +73,8 @@ use self::{
 ///
 /// Due to the above being valid across the whole store, and considering the
 /// merkle structure is a DAG, not a tree, this also means we can't do "bucketed
-/// allocation", aka reserve Directory.size inodes for each PathInfo.
+/// allocation", aka reserve Directory.size inodes for each directory node we
+/// explore.
 pub struct TvixStoreFs<BS, DS, RN> {
     blob_service: BS,
     directory_service: DS,
@@ -81,7 +83,7 @@ pub struct TvixStoreFs<BS, DS, RN> {
     /// Whether to (try) listing elements in the root.
     list_root: bool,
 
-    /// This maps a given StorePath to the inode we allocated for the root inode.
+    /// This maps a given basename in the root to the inode we allocated for the node.
     root_nodes: RwLock<HashMap<Vec<u8>, u64>>,
 
     /// This keeps track of inodes and data alongside them.
