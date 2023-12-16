@@ -1,5 +1,4 @@
 {
-  "fuse-backend-rs 0.10.5 (git+https://github.com/griff/fuse-backend-rs?branch=macfuse-fix#70b835cada7e1f18e5cbb13f6c4b698ba203c820)": "107iaw8zqsz888xh9nkq3vvki1c1rqqqg0mncdplradhhn7wp3kp",
   "futures-channel 0.3.29 (git+https://github.com/edef1c/futures-rs?rev=23e25061f2261794d6d611675a6372c96b70fa85#23e25061f2261794d6d611675a6372c96b70fa85)": "082d1f2201slvpl36v30lq8dchp5kh91yx64j9n9amf3bsdaf98r",
   "futures-core 0.3.29 (git+https://github.com/edef1c/futures-rs?rev=23e25061f2261794d6d611675a6372c96b70fa85#23e25061f2261794d6d611675a6372c96b70fa85)": "082d1f2201slvpl36v30lq8dchp5kh91yx64j9n9amf3bsdaf98r",
   "futures-executor 0.3.29 (git+https://github.com/edef1c/futures-rs?rev=23e25061f2261794d6d611675a6372c96b70fa85#23e25061f2261794d6d611675a6372c96b70fa85)": "082d1f2201slvpl36v30lq8dchp5kh91yx64j9n9amf3bsdaf98r",

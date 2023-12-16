@@ -2460,14 +2460,9 @@ rec {
       };
       "fuse-backend-rs" = rec {
         crateName = "fuse-backend-rs";
-        version = "0.10.5";
+        version = "0.11.0";
         edition = "2018";
-        workspace_member = null;
-        src = pkgs.fetchgit {
-          url = "https://github.com/griff/fuse-backend-rs";
-          rev = "70b835cada7e1f18e5cbb13f6c4b698ba203c820";
-          sha256 = "107iaw8zqsz888xh9nkq3vvki1c1rqqqg0mncdplradhhn7wp3kp";
-        };
+        sha256 = "0jyldvp0kvjk21j5vqga42lkksaf7zg8jkj3l6h2dv20kyl66nif";
         authors = [
           "Liu Bo <bo.liu@linux.alibaba.com>"
           "Liu Jiang <gerry@linux.alibaba.com>"
@@ -2553,11 +2548,15 @@ rec {
           "async-trait" = [ "dep:async-trait" ];
           "caps" = [ "dep:caps" ];
           "core-foundation-sys" = [ "dep:core-foundation-sys" ];
+          "dbs-snapshot" = [ "dep:dbs-snapshot" ];
           "default" = [ "fusedev" ];
           "fusedev" = [ "vmm-sys-util" "caps" "core-foundation-sys" ];
           "io-uring" = [ "dep:io-uring" ];
+          "persist" = [ "dbs-snapshot" "versionize" "versionize_derive" ];
           "tokio" = [ "dep:tokio" ];
           "tokio-uring" = [ "dep:tokio-uring" ];
+          "versionize" = [ "dep:versionize" ];
+          "versionize_derive" = [ "dep:versionize_derive" ];
           "vhost" = [ "dep:vhost" ];
           "vhost-user-fs" = [ "virtiofs" "vhost" "caps" ];
           "virtio-queue" = [ "dep:virtio-queue" ];

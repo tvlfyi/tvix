@@ -37,9 +37,7 @@ xz2 = "0.1.7"
 
 [dependencies.fuse-backend-rs]
 optional = true
-# TODO: Switch back to upstream version once https://github.com/cloud-hypervisor/fuse-backend-rs/pull/157 lands.
-git = "https://github.com/griff/fuse-backend-rs"
-branch = "macfuse-fix"
+version = "0.11.0"
 
 [dependencies.vhost]
 optional = true
