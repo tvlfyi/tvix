@@ -6,6 +6,7 @@ use nix_compat::store_path::StorePath;
 use std::io;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::task::JoinHandle;
 use tokio_listener::Listener;
 use tokio_listener::SystemOptions;
@@ -21,6 +22,7 @@ use tvix_castore::proto::GRPCBlobServiceWrapper;
 use tvix_castore::proto::GRPCDirectoryServiceWrapper;
 use tvix_castore::proto::NamedNode;
 use tvix_store::pathinfoservice;
+use tvix_store::pathinfoservice::PathInfoService;
 use tvix_store::proto::nar_info;
 use tvix_store::proto::path_info_service_server::PathInfoServiceServer;
 use tvix_store::proto::GRPCPathInfoServiceWrapper;
@@ -217,9 +219,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .add_service(DirectoryServiceServer::new(
                     GRPCDirectoryServiceWrapper::from(directory_service),
                 ))
-                .add_service(PathInfoServiceServer::new(
-                    GRPCPathInfoServiceWrapper::from(path_info_service),
-                ));
+                .add_service(PathInfoServiceServer::new(GRPCPathInfoServiceWrapper::new(
+                    path_info_service,
+                )));
 
             #[cfg(feature = "tonic-reflection")]
             {
@@ -256,6 +258,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 directory_service.clone(),
             )
             .await?;
+
+            // Arc the PathInfoService, as we clone it .
+            let path_info_service: Arc<dyn PathInfoService> = path_info_service.into();
 
             let tasks = paths
                 .into_iter()
@@ -356,6 +361,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             )
             .await?;
 
+            // Arc the PathInfoService, as TvixStoreFS requires Clone
+            let path_info_service: Arc<dyn PathInfoService> = path_info_service.into();
+
             let mut fuse_daemon = tokio::task::spawn_blocking(move || {
                 let f = TvixStoreFs::new(
                     blob_service,
@@ -396,6 +404,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 directory_service.clone(),
             )
             .await?;
+
+            // Arc the PathInfoService, as TvixStoreFS requires Clone
+            let path_info_service: Arc<dyn PathInfoService> = path_info_service.into();
 
             tokio::task::spawn_blocking(move || {
                 let fs = TvixStoreFs::new(

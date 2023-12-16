@@ -31,7 +31,7 @@ pub async fn from_addr(
     uri: &str,
     blob_service: Arc<dyn BlobService>,
     directory_service: Arc<dyn DirectoryService>,
-) -> Result<Arc<dyn PathInfoService>, Error> {
+) -> Result<Box<dyn PathInfoService>, Error> {
     let url =
         Url::parse(uri).map_err(|e| Error::StorageError(format!("unable to parse url: {}", e)))?;
 
@@ -40,7 +40,7 @@ pub async fn from_addr(
         if url.has_host() || !url.path().is_empty() {
             return Err(Error::StorageError("invalid url".to_string()));
         }
-        Arc::new(MemoryPathInfoService::new(blob_service, directory_service))
+        Box::new(MemoryPathInfoService::new(blob_service, directory_service))
     } else if url.scheme() == "sled" {
         // sled doesn't support host, and a path can be provided (otherwise
         // it'll live in memory only).
@@ -57,12 +57,12 @@ pub async fn from_addr(
         // TODO: expose other parameters as URL parameters?
 
         if url.path().is_empty() {
-            return Ok(Arc::new(
+            return Ok(Box::new(
                 SledPathInfoService::new_temporary(blob_service, directory_service)
                     .map_err(|e| Error::StorageError(e.to_string()))?,
             ));
         }
-        return Ok(Arc::new(
+        return Ok(Box::new(
             SledPathInfoService::new(url.path(), blob_service, directory_service)
                 .map_err(|e| Error::StorageError(e.to_string()))?,
         ));
@@ -92,7 +92,7 @@ pub async fn from_addr(
             }
         }
 
-        Arc::new(nix_http_path_info_service)
+        Box::new(nix_http_path_info_service)
     } else if url.scheme().starts_with("grpc+") {
         // schemes starting with grpc+ go to the GRPCPathInfoService.
         //   That's normally grpc+unix for unix sockets, and grpc+http(s) for the HTTP counterparts.
@@ -100,7 +100,7 @@ pub async fn from_addr(
         // - In the case of non-unix sockets, there must be a host, but no path.
         // Constructing the channel is handled by tvix_castore::channel::from_url.
         let client = PathInfoServiceClient::new(tvix_castore::tonic::channel_from_url(&url).await?);
-        Arc::new(GRPCPathInfoService::from_client(client))
+        Box::new(GRPCPathInfoService::from_client(client))
     } else {
         Err(Error::StorageError(format!(
             "unknown scheme: {}",

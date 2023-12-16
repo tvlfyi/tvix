@@ -21,7 +21,7 @@ fn gen_grpc_service(
 ) -> Arc<dyn GRPCPathInfoService<ListStream = ReceiverStream<Result<PathInfo, tonic::Status>>>> {
     let blob_service = gen_blob_service();
     let directory_service = gen_directory_service();
-    Arc::new(GRPCPathInfoServiceWrapper::from(gen_pathinfo_service(
+    Arc::new(GRPCPathInfoServiceWrapper::new(gen_pathinfo_service(
         blob_service,
         directory_service,
     )))

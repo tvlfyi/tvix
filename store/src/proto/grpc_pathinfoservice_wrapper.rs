@@ -2,28 +2,31 @@ use crate::nar::RenderError;
 use crate::pathinfoservice::PathInfoService;
 use crate::proto;
 use futures::StreamExt;
-use std::sync::Arc;
+use std::ops::Deref;
 use tokio::task;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{async_trait, Request, Response, Result, Status};
 use tracing::{debug, instrument, warn};
 use tvix_castore::proto as castorepb;
 
-pub struct GRPCPathInfoServiceWrapper {
-    path_info_service: Arc<dyn PathInfoService>,
+pub struct GRPCPathInfoServiceWrapper<PS> {
+    inner: PS,
     // FUTUREWORK: allow exposing without allowing listing
 }
 
-impl From<Arc<dyn PathInfoService>> for GRPCPathInfoServiceWrapper {
-    fn from(value: Arc<dyn PathInfoService>) -> Self {
+impl<PS> GRPCPathInfoServiceWrapper<PS> {
+    pub fn new(path_info_service: PS) -> Self {
         Self {
-            path_info_service: value,
+            inner: path_info_service,
         }
     }
 }
 
 #[async_trait]
-impl proto::path_info_service_server::PathInfoService for GRPCPathInfoServiceWrapper {
+impl<PS> proto::path_info_service_server::PathInfoService for GRPCPathInfoServiceWrapper<PS>
+where
+    PS: Deref<Target = dyn PathInfoService> + Send + Sync + 'static,
+{
     type ListStream = ReceiverStream<tonic::Result<proto::PathInfo, Status>>;
 
     #[instrument(skip(self))]
@@ -38,7 +41,7 @@ impl proto::path_info_service_server::PathInfoService for GRPCPathInfoServiceWra
                     .to_vec()
                     .try_into()
                     .map_err(|_e| Status::invalid_argument("invalid output digest length"))?;
-                match self.path_info_service.get(digest).await {
+                match self.inner.get(digest).await {
                     Ok(None) => Err(Status::not_found("PathInfo not found")),
                     Ok(Some(path_info)) => Ok(Response::new(path_info)),
                     Err(e) => {
@@ -56,7 +59,7 @@ impl proto::path_info_service_server::PathInfoService for GRPCPathInfoServiceWra
 
         // Store the PathInfo in the client. Clients MUST validate the data
         // they receive, so we don't validate additionally here.
-        match self.path_info_service.put(path_info).await {
+        match self.inner.put(path_info).await {
             Ok(path_info_new) => Ok(Response::new(path_info_new)),
             Err(e) => {
                 warn!("failed to insert PathInfo: {}", e);
@@ -74,7 +77,7 @@ impl proto::path_info_service_server::PathInfoService for GRPCPathInfoServiceWra
             None => Err(Status::invalid_argument("no root node sent")),
             Some(root_node) => {
                 let (nar_size, nar_sha256) = self
-                    .path_info_service
+                    .inner
                     .calculate_nar(&root_node)
                     .await
                     .expect("error during nar calculation"); // TODO: handle error
@@ -94,7 +97,7 @@ impl proto::path_info_service_server::PathInfoService for GRPCPathInfoServiceWra
     ) -> Result<Response<Self::ListStream>, Status> {
         let (tx, rx) = tokio::sync::mpsc::channel(5);
 
-        let mut stream = self.path_info_service.list();
+        let mut stream = self.inner.list();
 
         let _task = task::spawn(async move {
             while let Some(e) = stream.next().await {

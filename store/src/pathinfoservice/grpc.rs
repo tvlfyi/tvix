@@ -115,7 +115,6 @@ impl PathInfoService for GRPCPathInfoService {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
     use std::time::Duration;
 
     use tempfile::TempDir;
@@ -151,11 +150,11 @@ mod tests {
             let mut server = tonic::transport::Server::builder();
             let router = server.add_service(
                 crate::proto::path_info_service_server::PathInfoServiceServer::new(
-                    GRPCPathInfoServiceWrapper::from(Arc::new(MemoryPathInfoService::new(
+                    GRPCPathInfoServiceWrapper::new(Box::new(MemoryPathInfoService::new(
                         gen_blob_service(),
                         gen_directory_service(),
                     ))
-                        as Arc<dyn PathInfoService>),
+                        as Box<dyn PathInfoService>),
                 ),
             );
             router.serve_with_incoming(uds_stream).await
