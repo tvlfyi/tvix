@@ -39,6 +39,7 @@ debug = true
 
 [patch.crates-io]
 # https://github.com/rust-lang/futures-rs/pull/2801
+# replace once https://github.com/rust-lang/futures-rs/pull/2812 has been backported and released.
 futures-channel = { git = "https://github.com/edef1c/futures-rs", rev = "23e25061f2261794d6d611675a6372c96b70fa85" }
 futures-core = { git = "https://github.com/edef1c/futures-rs", rev = "23e25061f2261794d6d611675a6372c96b70fa85" }
 futures-executor = { git = "https://github.com/edef1c/futures-rs", rev = "23e25061f2261794d6d611675a6372c96b70fa85" }
