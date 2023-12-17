@@ -470,6 +470,40 @@ rec {
         ];
 
       };
+      "async-tempfile" = rec {
+        crateName = "async-tempfile";
+        version = "0.4.0";
+        edition = "2021";
+        sha256 = "16zx4qcwzq94n13pp6xwa4589apm5y8j20jb7lk4yzn42fqlnzdk";
+        authors = [
+          "Markus Mayer"
+        ];
+        dependencies = [
+          {
+            name = "tokio";
+            packageId = "tokio";
+            features = [ "fs" ];
+          }
+          {
+            name = "uuid";
+            packageId = "uuid";
+            optional = true;
+            features = [ "v4" ];
+          }
+        ];
+        devDependencies = [
+          {
+            name = "tokio";
+            packageId = "tokio";
+            features = [ "rt-multi-thread" "macros" ];
+          }
+        ];
+        features = {
+          "default" = [ "uuid" ];
+          "uuid" = [ "dep:uuid" ];
+        };
+        resolvedDefaultFeatures = [ "default" "uuid" ];
+      };
       "async-trait" = rec {
         crateName = "async-trait";
         version = "0.1.68";
@@ -9554,6 +9588,10 @@ rec {
             packageId = "async-stream";
           }
           {
+            name = "async-tempfile";
+            packageId = "async-tempfile";
+          }
+          {
             name = "blake3";
             packageId = "blake3";
             features = [ "rayon" "std" ];
@@ -10409,6 +10447,55 @@ rec {
         ];
         features = { };
         resolvedDefaultFeatures = [ "default" ];
+      };
+      "uuid" = rec {
+        crateName = "uuid";
+        version = "1.5.0";
+        edition = "2018";
+        sha256 = "1z6dnvba224p8wvv4vx4xpgc2yxqy12sk4qh346sfh8baskmkbc8";
+        authors = [
+          "Ashley Mannix<ashleymannix@live.com.au>"
+          "Christopher Armstrong"
+          "Dylan DPC<dylan.dpc@gmail.com>"
+          "Hunar Roop Kahlon<hunar.roop@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "getrandom";
+            packageId = "getrandom";
+            rename = "getrandom";
+            optional = true;
+          }
+        ];
+        features = {
+          "arbitrary" = [ "dep:arbitrary" ];
+          "atomic" = [ "dep:atomic" ];
+          "borsh" = [ "dep:borsh" ];
+          "bytemuck" = [ "dep:bytemuck" ];
+          "default" = [ "std" ];
+          "fast-rng" = [ "rng" "rand" ];
+          "getrandom" = [ "dep:getrandom" ];
+          "js" = [ "wasm-bindgen" "getrandom" "getrandom/js" ];
+          "macro-diagnostics" = [ "uuid-macro-internal" ];
+          "md-5" = [ "dep:md-5" ];
+          "md5" = [ "md-5" ];
+          "rand" = [ "dep:rand" ];
+          "rng" = [ "getrandom" ];
+          "serde" = [ "dep:serde" ];
+          "sha1" = [ "sha1_smol" ];
+          "sha1_smol" = [ "dep:sha1_smol" ];
+          "slog" = [ "dep:slog" ];
+          "uuid-macro-internal" = [ "dep:uuid-macro-internal" ];
+          "v1" = [ "atomic" ];
+          "v3" = [ "md5" ];
+          "v4" = [ "rng" ];
+          "v5" = [ "sha1" ];
+          "v6" = [ "atomic" ];
+          "v7" = [ "atomic" "rng" ];
+          "wasm-bindgen" = [ "dep:wasm-bindgen" ];
+          "zerocopy" = [ "dep:zerocopy" ];
+        };
+        resolvedDefaultFeatures = [ "default" "getrandom" "rng" "std" "v4" ];
       };
       "valuable" = rec {
         crateName = "valuable";

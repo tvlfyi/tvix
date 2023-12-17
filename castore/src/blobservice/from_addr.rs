@@ -3,7 +3,9 @@ use url::Url;
 
 use crate::{proto::blob_service_client::BlobServiceClient, Error};
 
-use super::{BlobService, GRPCBlobService, MemoryBlobService, SledBlobService};
+use super::{
+    BlobService, GRPCBlobService, MemoryBlobService, SimpleFilesystemBlobService, SledBlobService,
+};
 
 /// Constructs a new instance of a [BlobService] from an URI.
 ///
@@ -11,6 +13,7 @@ use super::{BlobService, GRPCBlobService, MemoryBlobService, SledBlobService};
 /// - `memory://` ([MemoryBlobService])
 /// - `sled://` ([SledBlobService])
 /// - `grpc+*://` ([GRPCBlobService])
+/// - `simplefs://` ([SimpleFilesystemBlobService])
 ///
 /// See their `from_url` methods for more details about their syntax.
 pub async fn from_addr(uri: &str) -> Result<Arc<dyn BlobService>, crate::Error> {
@@ -54,6 +57,12 @@ pub async fn from_addr(uri: &str) -> Result<Arc<dyn BlobService>, crate::Error> 
         // Constructing the channel is handled by tvix_castore::channel::from_url.
         let client = BlobServiceClient::new(crate::tonic::channel_from_url(&url).await?);
         Arc::new(GRPCBlobService::from_client(client))
+    } else if url.scheme() == "simplefs" {
+        if url.path().is_empty() {
+            return Err(Error::StorageError("Invalid filesystem path".to_string()));
+        }
+
+        Arc::new(SimpleFilesystemBlobService::new(url.path().into()).await?)
     } else {
         Err(crate::Error::StorageError(format!(
             "unknown scheme: {}",
