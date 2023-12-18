@@ -73,8 +73,8 @@ impl proto::path_info_service_server::PathInfoService for GRPCPathInfoServiceWra
         match request.into_inner().node {
             None => Err(Status::invalid_argument("no root node sent")),
             Some(root_node) => {
-                let path_info_service = self.path_info_service.clone();
-                let (nar_size, nar_sha256) = path_info_service
+                let (nar_size, nar_sha256) = self
+                    .path_info_service
                     .calculate_nar(&root_node)
                     .await
                     .expect("error during nar calculation"); // TODO: handle error
@@ -94,10 +94,9 @@ impl proto::path_info_service_server::PathInfoService for GRPCPathInfoServiceWra
     ) -> Result<Response<Self::ListStream>, Status> {
         let (tx, rx) = tokio::sync::mpsc::channel(5);
 
-        let path_info_service = self.path_info_service.clone();
+        let mut stream = self.path_info_service.list();
 
         let _task = task::spawn(async move {
-            let mut stream = path_info_service.list();
             while let Some(e) = stream.next().await {
                 let res = e.map_err(|e| Status::internal(e.to_string()));
                 if tx.send(res).await.is_err() {
