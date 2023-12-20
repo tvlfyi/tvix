@@ -5,8 +5,8 @@
 
 set -euo pipefail
 
-echo "Running benchmarks for tvix/eval..."
-pushd "$(dirname "$(dirname "$0")")/eval"
+echo "Running benchmarks for tvix..."
+pushd "$(dirname "$(dirname "$0")")"
 cargo bench
 windtunnel-cli report -f criterion-rust .
 popd
