@@ -115,6 +115,7 @@ impl Derivation {
         };
 
         build_text_path(name, self.to_aterm_bytes(), references)
+            .map(|s| s.to_owned())
             .map_err(|_e| DerivationError::InvalidOutputName(name.to_string()))
     }
 

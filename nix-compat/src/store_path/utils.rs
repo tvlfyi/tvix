@@ -1,6 +1,6 @@
 use crate::nixbase32;
 use crate::nixhash::{CAHash, NixHash};
-use crate::store_path::{Error, StorePath, STORE_DIR};
+use crate::store_path::{Error, StorePathRef, DIGEST_SIZE, STORE_DIR};
 use sha2::{Digest, Sha256};
 use std::io::Write;
 use thiserror;
@@ -47,7 +47,7 @@ pub fn build_text_path<S: AsRef<str>, I: IntoIterator<Item = S>, C: AsRef<[u8]>>
     name: &str,
     content: C,
     references: I,
-) -> Result<StorePath, BuildStorePathError> {
+) -> Result<StorePathRef<'_>, BuildStorePathError> {
     // produce the sha256 digest of the contents
     let content_digest = Sha256::new_with_prefix(content).finalize().into();
 
@@ -55,12 +55,12 @@ pub fn build_text_path<S: AsRef<str>, I: IntoIterator<Item = S>, C: AsRef<[u8]>>
 }
 
 /// This builds a store path from a [CAHash] and a list of references.
-pub fn build_ca_path<B: AsRef<[u8]>, S: AsRef<str>, I: IntoIterator<Item = S>>(
-    name: B,
+pub fn build_ca_path<'a, S: AsRef<str>, I: IntoIterator<Item = S>>(
+    name: &'a str,
     ca_hash: &CAHash,
     references: I,
     self_reference: bool,
-) -> Result<StorePath, BuildStorePathError> {
+) -> Result<StorePathRef<'a>, BuildStorePathError> {
     match &ca_hash {
         CAHash::Text(ref digest) => {
             if self_reference {
@@ -71,14 +71,12 @@ pub fn build_ca_path<B: AsRef<[u8]>, S: AsRef<str>, I: IntoIterator<Item = S>>(
                 &NixHash::Sha256(*digest),
                 name,
             )
-            .map_err(BuildStorePathError::InvalidStorePath)
         }
         CAHash::Nar(ref hash @ NixHash::Sha256(_)) => build_store_path_from_fingerprint_parts(
             &make_references_string("source", references, self_reference),
             hash,
             name,
-        )
-        .map_err(BuildStorePathError::InvalidStorePath),
+        ),
         // for all other CAHash::Nar, another custom scheme is used.
         CAHash::Nar(ref hash) => {
             if references.into_iter().next().is_some() {
@@ -101,7 +99,6 @@ pub fn build_ca_path<B: AsRef<[u8]>, S: AsRef<str>, I: IntoIterator<Item = S>>(
                 },
                 name,
             )
-            .map_err(BuildStorePathError::InvalidStorePath)
         }
         // CaHash::Flat is using something very similar, except the `r:` prefix.
         CAHash::Flat(ref hash) => {
@@ -122,13 +119,17 @@ pub fn build_ca_path<B: AsRef<[u8]>, S: AsRef<str>, I: IntoIterator<Item = S>>(
                 },
                 name,
             )
-            .map_err(BuildStorePathError::InvalidStorePath)
         }
     }
+    .map_err(BuildStorePathError::InvalidStorePath)
 }
 
-/// For given NAR sha256 digest and name, return the new [StorePath] this would have.
-pub fn build_nar_based_store_path(nar_sha256_digest: &[u8; 32], name: &str) -> StorePath {
+/// For given NAR sha256 digest and name, return the new [StorePathRef] this
+/// would have.
+pub fn build_nar_based_store_path<'a>(
+    nar_sha256_digest: &[u8; 32],
+    name: &'a str,
+) -> StorePathRef<'a> {
     let nar_hash_with_mode = CAHash::Nar(NixHash::Sha256(nar_sha256_digest.to_owned()));
 
     build_ca_path(name, &nar_hash_with_mode, Vec::<String>::new(), false).unwrap()
@@ -138,11 +139,11 @@ pub fn build_nar_based_store_path(nar_sha256_digest: &[u8; 32], name: &str) -> S
 ///
 /// Input-addresed store paths are always derivation outputs, the "input" in question is the
 /// derivation and its closure.
-pub fn build_output_path(
+pub fn build_output_path<'a>(
     drv_hash: &NixHash,
     output_name: &str,
-    output_path_name: &str,
-) -> Result<StorePath, Error> {
+    output_path_name: &'a str,
+) -> Result<StorePathRef<'a>, Error> {
     build_store_path_from_fingerprint_parts(
         &(String::from("output:") + output_name),
         drv_hash,
@@ -158,20 +159,19 @@ pub fn build_output_path(
 ///
 /// The fingerprint is hashed with sha256, its digest is compressed to 20 bytes,
 /// and nixbase32-encoded (32 characters).
-fn build_store_path_from_fingerprint_parts<B: AsRef<[u8]>>(
+fn build_store_path_from_fingerprint_parts<'a>(
     ty: &str,
     hash: &NixHash,
-    name: B,
-) -> Result<StorePath, Error> {
-    let name = super::validate_name(&name)?.to_owned();
-
-    let digest = compress_hash(&{
+    name: &'a str,
+) -> Result<StorePathRef<'a>, Error> {
+    let digest: [u8; DIGEST_SIZE] = compress_hash(&{
         let mut h = Sha256::new();
         write!(h, "{ty}:{}:{STORE_DIR}:{name}", hash.to_nix_hex_string()).unwrap();
         h.finalize()
     });
 
-    Ok(StorePath { digest, name })
+    // name validation happens in here.
+    StorePathRef::from_name_and_digest(name, &digest)
 }
 
 /// This contains the Nix logic to create "text hash strings", which are used
