@@ -42,7 +42,7 @@ impl NixHash {
     }
 
     /// Constructs a [NixHash] from the Nix default hash format,
-    /// the inverse of [to_nix_hex_string].
+    /// the inverse of [Self::to_nix_hex_string].
     pub fn from_nix_hex_str(s: &str) -> Option<Self> {
         let (tag, digest) = s.split_once(':')?;
 
