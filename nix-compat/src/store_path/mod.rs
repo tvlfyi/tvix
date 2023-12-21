@@ -126,18 +126,18 @@ impl StorePath {
         }
     }
 
-    /// Converts the [StorePath] to an absolute store path string.
+    /// Returns an absolute store path string.
     /// That is just the string representation, prefixed with the store prefix
     /// ([STORE_DIR_WITH_SLASH]),
     pub fn to_absolute_path(&self) -> String {
-        format!("{}{}", STORE_DIR_WITH_SLASH, self)
+        let sp_ref: StorePathRef = self.into();
+        sp_ref.to_absolute_path()
     }
 }
 
 /// Like [StorePath], but without a heap allocation for the name.
 /// Used by [StorePath] for parsing.
 ///
-/// TODO(edef): migrate most methods here
 #[derive(Debug, Eq, PartialEq)]
 pub struct StorePathRef<'a> {
     digest: [u8; DIGEST_SIZE],
@@ -210,6 +210,13 @@ impl<'a> StorePathRef<'a> {
             digest,
             name: validate_name(&s[ENCODED_DIGEST_SIZE + 1..])?,
         })
+    }
+
+    /// Returns an absolute store path string.
+    /// That is just the string representation, prefixed with the store prefix
+    /// ([STORE_DIR_WITH_SLASH]),
+    pub fn to_absolute_path(&self) -> String {
+        format!("{}{}", STORE_DIR_WITH_SLASH, self)
     }
 }
 
@@ -358,13 +365,12 @@ mod tests {
         let example_nix_path_str =
             "00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432";
         let nixpath_expected =
-            StorePath::from_bytes(example_nix_path_str.as_bytes()).expect("must parse");
+            StorePathRef::from_bytes(example_nix_path_str.as_bytes()).expect("must parse");
 
         let nixpath_actual = StorePathRef::from_absolute_path(
             "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432".as_bytes(),
         )
-        .expect("must parse")
-        .to_owned();
+        .expect("must parse");
 
         assert_eq!(nixpath_expected, nixpath_actual);
 
