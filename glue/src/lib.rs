@@ -5,7 +5,7 @@ pub mod tvix_build;
 pub mod tvix_io;
 pub mod tvix_store_io;
 
-/// Tell the Evaluator to resolve <nix> to the path `/__corepkgs__`,
+/// Tell the Evaluator to resolve `<nix>` to the path `/__corepkgs__`,
 /// which has special handling in [tvix_io::TvixIO].
 /// This is used in nixpkgs to import `fetchurl.nix` from `<nix>`.
 pub fn configure_nix_path(eval: &mut tvix_eval::Evaluation, nix_search_path: &Option<String>) {
