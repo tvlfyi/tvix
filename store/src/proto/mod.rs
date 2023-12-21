@@ -238,7 +238,7 @@ impl PathInfo {
     }
 }
 
-/// Errors that can occur when converting from a [&nar_info::Ca] to a (stricter)
+/// Errors that can occur when converting from a [nar_info::Ca] to a (stricter)
 /// [nix_compat::nixhash::CAHash].
 #[derive(Debug, Error, PartialEq)]
 pub enum ConvertCAError {
