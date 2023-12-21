@@ -26,7 +26,7 @@ impl Derivation {
             // meaning.
             //
             // Other output names that don't match the name restrictions from
-            // [StorePath] will fail the [store_path::validate_name] check.
+            // [StorePathRef] will fail the [StorePathRef::validate_name] check.
             if output_name.is_empty()
                 || output_name == "drv"
                 || store_path::validate_name(output_name.as_bytes()).is_err()
@@ -81,7 +81,7 @@ impl Derivation {
                 // meaning.
                 //
                 // Other output names that don't match the name restrictions from
-                // [StorePath] will fail the [StorePath::validate_name] check.
+                // [StorePath] will fail the [StorePathRef::validate_name] check.
                 if output_name.is_empty()
                     || output_name == "drv"
                     || store_path::validate_name(output_name.as_bytes()).is_err()
