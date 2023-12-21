@@ -53,7 +53,7 @@ pub struct NarInfo<'a> {
     /// Content address (for content-defined paths)
     pub ca: Option<CAHash>,
     // derivation metadata
-    /// Nix system triple of [deriver]
+    /// Nix system triple of [NarInfo::deriver]
     pub system: Option<&'a str>,
     /// Store path of the derivation that produced this. The last .drv suffix is stripped.
     pub deriver: Option<StorePathRef<'a>>,
