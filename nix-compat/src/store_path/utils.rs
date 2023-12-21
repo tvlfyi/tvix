@@ -61,27 +61,26 @@ pub fn build_ca_path<'a, S: AsRef<str>, I: IntoIterator<Item = S>>(
     references: I,
     self_reference: bool,
 ) -> Result<StorePathRef<'a>, BuildStorePathError> {
-    let (ty, hash) = match &ca_hash {
-        CAHash::Text(ref digest) => {
-            if self_reference {
-                return Err(BuildStorePathError::InvalidReference());
-            }
+    // self references are only allowed for CAHash::Nar(NixHash::Sha256(_)).
+    if self_reference {
+        let CAHash::Nar(NixHash::Sha256(_)) = ca_hash else {
+            return Err(BuildStorePathError::InvalidReference());
+        };
+    }
 
-            (
-                make_references_string("text", references, false),
-                NixHash::Sha256(*digest),
-            )
-        }
+    let (ty, hash) = match &ca_hash {
+        CAHash::Text(ref digest) => (
+            make_references_string("text", references, false),
+            NixHash::Sha256(*digest),
+        ),
         CAHash::Nar(NixHash::Sha256(ref digest)) => (
             make_references_string("source", references, self_reference),
             NixHash::Sha256(*digest),
         ),
+
         // for all other CAHash::Nar, another custom scheme is used.
         CAHash::Nar(ref hash) => {
             if references.into_iter().next().is_some() {
-                return Err(BuildStorePathError::InvalidReference());
-            }
-            if self_reference {
                 return Err(BuildStorePathError::InvalidReference());
             }
 
@@ -97,9 +96,6 @@ pub fn build_ca_path<'a, S: AsRef<str>, I: IntoIterator<Item = S>>(
         // CaHash::Flat is using something very similar, except the `r:` prefix.
         CAHash::Flat(ref hash) => {
             if references.into_iter().next().is_some() {
-                return Err(BuildStorePathError::InvalidReference());
-            }
-            if self_reference {
                 return Err(BuildStorePathError::InvalidReference());
             }
 
