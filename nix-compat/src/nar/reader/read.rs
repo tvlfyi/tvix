@@ -8,7 +8,7 @@ use std::io::{
 use super::Reader;
 use crate::nar::wire::Tag;
 
-/// Consume a little-endian [u64] from the reader.
+/// Consume a little-endian [prim@u64] from the reader.
 pub fn u64(reader: &mut Reader) -> io::Result<u64> {
     let mut buf = [0; 8];
     reader.read_exact(&mut buf)?;
