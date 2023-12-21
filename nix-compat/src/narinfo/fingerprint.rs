@@ -1,6 +1,6 @@
 use crate::{nixbase32, store_path::StorePathRef};
 
-/// Computes the fingerprint string for certain fields in a [NarInfo].
+/// Computes the fingerprint string for certain fields in a [super::NarInfo].
 /// This fingerprint is signed by an ed25519 key, and in the case of a Nix HTTP
 /// Binary cache, included in the NARInfo files served from there.
 pub fn fingerprint<'a, R: Iterator<Item = &'a StorePathRef<'a>>>(
