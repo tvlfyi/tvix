@@ -138,7 +138,7 @@ impl StorePath {
 /// Used by [StorePath] for parsing.
 ///
 /// TODO(edef): migrate most methods here
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct StorePathRef<'a> {
     digest: [u8; DIGEST_SIZE],
     name: &'a str,
