@@ -35,8 +35,8 @@ use super::PathInfoService;
 ///
 /// The client is expected to be (indirectly) using the same [BlobService] and
 /// [DirectoryService], so able to fetch referred Directories and Blobs.
-/// [PathInfoService::put] and [PathInfoService::nar] are not implemented and
-/// return an error if called.
+/// [PathInfoService::put] and [PathInfoService::calculate_nar] are not
+/// implemented and return an error if called.
 /// TODO: what about reading from nix-cache-info?
 pub struct NixHTTPPathInfoService {
     base_url: url::Url,
