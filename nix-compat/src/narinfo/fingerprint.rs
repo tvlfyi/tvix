@@ -11,12 +11,12 @@ pub fn fingerprint<'a, R: Iterator<Item = &'a StorePathRef<'a>>>(
 ) -> String {
     format!(
         "1;{};sha256:{};{};{}",
-        store_path.to_owned().to_absolute_path(), // TODO: move to StorePathRef
+        store_path.to_absolute_path(),
         nixbase32::encode(nar_sha256),
         nar_size,
         // references are absolute paths, joined with `,`.
         references
-            .map(|r| r.to_owned().to_absolute_path())
+            .map(|r| r.to_absolute_path())
             .collect::<Vec<String>>()
             .join(",")
     )
