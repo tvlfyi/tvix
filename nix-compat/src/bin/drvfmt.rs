@@ -7,8 +7,9 @@ use serde_json::json;
 /// Some environment values can be non-valid UTF-8 strings.
 /// `serde_json` prints them out really unreadable.
 /// This is a tool to print A-Terms in a more readable fashion, so we brutally
-/// use [BString::to_string] to get a UTF-8 string (replacing invalid characters
-/// with the Unicode replacement codepoint).
+/// use the [std::string::ToString] implementation of [bstr::BString] to get
+/// a UTF-8 string (replacing invalid characters with the Unicode replacement
+/// codepoint).
 fn build_serde_json_value(drv: Derivation) -> serde_json::Value {
     json!({
         "args": drv.arguments,
