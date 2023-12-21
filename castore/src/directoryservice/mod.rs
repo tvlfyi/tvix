@@ -57,9 +57,10 @@ pub trait DirectoryService: Send + Sync {
 /// leaves. Once the root is reached, [DirectoryPutter::close] can be called to
 /// retrieve the root digest (or an error).
 ///
-/// DirectoryPutters might be created without a single [put], and then dropped
-/// without calling [close], for example when ingesting a path that ends up not
-/// pointing to a directory, but a single file or symlink.
+/// DirectoryPutters might be created without a single [DirectoryPutter::put],
+/// and then dropped without calling [DirectoryPutter::close],
+/// for example when ingesting a path that ends up not pointing to a directory,
+/// but a single file or symlink.
 #[async_trait]
 pub trait DirectoryPutter: Send {
     /// Put a individual [proto::Directory] into the store.
