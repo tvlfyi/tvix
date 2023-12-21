@@ -28,7 +28,7 @@ fn parse_escaped_bstr(i: &[u8]) -> IResult<&[u8], BString> {
 }
 
 /// Parse a field in double quotes, undo any escaping, and return the unquoted
-/// and decoded Vec<u8>.
+/// and decoded `Vec<u8>`.
 pub(crate) fn parse_bstr_field(i: &[u8]) -> IResult<&[u8], BString> {
     // inside double quotes…
     delimited(
