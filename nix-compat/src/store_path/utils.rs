@@ -61,21 +61,20 @@ pub fn build_ca_path<'a, S: AsRef<str>, I: IntoIterator<Item = S>>(
     references: I,
     self_reference: bool,
 ) -> Result<StorePathRef<'a>, BuildStorePathError> {
-    match &ca_hash {
+    let (ty, hash) = match &ca_hash {
         CAHash::Text(ref digest) => {
             if self_reference {
                 return Err(BuildStorePathError::InvalidReference());
             }
-            build_store_path_from_fingerprint_parts(
-                &make_references_string("text", references, false),
-                &NixHash::Sha256(*digest),
-                name,
+
+            (
+                make_references_string("text", references, false),
+                NixHash::Sha256(*digest),
             )
         }
-        CAHash::Nar(ref hash @ NixHash::Sha256(_)) => build_store_path_from_fingerprint_parts(
-            &make_references_string("source", references, self_reference),
-            hash,
-            name,
+        CAHash::Nar(NixHash::Sha256(ref digest)) => (
+            make_references_string("source", references, self_reference),
+            NixHash::Sha256(*digest),
         ),
         // for all other CAHash::Nar, another custom scheme is used.
         CAHash::Nar(ref hash) => {
@@ -85,19 +84,14 @@ pub fn build_ca_path<'a, S: AsRef<str>, I: IntoIterator<Item = S>>(
             if self_reference {
                 return Err(BuildStorePathError::InvalidReference());
             }
-            build_store_path_from_fingerprint_parts(
-                "output:out",
-                &{
-                    NixHash::Sha256(
-                        Sha256::new_with_prefix(format!(
-                            "fixed:out:r:{}:",
-                            hash.to_nix_hex_string()
-                        ))
+
+            (
+                "output:out".to_string(),
+                NixHash::Sha256(
+                    Sha256::new_with_prefix(format!("fixed:out:r:{}:", hash.to_nix_hex_string()))
                         .finalize()
                         .into(),
-                    )
-                },
-                name,
+                ),
             )
         }
         // CaHash::Flat is using something very similar, except the `r:` prefix.
@@ -108,20 +102,20 @@ pub fn build_ca_path<'a, S: AsRef<str>, I: IntoIterator<Item = S>>(
             if self_reference {
                 return Err(BuildStorePathError::InvalidReference());
             }
-            build_store_path_from_fingerprint_parts(
-                "output:out",
-                &{
-                    NixHash::Sha256(
-                        Sha256::new_with_prefix(format!("fixed:out:{}:", hash.to_nix_hex_string()))
-                            .finalize()
-                            .into(),
-                    )
-                },
-                name,
+
+            (
+                "output:out".to_string(),
+                NixHash::Sha256(
+                    Sha256::new_with_prefix(format!("fixed:out:{}:", hash.to_nix_hex_string()))
+                        .finalize()
+                        .into(),
+                ),
             )
         }
-    }
-    .map_err(BuildStorePathError::InvalidStorePath)
+    };
+
+    build_store_path_from_fingerprint_parts(&ty, &hash, name)
+        .map_err(BuildStorePathError::InvalidStorePath)
 }
 
 /// For given NAR sha256 digest and name, return the new [StorePathRef] this
