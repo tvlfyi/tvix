@@ -70,8 +70,8 @@ impl<I> From<nom::error::Error<I>> for NomError<I> {
 }
 
 /// This essentially implements
-/// From<nom::Err<nom::error::Error<I>>> for nom::Err<NomError<I>>,
-/// which we can't because nom::Err<_> is a foreign type.
+/// `From<nom::Err<nom::error::Error<I>>>` for `nom::Err<NomError<I>>`,
+/// which we can't because `nom::Err<_>` is a foreign type.
 pub(crate) fn into_nomerror<I>(e: nom::Err<nom::error::Error<I>>) -> nom::Err<NomError<I>> {
     match e {
         nom::Err::Incomplete(n) => nom::Err::Incomplete(n),
