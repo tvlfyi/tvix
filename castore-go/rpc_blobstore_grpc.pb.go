@@ -35,7 +35,7 @@ type BlobServiceClient interface {
 	// gathering more data about it, like more granular chunking information
 	// or baos.
 	// Server implementations are not required to provide more granular chunking
-	// information, especially if the digest specified in [StatBlobRequest] is
+	// information, especially if the digest specified in `StatBlobRequest` is
 	// already a chunk of a blob.
 	Stat(ctx context.Context, in *StatBlobRequest, opts ...grpc.CallOption) (*StatBlobResponse, error)
 	// Read allows reading (all) data of a blob/chunk by the BLAKE3 digest of
@@ -147,7 +147,7 @@ type BlobServiceServer interface {
 	// gathering more data about it, like more granular chunking information
 	// or baos.
 	// Server implementations are not required to provide more granular chunking
-	// information, especially if the digest specified in [StatBlobRequest] is
+	// information, especially if the digest specified in `StatBlobRequest` is
 	// already a chunk of a blob.
 	Stat(context.Context, *StatBlobRequest) (*StatBlobResponse, error)
 	// Read allows reading (all) data of a blob/chunk by the BLAKE3 digest of

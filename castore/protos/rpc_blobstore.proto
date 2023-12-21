@@ -15,7 +15,7 @@ service BlobService {
   // gathering more data about it, like more granular chunking information
   // or baos.
   // Server implementations are not required to provide more granular chunking
-  // information, especially if the digest specified in [StatBlobRequest] is
+  // information, especially if the digest specified in `StatBlobRequest` is
   // already a chunk of a blob.
   rpc Stat(StatBlobRequest) returns (StatBlobResponse);
 
