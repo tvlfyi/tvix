@@ -260,73 +260,77 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let tasks = paths
                 .into_iter()
                 .map(|path| {
-                    let blob_service = blob_service.clone();
-                    let directory_service = directory_service.clone();
-                    let path_info_service = path_info_service.clone();
+                    let task: JoinHandle<io::Result<()>> = tokio::task::spawn({
+                        let blob_service = blob_service.clone();
+                        let directory_service = directory_service.clone();
+                        let path_info_service = path_info_service.clone();
 
-                    let task: JoinHandle<io::Result<()>> = tokio::task::spawn(async move {
-                        // Ingest the path into blob and directory service.
-                        let root_node = import::ingest_path(
-                            blob_service.clone(),
-                            directory_service.clone(),
-                            &path,
-                        )
-                        .await
-                        .expect("failed to ingest path");
+                        async move {
+                            // Ingest the path into blob and directory service.
+                            let root_node = import::ingest_path(
+                                blob_service.clone(),
+                                directory_service.clone(),
+                                &path,
+                            )
+                            .await
+                            .expect("failed to ingest path");
 
-                        // Ask the PathInfoService for the NAR size and sha256
-                        let root_node_copy = root_node.clone();
-                        let (nar_size, nar_sha256) =
-                            path_info_service.calculate_nar(&root_node_copy).await?;
+                            // Ask the PathInfoService for the NAR size and sha256
+                            let root_node_copy = root_node.clone();
+                            let (nar_size, nar_sha256) =
+                                path_info_service.calculate_nar(&root_node_copy).await?;
 
-                        let name = path
-                            .file_name()
-                            .expect("path must not be ..")
-                            .to_str()
-                            .expect("path must be valid unicode");
+                            let name = path
+                                .file_name()
+                                .expect("path must not be ..")
+                                .to_str()
+                                .expect("path must be valid unicode");
 
-                        let output_path = store_path::build_nar_based_store_path(&nar_sha256, name);
+                            let output_path =
+                                store_path::build_nar_based_store_path(&nar_sha256, name);
 
-                        // assemble a new root_node with a name that is derived from the nar hash.
-                        let root_node =
-                            root_node.rename(output_path.to_string().into_bytes().into());
+                            // assemble a new root_node with a name that is derived from the nar hash.
+                            let root_node =
+                                root_node.rename(output_path.to_string().into_bytes().into());
 
-                        // assemble the [crate::proto::PathInfo] object.
-                        let path_info = PathInfo {
-                            node: Some(tvix_castore::proto::Node {
-                                node: Some(root_node),
-                            }),
-                            // There's no reference scanning on path contents ingested like this.
-                            references: vec![],
-                            narinfo: Some(NarInfo {
-                                nar_size,
-                                nar_sha256: nar_sha256.to_vec().into(),
-                                signatures: vec![],
-                                reference_names: vec![],
-                                deriver: None,
-                                ca: Some(nar_info::Ca {
-                                    r#type: tvix_store::proto::nar_info::ca::Hash::NarSha256.into(),
-                                    digest: nar_sha256.to_vec().into(),
+                            // assemble the [crate::proto::PathInfo] object.
+                            let path_info = PathInfo {
+                                node: Some(tvix_castore::proto::Node {
+                                    node: Some(root_node),
                                 }),
-                            }),
-                        };
+                                // There's no reference scanning on path contents ingested like this.
+                                references: vec![],
+                                narinfo: Some(NarInfo {
+                                    nar_size,
+                                    nar_sha256: nar_sha256.to_vec().into(),
+                                    signatures: vec![],
+                                    reference_names: vec![],
+                                    deriver: None,
+                                    ca: Some(nar_info::Ca {
+                                        r#type: tvix_store::proto::nar_info::ca::Hash::NarSha256
+                                            .into(),
+                                        digest: nar_sha256.to_vec().into(),
+                                    }),
+                                }),
+                            };
 
-                        // put into [PathInfoService], and return the PathInfo that we get back
-                        // from there (it might contain additional signatures).
-                        let path_info = path_info_service.put(path_info).await?;
+                            // put into [PathInfoService], and return the PathInfo that we get back
+                            // from there (it might contain additional signatures).
+                            let path_info = path_info_service.put(path_info).await?;
 
-                        let node = path_info.node.unwrap().node.unwrap();
+                            let node = path_info.node.unwrap().node.unwrap();
 
-                        log_node(&node, &path);
+                            log_node(&node, &path);
 
-                        println!(
-                            "{}",
-                            StorePath::from_bytes(node.get_name())
-                                .unwrap()
-                                .to_absolute_path()
-                        );
+                            println!(
+                                "{}",
+                                StorePath::from_bytes(node.get_name())
+                                    .unwrap()
+                                    .to_absolute_path()
+                            );
 
-                        Ok(())
+                            Ok(())
+                        }
                     });
                     task
                 })
