@@ -276,10 +276,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         // Ask the PathInfoService for the NAR size and sha256
                         let root_node_copy = root_node.clone();
-                        let path_info_service_clone = path_info_service.clone();
-                        let (nar_size, nar_sha256) = path_info_service_clone
-                            .calculate_nar(&root_node_copy)
-                            .await?;
+                        let (nar_size, nar_sha256) =
+                            path_info_service.calculate_nar(&root_node_copy).await?;
 
                         let name = path
                             .file_name()
