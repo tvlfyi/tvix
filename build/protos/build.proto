@@ -45,16 +45,36 @@ option go_package = "code.tvl.fyi/tvix/build-go;buildv1";
 // support "send all BuildRequest for a nixpkgs eval to a remote builder and put
 // the laptop to sleep" usecases later.
 message BuildRequest {
+  // The list of all root nodes that should be visible in STORE_DIR at the time
+  // of the build.
+  // As root nodes are content-addressed, no additional signatures are needed
+  // to substitute / make these available in the build environment.
+  // Inputs are sorted by their names.
+  repeated tvix.castore.v1.Node inputs = 1;
+
   // The command (and its args) executed as the build script.
   // In the case of a Nix derivation, this is usually
   // ["/path/to/some-bash/bin/bash", "-e", "/path/to/some/builder.sh"].
-  repeated string command_args = 1;
+  repeated string command_args = 2;
 
-  // The list of outputs the build is expected to produce.
-  // These are basenames inside /nix/store.
+  // The working dir of the command, relative to the build root.
+  // "build", in the case of Nix.
+  string working_dir = 3;
+
+  // A list of "scratch" paths, relative to the build root.
+  // These will be write-able during the build.
+  // [build] in the case of Nix.
+  repeated string scratch_paths = 4;
+
+  // The path where the castore input nodes will be located at,
+  // "/nix/store" in case of Nix.
+  string store_dir = 5;
+
+  // The list of output nodes the build is expected to produce.
+  // These are basenames inside store_dir.
   // If the path is not produced, the build is considered to have failed.
   // Outputs are sorted.
-  repeated string outputs = 2;
+  repeated string outputs = 6;
 
   // The list of environment variables and their values that should be set
   // inside the build environment.
@@ -66,23 +86,16 @@ message BuildRequest {
   // We don't want to bleed these very nix-specific sandbox impl details into
   // (dumber) builders if we don't have to.
   // Environment variables are sorted by their keys.
-  repeated EnvVar environment_vars = 3;
+  repeated EnvVar environment_vars = 7;
 
   message EnvVar {
     string key = 1;
     bytes value = 2;
   }
 
-  // The list of all root nodes that should be visible in /nix/store at the
-  // time of the build.
-  // As root nodes are content-addressed, no additional signatures are needed
-  // to substitute / make these available in the build environment.
-  // Inputs are sorted by their names.
-  repeated tvix.castore.v1.Node inputs = 4;
-
   // A set of constraints that need to be satisfied on a build host before a
   // Build can be started.
-  BuildConstraints constraints = 5;
+  BuildConstraints constraints = 8;
 
   // BuildConstraints represents certain conditions that must be fulfilled
   // inside the build environment to be able to build this.
@@ -97,9 +110,15 @@ message BuildRequest {
     uint64 min_memory = 2;
 
     // A list of (absolute) paths that need to be available in the build
-    // environment.
-    // TBD, This is probably things like /dev/kvm, but no nix store paths.
+    // environment, like `/dev/kvm`.
+    // This is distinct from the castore nodes in inputs.
     repeated string available_ro_paths = 3;
+
+    // Whether the build should be able to access the network,
+    bool network_access = 4;
+
+    // Whether to provide a /bin/sh inside the build environment, usually a static bash.
+    bool provide_bin_sh = 5;
   }
 
   // TODO: allow describing something like "preferLocal", to influence composition?
