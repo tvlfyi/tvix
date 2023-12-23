@@ -57,7 +57,6 @@ where
 
 async fn populate_blob_a(
     blob_service: &Arc<dyn BlobService>,
-    _directory_service: &Arc<dyn DirectoryService>,
     root_nodes: &mut BTreeMap<Bytes, Node>,
 ) {
     let mut bw = blob_service.open_write().await;
@@ -79,7 +78,6 @@ async fn populate_blob_a(
 
 async fn populate_blob_b(
     blob_service: &Arc<dyn BlobService>,
-    _directory_service: &Arc<dyn DirectoryService>,
     root_nodes: &mut BTreeMap<Bytes, Node>,
 ) {
     let mut bw = blob_service.open_write().await;
@@ -100,9 +98,8 @@ async fn populate_blob_b(
 }
 
 /// adds a blob containing helloworld and marks it as executable
-async fn populate_helloworld_blob(
+async fn populate_blob_helloworld(
     blob_service: &Arc<dyn BlobService>,
-    _directory_service: &Arc<dyn DirectoryService>,
     root_nodes: &mut BTreeMap<Bytes, Node>,
 ) {
     let mut bw = blob_service.open_write().await;
@@ -125,11 +122,7 @@ async fn populate_helloworld_blob(
     );
 }
 
-async fn populate_symlink(
-    _blob_service: &Arc<dyn BlobService>,
-    _directory_service: &Arc<dyn DirectoryService>,
-    root_nodes: &mut BTreeMap<Bytes, Node>,
-) {
+async fn populate_symlink(root_nodes: &mut BTreeMap<Bytes, Node>) {
     root_nodes.insert(
         SYMLINK_NAME.into(),
         Node::Symlink(castorepb::SymlinkNode {
@@ -141,11 +134,7 @@ async fn populate_symlink(
 
 /// This writes a symlink pointing to /nix/store/somewhereelse,
 /// which is the same symlink target as "aa" inside DIRECTORY_COMPLICATED.
-async fn populate_symlink2(
-    _blob_service: &Arc<dyn BlobService>,
-    _directory_service: &Arc<dyn DirectoryService>,
-    root_nodes: &mut BTreeMap<Bytes, Node>,
-) {
+async fn populate_symlink2(root_nodes: &mut BTreeMap<Bytes, Node>) {
     root_nodes.insert(
         SYMLINK_NAME2.into(),
         Node::Symlink(castorepb::SymlinkNode {
@@ -185,11 +174,7 @@ async fn populate_directory_with_keep(
 
 /// Create a root node for DIRECTORY_WITH_KEEP, but don't upload the Directory
 /// itself.
-async fn populate_pathinfo_without_directory(
-    _: &Arc<dyn BlobService>,
-    _: &Arc<dyn DirectoryService>,
-    root_nodes: &mut BTreeMap<Bytes, Node>,
-) {
+async fn populate_directorynode_without_directory(root_nodes: &mut BTreeMap<Bytes, Node>) {
     root_nodes.insert(
         DIRECTORY_WITH_KEEP_NAME.into(),
         castorepb::node::Node::Directory(castorepb::DirectoryNode {
@@ -200,12 +185,8 @@ async fn populate_pathinfo_without_directory(
     );
 }
 
-/// Insert BLOB_A, but don't provide the blob .keep is pointing to
-async fn populate_blob_a_without_blob(
-    _: &Arc<dyn BlobService>,
-    _: &Arc<dyn DirectoryService>,
-    root_nodes: &mut BTreeMap<Bytes, Node>,
-) {
+/// Insert BLOB_A, but don't provide the blob .keep is pointing to.
+async fn populate_filenode_without_blob(root_nodes: &mut BTreeMap<Bytes, Node>) {
     root_nodes.insert(
         BLOB_A_NAME.into(),
         Node::File(castorepb::FileNode {
@@ -323,7 +304,7 @@ async fn root_with_listing() {
     let (blob_service, directory_service) = gen_svcs();
     let mut root_nodes = BTreeMap::default();
 
-    populate_blob_a(&blob_service, &directory_service, &mut root_nodes).await;
+    populate_blob_a(&blob_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
@@ -366,7 +347,7 @@ async fn stat_file_at_root() {
     let (blob_service, directory_service) = gen_svcs();
     let mut root_nodes = BTreeMap::default();
 
-    populate_blob_a(&blob_service, &directory_service, &mut root_nodes).await;
+    populate_blob_a(&blob_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
@@ -402,7 +383,7 @@ async fn read_file_at_root() {
     let (blob_service, directory_service) = gen_svcs();
     let mut root_nodes = BTreeMap::default();
 
-    populate_blob_a(&blob_service, &directory_service, &mut root_nodes).await;
+    populate_blob_a(&blob_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
@@ -438,7 +419,7 @@ async fn read_large_file_at_root() {
     let (blob_service, directory_service) = gen_svcs();
     let mut root_nodes = BTreeMap::default();
 
-    populate_blob_b(&blob_service, &directory_service, &mut root_nodes).await;
+    populate_blob_b(&blob_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
@@ -482,7 +463,7 @@ async fn symlink_readlink() {
     let (blob_service, directory_service) = gen_svcs();
     let mut root_nodes = BTreeMap::default();
 
-    populate_symlink(&blob_service, &directory_service, &mut root_nodes).await;
+    populate_symlink(&mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
@@ -527,8 +508,8 @@ async fn read_stat_through_symlink() {
     let (blob_service, directory_service) = gen_svcs();
     let mut root_nodes = BTreeMap::default();
 
-    populate_blob_a(&blob_service, &directory_service, &mut root_nodes).await;
-    populate_symlink(&blob_service, &directory_service, &mut root_nodes).await;
+    populate_blob_a(&blob_service, &mut root_nodes).await;
+    populate_symlink(&mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
@@ -792,10 +773,10 @@ async fn check_attributes() {
     let (blob_service, directory_service) = gen_svcs();
     let mut root_nodes = BTreeMap::default();
 
-    populate_blob_a(&blob_service, &directory_service, &mut root_nodes).await;
+    populate_blob_a(&blob_service, &mut root_nodes).await;
     populate_directory_with_keep(&blob_service, &directory_service, &mut root_nodes).await;
-    populate_symlink(&blob_service, &directory_service, &mut root_nodes).await;
-    populate_helloworld_blob(&blob_service, &directory_service, &mut root_nodes).await;
+    populate_symlink(&mut root_nodes).await;
+    populate_blob_helloworld(&blob_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
@@ -960,7 +941,7 @@ async fn compare_inodes_symlinks() {
     let mut root_nodes = BTreeMap::default();
 
     populate_directory_complicated(&blob_service, &directory_service, &mut root_nodes).await;
-    populate_symlink2(&blob_service, &directory_service, &mut root_nodes).await;
+    populate_symlink2(&mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
@@ -1002,7 +983,7 @@ async fn read_wrong_paths_in_root() {
     let (blob_service, directory_service) = gen_svcs();
     let mut root_nodes = BTreeMap::default();
 
-    populate_blob_a(&blob_service, &directory_service, &mut root_nodes).await;
+    populate_blob_a(&blob_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
@@ -1087,7 +1068,7 @@ async fn missing_directory() {
     let (blob_service, directory_service) = gen_svcs();
     let mut root_nodes = BTreeMap::default();
 
-    populate_pathinfo_without_directory(&blob_service, &directory_service, &mut root_nodes).await;
+    populate_directorynode_without_directory(&mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
@@ -1134,7 +1115,7 @@ async fn missing_blob() {
     let (blob_service, directory_service) = gen_svcs();
     let mut root_nodes = BTreeMap::default();
 
-    populate_blob_a_without_blob(&blob_service, &directory_service, &mut root_nodes).await;
+    populate_filenode_without_blob(&mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
