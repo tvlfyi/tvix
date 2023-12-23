@@ -10268,10 +10268,6 @@ rec {
         ];
         devDependencies = [
           {
-            name = "libc";
-            packageId = "libc";
-          }
-          {
             name = "tempfile";
             packageId = "tempfile";
           }

@@ -9,6 +9,9 @@ pub mod fuse;
 #[cfg(feature = "virtiofs")]
 pub mod virtiofs;
 
+#[cfg(test)]
+mod tests;
+
 use crate::proto as castorepb;
 use crate::{
     blobservice::{BlobReader, BlobService},

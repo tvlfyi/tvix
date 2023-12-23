@@ -47,9 +47,6 @@ test-case = "2.2.2"
 tempfile = "3.3.0"
 tokio-retry = "0.3.0"
 
-[dev-dependencies.libc]
-version = "0.2.144"
-
 [features]
 default = ["fuse", "tonic-reflection"]
 fuse = ["tvix-castore/fuse"]

@@ -3244,7 +3244,6 @@ dependencies = [
  "data-encoding",
  "futures",
  "lazy_static",
- "libc",
  "nix-compat",
  "pin-project-lite",
  "prost",

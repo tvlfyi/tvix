@@ -1,21 +1,24 @@
-use crate::pathinfoservice::PathInfoService;
-use crate::proto::PathInfo;
-use crate::tests::fixtures;
-use crate::tests::utils::{gen_blob_service, gen_directory_service, gen_pathinfo_service};
-use futures::StreamExt;
-use std::io::Cursor;
-use std::os::unix::prelude::MetadataExt;
-use std::path::Path;
-use std::sync::Arc;
-use tempfile::TempDir;
-use tokio::{fs, io};
-use tokio_stream::wrappers::ReadDirStream;
-use tvix_castore::blobservice::BlobService;
-use tvix_castore::directoryservice::DirectoryService;
-use tvix_castore::fs::fuse::FuseDaemon;
-use tvix_castore::proto as castorepb;
+use std::{
+    collections::BTreeMap,
+    io::{self, Cursor},
+    ops::Deref,
+    os::unix::fs::MetadataExt,
+    path::Path,
+    sync::Arc,
+};
 
-use super::make_fs;
+use bytes::Bytes;
+use tempfile::TempDir;
+use tokio_stream::{wrappers::ReadDirStream, StreamExt};
+
+use super::{fuse::FuseDaemon, TvixStoreFs};
+use crate::proto::node::Node;
+use crate::proto::{self as castorepb};
+use crate::{
+    blobservice::{BlobService, MemoryBlobService},
+    directoryservice::{DirectoryService, MemoryDirectoryService},
+    fixtures,
+};
 
 const BLOB_A_NAME: &str = "00000000000000000000000000000000-test";
 const BLOB_B_NAME: &str = "55555555555555555555555555555555-test";
@@ -25,101 +28,83 @@ const SYMLINK_NAME2: &str = "44444444444444444444444444444444-test";
 const DIRECTORY_WITH_KEEP_NAME: &str = "22222222222222222222222222222222-test";
 const DIRECTORY_COMPLICATED_NAME: &str = "33333333333333333333333333333333-test";
 
-fn gen_svcs() -> (
-    Arc<dyn BlobService>,
-    Arc<dyn DirectoryService>,
-    Arc<dyn PathInfoService>,
-) {
-    let blob_service = gen_blob_service();
-    let directory_service = gen_directory_service();
-    let path_info_service = gen_pathinfo_service(blob_service.clone(), directory_service.clone());
-
-    (blob_service, directory_service, path_info_service)
+fn gen_svcs() -> (Arc<dyn BlobService>, Arc<dyn DirectoryService>) {
+    (
+        Arc::new(MemoryBlobService::default()) as Arc<dyn BlobService>,
+        Arc::new(MemoryDirectoryService::default()) as Arc<dyn DirectoryService>,
+    )
 }
 
-fn do_mount<P: AsRef<Path>>(
-    blob_service: Arc<dyn BlobService>,
-    directory_service: Arc<dyn DirectoryService>,
-    path_info_service: Arc<dyn PathInfoService>,
+fn do_mount<P: AsRef<Path>, BS, DS>(
+    blob_service: BS,
+    directory_service: DS,
+    root_nodes: BTreeMap<bytes::Bytes, Node>,
     mountpoint: P,
     list_root: bool,
-) -> io::Result<FuseDaemon> {
-    let fs = make_fs(
+) -> io::Result<FuseDaemon>
+where
+    BS: Deref<Target = dyn BlobService> + Send + Sync + Clone + 'static,
+    DS: Deref<Target = dyn DirectoryService> + Send + Sync + Clone + 'static,
+{
+    let fs = TvixStoreFs::new(
         blob_service,
         directory_service,
-        path_info_service,
+        Arc::new(root_nodes),
         list_root,
     );
-    FuseDaemon::new(fs, mountpoint.as_ref(), 4)
+    FuseDaemon::new(Arc::new(fs), mountpoint.as_ref(), 4)
 }
 
 async fn populate_blob_a(
     blob_service: &Arc<dyn BlobService>,
     _directory_service: &Arc<dyn DirectoryService>,
-    path_info_service: &Arc<dyn PathInfoService>,
+    root_nodes: &mut BTreeMap<Bytes, Node>,
 ) {
-    // Upload BLOB_A
     let mut bw = blob_service.open_write().await;
     tokio::io::copy(&mut Cursor::new(fixtures::BLOB_A.to_vec()), &mut bw)
         .await
         .expect("must succeed uploading");
     bw.close().await.expect("must succeed closing");
 
-    // Create a PathInfo for it
-    let path_info = PathInfo {
-        node: Some(castorepb::Node {
-            node: Some(castorepb::node::Node::File(castorepb::FileNode {
-                name: BLOB_A_NAME.into(),
-                digest: fixtures::BLOB_A_DIGEST.clone().into(),
-                size: fixtures::BLOB_A.len() as u64,
-                executable: false,
-            })),
+    root_nodes.insert(
+        BLOB_A_NAME.into(),
+        Node::File(castorepb::FileNode {
+            name: BLOB_A_NAME.into(),
+            digest: fixtures::BLOB_A_DIGEST.clone().into(),
+            size: fixtures::BLOB_A.len() as u64,
+            executable: false,
         }),
-        ..Default::default()
-    };
-    path_info_service
-        .put(path_info)
-        .await
-        .expect("must succeed");
+    );
 }
 
 async fn populate_blob_b(
     blob_service: &Arc<dyn BlobService>,
     _directory_service: &Arc<dyn DirectoryService>,
-    path_info_service: &Arc<dyn PathInfoService>,
+    root_nodes: &mut BTreeMap<Bytes, Node>,
 ) {
-    // Upload BLOB_B
     let mut bw = blob_service.open_write().await;
     tokio::io::copy(&mut Cursor::new(fixtures::BLOB_B.to_vec()), &mut bw)
         .await
         .expect("must succeed uploading");
     bw.close().await.expect("must succeed closing");
 
-    // Create a PathInfo for it
-    let path_info = PathInfo {
-        node: Some(castorepb::Node {
-            node: Some(castorepb::node::Node::File(castorepb::FileNode {
-                name: BLOB_B_NAME.into(),
-                digest: fixtures::BLOB_B_DIGEST.clone().into(),
-                size: fixtures::BLOB_B.len() as u64,
-                executable: false,
-            })),
+    root_nodes.insert(
+        BLOB_B_NAME.into(),
+        Node::File(castorepb::FileNode {
+            name: BLOB_B_NAME.into(),
+            digest: fixtures::BLOB_B_DIGEST.clone().into(),
+            size: fixtures::BLOB_B.len() as u64,
+            executable: false,
         }),
-        ..Default::default()
-    };
-    path_info_service
-        .put(path_info)
-        .await
-        .expect("must succeed");
+    );
 }
 
 /// adds a blob containing helloworld and marks it as executable
 async fn populate_helloworld_blob(
     blob_service: &Arc<dyn BlobService>,
     _directory_service: &Arc<dyn DirectoryService>,
-    path_info_service: &Arc<dyn PathInfoService>,
+    root_nodes: &mut BTreeMap<Bytes, Node>,
 ) {
-    // Upload BLOB_B
     let mut bw = blob_service.open_write().await;
     tokio::io::copy(
         &mut Cursor::new(fixtures::HELLOWORLD_BLOB_CONTENTS.to_vec()),
@@ -129,43 +114,29 @@ async fn populate_helloworld_blob(
     .expect("must succeed uploading");
     bw.close().await.expect("must succeed closing");
 
-    // Create a PathInfo for it
-    let path_info = PathInfo {
-        node: Some(castorepb::Node {
-            node: Some(castorepb::node::Node::File(castorepb::FileNode {
-                name: HELLOWORLD_BLOB_NAME.into(),
-                digest: fixtures::HELLOWORLD_BLOB_DIGEST.clone().into(),
-                size: fixtures::HELLOWORLD_BLOB_CONTENTS.len() as u64,
-                executable: true,
-            })),
+    root_nodes.insert(
+        HELLOWORLD_BLOB_NAME.into(),
+        Node::File(castorepb::FileNode {
+            name: HELLOWORLD_BLOB_NAME.into(),
+            digest: fixtures::HELLOWORLD_BLOB_DIGEST.clone().into(),
+            size: fixtures::HELLOWORLD_BLOB_CONTENTS.len() as u64,
+            executable: true,
         }),
-        ..Default::default()
-    };
-    path_info_service
-        .put(path_info)
-        .await
-        .expect("must succeed");
+    );
 }
 
 async fn populate_symlink(
     _blob_service: &Arc<dyn BlobService>,
     _directory_service: &Arc<dyn DirectoryService>,
-    path_info_service: &Arc<dyn PathInfoService>,
+    root_nodes: &mut BTreeMap<Bytes, Node>,
 ) {
-    // Create a PathInfo for it
-    let path_info = PathInfo {
-        node: Some(castorepb::Node {
-            node: Some(castorepb::node::Node::Symlink(castorepb::SymlinkNode {
-                name: SYMLINK_NAME.into(),
-                target: BLOB_A_NAME.into(),
-            })),
+    root_nodes.insert(
+        SYMLINK_NAME.into(),
+        Node::Symlink(castorepb::SymlinkNode {
+            name: SYMLINK_NAME.into(),
+            target: BLOB_A_NAME.into(),
         }),
-        ..Default::default()
-    };
-    path_info_service
-        .put(path_info)
-        .await
-        .expect("must succeed");
+    );
 }
 
 /// This writes a symlink pointing to /nix/store/somewhereelse,
@@ -173,28 +144,21 @@ async fn populate_symlink(
 async fn populate_symlink2(
     _blob_service: &Arc<dyn BlobService>,
     _directory_service: &Arc<dyn DirectoryService>,
-    path_info_service: &Arc<dyn PathInfoService>,
+    root_nodes: &mut BTreeMap<Bytes, Node>,
 ) {
-    // Create a PathInfo for it
-    let path_info = PathInfo {
-        node: Some(castorepb::Node {
-            node: Some(castorepb::node::Node::Symlink(castorepb::SymlinkNode {
-                name: SYMLINK_NAME2.into(),
-                target: "/nix/store/somewhereelse".into(),
-            })),
+    root_nodes.insert(
+        SYMLINK_NAME2.into(),
+        Node::Symlink(castorepb::SymlinkNode {
+            name: SYMLINK_NAME2.into(),
+            target: "/nix/store/somewhereelse".into(),
         }),
-        ..Default::default()
-    };
-    path_info_service
-        .put(path_info)
-        .await
-        .expect("must succeed");
+    );
 }
 
 async fn populate_directory_with_keep(
     blob_service: &Arc<dyn BlobService>,
     directory_service: &Arc<dyn DirectoryService>,
-    path_info_service: &Arc<dyn PathInfoService>,
+    root_nodes: &mut BTreeMap<Bytes, Node>,
 ) {
     // upload empty blob
     let mut bw = blob_service.open_write().await;
@@ -209,75 +173,54 @@ async fn populate_directory_with_keep(
         .await
         .expect("must succeed uploading");
 
-    // upload pathinfo
-    let path_info = PathInfo {
-        node: Some(castorepb::Node {
-            node: Some(castorepb::node::Node::Directory(castorepb::DirectoryNode {
-                name: DIRECTORY_WITH_KEEP_NAME.into(),
-                digest: fixtures::DIRECTORY_WITH_KEEP.digest().into(),
-                size: fixtures::DIRECTORY_WITH_KEEP.size(),
-            })),
+    root_nodes.insert(
+        DIRECTORY_WITH_KEEP_NAME.into(),
+        castorepb::node::Node::Directory(castorepb::DirectoryNode {
+            name: DIRECTORY_WITH_KEEP_NAME.into(),
+            digest: fixtures::DIRECTORY_WITH_KEEP.digest().into(),
+            size: fixtures::DIRECTORY_WITH_KEEP.size(),
         }),
-        ..Default::default()
-    };
-    path_info_service
-        .put(path_info)
-        .await
-        .expect("must succeed");
+    );
 }
 
-/// Insert [PathInfo] for DIRECTORY_WITH_KEEP, but don't provide the Directory
+/// Create a root node for DIRECTORY_WITH_KEEP, but don't upload the Directory
 /// itself.
 async fn populate_pathinfo_without_directory(
     _: &Arc<dyn BlobService>,
     _: &Arc<dyn DirectoryService>,
-    path_info_service: &Arc<dyn PathInfoService>,
+    root_nodes: &mut BTreeMap<Bytes, Node>,
 ) {
-    // upload pathinfo
-    let path_info = PathInfo {
-        node: Some(castorepb::Node {
-            node: Some(castorepb::node::Node::Directory(castorepb::DirectoryNode {
-                name: DIRECTORY_WITH_KEEP_NAME.into(),
-                digest: fixtures::DIRECTORY_WITH_KEEP.digest().into(),
-                size: fixtures::DIRECTORY_WITH_KEEP.size(),
-            })),
+    root_nodes.insert(
+        DIRECTORY_WITH_KEEP_NAME.into(),
+        castorepb::node::Node::Directory(castorepb::DirectoryNode {
+            name: DIRECTORY_WITH_KEEP_NAME.into(),
+            digest: fixtures::DIRECTORY_WITH_KEEP.digest().into(),
+            size: fixtures::DIRECTORY_WITH_KEEP.size(),
         }),
-        ..Default::default()
-    };
-    path_info_service
-        .put(path_info)
-        .await
-        .expect("must succeed");
+    );
 }
 
-/// Insert , but don't provide the blob .keep is pointing to
+/// Insert BLOB_A, but don't provide the blob .keep is pointing to
 async fn populate_blob_a_without_blob(
     _: &Arc<dyn BlobService>,
     _: &Arc<dyn DirectoryService>,
-    path_info_service: &Arc<dyn PathInfoService>,
+    root_nodes: &mut BTreeMap<Bytes, Node>,
 ) {
-    // Create a PathInfo for blob A
-    let path_info = PathInfo {
-        node: Some(castorepb::Node {
-            node: Some(castorepb::node::Node::File(castorepb::FileNode {
-                name: BLOB_A_NAME.into(),
-                digest: fixtures::BLOB_A_DIGEST.clone().into(),
-                size: fixtures::BLOB_A.len() as u64,
-                executable: false,
-            })),
+    root_nodes.insert(
+        BLOB_A_NAME.into(),
+        Node::File(castorepb::FileNode {
+            name: BLOB_A_NAME.into(),
+            digest: fixtures::BLOB_A_DIGEST.clone().into(),
+            size: fixtures::BLOB_A.len() as u64,
+            executable: false,
         }),
-        ..Default::default()
-    };
-    path_info_service
-        .put(path_info)
-        .await
-        .expect("must succeed");
+    );
 }
 
 async fn populate_directory_complicated(
     blob_service: &Arc<dyn BlobService>,
     directory_service: &Arc<dyn DirectoryService>,
-    path_info_service: &Arc<dyn PathInfoService>,
+    root_nodes: &mut BTreeMap<Bytes, Node>,
 ) {
     // upload empty blob
     let mut bw = blob_service.open_write().await;
@@ -292,27 +235,20 @@ async fn populate_directory_complicated(
         .await
         .expect("must succeed uploading");
 
-    // uplodad parent directory
+    // upload parent directory
     directory_service
         .put(fixtures::DIRECTORY_COMPLICATED.clone())
         .await
         .expect("must succeed uploading");
 
-    // upload pathinfo
-    let path_info = PathInfo {
-        node: Some(castorepb::Node {
-            node: Some(castorepb::node::Node::Directory(castorepb::DirectoryNode {
-                name: DIRECTORY_COMPLICATED_NAME.into(),
-                digest: fixtures::DIRECTORY_COMPLICATED.digest().into(),
-                size: fixtures::DIRECTORY_COMPLICATED.size(),
-            })),
+    root_nodes.insert(
+        DIRECTORY_COMPLICATED_NAME.into(),
+        Node::Directory(castorepb::DirectoryNode {
+            name: DIRECTORY_COMPLICATED_NAME.into(),
+            digest: fixtures::DIRECTORY_COMPLICATED.digest().into(),
+            size: fixtures::DIRECTORY_COMPLICATED.size(),
         }),
-        ..Default::default()
-    };
-    path_info_service
-        .put(path_info)
-        .await
-        .expect("must succeed");
+    );
 }
 
 /// Ensure mounting itself doesn't fail
@@ -326,11 +262,12 @@ async fn mount() {
 
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    let (blob_service, directory_service) = gen_svcs();
+
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        BTreeMap::default(),
         tmpdir.path(),
         false,
     )
@@ -338,7 +275,6 @@ async fn mount() {
 
     fuse_daemon.unmount().expect("unmount");
 }
-
 /// Ensure listing the root isn't allowed
 #[tokio::test]
 async fn root() {
@@ -349,11 +285,11 @@ async fn root() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    let (blob_service, directory_service) = gen_svcs();
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        BTreeMap::default(),
         tmpdir.path(),
         false,
     )
@@ -361,7 +297,7 @@ async fn root() {
 
     {
         // read_dir succeeds, but getting the first element will fail.
-        let mut it = ReadDirStream::new(fs::read_dir(tmpdir).await.expect("must succeed"));
+        let mut it = ReadDirStream::new(tokio::fs::read_dir(tmpdir).await.expect("must succeed"));
 
         let err = it
             .next()
@@ -384,13 +320,15 @@ async fn root_with_listing() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
-    populate_blob_a(&blob_service, &directory_service, &path_info_service).await;
+    let (blob_service, directory_service) = gen_svcs();
+    let mut root_nodes = BTreeMap::default();
+
+    populate_blob_a(&blob_service, &directory_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        root_nodes,
         tmpdir.path(),
         true, /* allow listing */
     )
@@ -398,7 +336,7 @@ async fn root_with_listing() {
 
     {
         // read_dir succeeds, but getting the first element will fail.
-        let mut it = ReadDirStream::new(fs::read_dir(tmpdir).await.expect("must succeed"));
+        let mut it = ReadDirStream::new(tokio::fs::read_dir(tmpdir).await.expect("must succeed"));
 
         let e = it
             .next()
@@ -425,13 +363,15 @@ async fn stat_file_at_root() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
-    populate_blob_a(&blob_service, &directory_service, &path_info_service).await;
+    let (blob_service, directory_service) = gen_svcs();
+    let mut root_nodes = BTreeMap::default();
+
+    populate_blob_a(&blob_service, &directory_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        root_nodes,
         tmpdir.path(),
         false,
     )
@@ -440,7 +380,7 @@ async fn stat_file_at_root() {
     let p = tmpdir.path().join(BLOB_A_NAME);
 
     // peek at the file metadata
-    let metadata = fs::metadata(p).await.expect("must succeed");
+    let metadata = tokio::fs::metadata(p).await.expect("must succeed");
 
     assert!(metadata.is_file());
     assert!(metadata.permissions().readonly());
@@ -459,13 +399,15 @@ async fn read_file_at_root() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
-    populate_blob_a(&blob_service, &directory_service, &path_info_service).await;
+    let (blob_service, directory_service) = gen_svcs();
+    let mut root_nodes = BTreeMap::default();
+
+    populate_blob_a(&blob_service, &directory_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        root_nodes,
         tmpdir.path(),
         false,
     )
@@ -474,7 +416,7 @@ async fn read_file_at_root() {
     let p = tmpdir.path().join(BLOB_A_NAME);
 
     // read the file contents
-    let data = fs::read(p).await.expect("must succeed");
+    let data = tokio::fs::read(p).await.expect("must succeed");
 
     // ensure size and contents match
     assert_eq!(fixtures::BLOB_A.len(), data.len());
@@ -493,13 +435,15 @@ async fn read_large_file_at_root() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
-    populate_blob_b(&blob_service, &directory_service, &path_info_service).await;
+    let (blob_service, directory_service) = gen_svcs();
+    let mut root_nodes = BTreeMap::default();
+
+    populate_blob_b(&blob_service, &directory_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        root_nodes,
         tmpdir.path(),
         false,
     )
@@ -508,7 +452,7 @@ async fn read_large_file_at_root() {
     let p = tmpdir.path().join(BLOB_B_NAME);
     {
         // peek at the file metadata
-        let metadata = fs::metadata(&p).await.expect("must succeed");
+        let metadata = tokio::fs::metadata(&p).await.expect("must succeed");
 
         assert!(metadata.is_file());
         assert!(metadata.permissions().readonly());
@@ -516,7 +460,7 @@ async fn read_large_file_at_root() {
     }
 
     // read the file contents
-    let data = fs::read(p).await.expect("must succeed");
+    let data = tokio::fs::read(p).await.expect("must succeed");
 
     // ensure size and contents match
     assert_eq!(fixtures::BLOB_B.len(), data.len());
@@ -535,13 +479,15 @@ async fn symlink_readlink() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
-    populate_symlink(&blob_service, &directory_service, &path_info_service).await;
+    let (blob_service, directory_service) = gen_svcs();
+    let mut root_nodes = BTreeMap::default();
+
+    populate_symlink(&blob_service, &directory_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        root_nodes,
         tmpdir.path(),
         false,
     )
@@ -549,20 +495,20 @@ async fn symlink_readlink() {
 
     let p = tmpdir.path().join(SYMLINK_NAME);
 
-    let target = fs::read_link(&p).await.expect("must succeed");
+    let target = tokio::fs::read_link(&p).await.expect("must succeed");
     assert_eq!(BLOB_A_NAME, target.to_str().unwrap());
 
     // peek at the file metadata, which follows symlinks.
     // this must fail, as we didn't populate the target.
-    let e = fs::metadata(&p).await.expect_err("must fail");
+    let e = tokio::fs::metadata(&p).await.expect_err("must fail");
     assert_eq!(std::io::ErrorKind::NotFound, e.kind());
 
     // peeking at the file metadata without following symlinks will succeed.
-    let metadata = fs::symlink_metadata(&p).await.expect("must succeed");
+    let metadata = tokio::fs::symlink_metadata(&p).await.expect("must succeed");
     assert!(metadata.is_symlink());
 
     // reading from the symlink (which follows) will fail, because the target doesn't exist.
-    let e = fs::read(p).await.expect_err("must fail");
+    let e = tokio::fs::read(p).await.expect_err("must fail");
     assert_eq!(std::io::ErrorKind::NotFound, e.kind());
 
     fuse_daemon.unmount().expect("unmount");
@@ -578,14 +524,16 @@ async fn read_stat_through_symlink() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
-    populate_blob_a(&blob_service, &directory_service, &path_info_service).await;
-    populate_symlink(&blob_service, &directory_service, &path_info_service).await;
+    let (blob_service, directory_service) = gen_svcs();
+    let mut root_nodes = BTreeMap::default();
+
+    populate_blob_a(&blob_service, &directory_service, &mut root_nodes).await;
+    populate_symlink(&blob_service, &directory_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        root_nodes,
         tmpdir.path(),
         false,
     )
@@ -596,16 +544,16 @@ async fn read_stat_through_symlink() {
 
     // peek at the file metadata, which follows symlinks.
     // this must now return the same metadata as when statting at the target directly.
-    let metadata_symlink = fs::metadata(&p_symlink).await.expect("must succeed");
-    let metadata_blob = fs::metadata(&p_blob).await.expect("must succeed");
+    let metadata_symlink = tokio::fs::metadata(&p_symlink).await.expect("must succeed");
+    let metadata_blob = tokio::fs::metadata(&p_blob).await.expect("must succeed");
     assert_eq!(metadata_blob.file_type(), metadata_symlink.file_type());
     assert_eq!(metadata_blob.len(), metadata_symlink.len());
 
     // reading from the symlink (which follows) will return the same data as if
     // we were reading from the file directly.
     assert_eq!(
-        fs::read(p_blob).await.expect("must succeed"),
-        fs::read(p_symlink).await.expect("must succeed"),
+        tokio::fs::read(p_blob).await.expect("must succeed"),
+        tokio::fs::read(p_symlink).await.expect("must succeed"),
     );
 
     fuse_daemon.unmount().expect("unmount");
@@ -621,13 +569,15 @@ async fn read_stat_directory() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
-    populate_directory_with_keep(&blob_service, &directory_service, &path_info_service).await;
+    let (blob_service, directory_service) = gen_svcs();
+    let mut root_nodes = BTreeMap::default();
+
+    populate_directory_with_keep(&blob_service, &directory_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        root_nodes,
         tmpdir.path(),
         false,
     )
@@ -636,7 +586,7 @@ async fn read_stat_directory() {
     let p = tmpdir.path().join(DIRECTORY_WITH_KEEP_NAME);
 
     // peek at the metadata of the directory
-    let metadata = fs::metadata(p).await.expect("must succeed");
+    let metadata = tokio::fs::metadata(p).await.expect("must succeed");
     assert!(metadata.is_dir());
     assert!(metadata.permissions().readonly());
 
@@ -653,13 +603,15 @@ async fn read_blob_inside_dir() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
-    populate_directory_with_keep(&blob_service, &directory_service, &path_info_service).await;
+    let (blob_service, directory_service) = gen_svcs();
+    let mut root_nodes = BTreeMap::default();
+
+    populate_directory_with_keep(&blob_service, &directory_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        root_nodes,
         tmpdir.path(),
         false,
     )
@@ -668,12 +620,12 @@ async fn read_blob_inside_dir() {
     let p = tmpdir.path().join(DIRECTORY_WITH_KEEP_NAME).join(".keep");
 
     // peek at metadata.
-    let metadata = fs::metadata(&p).await.expect("must succeed");
+    let metadata = tokio::fs::metadata(&p).await.expect("must succeed");
     assert!(metadata.is_file());
     assert!(metadata.permissions().readonly());
 
     // read from it
-    let data = fs::read(&p).await.expect("must succeed");
+    let data = tokio::fs::read(&p).await.expect("must succeed");
     assert_eq!(fixtures::EMPTY_BLOB_CONTENTS.to_vec(), data);
 
     fuse_daemon.unmount().expect("unmount");
@@ -690,13 +642,15 @@ async fn read_blob_deep_inside_dir() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
-    populate_directory_complicated(&blob_service, &directory_service, &path_info_service).await;
+    let (blob_service, directory_service) = gen_svcs();
+    let mut root_nodes = BTreeMap::default();
+
+    populate_directory_complicated(&blob_service, &directory_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        root_nodes,
         tmpdir.path(),
         false,
     )
@@ -709,12 +663,12 @@ async fn read_blob_deep_inside_dir() {
         .join(".keep");
 
     // peek at metadata.
-    let metadata = fs::metadata(&p).await.expect("must succeed");
+    let metadata = tokio::fs::metadata(&p).await.expect("must succeed");
     assert!(metadata.is_file());
     assert!(metadata.permissions().readonly());
 
     // read from it
-    let data = fs::read(&p).await.expect("must succeed");
+    let data = tokio::fs::read(&p).await.expect("must succeed");
     assert_eq!(fixtures::EMPTY_BLOB_CONTENTS.to_vec(), data);
 
     fuse_daemon.unmount().expect("unmount");
@@ -730,13 +684,15 @@ async fn readdir() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
-    populate_directory_complicated(&blob_service, &directory_service, &path_info_service).await;
+    let (blob_service, directory_service) = gen_svcs();
+    let mut root_nodes = BTreeMap::default();
+
+    populate_directory_complicated(&blob_service, &directory_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        root_nodes,
         tmpdir.path(),
         false,
     )
@@ -746,10 +702,11 @@ async fn readdir() {
 
     {
         // read_dir should succeed. Collect all elements
-        let elements: Vec<_> = ReadDirStream::new(fs::read_dir(p).await.expect("must succeed"))
-            .map(|e| e.expect("must not be err"))
-            .collect()
-            .await;
+        let elements: Vec<_> =
+            ReadDirStream::new(tokio::fs::read_dir(p).await.expect("must succeed"))
+                .map(|e| e.expect("must not be err"))
+                .collect()
+                .await;
 
         assert_eq!(3, elements.len(), "number of elements should be 3"); // rust skips . and ..
 
@@ -786,13 +743,15 @@ async fn readdir_deep() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
-    populate_directory_complicated(&blob_service, &directory_service, &path_info_service).await;
+    let (blob_service, directory_service) = gen_svcs();
+    let mut root_nodes = BTreeMap::default();
+
+    populate_directory_complicated(&blob_service, &directory_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        root_nodes,
         tmpdir.path(),
         false,
     )
@@ -802,10 +761,11 @@ async fn readdir_deep() {
 
     {
         // read_dir should succeed. Collect all elements
-        let elements: Vec<_> = ReadDirStream::new(fs::read_dir(p).await.expect("must succeed"))
-            .map(|e| e.expect("must not be err"))
-            .collect()
-            .await;
+        let elements: Vec<_> =
+            ReadDirStream::new(tokio::fs::read_dir(p).await.expect("must succeed"))
+                .map(|e| e.expect("must not be err"))
+                .collect()
+                .await;
 
         assert_eq!(1, elements.len(), "number of elements should be 1"); // rust skips . and ..
 
@@ -829,16 +789,18 @@ async fn check_attributes() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
-    populate_blob_a(&blob_service, &directory_service, &path_info_service).await;
-    populate_directory_with_keep(&blob_service, &directory_service, &path_info_service).await;
-    populate_symlink(&blob_service, &directory_service, &path_info_service).await;
-    populate_helloworld_blob(&blob_service, &directory_service, &path_info_service).await;
+    let (blob_service, directory_service) = gen_svcs();
+    let mut root_nodes = BTreeMap::default();
+
+    populate_blob_a(&blob_service, &directory_service, &mut root_nodes).await;
+    populate_directory_with_keep(&blob_service, &directory_service, &mut root_nodes).await;
+    populate_symlink(&blob_service, &directory_service, &mut root_nodes).await;
+    populate_helloworld_blob(&blob_service, &directory_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        root_nodes,
         tmpdir.path(),
         false,
     )
@@ -850,14 +812,16 @@ async fn check_attributes() {
     let p_executable_file = tmpdir.path().join(HELLOWORLD_BLOB_NAME);
 
     // peek at metadata. We use symlink_metadata to ensure we don't traverse a symlink by accident.
-    let metadata_file = fs::symlink_metadata(&p_file).await.expect("must succeed");
-    let metadata_executable_file = fs::symlink_metadata(&p_executable_file)
+    let metadata_file = tokio::fs::symlink_metadata(&p_file)
         .await
         .expect("must succeed");
-    let metadata_directory = fs::symlink_metadata(&p_directory)
+    let metadata_executable_file = tokio::fs::symlink_metadata(&p_executable_file)
         .await
         .expect("must succeed");
-    let metadata_symlink = fs::symlink_metadata(&p_symlink)
+    let metadata_directory = tokio::fs::symlink_metadata(&p_directory)
+        .await
+        .expect("must succeed");
+    let metadata_symlink = tokio::fs::symlink_metadata(&p_symlink)
         .await
         .expect("must succeed");
 
@@ -901,14 +865,16 @@ async fn compare_inodes_directories() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
-    populate_directory_with_keep(&blob_service, &directory_service, &path_info_service).await;
-    populate_directory_complicated(&blob_service, &directory_service, &path_info_service).await;
+    let (blob_service, directory_service) = gen_svcs();
+    let mut root_nodes = BTreeMap::default();
+
+    populate_directory_with_keep(&blob_service, &directory_service, &mut root_nodes).await;
+    populate_directory_complicated(&blob_service, &directory_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        root_nodes,
         tmpdir.path(),
         false,
     )
@@ -919,11 +885,11 @@ async fn compare_inodes_directories() {
 
     // peek at metadata.
     assert_eq!(
-        fs::metadata(p_dir_with_keep)
+        tokio::fs::metadata(p_dir_with_keep)
             .await
             .expect("must succeed")
             .ino(),
-        fs::metadata(p_sibling_dir)
+        tokio::fs::metadata(p_sibling_dir)
             .await
             .expect("must succeed")
             .ino()
@@ -943,13 +909,15 @@ async fn compare_inodes_files() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
-    populate_directory_complicated(&blob_service, &directory_service, &path_info_service).await;
+    let (blob_service, directory_service) = gen_svcs();
+    let mut root_nodes = BTreeMap::default();
+
+    populate_directory_complicated(&blob_service, &directory_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        root_nodes,
         tmpdir.path(),
         false,
     )
@@ -964,8 +932,14 @@ async fn compare_inodes_files() {
 
     // peek at metadata.
     assert_eq!(
-        fs::metadata(p_keep1).await.expect("must succeed").ino(),
-        fs::metadata(p_keep2).await.expect("must succeed").ino()
+        tokio::fs::metadata(p_keep1)
+            .await
+            .expect("must succeed")
+            .ino(),
+        tokio::fs::metadata(p_keep2)
+            .await
+            .expect("must succeed")
+            .ino()
     );
 
     fuse_daemon.unmount().expect("unmount");
@@ -982,14 +956,16 @@ async fn compare_inodes_symlinks() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
-    populate_directory_complicated(&blob_service, &directory_service, &path_info_service).await;
-    populate_symlink2(&blob_service, &directory_service, &path_info_service).await;
+    let (blob_service, directory_service) = gen_svcs();
+    let mut root_nodes = BTreeMap::default();
+
+    populate_directory_complicated(&blob_service, &directory_service, &mut root_nodes).await;
+    populate_symlink2(&blob_service, &directory_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        root_nodes,
         tmpdir.path(),
         false,
     )
@@ -1000,8 +976,14 @@ async fn compare_inodes_symlinks() {
 
     // peek at metadata.
     assert_eq!(
-        fs::symlink_metadata(p1).await.expect("must succeed").ino(),
-        fs::symlink_metadata(p2).await.expect("must succeed").ino()
+        tokio::fs::symlink_metadata(p1)
+            .await
+            .expect("must succeed")
+            .ino(),
+        tokio::fs::symlink_metadata(p2)
+            .await
+            .expect("must succeed")
+            .ino()
     );
 
     fuse_daemon.unmount().expect("unmount");
@@ -1017,13 +999,15 @@ async fn read_wrong_paths_in_root() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
-    populate_blob_a(&blob_service, &directory_service, &path_info_service).await;
+    let (blob_service, directory_service) = gen_svcs();
+    let mut root_nodes = BTreeMap::default();
+
+    populate_blob_a(&blob_service, &directory_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        root_nodes,
         tmpdir.path(),
         false,
     )
@@ -1031,28 +1015,28 @@ async fn read_wrong_paths_in_root() {
 
     // wrong name
     assert!(
-        fs::metadata(tmpdir.path().join("00000000000000000000000000000000-tes"))
+        tokio::fs::metadata(tmpdir.path().join("00000000000000000000000000000000-tes"))
             .await
             .is_err()
     );
 
     // invalid hash
     assert!(
-        fs::metadata(tmpdir.path().join("0000000000000000000000000000000-test"))
+        tokio::fs::metadata(tmpdir.path().join("0000000000000000000000000000000-test"))
             .await
             .is_err()
     );
 
     // right name, must exist
     assert!(
-        fs::metadata(tmpdir.path().join("00000000000000000000000000000000-test"))
+        tokio::fs::metadata(tmpdir.path().join("00000000000000000000000000000000-test"))
             .await
             .is_ok()
     );
 
     // now wrong name with right hash still may not exist
     assert!(
-        fs::metadata(tmpdir.path().join("00000000000000000000000000000000-tes"))
+        tokio::fs::metadata(tmpdir.path().join("00000000000000000000000000000000-tes"))
             .await
             .is_err()
     );
@@ -1071,19 +1055,20 @@ async fn disallow_writes() {
 
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
+    let (blob_service, directory_service) = gen_svcs();
+    let root_nodes = BTreeMap::default();
 
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        root_nodes,
         tmpdir.path(),
         false,
     )
     .expect("must succeed");
 
     let p = tmpdir.path().join(BLOB_A_NAME);
-    let e = fs::File::create(p).await.expect_err("must fail");
+    let e = tokio::fs::File::create(p).await.expect_err("must fail");
 
     assert_eq!(Some(libc::EROFS), e.raw_os_error());
 
@@ -1099,14 +1084,15 @@ async fn missing_directory() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
-    populate_pathinfo_without_directory(&blob_service, &directory_service, &path_info_service)
-        .await;
+    let (blob_service, directory_service) = gen_svcs();
+    let mut root_nodes = BTreeMap::default();
+
+    populate_pathinfo_without_directory(&blob_service, &directory_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        root_nodes,
         tmpdir.path(),
         false,
     )
@@ -1116,11 +1102,11 @@ async fn missing_directory() {
 
     {
         // `stat` on the path should succeed, because it doesn't trigger the directory request.
-        fs::metadata(&p).await.expect("must succeed");
+        tokio::fs::metadata(&p).await.expect("must succeed");
 
         // However, calling either `readdir` or `stat` on a child should fail with an IO error.
         // It fails when trying to pull the first entry, because we don't implement opendir separately
-        ReadDirStream::new(fs::read_dir(&p).await.unwrap())
+        ReadDirStream::new(tokio::fs::read_dir(&p).await.unwrap())
             .next()
             .await
             .expect("must be some")
@@ -1128,7 +1114,9 @@ async fn missing_directory() {
 
         // rust currently sets e.kind() to Uncategorized, which isn't very
         // helpful, so we don't look at the error more closely than that..
-        fs::metadata(p.join(".keep")).await.expect_err("must fail");
+        tokio::fs::metadata(p.join(".keep"))
+            .await
+            .expect_err("must fail");
     }
 
     fuse_daemon.unmount().expect("unmount");
@@ -1143,13 +1131,15 @@ async fn missing_blob() {
     }
     let tmpdir = TempDir::new().unwrap();
 
-    let (blob_service, directory_service, path_info_service) = gen_svcs();
-    populate_blob_a_without_blob(&blob_service, &directory_service, &path_info_service).await;
+    let (blob_service, directory_service) = gen_svcs();
+    let mut root_nodes = BTreeMap::default();
+
+    populate_blob_a_without_blob(&blob_service, &directory_service, &mut root_nodes).await;
 
     let mut fuse_daemon = do_mount(
         blob_service,
         directory_service,
-        path_info_service,
+        root_nodes,
         tmpdir.path(),
         false,
     )
@@ -1159,12 +1149,12 @@ async fn missing_blob() {
 
     {
         // `stat` on the blob should succeed, because it doesn't trigger a request to the blob service.
-        fs::metadata(&p).await.expect("must succeed");
+        tokio::fs::metadata(&p).await.expect("must succeed");
 
         // However, calling read on the blob should fail.
         // rust currently sets e.kind() to Uncategorized, which isn't very
         // helpful, so we don't look at the error more closely than that..
-        fs::read(p).await.expect_err("must fail");
+        tokio::fs::read(p).await.expect_err("must fail");
     }
 
     fuse_daemon.unmount().expect("unmount");

@@ -1,6 +1,7 @@
-use std::pin::Pin;
+use std::{collections::BTreeMap, ops::Deref, pin::Pin};
 
 use crate::{proto::node::Node, Error};
+use bytes::Bytes;
 use futures::Stream;
 use tonic::async_trait;
 
@@ -14,5 +15,21 @@ pub trait RootNodes: Send + Sync {
 
     /// Lists all root CA nodes in the filesystem. An error can be returned
     /// in case listing is not allowed
-    fn list(&self) -> Pin<Box<dyn Stream<Item = Result<Node, Error>> + Send>>;
+    fn list(&self) -> Pin<Box<dyn Stream<Item = Result<Node, Error>> + Send + '_>>;
+}
+
+#[async_trait]
+/// Implements RootNodes for something deref'ing to a BTreeMap of Nodes, where
+/// the key is the node name.
+impl<T> RootNodes for T
+where
+    T: Deref<Target = BTreeMap<Bytes, Node>> + Send + Sync,
+{
+    async fn get_by_basename(&self, name: &[u8]) -> Result<Option<Node>, Error> {
+        Ok(self.get(name).cloned())
+    }
+
+    fn list(&self) -> Pin<Box<dyn Stream<Item = Result<Node, Error>> + Send + '_>> {
+        Box::pin(tokio_stream::iter(self.iter().map(|(_, v)| Ok(v.clone()))))
+    }
 }

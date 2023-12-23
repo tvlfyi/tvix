@@ -10,9 +10,6 @@ use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService}
 
 use super::PathInfoService;
 
-#[cfg(test)]
-mod tests;
-
 /// Helper to construct a [TvixStoreFs] from a [BlobService], [DirectoryService]
 /// and [PathInfoService].
 /// This avoids users to have to interact with the wrapper struct directly, as
