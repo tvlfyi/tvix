@@ -2601,9 +2601,9 @@ rec {
       };
       "futures" = rec {
         crateName = "futures";
-        version = "0.3.29";
+        version = "0.3.30";
         edition = "2018";
-        sha256 = "0dak2ilpcmyjrb1j54fzy9hlw6vd10vqljq9gd59pbrq9dqr00ns";
+        sha256 = "1c04g14bccmprwsvx2j9m2blhwrynq7vhl151lsvcv4gi0b6jp34";
         dependencies = [
           {
             name = "futures-channel";
@@ -2662,14 +2662,9 @@ rec {
       };
       "futures-channel" = rec {
         crateName = "futures-channel";
-        version = "0.3.29";
+        version = "0.3.30";
         edition = "2018";
-        workspace_member = null;
-        src = pkgs.fetchgit {
-          url = "https://github.com/edef1c/futures-rs";
-          rev = "23e25061f2261794d6d611675a6372c96b70fa85";
-          sha256 = "082d1f2201slvpl36v30lq8dchp5kh91yx64j9n9amf3bsdaf98r";
-        };
+        sha256 = "0y6b7xxqdjm9hlcjpakcg41qfl7lihf6gavk8fyqijsxhvbzgj7a";
         dependencies = [
           {
             name = "futures-core";
@@ -2694,14 +2689,9 @@ rec {
       };
       "futures-core" = rec {
         crateName = "futures-core";
-        version = "0.3.29";
+        version = "0.3.30";
         edition = "2018";
-        workspace_member = null;
-        src = pkgs.fetchgit {
-          url = "https://github.com/edef1c/futures-rs";
-          rev = "23e25061f2261794d6d611675a6372c96b70fa85";
-          sha256 = "082d1f2201slvpl36v30lq8dchp5kh91yx64j9n9amf3bsdaf98r";
-        };
+        sha256 = "07aslayrn3lbggj54kci0ishmd1pr367fp7iks7adia1p05miinz";
         features = {
           "default" = [ "std" ];
           "portable-atomic" = [ "dep:portable-atomic" ];
@@ -2711,14 +2701,9 @@ rec {
       };
       "futures-executor" = rec {
         crateName = "futures-executor";
-        version = "0.3.29";
+        version = "0.3.30";
         edition = "2018";
-        workspace_member = null;
-        src = pkgs.fetchgit {
-          url = "https://github.com/edef1c/futures-rs";
-          rev = "23e25061f2261794d6d611675a6372c96b70fa85";
-          sha256 = "082d1f2201slvpl36v30lq8dchp5kh91yx64j9n9amf3bsdaf98r";
-        };
+        sha256 = "07dh08gs9vfll2h36kq32q9xd86xm6lyl9xikmmwlkqnmrrgqxm5";
         dependencies = [
           {
             name = "futures-core";
@@ -2746,14 +2731,9 @@ rec {
       };
       "futures-io" = rec {
         crateName = "futures-io";
-        version = "0.3.29";
+        version = "0.3.30";
         edition = "2018";
-        workspace_member = null;
-        src = pkgs.fetchgit {
-          url = "https://github.com/edef1c/futures-rs";
-          rev = "23e25061f2261794d6d611675a6372c96b70fa85";
-          sha256 = "082d1f2201slvpl36v30lq8dchp5kh91yx64j9n9amf3bsdaf98r";
-        };
+        sha256 = "1hgh25isvsr4ybibywhr4dpys8mjnscw4wfxxwca70cn1gi26im4";
         features = {
           "default" = [ "std" ];
         };
@@ -2761,14 +2741,9 @@ rec {
       };
       "futures-macro" = rec {
         crateName = "futures-macro";
-        version = "0.3.29";
+        version = "0.3.30";
         edition = "2018";
-        workspace_member = null;
-        src = pkgs.fetchgit {
-          url = "https://github.com/edef1c/futures-rs";
-          rev = "23e25061f2261794d6d611675a6372c96b70fa85";
-          sha256 = "082d1f2201slvpl36v30lq8dchp5kh91yx64j9n9amf3bsdaf98r";
-        };
+        sha256 = "1b49qh9d402y8nka4q6wvvj0c88qq91wbr192mdn5h54nzs0qxc7";
         procMacro = true;
         dependencies = [
           {
@@ -2789,14 +2764,9 @@ rec {
       };
       "futures-sink" = rec {
         crateName = "futures-sink";
-        version = "0.3.29";
+        version = "0.3.30";
         edition = "2018";
-        workspace_member = null;
-        src = pkgs.fetchgit {
-          url = "https://github.com/edef1c/futures-rs";
-          rev = "23e25061f2261794d6d611675a6372c96b70fa85";
-          sha256 = "082d1f2201slvpl36v30lq8dchp5kh91yx64j9n9amf3bsdaf98r";
-        };
+        sha256 = "1dag8xyyaya8n8mh8smx7x6w2dpmafg2din145v973a3hw7f1f4z";
         features = {
           "default" = [ "std" ];
           "std" = [ "alloc" ];
@@ -2805,14 +2775,9 @@ rec {
       };
       "futures-task" = rec {
         crateName = "futures-task";
-        version = "0.3.29";
+        version = "0.3.30";
         edition = "2018";
-        workspace_member = null;
-        src = pkgs.fetchgit {
-          url = "https://github.com/edef1c/futures-rs";
-          rev = "23e25061f2261794d6d611675a6372c96b70fa85";
-          sha256 = "082d1f2201slvpl36v30lq8dchp5kh91yx64j9n9amf3bsdaf98r";
-        };
+        sha256 = "013h1724454hj8qczp8vvs10qfiqrxr937qsrv6rhii68ahlzn1q";
         features = {
           "default" = [ "std" ];
           "std" = [ "alloc" ];
@@ -2821,14 +2786,9 @@ rec {
       };
       "futures-util" = rec {
         crateName = "futures-util";
-        version = "0.3.29";
+        version = "0.3.30";
         edition = "2018";
-        workspace_member = null;
-        src = pkgs.fetchgit {
-          url = "https://github.com/edef1c/futures-rs";
-          rev = "23e25061f2261794d6d611675a6372c96b70fa85";
-          sha256 = "082d1f2201slvpl36v30lq8dchp5kh91yx64j9n9amf3bsdaf98r";
-        };
+        sha256 = "0j0xqhcir1zf2dcbpd421kgw6wvsk0rpxflylcysn1rlp3g02r1x";
         dependencies = [
           {
             name = "futures-channel";

@@ -1,12 +1,4 @@
 {
-  "futures-channel 0.3.29 (git+https://github.com/edef1c/futures-rs?rev=23e25061f2261794d6d611675a6372c96b70fa85#23e25061f2261794d6d611675a6372c96b70fa85)": "082d1f2201slvpl36v30lq8dchp5kh91yx64j9n9amf3bsdaf98r",
-  "futures-core 0.3.29 (git+https://github.com/edef1c/futures-rs?rev=23e25061f2261794d6d611675a6372c96b70fa85#23e25061f2261794d6d611675a6372c96b70fa85)": "082d1f2201slvpl36v30lq8dchp5kh91yx64j9n9amf3bsdaf98r",
-  "futures-executor 0.3.29 (git+https://github.com/edef1c/futures-rs?rev=23e25061f2261794d6d611675a6372c96b70fa85#23e25061f2261794d6d611675a6372c96b70fa85)": "082d1f2201slvpl36v30lq8dchp5kh91yx64j9n9amf3bsdaf98r",
-  "futures-io 0.3.29 (git+https://github.com/edef1c/futures-rs?rev=23e25061f2261794d6d611675a6372c96b70fa85#23e25061f2261794d6d611675a6372c96b70fa85)": "082d1f2201slvpl36v30lq8dchp5kh91yx64j9n9amf3bsdaf98r",
-  "futures-macro 0.3.29 (git+https://github.com/edef1c/futures-rs?rev=23e25061f2261794d6d611675a6372c96b70fa85#23e25061f2261794d6d611675a6372c96b70fa85)": "082d1f2201slvpl36v30lq8dchp5kh91yx64j9n9amf3bsdaf98r",
-  "futures-sink 0.3.29 (git+https://github.com/edef1c/futures-rs?rev=23e25061f2261794d6d611675a6372c96b70fa85#23e25061f2261794d6d611675a6372c96b70fa85)": "082d1f2201slvpl36v30lq8dchp5kh91yx64j9n9amf3bsdaf98r",
-  "futures-task 0.3.29 (git+https://github.com/edef1c/futures-rs?rev=23e25061f2261794d6d611675a6372c96b70fa85#23e25061f2261794d6d611675a6372c96b70fa85)": "082d1f2201slvpl36v30lq8dchp5kh91yx64j9n9amf3bsdaf98r",
-  "futures-util 0.3.29 (git+https://github.com/edef1c/futures-rs?rev=23e25061f2261794d6d611675a6372c96b70fa85#23e25061f2261794d6d611675a6372c96b70fa85)": "082d1f2201slvpl36v30lq8dchp5kh91yx64j9n9amf3bsdaf98r",
   "test-generator 0.3.0 (git+https://github.com/JamesGuthrie/test-generator.git?rev=82e799979980962aec1aa324ec6e0e4cad781f41#82e799979980962aec1aa324ec6e0e4cad781f41)": "08brp3qqa55hijc7xby3lam2cc84hvx1zzfqv6lj7smlczh8k32y",
   "wu-manber 0.1.0 (git+https://github.com/tvlfyi/wu-manber.git#0d5b22bea136659f7de60b102a7030e0daaa503d)": "1zhk83lbq99xzyjwphv2qrb8f8qgfqwa5bbbvyzm0z0bljsjv0pd"
 }
