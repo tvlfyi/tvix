@@ -333,7 +333,7 @@ rec {
             name = "addr2line";
             packageId = "addr2line";
             usesDefaultFeatures = false;
-            target = { target, features }: (!((target."windows" or false) && ("msvc" == target."env") && (!("uwp" == target."vendor"))));
+            target = { target, features }: (!((target."windows" or false) && ("msvc" == target."env" or null) && (!("uwp" == target."vendor" or null))));
           }
           {
             name = "cfg-if";
@@ -343,19 +343,19 @@ rec {
             name = "libc";
             packageId = "libc";
             usesDefaultFeatures = false;
-            target = { target, features }: (!((target."windows" or false) && ("msvc" == target."env") && (!("uwp" == target."vendor"))));
+            target = { target, features }: (!((target."windows" or false) && ("msvc" == target."env" or null) && (!("uwp" == target."vendor" or null))));
           }
           {
             name = "miniz_oxide";
             packageId = "miniz_oxide";
             usesDefaultFeatures = false;
-            target = { target, features }: (!((target."windows" or false) && ("msvc" == target."env") && (!("uwp" == target."vendor"))));
+            target = { target, features }: (!((target."windows" or false) && ("msvc" == target."env" or null) && (!("uwp" == target."vendor" or null))));
           }
           {
             name = "object";
             packageId = "object";
             usesDefaultFeatures = false;
-            target = { target, features }: (!((target."windows" or false) && ("msvc" == target."env") && (!("uwp" == target."vendor"))));
+            target = { target, features }: (!((target."windows" or false) && ("msvc" == target."env" or null) && (!("uwp" == target."vendor" or null))));
             features = [ "read_core" "elf" "macho" "pe" "unaligned" "archive" ];
           }
           {
@@ -563,7 +563,7 @@ rec {
             name = "android-tzdata";
             packageId = "android-tzdata";
             optional = true;
-            target = { target, features }: ("android" == target."os");
+            target = { target, features }: ("android" == target."os" or null);
           }
           {
             name = "iana-time-zone";
@@ -663,17 +663,17 @@ rec {
           {
             name = "libc";
             packageId = "libc";
-            target = { target, features }: (("aarch64" == target."arch") && ("linux" == target."os"));
+            target = { target, features }: (("aarch64" == target."arch" or null) && ("linux" == target."os" or null));
           }
           {
             name = "libc";
             packageId = "libc";
-            target = { target, features }: (("aarch64" == target."arch") && ("apple" == target."vendor"));
+            target = { target, features }: (("aarch64" == target."arch" or null) && ("apple" == target."vendor" or null));
           }
           {
             name = "libc";
             packageId = "libc";
-            target = { target, features }: (("loongarch64" == target."arch") && ("linux" == target."os"));
+            target = { target, features }: (("loongarch64" == target."arch" or null) && ("linux" == target."os" or null));
           }
         ];
 
@@ -796,7 +796,7 @@ rec {
             name = "redox_users";
             packageId = "redox_users";
             usesDefaultFeatures = false;
-            target = { target, features }: ("redox" == target."os");
+            target = { target, features }: ("redox" == target."os" or null);
           }
           {
             name = "winapi";
@@ -823,9 +823,9 @@ rec {
       };
       "futures" = rec {
         crateName = "futures";
-        version = "0.3.29";
+        version = "0.3.30";
         edition = "2018";
-        sha256 = "0dak2ilpcmyjrb1j54fzy9hlw6vd10vqljq9gd59pbrq9dqr00ns";
+        sha256 = "1c04g14bccmprwsvx2j9m2blhwrynq7vhl151lsvcv4gi0b6jp34";
         dependencies = [
           {
             name = "futures-channel";
@@ -884,9 +884,9 @@ rec {
       };
       "futures-channel" = rec {
         crateName = "futures-channel";
-        version = "0.3.29";
+        version = "0.3.30";
         edition = "2018";
-        sha256 = "1jxsifvrbqzdadk0svbax71cba5d3qg3wgjq8i160mxmd1kdckgz";
+        sha256 = "0y6b7xxqdjm9hlcjpakcg41qfl7lihf6gavk8fyqijsxhvbzgj7a";
         dependencies = [
           {
             name = "futures-core";
@@ -911,9 +911,9 @@ rec {
       };
       "futures-core" = rec {
         crateName = "futures-core";
-        version = "0.3.29";
+        version = "0.3.30";
         edition = "2018";
-        sha256 = "1308bpj0g36nhx2y6bl4mm6f1gnh9xyvvw2q2wpdgnb6dv3247gb";
+        sha256 = "07aslayrn3lbggj54kci0ishmd1pr367fp7iks7adia1p05miinz";
         features = {
           "default" = [ "std" ];
           "portable-atomic" = [ "dep:portable-atomic" ];
@@ -923,9 +923,9 @@ rec {
       };
       "futures-executor" = rec {
         crateName = "futures-executor";
-        version = "0.3.29";
+        version = "0.3.30";
         edition = "2018";
-        sha256 = "1g4pjni0sw28djx6mlcfz584abm2lpifz86cmng0kkxh7mlvhkqg";
+        sha256 = "07dh08gs9vfll2h36kq32q9xd86xm6lyl9xikmmwlkqnmrrgqxm5";
         dependencies = [
           {
             name = "futures-core";
@@ -953,9 +953,9 @@ rec {
       };
       "futures-io" = rec {
         crateName = "futures-io";
-        version = "0.3.29";
+        version = "0.3.30";
         edition = "2018";
-        sha256 = "1ajsljgny3zfxwahba9byjzclrgvm1ypakca8z854k2w7cb4mwwb";
+        sha256 = "1hgh25isvsr4ybibywhr4dpys8mjnscw4wfxxwca70cn1gi26im4";
         features = {
           "default" = [ "std" ];
         };
@@ -963,9 +963,9 @@ rec {
       };
       "futures-macro" = rec {
         crateName = "futures-macro";
-        version = "0.3.29";
+        version = "0.3.30";
         edition = "2018";
-        sha256 = "1nwd18i8kvpkdfwm045hddjli0n96zi7pn6f99zi9c74j7ym7cak";
+        sha256 = "1b49qh9d402y8nka4q6wvvj0c88qq91wbr192mdn5h54nzs0qxc7";
         procMacro = true;
         dependencies = [
           {
@@ -986,9 +986,9 @@ rec {
       };
       "futures-sink" = rec {
         crateName = "futures-sink";
-        version = "0.3.29";
+        version = "0.3.30";
         edition = "2018";
-        sha256 = "05q8jykqddxzp8nwf00wjk5m5mqi546d7i8hsxma7hiqxrw36vg3";
+        sha256 = "1dag8xyyaya8n8mh8smx7x6w2dpmafg2din145v973a3hw7f1f4z";
         features = {
           "default" = [ "std" ];
           "std" = [ "alloc" ];
@@ -997,9 +997,9 @@ rec {
       };
       "futures-task" = rec {
         crateName = "futures-task";
-        version = "0.3.29";
+        version = "0.3.30";
         edition = "2018";
-        sha256 = "1qmsss8rb5ppql4qvd4r70h9gpfcpd0bg2b3qilxrnhdkc397lgg";
+        sha256 = "013h1724454hj8qczp8vvs10qfiqrxr937qsrv6rhii68ahlzn1q";
         features = {
           "default" = [ "std" ];
           "std" = [ "alloc" ];
@@ -1008,9 +1008,9 @@ rec {
       };
       "futures-util" = rec {
         crateName = "futures-util";
-        version = "0.3.29";
+        version = "0.3.30";
         edition = "2018";
-        sha256 = "0141rkqh0psj4h8x8lgsl1p29dhqr7z2wcixkcbs60z74kb2d5d1";
+        sha256 = "0j0xqhcir1zf2dcbpd421kgw6wvsk0rpxflylcysn1rlp3g02r1x";
         dependencies = [
           {
             name = "futures-channel";
@@ -1141,7 +1141,7 @@ rec {
             name = "wasi";
             packageId = "wasi";
             usesDefaultFeatures = false;
-            target = { target, features }: ("wasi" == target."os");
+            target = { target, features }: ("wasi" == target."os" or null);
           }
         ];
         features = {
@@ -1616,32 +1616,32 @@ rec {
           {
             name = "android_system_properties";
             packageId = "android_system_properties";
-            target = { target, features }: ("android" == target."os");
+            target = { target, features }: ("android" == target."os" or null);
           }
           {
             name = "core-foundation-sys";
             packageId = "core-foundation-sys";
-            target = { target, features }: (("macos" == target."os") || ("ios" == target."os"));
+            target = { target, features }: (("macos" == target."os" or null) || ("ios" == target."os" or null));
           }
           {
             name = "iana-time-zone-haiku";
             packageId = "iana-time-zone-haiku";
-            target = { target, features }: ("haiku" == target."os");
+            target = { target, features }: ("haiku" == target."os" or null);
           }
           {
             name = "js-sys";
             packageId = "js-sys";
-            target = { target, features }: ("wasm32" == target."arch");
+            target = { target, features }: ("wasm32" == target."arch" or null);
           }
           {
             name = "wasm-bindgen";
             packageId = "wasm-bindgen";
-            target = { target, features }: ("wasm32" == target."arch");
+            target = { target, features }: ("wasm32" == target."arch" or null);
           }
           {
             name = "windows-core";
             packageId = "windows-core";
-            target = { target, features }: ("windows" == target."os");
+            target = { target, features }: ("windows" == target."os" or null);
           }
         ];
         features = { };
@@ -1968,7 +1968,7 @@ rec {
             name = "libc";
             packageId = "libc";
             usesDefaultFeatures = false;
-            target = { target, features }: (("macos" == target."os") || ("ios" == target."os"));
+            target = { target, features }: (("macos" == target."os" or null) || ("ios" == target."os" or null));
           }
         ];
         features = { };
@@ -1986,12 +1986,12 @@ rec {
           {
             name = "libc";
             packageId = "libc";
-            target = { target, features }: ("linux" == target."os");
+            target = { target, features }: ("linux" == target."os" or null);
           }
           {
             name = "mach2";
             packageId = "mach2";
-            target = { target, features }: (("macos" == target."os") || ("ios" == target."os"));
+            target = { target, features }: (("macos" == target."os" or null) || ("ios" == target."os" or null));
           }
           {
             name = "thiserror";
@@ -2104,7 +2104,7 @@ rec {
           {
             name = "libc";
             packageId = "libc";
-            target = { target, features }: ("wasi" == target."os");
+            target = { target, features }: ("wasi" == target."os" or null);
           }
           {
             name = "libc";
@@ -2114,7 +2114,7 @@ rec {
           {
             name = "wasi";
             packageId = "wasi";
-            target = { target, features }: ("wasi" == target."os");
+            target = { target, features }: ("wasi" == target."os" or null);
           }
           {
             name = "windows-sys";
@@ -2149,7 +2149,7 @@ rec {
           {
             name = "winapi";
             packageId = "winapi";
-            target = { target, features }: ("windows" == target."os");
+            target = { target, features }: ("windows" == target."os" or null);
             features = [ "consoleapi" "errhandlingapi" "fileapi" "handleapi" "processenv" ];
           }
         ];
@@ -2189,7 +2189,7 @@ rec {
           {
             name = "hermit-abi";
             packageId = "hermit-abi";
-            target = { target, features }: ("hermit" == target."os");
+            target = { target, features }: ("hermit" == target."os" or null);
           }
           {
             name = "libc";
@@ -2327,7 +2327,7 @@ rec {
           {
             name = "redox_syscall";
             packageId = "redox_syscall";
-            target = { target, features }: ("redox" == target."os");
+            target = { target, features }: ("redox" == target."os" or null);
           }
           {
             name = "smallvec";
@@ -2520,28 +2520,28 @@ rec {
             name = "libc";
             packageId = "libc";
             usesDefaultFeatures = false;
-            target = { target, features }: (("android" == target."os") || ("linux" == target."os"));
+            target = { target, features }: (("android" == target."os" or null) || ("linux" == target."os" or null));
           }
           {
             name = "once_cell";
             packageId = "once_cell";
             optional = true;
             usesDefaultFeatures = false;
-            target = { target, features }: (("android" == target."os") || ("linux" == target."os"));
+            target = { target, features }: (("android" == target."os" or null) || ("linux" == target."os" or null));
             features = [ "std" ];
           }
           {
             name = "once_cell";
             packageId = "once_cell";
             usesDefaultFeatures = false;
-            target = { target, features }: (("dragonfly" == target."os") || ("freebsd" == target."os") || ("illumos" == target."os") || ("netbsd" == target."os") || ("openbsd" == target."os") || ("solaris" == target."os"));
+            target = { target, features }: (("dragonfly" == target."os" or null) || ("freebsd" == target."os" or null) || ("illumos" == target."os" or null) || ("netbsd" == target."os" or null) || ("openbsd" == target."os" or null) || ("solaris" == target."os" or null));
             features = [ "std" ];
           }
           {
             name = "spin";
             packageId = "spin 0.5.2";
             usesDefaultFeatures = false;
-            target = { target, features }: (("x86" == target."arch") || ("x86_64" == target."arch") || ((("aarch64" == target."arch") || ("arm" == target."arch")) && (("android" == target."os") || ("fuchsia" == target."os") || ("linux" == target."os"))));
+            target = { target, features }: (("x86" == target."arch" or null) || ("x86_64" == target."arch" or null) || ((("aarch64" == target."arch" or null) || ("arm" == target."arch" or null)) && (("android" == target."os" or null) || ("fuchsia" == target."os" or null) || ("linux" == target."os" or null))));
           }
           {
             name = "untrusted";
@@ -2551,14 +2551,14 @@ rec {
             name = "web-sys";
             packageId = "web-sys";
             usesDefaultFeatures = false;
-            target = { target, features }: (("wasm32" == target."arch") && ("unknown" == target."vendor") && ("unknown" == target."os") && ("" == target."env"));
+            target = { target, features }: (("wasm32" == target."arch" or null) && ("unknown" == target."vendor" or null) && ("unknown" == target."os" or null) && ("" == target."env" or null));
             features = [ "Crypto" "Window" ];
           }
           {
             name = "winapi";
             packageId = "winapi";
             usesDefaultFeatures = false;
-            target = { target, features }: ("windows" == target."os");
+            target = { target, features }: ("windows" == target."os" or null);
             features = [ "ntsecapi" "wtypesbase" ];
           }
         ];
@@ -2602,13 +2602,13 @@ rec {
             name = "libc";
             packageId = "libc";
             usesDefaultFeatures = false;
-            target = { target, features }: (("android" == target."os") || ("linux" == target."os"));
+            target = { target, features }: (("android" == target."os" or null) || ("linux" == target."os" or null));
           }
           {
             name = "spin";
             packageId = "spin 0.9.8";
             usesDefaultFeatures = false;
-            target = { target, features }: (("x86" == target."arch") || ("x86_64" == target."arch") || ((("aarch64" == target."arch") || ("arm" == target."arch")) && (("android" == target."os") || ("fuchsia" == target."os") || ("linux" == target."os") || ("windows" == target."os"))));
+            target = { target, features }: (("x86" == target."arch" or null) || ("x86_64" == target."arch" or null) || ((("aarch64" == target."arch" or null) || ("arm" == target."arch" or null)) && (("android" == target."os" or null) || ("fuchsia" == target."os" or null) || ("linux" == target."os" or null) || ("windows" == target."os" or null))));
             features = [ "once" ];
           }
           {
@@ -2618,7 +2618,7 @@ rec {
           {
             name = "windows-sys";
             packageId = "windows-sys";
-            target = { target, features }: (("aarch64" == target."arch") && ("windows" == target."os"));
+            target = { target, features }: (("aarch64" == target."arch" or null) && ("windows" == target."os" or null));
             features = [ "Win32_Foundation" "Win32_System_Threading" ];
           }
         ];
@@ -2634,7 +2634,7 @@ rec {
             name = "libc";
             packageId = "libc";
             usesDefaultFeatures = false;
-            target = { target, features }: ((target."unix" or false) || (target."windows" or false) || ("wasi" == target."os"));
+            target = { target, features }: ((target."unix" or false) || (target."windows" or false) || ("wasi" == target."os" or null));
           }
         ];
         features = {
@@ -3049,7 +3049,7 @@ rec {
           {
             name = "openssl-probe";
             packageId = "openssl-probe";
-            target = { target, features }: ((target."unix" or false) && (!("macos" == target."os")));
+            target = { target, features }: ((target."unix" or false) && (!("macos" == target."os" or null)));
           }
           {
             name = "rustls-pemfile";
@@ -3063,7 +3063,7 @@ rec {
           {
             name = "security-framework";
             packageId = "security-framework";
-            target = { target, features }: ("macos" == target."os");
+            target = { target, features }: ("macos" == target."os" or null);
           }
         ];
 
@@ -3381,7 +3381,7 @@ rec {
           {
             name = "cpufeatures";
             packageId = "cpufeatures";
-            target = { target, features }: (("aarch64" == target."arch") || ("x86_64" == target."arch") || ("x86" == target."arch"));
+            target = { target, features }: (("aarch64" == target."arch" or null) || ("x86_64" == target."arch" or null) || ("x86" == target."arch" or null));
           }
           {
             name = "digest";
@@ -5555,22 +5555,22 @@ rec {
           {
             name = "windows_aarch64_msvc";
             packageId = "windows_aarch64_msvc";
-            target = { target, features }: (("aarch64" == target."arch") && ("msvc" == target."env") && (!(target."windows_raw_dylib" or false)));
+            target = { target, features }: (("aarch64" == target."arch" or null) && ("msvc" == target."env" or null) && (!(target."windows_raw_dylib" or false)));
           }
           {
             name = "windows_i686_gnu";
             packageId = "windows_i686_gnu";
-            target = { target, features }: (("x86" == target."arch") && ("gnu" == target."env") && (!(target."windows_raw_dylib" or false)));
+            target = { target, features }: (("x86" == target."arch" or null) && ("gnu" == target."env" or null) && (!(target."windows_raw_dylib" or false)));
           }
           {
             name = "windows_i686_msvc";
             packageId = "windows_i686_msvc";
-            target = { target, features }: (("x86" == target."arch") && ("msvc" == target."env") && (!(target."windows_raw_dylib" or false)));
+            target = { target, features }: (("x86" == target."arch" or null) && ("msvc" == target."env" or null) && (!(target."windows_raw_dylib" or false)));
           }
           {
             name = "windows_x86_64_gnu";
             packageId = "windows_x86_64_gnu";
-            target = { target, features }: (("x86_64" == target."arch") && ("gnu" == target."env") && (!("llvm" == target."abi")) && (!(target."windows_raw_dylib" or false)));
+            target = { target, features }: (("x86_64" == target."arch" or null) && ("gnu" == target."env" or null) && (!("llvm" == target."abi" or null)) && (!(target."windows_raw_dylib" or false)));
           }
           {
             name = "windows_x86_64_gnullvm";
@@ -5580,7 +5580,7 @@ rec {
           {
             name = "windows_x86_64_msvc";
             packageId = "windows_x86_64_msvc";
-            target = { target, features }: (("x86_64" == target."arch") && ("msvc" == target."env") && (!(target."windows_raw_dylib" or false)));
+            target = { target, features }: (("x86_64" == target."arch" or null) && ("msvc" == target."env" or null) && (!(target."windows_raw_dylib" or false)));
           }
         ];
 
