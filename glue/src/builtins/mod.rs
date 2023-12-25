@@ -143,6 +143,51 @@ mod tests {
         );
     }
 
+    /// Construct two derivations with the same parameters except
+    /// one of them lost a context string for a dependency, causing
+    /// the loss of an element in the `inputDrvs` derivation.
+    /// Therefore, making `outPath` different.
+    #[test]
+    fn test_unsafe_discard_string_context() {
+        let code = r#"
+        let
+            dep = builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; };
+        in
+          (builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; env = "${dep}"; }).outPath !=
+          (builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; env = "${builtins.unsafeDiscardStringContext dep}"; }).outPath
+        "#;
+
+        let value = eval(code).value.expect("must succeed");
+        match value {
+            tvix_eval::Value::Bool(v) => {
+                assert!(v);
+            }
+            _ => panic!("unexpected value type: {:?}", value),
+        }
+    }
+
+    /// Construct an attribute set
+    /// that coerces to a derivation
+    /// and verify that the return type is a string.
+    #[test]
+    fn test_unsafe_discard_string_context_of_coercible() {
+        let code = r#"
+        let
+            dep = builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; };
+            attr = { __toString = _: dep; };
+        in
+            builtins.typeOf (builtins.unsafeDiscardStringContext attr) == "string"
+        "#;
+
+        let value = eval(code).value.expect("must succeed");
+        match value {
+            tvix_eval::Value::Bool(v) => {
+                assert!(v);
+            }
+            _ => panic!("unexpected value type: {:?}", value),
+        }
+    }
+
     #[test]
     fn builtins_placeholder_hashes() {
         assert_eq!(

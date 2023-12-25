@@ -121,7 +121,7 @@ The `impl` column indicates implementation status in tvix:
 | tryEval                       | false  |       |       |         |
 | typeOf                        | false  |       |       |         |
 | unsafeDiscardOutputDependency | false  |       |       | context |
-| unsafeDiscardStringContext    | false  |       |       | context |
+| unsafeDiscardStringContext    | false  |       |       |         |
 | unsafeGetAttrPos              | false  |       |       | todo    |
 | valueSize                     | false  |       |       | todo    |
 
