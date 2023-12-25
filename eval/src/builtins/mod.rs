@@ -311,7 +311,9 @@ mod pure_builtins {
         if is_path {
             Ok(Value::Path(Box::new(result.into())))
         } else {
-            Ok(result.into())
+            Ok(Value::String(NixString::new_inherit_context_from(
+                &str, result,
+            )))
         }
     }
 
