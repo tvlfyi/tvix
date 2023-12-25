@@ -315,6 +315,9 @@ impl Value {
     ) -> Result<Value, ErrorKind> {
         let mut result = String::new();
         let mut vals = vec![self];
+        // Track if we are coercing the first value of a list to correctly emit
+        // separating white spaces.
+        let mut is_list_head = None;
         loop {
             let value = if let Some(v) = vals.pop() {
                 v.force(co, span.clone()).await?
@@ -392,6 +395,12 @@ impl Value {
                     for elem in list.into_iter().rev() {
                         vals.push(elem);
                     }
+                    // In case we are coercing a list within a list we don't want
+                    // to touch this. Since the algorithm is nonrecursive, the
+                    // space would not have been created yet (due to continue).
+                    if is_list_head.is_none() {
+                        is_list_head = Some(true);
+                    }
                     continue;
                 }
 
@@ -419,9 +428,15 @@ impl Value {
                     panic!("tvix bug: .coerce_to_string() called on internal value")
                 }
             };
-            if !result.is_empty() {
-                result.push(' ');
+
+            if let Some(head) = is_list_head {
+                if !head {
+                    result.push(' ');
+                } else {
+                    is_list_head = Some(false);
+                }
             }
+
             result.push_str(&coerced?);
         }
     }

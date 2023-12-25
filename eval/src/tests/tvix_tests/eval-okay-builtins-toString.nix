@@ -5,19 +5,24 @@ let
   };
 
   toStringExamples = [
-    (toString 1)
-    (toString 4.2)
-    (toString null)
-    (toString false)
-    (toString true)
-    (toString "foo")
-    (toString /etc)
-    (toString toStringableSet)
-    (toString { __toString = _: toStringableSet; })
-    (toString { __toString = _: true; })
-    (toString { outPath = "out"; })
-    (toString { outPath = { outPath = { __toString = _: 2; }; }; })
+    null
+    [ null false ]
+    [ null /deep/thought ]
+    [ [ null 2 ] null 3 ]
+    [ false "flat" ]
+    1
+    4.2
+    null
+    false
+    true
+    "foo"
+    /etc
+    toStringableSet
+    { __toString = _: toStringableSet; }
+    { __toString = _: true; }
+    { outPath = "out"; }
+    { outPath = { outPath = { __toString = _: 2; }; }; }
   ];
 in
 
-toStringExamples ++ [ (toString toStringExamples) ]
+(builtins.map toString toStringExamples) ++ [ (toString toStringExamples) ]
