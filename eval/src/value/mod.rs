@@ -318,15 +318,27 @@ impl Value {
         // Track if we are coercing the first value of a list to correctly emit
         // separating white spaces.
         let mut is_list_head = None;
+        // FIXME(raitobezarius): as per https://b.tvl.fyi/issues/364
+        // we might be interested into more powerful context-related coercion kinds.
+        let mut context: NixContext = NixContext::new();
+
         loop {
             let value = if let Some(v) = vals.pop() {
                 v.force(co, span.clone()).await?
             } else {
-                return Ok(Value::String(result.into()));
+                return Ok(Value::String(NixString::new_context_from(
+                    context,
+                    result.as_str(),
+                )));
             };
             let coerced = match (value, kind) {
                 // coercions that are always done
-                (Value::String(s), _) => Ok(s.as_str().to_owned()),
+                (Value::String(mut s), _) => {
+                    if let Some(ctx) = s.context_mut() {
+                        context = context.join(ctx);
+                    }
+                    Ok(s.as_str().to_owned())
+                }
 
                 // TODO(sterni): Think about proper encoding handling here. This needs
                 // general consideration anyways, since one current discrepancy between

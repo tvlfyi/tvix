@@ -322,6 +322,10 @@ impl NixString {
         Self::new_context_from(context, &s.into_boxed_str())
     }
 
+    pub(crate) fn context_mut(&mut self) -> Option<&mut NixContext> {
+        return self.1.as_mut();
+    }
+
     pub fn iter_plain(&self) -> impl Iterator<Item = &str> {
         return self.1.iter().flat_map(|context| context.iter_plain());
     }
