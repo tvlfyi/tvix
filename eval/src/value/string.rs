@@ -4,6 +4,7 @@
 //! level, allowing us to shave off some memory overhead and only
 //! paying the cost when creating new strings.
 use rnix::ast;
+use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::hash::Hash;
 use std::ops::Deref;
@@ -14,9 +15,139 @@ use std::{borrow::Cow, fmt::Display, str::Chars};
 use serde::de::{Deserializer, Visitor};
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Debug, Serialize, Hash, PartialEq, Eq)]
+pub enum NixContextElement {
+    /// A plain store path (e.g. source files copied to the store)
+    Plain(String),
+
+    /// Single output of a derivation, represented by its name and its derivation path.
+    Single { name: String, derivation: String },
+
+    /// A reference to a complete derivation
+    /// including its source and its binary closure.
+    /// It is used for the `drvPath` attribute context.
+    /// The referred string is the store path to
+    /// the derivation path.
+    Derivation(String),
+}
+
+/// Nix context strings representation in Tvix. This tracks a set of different kinds of string
+/// dependencies that we can come across during manipulation of our language primitives, mostly
+/// strings. There's some simple algebra of context strings and how they propagate w.r.t. primitive
+/// operations, e.g. concatenation, interpolation and other string operations.
 #[repr(transparent)]
+#[derive(Clone, Debug, Serialize, Default)]
+pub struct NixContext(HashSet<NixContextElement>);
+
+impl From<NixContextElement> for NixContext {
+    fn from(value: NixContextElement) -> Self {
+        Self([value].into())
+    }
+}
+
+impl NixContext {
+    /// Creates an empty context that can be populated
+    /// and passed to form a contextful [NixString], albeit
+    /// if the context is concretly empty, the resulting [NixString]
+    /// will be contextless.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// For internal consumers, we let people observe
+    /// if the [NixContext] is actually empty or not
+    /// to decide whether they want to skip the allocation
+    /// of a full blown [HashSet].
+    pub(crate) fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Consumes a new [NixContextElement] and add it if not already
+    /// present in this context.
+    pub fn append(mut self, other: NixContextElement) -> Self {
+        self.0.insert(other);
+        self
+    }
+
+    /// Consumes both ends of the join into a new NixContent
+    /// containing the union of elements of both ends.
+    pub fn join(mut self, other: &mut NixContext) -> Self {
+        let other_set = std::mem::take(&mut other.0);
+        let mut set: HashSet<NixContextElement> = std::mem::take(&mut self.0);
+        set.extend(other_set);
+        Self(set)
+    }
+
+    /// Copies from another [NixString] its context strings
+    /// in this context.
+    pub fn mimic(&mut self, other: &NixString) {
+        if let Some(ref context) = other.1 {
+            self.0.extend(context.iter().cloned());
+        }
+    }
+
+    /// Iterates over "plain" context elements, e.g. sources imported
+    /// in the store without more information, i.e. `toFile` or coerced imported paths.
+    /// It yields paths to the store.
+    pub fn iter_plain(&self) -> impl Iterator<Item = &str> {
+        self.iter().filter_map(|elt| {
+            if let NixContextElement::Plain(s) = elt {
+                Some(s.as_str())
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Iterates over "full derivations" context elements, e.g. something
+    /// referring to their `drvPath`, i.e. their full sources and binary closure.
+    /// It yields derivation paths.
+    pub fn iter_derivation(&self) -> impl Iterator<Item = &str> {
+        self.iter().filter_map(|elt| {
+            if let NixContextElement::Derivation(s) = elt {
+                Some(s.as_str())
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Iterates over "single" context elements, e.g. single derived paths,
+    /// or also known as the single output of a given derivation.
+    /// The first element of the tuple is the output name
+    /// and the second element is the derivation path.
+    pub fn iter_single_outputs(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.iter().filter_map(|elt| {
+            if let NixContextElement::Single { name, derivation } = elt {
+                Some((name.as_str(), derivation.as_str()))
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Iterates over any element of the context.
+    pub fn iter(&self) -> impl Iterator<Item = &NixContextElement> {
+        self.0.iter()
+    }
+
+    /// Produces a list of owned references to this current context,
+    /// no matter its type.
+    pub fn to_owned_references(self) -> Vec<String> {
+        self.0
+            .into_iter()
+            .map(|ctx| match ctx {
+                NixContextElement::Derivation(drv_path) => drv_path,
+                NixContextElement::Plain(store_path) => store_path,
+                NixContextElement::Single { derivation, .. } => derivation,
+            })
+            .collect()
+    }
+}
+
+// FIXME: when serializing, ignore the context?
 #[derive(Clone, Debug, Serialize)]
-pub struct NixString(Box<str>);
+pub struct NixString(Box<str>, Option<NixContext>);
 
 impl PartialEq for NixString {
     fn eq(&self, other: &Self) -> bool {
@@ -42,25 +173,31 @@ impl TryFrom<&[u8]> for NixString {
     type Error = Utf8Error;
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        Ok(Self(Box::from(str::from_utf8(value)?)))
+        Ok(Self(Box::from(str::from_utf8(value)?), None))
     }
 }
 
 impl From<&str> for NixString {
     fn from(s: &str) -> Self {
-        NixString(Box::from(s))
+        NixString(Box::from(s), None)
     }
 }
 
 impl From<String> for NixString {
     fn from(s: String) -> Self {
-        NixString(s.into_boxed_str())
+        NixString(s.into_boxed_str(), None)
+    }
+}
+
+impl From<(String, Option<NixContext>)> for NixString {
+    fn from(s: (String, Option<NixContext>)) -> Self {
+        NixString(s.0.into_boxed_str(), s.1)
     }
 }
 
 impl From<Box<str>> for NixString {
     fn from(s: Box<str>) -> Self {
-        Self(s)
+        Self(s, None)
     }
 }
 
@@ -127,6 +264,21 @@ mod arbitrary {
 }
 
 impl NixString {
+    pub fn new_inherit_context_from(other: &NixString, new_contents: &str) -> Self {
+        Self(Box::from(new_contents), other.1.clone())
+    }
+
+    pub fn new_context_from(context: NixContext, contents: &str) -> Self {
+        Self(
+            Box::from(contents),
+            if context.is_empty() {
+                None
+            } else {
+                Some(context)
+            },
+        )
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -160,7 +312,40 @@ impl NixString {
     pub fn concat(&self, other: &Self) -> Self {
         let mut s = self.as_str().to_owned();
         s.push_str(other.as_str());
-        NixString(s.into_boxed_str())
+
+        let context = [&self.1, &other.1]
+            .into_iter()
+            .flatten()
+            .fold(NixContext::new(), |acc_ctx, new_ctx| {
+                acc_ctx.join(&mut new_ctx.clone())
+            });
+        Self::new_context_from(context, &s.into_boxed_str())
+    }
+
+    pub fn iter_plain(&self) -> impl Iterator<Item = &str> {
+        return self.1.iter().flat_map(|context| context.iter_plain());
+    }
+
+    pub fn iter_derivation(&self) -> impl Iterator<Item = &str> {
+        return self.1.iter().flat_map(|context| context.iter_derivation());
+    }
+
+    pub fn iter_single_outputs(&self) -> impl Iterator<Item = (&str, &str)> {
+        return self
+            .1
+            .iter()
+            .flat_map(|context| context.iter_single_outputs());
+    }
+
+    /// Returns whether this Nix string possess a context or not.
+    pub fn has_context(&self) -> bool {
+        self.1.is_some()
+    }
+
+    /// This clears the context of that string, losing
+    /// all dependency tracking information.
+    pub fn clear_context(&mut self) {
+        self.1 = None;
     }
 
     pub fn chars(&self) -> Chars<'_> {

@@ -31,7 +31,7 @@ pub(crate) use function::Formals;
 pub use function::{Closure, Lambda};
 pub use list::NixList;
 pub use path::canon_path;
-pub use string::NixString;
+pub use string::{NixContext, NixContextElement, NixString};
 pub use thunk::Thunk;
 
 pub use self::thunk::ThunkSet;
