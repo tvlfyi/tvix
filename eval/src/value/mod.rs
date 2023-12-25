@@ -662,7 +662,27 @@ impl Value {
     gen_cast!(as_bool, bool, "bool", Value::Bool(b), *b);
     gen_cast!(as_int, i64, "int", Value::Integer(x), *x);
     gen_cast!(as_float, f64, "float", Value::Float(x), *x);
-    gen_cast!(to_str, NixString, "string", Value::String(s), s.clone());
+
+    /// Cast the current value into a **context-less** string.
+    /// If you wanted to cast it into a potentially contextful string,
+    /// you have to explicitly use `to_contextful_str`.
+    /// Contextful strings are special, they should not be obtained
+    /// everytime you want a string.
+    pub fn to_str(&self) -> Result<NixString, ErrorKind> {
+        match self {
+            Value::String(s) if !s.has_context() => Ok(s.clone()),
+            Value::Thunk(thunk) => Self::to_str(&thunk.value()),
+            other => Err(type_error("contextless strings", other)),
+        }
+    }
+
+    gen_cast!(
+        to_contextful_str,
+        NixString,
+        "contextful string",
+        Value::String(s),
+        s.clone()
+    );
     gen_cast!(to_path, Box<PathBuf>, "path", Value::Path(p), p.clone());
     gen_cast!(to_attrs, Box<NixAttrs>, "set", Value::Attrs(a), a.clone());
     gen_cast!(to_list, NixList, "list", Value::List(l), l.clone());
@@ -790,7 +810,8 @@ impl Value {
             Value::Bool(b) => format!("the boolean value '{}'", b),
             Value::Integer(i) => format!("the integer '{}'", i),
             Value::Float(f) => format!("the float '{}'", f),
-            Value::String(s) => format!("the string '{}'", s),
+            Value::String(s) if s.has_context() => format!("the contextful string '{}'", s),
+            Value::String(s) => format!("the contextless string '{}'", s),
             Value::Path(p) => format!("the path '{}'", p.to_string_lossy()),
             Value::Attrs(attrs) => format!("a {}-item attribute set", attrs.len()),
             Value::List(list) => format!("a {}-item list", list.len()),
