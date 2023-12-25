@@ -1060,7 +1060,7 @@ mod pure_builtins {
 
     #[builtin("split")]
     async fn builtin_split(co: GenCo, regex: Value, str: Value) -> Result<Value, ErrorKind> {
-        let s = str.to_str()?;
+        let s = str.to_contextful_str()?;
         let text = s.as_str();
         let re = regex.to_str()?;
         let re: Regex = Regex::new(re.as_str()).unwrap();
@@ -1071,7 +1071,10 @@ mod pure_builtins {
 
         while let Some(thematch) = re.captures_read_at(&mut capture_locations, text, pos) {
             // push the unmatched characters preceding the match
-            ret.push_back(Value::from(&text[pos..thematch.start()]));
+            ret.push_back(Value::from(NixString::new_inherit_context_from(
+                &s,
+                &text[pos..thematch.start()],
+            )));
 
             // Push a list with one element for each capture
             // group in the regex, containing the characters
@@ -1080,8 +1083,12 @@ mod pure_builtins {
             let v: imbl::Vector<Value> = (1..num_captures)
                 .map(|i| capture_locations.get(i))
                 .map(|o| {
-                    o.map(|(start, end)| Value::from(&text[start..end]))
-                        .unwrap_or(Value::Null)
+                    o.map(|(start, end)| {
+                        // Here, a surprising thing happens: we silently discard the original
+                        // context. This is as intended, Nix does the same.
+                        Value::from(&text[start..end])
+                    })
+                    .unwrap_or(Value::Null)
                 })
                 .collect();
             ret.push_back(Value::List(NixList::from(v)));
@@ -1089,6 +1096,8 @@ mod pure_builtins {
         }
 
         // push the unmatched characters following the last match
+        // Here, a surprising thing happens: we silently discard the original
+        // context. This is as intended, Nix does the same.
         ret.push_back(Value::from(&text[pos..]));
 
         Ok(Value::List(NixList::from(ret)))
@@ -1134,7 +1143,7 @@ mod pure_builtins {
                 span,
             )
             .await?;
-        Ok(Value::Integer(s.to_str()?.as_str().len() as i64))
+        Ok(Value::Integer(s.to_contextful_str()?.as_str().len() as i64))
     }
 
     #[builtin("sub")]
