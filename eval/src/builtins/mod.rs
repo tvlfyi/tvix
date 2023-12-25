@@ -1122,8 +1122,9 @@ mod pure_builtins {
     #[builtin("throw")]
     async fn builtin_throw(co: GenCo, message: Value) -> Result<Value, ErrorKind> {
         // TODO(sterni): coerces to string
+        // We do not care about the context here explicitly.
         Ok(Value::Catchable(CatchableErrorKind::Throw(
-            message.to_str()?.to_string(),
+            message.to_contextful_str()?.to_string(),
         )))
     }
 
