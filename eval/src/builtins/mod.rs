@@ -551,10 +551,9 @@ mod pure_builtins {
 
     #[builtin("hasContext")]
     #[allow(non_snake_case)]
-    async fn builtin_hasContext(_co: GenCo, #[lazy] _e: Value) -> Result<Value, ErrorKind> {
-        Ok(Value::Catchable(CatchableErrorKind::UnimplementedFeature(
-            "hasContext".to_string(),
-        )))
+    async fn builtin_hasContext(co: GenCo, e: Value) -> Result<Value, ErrorKind> {
+        let v = e.to_str()?;
+        Ok(Value::Bool(v.has_context()))
     }
 
     #[builtin("hashString")]
