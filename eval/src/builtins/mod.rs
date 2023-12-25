@@ -1131,6 +1131,8 @@ mod pure_builtins {
     #[builtin("toString")]
     async fn builtin_to_string(co: GenCo, #[lazy] x: Value) -> Result<Value, ErrorKind> {
         // coerce_to_string forces for us
+        // FIXME: should `coerce_to_string` preserve context?
+        // it does for now.
         let span = generators::request_span(&co).await;
         x.coerce_to_string(
             co,
