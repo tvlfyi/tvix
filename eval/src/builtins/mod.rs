@@ -83,7 +83,11 @@ mod pure_builtins {
     #[builtin("abort")]
     async fn builtin_abort(co: GenCo, message: Value) -> Result<Value, ErrorKind> {
         // TODO(sterni): coerces to string
-        Err(ErrorKind::Abort(message.to_str()?.to_string()))
+        // Although `abort` does not make use of any context,
+        // we must still accept contextful strings as parameters.
+        // If `to_str` was used, this would err out with an unexpected type error.
+        // Therefore, we explicitly accept contextful strings and ignore their contexts.
+        Err(ErrorKind::Abort(message.to_contextful_str()?.to_string()))
     }
 
     #[builtin("add")]
