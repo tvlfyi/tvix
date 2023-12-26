@@ -202,6 +202,9 @@ pub enum ErrorKind {
         context: String,
         underlying: Box<ErrorKind>,
     },
+
+    /// Unexpected context string
+    UnexpectedContext,
 }
 
 impl error::Error for Error {
@@ -484,6 +487,10 @@ to a missing value in the attribute set(s) included via `with`."#,
             ErrorKind::WithContext { .. } => {
                 panic!("internal ErrorKind::WithContext variant leaked")
             }
+
+            ErrorKind::UnexpectedContext => {
+                write!(f, "unexpected context string")
+            }
         }
     }
 }
@@ -736,6 +743,7 @@ impl Error {
             ErrorKind::InvalidAttributeName(_) => "in this attribute set",
             ErrorKind::RelativePathResolution(_) => "in this path literal",
             ErrorKind::UnexpectedArgument { .. } => "in this function call",
+            ErrorKind::UnexpectedContext => "in this string",
 
             // The spans for some errors don't have any more descriptive stuff
             // in them, or we don't utilise it yet.
@@ -810,6 +818,7 @@ impl Error {
             ErrorKind::Xml(_) => "E034",
             ErrorKind::FromTomlError(_) => "E035",
             ErrorKind::NotSerialisableToJson(_) => "E036",
+            ErrorKind::UnexpectedContext => "E037",
 
             // Special error code for errors from other Tvix
             // components. We may want to introduce a code namespacing

@@ -464,30 +464,23 @@ pub(crate) mod derivation_builtins {
             .to_str()
             .context("evaluating the `name` parameter of builtins.toFile")?;
         let content = content
-            .to_str()
+            .to_contextful_str()
             .context("evaluating the `content` parameter of builtins.toFile")?;
 
-        let mut refscan = state.borrow().reference_scanner();
-        refscan.scan(content.as_str());
-        let refs = {
-            let paths = state.borrow();
-            refscan
-                .finalise()
-                .into_iter()
-                .map(|path| paths[&path].path.to_string())
-                .collect::<Vec<_>>()
-        };
+        if content.iter_derivation().count() > 0 || content.iter_single_outputs().count() > 0 {
+            return Err(ErrorKind::UnexpectedContext);
+        }
 
-        // TODO: fail on derivation references (only "plain" is allowed here)
-
-        let path = nix_compat::store_path::build_text_path(name.as_str(), content.as_str(), refs)
-            .map_err(|_e| {
-                nix_compat::derivation::DerivationError::InvalidOutputName(
-                    name.as_str().to_string(),
-                )
-            })
-            .map_err(DerivationError::InvalidDerivation)?
-            .to_absolute_path();
+        let path = nix_compat::store_path::build_text_path(
+            name.as_str(),
+            content.as_str(),
+            content.iter_plain(),
+        )
+        .map_err(|_e| {
+            nix_compat::derivation::DerivationError::InvalidOutputName(name.as_str().to_string())
+        })
+        .map_err(DerivationError::InvalidDerivation)?
+        .to_absolute_path();
 
         state.borrow_mut().plain(&path);
 
