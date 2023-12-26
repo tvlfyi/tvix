@@ -588,6 +588,7 @@ mod pure_builtins {
         _algo: Value,
         _string: Value,
     ) -> Result<Value, ErrorKind> {
+        // FIXME: propagate contexts here.
         Ok(Value::Catchable(CatchableErrorKind::UnimplementedFeature(
             "hashString".to_string(),
         )))
