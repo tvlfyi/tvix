@@ -919,12 +919,17 @@ mod pure_builtins {
             generators::request_force(&co, val.clone()).await;
         }
 
-        let string = s.to_str()?;
+        let mut string = s.to_contextful_str()?;
 
         let mut res = String::new();
 
         let mut i: usize = 0;
         let mut empty_string_replace = false;
+        let mut context = NixContext::new();
+
+        if let Some(string_context) = string.context_mut() {
+            context = context.join(string_context);
+        }
 
         // This can't be implemented using Rust's string.replace() as
         // well as a map because we need to handle errors with results
@@ -935,8 +940,8 @@ mod pure_builtins {
         'outer: while i < string.len() {
             // Try a match in all the from strings
             for elem in std::iter::zip(from.iter(), to.iter()) {
-                let from = elem.0.to_str()?;
-                let to = elem.1.to_str()?;
+                let from = elem.0.to_contextful_str()?;
+                let mut to = elem.1.to_contextful_str()?;
 
                 if i + from.len() > string.len() {
                     continue;
@@ -953,6 +958,9 @@ mod pure_builtins {
                 if &string[i..i + from.len()] == from.as_str() {
                     res += &to;
                     i += from.len();
+                    if let Some(to_ctx) = to.context_mut() {
+                        context = context.join(to_ctx);
+                    }
 
                     // remember if we applied the empty from->to
                     empty_string_replace = from.as_str().is_empty();
@@ -973,15 +981,24 @@ mod pure_builtins {
         // Special case when the string is empty or at the string's end
         // and one of the from is also empty
         for elem in std::iter::zip(from.iter(), to.iter()) {
-            let from = elem.0.to_str()?;
-            let to = elem.1.to_str()?;
+            let from = elem.0.to_contextful_str()?;
+            // We mutate `to` by consuming its context
+            // if we perform a successful replacement.
+            // Therefore, it's fine if `to` was mutate and we reuse it here.
+            // We don't need to merge again the context, it's already in the right state.
+            let mut to = elem.1.to_contextful_str()?;
 
             if from.as_str().is_empty() {
                 res += &to;
+                if let Some(to_ctx) = to.context_mut() {
+                    context = context.join(to_ctx);
+                }
                 break;
             }
         }
-        Ok(Value::String(res.into()))
+
+        // FIXME: consume directly the String.
+        Ok(Value::String(NixString::new_context_from(context, &res)))
     }
 
     #[builtin("seq")]
