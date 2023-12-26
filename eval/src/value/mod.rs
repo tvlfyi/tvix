@@ -352,6 +352,11 @@ impl Value {
                     },
                 ) => {
                     let imported = generators::request_path_import(co, *p).await;
+                    // When we import a path from the evaluator, we must attach
+                    // its original path as its context.
+                    context = context.append(NixContextElement::Plain(
+                        imported.to_string_lossy().to_string(),
+                    ));
                     Ok(imported.to_string_lossy().into_owned())
                 }
                 (
