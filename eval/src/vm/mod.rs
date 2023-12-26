@@ -29,11 +29,12 @@ use crate::{
     spans::LightSpan,
     upvalues::Upvalues,
     value::{
-        Builtin, BuiltinResult, Closure, CoercionKind, Lambda, NixAttrs, NixList, PointerEquality,
-        Thunk, Value,
+        Builtin, BuiltinResult, Closure, CoercionKind, Lambda, NixAttrs, NixContext, NixList,
+        PointerEquality, Thunk, Value,
     },
     vm::generators::GenCo,
     warnings::{EvalWarning, WarningKind},
+    NixString,
 };
 
 use generators::{call_functor, Generator, GeneratorState};
@@ -980,6 +981,8 @@ impl<'o> VM<'o> {
     /// the concatenated result string back on the stack.
     fn run_interpolate(&mut self, frame: &CallFrame, count: usize) -> EvalResult<()> {
         let mut out = String::new();
+        // Interpolation propagates the context and union them.
+        let mut context: NixContext = NixContext::new();
 
         for i in 0..count {
             let val = self.stack_pop();
@@ -990,10 +993,16 @@ impl<'o> VM<'o> {
                 self.stack.push(val);
                 return Ok(());
             }
-            out.push_str(val.to_str().with_span(frame, self)?.as_str());
+            let mut nix_string = val.to_contextful_str().with_span(frame, self)?;
+            out.push_str(nix_string.as_str());
+            if let Some(nix_string_ctx) = nix_string.context_mut() {
+                context = context.join(nix_string_ctx);
+            }
         }
 
-        self.stack.push(Value::String(out.into()));
+        // FIXME: consume immediately here the String.
+        self.stack
+            .push(Value::String(NixString::new_context_from(context, &out)));
         Ok(())
     }
 
