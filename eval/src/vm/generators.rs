@@ -604,7 +604,7 @@ pub async fn request_string_coerce(
         _ => match co.yield_(VMRequest::StringCoerce(val, kind)).await {
             VMResponse::Value(Value::Catchable(c)) => Err(c),
             VMResponse::Value(value) => Ok(value
-                .to_str()
+                .to_contextful_str()
                 .expect("coerce_to_string always returns a string")),
             msg => panic!(
                 "Tvix bug: VM responded with incorrect generator message: {}",
