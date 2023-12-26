@@ -23,6 +23,8 @@ use crate::{
     value::{CoercionKind, NixAttrs, NixList, NixString, Thunk, Value},
 };
 
+use crate::NixContextElement;
+
 use self::versions::{VersionPart, VersionPartsIter};
 
 mod to_xml;
@@ -579,6 +581,47 @@ mod pure_builtins {
     async fn builtin_hasContext(co: GenCo, e: Value) -> Result<Value, ErrorKind> {
         let v = e.to_str()?;
         Ok(Value::Bool(v.has_context()))
+    }
+
+    #[builtin("getContext")]
+    #[allow(non_snake_case)]
+    async fn builtin_getContext(co: GenCo, e: Value) -> Result<Value, ErrorKind> {
+        // also forces the value
+        let span = generators::request_span(&co).await;
+        let v = e
+            .coerce_to_string(
+                co,
+                CoercionKind {
+                    strong: true,
+                    import_paths: true,
+                },
+                span,
+            )
+            .await?;
+        let s = v.to_contextful_str()?;
+
+        let elements = s
+            .iter_context()
+            .flat_map(|context| context.iter())
+            .map(|ctx_element| match ctx_element {
+                NixContextElement::Plain(spath) => (
+                    spath.clone(),
+                    Value::attrs(NixAttrs::from_iter([("path", true)])),
+                ),
+                NixContextElement::Single { name, derivation } => (
+                    derivation.clone(),
+                    Value::attrs(NixAttrs::from_iter([(
+                        "outputs",
+                        Value::List(NixList::construct(1, vec![name.clone().into()])),
+                    )])),
+                ),
+                NixContextElement::Derivation(drv_path) => (
+                    drv_path.clone(),
+                    Value::attrs(NixAttrs::from_iter([("allOutputs", true)])),
+                ),
+            });
+
+        Ok(Value::attrs(NixAttrs::from_iter(elements)))
     }
 
     #[builtin("hashString")]

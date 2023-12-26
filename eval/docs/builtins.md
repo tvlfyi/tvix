@@ -61,7 +61,7 @@ The `impl` column indicates implementation status in tvix:
 | genList                       | false  |       |       |         |
 | genericClosure                | false  |       |       | todo    |
 | getAttr                       | false  |       |       |         |
-| getContext                    | false  |       |       | context |
+| getContext                    | false  |       |       |         |
 | getEnv                        | false  |       | false |         |
 | hasAttr                       | false  |       |       |         |
 | hasContext                    | false  |       |       |         |

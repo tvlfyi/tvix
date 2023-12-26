@@ -326,6 +326,10 @@ impl NixString {
         return self.1.as_mut();
     }
 
+    pub fn iter_context(&self) -> impl Iterator<Item = &NixContext> {
+        return self.1.iter();
+    }
+
     pub fn iter_plain(&self) -> impl Iterator<Item = &str> {
         return self.1.iter().flat_map(|context| context.iter_plain());
     }
