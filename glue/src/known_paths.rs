@@ -11,12 +11,9 @@
 //! Please see //tvix/eval/docs/build-references.md for more
 //! information.
 
-use crate::refscan::{ReferenceScanner, STORE_PATH_LEN};
+use crate::refscan::STORE_PATH_LEN;
 use nix_compat::nixhash::NixHash;
-use std::{
-    collections::{hash_map, BTreeSet, HashMap},
-    ops::Index,
-};
+use std::collections::{BTreeSet, HashMap};
 
 #[derive(Debug, PartialEq)]
 pub enum PathKind {
@@ -36,12 +33,6 @@ pub struct KnownPath {
     pub kind: PathKind,
 }
 
-impl KnownPath {
-    fn new(path: String, kind: PathKind) -> Self {
-        KnownPath { path, kind }
-    }
-}
-
 /// Internal struct to prevent accidental leaks of the truncated path
 /// names.
 #[repr(transparent)]
@@ -51,6 +42,12 @@ pub struct PathName(String);
 impl From<&str> for PathName {
     fn from(s: &str) -> Self {
         PathName(s[..STORE_PATH_LEN].to_string())
+    }
+}
+
+impl From<String> for PathName {
+    fn from(s: String) -> Self {
+        s.as_str().into()
     }
 }
 
@@ -64,125 +61,13 @@ impl AsRef<[u8]> for PathName {
 
 #[derive(Debug, Default)]
 pub struct KnownPaths {
-    /// All known paths, keyed by a truncated version of their store
-    /// path used for reference scanning.
-    paths: HashMap<PathName, KnownPath>,
-
     /// All known derivation or FOD hashes.
     ///
     /// Keys are derivation paths, values is the NixHash.
     derivation_or_fod_hashes: HashMap<String, NixHash>,
 }
 
-impl Index<&PathName> for KnownPaths {
-    type Output = KnownPath;
-
-    fn index(&self, index: &PathName) -> &Self::Output {
-        &self.paths[index]
-    }
-}
-
 impl KnownPaths {
-    fn insert_path(&mut self, path: String, path_kind: PathKind) {
-        match self.paths.entry(path.as_str().into()) {
-            hash_map::Entry::Vacant(entry) => {
-                entry.insert(KnownPath::new(path, path_kind));
-            }
-
-            hash_map::Entry::Occupied(mut entry) => {
-                match (path_kind, &mut entry.get_mut().kind) {
-                    // These variant combinations require no "merging action".
-                    (PathKind::Plain, PathKind::Plain) => (),
-
-                    #[allow(unused_variables)]
-                    (
-                        PathKind::Output {
-                            name: name1,
-                            derivation: drv1,
-                        },
-                        PathKind::Output {
-                            name: ref name2,
-                            derivation: ref drv2,
-                        },
-                    ) => {
-                        #[cfg(debug_assertions)]
-                        {
-                            if &name1 != name2 {
-                                panic!(
-                                    "inserted path {} with two different names: {} and {}",
-                                    path, name1, name2
-                                );
-                            }
-                            if &drv1 != drv2 {
-                                panic!(
-                                    "inserted path {} with two different derivations: {} and {}",
-                                    path, drv1, drv2
-                                );
-                            }
-                        }
-                    }
-
-                    (
-                        PathKind::Derivation { output_names: new },
-                        PathKind::Derivation {
-                            output_names: ref mut old,
-                        },
-                    ) => {
-                        old.extend(new);
-                    }
-
-                    _ => panic!(
-                        "path '{}' inserted twice with different types",
-                        entry.key().0
-                    ),
-                };
-            }
-        };
-    }
-
-    /// Mark a plain path as known.
-    pub fn plain<S: ToString>(&mut self, path: S) {
-        self.insert_path(path.to_string(), PathKind::Plain);
-    }
-
-    /// Mark a derivation as known.
-    pub fn drv<P: ToString, O: ToString>(&mut self, path: P, outputs: &[O]) {
-        self.insert_path(
-            path.to_string(),
-            PathKind::Derivation {
-                output_names: outputs.iter().map(ToString::to_string).collect(),
-            },
-        );
-    }
-
-    /// Mark a derivation output path as known.
-    pub fn output<P: ToString, N: ToString, D: ToString>(
-        &mut self,
-        output_path: P,
-        name: N,
-        drv_path: D,
-    ) {
-        self.insert_path(
-            output_path.to_string(),
-            PathKind::Output {
-                name: name.to_string(),
-                derivation: drv_path.to_string(),
-            },
-        );
-    }
-
-    /// Checks whether there are any known paths. If not, a reference
-    /// scanner can not be created.
-    pub fn is_empty(&self) -> bool {
-        self.paths.is_empty()
-    }
-
-    /// Create a reference scanner from the current set of known paths.
-    pub fn reference_scanner(&self) -> ReferenceScanner<PathName> {
-        let candidates = self.paths.keys().map(Clone::clone).collect();
-        ReferenceScanner::new(candidates)
-    }
-
     /// Fetch the opaque "hash derivation modulo" for a given derivation path.
     pub fn get_hash_derivation_modulo(&self, drv_path: &str) -> NixHash {
         // TODO: we rely on an invariant that things *should* have

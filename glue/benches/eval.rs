@@ -29,7 +29,7 @@ fn interpret(code: &str) {
     let mut eval = tvix_eval::Evaluation::new_impure();
 
     let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
-    add_derivation_builtins(&mut eval, known_paths.clone());
+    add_derivation_builtins(&mut eval, known_paths);
     configure_nix_path(
         &mut eval,
         // The benchmark requires TVIX_BENCH_NIX_PATH to be set, so barf out
@@ -37,15 +37,12 @@ fn interpret(code: &str) {
         &Some(env::var("TVIX_BENCH_NIX_PATH").expect("TVIX_BENCH_NIX_PATH must be set")),
     );
 
-    eval.io_handle = Box::new(tvix_glue::tvix_io::TvixIO::new(
-        known_paths.clone(),
-        TvixStoreIO::new(
-            BLOB_SERVICE.clone(),
-            DIRECTORY_SERVICE.clone(),
-            PATH_INFO_SERVICE.clone(),
-            TOKIO_RUNTIME.handle().clone(),
-        ),
-    ));
+    eval.io_handle = Box::new(tvix_glue::tvix_io::TvixIO::new(TvixStoreIO::new(
+        BLOB_SERVICE.clone(),
+        DIRECTORY_SERVICE.clone(),
+        PATH_INFO_SERVICE.clone(),
+        TOKIO_RUNTIME.handle().clone(),
+    )));
 
     let result = eval.evaluate(code, None);
 
