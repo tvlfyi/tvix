@@ -588,8 +588,12 @@ impl Value {
                                         .clone()
                                         .force(co, span.clone())
                                         .await?
-                                        .to_str()?
-                                        == out2.clone().force(co, span.clone()).await?.to_str()?;
+                                        .to_contextful_str()?
+                                        == out2
+                                            .clone()
+                                            .force(co, span.clone())
+                                            .await?
+                                            .to_contextful_str()?;
                                     if !result {
                                         return Ok(Value::Bool(false));
                                     } else {
