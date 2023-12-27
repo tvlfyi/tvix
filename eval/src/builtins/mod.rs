@@ -1081,7 +1081,7 @@ mod pure_builtins {
         if x.is_catchable() {
             return Ok(x);
         }
-        let x = x.to_str()?;
+        let x = x.to_contextful_str()?;
 
         if beg < 0 {
             return Err(ErrorKind::IndexOutOfBounds { index: beg });
@@ -1092,7 +1092,7 @@ mod pure_builtins {
         // non-negative when the starting index is GTE the
         // string's length.
         if beg >= x.as_str().len() {
-            return Ok(Value::String("".into()));
+            return Ok(Value::String(NixString::new_inherit_context_from(&x, "")));
         }
 
         let end = if len < 0 {
@@ -1101,7 +1101,10 @@ mod pure_builtins {
             cmp::min(beg + (len as usize), x.as_str().len())
         };
 
-        Ok(Value::String(x.as_bytes()[beg..end].try_into()?))
+        Ok(Value::String(NixString::new_inherit_context_from(
+            &x,
+            &x[beg..end],
+        )))
     }
 
     #[builtin("tail")]
