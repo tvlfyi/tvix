@@ -235,7 +235,7 @@ where
             // the root node doesn't exist, so the file doesn't exist.
             Ok(None) => Err(io::Error::from_raw_os_error(libc::ENOENT)),
             // The root node does exist
-            Ok(Some(root_node)) => {
+            Ok(Some(ref root_node)) => {
                 // The name must match what's passed in the lookup, otherwise this is also a ENOENT.
                 if root_node.get_name() != name.to_bytes() {
                     debug!(root_node.name=?root_node.get_name(), found_node.name=%name.to_string_lossy(), "node name mismatch");
@@ -258,7 +258,7 @@ where
 
                 // insert the (sparse) inode data and register in
                 // self.root_nodes.
-                let inode_data: InodeData = (&root_node).into();
+                let inode_data: InodeData = root_node.into();
                 let ino = inode_tracker.put(inode_data.clone());
                 root_nodes.insert(name.to_bytes().into(), ino);
 
@@ -391,7 +391,7 @@ where
                     }
                 });
 
-                while let Some((i, root_node)) = rx.blocking_recv() {
+                while let Some((i, ref root_node)) = rx.blocking_recv() {
                     let root_node = match root_node {
                         Err(e) => {
                             warn!("failed to retrieve pathinfo: {}", e);
@@ -405,7 +405,7 @@ where
                     let ino = self.get_inode_for_root_name(name).unwrap_or_else(|| {
                         // insert the (sparse) inode data and register in
                         // self.root_nodes.
-                        let ino = self.inode_tracker.write().put((&root_node).into());
+                        let ino = self.inode_tracker.write().put(root_node.into());
                         self.root_nodes.write().insert(name.into(), ino);
                         ino
                     });
