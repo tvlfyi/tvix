@@ -45,8 +45,8 @@ option go_package = "code.tvl.fyi/tvix/build-go;buildv1";
 // support "send all BuildRequest for a nixpkgs eval to a remote builder and put
 // the laptop to sleep" usecases later.
 message BuildRequest {
-  // The list of all root nodes that should be visible in STORE_DIR at the time
-  // of the build.
+  // The list of all root nodes that should be visible in `inputs_dir` at the
+  // time of the build.
   // As root nodes are content-addressed, no additional signatures are needed
   // to substitute / make these available in the build environment.
   // Inputs are sorted by their names.
@@ -63,15 +63,16 @@ message BuildRequest {
 
   // A list of "scratch" paths, relative to the build root.
   // These will be write-able during the build.
-  // [build] in the case of Nix.
+  // [build, nix/store] in the case of Nix.
   repeated string scratch_paths = 4;
 
   // The path where the castore input nodes will be located at,
   // "/nix/store" in case of Nix.
-  string store_dir = 5;
+  // Builds might also write into here (Nix builds do that).
+  string inputs_dir = 5;
 
-  // The list of output nodes the build is expected to produce.
-  // These are basenames inside store_dir.
+  // The list of output paths the build is expected to produce,
+  // relative to the root.
   // If the path is not produced, the build is considered to have failed.
   // Outputs are sorted.
   repeated string outputs = 6;
