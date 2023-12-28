@@ -1,7 +1,7 @@
 use std::{io, path::Path, sync::Arc, thread};
 
 use fuse_backend_rs::{api::filesystem::FileSystem, transport::FuseSession};
-use tracing::error;
+use tracing::{error, instrument};
 
 struct FuseServer<FS>
 where
@@ -52,10 +52,11 @@ pub struct FuseDaemon {
 }
 
 impl FuseDaemon {
+    #[instrument(skip(fs, mountpoint), fields(mountpoint=?mountpoint), err)]
     pub fn new<FS, P>(fs: FS, mountpoint: P, threads: usize) -> Result<Self, io::Error>
     where
         FS: FileSystem + Sync + Send + 'static,
-        P: AsRef<Path>,
+        P: AsRef<Path> + std::fmt::Debug,
     {
         let server = Arc::new(fuse_backend_rs::api::server::Server::new(Arc::new(fs)));
 
@@ -89,6 +90,7 @@ impl FuseDaemon {
         })
     }
 
+    #[instrument(skip_all, err)]
     pub fn unmount(&mut self) -> Result<(), io::Error> {
         self.session
             .umount()
