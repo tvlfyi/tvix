@@ -3,7 +3,6 @@ use data_encoding::BASE64;
 use futures::future::try_join_all;
 use nix_compat::store_path;
 use nix_compat::store_path::StorePath;
-use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -169,7 +168,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(if cli.json {
             Some(
                 tracing_subscriber::fmt::Layer::new()
-                    .with_writer(io::stderr.with_max_level(level))
+                    .with_writer(std::io::stderr.with_max_level(level))
                     .json(),
             )
         } else {
@@ -178,7 +177,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(if !cli.json {
             Some(
                 tracing_subscriber::fmt::Layer::new()
-                    .with_writer(io::stderr.with_max_level(level))
+                    .with_writer(std::io::stderr.with_max_level(level))
                     .pretty(),
             )
         } else {
@@ -265,7 +264,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let tasks = paths
                 .into_iter()
                 .map(|path| {
-                    let task: JoinHandle<io::Result<()>> = tokio::task::spawn({
+                    let task: JoinHandle<std::io::Result<()>> = tokio::task::spawn({
                         let blob_service = blob_service.clone();
                         let directory_service = directory_service.clone();
                         let path_info_service = path_info_service.clone();
@@ -384,7 +383,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 info!("interrupt received, unmounting…");
                 tokio::task::spawn_blocking(move || fuse_daemon.unmount()).await??;
                 info!("unmount occured, terminating…");
-                Ok::<_, io::Error>(())
+                Ok::<_, std::io::Error>(())
             })
             .await??;
         }
