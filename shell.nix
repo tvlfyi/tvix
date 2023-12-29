@@ -22,6 +22,7 @@ pkgs.mkShell {
     pkgs.evans
     pkgs.fuse
     pkgs.go
+    pkgs.grpcurl
     pkgs.hyperfine
     pkgs.nix_2_3 # b/313
     pkgs.pkg-config
