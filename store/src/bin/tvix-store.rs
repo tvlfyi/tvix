@@ -232,7 +232,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 router = router.add_service(reflection_svc);
             }
 
-            info!("tvix-store listening on {}", listen_address);
+            info!(listen_address=%listen_address, "starting daemon");
 
             let listener = Listener::bind(
                 &listen_address,
@@ -371,7 +371,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     path_info_service,
                     list_root,
                 );
-                info!("mounting tvix-store on {:?}", &dest);
+                info!(mount_path=?dest, "mounting");
 
                 FuseDaemon::new(fs, &dest, threads)
             })
@@ -415,7 +415,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     path_info_service,
                     list_root,
                 );
-                info!("starting tvix-store virtiofs daemon on {:?}", &socket);
+                info!(socket_path=?socket, "starting virtiofs-daemon");
 
                 start_virtiofs_daemon(fs, socket)
             })
