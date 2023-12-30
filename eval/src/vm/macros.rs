@@ -36,24 +36,25 @@ macro_rules! arithmetic_op {
 #[macro_export]
 macro_rules! cmp_op {
     ( $vm:ident, $frame:ident, $span:ident, $op:tt ) => {{
-        let b = $vm.stack_pop();
-        let a = $vm.stack_pop();
+        lifted_pop! {
+            $vm(b, a) => {
+                async fn compare(a: Value, b: Value, co: GenCo) -> Result<Value, ErrorKind> {
+                    let a = generators::request_force(&co, a).await;
+                    let b = generators::request_force(&co, b).await;
+                    let span = generators::request_span(&co).await;
+                    let ordering = a.nix_cmp_ordering(b, co, span).await?;
+                    match ordering {
+                        Err(cek) => Ok(Value::Catchable(cek)),
+                        Ok(ordering) => Ok(Value::Bool(cmp_op!(@order $op ordering))),
+                    }
+                }
 
-        async fn compare(a: Value, b: Value, co: GenCo) -> Result<Value, ErrorKind> {
-            let a = generators::request_force(&co, a).await;
-            let b = generators::request_force(&co, b).await;
-            let span = generators::request_span(&co).await;
-            let ordering = a.nix_cmp_ordering(b, co, span).await?;
-            match ordering {
-                Err(cek) => Ok(Value::Catchable(cek)),
-                Ok(ordering) => Ok(Value::Bool(cmp_op!(@order $op ordering))),
+                let gen_span = $frame.current_light_span();
+                $vm.push_call_frame($span, $frame);
+                $vm.enqueue_generator("compare", gen_span, |co| compare(a, b, co));
+                return Ok(false);
             }
         }
-
-        let gen_span = $frame.current_light_span();
-        $vm.push_call_frame($span, $frame);
-        $vm.enqueue_generator("compare", gen_span, |co| compare(a, b, co));
-        return Ok(false);
     }};
 
     (@order < $ordering:expr) => {
@@ -71,4 +72,22 @@ macro_rules! cmp_op {
     (@order >= $ordering:expr) => {
         matches!($ordering, Ordering::Equal | Ordering::Greater)
     };
+}
+
+#[macro_export]
+macro_rules! lifted_pop {
+    ($vm:ident ($($bind:ident),+) => $body:expr) => {
+        {
+            $(
+                let $bind = $vm.stack_pop();
+            )+
+            $(
+                if $bind.is_catchable() {
+                    $vm.stack.push($bind);
+                    continue;
+                }
+            )+
+            $body
+        }
+    }
 }
