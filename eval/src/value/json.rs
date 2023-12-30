@@ -34,7 +34,10 @@ impl Value {
                 let mut out = vec![];
 
                 for val in l.into_iter() {
-                    out.push(generators::request_to_json(co, val).await);
+                    match generators::request_to_json(co, val).await {
+                        Ok(v) => out.push(v),
+                        Err(cek) => return Ok(Err(cek)),
+                    }
                 }
 
                 Json::Array(out)
@@ -67,14 +70,17 @@ impl Value {
                 // serialise to a JSON serialisation of that inner
                 // value (regardless of what it is!).
                 if let Some(out_path) = attrs.select("outPath") {
-                    return Ok(Ok(generators::request_to_json(co, out_path.clone()).await));
+                    return Ok(generators::request_to_json(co, out_path.clone()).await);
                 }
 
                 let mut out = Map::with_capacity(attrs.len());
                 for (name, value) in attrs.into_iter_sorted() {
                     out.insert(
                         name.as_str().to_string(),
-                        generators::request_to_json(co, value).await,
+                        match generators::request_to_json(co, value).await {
+                            Ok(v) => v,
+                            Err(cek) => return Ok(Err(cek)),
+                        },
                     );
                 }
 

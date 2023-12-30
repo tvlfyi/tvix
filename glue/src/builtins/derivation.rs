@@ -132,6 +132,10 @@ pub(crate) mod derivation_builtins {
 
     #[builtin("placeholder")]
     async fn builtin_placeholder(co: GenCo, input: Value) -> Result<Value, ErrorKind> {
+        if input.is_catchable() {
+            return Ok(input);
+        }
+
         let placeholder = hash_placeholder(
             input
                 .to_str()
@@ -152,11 +156,18 @@ pub(crate) mod derivation_builtins {
         co: GenCo,
         input: Value,
     ) -> Result<Value, ErrorKind> {
+        if input.is_catchable() {
+            return Ok(input);
+        }
+
         let input = input.to_attrs()?;
-        let name = generators::request_force(&co, input.select_required("name")?.clone())
-            .await
-            .to_str()
-            .context("determining derivation name")?;
+        let name = generators::request_force(&co, input.select_required("name")?.clone()).await;
+
+        if name.is_catchable() {
+            return Ok(name);
+        }
+
+        let name = name.to_str().context("determining derivation name")?;
 
         if name.is_empty() {
             return Err(ErrorKind::Abort("derivation has empty name".to_string()));
@@ -480,6 +491,14 @@ pub(crate) mod derivation_builtins {
 
     #[builtin("toFile")]
     async fn builtin_to_file(co: GenCo, name: Value, content: Value) -> Result<Value, ErrorKind> {
+        if name.is_catchable() {
+            return Ok(name);
+        }
+
+        if content.is_catchable() {
+            return Ok(content);
+        }
+
         let name = name
             .to_str()
             .context("evaluating the `name` parameter of builtins.toFile")?;

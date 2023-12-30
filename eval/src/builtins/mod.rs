@@ -97,9 +97,21 @@ mod pure_builtins {
 
     #[builtin("all")]
     async fn builtin_all(co: GenCo, pred: Value, list: Value) -> Result<Value, ErrorKind> {
+        if list.is_catchable() {
+            return Ok(list);
+        }
+
+        if pred.is_catchable() {
+            return Ok(pred);
+        }
+
         for value in list.to_list()?.into_iter() {
             let pred_result = generators::request_call_with(&co, pred.clone(), [value]).await;
             let pred_result = generators::request_force(&co, pred_result).await;
+
+            if pred_result.is_catchable() {
+                return Ok(pred_result);
+            }
 
             if !pred_result.as_bool()? {
                 return Ok(Value::Bool(false));
@@ -111,9 +123,21 @@ mod pure_builtins {
 
     #[builtin("any")]
     async fn builtin_any(co: GenCo, pred: Value, list: Value) -> Result<Value, ErrorKind> {
+        if list.is_catchable() {
+            return Ok(list);
+        }
+
+        if pred.is_catchable() {
+            return Ok(pred);
+        }
+
         for value in list.to_list()?.into_iter() {
             let pred_result = generators::request_call_with(&co, pred.clone(), [value]).await;
             let pred_result = generators::request_force(&co, pred_result).await;
+
+            if pred_result.is_catchable() {
+                return Ok(pred_result);
+            }
 
             if pred_result.as_bool()? {
                 return Ok(Value::Bool(true));
@@ -140,6 +164,10 @@ mod pure_builtins {
 
     #[builtin("attrValues")]
     async fn builtin_attr_values(co: GenCo, set: Value) -> Result<Value, ErrorKind> {
+        if set.is_catchable() {
+            return Ok(set);
+        }
+
         let xs = set.to_attrs()?;
         let mut output = Vec::with_capacity(xs.len());
 
@@ -191,6 +219,14 @@ mod pure_builtins {
 
     #[builtin("catAttrs")]
     async fn builtin_cat_attrs(co: GenCo, key: Value, list: Value) -> Result<Value, ErrorKind> {
+        if list.is_catchable() {
+            return Ok(list);
+        }
+
+        if key.is_catchable() {
+            return Ok(key);
+        }
+
         let key = key.to_str()?;
         let list = list.to_list()?;
         let mut output = vec![];
@@ -227,6 +263,10 @@ mod pure_builtins {
 
     #[builtin("concatLists")]
     async fn builtin_concat_lists(co: GenCo, lists: Value) -> Result<Value, ErrorKind> {
+        if lists.is_catchable() {
+            return Ok(lists);
+        }
+
         let mut out = imbl::Vector::new();
 
         for value in lists.to_list()? {
@@ -239,6 +279,14 @@ mod pure_builtins {
 
     #[builtin("concatMap")]
     async fn builtin_concat_map(co: GenCo, f: Value, list: Value) -> Result<Value, ErrorKind> {
+        if list.is_catchable() {
+            return Ok(list);
+        }
+
+        if f.is_catchable() {
+            return Ok(f);
+        }
+
         let list = list.to_list()?;
         let mut res = imbl::Vector::new();
         for val in list {
@@ -255,6 +303,14 @@ mod pure_builtins {
         separator: Value,
         list: Value,
     ) -> Result<Value, ErrorKind> {
+        if list.is_catchable() {
+            return Ok(list);
+        }
+
+        if separator.is_catchable() {
+            return Ok(separator);
+        }
+
         let mut separator = separator.to_contextful_str()?;
         let mut context = NixContext::new();
         if let Some(sep_context) = separator.context_mut() {
@@ -371,6 +427,14 @@ mod pure_builtins {
 
     #[builtin("filter")]
     async fn builtin_filter(co: GenCo, pred: Value, list: Value) -> Result<Value, ErrorKind> {
+        if pred.is_catchable() {
+            return Ok(pred);
+        }
+
+        if list.is_catchable() {
+            return Ok(list);
+        }
+
         let list: NixList = list.to_list()?;
         let mut out = imbl::Vector::new();
 
@@ -400,6 +464,10 @@ mod pure_builtins {
         #[lazy] nul: Value,
         list: Value,
     ) -> Result<Value, ErrorKind> {
+        if list.is_catchable() {
+            return Ok(list);
+        }
+
         let mut nul = nul;
         let list = list.to_list()?;
         for val in list {
@@ -418,6 +486,10 @@ mod pure_builtins {
 
     #[builtin("functionArgs")]
     async fn builtin_function_args(co: GenCo, f: Value) -> Result<Value, ErrorKind> {
+        if f.is_catchable() {
+            return Ok(f);
+        }
+
         let lambda = &f.as_closure()?.lambda();
         let formals = if let Some(formals) = &lambda.formals {
             formals
@@ -431,6 +503,10 @@ mod pure_builtins {
 
     #[builtin("fromJSON")]
     async fn builtin_from_json(co: GenCo, json: Value) -> Result<Value, ErrorKind> {
+        if json.is_catchable() {
+            return Ok(json);
+        }
+
         let json_str = json.to_str()?;
 
         serde_json::from_str(&json_str).map_err(|err| err.into())
@@ -465,6 +541,10 @@ mod pure_builtins {
 
     #[builtin("genericClosure")]
     async fn builtin_generic_closure(co: GenCo, input: Value) -> Result<Value, ErrorKind> {
+        if input.is_catchable() {
+            return Ok(input);
+        }
+
         let attrs = input.to_attrs()?;
 
         // The work set is maintained as a VecDeque because new items
@@ -510,6 +590,10 @@ mod pure_builtins {
         generator: Value,
         length: Value,
     ) -> Result<Value, ErrorKind> {
+        if length.is_catchable() {
+            return Ok(length);
+        }
+
         let mut out = imbl::Vector::<Value>::new();
         let len = length.as_int()?;
         // the best span we can get…
@@ -548,6 +632,14 @@ mod pure_builtins {
 
     #[builtin("groupBy")]
     async fn builtin_group_by(co: GenCo, f: Value, list: Value) -> Result<Value, ErrorKind> {
+        if list.is_catchable() {
+            return Ok(list);
+        }
+
+        if f.is_catchable() {
+            return Ok(f);
+        }
+
         let mut res: BTreeMap<NixString, imbl::Vector<Value>> = BTreeMap::new();
         for val in list.to_list()? {
             let key = generators::request_force(
@@ -567,6 +659,14 @@ mod pure_builtins {
 
     #[builtin("hasAttr")]
     async fn builtin_has_attr(co: GenCo, key: Value, set: Value) -> Result<Value, ErrorKind> {
+        if set.is_catchable() {
+            return Ok(set);
+        }
+
+        if key.is_catchable() {
+            return Ok(key);
+        }
+
         let k = key.to_str()?;
         let xs = set.to_attrs()?;
 
@@ -576,6 +676,10 @@ mod pure_builtins {
     #[builtin("hasContext")]
     #[allow(non_snake_case)]
     async fn builtin_hasContext(co: GenCo, e: Value) -> Result<Value, ErrorKind> {
+        if e.is_catchable() {
+            return Ok(e);
+        }
+
         let v = e.to_str()?;
         Ok(Value::Bool(v.has_context()))
     }
@@ -583,6 +687,10 @@ mod pure_builtins {
     #[builtin("getContext")]
     #[allow(non_snake_case)]
     async fn builtin_getContext(co: GenCo, e: Value) -> Result<Value, ErrorKind> {
+        if e.is_catchable() {
+            return Ok(e);
+        }
+
         // also forces the value
         let span = generators::request_span(&co).await;
         let v = e
@@ -636,6 +744,10 @@ mod pure_builtins {
 
     #[builtin("head")]
     async fn builtin_head(co: GenCo, list: Value) -> Result<Value, ErrorKind> {
+        if list.is_catchable() {
+            return Ok(list);
+        }
+
         match list.to_list()?.get(0) {
             Some(x) => Ok(x.clone()),
             None => Err(ErrorKind::IndexOutOfBounds { index: 0 }),
@@ -724,21 +836,38 @@ mod pure_builtins {
 
     #[builtin("isAttrs")]
     async fn builtin_is_attrs(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
+        // TODO(edef): make this beautiful
+        if value.is_catchable() {
+            return Ok(value);
+        }
+
         Ok(Value::Bool(matches!(value, Value::Attrs(_))))
     }
 
     #[builtin("isBool")]
     async fn builtin_is_bool(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
+        if value.is_catchable() {
+            return Ok(value);
+        }
+
         Ok(Value::Bool(matches!(value, Value::Bool(_))))
     }
 
     #[builtin("isFloat")]
     async fn builtin_is_float(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
+        if value.is_catchable() {
+            return Ok(value);
+        }
+
         Ok(Value::Bool(matches!(value, Value::Float(_))))
     }
 
     #[builtin("isFunction")]
     async fn builtin_is_function(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
+        if value.is_catchable() {
+            return Ok(value);
+        }
+
         Ok(Value::Bool(matches!(
             value,
             Value::Closure(_) | Value::Builtin(_)
@@ -747,26 +876,46 @@ mod pure_builtins {
 
     #[builtin("isInt")]
     async fn builtin_is_int(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
+        if value.is_catchable() {
+            return Ok(value);
+        }
+
         Ok(Value::Bool(matches!(value, Value::Integer(_))))
     }
 
     #[builtin("isList")]
     async fn builtin_is_list(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
+        if value.is_catchable() {
+            return Ok(value);
+        }
+
         Ok(Value::Bool(matches!(value, Value::List(_))))
     }
 
     #[builtin("isNull")]
     async fn builtin_is_null(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
+        if value.is_catchable() {
+            return Ok(value);
+        }
+
         Ok(Value::Bool(matches!(value, Value::Null)))
     }
 
     #[builtin("isPath")]
     async fn builtin_is_path(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
+        if value.is_catchable() {
+            return Ok(value);
+        }
+
         Ok(Value::Bool(matches!(value, Value::Path(_))))
     }
 
     #[builtin("isString")]
     async fn builtin_is_string(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
+        if value.is_catchable() {
+            return Ok(value);
+        }
+
         Ok(Value::Bool(matches!(value, Value::String(_))))
     }
 
@@ -790,6 +939,10 @@ mod pure_builtins {
 
     #[builtin("listToAttrs")]
     async fn builtin_list_to_attrs(co: GenCo, list: Value) -> Result<Value, ErrorKind> {
+        if list.is_catchable() {
+            return Ok(list);
+        }
+
         let list = list.to_list()?;
         let mut map = BTreeMap::new();
         for val in list {
@@ -806,6 +959,14 @@ mod pure_builtins {
 
     #[builtin("map")]
     async fn builtin_map(co: GenCo, f: Value, list: Value) -> Result<Value, ErrorKind> {
+        if list.is_catchable() {
+            return Ok(list);
+        }
+
+        if f.is_catchable() {
+            return Ok(f);
+        }
+
         let mut out = imbl::Vector::<Value>::new();
 
         // the best span we can get…
@@ -883,6 +1044,10 @@ mod pure_builtins {
 
     #[builtin("parseDrvName")]
     async fn builtin_parse_drv_name(co: GenCo, s: Value) -> Result<Value, ErrorKind> {
+        if s.is_catchable() {
+            return Ok(s);
+        }
+
         // This replicates cppnix's (mis?)handling of codepoints
         // above U+007f following 0x2d ('-')
         let s = s.to_str()?;
@@ -908,6 +1073,14 @@ mod pure_builtins {
 
     #[builtin("partition")]
     async fn builtin_partition(co: GenCo, pred: Value, list: Value) -> Result<Value, ErrorKind> {
+        if list.is_catchable() {
+            return Ok(list);
+        }
+
+        if pred.is_catchable() {
+            return Ok(pred);
+        }
+
         let mut right: imbl::Vector<Value> = Default::default();
         let mut wrong: imbl::Vector<Value> = Default::default();
 
@@ -936,6 +1109,14 @@ mod pure_builtins {
         attrs: Value,
         keys: Value,
     ) -> Result<Value, ErrorKind> {
+        if attrs.is_catchable() {
+            return Ok(attrs);
+        }
+
+        if keys.is_catchable() {
+            return Ok(keys);
+        }
+
         let attrs = attrs.to_attrs()?;
         let keys = keys
             .to_list()?
@@ -959,6 +1140,18 @@ mod pure_builtins {
         to: Value,
         s: Value,
     ) -> Result<Value, ErrorKind> {
+        if s.is_catchable() {
+            return Ok(s);
+        }
+
+        if to.is_catchable() {
+            return Ok(to);
+        }
+
+        if from.is_catchable() {
+            return Ok(from);
+        }
+
         let from = from.to_list()?;
         for val in &from {
             generators::request_force(&co, val.clone()).await;
@@ -1060,6 +1253,14 @@ mod pure_builtins {
 
     #[builtin("split")]
     async fn builtin_split(co: GenCo, regex: Value, str: Value) -> Result<Value, ErrorKind> {
+        if str.is_catchable() {
+            return Ok(str);
+        }
+
+        if regex.is_catchable() {
+            return Ok(regex);
+        }
+
         let s = str.to_contextful_str()?;
         let text = s.as_str();
         let re = regex.to_str()?;
@@ -1105,6 +1306,14 @@ mod pure_builtins {
 
     #[builtin("sort")]
     async fn builtin_sort(co: GenCo, comparator: Value, list: Value) -> Result<Value, ErrorKind> {
+        if list.is_catchable() {
+            return Ok(list);
+        }
+
+        if comparator.is_catchable() {
+            return Ok(comparator);
+        }
+
         let list = list.to_list()?;
         let sorted = list.sort_by(&co, comparator).await?;
         Ok(Value::List(sorted))
@@ -1143,6 +1352,11 @@ mod pure_builtins {
                 span,
             )
             .await?;
+
+        if s.is_catchable() {
+            return Ok(s);
+        }
+
         Ok(Value::Integer(s.to_contextful_str()?.as_str().len() as i64))
     }
 
@@ -1202,6 +1416,10 @@ mod pure_builtins {
 
     #[builtin("tail")]
     async fn builtin_tail(co: GenCo, list: Value) -> Result<Value, ErrorKind> {
+        if list.is_catchable() {
+            return Ok(list);
+        }
+
         let xs = list.to_list()?;
 
         if xs.is_empty() {
@@ -1223,6 +1441,7 @@ mod pure_builtins {
 
     #[builtin("toString")]
     async fn builtin_to_string(co: GenCo, #[lazy] x: Value) -> Result<Value, ErrorKind> {
+        // TODO(edef): please fix me w.r.t. to catchability.
         // coerce_to_string forces for us
         // FIXME: should `coerce_to_string` preserve context?
         // it does for now.
@@ -1241,6 +1460,10 @@ mod pure_builtins {
     #[builtin("toXML")]
     async fn builtin_to_xml(co: GenCo, value: Value) -> Result<Value, ErrorKind> {
         let value = generators::request_deep_force(&co, value).await;
+        if value.is_catchable() {
+            return Ok(value);
+        }
+
         let mut buf: Vec<u8> = vec![];
         to_xml::value_to_xml(&mut buf, &value)?;
         Ok(String::from_utf8(buf)?.into())
@@ -1263,6 +1486,10 @@ mod pure_builtins {
 
     #[builtin("toPath")]
     async fn builtin_to_path(co: GenCo, s: Value) -> Result<Value, ErrorKind> {
+        if s.is_catchable() {
+            return Ok(s);
+        }
+
         match coerce_value_to_path(&co, s).await? {
             Err(cek) => Ok(Value::Catchable(cek)),
             Ok(path) => {
@@ -1294,6 +1521,10 @@ mod pure_builtins {
 
     #[builtin("typeOf")]
     async fn builtin_type_of(co: GenCo, x: Value) -> Result<Value, ErrorKind> {
+        if x.is_catchable() {
+            return Ok(x);
+        }
+
         Ok(Value::String(x.type_of().into()))
     }
 }
@@ -1360,6 +1591,10 @@ mod placeholder_builtins {
         co: GenCo,
         s: Value,
     ) -> Result<Value, ErrorKind> {
+        if s.is_catchable() {
+            return Ok(s);
+        }
+
         let span = generators::request_span(&co).await;
         let mut v = s
             .coerce_to_string(

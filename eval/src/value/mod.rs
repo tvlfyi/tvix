@@ -589,16 +589,19 @@ impl Value {
                                         .context("comparing derivations")?
                                         .clone();
 
-                                    let result = out1
-                                        .clone()
-                                        .force(co, span.clone())
-                                        .await?
-                                        .to_contextful_str()?
-                                        == out2
-                                            .clone()
-                                            .force(co, span.clone())
-                                            .await?
-                                            .to_contextful_str()?;
+                                    let out1 = out1.clone().force(co, span.clone()).await?;
+                                    let out2 = out2.clone().force(co, span.clone()).await?;
+
+                                    if out1.is_catchable() {
+                                        return Ok(out1);
+                                    }
+
+                                    if out2.is_catchable() {
+                                        return Ok(out2);
+                                    }
+
+                                    let result =
+                                        out1.to_contextful_str()? == out2.to_contextful_str()?;
                                     if !result {
                                         return Ok(Value::Bool(false));
                                     } else {

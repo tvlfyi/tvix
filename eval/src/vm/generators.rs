@@ -763,9 +763,13 @@ pub(crate) async fn request_span(co: &GenCo) -> LightSpan {
     }
 }
 
-pub(crate) async fn request_to_json(co: &GenCo, value: Value) -> serde_json::Value {
+pub(crate) async fn request_to_json(
+    co: &GenCo,
+    value: Value,
+) -> Result<serde_json::Value, CatchableErrorKind> {
     match co.yield_(VMRequest::ToJson(value)).await {
-        VMResponse::Value(Value::Json(json)) => json,
+        VMResponse::Value(Value::Json(json)) => Ok(json),
+        VMResponse::Value(Value::Catchable(cek)) => Err(cek),
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg
