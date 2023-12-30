@@ -106,12 +106,14 @@ fn populate_inputs<I: IntoIterator<Item = PathName>>(
 /// (lowercase) hex encoding of the digest.
 ///
 /// These values are only rewritten for the outputs, not what's passed to env.
+///
+/// The return value may optionally contain a warning.
 fn handle_fixed_output(
     drv: &mut Derivation,
     hash_str: Option<String>,      // in nix: outputHash
     hash_algo_str: Option<String>, // in nix: outputHashAlgo
     hash_mode_str: Option<String>, // in nix: outputHashmode
-) -> Result<(), ErrorKind> {
+) -> Result<Option<WarningKind>, ErrorKind> {
     // If outputHash is provided, ensure hash_algo_str is compatible.
     // If outputHash is not provided, do nothing.
     if let Some(hash_str) = hash_str {
@@ -125,6 +127,7 @@ fn handle_fixed_output(
         // construct a NixHash.
         let nixhash = nixhash::from_str(&hash_str, hash_algo_str.as_deref())
             .map_err(DerivationError::InvalidOutputHash)?;
+        let algo = nixhash.algo();
 
         // construct the fixed output.
         drv.outputs.insert(
@@ -140,8 +143,18 @@ fn handle_fixed_output(
                 },
             },
         );
+
+        // Peek at hash_str once more.
+        // If it was a SRI hash, but is not using the correct length, this means
+        // the padding was wrong. Emit a warning in that case.
+        let sri_prefix = format!("{}-", algo);
+        if let Some(rest) = hash_str.strip_prefix(&sri_prefix) {
+            if data_encoding::BASE64.encode_len(algo.digest_length()) != rest.len() {
+                return Ok(Some(WarningKind::SRIHashWrongPadding));
+            }
+        }
     }
-    Ok(())
+    Ok(None)
 }
 
 /// Handles derivation parameters which are not just forwarded to
@@ -349,7 +362,12 @@ pub(crate) mod derivation_builtins {
                 Err(cek) => return Ok(Value::Catchable(cek)),
                 Ok(s) => s,
             };
-            handle_fixed_output(&mut drv, output_hash, output_hash_algo, output_hash_mode)?;
+
+            if let Some(warning) =
+                handle_fixed_output(&mut drv, output_hash, output_hash_algo, output_hash_mode)?
+            {
+                emit_warning_kind(&co, warning).await;
+            }
         }
 
         // Scan references in relevant attributes to detect any build-references.

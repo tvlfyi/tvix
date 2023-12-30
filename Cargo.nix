@@ -10720,6 +10720,10 @@ rec {
             packageId = "bytes";
           }
           {
+            name = "data-encoding";
+            packageId = "data-encoding";
+          }
+          {
             name = "nix-compat";
             packageId = "nix-compat";
           }

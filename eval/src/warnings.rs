@@ -18,6 +18,7 @@ pub enum WarningKind {
     EmptyInherit,
     EmptyLet,
     ShadowedOutput(String),
+    SRIHashWrongPadding,
 
     /// Tvix internal warning for features triggered by users that are
     /// not actually implemented yet, but do not cause runtime failures.
@@ -105,6 +106,7 @@ impl EvalWarning {
                 "this derivation's environment shadows the output name {}",
                 out
             ),
+            WarningKind::SRIHashWrongPadding => "SRI hash has wrong padding".to_string(),
 
             WarningKind::NotImplemented(what) => {
                 format!("feature not yet implemented in tvix: {}", what)
@@ -127,6 +129,7 @@ impl EvalWarning {
             WarningKind::EmptyInherit => "W009",
             WarningKind::EmptyLet => "W010",
             WarningKind::ShadowedOutput(_) => "W011",
+            WarningKind::SRIHashWrongPadding => "W012",
 
             WarningKind::NotImplemented(_) => "W999",
         }

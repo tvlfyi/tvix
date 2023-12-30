@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+data-encoding = "2.3.3"
 nix-compat = { path = "../nix-compat" }
 tvix-build = { path = "../build", default-features = false, features = []}
 tvix-eval = { path = "../eval" }

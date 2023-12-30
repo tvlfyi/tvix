@@ -154,4 +154,24 @@ mod tests {
             "/171rf4jhx57xqz3p7swniwkig249cif71pa08p80mgaf0mqz5bmr"
         );
     }
+
+    /// constructs calls to builtins.derivation that should succeed, but produce warnings
+    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "sha256-fgIr3TyFGDAXP5+qoAaiMKDg/a1MlT6Fv/S/DaA24S8===="; }).outPath"#, "/nix/store/xm1l9dx4zgycv9qdhcqqvji1z88z534b-foo"; "r:sha256 wrong padding")]
+    fn builtins_derivation_hash_wrong_padding_warn(code: &str, expected_path: &str) {
+        let eval_result = eval(code);
+
+        let value = eval_result.value.expect("must succeed");
+
+        match value {
+            tvix_eval::Value::String(s) => {
+                assert_eq!(expected_path, s.as_str());
+            }
+            _ => panic!("unexpected value type: {:?}", value),
+        }
+
+        assert!(
+            !eval_result.warnings.is_empty(),
+            "warnings should not be empty"
+        );
+    }
 }
