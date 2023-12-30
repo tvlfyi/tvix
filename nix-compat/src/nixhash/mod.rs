@@ -215,7 +215,9 @@ pub fn from_nix_str(s: &str) -> Result<NixHash> {
 /// Contrary to the SRI spec, Nix doesn't support SRI strings with multiple hashes,
 /// only supports sha256 and sha512 from the spec, and supports sha1 and md5
 /// additionally.
-/// It also accepts SRI strings where the base64 has an with invalid padding.
+/// It's also dealing with padding in a very funny way - accepting SRI strings
+/// with an arbitrary amount of padding at the end - including *more* padding
+/// characters.
 pub fn from_sri_str(s: &str) -> Result<NixHash> {
     // try to find the first occurence of "-"
     let idx = s.as_bytes().iter().position(|&e| e == b'-');
@@ -232,27 +234,17 @@ pub fn from_sri_str(s: &str) -> Result<NixHash> {
     // the rest should be the digest (as Nix doesn't support more than one hash in an SRI string).
     let encoded_digest = &s[idx + 1..];
 
-    // decode the digest and algo into a [NixHash]
-    match decode_digest(encoded_digest.as_bytes(), algo) {
-        // If decoding was successful, pass along
-        Ok(nixhash) => Ok(nixhash),
-        // For SRI hashes (only), BASE64_NOPAD is also tolerated,
-        // so try to parse for this, too.
-        // NOTE: As of now, we reject SRI hashes containing additional
-        // characters (which upstream Nix seems to simply truncate), as
-        // there's no occurence of this is in nixpkgs.
-        // It most likely should also be a bug in Nix.
-        Err(Error::InvalidEncodedDigestLength(digest_len, hash_algo)) => {
-            if encoded_digest.len() == BASE64_NOPAD.encode_len(algo.digest_length()) {
-                let digest = BASE64_NOPAD
-                    .decode(encoded_digest.as_bytes())
-                    .map_err(Error::InvalidBase64Encoding)?;
-                Ok(from_algo_and_digest(algo, &digest).unwrap())
-            } else {
-                Err(Error::InvalidEncodedDigestLength(digest_len, hash_algo))?
-            }
-        }
-        Err(e) => Err(e)?,
+    // strip all padding characters.
+    let encoded_digest = encoded_digest.trim_end_matches('=');
+
+    if encoded_digest.len() == BASE64_NOPAD.encode_len(algo.digest_length()) {
+        let digest = BASE64_NOPAD
+            .decode(encoded_digest.as_bytes())
+            .map_err(Error::InvalidBase64Encoding)?;
+
+        Ok(from_algo_and_digest(algo, &digest).unwrap())
+    } else {
+        Err(Error::InvalidEncodedDigestLength(idx, algo))?
     }
 }
 
@@ -425,6 +417,21 @@ mod tests {
         assert_eq!(HashAlgo::Sha256, nix_hash.algo());
         assert_eq!(
             &hex!("a5ce9c155ed09397614646c9717fc7cd94b1023d7b76b618d409e4fefd6e9d39"),
+            nix_hash.digest_as_bytes()
+        )
+    }
+
+    /// Test parsing sha512 SRI hash with various paddings, Nix accepts all of them.
+    #[test_case("sha512-7g91TBvYoYQorRTqo+rYD/i5YnWvUBLnqDhPHxBJDaBW7smuPMeRp6E6JOFuVN9bzN0QnH1ToUU0u9c2CjALEQ"; "no padding")]
+    #[test_case("sha512-7g91TBvYoYQorRTqo+rYD/i5YnWvUBLnqDhPHxBJDaBW7smuPMeRp6E6JOFuVN9bzN0QnH1ToUU0u9c2CjALEQ="; "wrong padding")]
+    #[test_case("sha512-7g91TBvYoYQorRTqo+rYD/i5YnWvUBLnqDhPHxBJDaBW7smuPMeRp6E6JOFuVN9bzN0QnH1ToUU0u9c2CjALEQ="; "correct padding")]
+    #[test_case("sha512-7g91TBvYoYQorRTqo+rYD/i5YnWvUBLnqDhPHxBJDaBW7smuPMeRp6E6JOFuVN9bzN0QnH1ToUU0u9c2CjALEQ="; "too much padding")]
+    fn from_sri_str_sha512_paddings(sri_str: &str) {
+        let nix_hash = nixhash::from_sri_str(sri_str).expect("must succeed");
+
+        assert_eq!(HashAlgo::Sha512, nix_hash.algo());
+        assert_eq!(
+            &hex!("ee0f754c1bd8a18428ad14eaa3ead80ff8b96275af5012e7a8384f1f10490da056eec9ae3cc791a7a13a24e16e54df5bccdd109c7d53a14534bbd7360a300b11"),
             nix_hash.digest_as_bytes()
         )
     }
