@@ -968,13 +968,11 @@ impl<'o> VM<'o> {
 
     /// Emit a warning with the given WarningKind and the source span
     /// of the current instruction.
-    pub fn emit_warning(&mut self, _kind: WarningKind) {
-        // TODO: put LightSpan in warning, calculate only *after* eval
-        // TODO: what to do with the spans?
-        // self.push_warning(EvalWarning {
-        //     kind,
-        //     span: self.current_span(),
-        // });
+    pub fn emit_warning(&mut self, kind: WarningKind) {
+        self.push_warning(EvalWarning {
+            kind,
+            span: self.get_span(),
+        });
     }
 
     /// Interpolate string fragments by popping the specified number of
