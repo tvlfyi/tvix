@@ -26,7 +26,7 @@ fn interpret(code: &str) {
     // TODO: this is a bit annoying.
     // It'd be nice if we could set this up once and then run evaluate() with a
     // piece of code. b/262
-    let mut eval = tvix_eval::Evaluation::new_impure(code, None);
+    let mut eval = tvix_eval::Evaluation::new_impure();
 
     let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
     add_derivation_builtins(&mut eval, known_paths.clone());
@@ -47,7 +47,7 @@ fn interpret(code: &str) {
         ),
     ));
 
-    let result = eval.evaluate();
+    let result = eval.evaluate(code, None);
 
     assert!(result.errors.is_empty());
 }

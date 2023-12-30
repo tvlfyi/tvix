@@ -46,12 +46,12 @@ where
     F: FnOnce(&mut Evaluation),
 {
     // First step is to evaluate the Nix code ...
-    let mut eval = Evaluation::new(src, None);
+    let mut eval = Evaluation::default();
     config(&mut eval);
 
     eval.strict = true;
     let source = eval.source_map();
-    let result = eval.evaluate();
+    let result = eval.evaluate(src, None);
 
     if !result.errors.is_empty() {
         return Err(Error::NixErrors {

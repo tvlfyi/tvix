@@ -53,11 +53,11 @@ fn eval_test(code_path: &str, expect_success: bool) {
         return;
     }
 
-    let mut eval = crate::Evaluation::new_impure(&code, Some(code_path.into()));
+    let mut eval = crate::Evaluation::new_impure();
     eval.strict = true;
     eval.builtins.extend(mock_builtins::builtins());
 
-    let result = eval.evaluate();
+    let result = eval.evaluate(&code, Some(code_path.into()));
     let failed = match result.value {
         Some(Value::Catchable(_)) => true,
         _ => !result.errors.is_empty(),
@@ -106,11 +106,13 @@ fn eval_test(code_path: &str, expect_success: bool) {
 fn identity(code_path: &str) {
     let code = std::fs::read_to_string(code_path).expect("should be able to read test code");
 
-    let mut eval = crate::Evaluation::new(&code, None);
-    eval.strict = true;
-    eval.io_handle = Box::new(crate::StdIO);
+    let eval = crate::Evaluation {
+        strict: true,
+        io_handle: Box::new(crate::StdIO),
+        ..Default::default()
+    };
 
-    let result = eval.evaluate();
+    let result = eval.evaluate(&code, None);
     assert!(
         result.errors.is_empty(),
         "evaluation of identity test failed: {:?}",

@@ -68,20 +68,9 @@ pub use crate::io::StdIO;
 ///
 /// Public fields are intended to be set by the caller. Setting all
 /// fields is optional.
-pub struct Evaluation<'code, 'co, 'ro> {
-    /// The Nix source code to be evaluated.
-    code: &'code str,
-
-    /// Optional location of the source code (i.e. path to the file it was read
-    /// from). Used for error reporting, and for resolving relative paths in
-    /// impure functions.
-    location: Option<PathBuf>,
-
+pub struct Evaluation<'co, 'ro> {
     /// Source code map used for error reporting.
     source_map: SourceCode,
-
-    /// Top-level file reference for this code inside the source map.
-    file: Arc<codemap::File>,
 
     /// Set of all builtins that should be available during the
     /// evaluation.
@@ -142,27 +131,15 @@ pub struct EvaluationResult {
     pub expr: Option<rnix::ast::Expr>,
 }
 
-impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
-    /// Initialise an `Evaluation` for the given Nix source code snippet, and
-    /// an optional code location.
-    pub fn new(code: &'code str, location: Option<PathBuf>) -> Self {
+impl<'co, 'ro> Default for Evaluation<'co, 'ro> {
+    fn default() -> Self {
         let source_map = SourceCode::default();
-
-        let location_str = location
-            .as_ref()
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_else(|| "[code]".into());
-
-        let file = source_map.add_file(location_str, code.into());
 
         let mut builtins = builtins::pure_builtins();
         builtins.extend(builtins::placeholders()); // these are temporary
 
-        Evaluation {
-            code,
-            location,
+        Self {
             source_map,
-            file,
             builtins,
             src_builtins: vec![],
             io_handle: Box::new(DummyIO {}),
@@ -173,15 +150,21 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
             runtime_observer: None,
         }
     }
+}
 
+impl<'co, 'ro> Evaluation<'co, 'ro> {
     #[cfg(feature = "impure")]
     /// Initialise an `Evaluation` for the given snippet, with all
     /// impure features turned on by default.
-    pub fn new_impure(code: &'code str, location: Option<PathBuf>) -> Self {
-        let mut eval = Self::new(code, location);
-        eval.enable_import = true;
+    pub fn new_impure() -> Self {
+        let mut eval = Self {
+            enable_import: true,
+            io_handle: Box::new(StdIO),
+            ..Default::default()
+        };
+
         eval.builtins.extend(builtins::impure_builtins());
-        eval.io_handle = Box::new(StdIO);
+
         eval
     }
 
@@ -191,21 +174,30 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
         self.source_map.clone()
     }
 
-    /// Only compile the provided source code. This does not *run* the
-    /// code, it only provides analysis (errors and warnings) of the
-    /// compiler.
-    pub fn compile_only(mut self) -> EvaluationResult {
+    /// Only compile the provided source code, at an optional location of the
+    /// source code (i.e. path to the file it was read from; used for error
+    /// reporting, and for resolving relative paths in impure functions)
+    /// This does not *run* the code, it only provides analysis (errors and
+    /// warnings) of the compiler.
+    pub fn compile_only(mut self, code: &str, location: Option<PathBuf>) -> EvaluationResult {
         let mut result = EvaluationResult::default();
         let source = self.source_map();
+
+        let location_str = location
+            .as_ref()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|| "[code]".into());
+
+        let file = source.add_file(location_str, code.into());
 
         let mut noop_observer = observer::NoOpObserver::default();
         let compiler_observer = self.compiler_observer.take().unwrap_or(&mut noop_observer);
 
         parse_compile_internal(
             &mut result,
-            self.code,
-            self.file.clone(),
-            self.location,
+            code,
+            file,
+            location,
             source,
             self.builtins,
             self.src_builtins,
@@ -216,10 +208,19 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
         result
     }
 
-    /// Evaluate the provided source code.
-    pub fn evaluate(mut self) -> EvaluationResult {
+    /// Evaluate the provided source code, at an optional location of the source
+    /// code (i.e. path to the file it was read from; used for error reporting,
+    /// and for resolving relative paths in impure functions)
+    pub fn evaluate(mut self, code: &str, location: Option<PathBuf>) -> EvaluationResult {
         let mut result = EvaluationResult::default();
         let source = self.source_map();
+
+        let location_str = location
+            .as_ref()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|| "[code]".into());
+
+        let file = source.add_file(location_str, code.into());
 
         let mut noop_observer = observer::NoOpObserver::default();
         let compiler_observer = self.compiler_observer.take().unwrap_or(&mut noop_observer);
@@ -231,9 +232,9 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
 
         let (lambda, globals) = match parse_compile_internal(
             &mut result,
-            self.code,
-            self.file.clone(),
-            self.location,
+            code,
+            file.clone(),
+            location,
             source,
             self.builtins,
             self.src_builtins,
@@ -255,7 +256,7 @@ impl<'code, 'co, 'ro> Evaluation<'code, 'co, 'ro> {
                 Err(err) => {
                     result.warnings.push(EvalWarning {
                         kind: WarningKind::InvalidNixPath(err.to_string()),
-                        span: self.file.span,
+                        span: file.span,
                     });
                     None
                 }

@@ -62,7 +62,7 @@ struct Args {
 /// and the result itself. The return value indicates whether
 /// evaluation succeeded.
 fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> bool {
-    let mut eval = tvix_eval::Evaluation::new_impure(code, path);
+    let mut eval = tvix_eval::Evaluation::new_impure();
 
     eval.strict = args.strict;
 
@@ -101,7 +101,7 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
             eval.runtime_observer = Some(&mut runtime_observer);
         }
 
-        eval.evaluate()
+        eval.evaluate(code, path)
     };
 
     if args.display_ast {
@@ -135,7 +135,7 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
 /// Interpret the given code snippet, but only run the Tvix compiler
 /// on it and return errors and warnings.
 fn lint(code: &str, path: Option<PathBuf>, args: &Args) -> bool {
-    let mut eval = tvix_eval::Evaluation::new_impure(code, path);
+    let mut eval = tvix_eval::Evaluation::new_impure();
     eval.strict = args.strict;
 
     let source_map = eval.source_map();
@@ -150,7 +150,7 @@ fn lint(code: &str, path: Option<PathBuf>, args: &Args) -> bool {
         eprintln!("warning: --trace-runtime has no effect with --compile-only!");
     }
 
-    let result = eval.compile_only();
+    let result = eval.compile_only(code, path);
 
     if args.display_ast {
         if let Some(ref expr) = result.expr {

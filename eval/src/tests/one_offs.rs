@@ -5,10 +5,10 @@ fn test_source_builtin() {
     // Test an evaluation with a source-only builtin. The test ensures
     // that the artificially constructed thunking is correct.
 
-    let mut eval = Evaluation::new_impure("builtins.testSourceBuiltin", None);
+    let mut eval = Evaluation::new_impure();
     eval.src_builtins.push(("testSourceBuiltin", "42"));
 
-    let result = eval.evaluate();
+    let result = eval.evaluate("builtins.testSourceBuiltin", None);
     assert!(
         result.errors.is_empty(),
         "evaluation failed: {:?}",
@@ -25,7 +25,7 @@ fn test_source_builtin() {
 
 #[test]
 fn skip_broken_bytecode() {
-    let result = Evaluation::new(/* code = */ "x", None).evaluate();
+    let result = Evaluation::default().evaluate(/* code = */ "x", None);
 
     assert_eq!(result.errors.len(), 1);
 

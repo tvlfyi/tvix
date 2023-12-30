@@ -39,14 +39,14 @@ mod tests {
     /// Takes care of setting up the evaluator so it knows about the
     // `derivation` builtin.
     fn eval(str: &str) -> EvaluationResult {
-        let mut eval = tvix_eval::Evaluation::new_impure(str, None);
+        let mut eval = tvix_eval::Evaluation::new_impure();
 
         let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
 
         add_derivation_builtins(&mut eval, known_paths.clone());
 
         // run the evaluation itself.
-        eval.evaluate()
+        eval.evaluate(str, None)
     }
 
     #[test]
