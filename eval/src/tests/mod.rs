@@ -57,7 +57,7 @@ fn eval_test(code_path: &str, expect_success: bool) {
     eval.strict = true;
     eval.builtins.extend(mock_builtins::builtins());
 
-    let result = eval.evaluate(&code, Some(code_path.into()));
+    let result = eval.evaluate(code, Some(code_path.into()));
     let failed = match result.value {
         Some(Value::Catchable(_)) => true,
         _ => !result.errors.is_empty(),

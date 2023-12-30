@@ -179,7 +179,11 @@ impl<'co, 'ro> Evaluation<'co, 'ro> {
     /// reporting, and for resolving relative paths in impure functions)
     /// This does not *run* the code, it only provides analysis (errors and
     /// warnings) of the compiler.
-    pub fn compile_only(mut self, code: &str, location: Option<PathBuf>) -> EvaluationResult {
+    pub fn compile_only(
+        mut self,
+        code: impl AsRef<str>,
+        location: Option<PathBuf>,
+    ) -> EvaluationResult {
         let mut result = EvaluationResult::default();
         let source = self.source_map();
 
@@ -188,14 +192,14 @@ impl<'co, 'ro> Evaluation<'co, 'ro> {
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|| "[code]".into());
 
-        let file = source.add_file(location_str, code.into());
+        let file = source.add_file(location_str, code.as_ref().to_string());
 
         let mut noop_observer = observer::NoOpObserver::default();
         let compiler_observer = self.compiler_observer.take().unwrap_or(&mut noop_observer);
 
         parse_compile_internal(
             &mut result,
-            code,
+            code.as_ref(),
             file,
             location,
             source,
@@ -211,7 +215,11 @@ impl<'co, 'ro> Evaluation<'co, 'ro> {
     /// Evaluate the provided source code, at an optional location of the source
     /// code (i.e. path to the file it was read from; used for error reporting,
     /// and for resolving relative paths in impure functions)
-    pub fn evaluate(mut self, code: &str, location: Option<PathBuf>) -> EvaluationResult {
+    pub fn evaluate(
+        mut self,
+        code: impl AsRef<str>,
+        location: Option<PathBuf>,
+    ) -> EvaluationResult {
         let mut result = EvaluationResult::default();
         let source = self.source_map();
 
@@ -220,7 +228,7 @@ impl<'co, 'ro> Evaluation<'co, 'ro> {
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|| "[code]".into());
 
-        let file = source.add_file(location_str, code.into());
+        let file = source.add_file(location_str, code.as_ref().to_string());
 
         let mut noop_observer = observer::NoOpObserver::default();
         let compiler_observer = self.compiler_observer.take().unwrap_or(&mut noop_observer);
@@ -232,7 +240,7 @@ impl<'co, 'ro> Evaluation<'co, 'ro> {
 
         let (lambda, globals) = match parse_compile_internal(
             &mut result,
-            code,
+            code.as_ref(),
             file.clone(),
             location,
             source,
