@@ -162,24 +162,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let level = cli.log_level.unwrap_or(Level::INFO);
 
     let subscriber = tracing_subscriber::registry()
-        .with(if cli.json {
-            Some(
+        .with(
+            cli.json.then_some(
                 tracing_subscriber::fmt::Layer::new()
                     .with_writer(std::io::stderr.with_max_level(level))
                     .json(),
-            )
-        } else {
-            None
-        })
-        .with(if !cli.json {
-            Some(
+            ),
+        )
+        .with(
+            (!cli.json).then_some(
                 tracing_subscriber::fmt::Layer::new()
                     .with_writer(std::io::stderr.with_max_level(level))
                     .pretty(),
-            )
-        } else {
-            None
-        });
+            ),
+        );
 
     tracing::subscriber::set_global_default(subscriber).expect("Unable to set global subscriber");
 
