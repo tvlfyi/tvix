@@ -261,6 +261,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let path_info_service = path_info_service.clone();
 
                         async move {
+                            // calculate the name
+                            let name = path
+                                .file_name()
+                                .and_then(|file_name| file_name.to_str())
+                                .ok_or_else(|| {
+                                    std::io::Error::new(
+                                        std::io::ErrorKind::InvalidInput,
+                                        "path must not be .. and the basename valid unicode",
+                                    )
+                                })?;
+
                             // Ingest the path into blob and directory service.
                             let root_node = import::ingest_path(
                                 blob_service.clone(),
@@ -271,15 +282,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             .expect("failed to ingest path");
 
                             // Ask the PathInfoService for the NAR size and sha256
-                            let root_node_copy = root_node.clone();
                             let (nar_size, nar_sha256) =
-                                path_info_service.calculate_nar(&root_node_copy).await?;
-
-                            let name = path
-                                .file_name()
-                                .expect("path must not be ..")
-                                .to_str()
-                                .expect("path must be valid unicode");
+                                path_info_service.calculate_nar(&root_node).await?;
 
                             let output_path =
                                 store_path::build_nar_based_store_path(&nar_sha256, name);
