@@ -151,8 +151,8 @@ mod tests {
             let router = server.add_service(
                 crate::proto::path_info_service_server::PathInfoServiceServer::new(
                     GRPCPathInfoServiceWrapper::new(Box::new(MemoryPathInfoService::new(
-                        gen_blob_service(),
-                        gen_directory_service(),
+                        gen_blob_service().into(),
+                        gen_directory_service().into(),
                     ))
                         as Box<dyn PathInfoService>),
                 ),

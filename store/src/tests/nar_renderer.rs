@@ -4,11 +4,16 @@ use crate::tests::fixtures::*;
 use crate::tests::utils::*;
 use sha2::{Digest, Sha256};
 use std::io;
+use std::sync::Arc;
 use tokio::io::sink;
+use tvix_castore::blobservice::BlobService;
+use tvix_castore::directoryservice::DirectoryService;
 use tvix_castore::proto as castorepb;
 
 #[tokio::test]
 async fn single_symlink() {
+    let blob_service: Arc<dyn BlobService> = gen_blob_service().into();
+    let directory_service: Arc<dyn DirectoryService> = gen_directory_service().into();
     let mut buf: Vec<u8> = vec![];
 
     write_nar(
@@ -18,8 +23,8 @@ async fn single_symlink() {
             target: "/nix/store/somewhereelse".into(),
         }),
         // don't put anything in the stores, as we don't actually do any requests.
-        gen_blob_service(),
-        gen_directory_service(),
+        blob_service,
+        directory_service,
     )
     .await
     .expect("must succeed");
@@ -30,6 +35,9 @@ async fn single_symlink() {
 /// Make sure the NARRenderer fails if a referred blob doesn't exist.
 #[tokio::test]
 async fn single_file_missing_blob() {
+    let blob_service: Arc<dyn BlobService> = gen_blob_service().into();
+    let directory_service: Arc<dyn DirectoryService> = gen_directory_service().into();
+
     let e = write_nar(
         sink(),
         &castorepb::node::Node::File(castorepb::FileNode {
@@ -39,8 +47,8 @@ async fn single_file_missing_blob() {
             executable: false,
         }),
         // the blobservice is empty intentionally, to provoke the error.
-        gen_blob_service(),
-        gen_directory_service(),
+        blob_service,
+        directory_service,
     )
     .await
     .expect_err("must fail");
@@ -57,7 +65,7 @@ async fn single_file_missing_blob() {
 /// than specified in the proto node.
 #[tokio::test]
 async fn single_file_wrong_blob_size() {
-    let blob_service = gen_blob_service();
+    let blob_service: Arc<dyn BlobService> = gen_blob_service().into();
 
     // insert blob into the store
     let mut writer = blob_service.open_write().await;
@@ -75,6 +83,7 @@ async fn single_file_wrong_blob_size() {
     let bs = blob_service.clone();
     // Test with a root FileNode of a too big size
     {
+        let directory_service: Arc<dyn DirectoryService> = gen_directory_service().into();
         let e = write_nar(
             sink(),
             &castorepb::node::Node::File(castorepb::FileNode {
@@ -84,7 +93,7 @@ async fn single_file_wrong_blob_size() {
                 executable: false,
             }),
             bs,
-            gen_directory_service(),
+            directory_service,
         )
         .await
         .expect_err("must fail");
@@ -100,6 +109,7 @@ async fn single_file_wrong_blob_size() {
     let bs = blob_service.clone();
     // Test with a root FileNode of a too small size
     {
+        let directory_service: Arc<dyn DirectoryService> = gen_directory_service().into();
         let e = write_nar(
             sink(),
             &castorepb::node::Node::File(castorepb::FileNode {
@@ -109,7 +119,7 @@ async fn single_file_wrong_blob_size() {
                 executable: false,
             }),
             bs,
-            gen_directory_service(),
+            directory_service,
         )
         .await
         .expect_err("must fail");
@@ -125,7 +135,8 @@ async fn single_file_wrong_blob_size() {
 
 #[tokio::test]
 async fn single_file() {
-    let blob_service = gen_blob_service();
+    let blob_service: Arc<dyn BlobService> = gen_blob_service().into();
+    let directory_service: Arc<dyn DirectoryService> = gen_directory_service().into();
 
     // insert blob into the store
     let mut writer = blob_service.open_write().await;
@@ -149,7 +160,7 @@ async fn single_file() {
             executable: false,
         }),
         blob_service,
-        gen_directory_service(),
+        directory_service,
     )
     .await
     .expect("must succeed");
@@ -159,8 +170,8 @@ async fn single_file() {
 
 #[tokio::test]
 async fn test_complicated() {
-    let blob_service = gen_blob_service();
-    let directory_service = gen_directory_service();
+    let blob_service: Arc<dyn BlobService> = gen_blob_service().into();
+    let directory_service: Arc<dyn DirectoryService> = gen_directory_service().into();
 
     // put all data into the stores.
     // insert blob into the store

@@ -170,7 +170,12 @@ mod tests {
     #[test_case("grpc+http://localhost/some-path", false; "grpc valid invalid host and path")]
     #[tokio::test]
     async fn test_from_addr_tokio(uri_str: &str, is_ok: bool) {
-        let resp = from_addr(uri_str, gen_blob_service(), gen_directory_service()).await;
+        let resp = from_addr(
+            uri_str,
+            gen_blob_service().into(),
+            gen_directory_service().into(),
+        )
+        .await;
 
         assert_eq!(resp.is_ok(), is_ok);
     }

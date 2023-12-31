@@ -1,7 +1,10 @@
+use crate::blobservice::BlobService;
+use crate::directoryservice::DirectoryService;
 use crate::fixtures::*;
 use crate::import::ingest_path;
 use crate::proto;
 use crate::utils::{gen_blob_service, gen_directory_service};
+use std::sync::Arc;
 use tempfile::TempDir;
 
 #[cfg(target_family = "unix")]
@@ -10,6 +13,9 @@ use std::os::unix::ffi::OsStrExt;
 #[cfg(target_family = "unix")]
 #[tokio::test]
 async fn symlink() {
+    let blob_service: Arc<dyn BlobService> = gen_blob_service().into();
+    let directory_service: Arc<dyn DirectoryService> = gen_directory_service().into();
+
     let tmpdir = TempDir::new().unwrap();
 
     std::fs::create_dir_all(&tmpdir).unwrap();
@@ -20,8 +26,8 @@ async fn symlink() {
     .unwrap();
 
     let root_node = ingest_path(
-        gen_blob_service(),
-        gen_directory_service(),
+        blob_service,
+        directory_service,
         tmpdir.path().join("doesntmatter"),
     )
     .await
@@ -38,15 +44,16 @@ async fn symlink() {
 
 #[tokio::test]
 async fn single_file() {
+    let blob_service: Arc<dyn BlobService> = gen_blob_service().into();
+    let directory_service: Arc<dyn DirectoryService> = gen_directory_service().into();
+
     let tmpdir = TempDir::new().unwrap();
 
     std::fs::write(tmpdir.path().join("root"), HELLOWORLD_BLOB_CONTENTS).unwrap();
 
-    let blob_service = gen_blob_service();
-
     let root_node = ingest_path(
         blob_service.clone(),
-        gen_directory_service(),
+        directory_service,
         tmpdir.path().join("root"),
     )
     .await
@@ -69,6 +76,9 @@ async fn single_file() {
 #[cfg(target_family = "unix")]
 #[tokio::test]
 async fn complicated() {
+    let blob_service: Arc<dyn BlobService> = gen_blob_service().into();
+    let directory_service: Arc<dyn DirectoryService> = gen_directory_service().into();
+
     let tmpdir = TempDir::new().unwrap();
 
     // File ``.keep`
@@ -79,9 +89,6 @@ async fn complicated() {
     std::fs::create_dir(tmpdir.path().join("keep")).unwrap();
     // File ``keep/.keep`
     std::fs::write(tmpdir.path().join("keep").join(".keep"), vec![]).unwrap();
-
-    let blob_service = gen_blob_service();
-    let directory_service = gen_directory_service();
 
     let root_node = ingest_path(
         blob_service.clone(),

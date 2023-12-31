@@ -1,8 +1,6 @@
 //! A crate containing constructors to provide instances of a BlobService and
 //! DirectoryService. Only used for testing purposes, but across crates.
 //! Should be removed once we have a better concept of a "Service registry".
-use std::sync::Arc;
-
 use tonic::transport::{Channel, Endpoint, Server, Uri};
 
 use crate::{
@@ -16,12 +14,12 @@ use crate::{
     },
 };
 
-pub fn gen_blob_service() -> Arc<dyn BlobService> {
-    Arc::new(MemoryBlobService::default())
+pub fn gen_blob_service() -> Box<dyn BlobService> {
+    Box::<MemoryBlobService>::default()
 }
 
-pub fn gen_directory_service() -> Arc<dyn DirectoryService> {
-    Arc::new(MemoryDirectoryService::default())
+pub fn gen_directory_service() -> Box<dyn DirectoryService> {
+    Box::<MemoryDirectoryService>::default()
 }
 
 /// This will spawn the a gRPC server with a DirectoryService client, connect a
