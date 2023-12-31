@@ -1,27 +1,22 @@
 use clap::Subcommand;
-use data_encoding::BASE64;
+
 use futures::future::try_join_all;
-use nix_compat::store_path;
-use std::path::Path;
+
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::task::JoinHandle;
 use tokio_listener::Listener;
 use tokio_listener::SystemOptions;
 use tokio_listener::UserOptions;
+
 use tracing_subscriber::prelude::*;
-use tvix_castore::import;
+
 use tvix_castore::proto::blob_service_server::BlobServiceServer;
 use tvix_castore::proto::directory_service_server::DirectoryServiceServer;
-use tvix_castore::proto::node::Node;
 use tvix_castore::proto::GRPCBlobServiceWrapper;
 use tvix_castore::proto::GRPCDirectoryServiceWrapper;
 use tvix_store::pathinfoservice::PathInfoService;
-use tvix_store::proto::nar_info;
 use tvix_store::proto::path_info_service_server::PathInfoServiceServer;
 use tvix_store::proto::GRPCPathInfoServiceWrapper;
-use tvix_store::proto::NarInfo;
-use tvix_store::proto::PathInfo;
 
 #[cfg(any(feature = "fuse", feature = "virtiofs"))]
 use tvix_store::pathinfoservice::make_fs;
@@ -253,86 +248,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let tasks = paths
                 .into_iter()
                 .map(|path| {
-                    let task: JoinHandle<std::io::Result<()>> = tokio::task::spawn({
+                    tokio::task::spawn({
                         let blob_service = blob_service.clone();
                         let directory_service = directory_service.clone();
                         let path_info_service = path_info_service.clone();
 
                         async move {
-                            // calculate the name
-                            let name = path
-                                .file_name()
-                                .and_then(|file_name| file_name.to_str())
-                                .ok_or_else(|| {
-                                    std::io::Error::new(
-                                        std::io::ErrorKind::InvalidInput,
-                                        "path must not be .. and the basename valid unicode",
-                                    )
-                                })?;
-
-                            // Ingest the path into blob and directory service.
-                            let root_node = import::ingest_path(
-                                blob_service.clone(),
-                                directory_service.clone(),
-                                &path,
+                            let resp = tvix_store::utils::import_path(
+                                path,
+                                blob_service,
+                                directory_service,
+                                path_info_service,
                             )
-                            .await
-                            .expect("failed to ingest path");
-
-                            // Ask the PathInfoService for the NAR size and sha256
-                            let (nar_size, nar_sha256) =
-                                path_info_service.calculate_nar(&root_node).await?;
-
-                            // Calculate the output path. This might still fail, as some names are illegal.
-                            let output_path =
-                                store_path::build_nar_based_store_path(&nar_sha256, name).map_err(
-                                    |_| {
-                                        std::io::Error::new(
-                                            std::io::ErrorKind::InvalidData,
-                                            format!("invalid name: {}", name),
-                                        )
-                                    },
-                                )?;
-
-                            // assemble a new root_node with a name that is derived from the nar hash.
-                            let root_node =
-                                root_node.rename(output_path.to_string().into_bytes().into());
-
-                            // assemble the [crate::proto::PathInfo] object.
-                            let path_info = PathInfo {
-                                node: Some(tvix_castore::proto::Node {
-                                    node: Some(root_node),
-                                }),
-                                // There's no reference scanning on path contents ingested like this.
-                                references: vec![],
-                                narinfo: Some(NarInfo {
-                                    nar_size,
-                                    nar_sha256: nar_sha256.to_vec().into(),
-                                    signatures: vec![],
-                                    reference_names: vec![],
-                                    deriver: None,
-                                    ca: Some(nar_info::Ca {
-                                        r#type: tvix_store::proto::nar_info::ca::Hash::NarSha256
-                                            .into(),
-                                        digest: nar_sha256.to_vec().into(),
-                                    }),
-                                }),
-                            };
-
-                            // put into [PathInfoService], and return the PathInfo that we get back
-                            // from there (it might contain additional signatures).
-                            let path_info = path_info_service.put(path_info).await?;
-
-                            let node = path_info.node.unwrap().node.unwrap();
-
-                            log_node(&node, &path);
-
-                            println!("{}", output_path.to_absolute_path());
-
-                            Ok(())
+                            .await;
+                            if let Ok(output_path) = resp {
+                                // If the import was successful, print the path to stdout.
+                                println!("{}", output_path.to_absolute_path());
+                            }
                         }
-                    });
-                    task
+                    })
                 })
                 .collect::<Vec<_>>();
 
@@ -410,33 +344,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
     Ok(())
-}
-
-fn log_node(node: &Node, path: &Path) {
-    match node {
-        Node::Directory(directory_node) => {
-            info!(
-                path = ?path,
-                name = ?directory_node.name,
-                digest = BASE64.encode(&directory_node.digest),
-                "import successful",
-            )
-        }
-        Node::File(file_node) => {
-            info!(
-                path = ?path,
-                name = ?file_node.name,
-                digest = BASE64.encode(&file_node.digest),
-                "import successful"
-            )
-        }
-        Node::Symlink(symlink_node) => {
-            info!(
-                path = ?path,
-                name = ?symlink_node.name,
-                target = ?symlink_node.target,
-                "import successful"
-            )
-        }
-    }
 }
