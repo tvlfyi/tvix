@@ -77,7 +77,9 @@ async fn construct_services(
     Arc<dyn DirectoryService>,
     Box<dyn PathInfoService>,
 )> {
-    let blob_service = blobservice::from_addr(blob_service_addr.as_ref()).await?;
+    let blob_service: Arc<dyn BlobService> = blobservice::from_addr(blob_service_addr.as_ref())
+        .await?
+        .into();
     let directory_service = directoryservice::from_addr(directory_service_addr.as_ref()).await?;
     let path_info_service = pathinfoservice::from_addr(
         path_info_service_addr.as_ref(),

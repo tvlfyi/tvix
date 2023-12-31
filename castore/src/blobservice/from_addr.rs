@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use url::Url;
 
 use crate::{proto::blob_service_client::BlobServiceClient, Error};
@@ -16,7 +15,7 @@ use super::{
 /// - `simplefs://` ([SimpleFilesystemBlobService])
 ///
 /// See their `from_url` methods for more details about their syntax.
-pub async fn from_addr(uri: &str) -> Result<Arc<dyn BlobService>, crate::Error> {
+pub async fn from_addr(uri: &str) -> Result<Box<dyn BlobService>, crate::Error> {
     let url = Url::parse(uri)
         .map_err(|e| crate::Error::StorageError(format!("unable to parse url: {}", e)))?;
 
@@ -25,7 +24,7 @@ pub async fn from_addr(uri: &str) -> Result<Arc<dyn BlobService>, crate::Error> 
         if url.has_host() || !url.path().is_empty() {
             return Err(Error::StorageError("invalid url".to_string()));
         }
-        Arc::new(MemoryBlobService::default())
+        Box::<MemoryBlobService>::default()
     } else if url.scheme() == "sled" {
         // sled doesn't support host, and a path can be provided (otherwise
         // it'll live in memory only).
@@ -42,11 +41,11 @@ pub async fn from_addr(uri: &str) -> Result<Arc<dyn BlobService>, crate::Error> 
         // TODO: expose other parameters as URL parameters?
 
         if url.path().is_empty() {
-            return Ok(Arc::new(
+            return Ok(Box::new(
                 SledBlobService::new_temporary().map_err(|e| Error::StorageError(e.to_string()))?,
             ));
         }
-        return Ok(Arc::new(
+        return Ok(Box::new(
             SledBlobService::new(url.path()).map_err(|e| Error::StorageError(e.to_string()))?,
         ));
     } else if url.scheme().starts_with("grpc+") {
@@ -56,13 +55,13 @@ pub async fn from_addr(uri: &str) -> Result<Arc<dyn BlobService>, crate::Error> 
         // - In the case of non-unix sockets, there must be a host, but no path.
         // Constructing the channel is handled by tvix_castore::channel::from_url.
         let client = BlobServiceClient::new(crate::tonic::channel_from_url(&url).await?);
-        Arc::new(GRPCBlobService::from_client(client))
+        Box::new(GRPCBlobService::from_client(client))
     } else if url.scheme() == "simplefs" {
         if url.path().is_empty() {
             return Err(Error::StorageError("Invalid filesystem path".to_string()));
         }
 
-        Arc::new(SimpleFilesystemBlobService::new(url.path().into()).await?)
+        Box::new(SimpleFilesystemBlobService::new(url.path().into()).await?)
     } else {
         Err(crate::Error::StorageError(format!(
             "unknown scheme: {}",

@@ -12,6 +12,7 @@ use tokio_listener::SystemOptions;
 use tokio_listener::UserOptions;
 use tracing_subscriber::prelude::*;
 use tvix_castore::blobservice;
+use tvix_castore::blobservice::BlobService;
 use tvix_castore::directoryservice;
 use tvix_castore::import;
 use tvix_castore::proto::blob_service_server::BlobServiceServer;
@@ -194,7 +195,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             path_info_service_addr,
         } => {
             // initialize stores
-            let blob_service = blobservice::from_addr(&blob_service_addr).await?;
+            let blob_service: Arc<dyn BlobService> =
+                blobservice::from_addr(&blob_service_addr).await?.into();
             let directory_service = directoryservice::from_addr(&directory_service_addr).await?;
             let path_info_service = pathinfoservice::from_addr(
                 &path_info_service_addr,
@@ -249,7 +251,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             path_info_service_addr,
         } => {
             // FUTUREWORK: allow flat for single files?
-            let blob_service = blobservice::from_addr(&blob_service_addr).await?;
+            let blob_service: Arc<dyn BlobService> =
+                blobservice::from_addr(&blob_service_addr).await?.into();
             let directory_service = directoryservice::from_addr(&directory_service_addr).await?;
             let path_info_service = pathinfoservice::from_addr(
                 &path_info_service_addr,
@@ -351,7 +354,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             list_root,
             threads,
         } => {
-            let blob_service = blobservice::from_addr(&blob_service_addr).await?;
+            let blob_service: Arc<dyn BlobService> =
+                blobservice::from_addr(&blob_service_addr).await?.into();
             let directory_service = directoryservice::from_addr(&directory_service_addr).await?;
             let path_info_service = pathinfoservice::from_addr(
                 &path_info_service_addr,
@@ -395,7 +399,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             path_info_service_addr,
             list_root,
         } => {
-            let blob_service = blobservice::from_addr(&blob_service_addr).await?;
+            let blob_service: Arc<dyn BlobService> =
+                blobservice::from_addr(&blob_service_addr).await?.into();
             let directory_service = directoryservice::from_addr(&directory_service_addr).await?;
             let path_info_service = pathinfoservice::from_addr(
                 &path_info_service_addr,
