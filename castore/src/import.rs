@@ -7,8 +7,8 @@ use crate::proto::DirectoryNode;
 use crate::proto::FileNode;
 use crate::proto::SymlinkNode;
 use crate::Error as CastoreError;
+use std::ops::Deref;
 use std::os::unix::ffi::OsStrExt;
-use std::sync::Arc;
 use std::{
     collections::HashMap,
     fmt::Debug,
@@ -61,12 +61,15 @@ impl From<CastoreError> for Error {
 //
 // It assumes the caller adds returned nodes to the directories it assembles.
 #[instrument(skip_all, fields(entry.file_type=?&entry.file_type(),entry.path=?entry.path()))]
-async fn process_entry<'a>(
-    blob_service: Arc<dyn BlobService>,
+async fn process_entry<'a, BS>(
+    blob_service: BS,
     directory_putter: &'a mut Box<dyn DirectoryPutter>,
     entry: &'a walkdir::DirEntry,
     maybe_directory: Option<Directory>,
-) -> Result<Node, Error> {
+) -> Result<Node, Error>
+where
+    BS: Deref<Target = dyn BlobService> + Clone,
+{
     let file_type = entry.file_type();
 
     if file_type.is_dir() {
@@ -146,11 +149,16 @@ async fn process_entry<'a>(
 /// It's up to the caller to possibly register it somewhere (and potentially
 /// rename it based on some naming scheme)
 #[instrument(skip(blob_service, directory_service), fields(path=?p), err)]
-pub async fn ingest_path<P: AsRef<Path> + Debug>(
-    blob_service: Arc<dyn BlobService>,
-    directory_service: Arc<dyn DirectoryService>,
+pub async fn ingest_path<BS, DS, P>(
+    blob_service: BS,
+    directory_service: DS,
     p: P,
-) -> Result<Node, Error> {
+) -> Result<Node, Error>
+where
+    P: AsRef<Path> + Debug,
+    BS: Deref<Target = dyn BlobService> + Clone,
+    DS: Deref<Target = dyn DirectoryService>,
+{
     let mut directories: HashMap<PathBuf, Directory> = HashMap::default();
 
     let mut directory_putter = directory_service.put_multiple_start();
