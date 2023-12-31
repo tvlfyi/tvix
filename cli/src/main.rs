@@ -1,18 +1,14 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Arc;
 use std::{fs, path::PathBuf};
 use tvix_glue::known_paths::KnownPaths;
 use tvix_glue::{builtins::add_derivation_builtins, configure_nix_path};
 
 use clap::Parser;
 use rustyline::{error::ReadlineError, Editor};
-use tvix_castore::blobservice::{self, BlobService};
-use tvix_castore::directoryservice::{self, DirectoryService};
 use tvix_eval::observer::{DisassemblingObserver, TracingObserver};
 use tvix_eval::Value;
 use tvix_glue::tvix_store_io::TvixStoreIO;
-use tvix_store::pathinfoservice::{self, PathInfoService};
 
 #[derive(Parser)]
 struct Args {
@@ -67,33 +63,6 @@ struct Args {
     path_info_service_addr: String,
 }
 
-/// Construct the three store handles from their addrs.
-async fn construct_services(
-    blob_service_addr: impl AsRef<str>,
-    directory_service_addr: impl AsRef<str>,
-    path_info_service_addr: impl AsRef<str>,
-) -> std::io::Result<(
-    Arc<dyn BlobService>,
-    Arc<dyn DirectoryService>,
-    Box<dyn PathInfoService>,
-)> {
-    let blob_service: Arc<dyn BlobService> = blobservice::from_addr(blob_service_addr.as_ref())
-        .await?
-        .into();
-    let directory_service: Arc<dyn DirectoryService> =
-        directoryservice::from_addr(directory_service_addr.as_ref())
-            .await?
-            .into();
-    let path_info_service = pathinfoservice::from_addr(
-        path_info_service_addr.as_ref(),
-        blob_service.clone(),
-        directory_service.clone(),
-    )
-    .await?;
-
-    Ok((blob_service, directory_service, path_info_service))
-}
-
 /// Interprets the given code snippet, printing out warnings, errors
 /// and the result itself. The return value indicates whether
 /// evaluation succeeded.
@@ -109,7 +78,7 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
             let directory_service_addr = args.directory_service_addr.clone();
             let path_info_service_addr = args.path_info_service_addr.clone();
             async move {
-                construct_services(
+                tvix_store::utils::construct_services(
                     blob_service_addr,
                     directory_service_addr,
                     path_info_service_addr,

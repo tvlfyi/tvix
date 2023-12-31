@@ -11,10 +11,6 @@ use tokio_listener::Listener;
 use tokio_listener::SystemOptions;
 use tokio_listener::UserOptions;
 use tracing_subscriber::prelude::*;
-use tvix_castore::blobservice;
-use tvix_castore::blobservice::BlobService;
-use tvix_castore::directoryservice;
-use tvix_castore::directoryservice::DirectoryService;
 use tvix_castore::import;
 use tvix_castore::proto::blob_service_server::BlobServiceServer;
 use tvix_castore::proto::directory_service_server::DirectoryServiceServer;
@@ -22,7 +18,6 @@ use tvix_castore::proto::node::Node;
 use tvix_castore::proto::GRPCBlobServiceWrapper;
 use tvix_castore::proto::GRPCDirectoryServiceWrapper;
 use tvix_castore::proto::NamedNode;
-use tvix_store::pathinfoservice;
 use tvix_store::pathinfoservice::PathInfoService;
 use tvix_store::proto::nar_info;
 use tvix_store::proto::path_info_service_server::PathInfoServiceServer;
@@ -196,18 +191,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             path_info_service_addr,
         } => {
             // initialize stores
-            let blob_service: Arc<dyn BlobService> =
-                blobservice::from_addr(&blob_service_addr).await?.into();
-            let directory_service: Arc<dyn DirectoryService> =
-                directoryservice::from_addr(&directory_service_addr)
-                    .await?
-                    .into();
-            let path_info_service = pathinfoservice::from_addr(
-                &path_info_service_addr,
-                blob_service.clone(),
-                directory_service.clone(),
-            )
-            .await?;
+            let (blob_service, directory_service, path_info_service) =
+                tvix_store::utils::construct_services(
+                    blob_service_addr,
+                    directory_service_addr,
+                    path_info_service_addr,
+                )
+                .await?;
 
             let listen_address = listen_address
                 .unwrap_or_else(|| "[::]:8000".to_string())
@@ -225,7 +215,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     GRPCDirectoryServiceWrapper::from(directory_service),
                 ))
                 .add_service(PathInfoServiceServer::new(GRPCPathInfoServiceWrapper::new(
-                    path_info_service,
+                    Arc::from(path_info_service),
                 )));
 
             #[cfg(feature = "tonic-reflection")]
@@ -255,18 +245,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             path_info_service_addr,
         } => {
             // FUTUREWORK: allow flat for single files?
-            let blob_service: Arc<dyn BlobService> =
-                blobservice::from_addr(&blob_service_addr).await?.into();
-            let directory_service: Arc<dyn DirectoryService> =
-                directoryservice::from_addr(&directory_service_addr)
-                    .await?
-                    .into();
-            let path_info_service = pathinfoservice::from_addr(
-                &path_info_service_addr,
-                blob_service.clone(),
-                directory_service.clone(),
-            )
-            .await?;
+            let (blob_service, directory_service, path_info_service) =
+                tvix_store::utils::construct_services(
+                    blob_service_addr,
+                    directory_service_addr,
+                    path_info_service_addr,
+                )
+                .await?;
 
             // Arc the PathInfoService, as we clone it .
             let path_info_service: Arc<dyn PathInfoService> = path_info_service.into();
@@ -361,27 +346,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             list_root,
             threads,
         } => {
-            let blob_service: Arc<dyn BlobService> =
-                blobservice::from_addr(&blob_service_addr).await?.into();
-            let directory_service: Arc<dyn DirectoryService> =
-                directoryservice::from_addr(&directory_service_addr)
-                    .await?
-                    .into();
-            let path_info_service = pathinfoservice::from_addr(
-                &path_info_service_addr,
-                blob_service.clone(),
-                directory_service.clone(),
-            )
-            .await?;
-
-            // Arc the PathInfoService, as TvixStoreFS requires Clone
-            let path_info_service: Arc<dyn PathInfoService> = path_info_service.into();
+            let (blob_service, directory_service, path_info_service) =
+                tvix_store::utils::construct_services(
+                    blob_service_addr,
+                    directory_service_addr,
+                    path_info_service_addr,
+                )
+                .await?;
 
             let mut fuse_daemon = tokio::task::spawn_blocking(move || {
                 let fs = make_fs(
                     blob_service,
                     directory_service,
-                    path_info_service,
+                    Arc::from(path_info_service),
                     list_root,
                 );
                 info!(mount_path=?dest, "mounting");
@@ -409,27 +386,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             path_info_service_addr,
             list_root,
         } => {
-            let blob_service: Arc<dyn BlobService> =
-                blobservice::from_addr(&blob_service_addr).await?.into();
-            let directory_service: Arc<dyn DirectoryService> =
-                directoryservice::from_addr(&directory_service_addr)
-                    .await?
-                    .into();
-            let path_info_service = pathinfoservice::from_addr(
-                &path_info_service_addr,
-                blob_service.clone(),
-                directory_service.clone(),
-            )
-            .await?;
-
-            // Arc the PathInfoService, as TvixStoreFS requires Clone
-            let path_info_service: Arc<dyn PathInfoService> = path_info_service.into();
+            let (blob_service, directory_service, path_info_service) =
+                tvix_store::utils::construct_services(
+                    blob_service_addr,
+                    directory_service_addr,
+                    path_info_service_addr,
+                )
+                .await?;
 
             tokio::task::spawn_blocking(move || {
                 let fs = make_fs(
                     blob_service,
                     directory_service,
-                    path_info_service,
+                    Arc::from(path_info_service),
                     list_root,
                 );
                 info!(socket_path=?socket, "starting virtiofs-daemon");
