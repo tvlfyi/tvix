@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use url::Url;
 
 use crate::{proto::directory_service_client::DirectoryServiceClient, Error};
@@ -19,7 +18,7 @@ use super::{DirectoryService, GRPCDirectoryService, MemoryDirectoryService, Sled
 ///   Connects to a local tvix-store gRPC service via Unix socket.
 /// - `grpc+http://host:port`, `grpc+https://host:port`
 ///    Connects to a (remote) tvix-store gRPC service.
-pub async fn from_addr(uri: &str) -> Result<Arc<dyn DirectoryService>, crate::Error> {
+pub async fn from_addr(uri: &str) -> Result<Box<dyn DirectoryService>, crate::Error> {
     let url = Url::parse(uri)
         .map_err(|e| crate::Error::StorageError(format!("unable to parse url: {}", e)))?;
 
@@ -28,7 +27,7 @@ pub async fn from_addr(uri: &str) -> Result<Arc<dyn DirectoryService>, crate::Er
         if url.has_host() || !url.path().is_empty() {
             return Err(Error::StorageError("invalid url".to_string()));
         }
-        Arc::new(MemoryDirectoryService::default())
+        Box::<MemoryDirectoryService>::default()
     } else if url.scheme() == "sled" {
         // sled doesn't support host, and a path can be provided (otherwise
         // it'll live in memory only).
@@ -45,12 +44,12 @@ pub async fn from_addr(uri: &str) -> Result<Arc<dyn DirectoryService>, crate::Er
         // TODO: expose compression and other parameters as URL parameters?
 
         if url.path().is_empty() {
-            return Ok(Arc::new(
+            return Ok(Box::new(
                 SledDirectoryService::new_temporary()
                     .map_err(|e| Error::StorageError(e.to_string()))?,
             ));
         }
-        return Ok(Arc::new(
+        return Ok(Box::new(
             SledDirectoryService::new(url.path())
                 .map_err(|e| Error::StorageError(e.to_string()))?,
         ));
@@ -61,7 +60,7 @@ pub async fn from_addr(uri: &str) -> Result<Arc<dyn DirectoryService>, crate::Er
         // - In the case of non-unix sockets, there must be a host, but no path.
         // Constructing the channel is handled by tvix_castore::channel::from_url.
         let client = DirectoryServiceClient::new(crate::tonic::channel_from_url(&url).await?);
-        Arc::new(GRPCDirectoryService::from_client(client))
+        Box::new(GRPCDirectoryService::from_client(client))
     } else {
         Err(crate::Error::StorageError(format!(
             "unknown scheme: {}",

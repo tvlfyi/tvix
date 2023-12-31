@@ -80,7 +80,10 @@ async fn construct_services(
     let blob_service: Arc<dyn BlobService> = blobservice::from_addr(blob_service_addr.as_ref())
         .await?
         .into();
-    let directory_service = directoryservice::from_addr(directory_service_addr.as_ref()).await?;
+    let directory_service: Arc<dyn DirectoryService> =
+        directoryservice::from_addr(directory_service_addr.as_ref())
+            .await?
+            .into();
     let path_info_service = pathinfoservice::from_addr(
         path_info_service_addr.as_ref(),
         blob_service.clone(),
