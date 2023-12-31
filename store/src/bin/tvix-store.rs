@@ -2,7 +2,6 @@ use clap::Subcommand;
 use data_encoding::BASE64;
 use futures::future::try_join_all;
 use nix_compat::store_path;
-use nix_compat::store_path::StorePath;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -17,7 +16,6 @@ use tvix_castore::proto::directory_service_server::DirectoryServiceServer;
 use tvix_castore::proto::node::Node;
 use tvix_castore::proto::GRPCBlobServiceWrapper;
 use tvix_castore::proto::GRPCDirectoryServiceWrapper;
-use tvix_castore::proto::NamedNode;
 use tvix_store::pathinfoservice::PathInfoService;
 use tvix_store::proto::nar_info;
 use tvix_store::proto::path_info_service_server::PathInfoServiceServer;
@@ -321,12 +319,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                             log_node(&node, &path);
 
-                            println!(
-                                "{}",
-                                StorePath::from_bytes(node.get_name())
-                                    .unwrap()
-                                    .to_absolute_path()
-                            );
+                            println!("{}", output_path.to_absolute_path());
 
                             Ok(())
                         }
