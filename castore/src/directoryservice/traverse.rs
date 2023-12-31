@@ -1,16 +1,19 @@
 use super::DirectoryService;
 use crate::{proto::NamedNode, B3Digest, Error};
-use std::{os::unix::ffi::OsStrExt, sync::Arc};
+use std::{ops::Deref, os::unix::ffi::OsStrExt};
 use tracing::{instrument, warn};
 
 /// This descends from a (root) node to the given (sub)path, returning the Node
 /// at that path, or none, if there's nothing at that path.
 #[instrument(skip(directory_service))]
-pub async fn descend_to(
-    directory_service: Arc<dyn DirectoryService>,
+pub async fn descend_to<DS>(
+    directory_service: DS,
     root_node: crate::proto::node::Node,
     path: &std::path::Path,
-) -> Result<Option<crate::proto::node::Node>, Error> {
+) -> Result<Option<crate::proto::node::Node>, Error>
+where
+    DS: Deref<Target = dyn DirectoryService>,
+{
     // strip a possible `/` prefix from the path.
     let path = {
         if path.starts_with("/") {
