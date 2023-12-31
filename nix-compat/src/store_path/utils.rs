@@ -115,14 +115,14 @@ pub fn build_ca_path<'a, S: AsRef<str>, I: IntoIterator<Item = S>>(
 }
 
 /// For given NAR sha256 digest and name, return the new [StorePathRef] this
-/// would have.
+/// would have, or an error, in case the name is invalid.
 pub fn build_nar_based_store_path<'a>(
     nar_sha256_digest: &[u8; 32],
     name: &'a str,
-) -> StorePathRef<'a> {
+) -> Result<StorePathRef<'a>, BuildStorePathError> {
     let nar_hash_with_mode = CAHash::Nar(NixHash::Sha256(nar_sha256_digest.to_owned()));
 
-    build_ca_path(name, &nar_hash_with_mode, Vec::<String>::new(), false).unwrap()
+    build_ca_path(name, &nar_hash_with_mode, Vec::<String>::new(), false)
 }
 
 /// This builds an input-addressed store path.

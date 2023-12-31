@@ -326,7 +326,12 @@ async fn import_path_with_pathinfo(
         .to_str()
         .expect("path must be valid unicode");
 
-    let output_path = store_path::build_nar_based_store_path(&nar_sha256, name);
+    let output_path = store_path::build_nar_based_store_path(&nar_sha256, name).map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("invalid name: {}", name),
+        )
+    })?;
 
     // assemble a new root_node with a name that is derived from the nar hash.
     let root_node = root_node.rename(output_path.to_string().into_bytes().into());

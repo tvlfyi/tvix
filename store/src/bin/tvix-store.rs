@@ -283,8 +283,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let (nar_size, nar_sha256) =
                                 path_info_service.calculate_nar(&root_node).await?;
 
+                            // Calculate the output path. This might still fail, as some names are illegal.
                             let output_path =
-                                store_path::build_nar_based_store_path(&nar_sha256, name);
+                                store_path::build_nar_based_store_path(&nar_sha256, name).map_err(
+                                    |_| {
+                                        std::io::Error::new(
+                                            std::io::ErrorKind::InvalidData,
+                                            format!("invalid name: {}", name),
+                                        )
+                                    },
+                                )?;
 
                             // assemble a new root_node with a name that is derived from the nar hash.
                             let root_node =
