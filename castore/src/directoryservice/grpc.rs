@@ -288,7 +288,7 @@ impl DirectoryPutter for GRPCPutter {
 mod tests {
     use core::time;
     use futures::StreamExt;
-    use std::{any::Any, sync::Arc, time::Duration};
+    use std::{any::Any, time::Duration};
     use tempfile::TempDir;
     use tokio::net::UnixListener;
     use tokio_retry::{strategy::ExponentialBackoff, Retry};
@@ -460,8 +460,8 @@ mod tests {
             let mut server = tonic::transport::Server::builder();
             let router = server.add_service(
                 crate::proto::directory_service_server::DirectoryServiceServer::new(
-                    GRPCDirectoryServiceWrapper::from(
-                        Arc::new(MemoryDirectoryService::default()) as Arc<dyn DirectoryService>
+                    GRPCDirectoryServiceWrapper::new(
+                        Box::<MemoryDirectoryService>::default() as Box<dyn DirectoryService>
                     ),
                 ),
             );

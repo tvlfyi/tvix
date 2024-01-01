@@ -35,7 +35,7 @@ pub(crate) async fn gen_directorysvc_grpc_client() -> DirectoryServiceClient<Cha
         // spin up a new DirectoryService
         let mut server = Server::builder();
         let router = server.add_service(DirectoryServiceServer::new(
-            GRPCDirectoryServiceWrapper::from(gen_directory_service()),
+            GRPCDirectoryServiceWrapper::new(gen_directory_service()),
         ));
 
         router
