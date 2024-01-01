@@ -6,22 +6,19 @@ use std::{
     io,
     ops::{Deref, DerefMut},
     pin::Pin,
-    sync::Arc,
 };
 use tokio_stream::StreamExt;
 use tokio_util::io::ReaderStream;
 use tonic::{async_trait, Request, Response, Status, Streaming};
 use tracing::{instrument, warn};
 
-pub struct GRPCBlobServiceWrapper {
-    blob_service: Arc<dyn BlobService>,
+pub struct GRPCBlobServiceWrapper<T> {
+    blob_service: T,
 }
 
-impl From<Arc<dyn BlobService>> for GRPCBlobServiceWrapper {
-    fn from(value: Arc<dyn BlobService>) -> Self {
-        Self {
-            blob_service: value,
-        }
+impl<T> GRPCBlobServiceWrapper<T> {
+    pub fn new(blob_service: T) -> Self {
+        Self { blob_service }
     }
 }
 
@@ -84,7 +81,10 @@ unsafe impl<const N: usize> bytes::BufMut for BytesMutWithDefaultCapacity<N> {
 }
 
 #[async_trait]
-impl super::blob_service_server::BlobService for GRPCBlobServiceWrapper {
+impl<T> super::blob_service_server::BlobService for GRPCBlobServiceWrapper<T>
+where
+    T: Deref<Target = dyn BlobService> + Send + Sync + 'static,
+{
     // https://github.com/tokio-rs/tokio/issues/2723#issuecomment-1534723933
     type ReadStream =
         Pin<Box<dyn futures::Stream<Item = Result<super::BlobChunk, Status>> + Send + 'static>>;

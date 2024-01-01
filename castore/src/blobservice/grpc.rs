@@ -221,7 +221,6 @@ impl<W: tokio::io::AsyncWrite + Unpin> tokio::io::AsyncWrite for GRPCBlobWriter<
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
     use std::time::Duration;
 
     use tempfile::TempDir;
@@ -255,8 +254,8 @@ mod tests {
             let mut server = tonic::transport::Server::builder();
             let router =
                 server.add_service(crate::proto::blob_service_server::BlobServiceServer::new(
-                    GRPCBlobServiceWrapper::from(
-                        Arc::new(MemoryBlobService::default()) as Arc<dyn BlobService>
+                    GRPCBlobServiceWrapper::new(
+                        Box::<MemoryBlobService>::default() as Box<dyn BlobService>
                     ),
                 ));
             router.serve_with_incoming(uds_stream).await

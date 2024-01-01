@@ -1,8 +1,8 @@
 //! A crate containing constructors to provide instances of a BlobService and
 //! DirectoryService. Only used for testing purposes, but across crates.
 //! Should be removed once we have a better concept of a "Service registry".
-
 use std::sync::Arc;
+
 use tonic::transport::{Channel, Endpoint, Server, Uri};
 
 use crate::{
@@ -67,7 +67,7 @@ pub(crate) async fn gen_blobsvc_grpc_client() -> BlobServiceClient<Channel> {
     tokio::spawn(async {
         // spin up a new DirectoryService
         let mut server = Server::builder();
-        let router = server.add_service(BlobServiceServer::new(GRPCBlobServiceWrapper::from(
+        let router = server.add_service(BlobServiceServer::new(GRPCBlobServiceWrapper::new(
             gen_blob_service(),
         )));
 

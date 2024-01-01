@@ -197,7 +197,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             #[allow(unused_mut)]
             let mut router = server
-                .add_service(BlobServiceServer::new(GRPCBlobServiceWrapper::from(
+                .add_service(BlobServiceServer::new(GRPCBlobServiceWrapper::new(
                     blob_service,
                 )))
                 .add_service(DirectoryServiceServer::new(
