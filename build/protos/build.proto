@@ -122,6 +122,16 @@ message BuildRequest {
     bool provide_bin_sh = 5;
   }
 
+  // Additional (small) files and their contents that should be placed into the
+  // build environment, but outside inputs_dir.
+  // Used for passAsFile and structuredAttrs in Nix.
+  repeated AdditionalFile additional_files = 9;
+
+  message AdditionalFile {
+    string path = 1;
+    bytes contents = 2;
+  }
+
   // TODO: allow describing something like "preferLocal", to influence composition?
 }
 

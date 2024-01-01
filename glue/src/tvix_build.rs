@@ -151,6 +151,8 @@ where
         constraints,
         working_dir: "build".into(),
         scratch_paths: vec!["build".into(), "nix/store".into()],
+        // TODO: handle passAsFile, structuredAttrs.
+        additional_files: vec![],
     }
 }
 
@@ -250,6 +252,7 @@ mod test {
                     available_ro_paths: vec![],
                     provide_bin_sh: true,
                 }),
+                additional_files: vec![],
                 working_dir: "build".into(),
                 scratch_paths: vec!["build".into(), "nix/store".into()],
             },
@@ -318,6 +321,7 @@ mod test {
                     available_ro_paths: vec![],
                     provide_bin_sh: true,
                 }),
+                additional_files: vec![],
                 working_dir: "build".into(),
                 scratch_paths: vec!["build".into(), "nix/store".into()],
             },
