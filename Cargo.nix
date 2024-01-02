@@ -1971,9 +1971,9 @@ rec {
       };
       "digest" = rec {
         crateName = "digest";
-        version = "0.10.6";
+        version = "0.10.7";
         edition = "2018";
-        sha256 = "0vz74785s96g727vg37iwkjvbkcfzp093j49ihhyf8sh9s7kfs41";
+        sha256 = "14p2n6ih29x81akj097lvz7wi9b6b9hvls0lwrv7b6xwyy0s5ncy";
         authors = [
           "RustCrypto Developers"
         ];
@@ -7873,9 +7873,9 @@ rec {
       };
       "sha2" = rec {
         crateName = "sha2";
-        version = "0.10.6";
+        version = "0.10.8";
         edition = "2018";
-        sha256 = "1h5xrrv2y06kr1gsz4pwrm3lsp206nm2gjxgbf21wfrfzsavgrl2";
+        sha256 = "1j1x78zk9il95w9iv46dh9wm73r6xrgj32y6lzzw7bxws9dbfgbr";
         authors = [
           "RustCrypto Developers"
         ];
@@ -10726,6 +10726,10 @@ rec {
           {
             name = "nix-compat";
             packageId = "nix-compat";
+          }
+          {
+            name = "sha2";
+            packageId = "sha2";
           }
           {
             name = "thiserror";

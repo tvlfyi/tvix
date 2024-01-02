@@ -4,9 +4,10 @@
 use std::collections::BTreeMap;
 
 use bytes::Bytes;
-use nix_compat::{derivation::Derivation, store_path::StorePathRef};
+use nix_compat::{derivation::Derivation, nixbase32, store_path::StorePathRef};
+use sha2::{Digest, Sha256};
 use tvix_build::proto::{
-    build_request::{BuildConstraints, EnvVar},
+    build_request::{AdditionalFile, BuildConstraints, EnvVar},
     BuildRequest,
 };
 use tvix_castore::proto::{NamedNode, Node};
@@ -40,7 +41,7 @@ fn derivation_to_build_request<FIS, FID>(
     derivation: &Derivation,
     fn_input_sources_to_node: FIS,
     fn_input_drvs_to_node: FID,
-) -> BuildRequest
+) -> std::io::Result<BuildRequest>
 where
     FIS: Fn(StorePathRef) -> Node,
     FID: Fn(StorePathRef, &[&str]) -> Node,
@@ -62,9 +63,11 @@ where
     // Sort the outputs. We can use sort_unstable, as these are unique strings.
     output_paths.sort_unstable();
 
-    // Produce environment_vars. We use a BTreeMap while producing them, so the
-    // resulting Vec is sorted by key.
+    // Produce environment_vars and additional files.
+    // We use a BTreeMap while producing, and only realize the resulting Vec
+    // while populating BuildRequest, so we don't need to worry about ordering.
     let mut environment_vars: BTreeMap<String, Bytes> = BTreeMap::new();
+    let mut additional_files: BTreeMap<String, Bytes> = BTreeMap::new();
 
     // Start with some the ones that nix magically sets:
     environment_vars.extend(
@@ -82,6 +85,9 @@ where
             .iter()
             .map(|(k, v)| (k.clone(), Bytes::from(v.to_vec()))),
     );
+
+    handle_pass_as_file(&mut environment_vars, &mut additional_files)?;
+    // TODO: handle structuredAttrs.
 
     // Produce inputs. As we refer to the contents here, not just plain store path strings,
     // we need to perform lookups.
@@ -135,7 +141,7 @@ where
         provide_bin_sh: true,
     });
 
-    BuildRequest {
+    Ok(BuildRequest {
         command_args,
         outputs: output_paths,
 
@@ -150,9 +156,70 @@ where
         constraints,
         working_dir: "build".into(),
         scratch_paths: vec!["build".into(), "nix/store".into()],
-        // TODO: handle passAsFile, structuredAttrs.
-        additional_files: vec![],
+        additional_files: Vec::from_iter(
+            additional_files
+                .into_iter()
+                .map(|(path, contents)| AdditionalFile { path, contents }),
+        ),
+    })
+}
+
+/// handle passAsFile, if set.
+/// For each env $x in that list, the original env is removed, and a $xPath
+/// environment var added instead, referring to a path inside the build with
+/// the contents from the original env var.
+fn handle_pass_as_file(
+    environment_vars: &mut BTreeMap<String, Bytes>,
+    additional_files: &mut BTreeMap<String, Bytes>,
+) -> std::io::Result<()> {
+    let pass_as_file = environment_vars.get("passAsFile").map(|v| {
+        // Convert pass_as_file to string.
+        // When it gets here, it contains a space-separated list of env var
+        // keys, which must be strings.
+        String::from_utf8(v.to_vec())
+    });
+
+    if let Some(pass_as_file) = pass_as_file {
+        let pass_as_file = pass_as_file.map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "passAsFile elements are no valid utf8 strings",
+            )
+        })?;
+
+        for x in pass_as_file.split(' ') {
+            match environment_vars.remove_entry(x) {
+                Some((k, contents)) => {
+                    let (new_k, path) = calculate_pass_as_file_env(&k);
+
+                    additional_files.insert(path.clone(), contents);
+                    environment_vars.insert(new_k, Bytes::from(path));
+                }
+                None => {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "passAsFile refers to non-existent env key",
+                    ));
+                }
+            }
+        }
     }
+
+    Ok(())
+}
+
+/// For a given key k in a derivation environment that's supposed to be passed as file,
+/// calculate the ${k}Path key and filepath value that it's being replaced with
+/// while preparing the build.
+/// The filepath is `/build/.attrs-${nixbase32(sha256(key))`.
+fn calculate_pass_as_file_env(k: &str) -> (String, String) {
+    (
+        format!("{}Path", k),
+        format!(
+            "/build/.attr-{}",
+            nixbase32::encode(&Sha256::new_with_prefix(k).finalize())
+        ),
+    )
 }
 
 #[cfg(test)]
@@ -160,7 +227,7 @@ mod test {
     use bytes::Bytes;
     use nix_compat::derivation::Derivation;
     use tvix_build::proto::{
-        build_request::{BuildConstraints, EnvVar},
+        build_request::{AdditionalFile, BuildConstraints, EnvVar},
         BuildRequest,
     };
     use tvix_castore::{
@@ -205,7 +272,8 @@ mod test {
                 // all good, reply with INPUT_NODE_FOO
                 INPUT_NODE_FOO.clone()
             },
-        );
+        )
+        .expect("must succeed");
 
         let mut expected_environment_vars = vec![
             EnvVar {
@@ -266,7 +334,8 @@ mod test {
         let derivation = Derivation::from_aterm_bytes(aterm_bytes).expect("must parse");
 
         let build_request =
-            derivation_to_build_request(&derivation, |_| unreachable!(), |_, _| unreachable!());
+            derivation_to_build_request(&derivation, |_| unreachable!(), |_, _| unreachable!())
+                .expect("must succeed");
 
         let mut expected_environment_vars = vec![
             EnvVar {
@@ -321,6 +390,93 @@ mod test {
                     provide_bin_sh: true,
                 }),
                 additional_files: vec![],
+                working_dir: "build".into(),
+                scratch_paths: vec!["build".into(), "nix/store".into()],
+            },
+            build_request
+        );
+    }
+
+    #[test]
+    fn test_pass_as_file() {
+        // (builtins.derivation { "name" = "foo"; passAsFile = ["bar" "baz"]; bar = "baz"; baz = "bar"; system = ":"; builder = ":";}).drvPath
+        let aterm_bytes = r#"Derive([("out","/nix/store/pp17lwra2jkx8rha15qabg2q3wij72lj-foo","","")],[],[],":",":",[],[("bar","baz"),("baz","bar"),("builder",":"),("name","foo"),("out","/nix/store/pp17lwra2jkx8rha15qabg2q3wij72lj-foo"),("passAsFile","bar baz"),("system",":")])"#.as_bytes();
+
+        let derivation = Derivation::from_aterm_bytes(aterm_bytes).expect("must parse");
+
+        let build_request =
+            derivation_to_build_request(&derivation, |_| unreachable!(), |_, _| unreachable!())
+                .expect("must succeed");
+
+        let mut expected_environment_vars = vec![
+            // Note how bar and baz are not present in the env anymore,
+            // but replaced with barPath, bazPath respectively.
+            EnvVar {
+                key: "barPath".into(),
+                value: "/build/.attr-1fcgpy7vc4ammr7s17j2xq88scswkgz23dqzc04g8sx5vcp2pppw".into(),
+            },
+            EnvVar {
+                key: "bazPath".into(),
+                value: "/build/.attr-15l04iksj1280dvhbzdq9ai3wlf8ac2188m9qv0gn81k9nba19ds".into(),
+            },
+            EnvVar {
+                key: "builder".into(),
+                value: ":".into(),
+            },
+            EnvVar {
+                key: "name".into(),
+                value: "foo".into(),
+            },
+            EnvVar {
+                key: "out".into(),
+                value: "/nix/store/pp17lwra2jkx8rha15qabg2q3wij72lj-foo".into(),
+            },
+            // passAsFile stays around
+            EnvVar {
+                key: "passAsFile".into(),
+                value: "bar baz".into(),
+            },
+            EnvVar {
+                key: "system".into(),
+                value: ":".into(),
+            },
+        ];
+
+        expected_environment_vars.extend(NIX_ENVIRONMENT_VARS.iter().map(|(k, v)| EnvVar {
+            key: k.to_string(),
+            value: Bytes::from_static(v.as_bytes()),
+        }));
+
+        expected_environment_vars.sort_unstable_by_key(|e| e.key.to_owned());
+
+        assert_eq!(
+            BuildRequest {
+                command_args: vec![":".to_string()],
+                outputs: vec!["nix/store/pp17lwra2jkx8rha15qabg2q3wij72lj-foo".into()],
+                environment_vars: expected_environment_vars,
+                inputs: vec![],
+                inputs_dir: nix_compat::store_path::STORE_DIR.into(),
+                constraints: Some(BuildConstraints {
+                    system: derivation.system.clone(),
+                    min_memory: 0,
+                    network_access: false,
+                    available_ro_paths: vec![],
+                    provide_bin_sh: true,
+                }),
+                additional_files: vec![
+                    // baz env
+                    AdditionalFile {
+                        path: "/build/.attr-15l04iksj1280dvhbzdq9ai3wlf8ac2188m9qv0gn81k9nba19ds"
+                            .into(),
+                        contents: "bar".into()
+                    },
+                    // bar env
+                    AdditionalFile {
+                        path: "/build/.attr-1fcgpy7vc4ammr7s17j2xq88scswkgz23dqzc04g8sx5vcp2pppw"
+                            .into(),
+                        contents: "baz".into(),
+                    },
+                ],
                 working_dir: "build".into(),
                 scratch_paths: vec!["build".into(), "nix/store".into()],
             },
