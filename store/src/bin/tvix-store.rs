@@ -2,17 +2,15 @@ use clap::Parser;
 use clap::Subcommand;
 
 use futures::future::try_join_all;
-use tonic::transport::Server;
-use tracing::info;
-use tracing::Level;
-
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio_listener::Listener;
 use tokio_listener::SystemOptions;
 use tokio_listener::UserOptions;
-
-use tracing_subscriber::prelude::*;
+use tonic::transport::Server;
+use tracing::info;
+use tracing::Level;
+use tracing_subscriber::fmt::writer::MakeWriterExt;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use tvix_castore::proto::blob_service_server::BlobServiceServer;
@@ -28,6 +26,15 @@ use tvix_store::pathinfoservice::make_fs;
 
 #[cfg(feature = "fuse")]
 use tvix_castore::fs::fuse::FuseDaemon;
+
+#[cfg(feature = "otlp")]
+use opentelemetry::KeyValue;
+#[cfg(feature = "otlp")]
+use opentelemetry_sdk::{
+    resource::{ResourceDetector, SdkProvidedResourceDetector},
+    trace::BatchConfig,
+    Resource,
+};
 
 #[cfg(feature = "virtiofs")]
 use tvix_castore::fs::virtiofs::start_virtiofs_daemon;
@@ -177,24 +184,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // layer into the type of the registry.
     #[cfg(feature = "otlp")]
     {
-        let opentelemetry_layer = {
-            let otlp_exporter = opentelemetry_otlp::new_exporter().tonic();
-            // TODO: re-add once https://github.com/open-telemetry/opentelemetry-rust/pull/1252 is solved.
-            // let mut metadata = tonic::metadata::MetadataMap::new();
-            // metadata.insert("service.name", "tvix.store".parse()?);
-            // otlp_exporter.with_metadata(metadata),
+        subscriber
+            .with({
+                let tracer = opentelemetry_otlp::new_pipeline()
+                    .tracing()
+                    .with_exporter(opentelemetry_otlp::new_exporter().tonic())
+                    .with_batch_config(BatchConfig::default())
+                    .with_trace_config(opentelemetry_sdk::trace::config().with_resource({
+                        // use SdkProvidedResourceDetector.detect to detect resources,
+                        // but replace the default service name with our default.
+                        // https://github.com/open-telemetry/opentelemetry-rust/issues/1298
+                        let resources =
+                            SdkProvidedResourceDetector.detect(std::time::Duration::from_secs(0));
 
-            let tracer = opentelemetry_otlp::new_pipeline()
-                .tracing()
-                .with_exporter(otlp_exporter)
-                .install_batch(opentelemetry_sdk::runtime::Tokio)?;
+                        // SdkProvidedResourceDetector currently always sets
+                        // `service.name`, but we don't like its default.
+                        if resources.get("service.name".into()).unwrap() == "unknown_service".into()
+                        {
+                            resources.merge(&Resource::new([KeyValue::new(
+                                "service.name",
+                                "tvix.store",
+                            )]))
+                        } else {
+                            resources
+                        }
+                    }))
+                    .install_batch(opentelemetry_sdk::runtime::Tokio)?;
 
-            // Create a tracing layer with the configured tracer
-            tracing_opentelemetry::layer().with_tracer(tracer)
-        };
-
-        let subscriber = subscriber.with(opentelemetry_layer);
-        subscriber.try_init()?;
+                // Create a tracing layer with the configured tracer
+                tracing_opentelemetry::layer().with_tracer(tracer)
+            })
+            .try_init()?;
     }
 
     // Init the registry (when otlp is not enabled)
