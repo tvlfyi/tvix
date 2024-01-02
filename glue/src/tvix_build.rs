@@ -83,13 +83,6 @@ where
             .map(|(k, v)| (k.clone(), Bytes::from(v.to_vec()))),
     );
 
-    // Turn this into a sorted-by-key Vec<EnvVar>.
-    let environment_vars = Vec::from_iter(
-        environment_vars
-            .into_iter()
-            .map(|(k, v)| EnvVar { key: k, value: v }),
-    );
-
     // Produce inputs. As we refer to the contents here, not just plain store path strings,
     // we need to perform lookups.
     // FUTUREWORK: should we also model input_derivations and input_sources with StorePath?
@@ -145,7 +138,13 @@ where
     BuildRequest {
         command_args,
         outputs: output_paths,
-        environment_vars,
+
+        // Turn this into a sorted-by-key Vec<EnvVar>.
+        environment_vars: Vec::from_iter(
+            environment_vars
+                .into_iter()
+                .map(|(key, value)| EnvVar { key, value }),
+        ),
         inputs,
         inputs_dir: nix_compat::store_path::STORE_DIR.into(),
         constraints,
