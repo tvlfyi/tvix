@@ -118,6 +118,7 @@ mod tests {
                      inherit bar;
                    }).outPath
         "#, "/nix/store/5vyvcwah9l9kf07d52rcgdk70g2f4y13-foo"; "full")]
+    #[test_case(r#"(builtins.derivation { "name" = "foo"; passAsFile = ["bar"]; bar = "baz"; system = ":"; builder = ":";}).outPath"#, "/nix/store/25gf0r1ikgmh4vchrn8qlc4fnqlsa5a1-foo"; "passAsFile")]
     fn test_outpath(code: &str, expected_path: &str) {
         let value = eval(code).value.expect("must succeed");
 
