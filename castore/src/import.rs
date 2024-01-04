@@ -149,7 +149,7 @@ where
 /// It's up to the caller to possibly register it somewhere (and potentially
 /// rename it based on some naming scheme)
 #[instrument(skip(blob_service, directory_service), fields(path=?p), err)]
-pub async fn ingest_path<BS, DS, P>(
+pub async fn ingest_path<'a, BS, DS, P>(
     blob_service: BS,
     directory_service: DS,
     p: P,
@@ -157,7 +157,7 @@ pub async fn ingest_path<BS, DS, P>(
 where
     P: AsRef<Path> + Debug,
     BS: Deref<Target = dyn BlobService> + Clone,
-    DS: Deref<Target = dyn DirectoryService>,
+    DS: Deref<Target = &'a dyn DirectoryService>,
 {
     let mut directories: HashMap<PathBuf, Directory> = HashMap::default();
 

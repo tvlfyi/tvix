@@ -54,7 +54,7 @@ pub async fn import_path<BS, DS, PS, P>(
 where
     P: AsRef<Path> + std::fmt::Debug,
     BS: Deref<Target = dyn BlobService> + Clone,
-    DS: Deref<Target = dyn DirectoryService> + Clone,
+    DS: Deref<Target = dyn DirectoryService>,
     PS: Deref<Target = dyn PathInfoService>,
 {
     // calculate the name
@@ -71,9 +71,10 @@ where
         })?;
 
     // Ingest the path into blob and directory service.
-    let root_node = tvix_castore::import::ingest_path(blob_service, directory_service, &path)
-        .await
-        .expect("failed to ingest path");
+    let root_node =
+        tvix_castore::import::ingest_path(blob_service, &directory_service.deref(), &path)
+            .await
+            .expect("failed to ingest path");
 
     debug!(root_node =?root_node, "import successful");
 

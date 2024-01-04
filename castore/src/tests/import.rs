@@ -4,6 +4,7 @@ use crate::fixtures::*;
 use crate::import::ingest_path;
 use crate::proto;
 use crate::utils::{gen_blob_service, gen_directory_service};
+use std::ops::Deref;
 use std::sync::Arc;
 use tempfile::TempDir;
 
@@ -27,7 +28,7 @@ async fn symlink() {
 
     let root_node = ingest_path(
         blob_service,
-        directory_service,
+        &directory_service.deref(),
         tmpdir.path().join("doesntmatter"),
     )
     .await
@@ -53,7 +54,7 @@ async fn single_file() {
 
     let root_node = ingest_path(
         blob_service.clone(),
-        directory_service,
+        &directory_service.deref(),
         tmpdir.path().join("root"),
     )
     .await
@@ -92,7 +93,7 @@ async fn complicated() {
 
     let root_node = ingest_path(
         blob_service.clone(),
-        directory_service.clone(),
+        &directory_service.deref(),
         tmpdir.path(),
     )
     .await
