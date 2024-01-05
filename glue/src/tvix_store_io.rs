@@ -3,6 +3,7 @@
 use nix_compat::store_path::StorePath;
 use std::{
     io,
+    ops::Deref,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -53,49 +54,46 @@ impl TvixStoreIO {
     /// look up the [PathInfo], and if it exists, and then use
     /// [directoryservice::descend_to] to return the
     /// [Node] specified by `sub_path`.
+    ///
+    /// In case there is no PathInfo yet, this means we need to build it
+    /// (which currently is stubbed out still).
     #[instrument(skip(self), ret, err)]
-    fn store_path_to_root_node(
+    fn store_path_to_node(
         &self,
         store_path: &StorePath,
         sub_path: &Path,
     ) -> io::Result<Option<Node>> {
-        let path_info_service = self.path_info_service.clone();
-        let task = self.tokio_handle.spawn({
-            let digest = *store_path.digest();
-            async move { path_info_service.get(digest).await }
-        });
-        let path_info = match self.tokio_handle.block_on(task).unwrap()? {
-            // If there's no PathInfo found, early exit
-            None => return Ok(None),
-            Some(path_info) => path_info,
-        };
-
-        let root_node = {
-            match path_info.node {
-                None => {
-                    warn!(
-                        "returned PathInfo {:?} node is None, this shouldn't happen.",
-                        &path_info
-                    );
-                    return Ok(None);
-                }
-                Some(root_node) => match root_node.node {
-                    None => {
-                        warn!("node for {:?} is None, this shouldn't happen.", &root_node);
-                        return Ok(None);
-                    }
-                    Some(root_node) => root_node,
-                },
+        let root_node = match self
+            .tokio_handle
+            .block_on(async {
+                self.path_info_service
+                    .deref()
+                    .get(*store_path.digest())
+                    .await
+            })
+            .unwrap()
+        {
+            // if we have a PathInfo, we know there will be a root_node (due to validation)
+            Some(path_info) => path_info.node.expect("no node").node.expect("no node"),
+            // If there's no PathInfo found, we didn't build that path yet.
+            // and have to trigger the build (and probably insert into the
+            // PathInfoService (which requires refscan))
+            // FUTUREWORK: We don't do builds yet, so log a warning and let
+            // std_io take over.
+            // In the future, not getting a root node means a failed build!
+            None => {
+                warn!("would trigger build, skipping");
+                return Ok(None);
             }
         };
 
-        let directory_service = self.directory_service.clone();
-        let sub_path = sub_path.to_owned();
-        let task = self.tokio_handle.spawn(async move {
-            directoryservice::descend_to(directory_service, root_node, &sub_path).await
-        });
-
-        Ok(self.tokio_handle.block_on(task).unwrap()?)
+        // with the root_node and sub_path, descend to the node requested.
+        Ok(self.tokio_handle.block_on({
+            async {
+                directoryservice::descend_to(self.directory_service.deref(), root_node, sub_path)
+                    .await
+            }
+        })?)
     }
 }
 
@@ -105,10 +103,7 @@ impl EvalIO for TvixStoreIO {
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
         {
-            if self
-                .store_path_to_root_node(&store_path, &sub_path)?
-                .is_some()
-            {
+            if self.store_path_to_node(&store_path, &sub_path)?.is_some() {
                 Ok(true)
             } else {
                 // As tvix-store doesn't manage /nix/store on the filesystem,
@@ -126,7 +121,7 @@ impl EvalIO for TvixStoreIO {
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
         {
-            if let Some(node) = self.store_path_to_root_node(&store_path, &sub_path)? {
+            if let Some(node) = self.store_path_to_node(&store_path, &sub_path)? {
                 // depending on the node type, treat read_to_string differently
                 match node {
                     Node::Directory(_) => {
@@ -198,7 +193,7 @@ impl EvalIO for TvixStoreIO {
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
         {
-            if let Some(node) = self.store_path_to_root_node(&store_path, &sub_path)? {
+            if let Some(node) = self.store_path_to_node(&store_path, &sub_path)? {
                 match node {
                     Node::Directory(directory_node) => {
                         // fetch the Directory itself.
