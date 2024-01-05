@@ -154,8 +154,7 @@ impl<'co, 'ro> Default for Evaluation<'co, 'ro> {
 
 impl<'co, 'ro> Evaluation<'co, 'ro> {
     #[cfg(feature = "impure")]
-    /// Initialise an `Evaluation` for the given snippet, with all
-    /// impure features turned on by default.
+    /// Initialise an `Evaluation`, with all impure features turned on by default.
     pub fn new_impure() -> Self {
         let mut eval = Self {
             enable_import: true,

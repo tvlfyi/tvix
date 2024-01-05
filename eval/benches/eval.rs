@@ -2,7 +2,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use itertools::Itertools;
 
 fn interpret(code: &str) {
-    tvix_eval::Evaluation::new(code, None).evaluate();
+    tvix_eval::Evaluation::default().evaluate(code, None);
 }
 
 fn eval_literals(c: &mut Criterion) {
