@@ -86,7 +86,7 @@ type BuildRequest struct {
 	// slashes, and sorted.
 	ScratchPaths []string `protobuf:"bytes,4,rep,name=scratch_paths,json=scratchPaths,proto3" json:"scratch_paths,omitempty"`
 	// The path where the castore input nodes will be located at,
-	// "/nix/store" in case of Nix.
+	// "nix/store" in case of Nix.
 	// Builds might also write into here (Nix builds do that).
 	// This MUST be a clean relative path, without any ".", "..", or superfluous
 	// slashes.

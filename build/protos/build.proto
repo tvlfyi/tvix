@@ -71,7 +71,7 @@ message BuildRequest {
   repeated string scratch_paths = 4;
 
   // The path where the castore input nodes will be located at,
-  // "/nix/store" in case of Nix.
+  // "nix/store" in case of Nix.
   // Builds might also write into here (Nix builds do that).
   // This MUST be a clean relative path, without any ".", "..", or superfluous
   // slashes.

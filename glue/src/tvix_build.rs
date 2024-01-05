@@ -152,7 +152,7 @@ where
                 .map(|(key, value)| EnvVar { key, value }),
         ),
         inputs,
-        inputs_dir: nix_compat::store_path::STORE_DIR.into(),
+        inputs_dir: nix_compat::store_path::STORE_DIR[1..].into(),
         constraints,
         working_dir: "build".into(),
         scratch_paths: vec!["build".into(), "nix/store".into()],
@@ -192,7 +192,7 @@ fn handle_pass_as_file(
                 Some((k, contents)) => {
                     let (new_k, path) = calculate_pass_as_file_env(&k);
 
-                    additional_files.insert(path.clone(), contents);
+                    additional_files.insert(path[1..].to_string(), contents);
                     environment_vars.insert(new_k, Bytes::from(path));
                 }
                 None => {
@@ -311,7 +311,7 @@ mod test {
                 outputs: vec!["nix/store/fhaj6gmwns62s6ypkcldbaj2ybvkhx3p-foo".into()],
                 environment_vars: expected_environment_vars,
                 inputs: vec![INPUT_NODE_FOO.clone()],
-                inputs_dir: nix_compat::store_path::STORE_DIR.into(),
+                inputs_dir: "nix/store".into(),
                 constraints: Some(BuildConstraints {
                     system: derivation.system.clone(),
                     min_memory: 0,
@@ -381,7 +381,7 @@ mod test {
                 outputs: vec!["nix/store/4q0pg5zpfmznxscq3avycvf9xdvx50n3-bar".into()],
                 environment_vars: expected_environment_vars,
                 inputs: vec![],
-                inputs_dir: nix_compat::store_path::STORE_DIR.into(),
+                inputs_dir: "nix/store".into(),
                 constraints: Some(BuildConstraints {
                     system: derivation.system.clone(),
                     min_memory: 0,
@@ -455,7 +455,7 @@ mod test {
                 outputs: vec!["nix/store/pp17lwra2jkx8rha15qabg2q3wij72lj-foo".into()],
                 environment_vars: expected_environment_vars,
                 inputs: vec![],
-                inputs_dir: nix_compat::store_path::STORE_DIR.into(),
+                inputs_dir: "nix/store".into(),
                 constraints: Some(BuildConstraints {
                     system: derivation.system.clone(),
                     min_memory: 0,
@@ -466,13 +466,13 @@ mod test {
                 additional_files: vec![
                     // baz env
                     AdditionalFile {
-                        path: "/build/.attr-15l04iksj1280dvhbzdq9ai3wlf8ac2188m9qv0gn81k9nba19ds"
+                        path: "build/.attr-15l04iksj1280dvhbzdq9ai3wlf8ac2188m9qv0gn81k9nba19ds"
                             .into(),
                         contents: "bar".into()
                     },
                     // bar env
                     AdditionalFile {
-                        path: "/build/.attr-1fcgpy7vc4ammr7s17j2xq88scswkgz23dqzc04g8sx5vcp2pppw"
+                        path: "build/.attr-1fcgpy7vc4ammr7s17j2xq88scswkgz23dqzc04g8sx5vcp2pppw"
                             .into(),
                         contents: "baz".into(),
                     },
