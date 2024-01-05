@@ -26,7 +26,7 @@ thiserror = "1.0.38"
 futures = { version = "0.3.30", default-features = false, features = ["executor"] }
 lazy_static = "1.4.0"
 serde_json = "1.0"
-test-case = "2.2.2"
+test-case = "3.3.1"
 criterion = { version = "0.5", features = ["html_reports"] }
 hex-literal = "0.4.1"
 pretty_assertions = "1.4.0"

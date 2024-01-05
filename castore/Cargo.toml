@@ -67,7 +67,7 @@ prost-build = "0.12.1"
 tonic-build = "0.10.2"
 
 [dev-dependencies]
-test-case = "2.2.2"
+test-case = "3.3.1"
 tempfile = "3.3.0"
 tokio-retry = "0.3.0"
 hex-literal = "0.4.1"

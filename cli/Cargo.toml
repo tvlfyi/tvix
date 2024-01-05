@@ -25,4 +25,4 @@ tokio = "1.28.0"
 git = "https://github.com/tvlfyi/wu-manber.git"
 
 [dev-dependencies]
-test-case = "2.2.2"
+test-case = "3.3.1"

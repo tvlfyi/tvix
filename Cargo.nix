@@ -5742,74 +5742,6 @@ rec {
           "verbatim" = [ "syn/parsing" ];
         };
       };
-      "proc-macro-error" = rec {
-        crateName = "proc-macro-error";
-        version = "1.0.4";
-        edition = "2018";
-        sha256 = "1373bhxaf0pagd8zkyd03kkx6bchzf6g0dkwrwzsnal9z47lj9fs";
-        authors = [
-          "CreepySkeleton <creepy-skeleton@yandex.ru>"
-        ];
-        dependencies = [
-          {
-            name = "proc-macro-error-attr";
-            packageId = "proc-macro-error-attr";
-          }
-          {
-            name = "proc-macro2";
-            packageId = "proc-macro2 1.0.67";
-          }
-          {
-            name = "quote";
-            packageId = "quote 1.0.33";
-          }
-          {
-            name = "syn";
-            packageId = "syn 1.0.109";
-            optional = true;
-            usesDefaultFeatures = false;
-          }
-        ];
-        buildDependencies = [
-          {
-            name = "version_check";
-            packageId = "version_check";
-          }
-        ];
-        features = {
-          "default" = [ "syn-error" ];
-          "syn" = [ "dep:syn" ];
-          "syn-error" = [ "syn" ];
-        };
-        resolvedDefaultFeatures = [ "default" "syn" "syn-error" ];
-      };
-      "proc-macro-error-attr" = rec {
-        crateName = "proc-macro-error-attr";
-        version = "1.0.4";
-        edition = "2018";
-        sha256 = "0sgq6m5jfmasmwwy8x4mjygx5l7kp8s4j60bv25ckv2j1qc41gm1";
-        procMacro = true;
-        authors = [
-          "CreepySkeleton <creepy-skeleton@yandex.ru>"
-        ];
-        dependencies = [
-          {
-            name = "proc-macro2";
-            packageId = "proc-macro2 1.0.67";
-          }
-          {
-            name = "quote";
-            packageId = "quote 1.0.33";
-          }
-        ];
-        buildDependencies = [
-          {
-            name = "version_check";
-            packageId = "version_check";
-          }
-        ];
-
-      };
       "proc-macro2 0.4.30" = rec {
         crateName = "proc-macro2";
         version = "0.4.30";
@@ -8541,9 +8473,9 @@ rec {
       };
       "test-case" = rec {
         crateName = "test-case";
-        version = "2.2.2";
-        edition = "2018";
-        sha256 = "1h4qymhy332lzgg79w696qfxg6wdab5birn8xvfgkczzgmdczmi1";
+        version = "3.3.1";
+        edition = "2021";
+        sha256 = "1a380yzm6787737cw7s09jqmkn9035hghahradl2ikdg2gfm09gb";
         authors = [
           "Marcin Sas-Szymanski <marcin.sas-szymanski@anixe.pl>"
           "Wojciech Polak <frondeus@gmail.com>"
@@ -8561,12 +8493,11 @@ rec {
           "with-regex" = [ "regex" "test-case-macros/with-regex" ];
         };
       };
-      "test-case-macros" = rec {
-        crateName = "test-case-macros";
-        version = "2.2.2";
-        edition = "2018";
-        sha256 = "09jvbfvz48v6ya3i25gp3lbr6ym1fz7qyp3l6bcdslwkw7v7nnz4";
-        procMacro = true;
+      "test-case-core" = rec {
+        crateName = "test-case-core";
+        version = "3.3.1";
+        edition = "2021";
+        sha256 = "0krqi0gbi1yyycigyjlak63r8h1n0vms7mg3kckqwlfd87c7zjxd";
         authors = [
           "Marcin Sas-Szymanski <marcin.sas-szymanski@anixe.pl>"
           "Wojciech Polak <frondeus@gmail.com>"
@@ -8578,9 +8509,33 @@ rec {
             packageId = "cfg-if";
           }
           {
-            name = "proc-macro-error";
-            packageId = "proc-macro-error";
+            name = "proc-macro2";
+            packageId = "proc-macro2 1.0.67";
           }
+          {
+            name = "quote";
+            packageId = "quote 1.0.33";
+          }
+          {
+            name = "syn";
+            packageId = "syn 2.0.39";
+            features = [ "full" "extra-traits" ];
+          }
+        ];
+        features = { };
+      };
+      "test-case-macros" = rec {
+        crateName = "test-case-macros";
+        version = "3.3.1";
+        edition = "2021";
+        sha256 = "1yvgky3qax73bic6m368q04xc955p4a91mddd6b5fk7d04mfg2aw";
+        procMacro = true;
+        authors = [
+          "Marcin Sas-Szymanski <marcin.sas-szymanski@anixe.pl>"
+          "Wojciech Polak <frondeus@gmail.com>"
+          "Łukasz Biel <lukasz.p.biel@gmail.com>"
+        ];
+        dependencies = [
           {
             name = "proc-macro2";
             packageId = "proc-macro2 1.0.67";
@@ -8591,11 +8546,18 @@ rec {
           }
           {
             name = "syn";
-            packageId = "syn 1.0.109";
-            features = [ "full" "extra-traits" ];
+            packageId = "syn 2.0.39";
+            features = [ "full" "extra-traits" "parsing" ];
+          }
+          {
+            name = "test-case-core";
+            packageId = "test-case-core";
+            usesDefaultFeatures = false;
           }
         ];
-        features = { };
+        features = {
+          "with-regex" = [ "test-case-core/with-regex" ];
+        };
       };
       "test-generator" = rec {
         crateName = "test-generator";
