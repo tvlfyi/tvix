@@ -24,7 +24,7 @@ pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("tvix
 #[cfg(test)]
 mod tests;
 
-/// Errors that can occur during the validation of Directory messages.
+/// Errors that can occur during the validation of [Directory] messages.
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ValidateDirectoryError {
     /// Elements are not in sorted order
@@ -43,6 +43,8 @@ pub enum ValidateDirectoryError {
 /// Errors that occur during Node validation
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ValidateNodeError {
+    #[error("No node set")]
+    NoNodeSet,
     /// Invalid digest length encountered
     #[error("Invalid Digest length: {0}")]
     InvalidDigestLen(usize),
@@ -99,6 +101,18 @@ impl NamedNode for node::Node {
             node::Node::File(node_file) => &node_file.name,
             node::Node::Directory(node_directory) => &node_directory.name,
             node::Node::Symlink(node_symlink) => &node_symlink.name,
+        }
+    }
+}
+
+impl Node {
+    /// Ensures the node has a valid enum kind (is Some), and passes its
+    // per-enum validation.
+    pub fn validate(&self) -> Result<(), ValidateNodeError> {
+        if let Some(node) = self.node.as_ref() {
+            node.validate()
+        } else {
+            Err(ValidateNodeError::NoNodeSet)
         }
     }
 }
