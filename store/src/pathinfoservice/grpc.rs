@@ -38,7 +38,15 @@ impl PathInfoService for GRPCPathInfoService {
             .await;
 
         match path_info {
-            Ok(path_info) => Ok(Some(path_info.into_inner())),
+            Ok(path_info) => {
+                let path_info = path_info.into_inner();
+
+                path_info
+                    .validate()
+                    .map_err(|e| Error::StorageError(format!("invalid pathinfo: {}", e)))?;
+
+                Ok(Some(path_info))
+            }
             Err(e) if e.code() == Code::NotFound => Ok(None),
             Err(e) => Err(Error::StorageError(e.to_string())),
         }
