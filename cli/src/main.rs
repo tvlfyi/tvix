@@ -94,7 +94,7 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
     eval.io_handle = Box::new(tvix_glue::tvix_io::TvixIO::new(TvixStoreIO::new(
         blob_service,
         directory_service,
-        path_info_service.into(), // we need an Arc<_> here.
+        path_info_service,
         tokio_runtime.handle().clone(),
     )));
 
