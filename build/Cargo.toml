@@ -5,7 +5,9 @@ edition = "2021"
 
 [dependencies]
 bytes = "1.4.0"
+itertools = "0.12.0"
 prost = "0.12.1"
+thiserror = "1.0.56"
 tonic = "0.10.2"
 tvix-castore = { path = "../castore" }
 
@@ -20,3 +22,6 @@ tonic-build = "0.10.2"
 [features]
 default = []
 tonic-reflection = ["dep:tonic-reflection"]
+
+[dev-dependencies]
+test-case = "3.3.1"

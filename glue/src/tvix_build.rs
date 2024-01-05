@@ -141,7 +141,7 @@ where
         provide_bin_sh: true,
     });
 
-    Ok(BuildRequest {
+    let build_request = BuildRequest {
         command_args,
         outputs: output_paths,
 
@@ -161,7 +161,15 @@ where
                 .into_iter()
                 .map(|(path, contents)| AdditionalFile { path, contents }),
         ),
-    })
+    };
+
+    debug_assert!(
+        build_request.validate().is_ok(),
+        "invalid BuildRequest: {}",
+        build_request.validate().unwrap_err()
+    );
+
+    Ok(build_request)
 }
 
 /// handle passAsFile, if set.
