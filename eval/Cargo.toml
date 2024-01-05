@@ -33,8 +33,8 @@ xml-rs = "0.8.4"
 
 [dev-dependencies]
 criterion = "0.5"
+itertools = "0.12.0"
 pretty_assertions = "1.2.1"
-itertools = "0.10.3"
 tempfile = "3.3.0"
 
 [dev-dependencies.test-generator]

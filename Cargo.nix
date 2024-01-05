@@ -1584,7 +1584,7 @@ rec {
           }
           {
             name = "itertools";
-            packageId = "itertools";
+            packageId = "itertools 0.10.5";
           }
           {
             name = "num-traits";
@@ -1674,7 +1674,7 @@ rec {
           }
           {
             name = "itertools";
-            packageId = "itertools";
+            packageId = "itertools 0.10.5";
           }
         ];
 
@@ -3819,11 +3819,32 @@ rec {
         ];
 
       };
-      "itertools" = rec {
+      "itertools 0.10.5" = rec {
         crateName = "itertools";
         version = "0.10.5";
         edition = "2018";
         sha256 = "0ww45h7nxx5kj6z2y6chlskxd1igvs4j507anr6dzg99x1h25zdh";
+        authors = [
+          "bluss"
+        ];
+        dependencies = [
+          {
+            name = "either";
+            packageId = "either";
+            usesDefaultFeatures = false;
+          }
+        ];
+        features = {
+          "default" = [ "use_std" ];
+          "use_std" = [ "use_alloc" "either/use_std" ];
+        };
+        resolvedDefaultFeatures = [ "default" "use_alloc" "use_std" ];
+      };
+      "itertools 0.12.0" = rec {
+        crateName = "itertools";
+        version = "0.12.0";
+        edition = "2018";
+        sha256 = "1c07gzdlc6a1c8p8jrvvw3gs52bss3y58cs2s21d9i978l36pnr5";
         authors = [
           "bluss"
         ];
@@ -5945,7 +5966,7 @@ rec {
           }
           {
             name = "itertools";
-            packageId = "itertools";
+            packageId = "itertools 0.10.5";
             usesDefaultFeatures = false;
             features = [ "use_alloc" ];
           }
@@ -6032,7 +6053,7 @@ rec {
           }
           {
             name = "itertools";
-            packageId = "itertools";
+            packageId = "itertools 0.10.5";
             usesDefaultFeatures = false;
             features = [ "use_alloc" ];
           }
@@ -6070,7 +6091,7 @@ rec {
           }
           {
             name = "itertools";
-            packageId = "itertools";
+            packageId = "itertools 0.10.5";
             usesDefaultFeatures = false;
             features = [ "use_alloc" ];
           }
@@ -10606,7 +10627,7 @@ rec {
           }
           {
             name = "itertools";
-            packageId = "itertools";
+            packageId = "itertools 0.12.0";
           }
           {
             name = "pretty_assertions";
