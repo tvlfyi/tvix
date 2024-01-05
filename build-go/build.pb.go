@@ -68,7 +68,7 @@ type BuildRequest struct {
 	// time of the build.
 	// As root nodes are content-addressed, no additional signatures are needed
 	// to substitute / make these available in the build environment.
-	// Inputs are sorted by their names.
+	// Inputs MUST be sorted by their names.
 	Inputs []*castore_go.Node `protobuf:"bytes,1,rep,name=inputs,proto3" json:"inputs,omitempty"`
 	// The command (and its args) executed as the build script.
 	// In the case of a Nix derivation, this is usually
@@ -76,19 +76,26 @@ type BuildRequest struct {
 	CommandArgs []string `protobuf:"bytes,2,rep,name=command_args,json=commandArgs,proto3" json:"command_args,omitempty"`
 	// The working dir of the command, relative to the build root.
 	// "build", in the case of Nix.
+	// This MUST be a clean relative path, without any ".", "..", or superfluous
+	// slashes.
 	WorkingDir string `protobuf:"bytes,3,opt,name=working_dir,json=workingDir,proto3" json:"working_dir,omitempty"`
 	// A list of "scratch" paths, relative to the build root.
 	// These will be write-able during the build.
 	// [build, nix/store] in the case of Nix.
+	// These MUST be clean relative paths, without any ".", "..", or superfluous
+	// slashes, and sorted.
 	ScratchPaths []string `protobuf:"bytes,4,rep,name=scratch_paths,json=scratchPaths,proto3" json:"scratch_paths,omitempty"`
 	// The path where the castore input nodes will be located at,
 	// "/nix/store" in case of Nix.
 	// Builds might also write into here (Nix builds do that).
+	// This MUST be a clean relative path, without any ".", "..", or superfluous
+	// slashes.
 	InputsDir string `protobuf:"bytes,5,opt,name=inputs_dir,json=inputsDir,proto3" json:"inputs_dir,omitempty"`
 	// The list of output paths the build is expected to produce,
 	// relative to the root.
 	// If the path is not produced, the build is considered to have failed.
-	// Outputs are sorted.
+	// These MUST be clean relative paths, without any ".", "..", or superfluous
+	// slashes, and sorted.
 	Outputs []string `protobuf:"bytes,6,rep,name=outputs,proto3" json:"outputs,omitempty"`
 	// The list of environment variables and their values that should be set
 	// inside the build environment.
@@ -269,6 +276,7 @@ type BuildRequest_EnvVar struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// name of the environment variable. Must not contain =.
 	Key   string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 }
@@ -330,12 +338,16 @@ type BuildRequest_BuildConstraints struct {
 	unknownFields protoimpl.UnknownFields
 
 	// The system that's needed to execute the build.
+	// Must not be empty.
 	System string `protobuf:"bytes,1,opt,name=system,proto3" json:"system,omitempty"`
 	// The amount of memory required to be available for the build, in bytes.
 	MinMemory uint64 `protobuf:"varint,2,opt,name=min_memory,json=minMemory,proto3" json:"min_memory,omitempty"`
 	// A list of (absolute) paths that need to be available in the build
 	// environment, like `/dev/kvm`.
 	// This is distinct from the castore nodes in inputs.
+	// TODO: check if these should be individual constraints instead.
+	// These MUST be clean absolute paths, without any ".", "..", or superfluous
+	// slashes, and sorted.
 	AvailableRoPaths []string `protobuf:"bytes,3,rep,name=available_ro_paths,json=availableRoPaths,proto3" json:"available_ro_paths,omitempty"`
 	// Whether the build should be able to access the network,
 	NetworkAccess bool `protobuf:"varint,4,opt,name=network_access,json=networkAccess,proto3" json:"network_access,omitempty"`

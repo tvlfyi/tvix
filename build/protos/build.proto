@@ -49,7 +49,7 @@ message BuildRequest {
   // time of the build.
   // As root nodes are content-addressed, no additional signatures are needed
   // to substitute / make these available in the build environment.
-  // Inputs are sorted by their names.
+  // Inputs MUST be sorted by their names.
   repeated tvix.castore.v1.Node inputs = 1;
 
   // The command (and its args) executed as the build script.
@@ -59,22 +59,29 @@ message BuildRequest {
 
   // The working dir of the command, relative to the build root.
   // "build", in the case of Nix.
+  // This MUST be a clean relative path, without any ".", "..", or superfluous
+  // slashes.
   string working_dir = 3;
 
   // A list of "scratch" paths, relative to the build root.
   // These will be write-able during the build.
   // [build, nix/store] in the case of Nix.
+  // These MUST be clean relative paths, without any ".", "..", or superfluous
+  // slashes, and sorted.
   repeated string scratch_paths = 4;
 
   // The path where the castore input nodes will be located at,
   // "/nix/store" in case of Nix.
   // Builds might also write into here (Nix builds do that).
+  // This MUST be a clean relative path, without any ".", "..", or superfluous
+  // slashes.
   string inputs_dir = 5;
 
   // The list of output paths the build is expected to produce,
   // relative to the root.
   // If the path is not produced, the build is considered to have failed.
-  // Outputs are sorted.
+  // These MUST be clean relative paths, without any ".", "..", or superfluous
+  // slashes, and sorted.
   repeated string outputs = 6;
 
   // The list of environment variables and their values that should be set
@@ -90,6 +97,7 @@ message BuildRequest {
   repeated EnvVar environment_vars = 7;
 
   message EnvVar {
+    // name of the environment variable. Must not contain =.
     string key = 1;
     bytes value = 2;
   }
@@ -105,6 +113,7 @@ message BuildRequest {
   // wouldn't be hermetic enough - see the comment around inputs too.
   message BuildConstraints {
     // The system that's needed to execute the build.
+    // Must not be empty.
     string system = 1;
 
     // The amount of memory required to be available for the build, in bytes.
@@ -113,6 +122,9 @@ message BuildRequest {
     // A list of (absolute) paths that need to be available in the build
     // environment, like `/dev/kvm`.
     // This is distinct from the castore nodes in inputs.
+    // TODO: check if these should be individual constraints instead.
+    // These MUST be clean absolute paths, without any ".", "..", or superfluous
+    // slashes, and sorted.
     repeated string available_ro_paths = 3;
 
     // Whether the build should be able to access the network,
