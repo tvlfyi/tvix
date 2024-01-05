@@ -45,21 +45,21 @@ impl From<CastoreError> for Error {
     }
 }
 
-// This processes a given [walkdir::DirEntry] and returns a
-// proto::node::Node, depending on the type of the entry.
-//
-// If the entry is a file, its contents are uploaded.
-// If the entry is a directory, the Directory is uploaded as well.
-// For this to work, it relies on the caller to provide the directory object
-// with the previously returned (child) nodes.
-//
-// It assumes entries to be returned in "contents first" order, means this
-// will only be called with a directory if all children of it have been
-// visited. If the entry is indeed a directory, it'll also upload that
-// directory to the store. For this, the so-far-assembled Directory object for
-// this path needs to be passed in.
-//
-// It assumes the caller adds returned nodes to the directories it assembles.
+/// This processes a given [walkdir::DirEntry] and returns a
+/// proto::node::Node, depending on the type of the entry.
+///
+/// If the entry is a file, its contents are uploaded.
+/// If the entry is a directory, the Directory is uploaded as well.
+/// For this to work, it relies on the caller to provide the directory object
+/// with the previously returned (child) nodes.
+///
+/// It assumes entries to be returned in "contents first" order, means this
+/// will only be called with a directory if all children of it have been
+/// visited. If the entry is indeed a directory, it'll also upload that
+/// directory to the store. For this, the so-far-assembled Directory object for
+/// this path needs to be passed in.
+///
+/// It assumes the caller adds returned nodes to the directories it assembles.
 #[instrument(skip_all, fields(entry.file_type=?&entry.file_type(),entry.path=?entry.path()))]
 async fn process_entry<'a, BS>(
     blob_service: BS,
