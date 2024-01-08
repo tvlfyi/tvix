@@ -274,7 +274,7 @@ impl EvalIO for TvixStoreIO {
     #[instrument(skip(self), ret, err)]
     fn import_path(&self, path: &Path) -> io::Result<PathBuf> {
         let output_path = self.tokio_handle.block_on(async {
-            tvix_store::utils::import_path(
+            tvix_store::import::import_path_as_nar_ca(
                 path,
                 &self.blob_service,
                 &self.directory_service,

@@ -305,7 +305,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let path_info_service = path_info_service.clone();
 
                         async move {
-                            let resp = tvix_store::utils::import_path(
+                            let resp = tvix_store::import::import_path_as_nar_ca(
                                 path,
                                 blob_service,
                                 directory_service,
