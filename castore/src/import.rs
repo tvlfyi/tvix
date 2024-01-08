@@ -44,6 +44,12 @@ impl From<CastoreError> for Error {
     }
 }
 
+impl From<Error> for std::io::Error {
+    fn from(value: Error) -> Self {
+        std::io::Error::new(std::io::ErrorKind::Other, value)
+    }
+}
+
 /// This processes a given [walkdir::DirEntry] and returns a
 /// proto::node::Node, depending on the type of the entry.
 ///
