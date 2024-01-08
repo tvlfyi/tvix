@@ -1,4 +1,9 @@
 use std::sync::Arc;
+use std::{
+    pin::Pin,
+    task::{self, Poll},
+};
+use tokio::io::{self, AsyncWrite};
 
 use tvix_castore::{
     blobservice::{self, BlobService},
@@ -32,4 +37,29 @@ pub async fn construct_services(
     .await?;
 
     Ok((blob_service, directory_service, path_info_service))
+}
+
+/// The inverse of [tokio_util::io::SyncIoBridge].
+/// Don't use this with anything that actually does blocking I/O.
+pub struct AsyncIoBridge<T>(pub T);
+
+impl<W: std::io::Write + Unpin> AsyncWrite for AsyncIoBridge<W> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        _cx: &mut task::Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        Poll::Ready(self.get_mut().0.write(buf))
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut task::Context<'_>) -> Poll<io::Result<()>> {
+        Poll::Ready(self.get_mut().0.flush())
+    }
+
+    fn poll_shutdown(
+        self: Pin<&mut Self>,
+        _cx: &mut task::Context<'_>,
+    ) -> Poll<Result<(), io::Error>> {
+        Poll::Ready(Ok(()))
+    }
 }

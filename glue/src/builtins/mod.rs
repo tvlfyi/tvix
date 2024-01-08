@@ -10,7 +10,7 @@ mod fetchers;
 mod import;
 mod utils;
 
-pub use errors::{DerivationError, FetcherError};
+pub use errors::{DerivationError, FetcherError, ImportError};
 
 /// Adds derivation-related builtins to the passed [tvix_eval::Evaluation].
 ///
@@ -421,6 +421,182 @@ mod tests {
                 .expect("creating /symlink_to_a_dir");
         }
 
+        // replace @fixtures with the temporary path containing the fixtures
+        let code_replaced = code.replace("@fixtures", &p.to_string_lossy());
+
+        let eval_result = eval(&code_replaced);
+
+        let value = eval_result.value.expect("must succeed");
+
+        match value {
+            tvix_eval::Value::String(s) => {
+                assert_eq!(expected_outpath, s.as_bstr());
+            }
+            _ => panic!("unexpected value type: {:?}", value),
+        }
+
+        assert!(eval_result.errors.is_empty(), "errors should be empty");
+    }
+
+    // Space is an illegal character.
+    #[test_case(
+        r#"(builtins.path { name = "valid-name"; path = @fixtures + "/te st"; recursive = true; })"#,
+        true
+    )]
+    // Space is still an illegal character.
+    #[test_case(
+        r#"(builtins.path { name = "invalid name"; path = @fixtures + "/te st"; recursive = true; })"#,
+        false
+    )]
+    fn builtins_path_recursive_rename(code: &str, success: bool) {
+        // populate the fixtures dir
+        let temp = TempDir::new().expect("create temporary directory");
+        let p = temp.path().join("import_fixtures");
+
+        // create the fixtures directory.
+        // We produce them at runtime rather than shipping it inside the source
+        // tree, as git can't model certain things - like directories without any
+        // items.
+        {
+            fs::create_dir(&p).expect("creating import_fixtures");
+            fs::write(p.join("te st"), "").expect("creating `/te st`");
+        }
+        // replace @fixtures with the temporary path containing the fixtures
+        let code_replaced = code.replace("@fixtures", &p.to_string_lossy());
+
+        let eval_result = eval(&code_replaced);
+
+        let value = eval_result.value;
+
+        if success {
+            match value.expect("expected successful evaluation on legal rename") {
+                tvix_eval::Value::String(s) => {
+                    assert_eq!(
+                        "/nix/store/nd5z11x7zjqqz44rkbhc6v7yifdkn659-valid-name",
+                        s.as_bstr()
+                    );
+                }
+                v => panic!("unexpected value type: {:?}", v),
+            }
+        } else {
+            assert!(value.is_none(), "unexpected success on illegal store paths");
+        }
+    }
+
+    // Space is an illegal character.
+    #[test_case(
+        r#"(builtins.path { name = "valid-name"; path = @fixtures + "/te st"; recursive = false; })"#,
+        true
+    )]
+    // Space is still an illegal character.
+    #[test_case(
+        r#"(builtins.path { name = "invalid name"; path = @fixtures + "/te st"; recursive = false; })"#,
+        false
+    )]
+    // The non-recursive variant passes explicitly `recursive = false;`
+    fn builtins_path_nonrecursive_rename(code: &str, success: bool) {
+        // populate the fixtures dir
+        let temp = TempDir::new().expect("create temporary directory");
+        let p = temp.path().join("import_fixtures");
+
+        // create the fixtures directory.
+        // We produce them at runtime rather than shipping it inside the source
+        // tree, as git can't model certain things - like directories without any
+        // items.
+        {
+            fs::create_dir(&p).expect("creating import_fixtures");
+            fs::write(p.join("te st"), "").expect("creating `/te st`");
+        }
+        // replace @fixtures with the temporary path containing the fixtures
+        let code_replaced = code.replace("@fixtures", &p.to_string_lossy());
+
+        let eval_result = eval(&code_replaced);
+
+        let value = eval_result.value;
+
+        if success {
+            match value.expect("expected successful evaluation on legal rename") {
+                tvix_eval::Value::String(s) => {
+                    assert_eq!(
+                        "/nix/store/il2rmfbqgs37rshr8w7x64hd4d3b4bsa-valid-name",
+                        s.as_bstr()
+                    );
+                }
+                v => panic!("unexpected value type: {:?}", v),
+            }
+        } else {
+            assert!(value.is_none(), "unexpected success on illegal store paths");
+        }
+    }
+
+    #[test_case(
+        r#"(builtins.path { name = "valid-name"; path = @fixtures + "/te st"; recursive = false; sha256 = "sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="; })"#,
+        true
+    )]
+    #[test_case(
+        r#"(builtins.path { name = "valid-name"; path = @fixtures + "/te st"; recursive = true; sha256 = "sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="; })"#,
+        false
+    )]
+    #[test_case(
+        r#"(builtins.path { name = "valid-name"; path = @fixtures + "/te st"; recursive = true; sha256 = "sha256-d6xi4mKdjkX2JFicDIv5niSzpyI0m/Hnm8GGAIU04kY="; })"#,
+        true
+    )]
+    #[test_case(
+        r#"(builtins.path { name = "valid-name"; path = @fixtures + "/te st"; recursive = false; sha256 = "sha256-d6xi4mKdjkX2JFicDIv5niSzpyI0m/Hnm8GGAIU04kY="; })"#,
+        false
+    )]
+    fn builtins_path_fod_locking(code: &str, success: bool) {
+        // populate the fixtures dir
+        let temp = TempDir::new().expect("create temporary directory");
+        let p = temp.path().join("import_fixtures");
+
+        // create the fixtures directory.
+        // We produce them at runtime rather than shipping it inside the source
+        // tree, as git can't model certain things - like directories without any
+        // items.
+        {
+            fs::create_dir(&p).expect("creating import_fixtures");
+            fs::write(p.join("te st"), "").expect("creating `/te st`");
+        }
+        // replace @fixtures with the temporary path containing the fixtures
+        let code_replaced = code.replace("@fixtures", &p.to_string_lossy());
+
+        let eval_result = eval(&code_replaced);
+
+        let value = eval_result.value;
+
+        if success {
+            assert!(
+                value.is_some(),
+                "expected successful evaluation on legal rename and valid FOD sha256"
+            );
+        } else {
+            assert!(value.is_none(), "unexpected success on invalid FOD sha256");
+        }
+    }
+
+    #[test_case(
+        r#"(builtins.path { name = "valid-path"; path = @fixtures + "/te st dir"; filter = _: _: true; })"#,
+        "/nix/store/i28jmi4fwym4fw3flkrkp2mdxx50pdy0-valid-path"
+    )]
+    #[test_case(
+        r#"(builtins.path { name = "valid-path"; path = @fixtures + "/te st dir"; filter = _: _: false; })"#,
+        "/nix/store/pwza2ij9gk1fmzhbjnynmfv2mq2sgcap-valid-path"
+    )]
+    fn builtins_path_filter(code: &str, expected_outpath: &str) {
+        // populate the fixtures dir
+        let temp = TempDir::new().expect("create temporary directory");
+        let p = temp.path().join("import_fixtures");
+
+        // create the fixtures directory.
+        // We produce them at runtime rather than shipping it inside the source
+        // tree, as git can't model certain things - like directories without any
+        // items.
+        {
+            fs::create_dir(&p).expect("creating import_fixtures");
+            fs::create_dir(p.join("te st dir")).expect("creating `/te st dir`");
+            fs::write(p.join("te st dir").join("test"), "").expect("creating `/te st dir/test`");
+        }
         // replace @fixtures with the temporary path containing the fixtures
         let code_replaced = code.replace("@fixtures", &p.to_string_lossy());
 

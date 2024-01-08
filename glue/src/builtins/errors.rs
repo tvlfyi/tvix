@@ -53,3 +53,19 @@ impl From<FetcherError> for tvix_eval::ErrorKind {
         tvix_eval::ErrorKind::TvixError(Rc::new(err))
     }
 }
+
+/// Errors related to `builtins.path` and `builtins.filterSource`,
+/// a.k.a. "importing" builtins.
+#[derive(Debug, Error)]
+pub enum ImportError {
+    #[error("non-file '{0}' cannot be imported in 'flat' mode")]
+    FlatImportOfNonFile(String),
+    #[error("hash mismatch at ingestion of '{0}', expected: '{1}', got: '{2}'")]
+    HashMismatch(String, NixHash, NixHash),
+}
+
+impl From<ImportError> for tvix_eval::ErrorKind {
+    fn from(err: ImportError) -> Self {
+        tvix_eval::ErrorKind::TvixError(Rc::new(err))
+    }
+}

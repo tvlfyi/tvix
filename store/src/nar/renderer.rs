@@ -1,12 +1,10 @@
+use crate::utils::AsyncIoBridge;
+
 use super::RenderError;
 use async_recursion::async_recursion;
 use count_write::CountWrite;
 use nix_compat::nar::writer::r#async as nar_writer;
 use sha2::{Digest, Sha256};
-use std::{
-    pin::Pin,
-    task::{self, Poll},
-};
 use tokio::io::{self, AsyncWrite, BufReader};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tvix_castore::{
@@ -40,31 +38,6 @@ where
     .await?;
 
     Ok((cw.count(), h.finalize().into()))
-}
-
-/// The inverse of [tokio_util::io::SyncIoBridge].
-/// Don't use this with anything that actually does blocking I/O.
-struct AsyncIoBridge<T>(T);
-
-impl<W: std::io::Write + Unpin> AsyncWrite for AsyncIoBridge<W> {
-    fn poll_write(
-        self: Pin<&mut Self>,
-        _cx: &mut task::Context<'_>,
-        buf: &[u8],
-    ) -> Poll<io::Result<usize>> {
-        Poll::Ready(self.get_mut().0.write(buf))
-    }
-
-    fn poll_flush(self: Pin<&mut Self>, _cx: &mut task::Context<'_>) -> Poll<io::Result<()>> {
-        Poll::Ready(self.get_mut().0.flush())
-    }
-
-    fn poll_shutdown(
-        self: Pin<&mut Self>,
-        _cx: &mut task::Context<'_>,
-    ) -> Poll<Result<(), io::Error>> {
-        Poll::Ready(Ok(()))
-    }
 }
 
 /// Accepts a [castorepb::node::Node] pointing to the root of a (store) path,

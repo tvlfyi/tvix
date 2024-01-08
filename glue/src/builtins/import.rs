@@ -1,11 +1,12 @@
 //! Implements builtins used to import paths in the store.
 
+use crate::builtins::errors::ImportError;
 use futures::pin_mut;
 use std::path::Path;
 use tvix_eval::{
     builtin_macros::builtins,
     generators::{self, GenCo},
-    ErrorKind, Value,
+    ErrorKind, EvalIO, Value,
 };
 
 use std::rc::Rc;
@@ -123,7 +124,126 @@ mod import_builtins {
     use tvix_eval::generators::Gen;
     use tvix_eval::{generators::GenCo, ErrorKind, Value};
 
+    use tvix_castore::B3Digest;
+
     use crate::tvix_store_io::TvixStoreIO;
+
+    #[builtin("path")]
+    async fn builtin_path(
+        state: Rc<TvixStoreIO>,
+        co: GenCo,
+        args: Value,
+    ) -> Result<Value, ErrorKind> {
+        let args = args.to_attrs()?;
+        let path = args.select_required("path")?;
+        let path = generators::request_force(&co, path.clone())
+            .await
+            .to_path()?;
+        let name: String = if let Some(name) = args.select("name") {
+            generators::request_force(&co, name.clone())
+                .await
+                .to_str()?
+                .as_bstr()
+                .to_string()
+        } else {
+            tvix_store::import::path_to_name(&path)
+                .expect("Failed to derive the default name out of the path")
+                .to_string()
+        };
+        let filter = args.select("filter");
+        let recursive_ingestion = args
+            .select("recursive")
+            .map(|r| r.as_bool())
+            .transpose()?
+            .unwrap_or(true); // Yes, yes, Nix, by default, puts `recursive = true;`.
+        let expected_sha256 = args
+            .select("sha256")
+            .map(|h| {
+                h.to_str().and_then(|expected| {
+                    let expected = expected.into_bstring().to_string();
+                    // TODO: ensure that we fail if this is not a valid str.
+                    nix_compat::nixhash::from_str(&expected, None).map_err(|_err| {
+                        // TODO: a better error would be nice, we use
+                        // DerivationError::InvalidOutputHash usually for derivation construction.
+                        // This is not a derivation construction, should we move it outside and
+                        // generalize?
+                        ErrorKind::TypeError {
+                            expected: "sha256",
+                            actual: "not a sha256",
+                        }
+                    })
+                })
+            })
+            .transpose()?;
+
+        // FUTUREWORK(performance): this reads the file instead of using a stat-like
+        // system call to the file, this degrades very badly on large files.
+        if !recursive_ingestion && state.read_to_end(path.as_ref()).is_err() {
+            Err(ImportError::FlatImportOfNonFile(
+                path.to_string_lossy().to_string(),
+            ))?;
+        }
+
+        let root_node = filtered_ingest(state.clone(), co, path.as_ref(), filter).await?;
+        let ca: CAHash = if recursive_ingestion {
+            CAHash::Nar(NixHash::Sha256(state.tokio_handle.block_on(async {
+                Ok::<_, tvix_eval::ErrorKind>(
+                    state
+                        .path_info_service
+                        .as_ref()
+                        .calculate_nar(&root_node)
+                        .await
+                        .map_err(|e| ErrorKind::TvixError(Rc::new(e)))?
+                        .1,
+                )
+            })?))
+        } else {
+            let digest: B3Digest = match root_node {
+                tvix_castore::proto::node::Node::File(ref fnode) => {
+                    // It's already validated.
+                    fnode.digest.clone().try_into().unwrap()
+                }
+                // We cannot hash anything else than file in flat import mode.
+                _ => {
+                    return Err(ImportError::FlatImportOfNonFile(
+                        path.to_string_lossy().to_string(),
+                    )
+                    .into())
+                }
+            };
+
+            // FUTUREWORK: avoid hashing again.
+            CAHash::Flat(NixHash::Sha256(
+                state
+                    .tokio_handle
+                    .block_on(async { state.blob_to_sha256_hash(digest).await })?,
+            ))
+        };
+
+        let obtained_hash = ca.hash().clone().into_owned();
+        let (path_info, output_path) = state.tokio_handle.block_on(async {
+            state
+                .node_to_path_info(name.as_ref(), path.as_ref(), ca, root_node)
+                .await
+        })?;
+
+        if let Some(expected_sha256) = expected_sha256 {
+            if obtained_hash != expected_sha256 {
+                Err(ImportError::HashMismatch(
+                    path.to_string_lossy().to_string(),
+                    expected_sha256,
+                    obtained_hash,
+                ))?;
+            }
+        }
+
+        let _: tvix_store::proto::PathInfo = state.tokio_handle.block_on(async {
+            // This is necessary to cause the coercion of the error type.
+            Ok::<_, std::io::Error>(state.path_info_service.as_ref().put(path_info).await?)
+        })?;
+
+        Ok(output_path.to_absolute_path().into())
+    }
 
     #[builtin("filterSource")]
     async fn builtin_filter_source(
