@@ -4,6 +4,7 @@ use tonic::async_trait;
 use crate::proto::stat_blob_response::ChunkMeta;
 use crate::B3Digest;
 
+mod combinator;
 mod from_addr;
 mod grpc;
 mod memory;
@@ -14,6 +15,7 @@ mod sled;
 #[cfg(test)]
 mod tests;
 
+pub use self::combinator::CombinedBlobService;
 pub use self::from_addr::from_addr;
 pub use self::grpc::GRPCBlobService;
 pub use self::memory::MemoryBlobService;
