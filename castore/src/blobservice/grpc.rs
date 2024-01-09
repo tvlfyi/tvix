@@ -49,6 +49,7 @@ impl BlobService for GRPCBlobService {
         }
     }
 
+    #[instrument(skip(self, digest), fields(blob.digest=%digest), err)]
     async fn open_read(&self, digest: &B3Digest) -> io::Result<Option<Box<dyn BlobReader>>> {
         // Get a stream of [proto::BlobChunk], or return an error if the blob
         // doesn't exist.
@@ -80,6 +81,7 @@ impl BlobService for GRPCBlobService {
 
     /// Returns a BlobWriter, that'll internally wrap each write in a
     /// [proto::BlobChunk], which is send to the gRPC server.
+    #[instrument(skip_all)]
     async fn open_write(&self) -> Box<dyn BlobWriter> {
         // set up an mpsc channel passing around Bytes.
         let (tx, rx) = tokio::sync::mpsc::channel::<bytes::Bytes>(10);
