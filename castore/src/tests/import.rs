@@ -1,10 +1,8 @@
 use crate::blobservice::BlobService;
-use crate::directoryservice::DirectoryService;
 use crate::fixtures::*;
 use crate::import::ingest_path;
 use crate::proto;
 use crate::utils::{gen_blob_service, gen_directory_service};
-use std::ops::Deref;
 use std::sync::Arc;
 use tempfile::TempDir;
 
@@ -14,8 +12,8 @@ use std::os::unix::ffi::OsStrExt;
 #[cfg(target_family = "unix")]
 #[tokio::test]
 async fn symlink() {
-    let blob_service: Arc<dyn BlobService> = gen_blob_service().into();
-    let directory_service: Arc<dyn DirectoryService> = gen_directory_service().into();
+    let blob_service = gen_blob_service();
+    let directory_service = gen_directory_service();
 
     let tmpdir = TempDir::new().unwrap();
 
@@ -27,8 +25,8 @@ async fn symlink() {
     .unwrap();
 
     let root_node = ingest_path(
-        blob_service,
-        &directory_service.deref(),
+        Arc::from(blob_service),
+        directory_service,
         tmpdir.path().join("doesntmatter"),
     )
     .await
@@ -46,7 +44,7 @@ async fn symlink() {
 #[tokio::test]
 async fn single_file() {
     let blob_service: Arc<dyn BlobService> = gen_blob_service().into();
-    let directory_service: Arc<dyn DirectoryService> = gen_directory_service().into();
+    let directory_service = gen_directory_service();
 
     let tmpdir = TempDir::new().unwrap();
 
@@ -54,7 +52,7 @@ async fn single_file() {
 
     let root_node = ingest_path(
         blob_service.clone(),
-        &directory_service.deref(),
+        directory_service,
         tmpdir.path().join("root"),
     )
     .await
@@ -78,7 +76,7 @@ async fn single_file() {
 #[tokio::test]
 async fn complicated() {
     let blob_service: Arc<dyn BlobService> = gen_blob_service().into();
-    let directory_service: Arc<dyn DirectoryService> = gen_directory_service().into();
+    let directory_service = gen_directory_service();
 
     let tmpdir = TempDir::new().unwrap();
 
@@ -91,13 +89,9 @@ async fn complicated() {
     // File ``keep/.keep`
     std::fs::write(tmpdir.path().join("keep").join(".keep"), vec![]).unwrap();
 
-    let root_node = ingest_path(
-        blob_service.clone(),
-        &directory_service.deref(),
-        tmpdir.path(),
-    )
-    .await
-    .expect("must succeed");
+    let root_node = ingest_path(blob_service.clone(), &directory_service, tmpdir.path())
+        .await
+        .expect("must succeed");
 
     // ensure root_node matched expectations
     assert_eq!(

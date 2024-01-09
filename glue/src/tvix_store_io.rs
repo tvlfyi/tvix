@@ -3,7 +3,6 @@
 use nix_compat::store_path::StorePath;
 use std::{
     io,
-    ops::Deref,
     path::{Path, PathBuf},
 };
 use tokio::io::AsyncReadExt;
@@ -35,8 +34,8 @@ pub struct TvixStoreIO<BS, DS, PS> {
 
 impl<BS, DS, PS> TvixStoreIO<BS, DS, PS>
 where
-    DS: Deref<Target = dyn DirectoryService>,
-    PS: Deref<Target = dyn PathInfoService>,
+    DS: AsRef<dyn DirectoryService>,
+    PS: AsRef<dyn PathInfoService>,
 {
     pub fn new(
         blob_service: BS,
@@ -70,7 +69,7 @@ where
             .tokio_handle
             .block_on(async {
                 self.path_info_service
-                    .deref()
+                    .as_ref()
                     .get(*store_path.digest())
                     .await
             })
@@ -93,7 +92,7 @@ where
         // with the root_node and sub_path, descend to the node requested.
         Ok(self.tokio_handle.block_on({
             async {
-                directoryservice::descend_to(self.directory_service.deref(), root_node, sub_path)
+                directoryservice::descend_to(self.directory_service.as_ref(), root_node, sub_path)
                     .await
             }
         })?)
@@ -102,9 +101,9 @@ where
 
 impl<BS, DS, PS> EvalIO for TvixStoreIO<BS, DS, PS>
 where
-    BS: Deref<Target = dyn BlobService> + Clone,
-    DS: Deref<Target = dyn DirectoryService>,
-    PS: Deref<Target = dyn PathInfoService>,
+    BS: AsRef<dyn BlobService> + Clone,
+    DS: AsRef<dyn DirectoryService>,
+    PS: AsRef<dyn PathInfoService>,
 {
     #[instrument(skip(self), ret, err)]
     fn path_exists(&self, path: &Path) -> io::Result<bool> {
@@ -154,7 +153,7 @@ where
 
                         self.tokio_handle.block_on(async {
                             let mut reader = {
-                                let resp = self.blob_service.deref().open_read(&digest).await?;
+                                let resp = self.blob_service.as_ref().open_read(&digest).await?;
                                 match resp {
                                     Some(blob_reader) => blob_reader,
                                     None => {
@@ -212,10 +211,9 @@ where
                                 )
                             })?;
 
-                        if let Some(directory) = self
-                            .tokio_handle
-                            .block_on(async { self.directory_service.deref().get(&digest).await })?
-                        {
+                        if let Some(directory) = self.tokio_handle.block_on(async {
+                            self.directory_service.as_ref().get(&digest).await
+                        })? {
                             let mut children: Vec<(bytes::Bytes, FileType)> = Vec::new();
                             for node in directory.nodes() {
                                 children.push(match node {
@@ -263,9 +261,9 @@ where
         let output_path = self.tokio_handle.block_on(async {
             tvix_store::utils::import_path(
                 path,
-                self.blob_service.deref(),
-                self.directory_service.deref(),
-                self.path_info_service.deref(),
+                &self.blob_service,
+                &self.directory_service,
+                &self.path_info_service,
             )
             .await
         })?;

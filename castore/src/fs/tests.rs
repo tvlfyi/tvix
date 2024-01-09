@@ -1,7 +1,6 @@
 use std::{
     collections::BTreeMap,
     io::{self, Cursor},
-    ops::Deref,
     os::unix::fs::MetadataExt,
     path::Path,
     sync::Arc,
@@ -43,8 +42,8 @@ fn do_mount<P: AsRef<Path>, BS, DS>(
     list_root: bool,
 ) -> io::Result<FuseDaemon>
 where
-    BS: Deref<Target = dyn BlobService> + Send + Sync + Clone + 'static,
-    DS: Deref<Target = dyn DirectoryService> + Send + Sync + Clone + 'static,
+    BS: AsRef<dyn BlobService> + Send + Sync + Clone + 'static,
+    DS: AsRef<dyn DirectoryService> + Send + Sync + Clone + 'static,
 {
     let fs = TvixStoreFs::new(
         blob_service,

@@ -1,4 +1,4 @@
-use std::{ops::Deref, path::Path, sync::Arc};
+use std::{path::Path, sync::Arc};
 
 use data_encoding::BASE64;
 use nix_compat::store_path::{self, StorePath};
@@ -53,9 +53,9 @@ pub async fn import_path<BS, DS, PS, P>(
 ) -> Result<StorePath, std::io::Error>
 where
     P: AsRef<Path> + std::fmt::Debug,
-    BS: Deref<Target = dyn BlobService> + Clone,
-    DS: Deref<Target = dyn DirectoryService>,
-    PS: Deref<Target = dyn PathInfoService>,
+    BS: AsRef<dyn BlobService> + Clone,
+    DS: AsRef<dyn DirectoryService>,
+    PS: AsRef<dyn PathInfoService>,
 {
     // calculate the name
     // TODO: make a path_to_name helper function?
@@ -71,15 +71,14 @@ where
         })?;
 
     // Ingest the path into blob and directory service.
-    let root_node =
-        tvix_castore::import::ingest_path(blob_service, &directory_service.deref(), &path)
-            .await
-            .expect("failed to ingest path");
+    let root_node = tvix_castore::import::ingest_path(blob_service, &directory_service, &path)
+        .await
+        .expect("failed to ingest path");
 
     debug!(root_node =?root_node, "import successful");
 
     // Ask the PathInfoService for the NAR size and sha256
-    let (nar_size, nar_sha256) = path_info_service.calculate_nar(&root_node).await?;
+    let (nar_size, nar_sha256) = path_info_service.as_ref().calculate_nar(&root_node).await?;
 
     // Calculate the output path. This might still fail, as some names are illegal.
     let output_path = store_path::build_nar_based_store_path(&nar_sha256, name).map_err(|_| {
@@ -115,7 +114,7 @@ where
 
     // put into [PathInfoService], and return the PathInfo that we get back
     // from there (it might contain additional signatures).
-    let _path_info = path_info_service.put(path_info).await?;
+    let _path_info = path_info_service.as_ref().put(path_info).await?;
 
     Ok(output_path.to_owned())
 }

@@ -23,7 +23,6 @@ use fuse_backend_rs::abi::fuse_abi::stat64;
 use fuse_backend_rs::api::filesystem::{Context, FileSystem, FsOptions, ROOT_ID};
 use futures::StreamExt;
 use parking_lot::RwLock;
-use std::ops::Deref;
 use std::{
     collections::HashMap,
     io,
@@ -101,8 +100,8 @@ pub struct TvixStoreFs<BS, DS, RN> {
 
 impl<BS, DS, RN> TvixStoreFs<BS, DS, RN>
 where
-    BS: Deref<Target = dyn BlobService> + Clone + Send,
-    DS: Deref<Target = dyn DirectoryService> + Clone + Send + 'static,
+    BS: AsRef<dyn BlobService> + Clone + Send,
+    DS: AsRef<dyn DirectoryService> + Clone + Send + 'static,
     RN: RootNodes + Clone + 'static,
 {
     pub fn new(
@@ -157,7 +156,7 @@ where
                     .block_on(self.tokio_handle.spawn({
                         let directory_service = self.directory_service.clone();
                         let parent_digest = parent_digest.to_owned();
-                        async move { directory_service.get(&parent_digest).await }
+                        async move { directory_service.as_ref().get(&parent_digest).await }
                     }))
                     .unwrap()?
                     .ok_or_else(|| {
@@ -270,8 +269,8 @@ where
 
 impl<BS, DS, RN> FileSystem for TvixStoreFs<BS, DS, RN>
 where
-    BS: Deref<Target = dyn BlobService> + Clone + Send + 'static,
-    DS: Deref<Target = dyn DirectoryService> + Send + Clone + 'static,
+    BS: AsRef<dyn BlobService> + Clone + Send + 'static,
+    DS: AsRef<dyn DirectoryService> + Send + Clone + 'static,
     RN: RootNodes + Clone + 'static,
 {
     type Handle = u64;
@@ -496,7 +495,7 @@ where
 
                 let task = self
                     .tokio_handle
-                    .spawn(async move { blob_service.open_read(&blob_digest).await });
+                    .spawn(async move { blob_service.as_ref().open_read(&blob_digest).await });
 
                 let blob_reader = self.tokio_handle.block_on(task).unwrap();
 

@@ -1,6 +1,5 @@
 use futures::Stream;
 use futures::StreamExt;
-use std::ops::Deref;
 use std::pin::Pin;
 use tonic::async_trait;
 use tvix_castore::fs::{RootNodes, TvixStoreFs};
@@ -21,9 +20,9 @@ pub fn make_fs<BS, DS, PS>(
     list_root: bool,
 ) -> TvixStoreFs<BS, DS, RootNodesWrapper<PS>>
 where
-    BS: Deref<Target = dyn BlobService> + Send + Clone + 'static,
-    DS: Deref<Target = dyn DirectoryService> + Send + Clone + 'static,
-    PS: Deref<Target = dyn PathInfoService> + Send + Sync + Clone + 'static,
+    BS: AsRef<dyn BlobService> + Send + Clone + 'static,
+    DS: AsRef<dyn DirectoryService> + Send + Clone + 'static,
+    PS: AsRef<dyn PathInfoService> + Send + Sync + Clone + 'static,
 {
     TvixStoreFs::new(
         blob_service,
@@ -46,7 +45,7 @@ pub struct RootNodesWrapper<T>(pub(crate) T);
 #[async_trait]
 impl<T> RootNodes for RootNodesWrapper<T>
 where
-    T: Deref<Target = dyn PathInfoService> + Send + Sync,
+    T: AsRef<dyn PathInfoService> + Send + Sync,
 {
     async fn get_by_basename(&self, name: &[u8]) -> Result<Option<castorepb::node::Node>, Error> {
         let Ok(store_path) = nix_compat::store_path::StorePath::from_bytes(name) else {
@@ -55,7 +54,7 @@ where
 
         Ok(self
             .0
-            .deref()
+            .as_ref()
             .get(*store_path.digest())
             .await?
             .map(|path_info| {
@@ -68,7 +67,7 @@ where
     }
 
     fn list(&self) -> Pin<Box<dyn Stream<Item = Result<castorepb::node::Node, Error>> + Send>> {
-        Box::pin(self.0.deref().list().map(|result| {
+        Box::pin(self.0.as_ref().list().map(|result| {
             result.map(|path_info| {
                 path_info
                     .node

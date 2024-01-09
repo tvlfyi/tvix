@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, ops::Deref, pin::Pin};
+use std::{collections::BTreeMap, pin::Pin};
 
 use crate::{proto::node::Node, Error};
 use bytes::Bytes;
@@ -23,13 +23,15 @@ pub trait RootNodes: Send + Sync {
 /// the key is the node name.
 impl<T> RootNodes for T
 where
-    T: Deref<Target = BTreeMap<Bytes, Node>> + Send + Sync,
+    T: AsRef<BTreeMap<Bytes, Node>> + Send + Sync,
 {
     async fn get_by_basename(&self, name: &[u8]) -> Result<Option<Node>, Error> {
-        Ok(self.get(name).cloned())
+        Ok(self.as_ref().get(name).cloned())
     }
 
     fn list(&self) -> Pin<Box<dyn Stream<Item = Result<Node, Error>> + Send + '_>> {
-        Box::pin(tokio_stream::iter(self.iter().map(|(_, v)| Ok(v.clone()))))
+        Box::pin(tokio_stream::iter(
+            self.as_ref().iter().map(|(_, v)| Ok(v.clone())),
+        ))
     }
 }

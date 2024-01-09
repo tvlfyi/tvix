@@ -7,7 +7,6 @@ use crate::proto::DirectoryNode;
 use crate::proto::FileNode;
 use crate::proto::SymlinkNode;
 use crate::Error as CastoreError;
-use std::ops::Deref;
 use std::os::unix::ffi::OsStrExt;
 use std::{
     collections::HashMap,
@@ -68,7 +67,7 @@ async fn process_entry<'a, BS>(
     maybe_directory: Option<Directory>,
 ) -> Result<Node, Error>
 where
-    BS: Deref<Target = dyn BlobService> + Clone,
+    BS: AsRef<dyn BlobService> + Clone,
 {
     let file_type = entry.file_type();
 
@@ -114,7 +113,7 @@ where
             .await
             .map_err(|e| Error::UnableToOpen(entry.path().to_path_buf(), e))?;
 
-        let mut writer = blob_service.open_write().await;
+        let mut writer = blob_service.as_ref().open_write().await;
 
         if let Err(e) = tokio::io::copy(&mut file, &mut writer).await {
             return Err(Error::UnableToRead(entry.path().to_path_buf(), e));
@@ -156,12 +155,12 @@ pub async fn ingest_path<'a, BS, DS, P>(
 ) -> Result<Node, Error>
 where
     P: AsRef<Path> + Debug,
-    BS: Deref<Target = dyn BlobService> + Clone,
-    DS: Deref<Target = &'a dyn DirectoryService>,
+    BS: AsRef<dyn BlobService> + Clone,
+    DS: AsRef<dyn DirectoryService>,
 {
     let mut directories: HashMap<PathBuf, Directory> = HashMap::default();
 
-    let mut directory_putter = directory_service.put_multiple_start();
+    let mut directory_putter = directory_service.as_ref().put_multiple_start();
 
     for entry in WalkDir::new(p.as_ref())
         .follow_links(false)
