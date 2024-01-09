@@ -490,12 +490,11 @@ where
                 let span = info_span!("read", blob.digest = %blob_digest);
                 let _enter = span.enter();
 
-                let blob_service = self.blob_service.clone();
-                let blob_digest = blob_digest.clone();
-
-                let task = self
-                    .tokio_handle
-                    .spawn(async move { blob_service.as_ref().open_read(&blob_digest).await });
+                let task = self.tokio_handle.spawn({
+                    let blob_service = self.blob_service.clone();
+                    let blob_digest = blob_digest.clone();
+                    async move { blob_service.as_ref().open_read(&blob_digest).await }
+                });
 
                 let blob_reader = self.tokio_handle.block_on(task).unwrap();
 
