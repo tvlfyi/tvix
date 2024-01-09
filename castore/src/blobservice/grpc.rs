@@ -1,5 +1,8 @@
 use super::{naive_seeker::NaiveSeeker, BlobReader, BlobService, BlobWriter};
-use crate::{proto, B3Digest};
+use crate::{
+    proto::{self, stat_blob_response::ChunkMeta},
+    B3Digest,
+};
 use futures::sink::SinkExt;
 use std::{io, pin::pin, task::Poll};
 use tokio::io::AsyncWriteExt;
@@ -10,7 +13,7 @@ use tokio_util::{
     sync::PollSender,
 };
 use tonic::{async_trait, transport::Channel, Code, Status};
-use tracing::instrument;
+use tracing::{instrument, warn};
 
 /// Connects to a (remote) tvix-store BlobService over gRPC.
 #[derive(Clone)]
@@ -107,6 +110,31 @@ impl BlobService for GRPCBlobService {
             task_and_writer: Some((task, writer)),
             digest: None,
         })
+    }
+
+    #[instrument(skip(self, digest), fields(blob.digest=%digest), err)]
+    async fn chunks(&self, digest: &B3Digest) -> io::Result<Option<Vec<ChunkMeta>>> {
+        let resp = self
+            .grpc_client
+            .clone()
+            .stat(proto::StatBlobRequest {
+                digest: digest.clone().into(),
+                send_chunks: true,
+                ..Default::default()
+            })
+            .await;
+
+        match resp {
+            Err(e) if e.code() == Code::NotFound => Ok(None),
+            Err(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
+            Ok(resp) => {
+                let resp = resp.into_inner();
+                if resp.chunks.is_empty() {
+                    warn!("chunk list is empty");
+                }
+                Ok(Some(resp.chunks))
+            }
+        }
     }
 }
 

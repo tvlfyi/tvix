@@ -1,6 +1,7 @@
 use std::io;
 use tonic::async_trait;
 
+use crate::proto::stat_blob_response::ChunkMeta;
 use crate::B3Digest;
 
 mod from_addr;
@@ -35,6 +36,22 @@ pub trait BlobService: Send + Sync {
     /// Insert a new blob into the store. Returns a [BlobWriter], which
     /// implements [io::Write] and a [BlobWriter::close].
     async fn open_write(&self) -> Box<dyn BlobWriter>;
+
+    /// Return a list of chunks for a given blob.
+    /// There's a distinction between returning Ok(None) and Ok(Some(vec![])).
+    /// The former return value is sent in case the blob is not present at all,
+    /// while the second one is sent in case there's no more granular chunks (or
+    /// the backend does not support chunking).
+    /// A default implementation signalling the backend does not support
+    /// chunking is provided.
+    async fn chunks(&self, digest: &B3Digest) -> io::Result<Option<Vec<ChunkMeta>>> {
+        if !self.has(digest).await? {
+            return Ok(None);
+        } else {
+            // default implementation, signalling the backend does not support chunking.
+            return Ok(Some(vec![]));
+        }
+    }
 }
 
 /// A [tokio::io::AsyncWrite] that you need to close() afterwards, and get back
