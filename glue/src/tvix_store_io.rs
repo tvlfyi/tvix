@@ -92,8 +92,7 @@ where
         // with the root_node and sub_path, descend to the node requested.
         Ok(self.tokio_handle.block_on({
             async {
-                directoryservice::descend_to(self.directory_service.as_ref(), root_node, sub_path)
-                    .await
+                directoryservice::descend_to(&self.directory_service, root_node, sub_path).await
             }
         })?)
     }

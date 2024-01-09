@@ -1,6 +1,6 @@
 use super::DirectoryService;
 use crate::{proto::NamedNode, B3Digest, Error};
-use std::{ops::Deref, os::unix::ffi::OsStrExt};
+use std::os::unix::ffi::OsStrExt;
 use tracing::{instrument, warn};
 
 /// This descends from a (root) node to the given (sub)path, returning the Node
@@ -12,7 +12,7 @@ pub async fn descend_to<DS>(
     path: &std::path::Path,
 ) -> Result<Option<crate::proto::node::Node>, Error>
 where
-    DS: Deref<Target = dyn DirectoryService>,
+    DS: AsRef<dyn DirectoryService>,
 {
     // strip a possible `/` prefix from the path.
     let path = {
@@ -45,7 +45,7 @@ where
                         })?;
 
                         // fetch the linked node from the directory_service
-                        match directory_service.get(&digest).await? {
+                        match directory_service.as_ref().get(&digest).await? {
                             // If we didn't get the directory node that's linked, that's a store inconsistency, bail out!
                             None => {
                                 warn!("directory {} does not exist", digest);
@@ -86,9 +86,7 @@ where
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
-    use std::sync::Arc;
 
-    use crate::directoryservice::DirectoryService;
     use crate::fixtures::{DIRECTORY_COMPLICATED, DIRECTORY_WITH_KEEP};
     use crate::utils::gen_directory_service;
 
@@ -96,7 +94,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_descend_to() {
-        let directory_service: Arc<dyn DirectoryService> = gen_directory_service().into();
+        let directory_service = gen_directory_service();
 
         let mut handle = directory_service.put_multiple_start();
         handle
@@ -128,7 +126,7 @@ mod tests {
         // traversal to an empty subpath should return the root node.
         {
             let resp = descend_to(
-                directory_service.clone(),
+                &directory_service,
                 node_directory_complicated.clone(),
                 &PathBuf::from(""),
             )
@@ -141,7 +139,7 @@ mod tests {
         // traversal to `keep` should return the node for DIRECTORY_WITH_KEEP
         {
             let resp = descend_to(
-                directory_service.clone(),
+                &directory_service,
                 node_directory_complicated.clone(),
                 &PathBuf::from("keep"),
             )
@@ -154,7 +152,7 @@ mod tests {
         // traversal to `keep/.keep` should return the node for the .keep file
         {
             let resp = descend_to(
-                directory_service.clone(),
+                &directory_service,
                 node_directory_complicated.clone(),
                 &PathBuf::from("keep/.keep"),
             )
@@ -167,7 +165,7 @@ mod tests {
         // traversal to `keep/.keep` should return the node for the .keep file
         {
             let resp = descend_to(
-                directory_service.clone(),
+                &directory_service,
                 node_directory_complicated.clone(),
                 &PathBuf::from("/keep/.keep"),
             )
@@ -180,7 +178,7 @@ mod tests {
         // traversal to `void` should return None (doesn't exist)
         {
             let resp = descend_to(
-                directory_service.clone(),
+                &directory_service,
                 node_directory_complicated.clone(),
                 &PathBuf::from("void"),
             )
@@ -193,7 +191,7 @@ mod tests {
         // traversal to `void` should return None (doesn't exist)
         {
             let resp = descend_to(
-                directory_service.clone(),
+                &directory_service,
                 node_directory_complicated.clone(),
                 &PathBuf::from("//v/oid"),
             )
@@ -207,7 +205,7 @@ mod tests {
         // reached, as keep/.keep already is a file)
         {
             let resp = descend_to(
-                directory_service.clone(),
+                &directory_service,
                 node_directory_complicated.clone(),
                 &PathBuf::from("keep/.keep/foo"),
             )
@@ -220,7 +218,7 @@ mod tests {
         // traversal to a subpath of '/' should return the root node.
         {
             let resp = descend_to(
-                directory_service.clone(),
+                &directory_service,
                 node_directory_complicated.clone(),
                 &PathBuf::from("/"),
             )
