@@ -1,12 +1,7 @@
 use super::{naive_seeker::NaiveSeeker, BlobReader, BlobService, BlobWriter};
 use crate::{proto, B3Digest};
 use futures::sink::SinkExt;
-use std::{
-    collections::VecDeque,
-    io::{self},
-    pin::pin,
-    task::Poll,
-};
+use std::{io, pin::pin, task::Poll};
 use tokio::io::AsyncWriteExt;
 use tokio::task::JoinHandle;
 use tokio_stream::{wrappers::ReceiverStream, StreamExt};
@@ -54,30 +49,23 @@ impl BlobService for GRPCBlobService {
         }
     }
 
-    // On success, this returns a Ok(Some(io::Read)), which can be used to read
-    // the contents of the Blob, identified by the digest.
     async fn open_read(&self, digest: &B3Digest) -> io::Result<Option<Box<dyn BlobReader>>> {
         // Get a stream of [proto::BlobChunk], or return an error if the blob
         // doesn't exist.
-        let resp = self
+        match self
             .grpc_client
             .clone()
             .read(proto::ReadBlobRequest {
                 digest: digest.clone().into(),
             })
-            .await;
-
-        // This runs the task to completion, which on success will return a stream.
-        // On reading from it, we receive individual [proto::BlobChunk], so we
-        // massage this to a stream of bytes,
-        // then create an [AsyncRead], which we'll turn into a [io::Read],
-        // that's returned from the function.
-        match resp {
+            .await
+        {
             Ok(stream) => {
-                // map the stream of proto::BlobChunk to bytes.
-                let data_stream = stream.into_inner().map(|x| {
-                    x.map(|x| VecDeque::from(x.data.to_vec()))
-                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))
+                // on success, this is a stream of tonic::Result<proto::BlobChunk>,
+                // so access .data and map errors into std::io::Error.
+                let data_stream = stream.into_inner().map(|e| {
+                    e.map(|c| c.data)
+                        .map_err(|s| std::io::Error::new(io::ErrorKind::InvalidData, s))
                 });
 
                 // Use StreamReader::new to convert to an AsyncRead.
