@@ -1484,6 +1484,10 @@ mod pure_builtins {
 
     #[builtin("throw")]
     async fn builtin_throw(co: GenCo, message: Value) -> Result<Value, ErrorKind> {
+        // If it's already some error, let's propagate it immediately.
+        if message.is_catchable() {
+            return Ok(message);
+        }
         // TODO(sterni): coerces to string
         // We do not care about the context here explicitly.
         Ok(Value::Catchable(CatchableErrorKind::Throw(
