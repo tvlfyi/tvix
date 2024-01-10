@@ -397,6 +397,10 @@ mod pure_builtins {
 
     #[builtin("elem")]
     async fn builtin_elem(co: GenCo, x: Value, xs: Value) -> Result<Value, ErrorKind> {
+        if xs.is_catchable() {
+            return Ok(xs);
+        }
+
         for val in xs.to_list()? {
             match generators::check_equality(&co, x.clone(), val, PointerEquality::AllowAll).await?
             {
