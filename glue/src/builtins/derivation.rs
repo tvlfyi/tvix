@@ -1,6 +1,7 @@
 //! Implements `builtins.derivation`, the core of what makes Nix build packages.
 use crate::builtins::DerivationError;
 use crate::known_paths::KnownPaths;
+use bstr::BString;
 use nix_compat::derivation::{Derivation, Output};
 use nix_compat::nixhash;
 use std::cell::RefCell;
@@ -10,41 +11,12 @@ use tvix_eval::builtin_macros::builtins;
 use tvix_eval::generators::{self, emit_warning_kind, GenCo};
 use tvix_eval::{
     AddContext, CatchableErrorKind, CoercionKind, ErrorKind, NixAttrs, NixContext,
-    NixContextElement, NixList, Value, WarningKind,
+    NixContextElement, Value, WarningKind,
 };
 
 // Constants used for strangely named fields in derivation inputs.
 const STRUCTURED_ATTRS: &str = "__structuredAttrs";
 const IGNORE_NULLS: &str = "__ignoreNulls";
-
-/// Helper function for populating the `drv.outputs` field from a
-/// manually specified set of outputs, instead of the default
-/// `outputs`.
-async fn populate_outputs(
-    co: &GenCo,
-    drv: &mut Derivation,
-    outputs: NixList,
-) -> Result<(), ErrorKind> {
-    // Remove the original default `out` output.
-    drv.outputs.clear();
-
-    for output in outputs {
-        let output_name = generators::request_force(co, output)
-            .await
-            .to_str()
-            .context("determining output name")?;
-
-        if drv
-            .outputs
-            .insert(output_name.as_str().into(), Default::default())
-            .is_some()
-        {
-            return Err(DerivationError::DuplicateOutput(output_name.as_str().into()).into());
-        }
-    }
-
-    Ok(())
-}
 
 /// Populate the inputs of a derivation from the build references
 /// found when scanning the derivation's parameters and extracting their contexts.
@@ -149,78 +121,10 @@ fn handle_fixed_output(
     Ok(None)
 }
 
-/// Handles derivation parameters which are not just forwarded to
-/// the environment. The return value indicates whether the
-/// parameter should be included in the environment.
-async fn handle_derivation_parameters(
-    drv: &mut Derivation,
-    co: &GenCo,
-    name: &str,
-    value: &Value,
-    val_str: &str,
-) -> Result<Result<bool, CatchableErrorKind>, ErrorKind> {
-    match name {
-        IGNORE_NULLS => return Ok(Ok(false)),
-
-        // Command line arguments to the builder.
-        "args" => {
-            let args = value.to_list()?;
-            for arg in args {
-                match strong_importing_coerce_to_string(co, arg).await? {
-                    Err(cek) => return Ok(Err(cek)),
-                    Ok(s) => drv.arguments.push(s),
-                }
-            }
-
-            // The arguments do not appear in the environment.
-            return Ok(Ok(false));
-        }
-
-        // Explicitly specified drv outputs (instead of default [ "out" ])
-        "outputs" => {
-            let outputs = value
-                .to_list()
-                .context("looking at the `outputs` parameter of the derivation")?;
-
-            populate_outputs(co, drv, outputs).await?;
-        }
-
-        "builder" => {
-            drv.builder = val_str.to_string();
-        }
-
-        "system" => {
-            drv.system = val_str.to_string();
-        }
-
-        _ => {}
-    }
-
-    Ok(Ok(true))
-}
-
-async fn strong_importing_coerce_to_string(
-    co: &GenCo,
-    val: Value,
-) -> Result<Result<String, CatchableErrorKind>, ErrorKind> {
-    let val = generators::request_force(co, val).await;
-    match generators::request_string_coerce(
-        co,
-        val,
-        CoercionKind {
-            strong: true,
-            import_paths: true,
-        },
-    )
-    .await
-    {
-        Err(cek) => Ok(Err(cek)),
-        Ok(val_str) => Ok(Ok(val_str.as_str().to_string())),
-    }
-}
-
 #[builtins(state = "Rc<RefCell<KnownPaths>>")]
 pub(crate) mod derivation_builtins {
+    use std::collections::BTreeMap;
+
     use super::*;
     use nix_compat::store_path::hash_placeholder;
     use tvix_eval::generators::Gen;
@@ -258,14 +162,38 @@ pub(crate) mod derivation_builtins {
             return Err(ErrorKind::Abort("derivation has empty name".to_string()));
         }
 
-        // Check whether attributes should be passed as a JSON file.
-        // TODO: the JSON serialisation has to happen here.
-        if let Some(sa) = input.select(STRUCTURED_ATTRS) {
-            if generators::request_force(&co, sa.clone()).await.as_bool()? {
-                return Ok(Value::Catchable(CatchableErrorKind::UnimplementedFeature(
-                    STRUCTURED_ATTRS.to_string(),
-                )));
+        let mut drv = Derivation::default();
+        drv.outputs.insert("out".to_string(), Default::default());
+        let mut input_context = NixContext::new();
+
+        #[inline]
+        async fn strong_importing_coerce_to_string(
+            co: &GenCo,
+            val: Value,
+        ) -> Result<NixString, CatchableErrorKind> {
+            let val = generators::request_force(co, val).await;
+            match generators::request_string_coerce(
+                co,
+                val,
+                CoercionKind {
+                    strong: true,
+                    import_paths: true,
+                },
+            )
+            .await
+            {
+                Err(cek) => Err(cek),
+                Ok(val_str) => Ok(val_str),
             }
+        }
+
+        /// Inserts a key and value into the drv.environment BTreeMap, and fails if the
+        /// key did already exist before.
+        fn insert_env(drv: &mut Derivation, k: &str, v: BString) -> Result<(), DerivationError> {
+            if drv.environment.insert(k.into(), v).is_some() {
+                return Err(DerivationError::DuplicateEnvVar(k.into()));
+            }
+            Ok(())
         }
 
         // Check whether null attributes should be ignored or passed through.
@@ -274,82 +202,166 @@ pub(crate) mod derivation_builtins {
             None => false,
         };
 
-        let mut drv = Derivation::default();
-        drv.outputs.insert("out".to_string(), Default::default());
+        // peek at the STRUCTURED_ATTRS argument.
+        // If it's set and true, provide a BTreeMap that gets populated while looking at the arguments.
+        // We need it to be a BTreeMap, so iteration order of keys is reproducible.
+        let mut structured_attrs: Option<BTreeMap<String, serde_json::Value>> =
+            match input.select(STRUCTURED_ATTRS) {
+                Some(b) => generators::request_force(&co, b.clone())
+                    .await
+                    .as_bool()?
+                    .then_some(Default::default()),
+                None => None,
+            };
 
-        async fn select_string(
-            co: &GenCo,
-            attrs: &NixAttrs,
-            key: &str,
-        ) -> Result<Result<Option<String>, CatchableErrorKind>, ErrorKind> {
-            if let Some(attr) = attrs.select(key) {
-                match strong_importing_coerce_to_string(co, attr.clone()).await? {
-                    Err(cek) => return Ok(Err(cek)),
-                    Ok(str) => return Ok(Ok(Some(str))),
-                }
-            }
+        // Look at the arguments passed to builtins.derivationStrict.
+        // Some set special fields in the Derivation struct, some change
+        // behaviour of other functionality.
+        for (arg_name, arg_value) in input.clone().into_iter_sorted() {
+            // force the current value.
+            let value = generators::request_force(&co, arg_value).await;
 
-            Ok(Ok(None))
-        }
-
-        let mut input_context = NixContext::new();
-
-        for (name, value) in input.clone().into_iter_sorted() {
-            let value = generators::request_force(&co, value).await;
+            // filter out nulls if ignore_nulls is set.
             if ignore_nulls && matches!(value, Value::Null) {
                 continue;
             }
 
-            match generators::request_string_coerce(
-                &co,
-                value.clone(),
-                CoercionKind {
-                    strong: true,
-                    import_paths: true,
-                },
-            )
-            .await
-            {
-                Err(cek) => return Ok(Value::Catchable(cek)),
-                Ok(val_str) => {
-                    // Learn about this derivation references
-                    // by looking at its context.
-                    input_context.mimic(&val_str);
+            match arg_name.as_str() {
+                // Command line arguments to the builder.
+                // These are only set in drv.arguments.
+                "args" => {
+                    for arg in value.to_list()? {
+                        match strong_importing_coerce_to_string(&co, arg).await {
+                            Err(cek) => return Ok(Value::Catchable(cek)),
+                            Ok(s) => {
+                                input_context.mimic(&s);
+                                drv.arguments.push(s.as_str().to_string())
+                            }
+                        }
+                    }
+                }
 
-                    let val_str = val_str.as_str().to_string();
-                    // handle_derivation_parameters tells us whether the
-                    // argument should be added to the environment; continue
-                    // to the next one otherwise
-                    match handle_derivation_parameters(
-                        &mut drv,
-                        &co,
-                        name.as_str(),
-                        &value,
-                        &val_str,
-                    )
-                    .await?
-                    {
-                        Err(cek) => return Ok(Value::Catchable(cek)),
-                        Ok(false) => continue,
-                        _ => (),
+                // If outputs is set, remove the original default `out` output,
+                // and replace it with the list of outputs.
+                "outputs" => {
+                    let outputs = value
+                        .to_list()
+                        .context("looking at the `outputs` parameter of the derivation")?;
+
+                    // Remove the original default `out` output.
+                    drv.outputs.clear();
+
+                    let mut output_names = vec![];
+
+                    for output in outputs {
+                        let output_name = generators::request_force(&co, output)
+                            .await
+                            .to_str()
+                            .context("determining output name")?;
+
+                        input_context.mimic(&output_name);
+
+                        // Populate drv.outputs
+                        if drv
+                            .outputs
+                            .insert(output_name.as_str().to_string(), Default::default())
+                            .is_some()
+                        {
+                            Err(DerivationError::DuplicateOutput(
+                                output_name.as_str().into(),
+                            ))?
+                        }
+                        output_names.push(output_name.as_str().to_string());
                     }
 
-                    // Most of these are also added to the builder's environment in "raw" form.
-                    if drv
-                        .environment
-                        .insert(name.as_str().to_string(), val_str.into())
-                        .is_some()
-                    {
-                        return Err(
-                            DerivationError::DuplicateEnvVar(name.as_str().to_string()).into()
-                        );
+                    // Add drv.environment[outputs] unconditionally.
+                    insert_env(&mut drv, arg_name.as_str(), output_names.join(" ").into())?;
+                    // drv.environment[$output_name] is added after the loop,
+                    // with whatever is in drv.outputs[$output_name].
+                }
+
+                // handle builder and system.
+                "builder" | "system" => {
+                    match strong_importing_coerce_to_string(&co, value).await {
+                        Err(cek) => return Ok(Value::Catchable(cek)),
+                        Ok(val_str) => {
+                            input_context.mimic(&val_str);
+
+                            if arg_name.as_str() == "builder" {
+                                drv.builder = val_str.as_str().to_owned();
+                            } else {
+                                drv.system = val_str.as_str().to_owned();
+                            }
+
+                            // Either populate drv.environment or structured_attrs.
+                            if let Some(ref mut structured_attrs) = structured_attrs {
+                                // No need to check for dups, we only iterate over every attribute name once
+                                structured_attrs
+                                    .insert(arg_name.as_str().into(), val_str.as_str().into());
+                            } else {
+                                insert_env(&mut drv, arg_name.as_str(), val_str.as_bytes().into())?;
+                            }
+                        }
+                    }
+                }
+
+                // Don't add STRUCTURED_ATTRS if enabled.
+                STRUCTURED_ATTRS if structured_attrs.is_some() => continue,
+                // IGNORE_NULLS is always skipped, even if it's not set to true.
+                IGNORE_NULLS => continue,
+
+                // all other args.
+                _ => {
+                    // In SA case, force and add to structured attrs.
+                    // In non-SA case, coerce to string and add to env.
+                    if let Some(ref mut structured_attrs) = structured_attrs {
+                        let val = generators::request_force(&co, value).await;
+                        if matches!(val, Value::Catchable(_)) {
+                            return Ok(val);
+                        }
+
+                        // TODO(raitobezarius): context for json values?
+                        // input_context.mimic(&val);
+
+                        let val_json = match val.into_json(&co).await? {
+                            Ok(v) => v,
+                            Err(cek) => return Ok(Value::Catchable(cek)),
+                        };
+
+                        // No need to check for dups, we only iterate over every attribute name once
+                        structured_attrs.insert(arg_name.as_str().to_string(), val_json);
+                    } else {
+                        match strong_importing_coerce_to_string(&co, value).await {
+                            Err(cek) => return Ok(Value::Catchable(cek)),
+                            Ok(val_str) => {
+                                input_context.mimic(&val_str);
+
+                                insert_env(&mut drv, arg_name.as_str(), val_str.as_bytes().into())?;
+                            }
+                        }
                     }
                 }
             }
         }
+        // end of per-argument loop
 
         // Configure fixed-output derivations if required.
         {
+            async fn select_string(
+                co: &GenCo,
+                attrs: &NixAttrs,
+                key: &str,
+            ) -> Result<Result<Option<String>, CatchableErrorKind>, ErrorKind> {
+                if let Some(attr) = attrs.select(key) {
+                    match strong_importing_coerce_to_string(co, attr.clone()).await {
+                        Err(cek) => return Ok(Err(cek)),
+                        Ok(str) => return Ok(Ok(Some(str.as_str().to_string()))),
+                    }
+                }
+
+                Ok(Ok(None))
+            }
+
             let output_hash = match select_string(&co, &input, "outputHash")
                 .await
                 .context("evaluating the `outputHash` parameter")?
@@ -380,8 +392,9 @@ pub(crate) mod derivation_builtins {
         }
 
         // Each output name needs to exist in the environment, at this
-        // point initialised as an empty string because that is the
-        // way of Golang ;)
+        // point initialised as an empty string, as the ATerm serialization of that is later
+        // used for the output path calculation (which will also update output
+        // paths post-calculation, both in drv.environment and drv.outputs)
         for output in drv.outputs.keys() {
             if drv
                 .environment
@@ -390,6 +403,14 @@ pub(crate) mod derivation_builtins {
             {
                 emit_warning_kind(&co, WarningKind::ShadowedOutput(output.to_string())).await;
             }
+        }
+
+        if let Some(structured_attrs) = structured_attrs {
+            // configure __json
+            drv.environment.insert(
+                "__json".to_string(),
+                BString::from(serde_json::to_string(&structured_attrs)?),
+            );
         }
 
         populate_inputs(&mut drv, input_context);

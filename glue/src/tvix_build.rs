@@ -87,7 +87,8 @@ where
     );
 
     handle_pass_as_file(&mut environment_vars, &mut additional_files)?;
-    // TODO: handle structuredAttrs.
+
+    // TODO: handle __json (structured attrs, provide JSON file and source-able bash script)
 
     // Produce inputs. As we refer to the contents here, not just plain store path strings,
     // we need to perform lookups.
