@@ -163,8 +163,8 @@ pub enum ErrorKind {
         error: Rc<io::Error>,
     },
 
-    /// Errors converting JSON to a value
-    FromJsonError(String),
+    /// Errors parsing JSON, or serializing as JSON.
+    JsonError(String),
 
     /// Nix value that can not be serialised to JSON.
     NotSerialisableToJson(&'static str),
@@ -263,7 +263,7 @@ impl From<io::Error> for ErrorKind {
 impl From<serde_json::Error> for ErrorKind {
     fn from(err: serde_json::Error) -> Self {
         // Can't just put the `serde_json::Error` in the ErrorKind since it doesn't impl `Clone`
-        Self::FromJsonError(format!("error in JSON serialization: {err}"))
+        Self::JsonError(err.to_string())
     }
 }
 
@@ -444,8 +444,8 @@ to a missing value in the attribute set(s) included via `with`."#,
                 write!(f, "{error}")
             }
 
-            ErrorKind::FromJsonError(msg) => {
-                write!(f, "Error converting JSON to a Nix value: {msg}")
+            ErrorKind::JsonError(msg) => {
+                write!(f, "Error converting JSON to a Nix value or back: {msg}")
             }
 
             ErrorKind::NotSerialisableToJson(_type) => {
@@ -771,7 +771,7 @@ impl Error {
             | ErrorKind::ImportParseError { .. }
             | ErrorKind::ImportCompilerError { .. }
             | ErrorKind::IO { .. }
-            | ErrorKind::FromJsonError(_)
+            | ErrorKind::JsonError(_)
             | ErrorKind::NotSerialisableToJson(_)
             | ErrorKind::FromTomlError(_)
             | ErrorKind::Xml(_)
@@ -811,7 +811,7 @@ impl Error {
             ErrorKind::ImportParseError { .. } => "E027",
             ErrorKind::ImportCompilerError { .. } => "E028",
             ErrorKind::IO { .. } => "E029",
-            ErrorKind::FromJsonError { .. } => "E030",
+            ErrorKind::JsonError { .. } => "E030",
             ErrorKind::UnexpectedArgument { .. } => "E031",
             ErrorKind::RelativePathResolution(_) => "E032",
             ErrorKind::DivisionByZero => "E033",
