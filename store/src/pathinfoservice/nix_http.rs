@@ -1,7 +1,6 @@
 use std::{
     io::{self, BufRead, Read, Write},
     pin::Pin,
-    sync::Arc,
 };
 
 use data_encoding::BASE64;
@@ -38,24 +37,20 @@ use super::PathInfoService;
 /// [PathInfoService::put] and [PathInfoService::calculate_nar] are not
 /// implemented and return an error if called.
 /// TODO: what about reading from nix-cache-info?
-pub struct NixHTTPPathInfoService {
+pub struct NixHTTPPathInfoService<BS, DS> {
     base_url: url::Url,
     http_client: reqwest::Client,
 
-    blob_service: Arc<dyn BlobService>,
-    directory_service: Arc<dyn DirectoryService>,
+    blob_service: BS,
+    directory_service: DS,
 
     /// An optional list of [narinfo::PubKey].
     /// If set, the .narinfo files received need to have correct signature by at least one of these.
     public_keys: Option<Vec<narinfo::PubKey>>,
 }
 
-impl NixHTTPPathInfoService {
-    pub fn new(
-        base_url: url::Url,
-        blob_service: Arc<dyn BlobService>,
-        directory_service: Arc<dyn DirectoryService>,
-    ) -> Self {
+impl<BS, DS> NixHTTPPathInfoService<BS, DS> {
+    pub fn new(base_url: url::Url, blob_service: BS, directory_service: DS) -> Self {
         Self {
             base_url,
             http_client: reqwest::Client::new(),
@@ -73,7 +68,11 @@ impl NixHTTPPathInfoService {
 }
 
 #[async_trait]
-impl PathInfoService for NixHTTPPathInfoService {
+impl<BS, DS> PathInfoService for NixHTTPPathInfoService<BS, DS>
+where
+    BS: AsRef<dyn BlobService> + Send + Sync + Clone + 'static,
+    DS: AsRef<dyn DirectoryService> + Send + Sync + Clone + 'static,
+{
     #[instrument(skip_all, err, fields(path.digest=BASE64.encode(&digest)))]
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
         let narinfo_url = self

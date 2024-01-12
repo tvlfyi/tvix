@@ -22,8 +22,8 @@ fn gen_grpc_service(
     let blob_service = gen_blob_service();
     let directory_service = gen_directory_service();
     Arc::new(GRPCPathInfoServiceWrapper::new(gen_pathinfo_service(
-        blob_service.into(),
-        directory_service.into(),
+        blob_service,
+        directory_service,
     )))
 }
 

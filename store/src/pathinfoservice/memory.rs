@@ -11,18 +11,15 @@ use tvix_castore::proto as castorepb;
 use tvix_castore::Error;
 use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService};
 
-pub struct MemoryPathInfoService {
+pub struct MemoryPathInfoService<BS, DS> {
     db: Arc<RwLock<HashMap<[u8; 20], PathInfo>>>,
 
-    blob_service: Arc<dyn BlobService>,
-    directory_service: Arc<dyn DirectoryService>,
+    blob_service: BS,
+    directory_service: DS,
 }
 
-impl MemoryPathInfoService {
-    pub fn new(
-        blob_service: Arc<dyn BlobService>,
-        directory_service: Arc<dyn DirectoryService>,
-    ) -> Self {
+impl<BS, DS> MemoryPathInfoService<BS, DS> {
+    pub fn new(blob_service: BS, directory_service: DS) -> Self {
         Self {
             db: Default::default(),
             blob_service,
@@ -32,7 +29,11 @@ impl MemoryPathInfoService {
 }
 
 #[async_trait]
-impl PathInfoService for MemoryPathInfoService {
+impl<BS, DS> PathInfoService for MemoryPathInfoService<BS, DS>
+where
+    BS: AsRef<dyn BlobService> + Send + Sync,
+    DS: AsRef<dyn DirectoryService> + Send + Sync,
+{
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
         let db = self.db.read().unwrap();
 
@@ -65,13 +66,9 @@ impl PathInfoService for MemoryPathInfoService {
         &self,
         root_node: &castorepb::node::Node,
     ) -> Result<(u64, [u8; 32]), Error> {
-        calculate_size_and_sha256(
-            root_node,
-            self.blob_service.clone(),
-            self.directory_service.clone(),
-        )
-        .await
-        .map_err(|e| Error::StorageError(e.to_string()))
+        calculate_size_and_sha256(root_node, &self.blob_service, &self.directory_service)
+            .await
+            .map_err(|e| Error::StorageError(e.to_string()))
     }
 
     fn list(&self) -> Pin<Box<dyn Stream<Item = Result<PathInfo, Error>> + Send>> {

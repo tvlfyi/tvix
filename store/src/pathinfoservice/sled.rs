@@ -3,7 +3,7 @@ use crate::nar::calculate_size_and_sha256;
 use crate::proto::PathInfo;
 use futures::{stream::iter, Stream};
 use prost::Message;
-use std::{path::Path, pin::Pin, sync::Arc};
+use std::{path::Path, pin::Pin};
 use tonic::async_trait;
 use tracing::warn;
 use tvix_castore::proto as castorepb;
@@ -13,18 +13,18 @@ use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService,
 ///
 /// The PathInfo messages are stored as encoded protos, and keyed by their output hash,
 /// as that's currently the only request type available.
-pub struct SledPathInfoService {
+pub struct SledPathInfoService<BS, DS> {
     db: sled::Db,
 
-    blob_service: Arc<dyn BlobService>,
-    directory_service: Arc<dyn DirectoryService>,
+    blob_service: BS,
+    directory_service: DS,
 }
 
-impl SledPathInfoService {
+impl<BS, DS> SledPathInfoService<BS, DS> {
     pub fn new<P: AsRef<Path>>(
         p: P,
-        blob_service: Arc<dyn BlobService>,
-        directory_service: Arc<dyn DirectoryService>,
+        blob_service: BS,
+        directory_service: DS,
     ) -> Result<Self, sled::Error> {
         let config = sled::Config::default()
             .use_compression(false) // is a required parameter
@@ -38,10 +38,7 @@ impl SledPathInfoService {
         })
     }
 
-    pub fn new_temporary(
-        blob_service: Arc<dyn BlobService>,
-        directory_service: Arc<dyn DirectoryService>,
-    ) -> Result<Self, sled::Error> {
+    pub fn new_temporary(blob_service: BS, directory_service: DS) -> Result<Self, sled::Error> {
         let config = sled::Config::default().temporary(true);
         let db = config.open()?;
 
@@ -54,7 +51,11 @@ impl SledPathInfoService {
 }
 
 #[async_trait]
-impl PathInfoService for SledPathInfoService {
+impl<BS, DS> PathInfoService for SledPathInfoService<BS, DS>
+where
+    BS: AsRef<dyn BlobService> + Send + Sync,
+    DS: AsRef<dyn DirectoryService> + Send + Sync,
+{
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
         match self.db.get(digest) {
             Ok(None) => Ok(None),
@@ -106,13 +107,9 @@ impl PathInfoService for SledPathInfoService {
         &self,
         root_node: &castorepb::node::Node,
     ) -> Result<(u64, [u8; 32]), Error> {
-        calculate_size_and_sha256(
-            root_node,
-            self.blob_service.clone(),
-            self.directory_service.clone(),
-        )
-        .await
-        .map_err(|e| Error::StorageError(e.to_string()))
+        calculate_size_and_sha256(root_node, &self.blob_service, &self.directory_service)
+            .await
+            .map_err(|e| Error::StorageError(e.to_string()))
     }
 
     fn list(&self) -> Pin<Box<dyn Stream<Item = Result<PathInfo, Error>> + Send>> {
