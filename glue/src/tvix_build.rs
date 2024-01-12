@@ -10,7 +10,7 @@ use tvix_build::proto::{
     build_request::{AdditionalFile, BuildConstraints, EnvVar},
     BuildRequest,
 };
-use tvix_castore::proto::{NamedNode, Node};
+use tvix_castore::proto::{self, node::Node, NamedNode};
 
 /// These are the environment variables that Nix sets in its sandbox for every
 /// build.
@@ -34,17 +34,17 @@ const NIX_ENVIRONMENT_VARS: [(&str, &str); 12] = [
 /// It needs two lookup functions:
 /// - one translating input sources to a castore node
 ///   (`fn_input_sources_to_node`)
-/// - one translating input derivations and (a subset of their) output names to
-///   a castore node (`fn_input_drvs_to_node`).
+/// - one translating a tuple of drv path and (a subset of their) output names to
+///   castore nodes of the selected outpus (`fn_input_drvs_to_output_nodes`).
 #[allow(dead_code)]
-fn derivation_to_build_request<FIS, FID>(
+pub(crate) fn derivation_to_build_request<FIS, FID>(
     derivation: &Derivation,
     fn_input_sources_to_node: FIS,
-    fn_input_drvs_to_node: FID,
+    fn_input_drvs_to_output_nodes: FID,
 ) -> std::io::Result<BuildRequest>
 where
-    FIS: Fn(StorePathRef) -> Node,
-    FID: Fn(StorePathRef, &[&str]) -> Node,
+    FIS: Fn(&StorePathRef) -> Node,
+    FID: Fn(&StorePathRef, &[&str]) -> Vec<Node>,
 {
     debug_assert!(derivation.validate(true).is_ok(), "drv must validate");
 
@@ -94,37 +94,25 @@ where
     // FUTUREWORK: should we also model input_derivations and input_sources with StorePath?
     let mut inputs: Vec<Node> = Vec::new();
 
-    // since Derivation is validated, we know input sources can be parsed.
+    // populate inputs selected by input_sources.
     for input_source in derivation.input_sources.iter() {
+        // since Derivation is validated, we know input sources can be parsed.
         let sp = StorePathRef::from_absolute_path(input_source.as_bytes())
             .expect("invalid input source path");
-        let node = fn_input_sources_to_node(sp);
-        inputs.push(node);
+        inputs.push(fn_input_sources_to_node(&sp));
     }
 
-    // since Derivation is validated, we know input derivations can be parsed.
+    // populate inputs selected by input_drv and (subset of) output names.
     for (input_derivation, output_names) in derivation.input_derivations.iter() {
+        // since Derivation is validated, we know input derivations can be parsed.
         let sp = StorePathRef::from_absolute_path(input_derivation.as_bytes())
             .expect("invalid input derivation path");
         let output_names: Vec<&str> = output_names.iter().map(|e| e.as_str()).collect();
-        let node = fn_input_drvs_to_node(sp, output_names.as_slice());
-        inputs.push(node);
+        inputs.extend(fn_input_drvs_to_output_nodes(&sp, output_names.as_slice()));
     }
 
-    // validate all nodes are actually Some.
-    debug_assert!(
-        inputs.iter().all(|input| input.node.is_some()),
-        "input nodes must be some"
-    );
-
     // sort inputs by their name
-    inputs.sort_by(|a, b| {
-        a.node
-            .as_ref()
-            .unwrap()
-            .get_name()
-            .cmp(b.node.as_ref().unwrap().get_name())
-    });
+    inputs.sort_by(|a, b| a.get_name().cmp(b.get_name()));
 
     // Produce constraints.
     let constraints = Some(BuildConstraints {
@@ -146,21 +134,22 @@ where
         outputs: output_paths,
 
         // Turn this into a sorted-by-key Vec<EnvVar>.
-        environment_vars: Vec::from_iter(
-            environment_vars
-                .into_iter()
-                .map(|(key, value)| EnvVar { key, value }),
-        ),
-        inputs,
+        environment_vars: environment_vars
+            .into_iter()
+            .map(|(key, value)| EnvVar { key, value })
+            .collect(),
+        inputs: inputs
+            .into_iter()
+            .map(|n| proto::Node { node: Some(n) })
+            .collect(),
         inputs_dir: nix_compat::store_path::STORE_DIR[1..].into(),
         constraints,
         working_dir: "build".into(),
         scratch_paths: vec!["build".into(), "nix/store".into()],
-        additional_files: Vec::from_iter(
-            additional_files
-                .into_iter()
-                .map(|(path, contents)| AdditionalFile { path, contents }),
-        ),
+        additional_files: additional_files
+            .into_iter()
+            .map(|(path, contents)| AdditionalFile { path, contents })
+            .collect(),
     };
 
     debug_assert!(
@@ -240,7 +229,7 @@ mod test {
     };
     use tvix_castore::{
         fixtures::DUMMY_DIGEST,
-        proto::{DirectoryNode, Node},
+        proto::{self, node::Node, DirectoryNode},
     };
 
     use crate::tvix_build::NIX_ENVIRONMENT_VARS;
@@ -249,13 +238,11 @@ mod test {
     use lazy_static::lazy_static;
 
     lazy_static! {
-        static ref INPUT_NODE_FOO: Node = Node {
-            node: Some(tvix_castore::proto::node::Node::Directory(DirectoryNode {
-                name: Bytes::from("mp57d33657rf34lzvlbpfa1gjfv5gmpg-bar"),
-                digest: DUMMY_DIGEST.clone().into(),
-                size: 42,
-            })),
-        };
+        static ref INPUT_NODE_FOO: Node = Node::Directory(DirectoryNode {
+            name: Bytes::from("mp57d33657rf34lzvlbpfa1gjfv5gmpg-bar"),
+            digest: DUMMY_DIGEST.clone().into(),
+            size: 42,
+        });
     }
 
     #[test]
@@ -278,7 +265,7 @@ mod test {
                 }
 
                 // all good, reply with INPUT_NODE_FOO
-                INPUT_NODE_FOO.clone()
+                vec![INPUT_NODE_FOO.clone()]
             },
         )
         .expect("must succeed");
@@ -318,7 +305,9 @@ mod test {
                 command_args: vec![":".into()],
                 outputs: vec!["nix/store/fhaj6gmwns62s6ypkcldbaj2ybvkhx3p-foo".into()],
                 environment_vars: expected_environment_vars,
-                inputs: vec![INPUT_NODE_FOO.clone()],
+                inputs: vec![proto::Node {
+                    node: Some(INPUT_NODE_FOO.clone())
+                }],
                 inputs_dir: "nix/store".into(),
                 constraints: Some(BuildConstraints {
                     system: derivation.system.clone(),
