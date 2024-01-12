@@ -246,6 +246,38 @@ mod tests {
         }
     }
 
+    #[test_case(r#"
+                   let
+                     bar = builtins.derivation {
+                       name = "bar";
+                       builder = ":";
+                       system = ":";
+                       outputHash = "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba";
+                       outputHashAlgo = "sha256";
+                       outputHashMode = "recursive";
+                     };
+                   in
+                   (builtins.derivation {
+                     name = "foo";
+                     builder = ":";
+                     args = [ "${bar}" ];
+                     system = ":";
+                   }).drvPath
+        "#, "/nix/store/50yl2gmmljyl0lzyrp1mcyhn53vhjhkd-foo.drv"; "input in `args`")]
+    fn test_inputs_derivation_from_context(code: &str, expected_drvpath: &str) {
+        let eval_result = eval(code);
+
+        let value = eval_result.value.expect("must succeed");
+
+        match value {
+            tvix_eval::Value::String(s) => {
+                assert_eq!(expected_drvpath, s.as_str());
+            }
+
+            _ => panic!("unexpected value type: {:?}", value),
+        };
+    }
+
     #[test]
     fn builtins_placeholder_hashes() {
         assert_eq!(
