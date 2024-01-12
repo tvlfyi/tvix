@@ -60,20 +60,16 @@ where
     /// In case there is no PathInfo yet, this means we need to build it
     /// (which currently is stubbed out still).
     #[instrument(skip(self), ret, err)]
-    fn store_path_to_node(
+    async fn store_path_to_node(
         &self,
         store_path: &StorePath,
         sub_path: &Path,
     ) -> io::Result<Option<Node>> {
         let root_node = match self
-            .tokio_handle
-            .block_on(async {
-                self.path_info_service
-                    .as_ref()
-                    .get(*store_path.digest())
-                    .await
-            })
-            .unwrap()
+            .path_info_service
+            .as_ref()
+            .get(*store_path.digest())
+            .await?
         {
             // if we have a PathInfo, we know there will be a root_node (due to validation)
             Some(path_info) => path_info.node.expect("no node").node.expect("no node"),
@@ -90,11 +86,18 @@ where
         };
 
         // with the root_node and sub_path, descend to the node requested.
-        Ok(self.tokio_handle.block_on({
-            async {
-                directoryservice::descend_to(&self.directory_service, root_node, sub_path).await
-            }
-        })?)
+        directoryservice::descend_to(&self.directory_service, root_node, sub_path)
+            .await
+            .map_err(|e| std::io::Error::new(io::ErrorKind::Other, e))
+    }
+
+    fn store_path_to_node_sync(
+        &self,
+        store_path: &StorePath,
+        sub_path: &Path,
+    ) -> io::Result<Option<Node>> {
+        self.tokio_handle
+            .block_on(async { self.store_path_to_node(store_path, sub_path).await })
     }
 }
 
@@ -109,7 +112,10 @@ where
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
         {
-            if self.store_path_to_node(&store_path, &sub_path)?.is_some() {
+            if self
+                .store_path_to_node_sync(&store_path, &sub_path)?
+                .is_some()
+            {
                 Ok(true)
             } else {
                 // As tvix-store doesn't manage /nix/store on the filesystem,
@@ -127,7 +133,7 @@ where
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
         {
-            if let Some(node) = self.store_path_to_node(&store_path, &sub_path)? {
+            if let Some(node) = self.store_path_to_node_sync(&store_path, &sub_path)? {
                 // depending on the node type, treat read_to_string differently
                 match node {
                     Node::Directory(_) => {
@@ -195,7 +201,7 @@ where
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
         {
-            if let Some(node) = self.store_path_to_node(&store_path, &sub_path)? {
+            if let Some(node) = self.store_path_to_node_sync(&store_path, &sub_path)? {
                 match node {
                     Node::Directory(directory_node) => {
                         // fetch the Directory itself.
