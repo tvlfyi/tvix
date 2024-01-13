@@ -91,36 +91,6 @@ macro_rules! make {
     };
 }
 
-pub(crate) use make;
-
-#[cfg(test)]
-mod test {
-    use super::super::tag::{self, Tag};
-
-    const TOK_A: [u8; 3] = [0xed, 0xef, 0x1c];
-    const TOK_B: [u8; 3] = [0xed, 0xf0, 0x1c];
-
-    const OFFSET: usize = 1;
-
-    make! {
-        enum Token[OFFSET] {
-            A = TOK_A,
-            B = TOK_B,
-        }
-    }
-
-    #[test]
-    fn example() {
-        assert_eq!(Token::from_u8(0xed), None);
-
-        let tag = Token::from_u8(0xef).unwrap();
-        assert_eq!(tag.as_bytes(), &TOK_A[..]);
-
-        let tag = Token::from_u8(0xf0).unwrap();
-        assert_eq!(tag.as_bytes(), &TOK_B[..]);
-    }
-}
-
 // The following functions are written somewhat unusually,
 // since they're const functions that cannot use iterators.
 
@@ -162,4 +132,34 @@ pub const fn min_of(mut xs: &[usize]) -> usize {
 /// ```
 pub const fn buf_of(xs: &[usize]) -> usize {
     max_of(&[min_of(xs), max_of(xs) - min_of(xs)])
+}
+
+pub(crate) use make;
+
+#[cfg(test)]
+mod test {
+    use super::super::tag::{self, Tag};
+
+    const TOK_A: [u8; 3] = [0xed, 0xef, 0x1c];
+    const TOK_B: [u8; 3] = [0xed, 0xf0, 0x1c];
+
+    const OFFSET: usize = 1;
+
+    make! {
+        enum Token[OFFSET] {
+            A = TOK_A,
+            B = TOK_B,
+        }
+    }
+
+    #[test]
+    fn example() {
+        assert_eq!(Token::from_u8(0xed), None);
+
+        let tag = Token::from_u8(0xef).unwrap();
+        assert_eq!(tag.as_bytes(), &TOK_A[..]);
+
+        let tag = Token::from_u8(0xf0).unwrap();
+        assert_eq!(tag.as_bytes(), &TOK_B[..]);
+    }
 }

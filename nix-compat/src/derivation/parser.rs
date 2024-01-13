@@ -23,7 +23,7 @@ pub enum Error<I> {
     #[error("premature EOF")]
     Incomplete,
     #[error("validation error: {0}")]
-    ValidationError(super::DerivationError),
+    Validation(super::DerivationError),
 }
 
 pub(crate) fn parse(i: &[u8]) -> Result<Derivation, Error<&[u8]>> {
@@ -33,7 +33,7 @@ pub(crate) fn parse(i: &[u8]) -> Result<Derivation, Error<&[u8]>> {
             debug_assert!(rest.is_empty());
 
             // invoke validate
-            derivation.validate(true).map_err(Error::ValidationError)?;
+            derivation.validate(true).map_err(Error::Validation)?;
 
             Ok(derivation)
         }

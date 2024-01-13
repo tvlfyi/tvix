@@ -78,11 +78,7 @@ fn test_kv_attrs_iter() {
     )
     .expect("constructing K/V pair attrs should succeed");
 
-    let mut iter = kv_attrs
-        .iter()
-        .collect::<Vec<_>>()
-        .into_iter()
-        .map(|(k, v)| (k, v));
+    let mut iter = kv_attrs.iter().collect::<Vec<_>>().into_iter();
     let (k, v) = iter.next().unwrap();
     assert!(k == *NAME_REF);
     assert!(v.to_str().unwrap() == meaning_val.to_str().unwrap());
