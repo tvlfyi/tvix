@@ -10648,6 +10648,14 @@ rec {
             packageId = "lazy_static";
           }
           {
+            name = "pretty_assertions";
+            packageId = "pretty_assertions";
+          }
+          {
+            name = "rstest";
+            packageId = "rstest";
+          }
+          {
             name = "tempfile";
             packageId = "tempfile";
           }
@@ -10656,7 +10664,10 @@ rec {
             packageId = "test-case";
           }
         ];
-
+        features = {
+          "default" = [ "nix_tests" ];
+        };
+        resolvedDefaultFeatures = [ "default" "nix_tests" ];
       };
       "tvix-serde" = rec {
         crateName = "tvix-serde";

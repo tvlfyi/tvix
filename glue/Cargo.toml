@@ -25,8 +25,16 @@ git = "https://github.com/tvlfyi/wu-manber.git"
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 lazy_static = "1.4.0"
+pretty_assertions = "1.4.0"
+rstest = "0.18.2"
 tempfile = "3.8.1"
 test-case = "3.3.1"
+
+[features]
+default = ["nix_tests"]
+# Enables running the Nix language test suite from the original C++
+# Nix implementation (at version 2.3) against Tvix.
+nix_tests = []
 
 [[bench]]
 name = "eval"

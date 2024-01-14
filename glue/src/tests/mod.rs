@@ -1,46 +1,21 @@
-use crate::value::Value;
-use builtin_macros::builtins;
+use std::{cell::RefCell, rc::Rc, sync::Arc};
+
 use pretty_assertions::assert_eq;
-use rstest::rstest;
 use std::path::PathBuf;
+use tvix_castore::{
+    blobservice::{BlobService, MemoryBlobService},
+    directoryservice::{DirectoryService, MemoryDirectoryService},
+};
+use tvix_eval::Value;
+use tvix_store::pathinfoservice::{MemoryPathInfoService, PathInfoService};
 
-/// Module for one-off tests which do not follow the rest of the
-/// test layout.
-mod one_offs;
+use rstest::rstest;
 
-#[builtins]
-mod mock_builtins {
-    //! Builtins which are required by language tests, but should not
-    //! actually exist in //tvix/eval.
-    use crate as tvix_eval;
-    use crate::generators::GenCo;
-    use crate::*;
-    use genawaiter::rc::Gen;
-
-    #[builtin("derivation")]
-    async fn builtin_derivation(co: GenCo, input: Value) -> Result<Value, ErrorKind> {
-        let input = input.to_attrs()?;
-        let attrs = input.update(NixAttrs::from_iter(
-            [
-                (
-                    "outPath",
-                    "/nix/store/00000000000000000000000000000000-mock",
-                ),
-                (
-                    "drvPath",
-                    "/nix/store/00000000000000000000000000000000-mock.drv",
-                ),
-                ("type", "derivation"),
-            ]
-            .into_iter(),
-        ));
-
-        Ok(Value::Attrs(Box::new(attrs)))
-    }
-}
+use crate::{
+    builtins::add_derivation_builtins, known_paths::KnownPaths, tvix_store_io::TvixStoreIO,
+};
 
 fn eval_test(code_path: PathBuf, expect_success: bool) {
-    eprintln!("path: {}", code_path.display());
     assert_eq!(
         code_path.extension().unwrap(),
         "nix",
@@ -57,9 +32,28 @@ fn eval_test(code_path: PathBuf, expect_success: bool) {
         return;
     }
 
-    let mut eval = crate::Evaluation::new_impure();
+    let mut eval = tvix_eval::Evaluation::new_impure();
+
+    let blob_service = Arc::new(MemoryBlobService::default()) as Arc<dyn BlobService>;
+    let directory_service =
+        Arc::new(MemoryDirectoryService::default()) as Arc<dyn DirectoryService>;
+    let path_info_service = Box::new(MemoryPathInfoService::new(
+        blob_service.clone(),
+        directory_service.clone(),
+    )) as Box<dyn PathInfoService>;
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+
+    eval.io_handle = Box::new(TvixStoreIO::new(
+        blob_service,
+        directory_service,
+        path_info_service,
+        runtime.handle().clone(),
+    ));
+
+    let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
+
     eval.strict = true;
-    eval.builtins.extend(mock_builtins::builtins());
+    add_derivation_builtins(&mut eval, known_paths.clone());
 
     let result = eval.evaluate(code, Some(code_path.clone()));
     let failed = match result.value {
@@ -111,34 +105,6 @@ fn eval_test(code_path: PathBuf, expect_success: bool) {
     }
 }
 
-// identity-* tests contain Nix code snippets which should evaluate to
-// themselves exactly (i.e. literals).
-#[rstest]
-fn identity(#[files("src/tests/tvix_tests/identity-*.nix")] code_path: PathBuf) {
-    let code = std::fs::read_to_string(code_path).expect("should be able to read test code");
-
-    let eval = crate::Evaluation {
-        strict: true,
-        io_handle: Box::new(crate::StdIO),
-        ..Default::default()
-    };
-
-    let result = eval.evaluate(&code, None);
-    assert!(
-        result.errors.is_empty(),
-        "evaluation of identity test failed: {:?}",
-        result.errors
-    );
-
-    let result_str = result.value.unwrap().to_string();
-
-    assert_eq!(
-        result_str,
-        code.trim(),
-        "result value representation (left) must match expectation (right)"
-    )
-}
-
 // eval-okay-* tests contain a snippet of Nix code, and an expectation
 // of the produced string output of the evaluator.
 //
@@ -170,27 +136,5 @@ fn nix_eval_okay(#[files("src/tests/nix_tests/eval-okay-*.nix")] code_path: Path
 fn nix_eval_okay_currently_failing(
     #[files("src/tests/nix_tests/notyetpassing/eval-okay-*.nix")] code_path: PathBuf,
 ) {
-    eval_test(code_path, false)
-}
-
-#[rstest]
-fn eval_okay_currently_failing(
-    #[files("src/tests/tvix_tests/notyetpassing/eval-okay-*.nix")] code_path: PathBuf,
-) {
-    eval_test(code_path, false)
-}
-
-// eval-fail-* tests contain a snippet of Nix code, which is
-// expected to fail evaluation.  The exact type of failure
-// (assertion, parse error, etc) is not currently checked.
-#[rstest]
-fn eval_fail(#[files("src/tests/tvix_tests/eval-fail-*.nix")] code_path: PathBuf) {
-    eval_test(code_path, false)
-}
-
-// eval-fail-* tests from the original Nix test suite.
-#[cfg(feature = "nix_tests")]
-#[rstest]
-fn nix_eval_fail(#[files("src/tests/nix_tests/eval-fail-*.nix")] code_path: PathBuf) {
     eval_test(code_path, false)
 }
