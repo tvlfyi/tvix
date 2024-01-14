@@ -375,7 +375,7 @@ mod pure_builtins {
                 span,
             )
             .await?
-            .to_str()?;
+            .to_contextful_str()?;
         let result = str
             .rsplit_once('/')
             .map(|(x, _)| match x {
