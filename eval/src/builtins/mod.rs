@@ -680,7 +680,7 @@ mod pure_builtins {
             return Ok(e);
         }
 
-        let v = e.to_str()?;
+        let v = e.to_contextful_str()?;
         Ok(Value::Bool(v.has_context()))
     }
 
