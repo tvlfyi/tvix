@@ -76,6 +76,9 @@ pub async fn coerce_value_to_path(
 
 #[builtins]
 mod pure_builtins {
+    use imbl::Vector;
+    use itertools::Itertools;
+
     use crate::{value::PointerEquality, NixContext, NixContextElement};
 
     use super::*;
@@ -705,25 +708,70 @@ mod pure_builtins {
             .await?;
         let s = v.to_contextful_str()?;
 
-        let elements = s
+        let groups = s
             .iter_context()
             .flat_map(|context| context.iter())
-            .map(|ctx_element| match ctx_element {
-                NixContextElement::Plain(spath) => (
-                    spath.clone(),
-                    Value::attrs(NixAttrs::from_iter([("path", true)])),
-                ),
-                NixContextElement::Single { name, derivation } => (
-                    derivation.clone(),
-                    Value::attrs(NixAttrs::from_iter([(
-                        "outputs",
-                        Value::List(NixList::construct(1, vec![name.clone().into()])),
-                    )])),
-                ),
-                NixContextElement::Derivation(drv_path) => (
-                    drv_path.clone(),
-                    Value::attrs(NixAttrs::from_iter([("allOutputs", true)])),
-                ),
+            // Do not think `group_by` works here.
+            // `group_by` works on consecutive elements of the iterator.
+            // Due to how `HashSet` works (ordering is not guaranteed),
+            // this can become a source of non-determinism if you `group_by` naively.
+            // I know I did.
+            .into_grouping_map_by(|ctx_element| match ctx_element {
+                NixContextElement::Plain(spath) => spath,
+                NixContextElement::Single { derivation, .. } => derivation,
+                NixContextElement::Derivation(drv_path) => drv_path,
+            })
+            .collect::<Vec<_>>();
+
+        let elements = groups
+            .into_iter()
+            .map(|(key, group)| {
+                let mut outputs: Vector<NixString> = Vector::new();
+                let mut is_path = false;
+                let mut all_outputs = false;
+
+                for ctx_element in group {
+                    match ctx_element {
+                        NixContextElement::Plain(spath) => {
+                            debug_assert!(spath == key, "Unexpected group containing mixed keys, expected: {:?}, encountered {:?}", key, spath);
+                            is_path = true;
+                        }
+
+                        NixContextElement::Single { name, derivation } => {
+                            debug_assert!(derivation == key, "Unexpected group containing mixed keys, expected: {:?}, encountered {:?}", key, derivation);
+                            outputs.push_back(name.clone().into());
+                        }
+
+                        NixContextElement::Derivation(drv_path) => {
+                            debug_assert!(drv_path == key, "Unexpected group containing mixed keys, expected: {:?}, encountered {:?}", key, drv_path);
+                            all_outputs = true;
+                        }
+                    }
+                }
+
+                // FIXME(raitobezarius): is there a better way to construct an attribute set
+                // conditionally?
+                let mut vec_attrs: Vec<(&str, Value)> = Vec::new();
+
+                if is_path {
+                    vec_attrs.push(("path", true.into()));
+                }
+
+                if all_outputs {
+                    vec_attrs.push(("allOutputs", true.into()));
+                }
+
+                if !outputs.is_empty() {
+                    outputs.sort();
+                    vec_attrs.push(("outputs", Value::List(outputs
+                                .into_iter()
+                                .map(|s| s.into())
+                                .collect::<Vector<Value>>()
+                                .into()
+                    )));
+                }
+
+                (key.clone(), Value::attrs(NixAttrs::from_iter(vec_attrs.into_iter())))
             });
 
         Ok(Value::attrs(NixAttrs::from_iter(elements)))
