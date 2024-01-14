@@ -1,7 +1,8 @@
 use crate::value::Value;
 use builtin_macros::builtins;
 use pretty_assertions::assert_eq;
-use test_generator::test_resources;
+use rstest::rstest;
+use std::path::PathBuf;
 
 /// Module for one-off tests which do not follow the rest of the
 /// test layout.
@@ -38,14 +39,17 @@ mod mock_builtins {
     }
 }
 
-fn eval_test(code_path: &str, expect_success: bool) {
-    let base = code_path
-        .strip_suffix("nix")
-        .expect("test files always end in .nix");
-    let exp_path = format!("{}exp", base);
-    let exp_xml_path = std::path::PathBuf::from(format!("{}exp.xml", base));
+fn eval_test(code_path: PathBuf, expect_success: bool) {
+    eprintln!("path: {}", code_path.display());
+    assert_eq!(
+        code_path.extension().unwrap(),
+        "nix",
+        "test files always end in .nix"
+    );
+    let exp_path = code_path.with_extension("exp");
+    let exp_xml_path = code_path.with_extension("exp.xml");
 
-    let code = std::fs::read_to_string(code_path).expect("should be able to read test code");
+    let code = std::fs::read_to_string(&code_path).expect("should be able to read test code");
 
     if exp_xml_path.exists() {
         // We can't test them at the moment because we don't have XML output yet.
@@ -57,14 +61,15 @@ fn eval_test(code_path: &str, expect_success: bool) {
     eval.strict = true;
     eval.builtins.extend(mock_builtins::builtins());
 
-    let result = eval.evaluate(code, Some(code_path.into()));
+    let result = eval.evaluate(code, Some(code_path.clone()));
     let failed = match result.value {
         Some(Value::Catchable(_)) => true,
         _ => !result.errors.is_empty(),
     };
     if expect_success && failed {
         panic!(
-            "{code_path}: evaluation of eval-okay test should succeed, but failed with {:?}",
+            "{}: evaluation of eval-okay test should succeed, but failed with {:?}",
+            code_path.display(),
             result.errors,
         );
     }
@@ -81,20 +86,26 @@ fn eval_test(code_path: &str, expect_success: bool) {
             assert_eq!(
                 result_str,
                 exp.trim(),
-                "{code_path}: result value representation (left) must match expectation (right)"
+                "{}: result value representation (left) must match expectation (right)",
+                code_path.display()
             );
         } else {
             assert_ne!(
                 result_str,
                 exp.trim(),
-                "{code_path}: test passed unexpectedly!  consider moving it out of notyetpassing"
+                "{}: test passed unexpectedly!  consider moving it out of notyetpassing",
+                code_path.display()
             );
         }
     } else if expect_success {
-        panic!("{code_path}: should be able to read test expectation");
+        panic!(
+            "{}: should be able to read test expectation",
+            code_path.display()
+        );
     } else {
         panic!(
-            "{code_path}: test should have failed, but succeeded with output {}",
+            "{}: test should have failed, but succeeded with output {}",
+            code_path.display(),
             result_str
         );
     }
@@ -102,8 +113,8 @@ fn eval_test(code_path: &str, expect_success: bool) {
 
 // identity-* tests contain Nix code snippets which should evaluate to
 // themselves exactly (i.e. literals).
-#[test_resources("src/tests/tvix_tests/identity-*.nix")]
-fn identity(code_path: &str) {
+#[rstest]
+fn identity(#[files("src/tests/tvix_tests/identity-*.nix")] code_path: PathBuf) {
     let code = std::fs::read_to_string(code_path).expect("should be able to read test code");
 
     let eval = crate::Evaluation {
@@ -133,15 +144,15 @@ fn identity(code_path: &str) {
 //
 // These evaluations are always supposed to succeed, i.e. all snippets
 // are guaranteed to be valid Nix code.
-#[test_resources("src/tests/tvix_tests/eval-okay-*.nix")]
-fn eval_okay(code_path: &str) {
+#[rstest]
+fn eval_okay(#[files("src/tests/tvix_tests/eval-okay-*.nix")] code_path: PathBuf) {
     eval_test(code_path, true)
 }
 
 // eval-okay-* tests from the original Nix test suite.
 #[cfg(feature = "nix_tests")]
-#[test_resources("src/tests/nix_tests/eval-okay-*.nix")]
-fn nix_eval_okay(code_path: &str) {
+#[rstest]
+fn nix_eval_okay(#[files("src/tests/nix_tests/eval-okay-*.nix")] code_path: PathBuf) {
     eval_test(code_path, true)
 }
 
@@ -163,27 +174,31 @@ fn nix_eval_okay(code_path: &str) {
 //
 //   https://github.com/frehberg/test-generator/pull/10
 //   https://github.com/frehberg/test-generator/pull/8
-#[test_resources("src/tests/nix_tests/notyetpassing/eval-okay-*.nix")]
-fn nix_eval_okay_currently_failing(code_path: &str) {
+#[rstest]
+fn nix_eval_okay_currently_failing(
+    #[files("src/tests/nix_tests/notyetpassing/eval-okay-*.nix")] code_path: PathBuf,
+) {
     eval_test(code_path, false)
 }
 
-#[test_resources("src/tests/tvix_tests/notyetpassing/eval-okay-*.nix")]
-fn eval_okay_currently_failing(code_path: &str) {
+#[rstest]
+fn eval_okay_currently_failing(
+    #[files("src/tests/tvix_tests/notyetpassing/eval-okay-*.nix")] code_path: PathBuf,
+) {
     eval_test(code_path, false)
 }
 
 // eval-fail-* tests contain a snippet of Nix code, which is
 // expected to fail evaluation.  The exact type of failure
 // (assertion, parse error, etc) is not currently checked.
-#[test_resources("src/tests/tvix_tests/eval-fail-*.nix")]
-fn eval_fail(code_path: &str) {
+#[rstest]
+fn eval_fail(#[files("src/tests/tvix_tests/eval-fail-*.nix")] code_path: PathBuf) {
     eval_test(code_path, false)
 }
 
 // eval-fail-* tests from the original Nix test suite.
 #[cfg(feature = "nix_tests")]
-#[test_resources("src/tests/nix_tests/eval-fail-*.nix")]
-fn nix_eval_fail(code_path: &str) {
+#[rstest]
+fn nix_eval_fail(#[files("src/tests/nix_tests/eval-fail-*.nix")] code_path: PathBuf) {
     eval_test(code_path, false)
 }

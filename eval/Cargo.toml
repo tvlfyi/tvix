@@ -35,13 +35,8 @@ xml-rs = "0.8.4"
 criterion = "0.5"
 itertools = "0.12.0"
 pretty_assertions = "1.2.1"
+rstest = "0.18.2"
 tempfile = "3.3.0"
-
-[dev-dependencies.test-generator]
-# This fork of test-generator adds support for cargo workspaces, see
-# also https://github.com/frehberg/test-generator/pull/14
-git = "https://github.com/JamesGuthrie/test-generator.git"
-rev = "82e799979980962aec1aa324ec6e0e4cad781f41"
 
 [features]
 default = ["impure", "arbitrary", "nix_tests"]

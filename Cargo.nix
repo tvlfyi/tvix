@@ -2791,6 +2791,20 @@ rec {
         };
         resolvedDefaultFeatures = [ "alloc" "std" ];
       };
+      "futures-timer" = rec {
+        crateName = "futures-timer";
+        version = "3.0.2";
+        edition = "2018";
+        sha256 = "0b5v7lk9838ix6jdcrainsyrh7xrf24pwm61dp13907qkn806jz6";
+        authors = [
+          "Alex Crichton <alex@alexcrichton.com>"
+        ];
+        features = {
+          "gloo-timers" = [ "dep:gloo-timers" ];
+          "send_wrapper" = [ "dep:send_wrapper" ];
+          "wasm-bindgen" = [ "gloo-timers" "send_wrapper" ];
+        };
+      };
       "futures-util" = rec {
         crateName = "futures-util";
         version = "0.3.30";
@@ -6586,6 +6600,19 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "std" "unicode" "unicode-age" "unicode-bool" "unicode-case" "unicode-gencat" "unicode-perl" "unicode-script" "unicode-segment" ];
       };
+      "relative-path" = rec {
+        crateName = "relative-path";
+        version = "1.9.2";
+        edition = "2021";
+        sha256 = "1g0gc604zwm73gvpcicn8si25j9j5agqz50r0x1bkmgx6f7mi678";
+        authors = [
+          "John-John Tedro <udoprog@tedro.se>"
+        ];
+        features = {
+          "serde" = [ "dep:serde" ];
+        };
+        resolvedDefaultFeatures = [ "default" ];
+      };
       "reqwest" = rec {
         crateName = "reqwest";
         version = "0.11.22";
@@ -6986,6 +7013,98 @@ rec {
           "serde" = [ "dep:serde" ];
           "serde1" = [ "serde" "text-size/serde" ];
         };
+      };
+      "rstest" = rec {
+        crateName = "rstest";
+        version = "0.18.2";
+        edition = "2021";
+        sha256 = "1681ncnlzhc8894idm3pqf40nndn4k4kcp0kpv29n68a7hpspvlp";
+        authors = [
+          "Michele d'Amico <michele.damico@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "futures";
+            packageId = "futures";
+            optional = true;
+          }
+          {
+            name = "futures-timer";
+            packageId = "futures-timer";
+            optional = true;
+          }
+          {
+            name = "rstest_macros";
+            packageId = "rstest_macros";
+            usesDefaultFeatures = false;
+          }
+        ];
+        buildDependencies = [
+          {
+            name = "rustc_version";
+            packageId = "rustc_version";
+          }
+        ];
+        features = {
+          "async-timeout" = [ "dep:futures" "dep:futures-timer" "rstest_macros/async-timeout" ];
+          "default" = [ "async-timeout" ];
+        };
+        resolvedDefaultFeatures = [ "async-timeout" "default" ];
+      };
+      "rstest_macros" = rec {
+        crateName = "rstest_macros";
+        version = "0.18.2";
+        edition = "2021";
+        sha256 = "01g6rg60snmscipc9xiili7nsn0v25sv64713gp99y2jg0jgha6l";
+        procMacro = true;
+        authors = [
+          "Michele d'Amico <michele.damico@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "cfg-if";
+            packageId = "cfg-if";
+          }
+          {
+            name = "glob";
+            packageId = "glob";
+          }
+          {
+            name = "proc-macro2";
+            packageId = "proc-macro2 1.0.75";
+          }
+          {
+            name = "quote";
+            packageId = "quote 1.0.35";
+          }
+          {
+            name = "regex";
+            packageId = "regex";
+          }
+          {
+            name = "relative-path";
+            packageId = "relative-path";
+          }
+          {
+            name = "syn";
+            packageId = "syn 2.0.48";
+            features = [ "full" "parsing" "extra-traits" "visit" "visit-mut" ];
+          }
+          {
+            name = "unicode-ident";
+            packageId = "unicode-ident";
+          }
+        ];
+        buildDependencies = [
+          {
+            name = "rustc_version";
+            packageId = "rustc_version";
+          }
+        ];
+        features = {
+          "default" = [ "async-timeout" ];
+        };
+        resolvedDefaultFeatures = [ "async-timeout" ];
       };
       "rustc-demangle" = rec {
         crateName = "rustc-demangle";
@@ -10689,12 +10808,12 @@ rec {
             packageId = "pretty_assertions";
           }
           {
-            name = "tempfile";
-            packageId = "tempfile";
+            name = "rstest";
+            packageId = "rstest";
           }
           {
-            name = "test-generator";
-            packageId = "test-generator";
+            name = "tempfile";
+            packageId = "tempfile";
           }
         ];
         features = {
