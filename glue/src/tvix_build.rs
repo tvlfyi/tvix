@@ -1,16 +1,16 @@
 //! This module contains glue code translating from
 //! [nix_compat::derivation::Derivation] to [tvix_build::proto::BuildRequest].
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use bytes::Bytes;
-use nix_compat::{derivation::Derivation, nixbase32, store_path::StorePathRef};
+use nix_compat::{derivation::Derivation, nixbase32};
 use sha2::{Digest, Sha256};
 use tvix_build::proto::{
     build_request::{AdditionalFile, BuildConstraints, EnvVar},
     BuildRequest,
 };
-use tvix_castore::proto::{self, node::Node, NamedNode};
+use tvix_castore::proto::{self, node::Node};
 
 /// These are the environment variables that Nix sets in its sandbox for every
 /// build.
@@ -37,15 +37,11 @@ const NIX_ENVIRONMENT_VARS: [(&str, &str); 12] = [
 /// - one translating a tuple of drv path and (a subset of their) output names to
 ///   castore nodes of the selected outpus (`fn_input_drvs_to_output_nodes`).
 #[allow(dead_code)]
-pub(crate) fn derivation_to_build_request<FIS, FID>(
+#[allow(clippy::mutable_key_type)]
+pub(crate) fn derivation_to_build_request(
     derivation: &Derivation,
-    fn_input_sources_to_node: FIS,
-    fn_input_drvs_to_output_nodes: FID,
-) -> std::io::Result<BuildRequest>
-where
-    FIS: Fn(&StorePathRef) -> Node,
-    FID: Fn(&StorePathRef, &[&str]) -> Vec<Node>,
-{
+    inputs: BTreeSet<Node>,
+) -> std::io::Result<BuildRequest> {
     debug_assert!(derivation.validate(true).is_ok(), "drv must validate");
 
     // produce command_args, which is builder and arguments in a Vec.
@@ -89,31 +85,6 @@ where
     handle_pass_as_file(&mut environment_vars, &mut additional_files)?;
 
     // TODO: handle __json (structured attrs, provide JSON file and source-able bash script)
-
-    // Produce inputs. As we refer to the contents here, not just plain store path strings,
-    // we need to perform lookups.
-    // FUTUREWORK: should we also model input_derivations and input_sources with StorePath?
-    let mut inputs: Vec<Node> = Vec::new();
-
-    // populate inputs selected by input_sources.
-    for input_source in derivation.input_sources.iter() {
-        // since Derivation is validated, we know input sources can be parsed.
-        let sp = StorePathRef::from_absolute_path(input_source.as_bytes())
-            .expect("invalid input source path");
-        inputs.push(fn_input_sources_to_node(&sp));
-    }
-
-    // populate inputs selected by input_drv and (subset of) output names.
-    for (input_derivation, output_names) in derivation.input_derivations.iter() {
-        // since Derivation is validated, we know input derivations can be parsed.
-        let sp = StorePathRef::from_absolute_path(input_derivation.as_bytes())
-            .expect("invalid input derivation path");
-        let output_names: Vec<&str> = output_names.iter().map(|e| e.as_str()).collect();
-        inputs.extend(fn_input_drvs_to_output_nodes(&sp, output_names.as_slice()));
-    }
-
-    // sort inputs by their name
-    inputs.sort_by(|a, b| a.get_name().cmp(b.get_name()));
 
     // Produce constraints.
     let constraints = Some(BuildConstraints {
@@ -222,6 +193,8 @@ fn calculate_pass_as_file_env(k: &str) -> (String, String) {
 
 #[cfg(test)]
 mod test {
+    use std::collections::BTreeSet;
+
     use bytes::Bytes;
     use nix_compat::derivation::Derivation;
     use tvix_build::proto::{
@@ -252,24 +225,9 @@ mod test {
 
         let derivation = Derivation::from_aterm_bytes(aterm_bytes).expect("must parse");
 
-        let build_request = derivation_to_build_request(
-            &derivation,
-            |_| unreachable!(),
-            |input_drv, output_names| {
-                // expected to be called with ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv only
-                if input_drv.to_string() != "ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv" {
-                    panic!("called with unexpected input_drv: {}", input_drv);
-                }
-                // expect to be called with ["out"]
-                if output_names != ["out"] {
-                    panic!("called with unexpected output_names: {:?}", output_names);
-                }
-
-                // all good, reply with INPUT_NODE_FOO
-                vec![INPUT_NODE_FOO.clone()]
-            },
-        )
-        .expect("must succeed");
+        let build_request =
+            derivation_to_build_request(&derivation, BTreeSet::from([INPUT_NODE_FOO.clone()]))
+                .expect("must succeed");
 
         let mut expected_environment_vars = vec![
             EnvVar {
@@ -332,8 +290,7 @@ mod test {
         let derivation = Derivation::from_aterm_bytes(aterm_bytes).expect("must parse");
 
         let build_request =
-            derivation_to_build_request(&derivation, |_| unreachable!(), |_, _| unreachable!())
-                .expect("must succeed");
+            derivation_to_build_request(&derivation, BTreeSet::from([])).expect("must succeed");
 
         let mut expected_environment_vars = vec![
             EnvVar {
@@ -403,8 +360,7 @@ mod test {
         let derivation = Derivation::from_aterm_bytes(aterm_bytes).expect("must parse");
 
         let build_request =
-            derivation_to_build_request(&derivation, |_| unreachable!(), |_, _| unreachable!())
-                .expect("must succeed");
+            derivation_to_build_request(&derivation, BTreeSet::from([])).expect("must succeed");
 
         let mut expected_environment_vars = vec![
             // Note how bar and baz are not present in the env anymore,
