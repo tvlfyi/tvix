@@ -10238,6 +10238,10 @@ rec {
             packageId = "thiserror";
           }
           {
+            name = "tokio";
+            packageId = "tokio";
+          }
+          {
             name = "tonic";
             packageId = "tonic 0.10.2";
             features = [ "tls" "tls-roots" ];
@@ -10254,6 +10258,10 @@ rec {
           {
             name = "tvix-castore";
             packageId = "tvix-castore";
+          }
+          {
+            name = "url";
+            packageId = "url";
           }
         ];
         buildDependencies = [

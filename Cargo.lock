@@ -3288,11 +3288,13 @@ dependencies = [
  "prost-build",
  "test-case",
  "thiserror",
+ "tokio",
  "tonic 0.10.2",
  "tonic-build",
  "tonic-reflection",
  "tracing",
  "tvix-castore",
+ "url",
 ]
 
 [[package]]

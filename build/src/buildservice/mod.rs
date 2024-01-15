@@ -3,9 +3,11 @@ use tonic::async_trait;
 use crate::proto::{Build, BuildRequest};
 
 mod dummy;
+mod from_addr;
 mod grpc;
 
 pub use dummy::DummyBuildService;
+pub use from_addr::from_addr;
 
 #[async_trait]
 pub trait BuildService: Send + Sync {
