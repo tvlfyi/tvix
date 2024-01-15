@@ -1,4 +1,6 @@
-use crate::store_path::{self, build_ca_path, build_output_path, build_text_path, StorePath};
+use crate::store_path::{
+    self, build_ca_path, build_output_path, build_text_path, StorePath, StorePathRef,
+};
 use bstr::BString;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -162,7 +164,7 @@ impl Derivation {
     /// drv path).
     pub fn derivation_or_fod_hash<F>(&self, fn_get_derivation_or_fod_hash: F) -> NixHash
     where
-        F: Fn(&str) -> NixHash,
+        F: Fn(&StorePathRef) -> NixHash,
     {
         // Fixed-output derivations return a fixed hash.
         // Non-Fixed-output derivations return a hash of the ATerm notation, but with all
@@ -178,10 +180,13 @@ impl Derivation {
             // derivation_or_fod_hash, and replace the derivation path with it's HEXLOWER
             // digest.
             // This is not the [NixHash::to_nix_hash_string], but without the sha256: prefix).
-            for (drv_path, output_names) in &self.input_derivations {
+            for (drv_path_str, output_names) in &self.input_derivations {
+                // parse drv_path to StorePathRef
+                let drv_path = StorePathRef::from_absolute_path(drv_path_str.as_bytes())
+                    .expect("invalid input derivation path");
                 replaced_input_derivations.insert(
                     data_encoding::HEXLOWER
-                        .encode(fn_get_derivation_or_fod_hash(drv_path).digest_as_bytes()),
+                        .encode(fn_get_derivation_or_fod_hash(&drv_path).digest_as_bytes()),
                     output_names.clone(),
                 );
             }

@@ -434,25 +434,24 @@ pub(crate) mod derivation_builtins {
 
         // Calculate the derivation_or_fod_hash for the current derivation.
         // This one is still intermediate (so not added to known_paths)
-        let derivation_or_fod_hash_tmp =
-            drv.derivation_or_fod_hash(|drv| known_paths.get_hash_derivation_modulo(drv));
+        let derivation_or_fod_hash_tmp = drv.derivation_or_fod_hash(|drv_path| {
+            known_paths.get_hash_derivation_modulo(&drv_path.to_owned())
+        });
 
         // Mutate the Derivation struct and set output paths
         drv.calculate_output_paths(&name, &derivation_or_fod_hash_tmp)
             .map_err(DerivationError::InvalidDerivation)?;
 
-        let derivation_path = drv
+        let drv_path = drv
             .calculate_derivation_path(&name)
             .map_err(DerivationError::InvalidDerivation)?;
 
         // recompute the hash derivation modulo and add to known_paths
-        let derivation_or_fod_hash_final =
-            drv.derivation_or_fod_hash(|drv| known_paths.get_hash_derivation_modulo(drv));
+        let derivation_or_fod_hash_final = drv.derivation_or_fod_hash(|drv_path| {
+            known_paths.get_hash_derivation_modulo(&drv_path.to_owned())
+        });
 
-        known_paths.add_hash_derivation_modulo(
-            derivation_path.to_absolute_path(),
-            &derivation_or_fod_hash_final,
-        );
+        known_paths.add_hash_derivation_modulo(drv_path.clone(), &derivation_or_fod_hash_final);
 
         let mut new_attrs: Vec<(String, NixString)> = drv
             .outputs
@@ -465,7 +464,7 @@ pub(crate) mod derivation_builtins {
                         Some(
                             NixContextElement::Single {
                                 name,
-                                derivation: derivation_path.to_absolute_path(),
+                                derivation: drv_path.to_absolute_path(),
                             }
                             .into(),
                         ),
@@ -478,8 +477,8 @@ pub(crate) mod derivation_builtins {
         new_attrs.push((
             "drvPath".to_string(),
             (
-                derivation_path.to_absolute_path(),
-                Some(NixContextElement::Derivation(derivation_path.to_absolute_path()).into()),
+                drv_path.to_absolute_path(),
+                Some(NixContextElement::Derivation(drv_path.to_absolute_path()).into()),
             )
                 .into(),
         ));

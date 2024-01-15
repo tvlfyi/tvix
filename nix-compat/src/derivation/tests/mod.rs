@@ -208,10 +208,10 @@ fn derivation_or_fod_hash(drv_path: &str, expected_nix_hash_string: &str) {
 #[test_case("unicode", "52a9id8hx688hvlnz4d1n25ml1jdykz0-unicode.drv"; "unicode")]
 #[test_case("cp1252", "m1vfixn8iprlf0v9abmlrz7mjw1xj8kp-cp1252.drv"; "cp1252")]
 #[test_case("latin1", "x6p0hg79i3wg0kkv7699935f7rrj9jf3-latin1.drv"; "latin1")]
-fn output_paths(name: &str, drv_path: &str) {
+fn output_paths(name: &str, drv_path_str: &str) {
     // read in the derivation
     let expected_derivation = Derivation::from_aterm_bytes(
-        read_file(&format!("{}/ok/{}", RESOURCES_PATHS, drv_path)).as_ref(),
+        read_file(&format!("{}/ok/{}", RESOURCES_PATHS, drv_path_str)).as_ref(),
     )
     .expect("must succeed");
 
@@ -225,10 +225,10 @@ fn output_paths(name: &str, drv_path: &str) {
         // 4wvvbi4jwn0prsdxb7vs673qa5h9gr7x-foo.drv may lookup /nix/store/0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv
         // ch49594n9avinrf8ip0aslidkc4lxkqv-foo.drv may lookup /nix/store/ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv
         if name == "foo"
-            && ((drv_path == "4wvvbi4jwn0prsdxb7vs673qa5h9gr7x-foo.drv"
-                && parent_drv_path == "/nix/store/0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv")
-                || (drv_path == "ch49594n9avinrf8ip0aslidkc4lxkqv-foo.drv"
-                    && parent_drv_path == "/nix/store/ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv"))
+            && ((drv_path_str == "4wvvbi4jwn0prsdxb7vs673qa5h9gr7x-foo.drv"
+                && parent_drv_path.to_string() == "0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv")
+                || (drv_path_str == "ch49594n9avinrf8ip0aslidkc4lxkqv-foo.drv"
+                    && parent_drv_path.to_string() == "ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv"))
         {
             // do the lookup, by reading in the fixture of the requested
             // drv_name, and calculating its drv replacement (on the non-stripped version)
@@ -237,7 +237,7 @@ fn output_paths(name: &str, drv_path: &str) {
             let json_bytes = read_file(&format!(
                 "{}/ok/{}.json",
                 RESOURCES_PATHS,
-                Path::new(parent_drv_path)
+                Path::new(&parent_drv_path.to_string())
                     .file_name()
                     .unwrap()
                     .to_string_lossy()
@@ -390,7 +390,7 @@ fn output_path_construction() {
     let foo_calc_result = foo_drv.calculate_output_paths(
         "foo",
         &foo_drv.derivation_or_fod_hash(|drv_path| {
-            if drv_path != "/nix/store/0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv" {
+            if drv_path.to_string() != "0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv" {
                 panic!("lookup called with unexpected drv_path: {}", drv_path);
             }
             bar_drv_derivation_or_fod_hash.clone()
