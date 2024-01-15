@@ -159,6 +159,20 @@ impl node::Node {
     }
 }
 
+impl Eq for node::Node {}
+
+impl PartialOrd for node::Node {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for node::Node {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.get_name().cmp(other.get_name())
+    }
+}
+
 /// Accepts a name, and a mutable reference to the previous name.
 /// If the passed name is larger than the previous one, the reference is updated.
 /// If it's not, an error is returned.
