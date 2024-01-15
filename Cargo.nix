@@ -10247,6 +10247,10 @@ rec {
             optional = true;
           }
           {
+            name = "tracing";
+            packageId = "tracing";
+          }
+          {
             name = "tvix-castore";
             packageId = "tvix-castore";
           }

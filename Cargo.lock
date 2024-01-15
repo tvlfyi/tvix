@@ -3291,6 +3291,7 @@ dependencies = [
  "tonic 0.10.2",
  "tonic-build",
  "tonic-reflection",
+ "tracing",
  "tvix-castore",
 ]
 
