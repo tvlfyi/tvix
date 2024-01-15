@@ -3,6 +3,10 @@ use std::path::{Path, PathBuf};
 use itertools::Itertools;
 use tvix_castore::proto::{NamedNode, ValidateNodeError};
 
+mod grpc_buildservice_wrapper;
+
+pub use grpc_buildservice_wrapper::GRPCBuildServiceWrapper;
+
 tonic::include_proto!("tvix.build.v1");
 
 #[cfg(feature = "tonic-reflection")]
