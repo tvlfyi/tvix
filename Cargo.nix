@@ -10214,6 +10214,13 @@ rec {
         crateName = "tvix-build";
         version = "0.1.0";
         edition = "2021";
+        crateBin = [
+          {
+            name = "tvix-build";
+            path = "src/bin/tvix-build.rs";
+            requiredFeatures = [ ];
+          }
+        ];
         # We can't filter paths with references in Nix 2.4
         # See https://github.com/NixOS/nix/issues/5410
         src =
@@ -10224,6 +10231,11 @@ rec {
           {
             name = "bytes";
             packageId = "bytes";
+          }
+          {
+            name = "clap";
+            packageId = "clap";
+            features = [ "derive" "env" ];
           }
           {
             name = "itertools";
@@ -10242,6 +10254,11 @@ rec {
             packageId = "tokio";
           }
           {
+            name = "tokio-listener";
+            packageId = "tokio-listener";
+            features = [ "tonic010" ];
+          }
+          {
             name = "tonic";
             packageId = "tonic 0.10.2";
             features = [ "tls" "tls-roots" ];
@@ -10254,6 +10271,11 @@ rec {
           {
             name = "tracing";
             packageId = "tracing";
+          }
+          {
+            name = "tracing-subscriber";
+            packageId = "tracing-subscriber";
+            features = [ "json" ];
           }
           {
             name = "tvix-castore";

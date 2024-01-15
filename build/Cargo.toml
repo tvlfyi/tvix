@@ -5,13 +5,16 @@ edition = "2021"
 
 [dependencies]
 bytes = "1.4.0"
+clap = { version = "4.0", features = ["derive", "env"] }
 itertools = "0.12.0"
 prost = "0.12.1"
 thiserror = "1.0.56"
 tokio = { version = "1.32.0" }
+tokio-listener = { version = "0.2.2", features = [ "tonic010" ] }
 tonic = { version = "0.10.2", features = ["tls", "tls-roots"] }
 tvix-castore = { path = "../castore" }
 tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.16", features = ["json"] }
 url = "2.4.0"
 
 [dependencies.tonic-reflection]

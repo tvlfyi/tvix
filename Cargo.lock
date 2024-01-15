@@ -3283,16 +3283,19 @@ name = "tvix-build"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "clap",
  "itertools 0.12.0",
  "prost 0.12.1",
  "prost-build",
  "test-case",
  "thiserror",
  "tokio",
+ "tokio-listener",
  "tonic 0.10.2",
  "tonic-build",
  "tonic-reflection",
  "tracing",
+ "tracing-subscriber",
  "tvix-castore",
  "url",
 ]
