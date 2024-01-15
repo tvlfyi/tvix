@@ -10240,6 +10240,7 @@ rec {
           {
             name = "tonic";
             packageId = "tonic 0.10.2";
+            features = [ "tls" "tls-roots" ];
           }
           {
             name = "tonic-reflection";

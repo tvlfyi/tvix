@@ -3,6 +3,8 @@ use tonic::async_trait;
 use crate::proto::{Build, BuildRequest};
 
 mod dummy;
+mod grpc;
+
 pub use dummy::DummyBuildService;
 
 #[async_trait]
