@@ -13541,6 +13541,16 @@ rec {
             # recreate a file hierarchy as when running tests with cargo
 
             # the source for test data
+            # It's necessary to locate the source in $NIX_BUILD_TOP/source/
+            # instead of $NIX_BUILD_TOP/
+            # because we compiled those test binaries in the former and not the latter.
+            # So all paths will expect source tree to be there and not in the build top directly.
+            # For example: $NIX_BUILD_TOP := /build in general, if you ask yourself.
+            # TODO(raitobezarius): I believe there could be more edge cases if `crate.sourceRoot`
+            # do exist but it's very hard to reason about them, so let's wait until the first bug report.
+            mkdir -p source/
+            cd source/
+
             ${pkgs.buildPackages.xorg.lndir}/bin/lndir ${crate.src}
 
             # build outputs
