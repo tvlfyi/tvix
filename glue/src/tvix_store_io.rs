@@ -2,8 +2,10 @@
 
 use nix_compat::store_path::StorePath;
 use std::{
+    cell::RefCell,
     io,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 use tokio::io::AsyncReadExt;
 use tracing::{error, instrument, warn};
@@ -17,6 +19,8 @@ use tvix_castore::{
 };
 use tvix_store::pathinfoservice::PathInfoService;
 
+use crate::known_paths::KnownPaths;
+
 /// Implements [EvalIO], asking given [PathInfoService], [DirectoryService]
 /// and [BlobService].
 ///
@@ -24,23 +28,28 @@ use tvix_store::pathinfoservice::PathInfoService;
 /// This is to both cover cases of syntactically valid store paths, that exist
 /// on the filesystem (still managed by Nix), as well as being able to read
 /// files outside store paths.
-pub struct TvixStoreIO<BS, DS, PS> {
-    blob_service: BS,
-    directory_service: DS,
-    path_info_service: PS,
+///
+/// This structure is also directly used by the derivation builtins
+/// and tightly coupled to it.
+///
+/// In the future, we may revisit that coupling and figure out how to generalize this interface and
+/// hide this implementation detail of the glue itself so that glue can be used with more than one
+/// implementation of "Tvix Store IO" which does not necessarily bring the concept of blob service,
+/// directory service or path info service.
+pub struct TvixStoreIO {
+    blob_service: Arc<dyn BlobService>,
+    directory_service: Arc<dyn DirectoryService>,
+    path_info_service: Arc<dyn PathInfoService>,
     std_io: StdIO,
     tokio_handle: tokio::runtime::Handle,
+    pub(crate) known_paths: RefCell<KnownPaths>,
 }
 
-impl<BS, DS, PS> TvixStoreIO<BS, DS, PS>
-where
-    DS: AsRef<dyn DirectoryService>,
-    PS: AsRef<dyn PathInfoService>,
-{
+impl TvixStoreIO {
     pub fn new(
-        blob_service: BS,
-        directory_service: DS,
-        path_info_service: PS,
+        blob_service: Arc<dyn BlobService>,
+        directory_service: Arc<dyn DirectoryService>,
+        path_info_service: Arc<dyn PathInfoService>,
         tokio_handle: tokio::runtime::Handle,
     ) -> Self {
         Self {
@@ -49,6 +58,7 @@ where
             path_info_service,
             std_io: StdIO {},
             tokio_handle,
+            known_paths: Default::default(),
         }
     }
 
@@ -101,12 +111,7 @@ where
     }
 }
 
-impl<BS, DS, PS> EvalIO for TvixStoreIO<BS, DS, PS>
-where
-    BS: AsRef<dyn BlobService> + Clone,
-    DS: AsRef<dyn DirectoryService>,
-    PS: AsRef<dyn PathInfoService>,
-{
+impl EvalIO for TvixStoreIO {
     #[instrument(skip(self), ret, err)]
     fn path_exists(&self, path: &Path) -> io::Result<bool> {
         if let Ok((store_path, sub_path)) =
@@ -284,17 +289,17 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, path::Path, rc::Rc, sync::Arc};
+    use std::{path::Path, rc::Rc, sync::Arc};
 
     use tempfile::TempDir;
     use tvix_castore::{
         blobservice::{BlobService, MemoryBlobService},
         directoryservice::{DirectoryService, MemoryDirectoryService},
     };
-    use tvix_eval::EvaluationResult;
-    use tvix_store::pathinfoservice::{MemoryPathInfoService, PathInfoService};
+    use tvix_eval::{EvalIO, EvaluationResult};
+    use tvix_store::pathinfoservice::MemoryPathInfoService;
 
-    use crate::{builtins::add_derivation_builtins, known_paths::KnownPaths};
+    use crate::builtins::add_derivation_builtins;
 
     use super::TvixStoreIO;
 
@@ -302,27 +307,24 @@ mod tests {
     /// Takes care of setting up the evaluator so it knows about the
     // `derivation` builtin.
     fn eval(str: &str) -> EvaluationResult {
-        let mut eval = tvix_eval::Evaluation::new_impure();
-
         let blob_service = Arc::new(MemoryBlobService::default()) as Arc<dyn BlobService>;
         let directory_service =
             Arc::new(MemoryDirectoryService::default()) as Arc<dyn DirectoryService>;
-        let path_info_service = Box::new(MemoryPathInfoService::new(
+        let path_info_service = Arc::new(MemoryPathInfoService::new(
             blob_service.clone(),
             directory_service.clone(),
-        )) as Box<dyn PathInfoService>;
+        ));
         let runtime = tokio::runtime::Runtime::new().unwrap();
 
-        eval.io_handle = Box::new(TvixStoreIO::new(
-            blob_service,
-            directory_service,
+        let io = Rc::new(TvixStoreIO::new(
+            blob_service.clone(),
+            directory_service.clone(),
             path_info_service,
             runtime.handle().clone(),
         ));
+        let mut eval = tvix_eval::Evaluation::new(io.clone() as Rc<dyn EvalIO>, true);
 
-        let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
-
-        add_derivation_builtins(&mut eval, known_paths.clone());
+        add_derivation_builtins(&mut eval, io.clone());
 
         // run the evaluation itself.
         eval.evaluate(str, None)

@@ -1,14 +1,13 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::{fs, path::PathBuf};
-use tvix_glue::known_paths::KnownPaths;
-use tvix_glue::{builtins::add_derivation_builtins, configure_nix_path};
-
 use clap::Parser;
 use rustyline::{error::ReadlineError, Editor};
+use std::rc::Rc;
+use std::{fs, path::PathBuf};
+use tvix_eval::builtins::impure_builtins;
 use tvix_eval::observer::{DisassemblingObserver, TracingObserver};
-use tvix_eval::Value;
+use tvix_eval::{EvalIO, Value};
+use tvix_glue::tvix_io::TvixIO;
 use tvix_glue::tvix_store_io::TvixStoreIO;
+use tvix_glue::{builtins::add_derivation_builtins, configure_nix_path};
 
 #[derive(Parser)]
 struct Args {
@@ -67,9 +66,6 @@ struct Args {
 /// and the result itself. The return value indicates whether
 /// evaluation succeeded.
 fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> bool {
-    let mut eval = tvix_eval::Evaluation::new_impure();
-    eval.strict = args.strict;
-
     let tokio_runtime = tokio::runtime::Runtime::new().expect("failed to setup tokio runtime");
 
     let (blob_service, directory_service, path_info_service) = tokio_runtime
@@ -88,15 +84,21 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
         })
         .expect("unable to setup {blob|directory|pathinfo}service before interpreter setup");
 
-    let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
-    add_derivation_builtins(&mut eval, known_paths.clone());
-    configure_nix_path(&mut eval, &args.nix_search_path);
-    eval.io_handle = Box::new(tvix_glue::tvix_io::TvixIO::new(TvixStoreIO::new(
-        blob_service,
-        directory_service,
-        path_info_service,
+    let tvix_store_io = Rc::new(TvixStoreIO::new(
+        blob_service.clone(),
+        directory_service.clone(),
+        path_info_service.into(),
         tokio_runtime.handle().clone(),
-    )));
+    ));
+
+    let mut eval = tvix_eval::Evaluation::new(
+        Box::new(TvixIO::new(tvix_store_io.clone() as Rc<dyn EvalIO>)) as Box<dyn EvalIO>,
+        true,
+    );
+    eval.strict = args.strict;
+    eval.builtins.extend(impure_builtins());
+    add_derivation_builtins(&mut eval, tvix_store_io);
+    configure_nix_path(&mut eval, &args.nix_search_path);
 
     let source_map = eval.source_map();
     let result = {

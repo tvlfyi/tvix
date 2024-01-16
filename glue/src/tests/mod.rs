@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::{rc::Rc, sync::Arc};
 
 use pretty_assertions::assert_eq;
 use std::path::PathBuf;
@@ -6,14 +6,12 @@ use tvix_castore::{
     blobservice::{BlobService, MemoryBlobService},
     directoryservice::{DirectoryService, MemoryDirectoryService},
 };
-use tvix_eval::Value;
+use tvix_eval::{EvalIO, Value};
 use tvix_store::pathinfoservice::{MemoryPathInfoService, PathInfoService};
 
 use rstest::rstest;
 
-use crate::{
-    builtins::add_derivation_builtins, known_paths::KnownPaths, tvix_store_io::TvixStoreIO,
-};
+use crate::{builtins::add_derivation_builtins, tvix_store_io::TvixStoreIO};
 
 fn eval_test(code_path: PathBuf, expect_success: bool) {
     assert_eq!(
@@ -32,8 +30,6 @@ fn eval_test(code_path: PathBuf, expect_success: bool) {
         return;
     }
 
-    let mut eval = tvix_eval::Evaluation::new_impure();
-
     let blob_service = Arc::new(MemoryBlobService::default()) as Arc<dyn BlobService>;
     let directory_service =
         Arc::new(MemoryDirectoryService::default()) as Arc<dyn DirectoryService>;
@@ -41,19 +37,18 @@ fn eval_test(code_path: PathBuf, expect_success: bool) {
         blob_service.clone(),
         directory_service.clone(),
     )) as Box<dyn PathInfoService>;
-    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
 
-    eval.io_handle = Box::new(TvixStoreIO::new(
+    let tvix_store_io = Rc::new(TvixStoreIO::new(
         blob_service,
         directory_service,
-        path_info_service,
-        runtime.handle().clone(),
+        path_info_service.into(),
+        tokio_runtime.handle().clone(),
     ));
-
-    let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
+    let mut eval = tvix_eval::Evaluation::new(tvix_store_io.clone() as Rc<dyn EvalIO>, true);
 
     eval.strict = true;
-    add_derivation_builtins(&mut eval, known_paths.clone());
+    add_derivation_builtins(&mut eval, tvix_store_io.clone());
 
     let result = eval.evaluate(code, Some(code_path.clone()));
     let failed = match result.value {

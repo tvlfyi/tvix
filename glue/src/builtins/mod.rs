@@ -1,12 +1,14 @@
 //! Contains builtins that deal with the store or builder.
-use std::{cell::RefCell, rc::Rc};
 
-use crate::known_paths::KnownPaths;
+use std::rc::Rc;
+
+use crate::tvix_store_io::TvixStoreIO;
 
 mod derivation;
 mod derivation_error;
 
 pub use derivation_error::Error as DerivationError;
+use tvix_eval::EvalIO;
 
 /// Adds derivation-related builtins to the passed [tvix_eval::Evaluation].
 ///
@@ -14,12 +16,12 @@ pub use derivation_error::Error as DerivationError;
 ///
 /// As they need to interact with `known_paths`, we also need to pass in
 /// `known_paths`.
-pub fn add_derivation_builtins<IO>(
-    eval: &mut tvix_eval::Evaluation<IO>,
-    known_paths: Rc<RefCell<KnownPaths>>,
-) {
+pub fn add_derivation_builtins<IO>(eval: &mut tvix_eval::Evaluation<IO>, io: Rc<TvixStoreIO>)
+where
+    IO: AsRef<dyn EvalIO>,
+{
     eval.builtins
-        .extend(derivation::derivation_builtins::builtins(known_paths));
+        .extend(derivation::derivation_builtins::builtins(io));
 
     // Add the actual `builtins.derivation` from compiled Nix code
     eval.src_builtins
@@ -28,22 +30,36 @@ pub fn add_derivation_builtins<IO>(
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
+    use crate::tvix_store_io::TvixStoreIO;
+
     use super::add_derivation_builtins;
-    use crate::known_paths::KnownPaths;
     use nix_compat::store_path::hash_placeholder;
-    use std::{cell::RefCell, rc::Rc};
     use test_case::test_case;
-    use tvix_eval::EvaluationResult;
+    use tvix_eval::{EvalIO, EvaluationResult};
+    use tvix_store::utils::construct_services;
 
     /// evaluates a given nix expression and returns the result.
     /// Takes care of setting up the evaluator so it knows about the
     // `derivation` builtin.
     fn eval(str: &str) -> EvaluationResult {
-        let mut eval = tvix_eval::Evaluation::new_impure();
+        // We assemble a complete store in memory.
+        let runtime = tokio::runtime::Runtime::new().expect("Failed to build a Tokio runtime");
+        let (blob_service, directory_service, path_info_service) = runtime
+            .block_on(async { construct_services("memory://", "memory://", "memory://").await })
+            .expect("Failed to construct store services in memory");
 
-        let known_paths: Rc<RefCell<KnownPaths>> = Default::default();
+        let io = Rc::new(TvixStoreIO::new(
+            blob_service,
+            directory_service,
+            path_info_service.into(),
+            runtime.handle().clone(),
+        ));
 
-        add_derivation_builtins(&mut eval, known_paths.clone());
+        let mut eval = tvix_eval::Evaluation::new(io.clone() as Rc<dyn EvalIO>, false);
+
+        add_derivation_builtins(&mut eval, io);
 
         // run the evaluation itself.
         eval.evaluate(str, None)
