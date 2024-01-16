@@ -18,6 +18,7 @@ pkgs.mkShell {
     pkgs.buf-language-server
     pkgs.cargo
     pkgs.cargo-machete
+    pkgs.cargo-expand
     pkgs.clippy
     pkgs.evans
     pkgs.fuse
