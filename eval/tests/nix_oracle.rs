@@ -51,7 +51,7 @@ fn nix_eval(expr: &str, strictness: Strictness) -> String {
 #[track_caller]
 fn compare_eval(expr: &str, strictness: Strictness) {
     let nix_result = nix_eval(expr, strictness);
-    let mut eval = tvix_eval::Evaluation::default();
+    let mut eval = tvix_eval::Evaluation::new_pure();
     eval.strict = matches!(strictness, Strictness::Strict);
     eval.io_handle = Box::new(tvix_eval::StdIO);
 

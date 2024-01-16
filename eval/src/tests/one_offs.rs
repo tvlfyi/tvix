@@ -25,7 +25,7 @@ fn test_source_builtin() {
 
 #[test]
 fn skip_broken_bytecode() {
-    let result = Evaluation::default().evaluate(/* code = */ "x", None);
+    let result = Evaluation::new_pure().evaluate(/* code = */ "x", None);
 
     assert_eq!(result.errors.len(), 1);
 

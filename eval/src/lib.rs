@@ -131,21 +131,21 @@ pub struct EvaluationResult {
     pub expr: Option<rnix::ast::Expr>,
 }
 
-/// TODO: this approach of creating the struct, then mutating its values
-/// unnecessarily restricts the type of IO (b/262)
-impl<'co, 'ro> Default for Evaluation<'co, 'ro, Box<dyn EvalIO>> {
-    fn default() -> Self {
-        let source_map = SourceCode::default();
-
+impl<'co, 'ro, IO> Evaluation<'co, 'ro, IO>
+where
+    IO: AsRef<dyn EvalIO> + 'static,
+{
+    /// Initialize an `Evaluation`.
+    pub fn new(io_handle: IO, enable_import: bool) -> Self {
         let mut builtins = builtins::pure_builtins();
         builtins.extend(builtins::placeholders()); // these are temporary
 
         Self {
-            source_map,
+            source_map: SourceCode::default(),
+            enable_import,
+            io_handle,
             builtins,
             src_builtins: vec![],
-            io_handle: Box::new(DummyIO {}) as Box<dyn EvalIO>,
-            enable_import: false,
             strict: false,
             nix_path: None,
             compiler_observer: None,
@@ -158,15 +158,17 @@ impl<'co, 'ro> Evaluation<'co, 'ro, Box<dyn EvalIO>> {
     #[cfg(feature = "impure")]
     /// Initialise an `Evaluation`, with all impure features turned on by default.
     pub fn new_impure() -> Self {
-        let mut eval = Self {
-            enable_import: true,
-            io_handle: Box::new(StdIO),
-            ..Default::default()
-        };
+        let mut eval = Self::new(Box::new(StdIO) as Box<dyn EvalIO>, true);
 
         eval.builtins.extend(builtins::impure_builtins());
 
         eval
+    }
+
+    /// Initialize an `Evaluation`, without the import statement available, and
+    /// all IO operations stubbed out.
+    pub fn new_pure() -> Self {
+        Self::new(Box::new(DummyIO) as Box<dyn EvalIO>, false)
     }
 }
 

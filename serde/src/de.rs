@@ -46,7 +46,7 @@ where
     F: FnOnce(&mut Evaluation<Box<dyn EvalIO>>),
 {
     // First step is to evaluate the Nix code ...
-    let mut eval = Evaluation::default();
+    let mut eval = Evaluation::new_pure();
     config(&mut eval);
 
     eval.strict = true;

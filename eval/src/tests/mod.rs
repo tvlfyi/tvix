@@ -117,11 +117,8 @@ fn eval_test(code_path: PathBuf, expect_success: bool) {
 fn identity(#[files("src/tests/tvix_tests/identity-*.nix")] code_path: PathBuf) {
     let code = std::fs::read_to_string(code_path).expect("should be able to read test code");
 
-    let eval = crate::Evaluation {
-        strict: true,
-        io_handle: Box::new(crate::StdIO) as Box<dyn EvalIO>,
-        ..Default::default()
-    };
+    let mut eval = crate::Evaluation::new(Box::new(crate::StdIO) as Box<dyn EvalIO>, false);
+    eval.strict = true;
 
     let result = eval.evaluate(&code, None);
     assert!(
