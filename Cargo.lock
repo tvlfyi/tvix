@@ -3308,6 +3308,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "tvix-build",
  "tvix-castore",
  "tvix-eval",
  "tvix-glue",

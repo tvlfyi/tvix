@@ -2,6 +2,7 @@ use std::{rc::Rc, sync::Arc};
 
 use pretty_assertions::assert_eq;
 use std::path::PathBuf;
+use tvix_build::buildservice::DummyBuildService;
 use tvix_castore::{
     blobservice::{BlobService, MemoryBlobService},
     directoryservice::{DirectoryService, MemoryDirectoryService},
@@ -43,6 +44,7 @@ fn eval_test(code_path: PathBuf, expect_success: bool) {
         blob_service,
         directory_service,
         path_info_service.into(),
+        Arc::new(DummyBuildService::default()),
         tokio_runtime.handle().clone(),
     ));
     let mut eval = tvix_eval::Evaluation::new(tvix_store_io.clone() as Rc<dyn EvalIO>, true);

@@ -1,7 +1,9 @@
 use clap::Parser;
 use rustyline::{error::ReadlineError, Editor};
 use std::rc::Rc;
+use std::sync::Arc;
 use std::{fs, path::PathBuf};
+use tvix_build::buildservice::DummyBuildService;
 use tvix_eval::builtins::impure_builtins;
 use tvix_eval::observer::{DisassemblingObserver, TracingObserver};
 use tvix_eval::{EvalIO, Value};
@@ -88,6 +90,7 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
         blob_service.clone(),
         directory_service.clone(),
         path_info_service.into(),
+        Arc::<DummyBuildService>::default(),
         tokio_runtime.handle().clone(),
     ));
 

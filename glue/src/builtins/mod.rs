@@ -8,7 +8,6 @@ mod derivation;
 mod derivation_error;
 
 pub use derivation_error::Error as DerivationError;
-use tvix_eval::EvalIO;
 
 /// Adds derivation-related builtins to the passed [tvix_eval::Evaluation].
 ///
@@ -16,10 +15,7 @@ use tvix_eval::EvalIO;
 ///
 /// As they need to interact with `known_paths`, we also need to pass in
 /// `known_paths`.
-pub fn add_derivation_builtins<IO>(eval: &mut tvix_eval::Evaluation<IO>, io: Rc<TvixStoreIO>)
-where
-    IO: AsRef<dyn EvalIO>,
-{
+pub fn add_derivation_builtins<IO>(eval: &mut tvix_eval::Evaluation<IO>, io: Rc<TvixStoreIO>) {
     eval.builtins
         .extend(derivation::derivation_builtins::builtins(io));
 
@@ -30,13 +26,14 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::{rc::Rc, sync::Arc};
 
     use crate::tvix_store_io::TvixStoreIO;
 
     use super::add_derivation_builtins;
     use nix_compat::store_path::hash_placeholder;
     use test_case::test_case;
+    use tvix_build::buildservice::DummyBuildService;
     use tvix_eval::{EvalIO, EvaluationResult};
     use tvix_store::utils::construct_services;
 
@@ -54,6 +51,7 @@ mod tests {
             blob_service,
             directory_service,
             path_info_service.into(),
+            Arc::<DummyBuildService>::default(),
             runtime.handle().clone(),
         ));
 

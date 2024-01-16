@@ -9,6 +9,7 @@ use std::{
 };
 use tokio::io::AsyncReadExt;
 use tracing::{error, instrument, warn};
+use tvix_build::buildservice::BuildService;
 use tvix_eval::{EvalIO, FileType, StdIO};
 
 use tvix_castore::{
@@ -41,6 +42,8 @@ pub struct TvixStoreIO {
     directory_service: Arc<dyn DirectoryService>,
     path_info_service: Arc<dyn PathInfoService>,
     std_io: StdIO,
+    #[allow(dead_code)]
+    build_service: Arc<dyn BuildService>,
     tokio_handle: tokio::runtime::Handle,
     pub(crate) known_paths: RefCell<KnownPaths>,
 }
@@ -50,6 +53,7 @@ impl TvixStoreIO {
         blob_service: Arc<dyn BlobService>,
         directory_service: Arc<dyn DirectoryService>,
         path_info_service: Arc<dyn PathInfoService>,
+        build_service: Arc<dyn BuildService>,
         tokio_handle: tokio::runtime::Handle,
     ) -> Self {
         Self {
@@ -57,6 +61,7 @@ impl TvixStoreIO {
             directory_service,
             path_info_service,
             std_io: StdIO {},
+            build_service,
             tokio_handle,
             known_paths: Default::default(),
         }
@@ -292,6 +297,7 @@ mod tests {
     use std::{path::Path, rc::Rc, sync::Arc};
 
     use tempfile::TempDir;
+    use tvix_build::buildservice::DummyBuildService;
     use tvix_castore::{
         blobservice::{BlobService, MemoryBlobService},
         directoryservice::{DirectoryService, MemoryDirectoryService},
@@ -314,12 +320,14 @@ mod tests {
             blob_service.clone(),
             directory_service.clone(),
         ));
+
         let runtime = tokio::runtime::Runtime::new().unwrap();
 
         let io = Rc::new(TvixStoreIO::new(
             blob_service.clone(),
             directory_service.clone(),
             path_info_service,
+            Arc::<DummyBuildService>::default(),
             runtime.handle().clone(),
         ));
         let mut eval = tvix_eval::Evaluation::new(io.clone() as Rc<dyn EvalIO>, true);
