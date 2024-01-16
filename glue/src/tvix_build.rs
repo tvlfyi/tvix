@@ -36,7 +36,6 @@ const NIX_ENVIRONMENT_VARS: [(&str, &str); 12] = [
 ///   (`fn_input_sources_to_node`)
 /// - one translating a tuple of drv path and (a subset of their) output names to
 ///   castore nodes of the selected outpus (`fn_input_drvs_to_output_nodes`).
-#[allow(dead_code)]
 #[allow(clippy::mutable_key_type)]
 pub(crate) fn derivation_to_build_request(
     derivation: &Derivation,
