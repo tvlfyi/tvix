@@ -68,7 +68,7 @@ pub use crate::io::StdIO;
 ///
 /// Public fields are intended to be set by the caller. Setting all
 /// fields is optional.
-pub struct Evaluation<'co, 'ro> {
+pub struct Evaluation<'co, 'ro, IO> {
     /// Source code map used for error reporting.
     source_map: SourceCode,
 
@@ -87,7 +87,7 @@ pub struct Evaluation<'co, 'ro> {
     /// impure builtins.
     ///
     /// Defaults to [`DummyIO`] if not set explicitly.
-    pub io_handle: Box<dyn EvalIO>,
+    pub io_handle: IO,
 
     /// Determines whether the `import` builtin should be made
     /// available. Note that this depends on the `io_handle` being
@@ -131,7 +131,9 @@ pub struct EvaluationResult {
     pub expr: Option<rnix::ast::Expr>,
 }
 
-impl<'co, 'ro> Default for Evaluation<'co, 'ro> {
+/// TODO: this approach of creating the struct, then mutating its values
+/// unnecessarily restricts the type of IO (b/262)
+impl<'co, 'ro> Default for Evaluation<'co, 'ro, Box<dyn EvalIO>> {
     fn default() -> Self {
         let source_map = SourceCode::default();
 
@@ -142,7 +144,7 @@ impl<'co, 'ro> Default for Evaluation<'co, 'ro> {
             source_map,
             builtins,
             src_builtins: vec![],
-            io_handle: Box::new(DummyIO {}),
+            io_handle: Box::new(DummyIO {}) as Box<dyn EvalIO>,
             enable_import: false,
             strict: false,
             nix_path: None,
@@ -152,7 +154,7 @@ impl<'co, 'ro> Default for Evaluation<'co, 'ro> {
     }
 }
 
-impl<'co, 'ro> Evaluation<'co, 'ro> {
+impl<'co, 'ro> Evaluation<'co, 'ro, Box<dyn EvalIO>> {
     #[cfg(feature = "impure")]
     /// Initialise an `Evaluation`, with all impure features turned on by default.
     pub fn new_impure() -> Self {
@@ -166,7 +168,12 @@ impl<'co, 'ro> Evaluation<'co, 'ro> {
 
         eval
     }
+}
 
+impl<'co, 'ro, IO> Evaluation<'co, 'ro, IO>
+where
+    IO: AsRef<dyn EvalIO> + 'static,
+{
     /// Clone the reference to the contained source code map. This is used after
     /// an evaluation for pretty error printing.
     pub fn source_map(&self) -> SourceCode {
@@ -233,7 +240,7 @@ impl<'co, 'ro> Evaluation<'co, 'ro> {
         let compiler_observer = self.compiler_observer.take().unwrap_or(&mut noop_observer);
 
         // Insert a storeDir builtin *iff* a store directory is present.
-        if let Some(store_dir) = self.io_handle.store_dir() {
+        if let Some(store_dir) = self.io_handle.as_ref().store_dir() {
             self.builtins.push(("storeDir", store_dir.into()));
         }
 

@@ -224,7 +224,10 @@ pub fn pin_generator(
     Box::pin(f)
 }
 
-impl<'o> VM<'o> {
+impl<'o, IO> VM<'o, IO>
+where
+    IO: AsRef<dyn EvalIO> + 'static,
+{
     /// Helper function to re-enqueue the current generator while it
     /// is awaiting a value.
     fn reenqueue_generator(&mut self, name: &'static str, span: LightSpan, generator: Generator) {
@@ -411,6 +414,7 @@ impl<'o> VM<'o> {
                         VMRequest::PathImport(path) => {
                             let imported = self
                                 .io_handle
+                                .as_ref()
                                 .import_path(&path)
                                 .map_err(|e| ErrorKind::IO {
                                     path: Some(path),
@@ -424,6 +428,7 @@ impl<'o> VM<'o> {
                         VMRequest::ReadToString(path) => {
                             let content = self
                                 .io_handle
+                                .as_ref()
                                 .read_to_string(&path)
                                 .map_err(|e| ErrorKind::IO {
                                     path: Some(path),
@@ -437,6 +442,7 @@ impl<'o> VM<'o> {
                         VMRequest::PathExists(path) => {
                             let exists = self
                                 .io_handle
+                                .as_ref()
                                 .path_exists(&path)
                                 .map_err(|e| ErrorKind::IO {
                                     path: Some(path),
@@ -451,6 +457,7 @@ impl<'o> VM<'o> {
                         VMRequest::ReadDir(path) => {
                             let dir = self
                                 .io_handle
+                                .as_ref()
                                 .read_dir(&path)
                                 .map_err(|e| ErrorKind::IO {
                                     path: Some(path),

@@ -68,11 +68,10 @@ impl NixSearchPathEntry {
     ///
     /// For prefixed path, an entry matches if the prefix does.
     // TODO(tazjin): verify these rules in the C++ impl, seems fishy.
-    fn resolve(
-        &self,
-        io: &mut dyn EvalIO,
-        lookup_path: &Path,
-    ) -> Result<Option<PathBuf>, ErrorKind> {
+    fn resolve<IO>(&self, io: IO, lookup_path: &Path) -> Result<Option<PathBuf>, ErrorKind>
+    where
+        IO: AsRef<dyn EvalIO>,
+    {
         let path = match self {
             NixSearchPathEntry::Path(parent) => canonicalise(parent.join(lookup_path))?,
 
@@ -85,7 +84,7 @@ impl NixSearchPathEntry {
             }
         };
 
-        if io.path_exists(&path).map_err(|e| ErrorKind::IO {
+        if io.as_ref().path_exists(&path).map_err(|e| ErrorKind::IO {
             path: Some(path.clone()),
             error: e.into(),
         })? {
@@ -124,17 +123,18 @@ pub struct NixSearchPath {
 impl NixSearchPath {
     /// Attempt to resolve the given `path` within this [`NixSearchPath`] using the
     /// path resolution rules for `<...>`-style paths
-    pub fn resolve<P>(
+    pub fn resolve<P, IO>(
         &self,
-        io: &mut dyn EvalIO,
+        io: IO,
         path: P,
     ) -> Result<Result<PathBuf, CatchableErrorKind>, ErrorKind>
     where
         P: AsRef<Path>,
+        IO: AsRef<dyn EvalIO>,
     {
         let path = path.as_ref();
         for entry in &self.entries {
-            if let Some(p) = entry.resolve(io, path)? {
+            if let Some(p) = entry.resolve(&io, path)? {
                 return Ok(Ok(p));
             }
         }
@@ -204,8 +204,8 @@ mod tests {
         #[test]
         fn simple_dir() {
             let nix_search_path = NixSearchPath::from_str("./.").unwrap();
-            let mut io = StdIO {};
-            let res = nix_search_path.resolve(&mut io, "src").unwrap();
+            let io = Box::new(StdIO {}) as Box<dyn EvalIO>;
+            let res = nix_search_path.resolve(&io, "src").unwrap();
             assert_eq!(
                 res.unwrap().to_path_buf(),
                 current_dir().unwrap().join("src").clean()
@@ -215,8 +215,8 @@ mod tests {
         #[test]
         fn failed_resolution() {
             let nix_search_path = NixSearchPath::from_str("./.").unwrap();
-            let mut io = StdIO {};
-            let err = nix_search_path.resolve(&mut io, "nope").unwrap();
+            let io = Box::new(StdIO {}) as Box<dyn EvalIO>;
+            let err = nix_search_path.resolve(&io, "nope").unwrap();
             assert!(
                 matches!(err, Err(CatchableErrorKind::NixPathResolution(..))),
                 "err = {err:?}"
@@ -226,16 +226,16 @@ mod tests {
         #[test]
         fn second_in_path() {
             let nix_search_path = NixSearchPath::from_str("./.:/").unwrap();
-            let mut io = StdIO {};
-            let res = nix_search_path.resolve(&mut io, "etc").unwrap();
+            let io = Box::new(StdIO {}) as Box<dyn EvalIO>;
+            let res = nix_search_path.resolve(&io, "etc").unwrap();
             assert_eq!(res.unwrap().to_path_buf(), Path::new("/etc"));
         }
 
         #[test]
         fn prefix() {
             let nix_search_path = NixSearchPath::from_str("/:tvix=.").unwrap();
-            let mut io = StdIO {};
-            let res = nix_search_path.resolve(&mut io, "tvix/src").unwrap();
+            let io = Box::new(StdIO {}) as Box<dyn EvalIO>;
+            let res = nix_search_path.resolve(&io, "tvix/src").unwrap();
             assert_eq!(
                 res.unwrap().to_path_buf(),
                 current_dir().unwrap().join("src").clean()
@@ -245,8 +245,8 @@ mod tests {
         #[test]
         fn matching_prefix() {
             let nix_search_path = NixSearchPath::from_str("/:tvix=.").unwrap();
-            let mut io = StdIO {};
-            let res = nix_search_path.resolve(&mut io, "tvix").unwrap();
+            let io = Box::new(StdIO {}) as Box<dyn EvalIO>;
+            let res = nix_search_path.resolve(&io, "tvix").unwrap();
             assert_eq!(res.unwrap().to_path_buf(), current_dir().unwrap().clean());
         }
     }

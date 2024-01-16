@@ -1,4 +1,4 @@
-use crate::value::Value;
+use crate::{value::Value, EvalIO};
 use builtin_macros::builtins;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -119,7 +119,7 @@ fn identity(#[files("src/tests/tvix_tests/identity-*.nix")] code_path: PathBuf) 
 
     let eval = crate::Evaluation {
         strict: true,
-        io_handle: Box::new(crate::StdIO),
+        io_handle: Box::new(crate::StdIO) as Box<dyn EvalIO>,
         ..Default::default()
     };
 

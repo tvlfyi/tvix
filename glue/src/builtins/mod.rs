@@ -14,8 +14,8 @@ pub use derivation_error::Error as DerivationError;
 ///
 /// As they need to interact with `known_paths`, we also need to pass in
 /// `known_paths`.
-pub fn add_derivation_builtins(
-    eval: &mut tvix_eval::Evaluation,
+pub fn add_derivation_builtins<IO>(
+    eval: &mut tvix_eval::Evaluation<IO>,
     known_paths: Rc<RefCell<KnownPaths>>,
 ) {
     eval.builtins
