@@ -10,6 +10,7 @@ use tvix_eval::builtins::impure_builtins;
 use tvix_eval::observer::{DisassemblingObserver, TracingObserver};
 use tvix_eval::{EvalIO, Value};
 use tvix_glue::builtins::add_fetcher_builtins;
+use tvix_glue::builtins::add_import_builtins;
 use tvix_glue::tvix_io::TvixIO;
 use tvix_glue::tvix_store_io::TvixStoreIO;
 use tvix_glue::{builtins::add_derivation_builtins, configure_nix_path};
@@ -130,7 +131,8 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
     eval.strict = args.strict;
     eval.builtins.extend(impure_builtins());
     add_derivation_builtins(&mut eval, tvix_store_io.clone());
-    add_fetcher_builtins(&mut eval, tvix_store_io);
+    add_fetcher_builtins(&mut eval, tvix_store_io.clone());
+    add_import_builtins(&mut eval, tvix_store_io);
     configure_nix_path(&mut eval, &args.nix_search_path);
 
     let source_map = eval.source_map();

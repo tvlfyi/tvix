@@ -8,6 +8,8 @@ mod derivation;
 mod derivation_error;
 mod fetchers;
 
+mod import;
+
 pub use derivation_error::Error as DerivationError;
 
 /// Adds derivation-related builtins to the passed [tvix_eval::Evaluation].
@@ -35,14 +37,26 @@ pub fn add_fetcher_builtins<IO>(eval: &mut tvix_eval::Evaluation<IO>, io: Rc<Tvi
         .extend(fetchers::fetcher_builtins::builtins(io));
 }
 
+/// Adds import-related builtins to the passed [tvix_eval::Evaluation].
+///
+/// These are `filterSource` and `path`
+///
+/// As they need to interact with the store implementation, we pass [`TvixStoreIO`].
+pub fn add_import_builtins<IO>(eval: &mut tvix_eval::Evaluation<IO>, io: Rc<TvixStoreIO>) {
+    eval.builtins.extend(import::import_builtins(io));
+
+    // TODO(raitobezarius): evaluate expressing filterSource as Nix code using path (b/372)
+}
+
 #[cfg(test)]
 mod tests {
-    use std::{rc::Rc, sync::Arc};
+    use std::{fs, rc::Rc, sync::Arc};
 
     use crate::tvix_store_io::TvixStoreIO;
 
-    use super::{add_derivation_builtins, add_fetcher_builtins};
+    use super::{add_derivation_builtins, add_fetcher_builtins, add_import_builtins};
     use nix_compat::store_path::hash_placeholder;
+    use tempfile::TempDir;
     use test_case::test_case;
     use tvix_build::buildservice::DummyBuildService;
     use tvix_eval::{EvalIO, EvaluationResult};
@@ -69,7 +83,8 @@ mod tests {
         let mut eval = tvix_eval::Evaluation::new(io.clone() as Rc<dyn EvalIO>, false);
 
         add_derivation_builtins(&mut eval, io.clone());
-        add_fetcher_builtins(&mut eval, io);
+        add_fetcher_builtins(&mut eval, io.clone());
+        add_import_builtins(&mut eval, io);
 
         // run the evaluation itself.
         eval.evaluate(str, None)
@@ -332,5 +347,154 @@ mod tests {
             !eval_result.warnings.is_empty(),
             "warnings should not be empty"
         );
+    }
+
+    /// Invokes `builtins.filterSource` on various carefully-crated subdirs, and
+    /// ensures the resulting store paths matches what Nix produces.
+    /// @fixtures is replaced to the fixtures directory.
+    #[cfg(target_family = "unix")]
+    #[test_case(r#"(builtins.filterSource (p: t: true) @fixtures)"#, "/nix/store/bqh6kd0x3vps2rzagzpl7qmbbgnx19cp-import_fixtures"; "complicated directory: filter nothing")]
+    #[test_case(r#"(builtins.filterSource (p: t: false) @fixtures)"#, "/nix/store/giq6czz24lpjg97xxcxk6rg950lcpib1-import_fixtures"; "complicated directory: filter everything")]
+    #[test_case(r#"(builtins.filterSource (p: t: t != "directory") @fixtures/a_dir)"#, "/nix/store/8vbqaxapywkvv1hacdja3pi075r14d43-a_dir"; "simple directory with one file: filter directories")]
+    #[test_case(r#"(builtins.filterSource (p: t: t != "regular") @fixtures/a_dir)"#, "/nix/store/zphlqc93s2iq4xm393l06hzf8hp85r4z-a_dir"; "simple directory with one file: filter files")]
+    #[test_case(r#"(builtins.filterSource (p: t: t != "symlink") @fixtures/a_dir)"#, "/nix/store/8vbqaxapywkvv1hacdja3pi075r14d43-a_dir"; "simple directory with one file: filter symlinks")]
+    #[test_case(r#"(builtins.filterSource (p: t: true) @fixtures/a_dir)"#, "/nix/store/8vbqaxapywkvv1hacdja3pi075r14d43-a_dir"; "simple directory with one file: filter nothing")]
+    #[test_case(r#"(builtins.filterSource (p: t: false) @fixtures/a_dir)"#, "/nix/store/zphlqc93s2iq4xm393l06hzf8hp85r4z-a_dir"; "simple directory with one file: filter everything")]
+    #[test_case(r#"builtins.filterSource (p: t: t != "directory") @fixtures/b_dir"#, "/nix/store/xzsfzdgrxg93icaamjm8zq1jq6xvf2fz-b_dir"; "simple directory with one directory: filter directories")]
+    #[test_case(r#"builtins.filterSource (p: t: t != "regular") @fixtures/b_dir"#, "/nix/store/8rjx64mm7173xp60rahv7cl3ixfkv3rf-b_dir"; "simple directory with one directory: filter files")]
+    #[test_case(r#"builtins.filterSource (p: t: t != "symlink") @fixtures/b_dir"#, "/nix/store/8rjx64mm7173xp60rahv7cl3ixfkv3rf-b_dir"; "simple directory with one directory: filter symlinks")]
+    #[test_case(r#"builtins.filterSource (p: t: true) @fixtures/b_dir"#, "/nix/store/8rjx64mm7173xp60rahv7cl3ixfkv3rf-b_dir"; "simple directory with one directory: filter nothing")]
+    #[test_case(r#"builtins.filterSource (p: t: false) @fixtures/b_dir"#, "/nix/store/xzsfzdgrxg93icaamjm8zq1jq6xvf2fz-b_dir"; "simple directory with one directory: filter everything")]
+    #[test_case(r#"builtins.filterSource (p: t: t != "directory") @fixtures/c_dir"#, "/nix/store/riigfmmzzrq65zqiffcjk5sbqr9c9h09-c_dir"; "simple directory with one symlink to a file: filter directory")]
+    #[test_case(r#"builtins.filterSource (p: t: t != "regular") @fixtures/c_dir"#, "/nix/store/riigfmmzzrq65zqiffcjk5sbqr9c9h09-c_dir"; "simple directory with one symlink to a file: filter files")]
+    #[test_case(r#"builtins.filterSource (p: t: t != "symlink") @fixtures/c_dir"#, "/nix/store/y5g1fz04vzjvf422q92qmv532axj5q26-c_dir"; "simple directory with one symlink to a file: filter symlinks")]
+    #[test_case(r#"builtins.filterSource (p: t: true) @fixtures/c_dir"#, "/nix/store/riigfmmzzrq65zqiffcjk5sbqr9c9h09-c_dir"; "simple directory with one symlink to a file: filter nothing")]
+    #[test_case(r#"builtins.filterSource (p: t: false) @fixtures/c_dir"#, "/nix/store/y5g1fz04vzjvf422q92qmv532axj5q26-c_dir"; "simple directory with one symlink to a file: filter everything")]
+    #[test_case(r#"builtins.filterSource (p: t: t != "directory") @fixtures/d_dir"#, "/nix/store/f2d1aixwiqy4lbzrd040ala2s4m2z199-d_dir"; "simple directory with dangling symlink: filter directory")]
+    #[test_case(r#"builtins.filterSource (p: t: t != "regular") @fixtures/d_dir"#, "/nix/store/f2d1aixwiqy4lbzrd040ala2s4m2z199-d_dir"; "simple directory with dangling symlink: filter file")]
+    #[test_case(r#"builtins.filterSource (p: t: t != "symlink") @fixtures/d_dir"#, "/nix/store/7l371xax8kknhpska4wrmyll1mzlhzvl-d_dir"; "simple directory with dangling symlink: filter symlinks")]
+    #[test_case(r#"builtins.filterSource (p: t: true) @fixtures/d_dir"#, "/nix/store/f2d1aixwiqy4lbzrd040ala2s4m2z199-d_dir"; "simple directory with dangling symlink: filter nothing")]
+    #[test_case(r#"builtins.filterSource (p: t: false) @fixtures/d_dir"#, "/nix/store/7l371xax8kknhpska4wrmyll1mzlhzvl-d_dir"; "simple directory with dangling symlink: filter everything")]
+    #[test_case(r#"builtins.filterSource (p: t: t != "directory") @fixtures/symlink_to_a_dir"#, "/nix/store/apmdprm8fwl2zrjpbyfcd99zrnhvf47q-symlink_to_a_dir"; "simple symlinked directory with one file: filter directories")]
+    #[test_case(r#"builtins.filterSource (p: t: t != "regular") @fixtures/symlink_to_a_dir"#, "/nix/store/apmdprm8fwl2zrjpbyfcd99zrnhvf47q-symlink_to_a_dir"; "simple symlinked directory with one file: filter file")]
+    #[test_case(r#"builtins.filterSource (p: t: t != "symlink") @fixtures/symlink_to_a_dir"#, "/nix/store/apmdprm8fwl2zrjpbyfcd99zrnhvf47q-symlink_to_a_dir"; "simple symlinked directory with one file: filter symlinks")]
+    #[test_case(r#"builtins.filterSource (p: t: true) @fixtures/symlink_to_a_dir"#, "/nix/store/apmdprm8fwl2zrjpbyfcd99zrnhvf47q-symlink_to_a_dir"; "simple symlinked directory with one file: filter nothing")]
+    #[test_case(r#"builtins.filterSource (p: t: false) @fixtures/symlink_to_a_dir"#, "/nix/store/apmdprm8fwl2zrjpbyfcd99zrnhvf47q-symlink_to_a_dir"; "simple symlinked directory with one file: filter everything")]
+    fn builtins_filter_source_succeed(code: &str, expected_outpath: &str) {
+        // populate the fixtures dir
+        let temp = TempDir::new().expect("create temporary directory");
+        let p = temp.path().join("import_fixtures");
+
+        // create the fixtures directory.
+        // We produce them at runtime rather than shipping it inside the source
+        // tree, as git can't model certain things - like directories without any
+        // items.
+        {
+            fs::create_dir(&p).expect("creating import_fixtures");
+
+            // `/a_dir` contains an empty `a_file` file
+            fs::create_dir(p.join("a_dir")).expect("creating /a_dir");
+            fs::write(p.join("a_dir").join("a_file"), "").expect("creating /a_dir/a_file");
+
+            // `/a_file` is an empty file
+            fs::write(p.join("a_file"), "").expect("creating /a_file");
+
+            // `/b_dir` contains an empty "a_dir" directory
+            fs::create_dir_all(p.join("b_dir").join("a_dir")).expect("creating /b_dir/a_dir");
+
+            // `/c_dir` contains a `symlink_to_a_file` symlink, pointing to `../a_dir/a_file`.
+            fs::create_dir(p.join("c_dir")).expect("creating /c_dir");
+            std::os::unix::fs::symlink(
+                "../a_dir/a_file",
+                p.join("c_dir").join("symlink_to_a_file"),
+            )
+            .expect("creating /c_dir/symlink_to_a_file");
+
+            // `/d_dir` contains a `dangling_symlink`, pointing to `a_dir/a_file`,
+            // which does not exist.
+            fs::create_dir(p.join("d_dir")).expect("creating /d_dir");
+            std::os::unix::fs::symlink("a_dir/a_file", p.join("d_dir").join("dangling_symlink"))
+                .expect("creating /d_dir/dangling_symlink");
+
+            // `/symlink_to_a_dir` is a symlink to `a_dir`, which exists.
+            std::os::unix::fs::symlink("a_dir", p.join("symlink_to_a_dir"))
+                .expect("creating /symlink_to_a_dir");
+        }
+
+        // replace @fixtures with the temporary path containing the fixtures
+        let code_replaced = code.replace("@fixtures", &p.to_string_lossy());
+
+        let eval_result = eval(&code_replaced);
+
+        let value = eval_result.value.expect("must succeed");
+
+        match value {
+            tvix_eval::Value::String(s) => {
+                assert_eq!(expected_outpath, s.as_bstr());
+            }
+            _ => panic!("unexpected value type: {:?}", value),
+        }
+
+        assert!(eval_result.errors.is_empty(), "errors should be empty");
+    }
+
+    // All tests filter out some unsupported (not representable in castore) nodes, confirming
+    // invalid, but filtered-out nodes don't prevent ingestion of a path.
+    #[cfg(target_family = "unix")]
+    // There is a set of invalid filetypes.
+    // We write a filter function for most subsets, excluding one that filters all of them.
+    // We expect these cases to make the evaluation fail as there are still invalid files present
+    // after the filtering.
+    #[test_case(r#"(builtins.filterSource (p: t: t == "unknown") @fixtures)"#, false; "complicated directory: filter unsupported types")]
+    #[test_case(r#"(builtins.filterSource (p: t: (builtins.baseNameOf p) != "a_charnode") @fixtures)"#, false; "complicated directory: filter character device nodes")]
+    #[test_case(r#"(builtins.filterSource (p: t: (builtins.baseNameOf p) != "a_socket") @fixtures)"#, false; "complicated directory: filter sockets")]
+    #[test_case(r#"(builtins.filterSource (p: t: (builtins.baseNameOf p) != "a_fifo") @fixtures)"#, false; "complicated directory: filter FIFOs")]
+    // We filter all invalid filetypes, so the evaluation has to succeed.
+    #[test_case(r#"(builtins.filterSource (p: t: t != "unknown") @fixtures)"#, true; "complicated directory: filter out unsupported types")]
+    fn builtins_filter_source_unsupported_files(code: &str, success: bool) {
+        use nix::sys::stat;
+        use nix::unistd;
+        use std::os::unix::net::UnixListener;
+        use tempfile::TempDir;
+
+        // We prepare a directory containing some unsupported file nodes:
+        // - character device
+        // - socket
+        // - FIFO
+        // and we run the evaluation inside that CWD.
+        //
+        // block devices cannot be tested because we don't have the right permissions.
+        let temp = TempDir::with_prefix("foo").expect("Failed to create a temporary directory");
+
+        // read, write, execute to the owner.
+        unistd::mkfifo(&temp.path().join("a_fifo"), stat::Mode::S_IRWXU)
+            .expect("Failed to create the FIFO");
+
+        UnixListener::bind(temp.path().join("a_socket")).expect("Failed to create the socket");
+
+        stat::mknod(
+            &temp.path().join("a_charnode"),
+            stat::SFlag::S_IFCHR,
+            stat::Mode::S_IRWXU,
+            0,
+        )
+        .expect("Failed to create a character device node");
+
+        let code_replaced = code.replace("@fixtures", &temp.path().to_string_lossy());
+        let eval_result = eval(&code_replaced);
+
+        if success {
+            assert!(
+                eval_result.value.is_some(),
+                "unexpected failure on a directory of unsupported file types but all filtered: {:?}",
+                eval_result.errors
+            );
+        } else {
+            assert!(
+                eval_result.value.is_none(),
+                "unexpected success on unsupported file type ingestion: {:?}",
+                eval_result.value
+            );
+        }
     }
 }

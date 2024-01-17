@@ -20,6 +20,7 @@ thiserror = "1.0.38"
 serde = "1.0.195"
 serde_json = "1.0"
 sha2 = "0.10.8"
+walkdir = "2.4.0"
 
 [dependencies.wu-manber]
 git = "https://github.com/tvlfyi/wu-manber.git"
@@ -28,6 +29,7 @@ git = "https://github.com/tvlfyi/wu-manber.git"
 criterion = { version = "0.5", features = ["html_reports"] }
 hex-literal = "0.4.1"
 lazy_static = "1.4.0"
+nix = { version = "0.27.1", features = [ "fs" ] }
 pretty_assertions = "1.4.0"
 rstest = "0.18.2"
 tempfile = "3.8.1"

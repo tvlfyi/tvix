@@ -13,7 +13,7 @@ use tvix_store::pathinfoservice::{MemoryPathInfoService, PathInfoService};
 use rstest::rstest;
 
 use crate::{
-    builtins::{add_derivation_builtins, add_fetcher_builtins},
+    builtins::{add_derivation_builtins, add_fetcher_builtins, add_import_builtins},
     tvix_store_io::TvixStoreIO,
 };
 
@@ -54,7 +54,8 @@ fn eval_test(code_path: PathBuf, expect_success: bool) {
 
     eval.strict = true;
     add_derivation_builtins(&mut eval, tvix_store_io.clone());
-    add_fetcher_builtins(&mut eval, tvix_store_io);
+    add_fetcher_builtins(&mut eval, tvix_store_io.clone());
+    add_import_builtins(&mut eval, tvix_store_io.clone());
 
     let result = eval.evaluate(code, Some(code_path.clone()));
     let failed = match result.value {
