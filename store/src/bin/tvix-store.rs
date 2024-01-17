@@ -305,16 +305,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let path_info_service = path_info_service.clone();
 
                         async move {
-                            let resp = tvix_store::import::import_path_as_nar_ca(
-                                path,
-                                blob_service,
-                                directory_service,
-                                path_info_service,
-                            )
-                            .await;
-                            if let Ok(output_path) = resp {
-                                // If the import was successful, print the path to stdout.
-                                println!("{}", output_path.to_absolute_path());
+                            if let Ok(name) = tvix_store::import::path_to_name(&path) {
+                                let resp = tvix_store::import::import_path_as_nar_ca(
+                                    &path,
+                                    name,
+                                    blob_service,
+                                    directory_service,
+                                    path_info_service,
+                                )
+                                .await;
+                                if let Ok(output_path) = resp {
+                                    // If the import was successful, print the path to stdout.
+                                    println!("{}", output_path.to_absolute_path());
+                                }
                             }
                         }
                     })
