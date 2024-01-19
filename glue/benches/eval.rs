@@ -6,7 +6,7 @@ use tvix_castore::{
     blobservice::{BlobService, MemoryBlobService},
     directoryservice::{DirectoryService, MemoryDirectoryService},
 };
-use tvix_eval::EvalIO;
+use tvix_eval::{builtins::impure_builtins, EvalIO};
 use tvix_glue::{
     builtins::add_derivation_builtins, configure_nix_path, tvix_io::TvixIO,
     tvix_store_io::TvixStoreIO,
@@ -43,6 +43,7 @@ fn interpret(code: &str) {
         true,
     );
 
+    eval.builtins.extend(impure_builtins());
     add_derivation_builtins(&mut eval, tvix_store_io);
     configure_nix_path(
         &mut eval,
