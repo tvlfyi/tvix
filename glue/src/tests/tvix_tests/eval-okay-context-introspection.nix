@@ -18,7 +18,8 @@ let
   # then, we reassemble the list into a proper string.
   discardContext = target: builtins.concatStringsSep "" (builtins.split "(.*)" "${target}");
 
-  hasContextInAttrKeys = attrs: builtins.all builtins.hasContext (builtins.attrNames attrs);
+  # Note that this should never return true for any attribute set.
+  hasContextInAttrKeys = attrs: builtins.any builtins.hasContext (builtins.attrNames attrs);
 
   path = "${./eval-okay-context-introspection.nix}";
 
