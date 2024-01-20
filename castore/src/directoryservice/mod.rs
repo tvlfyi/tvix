@@ -1,6 +1,5 @@
 use crate::{proto, B3Digest, Error};
-use futures::Stream;
-use std::pin::Pin;
+use futures::stream::BoxStream;
 use tonic::async_trait;
 
 mod from_addr;
@@ -44,7 +43,7 @@ pub trait DirectoryService: Send + Sync {
     fn get_recursive(
         &self,
         root_directory_digest: &B3Digest,
-    ) -> Pin<Box<dyn Stream<Item = Result<proto::Directory, Error>> + Send>>;
+    ) -> BoxStream<Result<proto::Directory, Error>>;
 
     /// Allows persisting a closure of [proto::Directory], which is a graph of
     /// connected Directory messages.

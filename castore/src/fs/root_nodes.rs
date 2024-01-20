@@ -1,8 +1,8 @@
-use std::{collections::BTreeMap, pin::Pin};
+use std::collections::BTreeMap;
 
 use crate::{proto::node::Node, Error};
 use bytes::Bytes;
-use futures::Stream;
+use futures::stream::BoxStream;
 use tonic::async_trait;
 
 /// Provides an interface for looking up root nodes  in tvix-castore by given
@@ -15,7 +15,7 @@ pub trait RootNodes: Send + Sync {
 
     /// Lists all root CA nodes in the filesystem. An error can be returned
     /// in case listing is not allowed
-    fn list(&self) -> Pin<Box<dyn Stream<Item = Result<Node, Error>> + Send + '_>>;
+    fn list(&self) -> BoxStream<Result<Node, Error>>;
 }
 
 #[async_trait]
@@ -29,7 +29,7 @@ where
         Ok(self.as_ref().get(name).cloned())
     }
 
-    fn list(&self) -> Pin<Box<dyn Stream<Item = Result<Node, Error>> + Send + '_>> {
+    fn list(&self) -> BoxStream<Result<Node, Error>> {
         Box::pin(tokio_stream::iter(
             self.as_ref().iter().map(|(_, v)| Ok(v.clone())),
         ))

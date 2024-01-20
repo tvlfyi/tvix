@@ -1,10 +1,9 @@
 use crate::directoryservice::DirectoryPutter;
 use crate::proto::Directory;
 use crate::{proto, B3Digest, Error};
-use futures::Stream;
+use futures::stream::BoxStream;
 use prost::Message;
 use std::path::Path;
-use std::pin::Pin;
 use tonic::async_trait;
 use tracing::{instrument, warn};
 
@@ -99,7 +98,7 @@ impl DirectoryService for SledDirectoryService {
     fn get_recursive(
         &self,
         root_directory_digest: &B3Digest,
-    ) -> Pin<Box<(dyn Stream<Item = Result<proto::Directory, Error>> + Send + 'static)>> {
+    ) -> BoxStream<Result<proto::Directory, Error>> {
         traverse_directory(self.clone(), root_directory_digest)
     }
 

@@ -4,19 +4,18 @@ use crate::proto;
 use crate::B3Digest;
 use crate::Error;
 use async_stream::stream;
-use futures::Stream;
+use futures::stream::BoxStream;
 use std::collections::{HashSet, VecDeque};
-use std::pin::Pin;
 use tonic::async_trait;
 use tracing::warn;
 
 /// Traverses a [proto::Directory] from the root to the children.
 ///
 /// This is mostly BFS, but directories are only returned once.
-pub fn traverse_directory<DS: DirectoryService + 'static>(
+pub fn traverse_directory<'a, DS: DirectoryService + 'static>(
     directory_service: DS,
     root_directory_digest: &B3Digest,
-) -> Pin<Box<dyn Stream<Item = Result<proto::Directory, Error>> + Send>> {
+) -> BoxStream<'a, Result<proto::Directory, Error>> {
     // The list of all directories that still need to be traversed. The next
     // element is picked from the front, new elements are enqueued at the
     // back.

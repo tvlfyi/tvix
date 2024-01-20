@@ -1,9 +1,8 @@
 use super::PathInfoService;
 use crate::{nar::calculate_size_and_sha256, proto::PathInfo};
-use futures::{stream::iter, Stream};
+use futures::stream::{iter, BoxStream};
 use std::{
     collections::HashMap,
-    pin::Pin,
     sync::{Arc, RwLock},
 };
 use tonic::async_trait;
@@ -71,7 +70,7 @@ where
             .map_err(|e| Error::StorageError(e.to_string()))
     }
 
-    fn list(&self) -> Pin<Box<dyn Stream<Item = Result<PathInfo, Error>> + Send>> {
+    fn list(&self) -> BoxStream<'static, Result<PathInfo, Error>> {
         let db = self.db.read().unwrap();
 
         // Copy all elements into a list.

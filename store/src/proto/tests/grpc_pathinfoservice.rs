@@ -7,8 +7,8 @@ use crate::tests::fixtures::DUMMY_OUTPUT_HASH;
 use crate::tests::utils::gen_blob_service;
 use crate::tests::utils::gen_directory_service;
 use crate::tests::utils::gen_pathinfo_service;
+use futures::stream::BoxStream;
 use std::sync::Arc;
-use tokio_stream::wrappers::ReceiverStream;
 use tonic::Request;
 use tvix_castore::proto as castorepb;
 
@@ -18,7 +18,8 @@ use tvix_castore::proto as castorepb;
 /// It uses the NonCachingNARCalculationService NARCalculationService to
 /// calculate NARs.
 fn gen_grpc_service(
-) -> Arc<dyn GRPCPathInfoService<ListStream = ReceiverStream<Result<PathInfo, tonic::Status>>>> {
+) -> Arc<dyn GRPCPathInfoService<ListStream = BoxStream<'static, Result<PathInfo, tonic::Status>>>>
+{
     let blob_service = gen_blob_service();
     let directory_service = gen_directory_service();
     Arc::new(GRPCPathInfoServiceWrapper::new(gen_pathinfo_service(

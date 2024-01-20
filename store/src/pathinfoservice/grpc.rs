@@ -1,8 +1,7 @@
 use super::PathInfoService;
 use crate::proto::{self, ListPathInfoRequest, PathInfo};
 use async_stream::try_stream;
-use futures::Stream;
-use std::pin::Pin;
+use futures::stream::BoxStream;
 use tonic::{async_trait, transport::Channel, Code};
 use tvix_castore::{proto as castorepb, Error};
 
@@ -87,7 +86,7 @@ impl PathInfoService for GRPCPathInfoService {
         Ok((path_info.nar_size, nar_sha256))
     }
 
-    fn list(&self) -> Pin<Box<dyn Stream<Item = Result<PathInfo, Error>> + Send>> {
+    fn list(&self) -> BoxStream<'static, Result<PathInfo, Error>> {
         let mut grpc_client = self.grpc_client.clone();
 
         let stream = try_stream! {

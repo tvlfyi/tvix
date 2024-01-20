@@ -1,11 +1,10 @@
 use std::collections::HashSet;
-use std::pin::Pin;
 
 use super::{DirectoryPutter, DirectoryService};
 use crate::proto::{self, get_directory_request::ByWhat};
 use crate::{B3Digest, Error};
 use async_stream::try_stream;
-use futures::Stream;
+use futures::stream::BoxStream;
 use tokio::spawn;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
@@ -106,7 +105,7 @@ impl DirectoryService for GRPCDirectoryService {
     fn get_recursive(
         &self,
         root_directory_digest: &B3Digest,
-    ) -> Pin<Box<dyn Stream<Item = Result<proto::Directory, Error>> + Send>> {
+    ) -> BoxStream<Result<proto::Directory, Error>> {
         let mut grpc_client = self.grpc_client.clone();
         let root_directory_digest = root_directory_digest.clone();
 

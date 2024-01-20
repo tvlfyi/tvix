@@ -1,10 +1,7 @@
-use std::{
-    io::{self, BufRead, Read, Write},
-    pin::Pin,
-};
+use std::io::{self, BufRead, Read, Write};
 
 use data_encoding::BASE64;
-use futures::{Stream, TryStreamExt};
+use futures::{stream::BoxStream, TryStreamExt};
 use nix_compat::{
     narinfo::{self, NarInfo},
     nixbase32,
@@ -270,7 +267,7 @@ where
         ))
     }
 
-    fn list(&self) -> Pin<Box<dyn Stream<Item = Result<PathInfo, Error>> + Send>> {
+    fn list(&self) -> BoxStream<'static, Result<PathInfo, Error>> {
         Box::pin(futures::stream::once(async {
             Err(Error::InvalidRequest(
                 "list not supported for this backend".to_string(),

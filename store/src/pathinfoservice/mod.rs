@@ -7,8 +7,7 @@ mod sled;
 #[cfg(any(feature = "fuse", feature = "virtiofs"))]
 mod fs;
 
-use futures::Stream;
-use std::pin::Pin;
+use futures::stream::BoxStream;
 use tonic::async_trait;
 use tvix_castore::proto as castorepb;
 use tvix_castore::Error;
@@ -49,5 +48,5 @@ pub trait PathInfoService: Send + Sync {
     /// and the box allows different underlying stream implementations to be returned since
     /// Rust doesn't support this as a generic in traits yet. This is the same thing that
     /// [async_trait] generates, but for streams instead of futures.
-    fn list(&self) -> Pin<Box<dyn Stream<Item = Result<PathInfo, Error>> + Send>>;
+    fn list(&self) -> BoxStream<'static, Result<PathInfo, Error>>;
 }

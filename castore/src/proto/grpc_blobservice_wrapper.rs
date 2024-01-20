@@ -1,11 +1,10 @@
 use crate::blobservice::BlobService;
 use core::pin::pin;
-use futures::TryFutureExt;
+use futures::{stream::BoxStream, TryFutureExt};
 use std::{
     collections::VecDeque,
     io,
     ops::{Deref, DerefMut},
-    pin::Pin,
 };
 use tokio_stream::StreamExt;
 use tokio_util::io::ReaderStream;
@@ -86,8 +85,7 @@ where
     T: Deref<Target = dyn BlobService> + Send + Sync + 'static,
 {
     // https://github.com/tokio-rs/tokio/issues/2723#issuecomment-1534723933
-    type ReadStream =
-        Pin<Box<dyn futures::Stream<Item = Result<super::BlobChunk, Status>> + Send + 'static>>;
+    type ReadStream = BoxStream<'static, Result<super::BlobChunk, Status>>;
 
     #[instrument(skip(self))]
     async fn stat(

@@ -1,6 +1,5 @@
-use futures::Stream;
+use futures::stream::BoxStream;
 use futures::StreamExt;
-use std::pin::Pin;
 use tonic::async_trait;
 use tvix_castore::fs::{RootNodes, TvixStoreFs};
 use tvix_castore::proto as castorepb;
@@ -66,7 +65,7 @@ where
             }))
     }
 
-    fn list(&self) -> Pin<Box<dyn Stream<Item = Result<castorepb::node::Node, Error>> + Send>> {
+    fn list(&self) -> BoxStream<Result<castorepb::node::Node, Error>> {
         Box::pin(self.0.as_ref().list().map(|result| {
             result.map(|path_info| {
                 path_info

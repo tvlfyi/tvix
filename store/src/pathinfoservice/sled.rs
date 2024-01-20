@@ -1,9 +1,10 @@
 use super::PathInfoService;
 use crate::nar::calculate_size_and_sha256;
 use crate::proto::PathInfo;
-use futures::{stream::iter, Stream};
+use futures::stream::iter;
+use futures::stream::BoxStream;
 use prost::Message;
-use std::{path::Path, pin::Pin};
+use std::path::Path;
 use tonic::async_trait;
 use tracing::warn;
 use tvix_castore::proto as castorepb;
@@ -112,7 +113,7 @@ where
             .map_err(|e| Error::StorageError(e.to_string()))
     }
 
-    fn list(&self) -> Pin<Box<dyn Stream<Item = Result<PathInfo, Error>> + Send>> {
+    fn list(&self) -> BoxStream<'static, Result<PathInfo, Error>> {
         Box::pin(iter(self.db.iter().values().map(|v| match v {
             Ok(data) => {
                 // we retrieved some bytes
