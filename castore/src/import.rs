@@ -10,7 +10,11 @@ use crate::Error as CastoreError;
 use async_stream::stream;
 use futures::pin_mut;
 use futures::Stream;
+use std::fs::FileType;
+
+#[cfg(target_family = "unix")]
 use std::os::unix::ffi::OsStrExt;
+
 use std::{
     collections::HashMap,
     fmt::Debug,
@@ -41,6 +45,9 @@ pub enum Error {
 
     #[error("unable to read {0}: {1}")]
     UnableToRead(PathBuf, std::io::Error),
+
+    #[error("unsupported file {0} type: {1:?}")]
+    UnsupportedFileType(PathBuf, FileType),
 }
 
 impl From<CastoreError> for Error {
@@ -145,7 +152,12 @@ where
             executable: metadata.permissions().mode() & 64 != 0,
         }));
     }
-    todo!("handle other types")
+
+    // Nix says things like: error: file '/home/raito/dev/code.tvl.fyi/tvix/glue/src/tests/import_fixtures/a_devnode' has an unsupported type
+    Err(Error::UnsupportedFileType(
+        entry.path().to_path_buf(),
+        file_type,
+    ))
 }
 
 /// Walk the filesystem at a given path and returns a level-keyed list of directory entries.
