@@ -237,8 +237,17 @@ pub fn from_sri_str(s: &str) -> Result<NixHash> {
     // strip all padding characters.
     let encoded_digest = encoded_digest.trim_end_matches('=');
 
-    if encoded_digest.len() == BASE64_NOPAD.encode_len(algo.digest_length()) {
-        let digest = BASE64_NOPAD
+    // If we are using BASE64_NOPAD, we must also disable the trailing bit checking otherwise we
+    // are bound to get invalid length for our inputs.
+    // See the `weird_sha256` example below.
+    let mut spec = BASE64_NOPAD.specification();
+    spec.check_trailing_bits = false;
+    let encoder = spec
+        .encoding()
+        .expect("Tvix bug: failed to get the special base64 encoder for Nix SRI hashes");
+
+    if encoded_digest.len() == encoder.encode_len(algo.digest_length()) {
+        let digest = encoder
             .decode(encoded_digest.as_bytes())
             .map_err(Error::InvalidBase64Encoding)?;
 
@@ -492,5 +501,30 @@ mod tests {
 
         // not passing SRI, but hash algo out of band should fail
         nixhash::from_str(broken_base64, Some("sha256")).expect_err("must fail");
+    }
+
+    /// As we decided to pass our hashes by trimming `=` completely,
+    /// we need to take into account hashes with padding requirements which
+    /// contains trailing bits which would be checked by `BASE64_NOPAD` and would
+    /// make the verification crash.
+    ///
+    /// This base64 has a trailing non-zero bit at bit 42.
+    #[test]
+    fn sha256_weird_base64() {
+        let weird_base64 = "syceJMUEknBDCHK8eGs6rUU3IQn+HnQfURfCrDxYPa9=";
+        let expected_digest =
+            hex!("b3271e24c5049270430872bc786b3aad45372109fe1e741f5117c2ac3c583daf");
+
+        let nix_hash = nixhash::from_str(&format!("sha256-{}", &weird_base64), Some("sha256"))
+            .expect("must succeed");
+        assert_eq!(&expected_digest, &nix_hash.digest_as_bytes());
+
+        // not passing hash algo out of band should succeed
+        let nix_hash =
+            nixhash::from_str(&format!("sha256-{}", &weird_base64), None).expect("must succeed");
+        assert_eq!(&expected_digest, &nix_hash.digest_as_bytes());
+
+        // not passing SRI, but hash algo out of band should fail
+        nixhash::from_str(weird_base64, Some("sha256")).expect_err("must fail");
     }
 }
