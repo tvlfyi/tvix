@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	log "github.com/sirupsen/logrus"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type Server struct {
@@ -46,6 +47,9 @@ func New(
 	priority int,
 ) *Server {
 	r := chi.NewRouter()
+	r.Use(func(h http.Handler) http.Handler {
+		return otelhttp.NewHandler(h, "http.request")
+	})
 
 	if enableAccessLog {
 		r.Use(middleware.Logger)
