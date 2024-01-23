@@ -156,8 +156,7 @@ fn nix_eval_okay(#[files("src/tests/nix_tests/eval-okay-*.nix")] code_path: Path
 // eval-okay-* tests from the original Nix test suite which do not yet pass for tvix
 //
 // Eventually there will be none of these left, and this function
-// will disappear :) Until then, to run these tests, use `cargo test
-// --features expected_failures`.
+// will disappear :)
 //
 // Please don't submit failing tests unless they're in
 // notyetpassing; this makes the test suite much more useful for
