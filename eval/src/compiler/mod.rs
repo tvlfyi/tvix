@@ -973,9 +973,16 @@ impl Compiler<'_> {
     ///    cases.
     fn compile_param_pattern(&mut self, pattern: &ast::Pattern) -> (Formals, CodeIdx) {
         let span = self.span_for(pattern);
-        let set_idx = match pattern.pat_bind() {
-            Some(name) => self.declare_local(&name, name.ident().unwrap().to_string()),
-            None => self.scope_mut().declare_phantom(span, true),
+
+        let (set_idx, pat_bind_name) = match pattern.pat_bind() {
+            Some(name) => {
+                let pat_bind_name = name.ident().unwrap().to_string();
+                (
+                    self.declare_local(&name, pat_bind_name.clone()),
+                    Some(pat_bind_name),
+                )
+            }
+            None => (self.scope_mut().declare_phantom(span, true), None),
         };
 
         // At call time, the attribute set is already at the top of the stack.
@@ -1126,6 +1133,7 @@ impl Compiler<'_> {
                 arguments,
                 ellipsis,
                 span,
+                name: pat_bind_name,
             }),
             throw_idx,
         )

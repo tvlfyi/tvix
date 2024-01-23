@@ -90,15 +90,22 @@ fn value_variant_to_xml<W: Write>(w: &mut EventWriter<W>, value: &Value) -> Resu
 
             match &c.lambda.formals {
                 Some(formals) => {
+                    let mut attrspat = XmlEvent::start_element("attrspat");
                     if formals.ellipsis {
-                        w.write(XmlEvent::start_element("attrspat").attr("ellipsis", "1"))?;
-                        w.write(XmlEvent::end_element())?;
+                        attrspat = attrspat.attr("ellipsis", "1");
                     }
+                    if let Some(ref name) = &formals.name {
+                        attrspat = attrspat.attr("name", name.as_str());
+                    }
+
+                    w.write(attrspat)?;
 
                     for arg in formals.arguments.iter() {
                         w.write(XmlEvent::start_element("attr").attr("name", arg.0.as_str()))?;
                         w.write(XmlEvent::end_element())?;
                     }
+
+                    w.write(XmlEvent::end_element())?;
                 }
                 None => {
                     // TODO(tazjin): tvix does not currently persist function

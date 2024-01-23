@@ -18,6 +18,10 @@ pub(crate) struct Formals {
 
     /// The span of the formals themselves, to use to emit errors
     pub(crate) span: Span,
+
+    /// Optionally tracks a name for all function arguments (args@ style).
+    /// Used by toXML.
+    pub(crate) name: Option<String>,
 }
 
 impl Formals {
