@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 	"testing"
 
 	castorev1pb "code.tvl.fyi/tvix/castore-go"
@@ -27,6 +28,7 @@ func TestRoundtrip(t *testing.T) {
 	narContents, err := io.ReadAll(f)
 	require.NoError(t, err)
 
+	var mu sync.Mutex
 	blobsMap := make(map[string][]byte, 0)
 	directoriesMap := make(map[string]*castorev1pb.Directory)
 
@@ -41,7 +43,9 @@ func TestRoundtrip(t *testing.T) {
 			dgst := mustBlobDigest(bytes.NewReader(contents))
 
 			// put it in filesMap
+			mu.Lock()
 			blobsMap[base64.StdEncoding.EncodeToString(dgst)] = contents
+			mu.Unlock()
 
 			return dgst, nil
 		},
