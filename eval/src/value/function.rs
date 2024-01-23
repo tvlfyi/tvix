@@ -1,5 +1,5 @@
 //! This module implements the runtime representation of functions.
-use std::{collections::HashMap, hash::Hash, rc::Rc};
+use std::{collections::BTreeMap, hash::Hash, rc::Rc};
 
 use codemap::Span;
 use smol_str::SmolStr;
@@ -11,7 +11,7 @@ use super::NixString;
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Formals {
     /// Map from argument name, to whether that argument is required
-    pub(crate) arguments: HashMap<NixString, bool>,
+    pub(crate) arguments: BTreeMap<NixString, bool>,
 
     /// Do the formals of this function accept extra arguments
     pub(crate) ellipsis: bool,
@@ -27,7 +27,7 @@ impl Formals {
     /// ellipsis
     pub(crate) fn contains<Q>(&self, arg: &Q) -> bool
     where
-        Q: ?Sized + Hash + Eq,
+        Q: ?Sized + Hash + Ord + Eq,
         NixString: std::borrow::Borrow<Q>,
     {
         self.ellipsis || self.arguments.contains_key(arg)

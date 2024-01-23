@@ -21,7 +21,7 @@ mod scope;
 use codemap::Span;
 use rnix::ast::{self, AstToken};
 use smol_str::SmolStr;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
@@ -994,7 +994,7 @@ impl Compiler<'_> {
         // the bindings to first declare them, then populate them, and
         // then finalise any necessary recursion into the scope.
         let mut entries: Vec<TrackedFormal> = vec![];
-        let mut arguments = HashMap::default();
+        let mut arguments = BTreeMap::default();
 
         for entry in pattern.pat_entries() {
             let ident = entry.ident().unwrap();
