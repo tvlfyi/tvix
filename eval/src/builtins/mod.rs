@@ -27,6 +27,9 @@ use self::versions::{VersionPart, VersionPartsIter};
 mod to_xml;
 mod versions;
 
+#[cfg(test)]
+pub use to_xml::value_to_xml;
+
 #[cfg(feature = "impure")]
 mod impure;
 

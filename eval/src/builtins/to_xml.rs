@@ -11,7 +11,7 @@ use crate::{ErrorKind, Value};
 
 /// Recursively serialise a value to XML. The value *must* have been
 /// deep-forced before being passed to this function.
-pub(super) fn value_to_xml<W: Write>(mut writer: W, value: &Value) -> Result<(), ErrorKind> {
+pub fn value_to_xml<W: Write>(mut writer: W, value: &Value) -> Result<(), ErrorKind> {
     let config = EmitterConfig {
         perform_indent: true,
         pad_self_closing: true,
