@@ -48,16 +48,8 @@ fn eval_test(code_path: PathBuf, expect_success: bool) {
         "nix",
         "test files always end in .nix"
     );
-    let exp_path = code_path.with_extension("exp");
-    let exp_xml_path = code_path.with_extension("exp.xml");
 
     let code = std::fs::read_to_string(&code_path).expect("should be able to read test code");
-
-    if exp_xml_path.exists() {
-        // We can't test them at the moment because we don't have XML output yet.
-        // Checking for success / failure only is a bit disingenious.
-        return;
-    }
 
     let mut eval = crate::Evaluation::new_impure();
     eval.strict = true;
@@ -79,36 +71,53 @@ fn eval_test(code_path: PathBuf, expect_success: bool) {
     if !expect_success && failed {
         return;
     }
+    // !expect_success can also mean the output differs, so don't panic if the
+    // evaluation didn't fail.
 
     let value = result.value.unwrap();
     let result_str = value.to_string();
 
-    if let Ok(exp) = std::fs::read_to_string(exp_path) {
+    let exp_path = code_path.with_extension("exp");
+    if exp_path.exists() {
+        // If there's an .exp file provided alongside, compare it with the
+        // output of the NixValue .to_string() method.
+        let exp_str = std::fs::read_to_string(&exp_path).expect("unable to read .exp file");
+
         if expect_success {
             assert_eq!(
                 result_str,
-                exp.trim(),
+                exp_str.trim(),
                 "{}: result value representation (left) must match expectation (right)",
                 code_path.display()
             );
         } else {
             assert_ne!(
                 result_str,
-                exp.trim(),
+                exp_str.trim(),
                 "{}: test passed unexpectedly!  consider moving it out of notyetpassing",
                 code_path.display()
             );
+
+            // Early return here, we don't compare .xml outputs if this is a !
+            // expect_success test.
+            return;
         }
-    } else if expect_success {
-        panic!(
-            "{}: should be able to read test expectation",
+    }
+
+    let exp_xml_path = code_path.with_extension("exp.xml");
+    if exp_xml_path.exists() {
+        // If there's an XML file provided alongside, compare it with the
+        // output produced when serializing the Value as XML.
+        let exp_xml_str = std::fs::read_to_string(exp_xml_path).expect("unable to read .xml file");
+
+        let mut xml_actual_buf = Vec::new();
+        crate::builtins::value_to_xml(&mut xml_actual_buf, &value).expect("value_to_xml failed");
+
+        assert_eq!(
+            String::from_utf8(xml_actual_buf).expect("to_xml produced invalid utf-8"),
+            exp_xml_str,
+            "{}: result value representation (left) must match expectation (right)",
             code_path.display()
-        );
-    } else {
-        panic!(
-            "{}: test should have failed, but succeeded with output {}",
-            code_path.display(),
-            result_str
         );
     }
 }
