@@ -1,0 +1,41 @@
+<?xml version='1.0' encoding='utf-8'?>
+<expr>
+  <attrs>
+    <attr name="attrspat">
+      <function>
+        <attrspat name="args">
+          <attr name="x" />
+          <attr name="y" />
+          <attr name="z" />
+        </attrspat>
+      </function>
+    </attr>
+    <attr name="attrspat-ellipsis">
+      <function>
+        <attrspat ellipsis="1" name="args">
+          <attr name="x" />
+          <attr name="y" />
+          <attr name="z" />
+        </attrspat>
+      </function>
+    </attr>
+    <attr name="noattrspat">
+      <function>
+        <attrspat>
+          <attr name="x" />
+          <attr name="y" />
+          <attr name="z" />
+        </attrspat>
+      </function>
+    </attr>
+    <attr name="noattrspat-ellipsis">
+      <function>
+        <attrspat ellipsis="1">
+          <attr name="x" />
+          <attr name="y" />
+          <attr name="z" />
+        </attrspat>
+      </function>
+    </attr>
+  </attrs>
+</expr>
