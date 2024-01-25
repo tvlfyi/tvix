@@ -33,6 +33,7 @@ zstd = "0.13.0"
 prost = "0.12.2"
 polars = { version = "0.35.4", default-features = false, features = ["parquet", "lazy", "sql", "dtype-struct"] }
 indicatif = "0.17.7"
+clap = { version = "4.4.18", features = ["derive"] }
 
 [build-dependencies]
 prost-build = "0.12.2"

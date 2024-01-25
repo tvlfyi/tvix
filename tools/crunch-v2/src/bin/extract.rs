@@ -5,13 +5,12 @@
 //! They are concatenated without any additional structure, so nothing but the chunk list is preserved.
 
 use anyhow::Result;
+use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::fs::File;
+use std::path::PathBuf;
 
-use crunch_v2::{
-    proto::{self, path::Node},
-    FILES,
-};
+use crunch_v2::proto::{self, path::Node};
 use prost::Message;
 
 use polars::{
@@ -23,15 +22,32 @@ use polars::{
     series::IntoSeries,
 };
 
-fn main() -> Result<()> {
-    let w = ParquetWriter::new(File::create("crunch.parquet")?);
+#[derive(Parser)]
+struct Args {
+    /// Path to the sled database that's read from.
+    #[clap(default_value = "crunch.db")]
+    infile: PathBuf,
 
-    let progress = ProgressBar::new(FILES.len() as u64).with_style(ProgressStyle::with_template(
-        "{elapsed_precise}/{duration_precise} {wide_bar} {pos}/{len}",
-    )?);
+    /// Path to the resulting parquet file that's written.
+    #[clap(default_value = "crunch.parquet")]
+    outfile: PathBuf,
+}
+
+fn main() -> Result<()> {
+    let args = Args::parse();
+
+    let w = ParquetWriter::new(File::create(args.outfile)?);
+
+    let db: sled::Db = sled::open(&args.infile).unwrap();
+    let files_tree: sled::Tree = db.open_tree("files").unwrap();
+
+    let progress =
+        ProgressBar::new(files_tree.len() as u64).with_style(ProgressStyle::with_template(
+            "{elapsed_precise}/{duration_precise} {wide_bar} {pos}/{len}",
+        )?);
 
     let mut frame = FrameBuilder::new();
-    for entry in &*FILES {
+    for entry in &files_tree {
         let (file_hash, pb) = entry?;
         frame.push(
             file_hash[..].try_into().unwrap(),
