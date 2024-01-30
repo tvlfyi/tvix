@@ -1457,6 +1457,15 @@ impl Compiler<'_> {
     }
 
     fn emit_force<N: ToSpan>(&mut self, node: &N) {
+        if let Some(&OpCode::OpConstant(c)) = self.chunk().last_op() {
+            if !self.chunk().get_constant(c).unwrap().is_thunk() {
+                // Optimization: Don't emit a force op for non-thunk constants, since they don't
+                // need one!
+                // TODO: this is probably doable for more ops (?)
+                return;
+            }
+        }
+
         self.push_op(OpCode::OpForce, node);
     }
 

@@ -724,6 +724,13 @@ impl Value {
     gen_is!(is_attrs, Value::Attrs(_));
     gen_is!(is_catchable, Value::Catchable(_));
 
+    /// Returns `true` if the value is a [`Thunk`].
+    ///
+    /// [`Thunk`]: Value::Thunk
+    pub fn is_thunk(&self) -> bool {
+        matches!(self, Self::Thunk(..))
+    }
+
     /// Compare `self` against other using (fallible) Nix ordering semantics.
     ///
     /// The function is intended to be used from within other generator

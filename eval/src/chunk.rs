@@ -70,6 +70,11 @@ impl Chunk {
         self.spans[0].span
     }
 
+    /// Return a reference to the last op in the chunk, if any
+    pub fn last_op(&self) -> Option<&OpCode> {
+        self.code.last()
+    }
+
     /// Pop the last operation from the chunk and clean up its tracked
     /// span. Used when the compiler backtracks.
     pub fn pop_op(&mut self) {
@@ -88,6 +93,11 @@ impl Chunk {
         let idx = self.constants.len();
         self.constants.push(data);
         ConstantIdx(idx)
+    }
+
+    /// Return a reference to the constant at the given [`ConstantIdx`]
+    pub fn get_constant(&self, constant: ConstantIdx) -> Option<&Value> {
+        self.constants.get(constant.0)
     }
 
     // Span tracking implementation
