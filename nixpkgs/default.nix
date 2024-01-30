@@ -50,11 +50,8 @@ let
   # instead (e.g. because something is broken in unstable).
   # Use `stableNixpkgs` from above.
   stableOverlay = _unstableSelf: unstableSuper: {
-    # avrdude is broken on unstable; 2023-11-22
-    avrdude = stableNixpkgs.avrdude;
-
-    # awscli2 is broken on unstable; 2023-11-22
-    awscli2 = stableNixpkgs.awscli2;
+    # weird memory access issues in SBCL on AMD; 2024-02-01
+    sbcl = stableNixpkgs.sbcl;
 
     # TPM authentication seems broken on unstable; 2023-11-29
     tpm2-pkcs11 = stableNixpkgs.tpm2-pkcs11;
