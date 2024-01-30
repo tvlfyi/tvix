@@ -31,6 +31,11 @@ struct Args {
     #[clap(long, env = "TVIX_TRACE_RUNTIME")]
     trace_runtime: bool,
 
+    /// Capture the time (relative to the start time of evaluation) of all events traced with
+    /// `--trace-runtime`
+    #[clap(long, env = "TVIX_TRACE_RUNTIME_TIMING", requires("trace_runtime"))]
+    trace_runtime_timing: bool,
+
     /// Only compile, but do not execute code. This will make Tvix act
     /// sort of like a linter.
     #[clap(long)]
@@ -113,6 +118,9 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
 
         let mut runtime_observer = TracingObserver::new(std::io::stderr());
         if args.trace_runtime {
+            if args.trace_runtime_timing {
+                runtime_observer.enable_timing()
+            }
             eval.runtime_observer = Some(&mut runtime_observer);
         }
 

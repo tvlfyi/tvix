@@ -8,6 +8,7 @@
 /// what they are interested in observing.
 use std::io::Write;
 use std::rc::Rc;
+use std::time::Instant;
 use tabwriter::TabWriter;
 
 use crate::chunk::Chunk;
@@ -140,13 +141,28 @@ impl<W: Write> CompilerObserver for DisassemblingObserver<W> {
 /// An observer that collects a textual representation of an entire
 /// runtime execution.
 pub struct TracingObserver<W: Write> {
+    // If timing is enabled, contains the timestamp of the last-emitted trace event
+    last_event: Option<Instant>,
     writer: TabWriter<W>,
 }
 
 impl<W: Write> TracingObserver<W> {
     pub fn new(writer: W) -> Self {
         Self {
+            last_event: None,
             writer: TabWriter::new(writer),
+        }
+    }
+
+    /// Write the time of each runtime event, relative to when this method is called
+    pub fn enable_timing(&mut self) {
+        self.last_event = Some(Instant::now());
+    }
+
+    fn maybe_write_time(&mut self) {
+        if let Some(last_event) = &mut self.last_event {
+            let _ = write!(&mut self.writer, "+{}ns\t", last_event.elapsed().as_nanos());
+            *last_event = Instant::now();
         }
     }
 
@@ -191,6 +207,8 @@ impl<W: Write> RuntimeObserver for TracingObserver<W> {
         lambda: &Rc<Lambda>,
         call_depth: usize,
     ) {
+        self.maybe_write_time();
+
         let _ = write!(&mut self.writer, "=== entering ");
 
         let _ = if arg_count == 0 {
@@ -212,17 +230,20 @@ impl<W: Write> RuntimeObserver for TracingObserver<W> {
 
     /// Called when the runtime exits a call frame.
     fn observe_exit_call_frame(&mut self, frame_at: usize, stack: &[Value]) {
+        self.maybe_write_time();
         let _ = write!(&mut self.writer, "=== exiting frame {} ===\t ", frame_at);
         self.write_stack(stack);
     }
 
     fn observe_suspend_call_frame(&mut self, frame_at: usize, stack: &[Value]) {
+        self.maybe_write_time();
         let _ = write!(&mut self.writer, "=== suspending frame {} ===\t", frame_at);
 
         self.write_stack(stack);
     }
 
     fn observe_enter_generator(&mut self, frame_at: usize, name: &str, stack: &[Value]) {
+        self.maybe_write_time();
         let _ = write!(
             &mut self.writer,
             "=== entering generator frame '{}' [{}] ===\t",
@@ -233,6 +254,7 @@ impl<W: Write> RuntimeObserver for TracingObserver<W> {
     }
 
     fn observe_exit_generator(&mut self, frame_at: usize, name: &str, stack: &[Value]) {
+        self.maybe_write_time();
         let _ = write!(
             &mut self.writer,
             "=== exiting generator '{}' [{}] ===\t",
@@ -243,6 +265,7 @@ impl<W: Write> RuntimeObserver for TracingObserver<W> {
     }
 
     fn observe_suspend_generator(&mut self, frame_at: usize, name: &str, stack: &[Value]) {
+        self.maybe_write_time();
         let _ = write!(
             &mut self.writer,
             "=== suspending generator '{}' [{}] ===\t",
@@ -253,6 +276,7 @@ impl<W: Write> RuntimeObserver for TracingObserver<W> {
     }
 
     fn observe_generator_request(&mut self, name: &str, msg: &VMRequest) {
+        self.maybe_write_time();
         let _ = writeln!(
             &mut self.writer,
             "=== generator '{}' requested {} ===",
@@ -261,15 +285,18 @@ impl<W: Write> RuntimeObserver for TracingObserver<W> {
     }
 
     fn observe_enter_builtin(&mut self, name: &'static str) {
+        self.maybe_write_time();
         let _ = writeln!(&mut self.writer, "=== entering builtin {} ===", name);
     }
 
     fn observe_exit_builtin(&mut self, name: &'static str, stack: &[Value]) {
+        self.maybe_write_time();
         let _ = write!(&mut self.writer, "=== exiting builtin {} ===\t", name);
         self.write_stack(stack);
     }
 
     fn observe_tail_call(&mut self, frame_at: usize, lambda: &Rc<Lambda>) {
+        self.maybe_write_time();
         let _ = writeln!(
             &mut self.writer,
             "=== tail-calling {:p} in frame[{}] ===",
@@ -278,6 +305,7 @@ impl<W: Write> RuntimeObserver for TracingObserver<W> {
     }
 
     fn observe_execute_op(&mut self, ip: CodeIdx, op: &OpCode, stack: &[Value]) {
+        self.maybe_write_time();
         let _ = write!(&mut self.writer, "{:04} {:?}\t", ip.0, op);
         self.write_stack(stack);
     }
