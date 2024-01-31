@@ -129,6 +129,10 @@ impl BlobService for GRPCBlobService {
             Err(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
             Ok(resp) => {
                 let resp = resp.into_inner();
+
+                resp.validate()
+                    .map_err(|e| std::io::Error::new(io::ErrorKind::InvalidData, e))?;
+
                 if resp.chunks.is_empty() {
                     warn!("chunk list is empty");
                 }
