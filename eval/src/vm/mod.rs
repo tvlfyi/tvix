@@ -862,7 +862,7 @@ where
                     Value::UnresolvedPath(path) => {
                         let resolved = self
                             .nix_search_path
-                            .resolve(&self.io_handle, *path)
+                            .resolve(&self.io_handle, path)
                             .with_span(&frame, self)?;
                         self.stack.push(resolved.into());
                     }
@@ -882,7 +882,7 @@ where
                                 );
                             }
                             Some(mut buf) => {
-                                buf.push(*path);
+                                buf.push(path);
                                 self.stack.push(buf.into());
                             }
                         };
@@ -1222,7 +1222,7 @@ async fn add_values(co: GenCo, a: Value, b: Value) -> Result<Value, ErrorKind> {
     // What we try to do is solely determined by the type of the first value!
     let result = match (a, b) {
         (Value::Path(p), v) => {
-            let mut path = p.into_os_string();
+            let mut path = p.as_os_str().to_owned();
             match generators::request_string_coerce(
                 &co,
                 v,

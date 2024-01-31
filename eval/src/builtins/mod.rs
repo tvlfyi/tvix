@@ -53,7 +53,7 @@ pub async fn coerce_value_to_path(
 ) -> Result<Result<PathBuf, CatchableErrorKind>, ErrorKind> {
     let value = generators::request_force(co, v).await;
     if let Value::Path(p) = value {
-        return Ok(Ok(*p));
+        return Ok(Ok(p.into()));
     }
 
     match generators::request_string_coerce(
@@ -400,8 +400,8 @@ mod pure_builtins {
             })
             .unwrap_or(b".");
         if is_path {
-            Ok(Value::Path(Box::new(PathBuf::from(
-                OsString::assert_from_raw_vec(result.to_owned()),
+            Ok(Value::from(PathBuf::from(OsString::assert_from_raw_vec(
+                result.to_owned(),
             ))))
         } else {
             Ok(Value::String(NixString::new_inherit_context_from(
@@ -1713,7 +1713,7 @@ mod placeholder_builtins {
         let res = [
             ("line", 42.into()),
             ("col", 42.into()),
-            ("file", Value::Path(Box::new("/deep/thought".into()))),
+            ("file", Value::from(PathBuf::from("/deep/thought"))),
         ];
         Ok(Value::attrs(NixAttrs::from_iter(res.into_iter())))
     }

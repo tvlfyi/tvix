@@ -390,7 +390,7 @@ impl Compiler<'_> {
 
             let home_relative_path = &raw_path[2..(raw_path.len())];
             self.emit_constant(
-                Value::UnresolvedPath(Box::new(home_relative_path.into())),
+                Value::UnresolvedPath(PathBuf::from(home_relative_path).into_boxed_path()),
                 node,
             );
             self.push_op(OpCode::OpResolveHomePath, node);
@@ -408,7 +408,10 @@ impl Compiler<'_> {
             let path = &raw_path[1..(raw_path.len() - 1)];
             // Make a thunk to resolve the path (without using `findFile`, at least for now?)
             return self.thunk(slot, node, move |c, _| {
-                c.emit_constant(Value::UnresolvedPath(Box::new(path.into())), node);
+                c.emit_constant(
+                    Value::UnresolvedPath(PathBuf::from(path).into_boxed_path()),
+                    node,
+                );
                 c.push_op(OpCode::OpFindFile, node);
             });
         } else {
@@ -419,7 +422,7 @@ impl Compiler<'_> {
 
         // TODO: Use https://github.com/rust-lang/rfcs/issues/2208
         // once it is available
-        let value = Value::Path(Box::new(crate::value::canon_path(path)));
+        let value = Value::Path(crate::value::canon_path(path).into_boxed_path());
         self.emit_constant(value, node);
     }
 
