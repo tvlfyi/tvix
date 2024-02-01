@@ -73,7 +73,7 @@ having the covering range of aligned 1K blocks.
 ## Actual implementation
 
  -> BlobService.Read() gets the capability to read chunks as well
- -> BlobService.Stat() can hand out a list of chunks with a given chunksize if asked so.
+ -> BlobService.Stat() can reply with a list of chunks.
       rq params: send_bao bool
          server should be able to offer bao all the way down to 1k
          some open questions w.r.t sending the whole bao until there, or just
