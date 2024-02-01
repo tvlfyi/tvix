@@ -22,6 +22,10 @@ struct BuiltinArgument {
     /// function is called.
     strict: bool,
 
+    /// Propagate catchable values as values to the function, rather than short-circuit returning
+    /// them if encountered
+    catch: bool,
+
     /// Span at which the argument was defined.
     span: Span,
 }
@@ -205,6 +209,7 @@ pub fn builtins(args: TokenStream, item: TokenStream) -> TokenStream {
                     .map(|arg| {
                         let span = arg.span();
                         let mut strict = true;
+                        let mut catch = false;
                         let (name, ty) = match arg {
                             FnArg::Receiver(_) => {
                                 return Err(quote_spanned!(span => {
@@ -218,6 +223,9 @@ pub fn builtins(args: TokenStream, item: TokenStream) -> TokenStream {
                                     attr.path.get_ident().into_iter().any(|id| {
                                         if id == "lazy" {
                                             strict = false;
+                                            false
+                                        } else if id == "catch" {
+                                            catch = true;
                                             false
                                         } else {
                                             true
@@ -233,8 +241,15 @@ pub fn builtins(args: TokenStream, item: TokenStream) -> TokenStream {
                             }
                         };
 
+                        if catch && !strict {
+                            return Err(quote_spanned!(span => {
+                                compile_error!("Cannot mix both lazy and catch on the same argument")
+                            }));
+                        }
+
                         Ok(BuiltinArgument {
                             strict,
+                            catch,
                             span,
                             name,
                             ty,
@@ -267,12 +282,22 @@ pub fn builtins(args: TokenStream, item: TokenStream) -> TokenStream {
                     let ident = &arg.name;
 
                     if arg.strict {
-                        f.block = Box::new(parse_quote_spanned! {arg.span=> {
-                            let #ident: #ty = tvix_eval::generators::request_force(&co, values.pop()
-                              .expect("Tvix bug: builtin called with incorrect number of arguments")).await;
-
-                            #block
-                        }});
+                        if arg.catch {
+                            f.block = Box::new(parse_quote_spanned! {arg.span=> {
+                                let #ident: #ty = tvix_eval::generators::request_force(&co, values.pop()
+                                  .expect("Tvix bug: builtin called with incorrect number of arguments")).await;
+                                #block
+                            }});
+                        } else {
+                            f.block = Box::new(parse_quote_spanned! {arg.span=> {
+                                let #ident: #ty = tvix_eval::generators::request_force(&co, values.pop()
+                                  .expect("Tvix bug: builtin called with incorrect number of arguments")).await;
+                                if #ident.is_catchable() {
+                                    return Ok(#ident);
+                                }
+                                #block
+                            }});
+                        }
                     } else {
                         f.block = Box::new(parse_quote_spanned! {arg.span=> {
                             let #ident: #ty = values.pop()

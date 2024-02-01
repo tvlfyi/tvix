@@ -91,6 +91,16 @@ mod pure_builtins {
 
     use super::*;
 
+    macro_rules! try_value {
+        ($value:expr) => {{
+            let val = $value;
+            if val.is_catchable() {
+                return Ok(val);
+            }
+            val
+        }};
+    }
+
     #[builtin("abort")]
     async fn builtin_abort(co: GenCo, message: Value) -> Result<Value, ErrorKind> {
         // TODO(sterni): coerces to string
@@ -108,21 +118,9 @@ mod pure_builtins {
 
     #[builtin("all")]
     async fn builtin_all(co: GenCo, pred: Value, list: Value) -> Result<Value, ErrorKind> {
-        if list.is_catchable() {
-            return Ok(list);
-        }
-
-        if pred.is_catchable() {
-            return Ok(pred);
-        }
-
         for value in list.to_list()?.into_iter() {
             let pred_result = generators::request_call_with(&co, pred.clone(), [value]).await;
-            let pred_result = generators::request_force(&co, pred_result).await;
-
-            if pred_result.is_catchable() {
-                return Ok(pred_result);
-            }
+            let pred_result = try_value!(generators::request_force(&co, pred_result).await);
 
             if !pred_result.as_bool()? {
                 return Ok(Value::Bool(false));
@@ -134,21 +132,9 @@ mod pure_builtins {
 
     #[builtin("any")]
     async fn builtin_any(co: GenCo, pred: Value, list: Value) -> Result<Value, ErrorKind> {
-        if list.is_catchable() {
-            return Ok(list);
-        }
-
-        if pred.is_catchable() {
-            return Ok(pred);
-        }
-
         for value in list.to_list()?.into_iter() {
             let pred_result = generators::request_call_with(&co, pred.clone(), [value]).await;
-            let pred_result = generators::request_force(&co, pred_result).await;
-
-            if pred_result.is_catchable() {
-                return Ok(pred_result);
-            }
+            let pred_result = try_value!(generators::request_force(&co, pred_result).await);
 
             if pred_result.as_bool()? {
                 return Ok(Value::Bool(true));
@@ -160,9 +146,6 @@ mod pure_builtins {
 
     #[builtin("attrNames")]
     async fn builtin_attr_names(co: GenCo, set: Value) -> Result<Value, ErrorKind> {
-        if set.is_catchable() {
-            return Ok(set);
-        }
         let xs = set.to_attrs()?;
         let mut output = Vec::with_capacity(xs.len());
 
@@ -175,10 +158,6 @@ mod pure_builtins {
 
     #[builtin("attrValues")]
     async fn builtin_attr_values(co: GenCo, set: Value) -> Result<Value, ErrorKind> {
-        if set.is_catchable() {
-            return Ok(set);
-        }
-
         let xs = set.to_attrs()?;
         let mut output = Vec::with_capacity(xs.len());
 
@@ -231,14 +210,6 @@ mod pure_builtins {
 
     #[builtin("catAttrs")]
     async fn builtin_cat_attrs(co: GenCo, key: Value, list: Value) -> Result<Value, ErrorKind> {
-        if list.is_catchable() {
-            return Ok(list);
-        }
-
-        if key.is_catchable() {
-            return Ok(key);
-        }
-
         let key = key.to_str()?;
         let list = list.to_list()?;
         let mut output = vec![];
@@ -275,10 +246,6 @@ mod pure_builtins {
 
     #[builtin("concatLists")]
     async fn builtin_concat_lists(co: GenCo, lists: Value) -> Result<Value, ErrorKind> {
-        if lists.is_catchable() {
-            return Ok(lists);
-        }
-
         let mut out = imbl::Vector::new();
 
         for value in lists.to_list()? {
@@ -291,14 +258,6 @@ mod pure_builtins {
 
     #[builtin("concatMap")]
     async fn builtin_concat_map(co: GenCo, f: Value, list: Value) -> Result<Value, ErrorKind> {
-        if list.is_catchable() {
-            return Ok(list);
-        }
-
-        if f.is_catchable() {
-            return Ok(f);
-        }
-
         let list = list.to_list()?;
         let mut res = imbl::Vector::new();
         for val in list {
@@ -315,14 +274,6 @@ mod pure_builtins {
         separator: Value,
         list: Value,
     ) -> Result<Value, ErrorKind> {
-        if list.is_catchable() {
-            return Ok(list);
-        }
-
-        if separator.is_catchable() {
-            return Ok(separator);
-        }
-
         let mut separator = separator.to_contextful_str()?;
         let mut context = NixContext::new();
         if let Some(sep_context) = separator.context_mut() {
@@ -413,10 +364,6 @@ mod pure_builtins {
 
     #[builtin("elem")]
     async fn builtin_elem(co: GenCo, x: Value, xs: Value) -> Result<Value, ErrorKind> {
-        if xs.is_catchable() {
-            return Ok(xs);
-        }
-
         for val in xs.to_list()? {
             match generators::check_equality(&co, x.clone(), val, PointerEquality::AllowAll).await?
             {
@@ -430,12 +377,6 @@ mod pure_builtins {
 
     #[builtin("elemAt")]
     async fn builtin_elem_at(co: GenCo, xs: Value, i: Value) -> Result<Value, ErrorKind> {
-        if xs.is_catchable() {
-            return Ok(xs);
-        }
-        if i.is_catchable() {
-            return Ok(i);
-        }
         let xs = xs.to_list()?;
         let i = i.as_int()?;
         if i < 0 {
@@ -450,23 +391,12 @@ mod pure_builtins {
 
     #[builtin("filter")]
     async fn builtin_filter(co: GenCo, pred: Value, list: Value) -> Result<Value, ErrorKind> {
-        if pred.is_catchable() {
-            return Ok(pred);
-        }
-
-        if list.is_catchable() {
-            return Ok(list);
-        }
-
         let list: NixList = list.to_list()?;
         let mut out = imbl::Vector::new();
 
         for value in list {
             let result = generators::request_call_with(&co, pred.clone(), [value.clone()]).await;
-            let verdict = generators::request_force(&co, result).await;
-            if verdict.is_catchable() {
-                return Ok(verdict);
-            }
+            let verdict = try_value!(generators::request_force(&co, result).await);
             if verdict.as_bool()? {
                 out.push_back(value);
             }
@@ -487,10 +417,6 @@ mod pure_builtins {
         #[lazy] nul: Value,
         list: Value,
     ) -> Result<Value, ErrorKind> {
-        if list.is_catchable() {
-            return Ok(list);
-        }
-
         let mut nul = nul;
         let list = list.to_list()?;
         for val in list {
@@ -509,10 +435,6 @@ mod pure_builtins {
 
     #[builtin("functionArgs")]
     async fn builtin_function_args(co: GenCo, f: Value) -> Result<Value, ErrorKind> {
-        if f.is_catchable() {
-            return Ok(f);
-        }
-
         let lambda = &f.as_closure()?.lambda();
         let formals = if let Some(formals) = &lambda.formals {
             formals
@@ -526,10 +448,6 @@ mod pure_builtins {
 
     #[builtin("fromJSON")]
     async fn builtin_from_json(co: GenCo, json: Value) -> Result<Value, ErrorKind> {
-        if json.is_catchable() {
-            return Ok(json);
-        }
-
         let json_str = json.to_str()?;
 
         serde_json::from_slice(&json_str).map_err(|err| err.into())
@@ -564,10 +482,6 @@ mod pure_builtins {
 
     #[builtin("genericClosure")]
     async fn builtin_generic_closure(co: GenCo, input: Value) -> Result<Value, ErrorKind> {
-        if input.is_catchable() {
-            return Ok(input);
-        }
-
         let attrs = input.to_attrs()?;
 
         // The work set is maintained as a VecDeque because new items
@@ -613,10 +527,6 @@ mod pure_builtins {
         generator: Value,
         length: Value,
     ) -> Result<Value, ErrorKind> {
-        if length.is_catchable() {
-            return Ok(length);
-        }
-
         let mut out = imbl::Vector::<Value>::new();
         let len = length.as_int()?;
         // the best span we can get…
@@ -636,12 +546,6 @@ mod pure_builtins {
 
     #[builtin("getAttr")]
     async fn builtin_get_attr(co: GenCo, key: Value, set: Value) -> Result<Value, ErrorKind> {
-        if key.is_catchable() {
-            return Ok(key);
-        }
-        if set.is_catchable() {
-            return Ok(set);
-        }
         let k = key.to_str()?;
         let xs = set.to_attrs()?;
 
@@ -655,14 +559,6 @@ mod pure_builtins {
 
     #[builtin("groupBy")]
     async fn builtin_group_by(co: GenCo, f: Value, list: Value) -> Result<Value, ErrorKind> {
-        if list.is_catchable() {
-            return Ok(list);
-        }
-
-        if f.is_catchable() {
-            return Ok(f);
-        }
-
         let mut res: BTreeMap<NixString, imbl::Vector<Value>> = BTreeMap::new();
         for val in list.to_list()? {
             let key = generators::request_force(
@@ -682,14 +578,6 @@ mod pure_builtins {
 
     #[builtin("hasAttr")]
     async fn builtin_has_attr(co: GenCo, key: Value, set: Value) -> Result<Value, ErrorKind> {
-        if set.is_catchable() {
-            return Ok(set);
-        }
-
-        if key.is_catchable() {
-            return Ok(key);
-        }
-
         let k = key.to_str()?;
         let xs = set.to_attrs()?;
 
@@ -1007,10 +895,6 @@ mod pure_builtins {
 
     #[builtin("listToAttrs")]
     async fn builtin_list_to_attrs(co: GenCo, list: Value) -> Result<Value, ErrorKind> {
-        if list.is_catchable() {
-            return Ok(list);
-        }
-
         let list = list.to_list()?;
         let mut map = BTreeMap::new();
         for val in list {
@@ -1027,14 +911,6 @@ mod pure_builtins {
 
     #[builtin("map")]
     async fn builtin_map(co: GenCo, f: Value, list: Value) -> Result<Value, ErrorKind> {
-        if list.is_catchable() {
-            return Ok(list);
-        }
-
-        if f.is_catchable() {
-            return Ok(f);
-        }
-
         let mut out = imbl::Vector::<Value>::new();
 
         // the best span we can get…
@@ -1140,14 +1016,6 @@ mod pure_builtins {
 
     #[builtin("partition")]
     async fn builtin_partition(co: GenCo, pred: Value, list: Value) -> Result<Value, ErrorKind> {
-        if list.is_catchable() {
-            return Ok(list);
-        }
-
-        if pred.is_catchable() {
-            return Ok(pred);
-        }
-
         let mut right: imbl::Vector<Value> = Default::default();
         let mut wrong: imbl::Vector<Value> = Default::default();
 
@@ -1176,14 +1044,6 @@ mod pure_builtins {
         attrs: Value,
         keys: Value,
     ) -> Result<Value, ErrorKind> {
-        if attrs.is_catchable() {
-            return Ok(attrs);
-        }
-
-        if keys.is_catchable() {
-            return Ok(keys);
-        }
-
         let attrs = attrs.to_attrs()?;
         let keys = keys
             .to_list()?
@@ -1207,18 +1067,6 @@ mod pure_builtins {
         to: Value,
         s: Value,
     ) -> Result<Value, ErrorKind> {
-        if s.is_catchable() {
-            return Ok(s);
-        }
-
-        if to.is_catchable() {
-            return Ok(to);
-        }
-
-        if from.is_catchable() {
-            return Ok(from);
-        }
-
         let from = from.to_list()?;
         for val in &from {
             generators::request_force(&co, val.clone()).await;
@@ -1372,14 +1220,6 @@ mod pure_builtins {
 
     #[builtin("sort")]
     async fn builtin_sort(co: GenCo, comparator: Value, list: Value) -> Result<Value, ErrorKind> {
-        if list.is_catchable() {
-            return Ok(list);
-        }
-
-        if comparator.is_catchable() {
-            return Ok(comparator);
-        }
-
         let list = list.to_list()?;
         let sorted = list.sort_by(&co, comparator).await?;
         Ok(Value::List(sorted))
@@ -1664,10 +1504,6 @@ mod placeholder_builtins {
         co: GenCo,
         s: Value,
     ) -> Result<Value, ErrorKind> {
-        if s.is_catchable() {
-            return Ok(s);
-        }
-
         let span = generators::request_span(&co).await;
         let mut v = s
             .coerce_to_string(
