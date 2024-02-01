@@ -47,7 +47,7 @@ pub enum Value {
     Bool(bool),
     Integer(i64),
     Float(f64),
-    String(NixString),
+    String(Box<NixString>),
 
     #[serde(skip)]
     Path(Box<Path>),
@@ -186,7 +186,7 @@ where
     T: Into<NixString>,
 {
     fn from(t: T) -> Self {
-        Self::String(t.into())
+        Self::String(Box::new(t.into()))
     }
 }
 
@@ -327,7 +327,9 @@ impl Value {
             let value = if let Some(v) = vals.pop() {
                 v.force(co, span.clone()).await?
             } else {
-                return Ok(Value::String(NixString::new_context_from(context, result)));
+                return Ok(Value::String(Box::new(NixString::new_context_from(
+                    context, result,
+                ))));
             };
             let coerced: Result<BString, _> = match (value, kind) {
                 // coercions that are always done
@@ -335,7 +337,7 @@ impl Value {
                     if let Some(ctx) = s.context_mut() {
                         context = context.join(ctx);
                     }
-                    Ok(s.into())
+                    Ok((*s).into())
                 }
 
                 // TODO(sterni): Think about proper encoding handling here. This needs
@@ -692,7 +694,7 @@ impl Value {
     /// everytime you want a string.
     pub fn to_str(&self) -> Result<NixString, ErrorKind> {
         match self {
-            Value::String(s) if !s.has_context() => Ok(s.clone()),
+            Value::String(s) if !s.has_context() => Ok((**s).clone()),
             Value::Thunk(thunk) => Self::to_str(&thunk.value()),
             other => Err(type_error("contextless strings", other)),
         }
@@ -703,7 +705,7 @@ impl Value {
         NixString,
         "contextful string",
         Value::String(s),
-        s.clone()
+        (**s).clone()
     );
     gen_cast!(to_path, Box<Path>, "path", Value::Path(p), p.clone());
     gen_cast!(to_attrs, Box<NixAttrs>, "set", Value::Attrs(a), a.clone());

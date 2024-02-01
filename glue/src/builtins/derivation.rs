@@ -530,7 +530,7 @@ pub(crate) mod derivation_builtins {
 
         // TODO: actually persist the file in the store at that path ...
 
-        Ok(Value::String(NixString::new_context_from(
+        Ok(Value::from(NixString::new_context_from(
             context,
             path.into(),
         )))

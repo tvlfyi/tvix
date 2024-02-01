@@ -360,7 +360,7 @@ impl NixAttrs {
             let key = stack_slice.pop().unwrap();
 
             match key {
-                Value::String(ks) => set_attr(&mut attrs, ks, value)?,
+                Value::String(ks) => set_attr(&mut attrs, *ks, value)?,
 
                 Value::Null => {
                     // This is in fact valid, but leads to the value
@@ -414,9 +414,13 @@ impl IntoIterator for NixAttrs {
 fn attempt_optimise_kv(slice: &mut [Value]) -> Option<NixAttrs> {
     let (name_idx, value_idx) = {
         match (&slice[2], &slice[0]) {
-            (Value::String(s1), Value::String(s2)) if (*s1 == *NAME_S && *s2 == *VALUE_S) => (3, 1),
+            (Value::String(s1), Value::String(s2)) if (**s1 == *NAME_S && **s2 == *VALUE_S) => {
+                (3, 1)
+            }
 
-            (Value::String(s1), Value::String(s2)) if (*s1 == *VALUE_S && *s2 == *NAME_S) => (1, 3),
+            (Value::String(s1), Value::String(s2)) if (**s1 == *VALUE_S && **s2 == *NAME_S) => {
+                (1, 3)
+            }
 
             // Technically this branch lets type errors pass,
             // but they will be caught during normal attribute

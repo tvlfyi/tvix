@@ -14,11 +14,8 @@ fn test_empty_attrs() {
 
 #[test]
 fn test_simple_attrs() {
-    let attrs = NixAttrs::construct(
-        1,
-        vec![Value::String("key".into()), Value::String("value".into())],
-    )
-    .expect("simple attr construction should succeed");
+    let attrs = NixAttrs::construct(1, vec![Value::from("key"), Value::from("value")])
+        .expect("simple attr construction should succeed");
 
     assert!(
         matches!(attrs, NixAttrs(AttrsRep::Im(_))),
@@ -28,9 +25,9 @@ fn test_simple_attrs() {
 
 #[test]
 fn test_kv_attrs() {
-    let name_val = Value::String("name".into());
-    let value_val = Value::String("value".into());
-    let meaning_val = Value::String("meaning".into());
+    let name_val = Value::from("name");
+    let value_val = Value::from("value");
+    let meaning_val = Value::from("meaning");
     let forty_two_val = Value::Integer(42);
 
     let kv_attrs = NixAttrs::construct(
@@ -64,9 +61,9 @@ fn test_empty_attrs_iter() {
 
 #[test]
 fn test_kv_attrs_iter() {
-    let name_val = Value::String("name".into());
-    let value_val = Value::String("value".into());
-    let meaning_val = Value::String("meaning".into());
+    let name_val = Value::from("name");
+    let value_val = Value::from("value");
+    let meaning_val = Value::from("meaning");
     let forty_two_val = Value::Integer(42);
 
     let kv_attrs = NixAttrs::construct(
@@ -92,11 +89,8 @@ fn test_kv_attrs_iter() {
 
 #[test]
 fn test_map_attrs_iter() {
-    let attrs = NixAttrs::construct(
-        1,
-        vec![Value::String("key".into()), Value::String("value".into())],
-    )
-    .expect("simple attr construction should succeed");
+    let attrs = NixAttrs::construct(1, vec![Value::from("key"), Value::from("value")])
+        .expect("simple attr construction should succeed");
 
     let mut iter = attrs.iter().collect::<Vec<_>>().into_iter();
     let (k, v) = iter.next().unwrap();

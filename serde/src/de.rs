@@ -347,7 +347,7 @@ impl<'de> de::Deserializer<'de> for NixDeserializer {
         if let Value::Attrs(attrs) = self.value {
             let mut map = MapDeserializer::new(attrs.into_iter().map(|(k, v)| {
                 (
-                    NixDeserializer::new(Value::String(k)),
+                    NixDeserializer::new(Value::from(k)),
                     NixDeserializer::new(v),
                 )
             }));

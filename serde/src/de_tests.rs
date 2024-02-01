@@ -222,7 +222,7 @@ mod test_builtins {
         match x {
             Value::String(s) => {
                 let new_string = NixString::from(format!("hello {}", s.to_str().unwrap()));
-                Ok(Value::String(new_string))
+                Ok(Value::from(new_string))
             }
             _ => Err(ErrorKind::TypeError {
                 expected: "string",

@@ -987,9 +987,10 @@ where
             }
         }
 
-        // FIXME: consume immediately here the String.
         self.stack
-            .push(Value::String(NixString::new_context_from(context, out)));
+            .push(Value::String(Box::new(NixString::new_context_from(
+                context, out,
+            ))));
         Ok(())
     }
 
@@ -1250,7 +1251,7 @@ async fn add_values(co: GenCo, a: Value, b: Value) -> Result<Value, ErrorKind> {
                 Err(c) => Value::Catchable(c),
             }
         }
-        (Value::String(s1), Value::String(s2)) => Value::String(s1.concat(&s2)),
+        (Value::String(s1), Value::String(s2)) => Value::String(Box::new(s1.concat(&s2))),
         (Value::String(s1), v) => generators::request_string_coerce(
             &co,
             v,
@@ -1261,7 +1262,7 @@ async fn add_values(co: GenCo, a: Value, b: Value) -> Result<Value, ErrorKind> {
             },
         )
         .await
-        .map(|s2| Value::String(s1.concat(&s2)))
+        .map(|s2| Value::String(Box::new(s1.concat(&s2))))
         .into(),
         (a @ Value::Integer(_), b) | (a @ Value::Float(_), b) => arithmetic_op!(&a, &b, +)?,
         (a, b) => {
@@ -1284,7 +1285,7 @@ async fn add_values(co: GenCo, a: Value, b: Value) -> Result<Value, ErrorKind> {
             )
             .await;
             match (r1, r2) {
-                (Ok(s1), Ok(s2)) => Value::String(s1.concat(&s2)),
+                (Ok(s1), Ok(s2)) => Value::String(Box::new(s1.concat(&s2))),
                 (Err(c), _) => return Ok(Value::Catchable(c)),
                 (_, Err(c)) => return Ok(Value::Catchable(c)),
             }

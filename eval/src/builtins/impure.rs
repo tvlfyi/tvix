@@ -50,15 +50,12 @@ mod impure_builtins {
                         NixString::from(
                             String::from_utf8(name.to_vec()).expect("parsing file name as string"),
                         ),
-                        Value::String(
-                            match ftype {
-                                FileType::Directory => "directory",
-                                FileType::Regular => "regular",
-                                FileType::Symlink => "symlink",
-                                FileType::Unknown => "unknown",
-                            }
-                            .into(),
-                        ),
+                        Value::from(match ftype {
+                            FileType::Directory => "directory",
+                            FileType::Regular => "regular",
+                            FileType::Symlink => "symlink",
+                            FileType::Unknown => "unknown",
+                        }),
                     )
                 });
 

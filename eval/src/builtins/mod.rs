@@ -167,7 +167,7 @@ mod pure_builtins {
         let mut output = Vec::with_capacity(xs.len());
 
         for (key, _val) in xs.iter() {
-            output.push(Value::String(key.clone()));
+            output.push(Value::from(key.clone()));
         }
 
         Ok(Value::List(NixList::construct(output.len(), output)))
@@ -404,7 +404,7 @@ mod pure_builtins {
                 result.to_owned(),
             ))))
         } else {
-            Ok(Value::String(NixString::new_inherit_context_from(
+            Ok(Value::from(NixString::new_inherit_context_from(
                 &str,
                 result.into(),
             )))
@@ -1095,8 +1095,7 @@ mod pure_builtins {
                         // can be observed in make-initrd.nix when it comes
                         // to compressors which are matched over their full command
                         // and then a compressor name will be extracted from that.
-                        grp.map(|g| Value::String(g.as_str().into()))
-                            .unwrap_or(Value::Null)
+                        grp.map(|g| Value::from(g.as_str())).unwrap_or(Value::Null)
                     })
                     .collect::<imbl::Vector<Value>>()
                     .into(),
@@ -1308,7 +1307,7 @@ mod pure_builtins {
             }
         }
 
-        Ok(Value::String(NixString::new_context_from(context, res)))
+        Ok(Value::from(NixString::new_context_from(context, res)))
     }
 
     #[builtin("seq")]
@@ -1396,9 +1395,9 @@ mod pure_builtins {
 
         let parts = s
             .map(|s| {
-                Value::String(match s {
-                    VersionPart::Number(n) => n.into(),
-                    VersionPart::Word(w) => w.into(),
+                Value::from(match s {
+                    VersionPart::Number(n) => n,
+                    VersionPart::Word(w) => w,
                 })
             })
             .collect::<Vec<Value>>();
@@ -1466,7 +1465,7 @@ mod pure_builtins {
         // non-negative when the starting index is GTE the
         // string's length.
         if beg >= x.len() {
-            return Ok(Value::String(NixString::new_inherit_context_from(
+            return Ok(Value::from(NixString::new_inherit_context_from(
                 &x,
                 BString::default(),
             )));
@@ -1478,7 +1477,7 @@ mod pure_builtins {
             cmp::min(beg + (len as usize), x.len())
         };
 
-        Ok(Value::String(NixString::new_inherit_context_from(
+        Ok(Value::from(NixString::new_inherit_context_from(
             &x,
             (&x[beg..end]).into(),
         )))
@@ -1599,7 +1598,7 @@ mod pure_builtins {
             return Ok(x);
         }
 
-        Ok(Value::String(x.type_of().into()))
+        Ok(Value::from(x.type_of()))
     }
 }
 
@@ -1634,7 +1633,7 @@ pub fn pure_builtins() -> Vec<(&'static str, Value)> {
     let mut result = pure_builtins::builtins();
 
     // Pure-value builtins
-    result.push(("nixVersion", Value::String("2.3-compat-tvix-0.1".into())));
+    result.push(("nixVersion", Value::from("2.3-compat-tvix-0.1")));
     result.push(("langVersion", Value::Integer(6)));
     result.push(("null", Value::Null));
     result.push(("true", Value::Bool(true)));
@@ -1685,7 +1684,7 @@ mod placeholder_builtins {
             .await?
             .to_contextful_str()?;
         v.clear_context();
-        Ok(Value::String(v))
+        Ok(Value::from(v))
     }
 
     #[builtin("addErrorContext")]

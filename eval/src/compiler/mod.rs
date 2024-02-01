@@ -369,7 +369,7 @@ impl Compiler<'_> {
 
             ast::LiteralKind::Uri(u) => {
                 self.emit_warning(node, WarningKind::DeprecatedLiteralURL);
-                Value::String(u.syntax().text().into())
+                Value::from(u.syntax().text())
             }
         };
 
@@ -458,7 +458,7 @@ impl Compiler<'_> {
                 }
 
                 ast::InterpolPart::Literal(lit) => {
-                    self.emit_constant(Value::String(lit.as_str().into()), parent_node);
+                    self.emit_constant(Value::from(lit.as_str()), parent_node);
                 }
             }
         }
@@ -1360,7 +1360,7 @@ impl Compiler<'_> {
     /// several operations related to attribute sets, where
     /// identifiers are used as string keys.
     fn emit_literal_ident(&mut self, ident: &ast::Ident) {
-        self.emit_constant(Value::String(ident.clone().into()), ident);
+        self.emit_constant(Value::String(Box::new(ident.clone().into())), ident);
     }
 
     /// Patch the jump instruction at the given index, setting its

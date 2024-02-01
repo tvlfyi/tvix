@@ -356,7 +356,7 @@ mod tests {
 
         let value = result.value.expect("must be some");
         match value {
-            tvix_eval::Value::String(s) => Some((**s).clone().into_string_lossy()),
+            tvix_eval::Value::String(s) => Some((***s).clone().into_string_lossy()),
             _ => panic!("unexpected value type: {:?}", value),
         }
     }
@@ -422,7 +422,7 @@ mod tests {
 
         match value {
             tvix_eval::Value::String(s) => {
-                assert_eq!(s, "/deep/thought");
+                assert_eq!(*s, "/deep/thought");
             }
             _ => panic!("unexpected value type: {:?}", value),
         }
