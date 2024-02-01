@@ -99,10 +99,11 @@ fn make_chunked_reader<BS>(
     // as it'd add a lifetime to BlobReader in general, which will get
     // problematic in TvixStoreFs, which is using async move closures and cloning.
     blob_service: BS,
+    // A list of b3 digests for individual chunks, and their sizes.
     chunks: Vec<(B3Digest, u64)>,
 ) -> Box<dyn BlobReader>
 where
-    BS: BlobService + Clone + Send + Sync + 'static,
+    BS: BlobService + Clone + 'static,
 {
     // TODO: offset, verified streaming
 
