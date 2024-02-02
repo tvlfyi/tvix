@@ -249,7 +249,7 @@ mod pure_builtins {
         let mut out = imbl::Vector::new();
 
         for value in lists.to_list()? {
-            let list = generators::request_force(&co, value).await.to_list()?;
+            let list = try_value!(generators::request_force(&co, value).await).to_list()?;
             out.extend(list.into_iter());
         }
 
@@ -262,7 +262,7 @@ mod pure_builtins {
         let mut res = imbl::Vector::new();
         for val in list {
             let out = generators::request_call_with(&co, f.clone(), [val]).await;
-            let out = generators::request_force(&co, out).await;
+            let out = try_value!(generators::request_force(&co, out).await);
             res.extend(out.to_list()?);
         }
         Ok(Value::List(res.into()))
@@ -898,10 +898,11 @@ mod pure_builtins {
         let list = list.to_list()?;
         let mut map = BTreeMap::new();
         for val in list {
-            let attrs = generators::request_force(&co, val).await.to_attrs()?;
-            let name = generators::request_force(&co, attrs.select_required("name")?.clone())
-                .await
-                .to_str()?;
+            let attrs = try_value!(generators::request_force(&co, val).await).to_attrs()?;
+            let name = try_value!(
+                generators::request_force(&co, attrs.select_required("name")?.clone()).await
+            )
+            .to_str()?;
             let value = attrs.select_required("value")?.clone();
             // Map entries earlier in the list take precedence over entries later in the list
             map.entry(name).or_insert(value);
@@ -1023,7 +1024,7 @@ mod pure_builtins {
         for elem in list {
             let result = generators::request_call_with(&co, pred.clone(), [elem.clone()]).await;
 
-            if generators::request_force(&co, result).await.as_bool()? {
+            if try_value!(generators::request_force(&co, result).await).as_bool()? {
                 right.push_back(elem);
             } else {
                 wrong.push_back(elem);
@@ -1069,12 +1070,12 @@ mod pure_builtins {
     ) -> Result<Value, ErrorKind> {
         let from = from.to_list()?;
         for val in &from {
-            generators::request_force(&co, val.clone()).await;
+            try_value!(generators::request_force(&co, val.clone()).await);
         }
 
         let to = to.to_list()?;
         for val in &to {
-            generators::request_force(&co, val.clone()).await;
+            try_value!(generators::request_force(&co, val.clone()).await);
         }
 
         let mut string = s.to_contextful_str()?;
