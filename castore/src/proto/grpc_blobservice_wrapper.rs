@@ -97,9 +97,12 @@ where
             .try_into()
             .map_err(|_e| Status::invalid_argument("invalid digest length"))?;
 
-        match self.blob_service.has(&req_digest).await {
-            Ok(true) => Ok(Response::new(super::StatBlobResponse::default())),
-            Ok(false) => Err(Status::not_found(format!("blob {} not found", &req_digest))),
+        match self.blob_service.chunks(&req_digest).await {
+            Ok(None) => Err(Status::not_found(format!("blob {} not found", &req_digest))),
+            Ok(Some(chunk_metas)) => Ok(Response::new(super::StatBlobResponse {
+                chunks: chunk_metas,
+                ..Default::default()
+            })),
             Err(e) => Err(e.into()),
         }
     }
