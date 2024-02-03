@@ -112,7 +112,7 @@ The `impl` column indicates implementation status in tvix:
 | tail                          | false  |       |       |         |
 | throw                         | true   |       |       |         |
 | toFile                        | false  |       |       | store   |
-| toJSON                        | false  |       |       | todo    |
+| toJSON                        | false  |       |       |         |
 | toPath                        | false  |       |       |         |
 | toString                      | true   |       |       |         |
 | toXML                         | true   |       |       |         |
