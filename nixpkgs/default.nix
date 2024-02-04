@@ -52,9 +52,6 @@ let
   stableOverlay = _unstableSelf: unstableSuper: {
     # weird memory access issues in SBCL on AMD; 2024-02-01
     sbcl = stableNixpkgs.sbcl;
-
-    # TPM authentication seems broken on unstable; 2023-11-29
-    tpm2-pkcs11 = stableNixpkgs.tpm2-pkcs11;
   };
 
   # Overlay to expose the nixpkgs commits we are using to other Nix code.
