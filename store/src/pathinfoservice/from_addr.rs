@@ -20,6 +20,11 @@ use url::Url;
 /// - `sled:///absolute/path/to/somewhere`
 ///   Uses sled, using a path on the disk for persistency. Can be only opened
 ///   from one process at the same time.
+/// - `nix+https://cache.nixos.org?trusted-public-keys=cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=`
+///   Exposes the Nix binary cache as a PathInfoService, ingesting NARs into the
+///   {Blob,Directory}Service. You almost certainly want to use this with some cache.
+///   The `trusted-public-keys` URL parameter can be provided, which will then
+///   enable signature verification.
 /// - `grpc+unix:///absolute/path/to/somewhere`
 ///   Connects to a local tvix-store gRPC service via Unix socket.
 /// - `grpc+http://host:port`, `grpc+https://host:port`
