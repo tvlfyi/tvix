@@ -659,9 +659,9 @@ dependencies = [
 
 [[package]]
 name = "magic-buffer"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1865eecb968438d303a38d7ba59239aec6ec58c5b0857c68242046abd7370b29"
+checksum = "003aed0f6b361330d1c549e8ae765758cb9d46f7bace57112e8c25847966ff2e"
 dependencies = [
  "libc",
  "mach2",

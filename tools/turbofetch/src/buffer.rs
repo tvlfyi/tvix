@@ -12,10 +12,6 @@ pub struct Buffer {
     tail: usize,
 }
 
-// SAFETY: MagicBuffer isn't bound to a thread, and neither are any of the other fields.
-// MagicBuffer ought to be Send+Sync itself, upstream PR at https://github.com/sklose/magic-buffer/pull/4
-unsafe impl Send for Buffer {}
-
 impl Buffer {
     /// Allocate a fresh buffer, with the specified capacity.
     /// The buffer can contain at most `capacity - 1` bytes.
