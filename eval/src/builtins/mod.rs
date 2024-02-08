@@ -524,7 +524,8 @@ mod pure_builtins {
     #[builtin("genList")]
     async fn builtin_gen_list(
         co: GenCo,
-        generator: Value,
+        // Nix 2.3 doesn't propagate failures here
+        #[catch] generator: Value,
         length: Value,
     ) -> Result<Value, ErrorKind> {
         let mut out = imbl::Vector::<Value>::new();
@@ -911,7 +912,7 @@ mod pure_builtins {
     }
 
     #[builtin("map")]
-    async fn builtin_map(co: GenCo, f: Value, list: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_map(co: GenCo, #[catch] f: Value, list: Value) -> Result<Value, ErrorKind> {
         let mut out = imbl::Vector::<Value>::new();
 
         // the best span we can get…
