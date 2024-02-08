@@ -6,11 +6,6 @@ use imbl::{vector, Vector};
 
 use serde::Deserialize;
 
-use crate::generators;
-use crate::generators::GenCo;
-use crate::AddContext;
-use crate::ErrorKind;
-
 use super::thunk::ThunkSet;
 use super::TotalDisplay;
 use super::Value;
@@ -77,51 +72,6 @@ impl NixList {
     #[deprecated(note = "callers should avoid constructing from Vec")]
     pub fn from_vec(vs: Vec<Value>) -> Self {
         Self(Rc::new(Vector::from_iter(vs)))
-    }
-
-    /// Asynchronous sorting algorithm in which the comparator can make use of
-    /// VM requests (required as `builtins.sort` uses comparators written in
-    /// Nix).
-    ///
-    /// This is a simple, optimised bubble sort implementation. The choice of
-    /// algorithm is constrained by the comparator in Nix not being able to
-    /// yield equality, and us being unable to use the standard library
-    /// implementation of sorting (which is a lot longer, but a lot more
-    /// efficient) here.
-    // TODO(amjoseph): Investigate potential impl in Nix code, or Tvix bytecode.
-    pub async fn sort_by(self, co: &GenCo, cmp: Value) -> Result<Self, ErrorKind> {
-        let mut len = self.len();
-        let mut data = self.into_inner();
-
-        loop {
-            let mut new_len = 0;
-            for i in 1..len {
-                if generators::request_force(
-                    co,
-                    generators::request_call_with(
-                        co,
-                        cmp.clone(),
-                        [data[i].clone(), data[i - 1].clone()],
-                    )
-                    .await,
-                )
-                .await
-                .as_bool()
-                .context("evaluating comparator in `builtins.sort`")?
-                {
-                    data.swap(i, i - 1);
-                    new_len = i;
-                }
-            }
-
-            if new_len == 0 {
-                break;
-            }
-
-            len = new_len;
-        }
-
-        Ok(data.into())
     }
 }
 

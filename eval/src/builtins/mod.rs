@@ -87,7 +87,7 @@ mod pure_builtins {
     use itertools::Itertools;
     use os_str_bytes::OsStringBytes;
 
-    use crate::{value::PointerEquality, NixContext, NixContextElement};
+    use crate::{value::PointerEquality, AddContext, NixContext, NixContextElement};
 
     use super::*;
 
@@ -1223,8 +1223,50 @@ mod pure_builtins {
     #[builtin("sort")]
     async fn builtin_sort(co: GenCo, comparator: Value, list: Value) -> Result<Value, ErrorKind> {
         let list = list.to_list()?;
-        let sorted = list.sort_by(&co, comparator).await?;
-        Ok(Value::List(sorted))
+        let mut len = list.len();
+        let mut data = list.into_inner();
+
+        // Asynchronous sorting algorithm in which the comparator can make use of
+        // VM requests (required as `builtins.sort` uses comparators written in
+        // Nix).
+        //
+        // This is a simple, optimised bubble sort implementation. The choice of
+        // algorithm is constrained by the comparator in Nix not being able to
+        // yield equality, and us being unable to use the standard library
+        // implementation of sorting (which is a lot longer, but a lot more
+        // efficient) here.
+        // TODO(amjoseph): Investigate potential impl in Nix code, or Tvix bytecode.
+        loop {
+            let mut new_len = 0;
+            for i in 1..len {
+                if try_value!(
+                    generators::request_force(
+                        &co,
+                        generators::request_call_with(
+                            &co,
+                            comparator.clone(),
+                            [data[i].clone(), data[i - 1].clone()],
+                        )
+                        .await,
+                    )
+                    .await
+                )
+                .as_bool()
+                .context("evaluating comparator in `builtins.sort`")?
+                {
+                    data.swap(i, i - 1);
+                    new_len = i;
+                }
+            }
+
+            if new_len == 0 {
+                break;
+            }
+
+            len = new_len;
+        }
+
+        Ok(Value::List(data.into()))
     }
 
     #[builtin("splitVersion")]
