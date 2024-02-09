@@ -932,9 +932,11 @@ where
 
     fn run_attrset(&mut self, frame: &CallFrame, count: usize) -> EvalResult<()> {
         let attrs = NixAttrs::construct(count, self.stack.split_off(self.stack.len() - count * 2))
-            .with_span(frame, self)?;
+            .with_span(frame, self)?
+            .map(Value::attrs)
+            .into();
 
-        self.stack.push(Value::attrs(attrs));
+        self.stack.push(attrs);
         Ok(())
     }
 

@@ -19,6 +19,7 @@ use super::thunk::ThunkSet;
 use super::TotalDisplay;
 use super::Value;
 use crate::errors::ErrorKind;
+use crate::CatchableErrorKind;
 
 lazy_static! {
     static ref NAME_S: NixString = "name".into();
@@ -170,7 +171,9 @@ impl<'de> Deserialize<'de> for NixAttrs {
                     stack_array.push(value);
                 }
 
-                NixAttrs::construct(stack_array.len() / 2, stack_array).map_err(A::Error::custom)
+                Ok(NixAttrs::construct(stack_array.len() / 2, stack_array)
+                    .map_err(A::Error::custom)?
+                    .expect("Catchable values are unreachable here"))
             }
         }
 
@@ -333,7 +336,10 @@ impl NixAttrs {
 
     /// Implement construction logic of an attribute set, to encapsulate
     /// logic about attribute set optimisations inside of this module.
-    pub fn construct(count: usize, mut stack_slice: Vec<Value>) -> Result<Self, ErrorKind> {
+    pub fn construct(
+        count: usize,
+        mut stack_slice: Vec<Value>,
+    ) -> Result<Result<Self, CatchableErrorKind>, ErrorKind> {
         debug_assert!(
             stack_slice.len() == count * 2,
             "construct_attrs called with count == {}, but slice.len() == {}",
@@ -343,13 +349,13 @@ impl NixAttrs {
 
         // Optimisation: Empty attribute set
         if count == 0 {
-            return Ok(NixAttrs(AttrsRep::Empty));
+            return Ok(Ok(NixAttrs(AttrsRep::Empty)));
         }
 
         // Optimisation: KV pattern
         if count == 2 {
             if let Some(kv) = attempt_optimise_kv(&mut stack_slice) {
-                return Ok(kv);
+                return Ok(Ok(kv));
             }
         }
 
@@ -369,11 +375,13 @@ impl NixAttrs {
                     continue;
                 }
 
+                Value::Catchable(err) => return Ok(Err(err)),
+
                 other => return Err(ErrorKind::InvalidAttributeName(other)),
             }
         }
 
-        Ok(attrs)
+        Ok(Ok(attrs))
     }
 
     /// Construct an optimized "KV"-style attribute set given the value for the

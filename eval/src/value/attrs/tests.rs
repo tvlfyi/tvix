@@ -4,7 +4,9 @@ use super::*;
 
 #[test]
 fn test_empty_attrs() {
-    let attrs = NixAttrs::construct(0, vec![]).expect("empty attr construction should succeed");
+    let attrs = NixAttrs::construct(0, vec![])
+        .expect("empty attr construction should succeed")
+        .unwrap();
 
     assert!(
         matches!(attrs, NixAttrs(AttrsRep::Empty)),
@@ -15,7 +17,8 @@ fn test_empty_attrs() {
 #[test]
 fn test_simple_attrs() {
     let attrs = NixAttrs::construct(1, vec![Value::from("key"), Value::from("value")])
-        .expect("simple attr construction should succeed");
+        .expect("simple attr construction should succeed")
+        .unwrap();
 
     assert!(
         matches!(attrs, NixAttrs(AttrsRep::Im(_))),
@@ -39,7 +42,8 @@ fn test_kv_attrs() {
             meaning_val.clone(),
         ],
     )
-    .expect("constructing K/V pair attrs should succeed");
+    .expect("constructing K/V pair attrs should succeed")
+    .unwrap();
 
     match kv_attrs {
         NixAttrs(AttrsRep::KV { name, value })
@@ -55,7 +59,7 @@ fn test_kv_attrs() {
 
 #[test]
 fn test_empty_attrs_iter() {
-    let attrs = NixAttrs::construct(0, vec![]).unwrap();
+    let attrs = NixAttrs::construct(0, vec![]).unwrap().unwrap();
     assert!(attrs.iter().next().is_none());
 }
 
@@ -75,7 +79,8 @@ fn test_kv_attrs_iter() {
             meaning_val.clone(),
         ],
     )
-    .expect("constructing K/V pair attrs should succeed");
+    .expect("constructing K/V pair attrs should succeed")
+    .unwrap();
 
     let mut iter = kv_attrs.iter().collect::<Vec<_>>().into_iter();
     let (k, v) = iter.next().unwrap();
@@ -90,7 +95,8 @@ fn test_kv_attrs_iter() {
 #[test]
 fn test_map_attrs_iter() {
     let attrs = NixAttrs::construct(1, vec![Value::from("key"), Value::from("value")])
-        .expect("simple attr construction should succeed");
+        .expect("simple attr construction should succeed")
+        .unwrap();
 
     let mut iter = attrs.iter().collect::<Vec<_>>().into_iter();
     let (k, v) = iter.next().unwrap();
