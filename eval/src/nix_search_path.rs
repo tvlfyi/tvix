@@ -138,10 +138,13 @@ impl NixSearchPath {
                 return Ok(Ok(p));
             }
         }
-        Ok(Err(CatchableErrorKind::NixPathResolution(format!(
-            "path '{}' was not found in the Nix search path",
-            path.display()
-        ))))
+        Ok(Err(CatchableErrorKind::NixPathResolution(
+            format!(
+                "path '{}' was not found in the Nix search path",
+                path.display()
+            )
+            .into_boxed_str(),
+        )))
     }
 }
 

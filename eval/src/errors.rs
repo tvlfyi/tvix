@@ -40,11 +40,11 @@ use crate::{SourceCode, Value};
 ///
 #[derive(Clone, Debug)]
 pub enum CatchableErrorKind {
-    Throw(String),
+    Throw(Box<str>),
     AssertionFailed,
-    UnimplementedFeature(String),
+    UnimplementedFeature(Box<str>),
     /// Resolving a user-supplied angle brackets path literal failed in some way.
-    NixPathResolution(String),
+    NixPathResolution(Box<str>),
 }
 
 #[derive(Clone, Debug)]
