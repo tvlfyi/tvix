@@ -33,7 +33,7 @@ mod impure_builtins {
     #[builtin("pathExists")]
     async fn builtin_path_exists(co: GenCo, path: Value) -> Result<Value, ErrorKind> {
         match coerce_value_to_path(&co, path).await? {
-            Err(cek) => Ok(Value::Catchable(cek)),
+            Err(cek) => Ok(Value::from(cek)),
             Ok(path) => Ok(generators::request_path_exists(&co, path).await),
         }
     }
@@ -41,7 +41,7 @@ mod impure_builtins {
     #[builtin("readDir")]
     async fn builtin_read_dir(co: GenCo, path: Value) -> Result<Value, ErrorKind> {
         match coerce_value_to_path(&co, path).await? {
-            Err(cek) => Ok(Value::Catchable(cek)),
+            Err(cek) => Ok(Value::from(cek)),
             Ok(path) => {
                 let dir = generators::request_read_dir(&co, path).await;
                 let res = dir.into_iter().map(|(name, ftype)| {
@@ -67,7 +67,7 @@ mod impure_builtins {
     #[builtin("readFile")]
     async fn builtin_read_file(co: GenCo, path: Value) -> Result<Value, ErrorKind> {
         match coerce_value_to_path(&co, path).await? {
-            Err(cek) => Ok(Value::Catchable(cek)),
+            Err(cek) => Ok(Value::from(cek)),
             Ok(path) => Ok(generators::request_read_to_string(&co, path).await),
         }
     }

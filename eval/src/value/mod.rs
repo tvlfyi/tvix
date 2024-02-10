@@ -84,12 +84,13 @@ pub enum Value {
     FinaliseRequest(bool),
 
     #[serde(skip)]
-    Catchable(CatchableErrorKind),
+    Catchable(Box<CatchableErrorKind>),
 }
 
 impl From<CatchableErrorKind> for Value {
+    #[inline]
     fn from(c: CatchableErrorKind) -> Value {
-        Value::Catchable(c)
+        Value::Catchable(Box::new(c))
     }
 }
 
@@ -97,8 +98,12 @@ impl<V> From<Result<V, CatchableErrorKind>> for Value
 where
     Value: From<V>,
 {
+    #[inline]
     fn from(v: Result<V, CatchableErrorKind>) -> Value {
-        v.map_or_else(Value::Catchable, |v| v.into())
+        match v {
+            Ok(v) => v.into(),
+            Err(e) => Value::Catchable(Box::new(e)),
+        }
     }
 }
 
@@ -776,8 +781,8 @@ impl Value {
                 b = b.force(&co, span.clone()).await?;
             }
             let result = match (a, b) {
-                (Value::Catchable(c), _) => return Ok(Err(c)),
-                (_, Value::Catchable(c)) => return Ok(Err(c)),
+                (Value::Catchable(c), _) => return Ok(Err(*c)),
+                (_, Value::Catchable(c)) => return Ok(Err(*c)),
                 // same types
                 (Value::Integer(i1), Value::Integer(i2)) => i1.cmp(&i2),
                 (Value::Float(f1), Value::Float(f2)) => f1.total_cmp(&f2),

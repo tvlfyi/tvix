@@ -399,9 +399,9 @@ impl Compiler<'_> {
             // TODO: decide what to do with findFile
             if raw_path.len() == 2 {
                 return self.emit_constant(
-                    Value::Catchable(CatchableErrorKind::NixPathResolution(
+                    Value::Catchable(Box::new(CatchableErrorKind::NixPathResolution(
                         "Empty <> path not allowed".into(),
-                    )),
+                    ))),
                     node,
                 );
             }

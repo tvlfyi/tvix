@@ -901,7 +901,7 @@ where
 
                 OpCode::OpAssertFail => {
                     self.stack
-                        .push(Value::Catchable(CatchableErrorKind::AssertionFailed));
+                        .push(Value::from(CatchableErrorKind::AssertionFailed));
                 }
 
                 // Data-carrying operands should never be executed,
@@ -1250,7 +1250,7 @@ async fn add_values(co: GenCo, a: Value, b: Value) -> Result<Value, ErrorKind> {
                     path.push(vs.to_os_str()?);
                     crate::value::canon_path(PathBuf::from(path)).into()
                 }
-                Err(c) => Value::Catchable(c),
+                Err(c) => Value::Catchable(Box::new(c)),
             }
         }
         (Value::String(s1), Value::String(s2)) => Value::String(Box::new(s1.concat(&s2))),
@@ -1288,8 +1288,8 @@ async fn add_values(co: GenCo, a: Value, b: Value) -> Result<Value, ErrorKind> {
             .await;
             match (r1, r2) {
                 (Ok(s1), Ok(s2)) => Value::String(Box::new(s1.concat(&s2))),
-                (Err(c), _) => return Ok(Value::Catchable(c)),
-                (_, Err(c)) => return Ok(Value::Catchable(c)),
+                (Err(c), _) => return Ok(Value::from(c)),
+                (_, Err(c)) => return Ok(Value::from(c)),
             }
         }
     };

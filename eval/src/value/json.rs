@@ -61,7 +61,7 @@ impl Value {
                         )
                         .await?
                     {
-                        Value::Catchable(cek) => return Ok(Err(cek)),
+                        Value::Catchable(cek) => return Ok(Err(*cek)),
                         Value::String(s) => return Ok(Ok(Json::String(s.to_str()?.to_owned()))),
                         _ => panic!("Value::coerce_to_string_() returned a non-string!"),
                     }
@@ -88,7 +88,7 @@ impl Value {
                 Json::Object(out)
             }
 
-            Value::Catchable(c) => return Ok(Err(c)),
+            Value::Catchable(c) => return Ok(Err(*c)),
 
             val @ Value::Closure(_)
             | val @ Value::Thunk(_)
@@ -110,7 +110,7 @@ impl Value {
     /// Value::Json.
     pub(crate) async fn into_json_generator(self, co: GenCo) -> Result<Value, ErrorKind> {
         match self.into_json(&co).await? {
-            Err(cek) => Ok(Value::Catchable(cek)),
+            Err(cek) => Ok(Value::from(cek)),
             Ok(json) => Ok(Value::Json(Box::new(json))),
         }
     }

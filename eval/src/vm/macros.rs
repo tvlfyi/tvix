@@ -44,7 +44,7 @@ macro_rules! cmp_op {
                     let span = generators::request_span(&co).await;
                     let ordering = a.nix_cmp_ordering(b, co, span).await?;
                     match ordering {
-                        Err(cek) => Ok(Value::Catchable(cek)),
+                        Err(cek) => Ok(Value::from(cek)),
                         Ok(ordering) => Ok(Value::Bool(cmp_op!(@order $op ordering))),
                     }
                 }

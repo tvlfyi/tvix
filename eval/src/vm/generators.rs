@@ -609,7 +609,7 @@ pub async fn request_string_coerce(
     match val {
         Value::String(s) => Ok(*s),
         _ => match co.yield_(VMRequest::StringCoerce(val, kind)).await {
-            VMResponse::Value(Value::Catchable(c)) => Err(c),
+            VMResponse::Value(Value::Catchable(c)) => Err(*c),
             VMResponse::Value(value) => Ok(value
                 .to_contextful_str()
                 .expect("coerce_to_string always returns a string")),
@@ -644,7 +644,7 @@ pub(crate) async fn check_equality(
         .await
     {
         VMResponse::Value(Value::Bool(b)) => Ok(Ok(b)),
-        VMResponse::Value(Value::Catchable(cek)) => Ok(Err(cek)),
+        VMResponse::Value(Value::Catchable(cek)) => Ok(Err(*cek)),
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg
@@ -776,7 +776,7 @@ pub(crate) async fn request_to_json(
 ) -> Result<serde_json::Value, CatchableErrorKind> {
     match co.yield_(VMRequest::ToJson(value)).await {
         VMResponse::Value(Value::Json(json)) => Ok(*json),
-        VMResponse::Value(Value::Catchable(cek)) => Err(cek),
+        VMResponse::Value(Value::Catchable(cek)) => Err(*cek),
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg

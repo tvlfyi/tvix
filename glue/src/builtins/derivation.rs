@@ -248,7 +248,7 @@ pub(crate) mod derivation_builtins {
                 "args" => {
                     for arg in value.to_list()? {
                         match strong_importing_coerce_to_string(&co, arg).await {
-                            Err(cek) => return Ok(Value::Catchable(cek)),
+                            Err(cek) => return Ok(Value::from(cek)),
                             Ok(s) => {
                                 input_context.mimic(&s);
                                 drv.arguments.push(s.to_str()?.to_owned())
@@ -299,7 +299,7 @@ pub(crate) mod derivation_builtins {
                 // handle builder and system.
                 "builder" | "system" => {
                     match strong_importing_coerce_to_string(&co, value).await {
-                        Err(cek) => return Ok(Value::Catchable(cek)),
+                        Err(cek) => return Ok(Value::from(cek)),
                         Ok(val_str) => {
                             input_context.mimic(&val_str);
 
@@ -334,7 +334,7 @@ pub(crate) mod derivation_builtins {
                     // In non-SA case, coerce to string and add to env.
                     if let Some(ref mut structured_attrs) = structured_attrs {
                         let val = generators::request_force(&co, value).await;
-                        if matches!(val, Value::Catchable(_)) {
+                        if val.is_catchable() {
                             return Ok(val);
                         }
 
@@ -343,14 +343,14 @@ pub(crate) mod derivation_builtins {
 
                         let val_json = match val.into_json(&co).await? {
                             Ok(v) => v,
-                            Err(cek) => return Ok(Value::Catchable(cek)),
+                            Err(cek) => return Ok(Value::from(cek)),
                         };
 
                         // No need to check for dups, we only iterate over every attribute name once
                         structured_attrs.insert(arg_name.to_owned(), val_json);
                     } else {
                         match strong_importing_coerce_to_string(&co, value).await {
-                            Err(cek) => return Ok(Value::Catchable(cek)),
+                            Err(cek) => return Ok(Value::from(cek)),
                             Ok(val_str) => {
                                 input_context.mimic(&val_str);
 
@@ -384,21 +384,21 @@ pub(crate) mod derivation_builtins {
                 .await
                 .context("evaluating the `outputHash` parameter")?
             {
-                Err(cek) => return Ok(Value::Catchable(cek)),
+                Err(cek) => return Ok(Value::from(cek)),
                 Ok(s) => s,
             };
             let output_hash_algo = match select_string(&co, &input, "outputHashAlgo")
                 .await
                 .context("evaluating the `outputHashAlgo` parameter")?
             {
-                Err(cek) => return Ok(Value::Catchable(cek)),
+                Err(cek) => return Ok(Value::from(cek)),
                 Ok(s) => s,
             };
             let output_hash_mode = match select_string(&co, &input, "outputHashMode")
                 .await
                 .context("evaluating the `outputHashMode` parameter")?
             {
-                Err(cek) => return Ok(Value::Catchable(cek)),
+                Err(cek) => return Ok(Value::from(cek)),
                 Ok(s) => s,
             };
 

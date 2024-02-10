@@ -375,7 +375,7 @@ impl NixAttrs {
                     continue;
                 }
 
-                Value::Catchable(err) => return Ok(Err(err)),
+                Value::Catchable(err) => return Ok(Err(*err)),
 
                 other => return Err(ErrorKind::InvalidAttributeName(other)),
             }

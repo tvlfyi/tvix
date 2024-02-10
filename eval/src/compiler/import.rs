@@ -27,7 +27,7 @@ async fn import_impl(
 ) -> Result<Value, ErrorKind> {
     // TODO(sterni): canon_path()?
     let mut path = match coerce_value_to_path(&co, args.pop().unwrap()).await? {
-        Err(cek) => return Ok(Value::Catchable(cek)),
+        Err(cek) => return Ok(Value::Catchable(Box::new(cek))),
         Ok(path) => path,
     };
 

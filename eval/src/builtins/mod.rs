@@ -303,7 +303,7 @@ mod pure_builtins {
                         context = context.join(other_context);
                     }
                 }
-                Err(c) => return Ok(Value::Catchable(c)),
+                Err(c) => return Ok(Value::Catchable(Box::new(c))),
             }
         }
         // FIXME: pass immediately the string res.
@@ -365,7 +365,7 @@ mod pure_builtins {
             {
                 Ok(true) => return Ok(true.into()),
                 Ok(false) => continue,
-                Err(cek) => return Ok(Value::Catchable(cek)),
+                Err(cek) => return Ok(Value::from(cek)),
             }
         }
         Ok(false.into())
@@ -452,7 +452,7 @@ mod pure_builtins {
     #[builtin("toJSON")]
     async fn builtin_to_json(co: GenCo, val: Value) -> Result<Value, ErrorKind> {
         match val.into_json(&co).await? {
-            Err(cek) => Ok(Value::Catchable(cek)),
+            Err(cek) => Ok(Value::from(cek)),
             Ok(json_value) => {
                 let json_str = serde_json::to_string(&json_value)?;
                 Ok(json_str.into())
@@ -471,7 +471,7 @@ mod pure_builtins {
     #[allow(non_snake_case)]
     async fn builtin_filterSource(_co: GenCo, #[lazy] _e: Value) -> Result<Value, ErrorKind> {
         // TODO: implement for nixpkgs compatibility
-        Ok(Value::Catchable(CatchableErrorKind::UnimplementedFeature(
+        Ok(Value::from(CatchableErrorKind::UnimplementedFeature(
             "filterSource".into(),
         )))
     }
@@ -690,7 +690,7 @@ mod pure_builtins {
         _string: Value,
     ) -> Result<Value, ErrorKind> {
         // FIXME: propagate contexts here.
-        Ok(Value::Catchable(CatchableErrorKind::UnimplementedFeature(
+        Ok(Value::from(CatchableErrorKind::UnimplementedFeature(
             "hashString".into(),
         )))
     }
@@ -884,7 +884,7 @@ mod pure_builtins {
     async fn builtin_less_than(co: GenCo, x: Value, y: Value) -> Result<Value, ErrorKind> {
         let span = generators::request_span(&co).await;
         match x.nix_cmp_ordering(y, co, span).await? {
-            Err(cek) => Ok(Value::Catchable(cek)),
+            Err(cek) => Ok(Value::from(cek)),
             Ok(Ordering::Less) => Ok(Value::Bool(true)),
             Ok(_) => Ok(Value::Bool(false)),
         }
@@ -1387,7 +1387,7 @@ mod pure_builtins {
         }
         // TODO(sterni): coerces to string
         // We do not care about the context here explicitly.
-        Ok(Value::Catchable(CatchableErrorKind::Throw(
+        Ok(Value::from(CatchableErrorKind::Throw(
             message.to_contextful_str()?.to_string().into(),
         )))
     }
@@ -1444,7 +1444,7 @@ mod pure_builtins {
         }
 
         match coerce_value_to_path(&co, s).await? {
-            Err(cek) => Ok(Value::Catchable(cek)),
+            Err(cek) => Ok(Value::from(cek)),
             Ok(path) => {
                 let path: Value = crate::value::canon_path(path).into();
                 let span = generators::request_span(&co).await;
@@ -1527,7 +1527,7 @@ pub fn pure_builtins() -> Vec<(&'static str, Value)> {
     // TODO: implement for nixpkgs compatibility
     result.push((
         "__curPos",
-        Value::Catchable(CatchableErrorKind::UnimplementedFeature("__curPos".into())),
+        Value::from(CatchableErrorKind::UnimplementedFeature("__curPos".into())),
     ));
 
     result
