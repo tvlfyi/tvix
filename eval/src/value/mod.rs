@@ -1036,6 +1036,14 @@ fn type_error(expected: &'static str, actual: &Value) -> ErrorKind {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use std::mem::size_of;
+
+    #[test]
+    fn size() {
+        assert_eq!(size_of::<Value>(), 16);
+    }
+
     mod floats {
         use crate::value::total_fmt_float;
 
