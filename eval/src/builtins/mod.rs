@@ -558,11 +558,13 @@ mod pure_builtins {
     async fn builtin_group_by(co: GenCo, f: Value, list: Value) -> Result<Value, ErrorKind> {
         let mut res: BTreeMap<NixString, imbl::Vector<Value>> = BTreeMap::new();
         for val in list.to_list()? {
-            let key = generators::request_force(
-                &co,
-                generators::request_call_with(&co, f.clone(), [val.clone()]).await,
+            let key = try_value!(
+                generators::request_force(
+                    &co,
+                    generators::request_call_with(&co, f.clone(), [val.clone()]).await,
+                )
+                .await
             )
-            .await
             .to_str()?;
 
             res.entry(key).or_default().push_back(val);
