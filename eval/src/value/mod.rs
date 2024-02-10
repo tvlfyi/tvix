@@ -78,7 +78,7 @@ pub enum Value {
     #[serde(skip)]
     UnresolvedPath(Box<Path>),
     #[serde(skip)]
-    Json(serde_json::Value),
+    Json(Box<serde_json::Value>),
 
     #[serde(skip)]
     FinaliseRequest(bool),

@@ -775,7 +775,7 @@ pub(crate) async fn request_to_json(
     value: Value,
 ) -> Result<serde_json::Value, CatchableErrorKind> {
     match co.yield_(VMRequest::ToJson(value)).await {
-        VMResponse::Value(Value::Json(json)) => Ok(json),
+        VMResponse::Value(Value::Json(json)) => Ok(*json),
         VMResponse::Value(Value::Catchable(cek)) => Err(cek),
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",

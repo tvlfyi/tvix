@@ -111,7 +111,7 @@ impl Value {
     pub(crate) async fn into_json_generator(self, co: GenCo) -> Result<Value, ErrorKind> {
         match self.into_json(&co).await? {
             Err(cek) => Ok(Value::Catchable(cek)),
-            Ok(json) => Ok(Value::Json(json)),
+            Ok(json) => Ok(Value::Json(Box::new(json))),
         }
     }
 }
