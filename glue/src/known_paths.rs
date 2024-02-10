@@ -25,6 +25,11 @@ pub struct KnownPaths {
     /// Keys are derivation paths, values are a tuple of the "hash derivation
     /// modulo" and the Derivation struct itself.
     derivations: HashMap<StorePath, (NixHash, Derivation)>,
+
+    /// A map from output path to (one) drv path.
+    /// Note that in the case of FODs, multiple drvs can produce the same output
+    /// path. We use one of them.
+    outputs_to_drvpath: HashMap<StorePath, StorePath>,
 }
 
 impl KnownPaths {
@@ -40,6 +45,13 @@ impl KnownPaths {
         self.derivations
             .get(drv_path)
             .map(|(_hash_derivation_modulo, derivation)| derivation)
+    }
+
+    /// Return the drv path of the derivation producing the passed output path.
+    /// Note there can be multiple Derivations producing the same output path in
+    /// flight; this function will only return one of them.
+    pub fn get_drv_path_for_output_path(&self, output_path: &StorePath) -> Option<&StorePath> {
+        self.outputs_to_drvpath.get(output_path)
     }
 
     /// Insert a new Derivation into this struct.
@@ -69,6 +81,21 @@ impl KnownPaths {
                 .to_owned()
         });
 
+        // For all output paths, update our lookup table.
+        // We only write into the lookup table once.
+        for output in drv.outputs.values() {
+            // We assume derivations to be passed validated, so ignoring rest
+            // and expecting parsing is ok.
+            // TODO: b/264
+            let (output_path, _rest) =
+                StorePath::from_absolute_path_full(&output.path).expect("parse output path");
+
+            self.outputs_to_drvpath
+                .entry(output_path)
+                .or_insert(drv_path.to_owned());
+        }
+
+        // insert the derivation itself
         #[allow(unused_variables)] // assertions on this only compiled in debug builds
         let old = self
             .derivations
