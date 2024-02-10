@@ -442,7 +442,10 @@ pub(crate) mod derivation_builtins {
         // Calculate the derivation_or_fod_hash for the current derivation.
         // This one is still intermediate (so not added to known_paths)
         let derivation_or_fod_hash_tmp = drv.derivation_or_fod_hash(|drv_path| {
-            known_paths.get_hash_derivation_modulo(&drv_path.to_owned())
+            known_paths
+                .get_hash_derivation_modulo(drv_path)
+                .unwrap_or_else(|| panic!("{} not found", drv_path))
+                .to_owned()
         });
 
         // Mutate the Derivation struct and set output paths
@@ -453,12 +456,8 @@ pub(crate) mod derivation_builtins {
             .calculate_derivation_path(name)
             .map_err(DerivationError::InvalidDerivation)?;
 
-        // recompute the hash derivation modulo and add to known_paths
-        let derivation_or_fod_hash_final = drv.derivation_or_fod_hash(|drv_path| {
-            known_paths.get_hash_derivation_modulo(&drv_path.to_owned())
-        });
-
-        known_paths.add_hash_derivation_modulo(drv_path.clone(), &derivation_or_fod_hash_final);
+        // TODO: avoid cloning
+        known_paths.add(drv_path.clone(), drv.clone());
 
         let mut new_attrs: Vec<(String, NixString)> = drv
             .outputs
