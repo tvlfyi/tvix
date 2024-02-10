@@ -2,7 +2,7 @@
 
 use imbl::proptest::{ord_map, vector};
 use proptest::{prelude::*, strategy::BoxedStrategy};
-use std::{ffi::OsString, path::PathBuf};
+use std::ffi::OsString;
 
 use super::{attrs::AttrsRep, NixAttrs, NixList, NixString, Value};
 
@@ -92,7 +92,7 @@ fn leaf_value() -> impl Strategy<Value = Value> {
         any::<i64>().prop_map(Integer),
         any::<f64>().prop_map(Float),
         any::<Box<NixString>>().prop_map(String),
-        any::<OsString>().prop_map(|s| Path(PathBuf::from(s).into_boxed_path())),
+        any::<OsString>().prop_map(|s| Path(Box::new(s.into()))),
     ]
 }
 

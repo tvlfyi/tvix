@@ -3,7 +3,7 @@
 use std::cmp::Ordering;
 use std::fmt::Display;
 use std::num::{NonZeroI32, NonZeroUsize};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::rc::Rc;
 
 use bstr::{BString, ByteVec};
@@ -50,7 +50,7 @@ pub enum Value {
     String(Box<NixString>),
 
     #[serde(skip)]
-    Path(Box<Path>),
+    Path(Box<PathBuf>),
     Attrs(Box<NixAttrs>),
     List(NixList),
 
@@ -76,7 +76,7 @@ pub enum Value {
     #[serde(skip)]
     DeferredUpvalue(StackIdx),
     #[serde(skip)]
-    UnresolvedPath(Box<Path>),
+    UnresolvedPath(Box<PathBuf>),
     #[serde(skip)]
     Json(Box<serde_json::Value>),
 
@@ -351,7 +351,7 @@ impl Value {
                         import_paths: true, ..
                     },
                 ) => {
-                    let imported = generators::request_path_import(co, p.to_path_buf()).await;
+                    let imported = generators::request_path_import(co, *p).await;
                     // When we import a path from the evaluator, we must attach
                     // its original path as its context.
                     context = context.append(NixContextElement::Plain(
@@ -365,7 +365,7 @@ impl Value {
                         import_paths: false,
                         ..
                     },
-                ) => Ok((*p).as_os_str().as_encoded_bytes().into()),
+                ) => Ok(p.into_os_string().into_encoded_bytes().into()),
 
                 // Attribute sets can be converted to strings if they either have an
                 // `__toString` attribute which holds a function that receives the
@@ -707,7 +707,7 @@ impl Value {
         Value::String(s),
         (**s).clone()
     );
-    gen_cast!(to_path, Box<Path>, "path", Value::Path(p), p.clone());
+    gen_cast!(to_path, Box<PathBuf>, "path", Value::Path(p), p.clone());
     gen_cast!(to_attrs, Box<NixAttrs>, "set", Value::Attrs(a), a.clone());
     gen_cast!(to_list, NixList, "list", Value::List(l), l.clone());
     gen_cast!(
@@ -1018,7 +1018,7 @@ impl From<f64> for Value {
 
 impl From<PathBuf> for Value {
     fn from(path: PathBuf) -> Self {
-        Self::Path(path.into_boxed_path())
+        Self::Path(Box::new(path))
     }
 }
 

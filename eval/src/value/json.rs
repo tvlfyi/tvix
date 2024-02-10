@@ -27,7 +27,7 @@ impl Value {
             Value::String(s) => Json::String(s.to_str()?.to_owned()),
 
             Value::Path(p) => {
-                let imported = generators::request_path_import(co, p.into_path_buf()).await;
+                let imported = generators::request_path_import(co, *p).await;
                 Json::String(imported.to_string_lossy().to_string())
             }
 
