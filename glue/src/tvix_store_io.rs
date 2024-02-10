@@ -297,7 +297,7 @@ impl EvalIO for TvixStoreIO {
 mod tests {
     use std::{path::Path, rc::Rc, sync::Arc};
 
-    use bstr::ByteVec;
+    use bstr::ByteSlice;
     use tempfile::TempDir;
     use tvix_build::buildservice::DummyBuildService;
     use tvix_castore::{
@@ -356,7 +356,7 @@ mod tests {
 
         let value = result.value.expect("must be some");
         match value {
-            tvix_eval::Value::String(s) => Some((***s).clone().into_string_lossy()),
+            tvix_eval::Value::String(s) => Some(s.to_str_lossy().into_owned()),
             _ => panic!("unexpected value type: {:?}", value),
         }
     }

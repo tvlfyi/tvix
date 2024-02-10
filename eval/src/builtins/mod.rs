@@ -3,7 +3,7 @@
 //! See //tvix/eval/docs/builtins.md for a some context on the
 //! available builtins in Nix.
 
-use bstr::ByteVec;
+use bstr::{ByteSlice, ByteVec};
 use builtin_macros::builtins;
 use genawaiter::rc::Gen;
 use imbl::OrdMap;
@@ -67,7 +67,7 @@ pub async fn coerce_value_to_path(
     .await
     {
         Ok(vs) => {
-            let path = (**vs).clone().into_path_buf()?;
+            let path = vs.to_path()?.to_owned();
             if path.is_absolute() {
                 Ok(Ok(path))
             } else {
@@ -82,7 +82,7 @@ pub async fn coerce_value_to_path(
 mod pure_builtins {
     use std::ffi::OsString;
 
-    use bstr::{BString, ByteSlice};
+    use bstr::{BString, ByteSlice, B};
     use imbl::Vector;
     use itertools::Itertools;
     use os_str_bytes::OsStringBytes;
@@ -171,26 +171,23 @@ mod pure_builtins {
     #[builtin("baseNameOf")]
     async fn builtin_base_name_of(co: GenCo, s: Value) -> Result<Value, ErrorKind> {
         let span = generators::request_span(&co).await;
-        let mut s = match s {
-            val @ Value::Catchable(_) => return Ok(val),
-            _ => s
-                .coerce_to_string(
-                    co,
-                    CoercionKind {
-                        strong: false,
-                        import_paths: false,
-                    },
-                    span,
-                )
-                .await?
-                .to_contextful_str()?,
-        };
+        let s = s
+            .coerce_to_string(
+                co,
+                CoercionKind {
+                    strong: false,
+                    import_paths: false,
+                },
+                span,
+            )
+            .await?
+            .to_contextful_str()?;
 
-        let bs = s.as_mut_bstring();
+        let mut bs = (**s).to_owned();
         if let Some(last_slash) = bs.rfind_char('/') {
-            *bs = bs[(last_slash + 1)..].into();
+            bs = bs[(last_slash + 1)..].into();
         }
-        Ok(s.into())
+        Ok(NixString::new_inherit_context_from(&s, bs).into())
     }
 
     #[builtin("bitAnd")]
@@ -344,7 +341,7 @@ mod pure_builtins {
             .map(|last_slash| {
                 let x = &str[..last_slash];
                 if x.is_empty() {
-                    b"/"
+                    B("/")
                 } else {
                     x
                 }
@@ -356,8 +353,7 @@ mod pure_builtins {
             ))))
         } else {
             Ok(Value::from(NixString::new_inherit_context_from(
-                &str,
-                result.into(),
+                &str, result,
             )))
         }
     }
@@ -1190,7 +1186,7 @@ mod pure_builtins {
             // push the unmatched characters preceding the match
             ret.push_back(Value::from(NixString::new_inherit_context_from(
                 &s,
-                (&text[pos..thematch.start()]).into(),
+                &text[pos..thematch.start()],
             )));
 
             // Push a list with one element for each capture
@@ -1363,7 +1359,7 @@ mod pure_builtins {
 
         Ok(Value::from(NixString::new_inherit_context_from(
             &x,
-            (&x[beg..end]).into(),
+            &x[beg..end],
         )))
     }
 

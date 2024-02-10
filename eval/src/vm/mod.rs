@@ -558,7 +558,7 @@ where
                                 return frame.error(
                                     self,
                                     ErrorKind::AttributeNotFound {
-                                        name: (**key).clone().into_string_lossy()
+                                        name: key.to_str_lossy().into_owned()
                                     },
                                 );
                             }

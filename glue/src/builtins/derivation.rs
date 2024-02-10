@@ -125,7 +125,7 @@ pub(crate) mod derivation_builtins {
     use std::collections::BTreeMap;
 
     use super::*;
-    use bstr::{ByteSlice, ByteVec};
+    use bstr::ByteSlice;
     use nix_compat::store_path::hash_placeholder;
     use tvix_eval::generators::Gen;
     use tvix_eval::{NixContext, NixContextElement, NixString};
@@ -251,7 +251,7 @@ pub(crate) mod derivation_builtins {
                             Err(cek) => return Ok(Value::Catchable(cek)),
                             Ok(s) => {
                                 input_context.mimic(&s);
-                                drv.arguments.push((**s).clone().into_string()?)
+                                drv.arguments.push(s.to_str()?.to_owned())
                             }
                         }
                     }
@@ -280,14 +280,14 @@ pub(crate) mod derivation_builtins {
                         // Populate drv.outputs
                         if drv
                             .outputs
-                            .insert((**output_name).clone().into_string()?, Default::default())
+                            .insert(output_name.to_str()?.to_owned(), Default::default())
                             .is_some()
                         {
                             Err(DerivationError::DuplicateOutput(
-                                (**output_name).clone().into_string_lossy(),
+                                output_name.to_str_lossy().into_owned(),
                             ))?
                         }
-                        output_names.push((**output_name).clone().into_string()?);
+                        output_names.push(output_name.to_str()?.to_owned());
                     }
 
                     // Add drv.environment[outputs] unconditionally.
@@ -304,9 +304,9 @@ pub(crate) mod derivation_builtins {
                             input_context.mimic(&val_str);
 
                             if arg_name == "builder" {
-                                drv.builder = (**val_str).clone().into_string()?;
+                                drv.builder = val_str.to_str()?.to_owned();
                             } else {
-                                drv.system = (**val_str).clone().into_string()?;
+                                drv.system = val_str.to_str()?.to_owned();
                             }
 
                             // Either populate drv.environment or structured_attrs.
@@ -314,7 +314,7 @@ pub(crate) mod derivation_builtins {
                                 // No need to check for dups, we only iterate over every attribute name once
                                 structured_attrs.insert(
                                     arg_name.to_owned(),
-                                    (**val_str).clone().into_string()?.into(),
+                                    val_str.to_str()?.to_owned().into(),
                                 );
                             } else {
                                 insert_env(&mut drv, arg_name, val_str.as_bytes().into())?;
@@ -373,7 +373,7 @@ pub(crate) mod derivation_builtins {
                 if let Some(attr) = attrs.select(key) {
                     match strong_importing_coerce_to_string(co, attr.clone()).await {
                         Err(cek) => return Ok(Err(cek)),
-                        Ok(str) => return Ok(Ok(Some((**str).clone().into_string()?))),
+                        Ok(str) => return Ok(Ok(Some(str.to_str()?.to_owned()))),
                     }
                 }
 
@@ -520,7 +520,7 @@ pub(crate) mod derivation_builtins {
             nix_compat::store_path::build_text_path(name.to_str()?, &content, content.iter_plain())
                 .map_err(|_e| {
                     nix_compat::derivation::DerivationError::InvalidOutputName(
-                        (**name).clone().into_string_lossy(),
+                        name.to_str_lossy().into_owned(),
                     )
                 })
                 .map_err(DerivationError::InvalidDerivation)?
@@ -530,9 +530,6 @@ pub(crate) mod derivation_builtins {
 
         // TODO: actually persist the file in the store at that path ...
 
-        Ok(Value::from(NixString::new_context_from(
-            context,
-            path.into(),
-        )))
+        Ok(Value::from(NixString::new_context_from(context, path)))
     }
 }

@@ -146,7 +146,7 @@ impl NixContext {
 
 // FIXME: when serializing, ignore the context?
 #[derive(Clone, Debug, Serialize)]
-pub struct NixString(BString, Option<NixContext>);
+pub struct NixString(Box<BStr>, Option<NixContext>);
 
 impl PartialEq for NixString {
     fn eq(&self, other: &Self) -> bool {
@@ -180,45 +180,66 @@ impl Ord for NixString {
     }
 }
 
+impl From<Box<BStr>> for NixString {
+    fn from(value: Box<BStr>) -> Self {
+        Self(value, None)
+    }
+}
+
+impl From<BString> for NixString {
+    fn from(value: BString) -> Self {
+        Self(Vec::<u8>::from(value).into_boxed_slice().into(), None)
+    }
+}
+
 impl From<&BStr> for NixString {
     fn from(value: &BStr) -> Self {
-        Self(value.to_owned(), None)
+        value.to_owned().into()
     }
 }
 
 impl From<&[u8]> for NixString {
     fn from(value: &[u8]) -> Self {
-        Self(value.into(), None)
+        Self::from(value.to_owned())
     }
 }
 
 impl From<Vec<u8>> for NixString {
     fn from(value: Vec<u8>) -> Self {
+        value.into_boxed_slice().into()
+    }
+}
+
+impl From<Box<[u8]>> for NixString {
+    fn from(value: Box<[u8]>) -> Self {
         Self(value.into(), None)
     }
 }
 
 impl From<&str> for NixString {
     fn from(s: &str) -> Self {
-        Self(s.as_bytes().into(), None)
+        s.as_bytes().into()
     }
 }
 
 impl From<String> for NixString {
     fn from(s: String) -> Self {
-        Self(s.into(), None)
+        s.into_bytes().into()
     }
 }
 
-impl From<(String, Option<NixContext>)> for NixString {
-    fn from((s, ctx): (String, Option<NixContext>)) -> Self {
-        NixString(s.into(), ctx)
+impl<T> From<(T, Option<NixContext>)> for NixString
+where
+    NixString: From<T>,
+{
+    fn from((s, ctx): (T, Option<NixContext>)) -> Self {
+        NixString(NixString::from(s).0, ctx)
     }
 }
 
 impl From<Box<str>> for NixString {
     fn from(s: Box<str>) -> Self {
-        Self(s.into_boxed_bytes().into_vec().into(), None)
+        s.into_boxed_bytes().into()
     }
 }
 
@@ -234,9 +255,15 @@ impl<'a> From<&'a NixString> for &'a BStr {
     }
 }
 
-impl From<NixString> for BString {
+impl From<NixString> for Box<BStr> {
     fn from(s: NixString) -> Self {
         s.0
+    }
+}
+
+impl From<NixString> for BString {
+    fn from(s: NixString) -> Self {
+        s.0.to_vec().into()
     }
 }
 
@@ -292,7 +319,7 @@ impl<'de> Deserialize<'de> for NixString {
 }
 
 impl Deref for NixString {
-    type Target = BString;
+    type Target = BStr;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -317,13 +344,19 @@ mod arbitrary {
 }
 
 impl NixString {
-    pub fn new_inherit_context_from(other: &NixString, new_contents: BString) -> Self {
-        Self(new_contents, other.1.clone())
+    pub fn new_inherit_context_from<T>(other: &NixString, new_contents: T) -> Self
+    where
+        NixString: From<T>,
+    {
+        Self(Self::from(new_contents).0, other.1.clone())
     }
 
-    pub fn new_context_from(context: NixContext, contents: BString) -> Self {
+    pub fn new_context_from<T>(context: NixContext, contents: T) -> Self
+    where
+        NixString: From<T>,
+    {
         Self(
-            contents,
+            Self::from(contents).0,
             if context.is_empty() {
                 None
             } else {
@@ -332,12 +365,8 @@ impl NixString {
         )
     }
 
-    pub fn as_mut_bstring(&mut self) -> &mut BString {
-        &mut self.0
-    }
-
     pub fn as_bstr(&self) -> &BStr {
-        BStr::new(self.as_bytes())
+        self
     }
 
     pub fn as_bytes(&self) -> &[u8] {
@@ -345,7 +374,7 @@ impl NixString {
     }
 
     pub fn into_bstring(self) -> BString {
-        self.0
+        (*self.0).to_owned()
     }
 
     /// Return a displayable representation of the string as an
@@ -378,7 +407,7 @@ impl NixString {
 
     pub fn concat(&self, other: &Self) -> Self {
         let mut s = self.to_vec();
-        s.extend(other.0.as_slice());
+        s.extend(&(***other));
 
         let context = [&self.1, &other.1]
             .into_iter()
@@ -386,7 +415,7 @@ impl NixString {
             .fold(NixContext::new(), |acc_ctx, new_ctx| {
                 acc_ctx.join(&mut new_ctx.clone())
             });
-        Self::new_context_from(context, s.into())
+        Self::new_context_from(context, s)
     }
 
     pub(crate) fn context_mut(&mut self) -> Option<&mut NixContext> {
@@ -513,6 +542,11 @@ mod tests {
     use super::*;
 
     use crate::properties::{eq_laws, hash_laws, ord_laws};
+
+    #[test]
+    fn size() {
+        assert_eq!(std::mem::size_of::<NixString>(), 64);
+    }
 
     eq_laws!(NixString);
     hash_laws!(NixString);
