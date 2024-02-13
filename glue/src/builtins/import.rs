@@ -63,8 +63,8 @@ async fn filtered_ingest(
                     &co,
                     filter.clone(),
                     [
-                        Value::String(Box::new(entry.path().as_os_str().as_encoded_bytes().into())),
-                        Value::String(Box::new(file_type.into())),
+                        Value::String(entry.path().as_os_str().as_encoded_bytes().into()),
+                        Value::String(file_type.into()),
                     ],
                 )
                 .await,

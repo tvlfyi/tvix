@@ -607,7 +607,7 @@ pub async fn request_string_coerce(
     kind: CoercionKind,
 ) -> Result<NixString, CatchableErrorKind> {
     match val {
-        Value::String(s) => Ok(*s),
+        Value::String(s) => Ok(s),
         _ => match co.yield_(VMRequest::StringCoerce(val, kind)).await {
             VMResponse::Value(Value::Catchable(c)) => Err(*c),
             VMResponse::Value(value) => Ok(value

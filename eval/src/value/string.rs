@@ -5,11 +5,15 @@
 //! paying the cost when creating new strings.
 use bstr::{BStr, BString, ByteSlice, Chars};
 use rnix::ast;
+use std::alloc::{alloc, dealloc, handle_alloc_error, Layout};
 use std::borrow::{Borrow, Cow};
 use std::collections::HashSet;
-use std::fmt::Display;
+use std::ffi::c_void;
+use std::fmt::{self, Debug, Display};
 use std::hash::Hash;
 use std::ops::Deref;
+use std::ptr::{self, NonNull};
+use std::slice;
 
 use serde::de::{Deserializer, Visitor};
 use serde::{Deserialize, Serialize};
@@ -80,7 +84,7 @@ impl NixContext {
     /// Copies from another [NixString] its context strings
     /// in this context.
     pub fn mimic(&mut self, other: &NixString) {
-        if let Some(ref context) = other.1 {
+        if let Some(context) = other.context() {
             self.0.extend(context.iter().cloned());
         }
     }
@@ -144,9 +148,274 @@ impl NixContext {
     }
 }
 
-// FIXME: when serializing, ignore the context?
-#[derive(Clone, Debug, Serialize)]
-pub struct NixString(Box<BStr>, Option<NixContext>);
+/// This type is never instantiated, but serves to document the memory layout of the actual heap
+/// allocation for Nix strings.
+#[allow(dead_code)]
+struct NixStringInner {
+    /// The string context, if any.  Note that this is boxed to take advantage of the null pointer
+    /// niche, otherwise this field ends up being very large:
+    ///
+    /// ```notrust
+    /// >> std::mem::size_of::<Option<HashSet<String>>>()
+    /// 48
+    ///
+    /// >> std::mem::size_of::<Option<Box<HashSet<String>>>>()
+    /// 8
+    /// ```
+    context: Option<Box<NixContext>>,
+    /// The length of the data, stored *inline in the allocation*
+    length: usize,
+    /// The actual data for the string itself. Will always be `length` bytes long
+    data: [u8],
+}
+
+#[allow(clippy::zst_offset)]
+impl NixStringInner {
+    /// Construct a [`Layout`] for a nix string allocation with the given length.
+    ///
+    /// Returns a tuple of:
+    /// 1. The layout itself.
+    /// 2. The offset of [`Self::length`] within the allocation, assuming the allocation starts at 0
+    /// 3. The offset of the data array within the allocation, assuming the allocation starts at 0
+    fn layout(len: usize) -> (Layout, usize, usize) {
+        let layout = Layout::new::<Option<Box<NixContext>>>();
+        let (layout, len_offset) = layout.extend(Layout::new::<usize>()).unwrap();
+        let (layout, data_offset) = layout.extend(Layout::array::<u8>(len).unwrap()).unwrap();
+        (layout, len_offset, data_offset)
+    }
+
+    /// Returns the [`Layout`] for an *already-allocated* nix string, loading the length from the
+    /// pointer.
+    ///
+    /// Returns a tuple of:
+    /// 1. The layout itself.
+    /// 2. The offset of [`Self::length`] within the allocation, assuming the allocation starts at 0
+    /// 3. The offset of the data array within the allocation, assuming the allocation starts at 0
+    ///
+    /// # Safety
+    ///
+    /// This function must only be called on a pointer that has been properly initialized with
+    /// [`Self::alloc`]. The data buffer may not necessarily be initialized
+    unsafe fn layout_of(this: NonNull<c_void>) -> (Layout, usize, usize) {
+        let layout = Layout::new::<Option<Box<NixContext>>>();
+        let (_, len_offset) = layout.extend(Layout::new::<usize>()).unwrap();
+        // SAFETY: Layouts are linear, so even though we haven't involved data at all yet, we know
+        // the len_offset is a valid offset into the second field of the allocation
+        let len = *(this.as_ptr().add(len_offset) as *const usize);
+        Self::layout(len)
+    }
+
+    /// Allocate an *uninitialized* nix string with the given length. Writes the length to the
+    /// length value in the pointer, but leaves both context and data uninitialized
+    ///
+    /// This function is safe to call (as constructing pointers of any sort of validity is always
+    /// safe in Rust) but it is unsafe to use the resulting pointer to do anything other than
+    ///
+    /// 1. Read the length
+    /// 2. Write the context
+    /// 3. Write the data
+    ///
+    /// until the string is fully initialized
+    fn alloc(len: usize) -> NonNull<c_void> {
+        let (layout, len_offset, _data_offset) = Self::layout(len);
+        debug_assert_ne!(layout.size(), 0);
+        unsafe {
+            // SAFETY: Layout has non-zero size, since the layout of the context and the
+            // layout of the len both have non-zero size
+            let ptr = alloc(layout);
+
+            if let Some(this) = NonNull::new(ptr as *mut _) {
+                // SAFETY: We've allocated with a layout that causes the len_offset to be in-bounds
+                // and writeable, and if the allocation succeeded it won't wrap
+                ((this.as_ptr() as *mut u8).add(len_offset) as *mut usize).write(len);
+                debug_assert_eq!(Self::len(this), len);
+                this
+            } else {
+                handle_alloc_error(layout);
+            }
+        }
+    }
+
+    /// Deallocate the Nix string at the given pointer
+    ///
+    /// # Safety
+    ///
+    /// This function must only be called with a pointer that has been properly initialized with
+    /// [`Self::alloc`]
+    unsafe fn dealloc(this: NonNull<c_void>) {
+        let (layout, _, _) = Self::layout_of(this);
+        // SAFETY: okay because of the safety guarantees of this method
+        dealloc(this.as_ptr() as *mut u8, layout)
+    }
+
+    /// Return the length of the Nix string at the given pointer
+    ///
+    /// # Safety
+    ///
+    /// This function must only be called with a pointer that has been properly initialized with
+    /// [`Self::alloc`]
+    unsafe fn len(this: NonNull<c_void>) -> usize {
+        let (_, len_offset, _) = Self::layout_of(this);
+        // SAFETY: As long as the safety guarantees of this method are upheld, we've allocated with
+        // a layout that causes the len_offset to be in-bounds and writeable, and if the allocation
+        // succeeded it won't wrap
+        *(this.as_ptr().add(len_offset) as *const usize)
+    }
+
+    /// Return a pointer to the context value within the given Nix string pointer
+    ///
+    /// # Safety
+    ///
+    /// This function must only be called with a pointer that has been properly initialized with
+    /// [`Self::alloc`]
+    unsafe fn context_ptr(this: NonNull<c_void>) -> *mut Option<Box<NixContext>> {
+        // SAFETY: The context is the first field in the layout of the allocation
+        this.as_ptr() as *mut Option<Box<NixContext>>
+    }
+
+    /// Construct a shared reference to the context value within the given Nix string pointer
+    ///
+    /// # Safety
+    ///
+    /// This function must only be called with a pointer that has been properly initialized with
+    /// [`Self::alloc`], and where the context has been properly initialized (by writing to the
+    /// pointer returned from [`Self::context_ptr`]).
+    ///
+    /// Also, all the normal Rust rules about pointer-to-reference conversion apply. See
+    /// [`NonNull::as_ref`] for more.
+    unsafe fn context_ref<'a>(this: NonNull<c_void>) -> &'a Option<Box<NixContext>> {
+        Self::context_ptr(this).as_ref().unwrap()
+    }
+
+    /// Construct a mutable reference to the context value within the given Nix string pointer
+    ///
+    /// # Safety
+    ///
+    /// This function must only be called with a pointer that has been properly initialized with
+    /// [`Self::alloc`], and where the context has been properly initialized (by writing to the
+    /// pointer returned from [`Self::context_ptr`]).
+    ///
+    /// Also, all the normal Rust rules about pointer-to-reference conversion apply. See
+    /// [`NonNull::as_mut`] for more.
+    unsafe fn context_mut<'a>(this: NonNull<c_void>) -> &'a mut Option<Box<NixContext>> {
+        Self::context_ptr(this).as_mut().unwrap()
+    }
+
+    /// Return a pointer to the data array within the given Nix string pointer
+    ///
+    /// # Safety
+    ///
+    /// This function must only be called with a pointer that has been properly initialized with
+    /// [`Self::alloc`]
+    unsafe fn data_ptr(this: NonNull<c_void>) -> *mut u8 {
+        let (_, _, data_offset) = Self::layout_of(this);
+        // SAFETY: data is the third field in the layout of the allocation
+        this.as_ptr().add(data_offset) as *mut u8
+    }
+
+    /// Construct a shared reference to the data slice within the given Nix string pointer
+    ///
+    /// # Safety
+    ///
+    /// This function must only be called with a pointer that has been properly initialized with
+    /// [`Self::alloc`], and where the data array has been properly initialized (by writing to the
+    /// pointer returned from [`Self::data_ptr`]).
+    ///
+    /// Also, all the normal Rust rules about pointer-to-reference conversion apply. See
+    /// [`slice::from_raw_parts`] for more.
+    unsafe fn data_slice<'a>(this: NonNull<c_void>) -> &'a [u8] {
+        let len = Self::len(this);
+        let data = Self::data_ptr(this);
+        slice::from_raw_parts(data, len)
+    }
+
+    /// Construct a mutable reference to the data slice within the given Nix string pointer
+    ///
+    /// # Safety
+    ///
+    /// This function must only be called with a pointer that has been properly initialized with
+    /// [`Self::alloc`], and where the data array has been properly initialized (by writing to the
+    /// pointer returned from [`Self::data_ptr`]).
+    ///
+    /// Also, all the normal Rust rules about pointer-to-reference conversion apply. See
+    /// [`slice::from_raw_parts_mut`] for more.
+    #[allow(dead_code)]
+    unsafe fn data_slice_mut<'a>(this: NonNull<c_void>) -> &'a mut [u8] {
+        let len = Self::len(this);
+        let data = Self::data_ptr(this);
+        slice::from_raw_parts_mut(data, len)
+    }
+
+    /// Clone the Nix string pointed to by this pointer, and return a pointer to a new Nix string
+    /// containing the same data and context.
+    ///
+    /// # Safety
+    ///
+    /// This function must only be called with a pointer that has been properly initialized with
+    /// [`Self::alloc`], and where the context has been properly initialized (by writing to the
+    /// pointer returned from [`Self::context_ptr`]), and the data array has been properly
+    /// initialized (by writing to the pointer returned from [`Self::data_ptr`]).
+    unsafe fn clone(this: NonNull<c_void>) -> NonNull<c_void> {
+        let (layout, _, _) = Self::layout_of(this);
+        let ptr = alloc(layout);
+        if let Some(new) = NonNull::new(ptr as *mut _) {
+            ptr::copy_nonoverlapping(this.as_ptr(), new.as_ptr(), layout.size());
+            Self::context_ptr(new).write(Self::context_ref(this).clone());
+            new
+        } else {
+            handle_alloc_error(layout);
+        }
+    }
+}
+
+/// Nix string values
+///
+/// # Internals
+///
+/// For performance reasons (to keep allocations small, and to avoid indirections), [`NixString`] is
+/// represented as a single *thin* pointer to a packed data structure containing the
+/// [context][NixContext] and the string data itself (which is a raw byte array, to match the Nix
+/// string semantics that allow any array of bytes to be represented by a string).
+
+/// This memory representation is documented in [`NixStringInner`], but since Rust prefers to deal
+/// with slices via *fat pointers* (pointers that include the length in the *pointer*, not in the
+/// heap allocation), we have to do mostly manual layout management and allocation for this
+/// representation. See the documentation for the methods of [`NixStringInner`] for more information
+pub struct NixString(NonNull<c_void>);
+
+unsafe impl Send for NixString {}
+unsafe impl Sync for NixString {}
+
+impl Drop for NixString {
+    fn drop(&mut self) {
+        // SAFETY: There's no way to construct a NixString that doesn't leave the allocation correct
+        // according to the rules of dealloc
+        unsafe {
+            NixStringInner::dealloc(self.0);
+        }
+    }
+}
+
+impl Clone for NixString {
+    fn clone(&self) -> Self {
+        // SAFETY: There's no way to construct a NixString that doesn't leave the allocation correct
+        // according to the rules of clone
+        unsafe { Self(NixStringInner::clone(self.0)) }
+    }
+}
+
+impl Debug for NixString {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(ctx) = self.context() {
+            f.debug_struct("NixString")
+                .field("context", ctx)
+                .field("data", &self.as_bstr())
+                .finish()
+        } else {
+            write!(f, "{:?}", self.as_bstr())
+        }
+    }
+}
 
 impl PartialEq for NixString {
     fn eq(&self, other: &Self) -> bool {
@@ -182,13 +451,13 @@ impl Ord for NixString {
 
 impl From<Box<BStr>> for NixString {
     fn from(value: Box<BStr>) -> Self {
-        Self(value, None)
+        Self::new(&value, None)
     }
 }
 
 impl From<BString> for NixString {
     fn from(value: BString) -> Self {
-        Self(Vec::<u8>::from(value).into_boxed_slice().into(), None)
+        Self::new(&value, None)
     }
 }
 
@@ -212,7 +481,7 @@ impl From<Vec<u8>> for NixString {
 
 impl From<Box<[u8]>> for NixString {
     fn from(value: Box<[u8]>) -> Self {
-        Self(value.into(), None)
+        Self::new(&value, None)
     }
 }
 
@@ -228,12 +497,12 @@ impl From<String> for NixString {
     }
 }
 
-impl<T> From<(T, Option<NixContext>)> for NixString
+impl<T> From<(T, Option<Box<NixContext>>)> for NixString
 where
     NixString: From<T>,
 {
-    fn from((s, ctx): (T, Option<NixContext>)) -> Self {
-        NixString(NixString::from(s).0, ctx)
+    fn from((s, ctx): (T, Option<Box<NixContext>>)) -> Self {
+        Self::new(NixString::from(s).as_ref(), ctx)
     }
 }
 
@@ -251,25 +520,19 @@ impl From<ast::Ident> for NixString {
 
 impl<'a> From<&'a NixString> for &'a BStr {
     fn from(s: &'a NixString) -> Self {
-        BStr::new(&*s.0)
-    }
-}
-
-impl From<NixString> for Box<BStr> {
-    fn from(s: NixString) -> Self {
-        s.0
+        s.as_bstr()
     }
 }
 
 impl From<NixString> for BString {
     fn from(s: NixString) -> Self {
-        s.0.to_vec().into()
+        s.as_bstr().to_owned()
     }
 }
 
 impl AsRef<[u8]> for NixString {
     fn as_ref(&self) -> &[u8] {
-        &self.0
+        self.as_bytes()
     }
 }
 
@@ -322,7 +585,7 @@ impl Deref for NixString {
     type Target = BStr;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.as_bstr()
     }
 }
 
@@ -344,37 +607,61 @@ mod arbitrary {
 }
 
 impl NixString {
+    fn new(contents: &[u8], context: Option<Box<NixContext>>) -> Self {
+        // SAFETY: We're always fully initializing a NixString here:
+        //
+        // 1. NixStringInner::alloc sets up the len for us
+        // 2. We set the context, using ptr::write to make sure that the uninitialized memory isn't
+        //    read or dropped
+        // 3. We set the data, using copy_from_nonoverlapping to make sure that the uninitialized
+        //    memory isn't read or dropped
+        //
+        // Only *then* can we construct a NixString
+        unsafe {
+            let inner = NixStringInner::alloc(contents.len());
+            NixStringInner::context_ptr(inner).write(context);
+            NixStringInner::data_ptr(inner)
+                .copy_from_nonoverlapping(contents.as_ptr(), contents.len());
+            Self(inner)
+        }
+    }
+
     pub fn new_inherit_context_from<T>(other: &NixString, new_contents: T) -> Self
     where
         NixString: From<T>,
     {
-        Self(Self::from(new_contents).0, other.1.clone())
+        Self::new(
+            Self::from(new_contents).as_ref(),
+            other.context().map(|c| Box::new(c.clone())),
+        )
     }
 
     pub fn new_context_from<T>(context: NixContext, contents: T) -> Self
     where
         NixString: From<T>,
     {
-        Self(
-            Self::from(contents).0,
+        Self::new(
+            Self::from(contents).as_ref(),
             if context.is_empty() {
                 None
             } else {
-                Some(context)
+                Some(Box::new(context))
             },
         )
     }
 
     pub fn as_bstr(&self) -> &BStr {
-        self
+        BStr::new(self.as_bytes())
     }
 
     pub fn as_bytes(&self) -> &[u8] {
-        &self.0
+        // SAFETY: There's no way to construct an uninitialized NixString (see the SAFETY comment in
+        // `new`)
+        unsafe { NixStringInner::data_slice(self.0) }
     }
 
     pub fn into_bstring(self) -> BString {
-        (*self.0).to_owned()
+        self.as_bstr().to_owned()
     }
 
     /// Return a displayable representation of the string as an
@@ -409,7 +696,7 @@ impl NixString {
         let mut s = self.to_vec();
         s.extend(&(***other));
 
-        let context = [&self.1, &other.1]
+        let context = [self.context(), other.context()]
             .into_iter()
             .flatten()
             .fold(NixContext::new(), |acc_ctx, new_ctx| {
@@ -418,42 +705,59 @@ impl NixString {
         Self::new_context_from(context, s)
     }
 
+    pub(crate) fn context(&self) -> Option<&NixContext> {
+        // SAFETY: There's no way to construct an uninitialized or invalid NixString (see the SAFETY
+        // comment in `new`).
+        //
+        // Also, we're using the same lifetime and mutability as self, to fit the
+        // pointer-to-reference conversion rules
+        unsafe { NixStringInner::context_ref(self.0).as_deref() }
+    }
+
     pub(crate) fn context_mut(&mut self) -> Option<&mut NixContext> {
-        return self.1.as_mut();
+        // SAFETY: There's no way to construct an uninitialized or invalid NixString (see the SAFETY
+        // comment in `new`).
+        //
+        // Also, we're using the same lifetime and mutability as self, to fit the
+        // pointer-to-reference conversion rules
+        unsafe { NixStringInner::context_mut(self.0).as_deref_mut() }
     }
 
     pub fn iter_context(&self) -> impl Iterator<Item = &NixContext> {
-        return self.1.iter();
+        self.context().into_iter()
     }
 
     pub fn iter_plain(&self) -> impl Iterator<Item = &str> {
-        return self.1.iter().flat_map(|context| context.iter_plain());
+        self.iter_context().flat_map(|context| context.iter_plain())
     }
 
     pub fn iter_derivation(&self) -> impl Iterator<Item = &str> {
-        return self.1.iter().flat_map(|context| context.iter_derivation());
+        return self
+            .iter_context()
+            .flat_map(|context| context.iter_derivation());
     }
 
     pub fn iter_single_outputs(&self) -> impl Iterator<Item = (&str, &str)> {
         return self
-            .1
-            .iter()
+            .iter_context()
             .flat_map(|context| context.iter_single_outputs());
     }
 
     /// Returns whether this Nix string possess a context or not.
     pub fn has_context(&self) -> bool {
-        self.1.is_some()
+        self.context().is_some()
     }
 
     /// This clears the context of that string, losing
     /// all dependency tracking information.
     pub fn clear_context(&mut self) {
-        self.1 = None;
+        // SAFETY: There's no way to construct an uninitialized or invalid NixString (see the SAFETY
+        // comment in `new`).
+        *unsafe { NixStringInner::context_mut(self.0) } = None;
     }
 
     pub fn chars(&self) -> Chars<'_> {
-        self.0.chars()
+        self.as_bstr().chars()
     }
 }
 
@@ -539,13 +843,20 @@ impl Display for NixString {
 
 #[cfg(test)]
 mod tests {
+    use test_strategy::proptest;
+
     use super::*;
 
     use crate::properties::{eq_laws, hash_laws, ord_laws};
 
     #[test]
     fn size() {
-        assert_eq!(std::mem::size_of::<NixString>(), 64);
+        assert_eq!(std::mem::size_of::<NixString>(), 8);
+    }
+
+    #[proptest]
+    fn clone_strings(s: NixString) {
+        drop(s.clone())
     }
 
     eq_laws!(NixString);

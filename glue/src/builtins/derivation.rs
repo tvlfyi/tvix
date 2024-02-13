@@ -485,28 +485,24 @@ pub(crate) mod derivation_builtins {
             .map(|(name, output)| {
                 (
                     name.clone(),
-                    (
-                        output.path.unwrap().to_absolute_path(),
-                        Some(
-                            NixContextElement::Single {
-                                name,
-                                derivation: drv_path.to_absolute_path(),
-                            }
-                            .into(),
-                        ),
-                    )
+                    NixString::new_context_from(
+                        NixContextElement::Single {
+                            name,
+                            derivation: drv_path.to_absolute_path(),
+                        }
                         .into(),
+                        output.path.unwrap().to_absolute_path(),
+                    ),
                 )
             })
             .collect();
 
         new_attrs.push((
             "drvPath".to_string(),
-            (
+            NixString::new_context_from(
+                NixContextElement::Derivation(drv_path.to_absolute_path()).into(),
                 drv_path.to_absolute_path(),
-                Some(NixContextElement::Derivation(drv_path.to_absolute_path()).into()),
-            )
-                .into(),
+            ),
         ));
 
         Ok(Value::Attrs(Box::new(NixAttrs::from_iter(

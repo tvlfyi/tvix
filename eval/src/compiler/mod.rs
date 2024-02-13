@@ -1362,7 +1362,7 @@ impl Compiler<'_, '_> {
     /// several operations related to attribute sets, where
     /// identifiers are used as string keys.
     fn emit_literal_ident(&mut self, ident: &ast::Ident) {
-        self.emit_constant(Value::String(Box::new(ident.clone().into())), ident);
+        self.emit_constant(Value::String(ident.clone().into()), ident);
     }
 
     /// Patch the jump instruction at the given index, setting its
