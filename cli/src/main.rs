@@ -1,9 +1,8 @@
 use clap::Parser;
 use rustyline::{error::ReadlineError, Editor};
 use std::rc::Rc;
-use std::sync::Arc;
 use std::{fs, path::PathBuf};
-use tvix_build::buildservice::DummyBuildService;
+use tvix_build::buildservice;
 use tvix_eval::builtins::impure_builtins;
 use tvix_eval::observer::{DisassemblingObserver, TracingObserver};
 use tvix_eval::{EvalIO, Value};
@@ -67,6 +66,9 @@ struct Args {
 
     #[arg(long, env, default_value = "memory://")]
     path_info_service_addr: String,
+
+    #[arg(long, env, default_value = "dummy://")]
+    build_service_addr: String,
 }
 
 /// Interprets the given code snippet, printing out warnings, errors
@@ -91,11 +93,26 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
         })
         .expect("unable to setup {blob|directory|pathinfo}service before interpreter setup");
 
+    let build_service = tokio_runtime
+        .block_on({
+            let blob_service = blob_service.clone();
+            let directory_service = directory_service.clone();
+            async move {
+                buildservice::from_addr(
+                    &args.build_service_addr,
+                    blob_service.clone(),
+                    directory_service.clone(),
+                )
+                .await
+            }
+        })
+        .expect("unable to setup buildservice before interpreter setup");
+
     let tvix_store_io = Rc::new(TvixStoreIO::new(
         blob_service.clone(),
         directory_service.clone(),
         path_info_service.into(),
-        Arc::<DummyBuildService>::default(),
+        build_service.into(),
         tokio_runtime.handle().clone(),
     ));
 
