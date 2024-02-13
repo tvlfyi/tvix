@@ -26,3 +26,6 @@ tracing-subscriber = "0.3.16"
 
 [dependencies.wu-manber]
 git = "https://github.com/tvlfyi/wu-manber.git"
+
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+tikv-jemallocator = "0.5"

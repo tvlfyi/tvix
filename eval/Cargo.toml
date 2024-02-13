@@ -42,6 +42,9 @@ pretty_assertions = "1.2.1"
 rstest = "0.19.0"
 tempfile = "3.3.0"
 
+[target.'cfg(not(target_env = "msvc"))'.dev-dependencies]
+tikv-jemallocator = "0.5"
+
 [features]
 default = ["impure", "arbitrary", "nix_tests"]
 
