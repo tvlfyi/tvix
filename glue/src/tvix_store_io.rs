@@ -74,7 +74,7 @@ impl TvixStoreIO {
     ///
     /// In case there is no PathInfo yet, this means we need to build it
     /// (which currently is stubbed out still).
-    #[instrument(skip(self), ret, err)]
+    #[instrument(skip(self, store_path), fields(store_path=%store_path), ret, err)]
     async fn store_path_to_node(
         &self,
         store_path: &StorePath,
@@ -138,7 +138,7 @@ impl EvalIO for TvixStoreIO {
         }
     }
 
-    #[instrument(skip(self), ret, err)]
+    #[instrument(skip(self), err)]
     fn read_to_string(&self, path: &Path) -> io::Result<String> {
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
