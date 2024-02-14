@@ -2,6 +2,9 @@ use clap::Parser;
 use rustyline::{error::ReadlineError, Editor};
 use std::rc::Rc;
 use std::{fs, path::PathBuf};
+use tracing::Level;
+use tracing_subscriber::fmt::writer::MakeWriterExt;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use tvix_build::buildservice;
 use tvix_eval::builtins::impure_builtins;
 use tvix_eval::observer::{DisassemblingObserver, TracingObserver};
@@ -12,6 +15,9 @@ use tvix_glue::{builtins::add_derivation_builtins, configure_nix_path};
 
 #[derive(Parser)]
 struct Args {
+    #[arg(long)]
+    log_level: Option<Level>,
+
     /// Path to a script to evaluate
     script: Option<PathBuf>,
 
@@ -212,6 +218,18 @@ fn lint(code: &str, path: Option<PathBuf>, args: &Args) -> bool {
 
 fn main() {
     let args = Args::parse();
+
+    // configure log settings
+    let level = args.log_level.unwrap_or(Level::INFO);
+
+    let subscriber = tracing_subscriber::registry().with(
+        tracing_subscriber::fmt::Layer::new()
+            .with_writer(std::io::stderr.with_max_level(level))
+            .pretty(),
+    );
+    subscriber
+        .try_init()
+        .expect("unable to set up tracing subscriber");
 
     if let Some(file) = &args.script {
         run_file(file.clone(), &args)

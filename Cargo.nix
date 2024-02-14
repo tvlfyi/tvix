@@ -10381,6 +10381,11 @@ rec {
             packageId = "tracing";
           }
           {
+            name = "tracing-subscriber";
+            packageId = "tracing-subscriber";
+            features = [ "json" ];
+          }
+          {
             name = "tvix-build";
             packageId = "tvix-build";
           }

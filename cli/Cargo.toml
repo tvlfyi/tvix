@@ -19,8 +19,9 @@ clap = { version = "4.0", features = ["derive", "env"] }
 dirs = "4.0.0"
 rustyline = "10.0.0"
 thiserror = "1.0.38"
-tracing = "0.1.37"
 tokio = "1.28.0"
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.16", features = ["json"] }
 
 [dependencies.wu-manber]
 git = "https://github.com/tvlfyi/wu-manber.git"

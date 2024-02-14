@@ -3317,6 +3317,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "tracing-subscriber",
  "tvix-build",
  "tvix-castore",
  "tvix-eval",
