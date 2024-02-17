@@ -20,7 +20,7 @@ dirs = "4.0.0"
 rustyline = "10.0.0"
 thiserror = "1.0.38"
 tokio = "1.28.0"
-tracing = "0.1.37"
+tracing = { version = "0.1.37", features = ["max_level_debug", "release_max_level_info"] }
 tracing-subscriber = { version = "0.3.16", features = ["json"] }
 
 [dependencies.wu-manber]
