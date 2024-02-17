@@ -8,7 +8,7 @@ use std::{
     sync::Arc,
 };
 use tokio::io::AsyncReadExt;
-use tracing::{error, instrument, warn};
+use tracing::{error, instrument, warn, Level};
 use tvix_build::buildservice::BuildService;
 use tvix_eval::{EvalIO, FileType, StdIO};
 
@@ -74,7 +74,7 @@ impl TvixStoreIO {
     ///
     /// In case there is no PathInfo yet, this means we need to build it
     /// (which currently is stubbed out still).
-    #[instrument(skip(self, store_path), fields(store_path=%store_path), ret, err)]
+    #[instrument(skip(self, store_path), fields(store_path=%store_path), ret(level = Level::TRACE), err)]
     async fn store_path_to_node(
         &self,
         store_path: &StorePath,
@@ -117,7 +117,7 @@ impl TvixStoreIO {
 }
 
 impl EvalIO for TvixStoreIO {
-    #[instrument(skip(self), ret, err)]
+    #[instrument(skip(self), ret(level = Level::TRACE), err)]
     fn path_exists(&self, path: &Path) -> io::Result<bool> {
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
@@ -206,7 +206,7 @@ impl EvalIO for TvixStoreIO {
         }
     }
 
-    #[instrument(skip(self), ret, err)]
+    #[instrument(skip(self), ret(level = Level::TRACE), err)]
     fn read_dir(&self, path: &Path) -> io::Result<Vec<(bytes::Bytes, FileType)>> {
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
@@ -271,7 +271,7 @@ impl EvalIO for TvixStoreIO {
         }
     }
 
-    #[instrument(skip(self), ret, err)]
+    #[instrument(skip(self), ret(level = Level::TRACE), err)]
     fn import_path(&self, path: &Path) -> io::Result<PathBuf> {
         let output_path = self.tokio_handle.block_on(async {
             tvix_store::import::import_path_as_nar_ca(
@@ -287,7 +287,7 @@ impl EvalIO for TvixStoreIO {
         Ok(output_path.to_absolute_path().into())
     }
 
-    #[instrument(skip(self), ret)]
+    #[instrument(skip(self), ret(level = Level::TRACE))]
     fn store_dir(&self) -> Option<String> {
         Some("/nix/store".to_string())
     }
