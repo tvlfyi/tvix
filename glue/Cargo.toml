@@ -24,6 +24,7 @@ git = "https://github.com/tvlfyi/wu-manber.git"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
+hex-literal = "0.4.1"
 lazy_static = "1.4.0"
 pretty_assertions = "1.4.0"
 rstest = "0.18.2"

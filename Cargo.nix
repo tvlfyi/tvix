@@ -10682,6 +10682,10 @@ rec {
             features = [ "html_reports" ];
           }
           {
+            name = "hex-literal";
+            packageId = "hex-literal";
+          }
+          {
             name = "lazy_static";
             packageId = "lazy_static";
           }

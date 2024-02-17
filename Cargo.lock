@@ -3377,6 +3377,7 @@ dependencies = [
  "bytes",
  "criterion",
  "data-encoding",
+ "hex-literal",
  "lazy_static",
  "nix-compat",
  "pretty_assertions",
