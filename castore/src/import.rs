@@ -11,6 +11,7 @@ use async_stream::stream;
 use futures::pin_mut;
 use futures::Stream;
 use std::fs::FileType;
+use tracing::Level;
 
 #[cfg(target_family = "unix")]
 use std::os::unix::ffi::OsStrExt;
@@ -297,7 +298,7 @@ impl MerkleInvariantChecker {
 /// Ingests elements from the given stream of [`DirEntry`] into a the passed [`BlobService`] and
 /// [`DirectoryService`].
 /// It does not follow symlinks at the root, they will be ingested as actual symlinks.
-#[instrument(skip_all, ret, err)]
+#[instrument(skip_all, ret(level = Level::TRACE), err)]
 pub async fn ingest_entries<'a, BS, DS, S>(
     blob_service: BS,
     directory_service: DS,
