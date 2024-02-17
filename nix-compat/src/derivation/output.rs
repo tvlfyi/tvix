@@ -4,8 +4,10 @@ use crate::store_path::StorePathRef;
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
 
+/// References the derivation output.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct Output {
+    /// Store path of build result.
     pub path: String,
 
     #[serde(flatten)]

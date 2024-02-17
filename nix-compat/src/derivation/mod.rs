@@ -32,12 +32,15 @@ pub struct Derivation {
     #[serde(rename = "env")]
     pub environment: BTreeMap<String, BString>,
 
+    /// Map from drv path to output names used from this derivation.
     #[serde(rename = "inputDrvs")]
     pub input_derivations: BTreeMap<String, BTreeSet<String>>,
 
+    /// Plain store paths of additional inputs.
     #[serde(rename = "inputSrcs")]
     pub input_sources: BTreeSet<String>,
 
+    /// Maps output names to Output.
     pub outputs: BTreeMap<String, Output>,
 
     pub system: String,
