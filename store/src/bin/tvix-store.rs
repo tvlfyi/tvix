@@ -111,6 +111,12 @@ enum Commands {
         #[arg(long, env, default_value_t = default_threads())]
         threads: usize,
 
+        #[arg(long, env, default_value_t = false)]
+        /// Whether to configure the mountpoint with allow_other.
+        /// Requires /etc/fuse.conf to contain the `user_allow_other`
+        /// option, configured via `programs.fuse.userAllowOther` on NixOS.
+        allow_other: bool,
+
         /// Whether to list elements at the root of the mount point.
         /// This is useful if your PathInfoService doesn't provide an
         /// (exhaustive) listing.
@@ -334,6 +340,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             path_info_service_addr,
             list_root,
             threads,
+            allow_other,
         } => {
             let (blob_service, directory_service, path_info_service) =
                 tvix_store::utils::construct_services(
@@ -352,7 +359,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 );
                 info!(mount_path=?dest, "mounting");
 
-                FuseDaemon::new(fs, &dest, threads)
+                FuseDaemon::new(fs, &dest, threads, allow_other)
             })
             .await??;
 

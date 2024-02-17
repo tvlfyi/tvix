@@ -51,7 +51,7 @@ where
         Arc::new(root_nodes),
         list_root,
     );
-    FuseDaemon::new(Arc::new(fs), mountpoint.as_ref(), 4)
+    FuseDaemon::new(Arc::new(fs), mountpoint.as_ref(), 4, false)
 }
 
 async fn populate_blob_a(

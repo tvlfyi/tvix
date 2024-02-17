@@ -53,7 +53,12 @@ pub struct FuseDaemon {
 
 impl FuseDaemon {
     #[instrument(skip(fs, mountpoint), fields(mountpoint=?mountpoint), err)]
-    pub fn new<FS, P>(fs: FS, mountpoint: P, threads: usize) -> Result<Self, io::Error>
+    pub fn new<FS, P>(
+        fs: FS,
+        mountpoint: P,
+        threads: usize,
+        allow_other: bool,
+    ) -> Result<Self, io::Error>
     where
         FS: FileSystem + Sync + Send + 'static,
         P: AsRef<Path> + std::fmt::Debug,
@@ -64,7 +69,7 @@ impl FuseDaemon {
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
 
         #[cfg(target_os = "linux")]
-        session.set_allow_other(false);
+        session.set_allow_other(allow_other);
         session
             .mount()
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
