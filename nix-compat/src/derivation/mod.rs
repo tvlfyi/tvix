@@ -51,6 +51,15 @@ impl Derivation {
     ///
     /// The only errors returns are these when writing to the passed writer.
     pub fn serialize(&self, writer: &mut impl std::io::Write) -> Result<(), io::Error> {
+        self.serialize_with_replacements(writer, &self.input_derivations)
+    }
+
+    /// Like `serialize` but allow replacing the input_derivations for hash calculations.
+    fn serialize_with_replacements(
+        &self,
+        writer: &mut impl std::io::Write,
+        input_derivations: &BTreeMap<String, BTreeSet<String>>,
+    ) -> Result<(), io::Error> {
         use write::*;
 
         writer.write_all(write::DERIVATION_PREFIX.as_bytes())?;
@@ -59,7 +68,7 @@ impl Derivation {
         write_outputs(writer, &self.outputs)?;
         write_char(writer, COMMA)?;
 
-        write_input_derivations(writer, &self.input_derivations)?;
+        write_input_derivations(writer, input_derivations)?;
         write_char(writer, COMMA)?;
 
         write_input_sources(writer, &self.input_sources)?;
@@ -83,12 +92,21 @@ impl Derivation {
 
     /// return the ATerm serialization.
     pub fn to_aterm_bytes(&self) -> Vec<u8> {
+        self.to_aterm_bytes_with_replacements(&self.input_derivations)
+    }
+
+    /// Like `to_aterm_bytes` but allow input_derivation replacements for hashing.
+    fn to_aterm_bytes_with_replacements(
+        &self,
+        input_derivations: &BTreeMap<String, BTreeSet<String>>,
+    ) -> Vec<u8> {
         let mut buffer: Vec<u8> = Vec::new();
 
         // invoke serialize and write to the buffer.
         // Note we only propagate errors writing to the writer in serialize,
         // which won't panic for the string we write to.
-        self.serialize(&mut buffer).unwrap();
+        self.serialize_with_replacements(&mut buffer, input_derivations)
+            .unwrap();
 
         buffer
     }
@@ -175,29 +193,25 @@ impl Derivation {
         // call to this function.
         // We use fn_get_derivation_or_fod_hash here, so callers can precompute this.
         NixHash::Sha256(self.fod_digest().unwrap_or({
-            // construct a new Derivation struct with input derivation strings replaced.
-            let replaced_derivation = Derivation {
-                // For each input_derivation, look up the
-                // derivation_or_fod_hash, and replace the derivation path with
-                // it's HEXLOWER digest.
-                input_derivations: BTreeMap::from_iter(self.input_derivations.iter().map(
-                    |(drv_path_str, output_names)| {
-                        // parse drv_path to StorePathRef
-                        let drv_path = StorePathRef::from_absolute_path(drv_path_str.as_bytes())
-                            .expect("invalid input derivation path");
+            // For each input_derivation, look up the
+            // derivation_or_fod_hash, and replace the derivation path with
+            // it's HEXLOWER digest.
+            let input_derivations = BTreeMap::from_iter(self.input_derivations.iter().map(
+                |(drv_path_str, output_names)| {
+                    // parse drv_path to StorePathRef
+                    let drv_path = StorePathRef::from_absolute_path(drv_path_str.as_bytes())
+                        .expect("invalid input derivation path");
 
-                        let encoded_hash = data_encoding::HEXLOWER
-                            .encode(fn_get_derivation_or_fod_hash(&drv_path).digest_as_bytes());
+                    let encoded_hash = data_encoding::HEXLOWER
+                        .encode(fn_get_derivation_or_fod_hash(&drv_path).digest_as_bytes());
 
-                        (encoded_hash, output_names.to_owned())
-                    },
-                )),
-                ..self.clone()
-            };
+                    (encoded_hash, output_names.to_owned())
+                },
+            ));
 
             // write the ATerm of that to the hash function
             let mut hasher = Sha256::new();
-            hasher.update(replaced_derivation.to_aterm_bytes());
+            hasher.update(self.to_aterm_bytes_with_replacements(&input_derivations));
 
             hasher.finalize().into()
         }))
