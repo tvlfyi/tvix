@@ -1,5 +1,6 @@
 use crate::nixbase32;
 use data_encoding::{DecodeError, BASE64};
+use serde::{Deserialize, Serialize};
 use std::{
     fmt,
     path::PathBuf,
@@ -135,6 +136,26 @@ impl StorePath {
     }
 }
 
+impl<'de> Deserialize<'de> for StorePath {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let r = <StorePathRef<'de> as Deserialize<'de>>::deserialize(deserializer)?;
+        Ok(r.to_owned())
+    }
+}
+
+impl Serialize for StorePath {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let r: StorePathRef = self.into();
+        r.serialize(serializer)
+    }
+}
+
 /// Like [StorePath], but without a heap allocation for the name.
 /// Used by [StorePath] for parsing.
 ///
@@ -217,6 +238,35 @@ impl<'a> StorePathRef<'a> {
     /// ([STORE_DIR_WITH_SLASH]),
     pub fn to_absolute_path(&self) -> String {
         format!("{}{}", STORE_DIR_WITH_SLASH, self)
+    }
+}
+
+impl<'de> Deserialize<'de> for StorePathRef<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let string: &'de str = Deserialize::deserialize(deserializer)?;
+        let stripped: Option<&str> = string.strip_prefix(STORE_DIR_WITH_SLASH);
+        let stripped: &str = stripped.ok_or_else(|| {
+            serde::de::Error::invalid_value(
+                serde::de::Unexpected::Str(string),
+                &"store path prefix",
+            )
+        })?;
+        StorePathRef::from_bytes(stripped.as_bytes()).map_err(|_| {
+            serde::de::Error::invalid_value(serde::de::Unexpected::Str(string), &"StorePath")
+        })
+    }
+}
+
+impl Serialize for StorePathRef<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let string: String = self.to_absolute_path();
+        string.serialize(serializer)
     }
 }
 
@@ -385,6 +435,50 @@ mod tests {
         assert_eq!(
             Error::MissingStoreDir,
             StorePathRef::from_absolute_path(b"foobar-123").expect_err("must fail")
+        );
+    }
+
+    #[test]
+    fn serialize_ref() {
+        let store_path_str =
+            "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432";
+        let nixpath_actual =
+            StorePathRef::from_absolute_path(store_path_str.as_bytes()).expect("can parse");
+
+        let serialized = serde_json::to_string(&nixpath_actual).expect("can serialize");
+
+        assert_eq!(
+            "\"/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432\"",
+            &serialized
+        );
+    }
+
+    #[test]
+    fn serialize_owned() {
+        let store_path_str =
+            "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432";
+        let nixpath_actual = StorePathRef::from_absolute_path(store_path_str.as_bytes())
+            .expect("can parse")
+            .to_owned();
+
+        let serialized = serde_json::to_string(&nixpath_actual).expect("can serialize");
+
+        assert_eq!(
+            "\"/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432\"",
+            &serialized
+        );
+    }
+
+    #[test]
+    fn deserialize_ref() {
+        let store_path_str_json =
+            "\"/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432\"";
+
+        let store_path: StorePath = serde_json::from_str(store_path_str_json).expect("valid json");
+
+        assert_eq!(
+            "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432",
+            store_path.to_absolute_path()
         );
     }
 
