@@ -160,40 +160,35 @@ impl Derivation {
     ///
     /// If the derivation is not a fixed derivation, it's up to the caller of
     /// this function to provide a lookup function to lookup these calculation
-    /// results of parent derivations at `fn_get_hash_derivation_modulo` (by
+    /// results of parent derivations at `fn_get_derivation_or_fod_hash` (by
     /// drv path).
     pub fn derivation_or_fod_hash<F>(&self, fn_get_derivation_or_fod_hash: F) -> NixHash
     where
         F: Fn(&StorePathRef) -> NixHash,
     {
         // Fixed-output derivations return a fixed hash.
-        // Non-Fixed-output derivations return a hash of the ATerm notation, but with all
-        // input_derivation paths replaced by a recursive call to this function.
+        // Non-Fixed-output derivations return the sha256 digest of the ATerm
+        // notation, but with all input_derivation paths replaced by a recursive
+        // call to this function.
         // We use fn_get_derivation_or_fod_hash here, so callers can precompute this.
-        let digest = self.fod_digest().unwrap_or({
-            // This is a new map from derivation_or_fod_hash.digest (as lowerhex)
-            // to list of output names
-            let mut replaced_input_derivations: BTreeMap<String, BTreeSet<String>> =
-                BTreeMap::new();
-
-            // For each input_derivation, look up the
-            // derivation_or_fod_hash, and replace the derivation path with it's HEXLOWER
-            // digest.
-            // This is not the [NixHash::to_nix_hash_string], but without the sha256: prefix).
-            for (drv_path_str, output_names) in &self.input_derivations {
-                // parse drv_path to StorePathRef
-                let drv_path = StorePathRef::from_absolute_path(drv_path_str.as_bytes())
-                    .expect("invalid input derivation path");
-                replaced_input_derivations.insert(
-                    data_encoding::HEXLOWER
-                        .encode(fn_get_derivation_or_fod_hash(&drv_path).digest_as_bytes()),
-                    output_names.clone(),
-                );
-            }
-
-            // construct a new derivation struct with these replaced input derivation strings
+        NixHash::Sha256(self.fod_digest().unwrap_or({
+            // construct a new Derivation struct with input derivation strings replaced.
             let replaced_derivation = Derivation {
-                input_derivations: replaced_input_derivations,
+                // For each input_derivation, look up the
+                // derivation_or_fod_hash, and replace the derivation path with
+                // it's HEXLOWER digest.
+                input_derivations: BTreeMap::from_iter(self.input_derivations.iter().map(
+                    |(drv_path_str, output_names)| {
+                        // parse drv_path to StorePathRef
+                        let drv_path = StorePathRef::from_absolute_path(drv_path_str.as_bytes())
+                            .expect("invalid input derivation path");
+
+                        let encoded_hash = data_encoding::HEXLOWER
+                            .encode(fn_get_derivation_or_fod_hash(&drv_path).digest_as_bytes());
+
+                        (encoded_hash, output_names.to_owned())
+                    },
+                )),
                 ..self.clone()
             };
 
@@ -202,9 +197,7 @@ impl Derivation {
             hasher.update(replaced_derivation.to_aterm_bytes());
 
             hasher.finalize().into()
-        });
-
-        NixHash::Sha256(digest)
+        }))
     }
 
     /// This calculates all output paths of a Derivation and updates the struct.
