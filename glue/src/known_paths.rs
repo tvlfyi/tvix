@@ -8,11 +8,7 @@
 //! This data is required to find the derivation needed to actually trigger the
 //! build, if necessary.
 
-use nix_compat::{
-    derivation::Derivation,
-    nixhash::NixHash,
-    store_path::{StorePath, StorePathRef},
-};
+use nix_compat::{derivation::Derivation, nixhash::NixHash, store_path::StorePath};
 use std::collections::HashMap;
 
 /// Struct keeping track of all known Derivations in the current evaluation.
@@ -34,9 +30,9 @@ pub struct KnownPaths {
 
 impl KnownPaths {
     /// Fetch the opaque "hash derivation modulo" for a given derivation path.
-    pub fn get_hash_derivation_modulo(&self, drv_path: &StorePathRef) -> Option<&NixHash> {
+    pub fn get_hash_derivation_modulo(&self, drv_path: &StorePath) -> Option<&NixHash> {
         self.derivations
-            .get(&drv_path.to_owned())
+            .get(drv_path)
             .map(|(hash_derivation_modulo, _derivation)| hash_derivation_modulo)
     }
 
@@ -76,7 +72,7 @@ impl KnownPaths {
 
         // compute the hash derivation modulo
         let hash_derivation_modulo = drv.derivation_or_fod_hash(|drv_path| {
-            self.get_hash_derivation_modulo(drv_path)
+            self.get_hash_derivation_modulo(&drv_path.to_owned())
                 .unwrap_or_else(|| panic!("{} not found", drv_path))
                 .to_owned()
         });

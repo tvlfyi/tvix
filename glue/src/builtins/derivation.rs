@@ -443,7 +443,7 @@ pub(crate) mod derivation_builtins {
         // This one is still intermediate (so not added to known_paths)
         let derivation_or_fod_hash_tmp = drv.derivation_or_fod_hash(|drv_path| {
             known_paths
-                .get_hash_derivation_modulo(drv_path)
+                .get_hash_derivation_modulo(&drv_path.to_owned())
                 .unwrap_or_else(|| panic!("{} not found", drv_path))
                 .to_owned()
         });
