@@ -129,7 +129,7 @@ impl Derivation {
     /// TODO: this is kinda the string from [build_ca_path] with a
     /// [CAHash::Flat], what's fed to `build_store_path_from_fingerprint_parts`
     /// (except the out_output.path being an empty string)
-    fn fod_digest(&self) -> Option<[u8; 32]> {
+    pub fn fod_digest(&self) -> Option<[u8; 32]> {
         if self.outputs.len() != 1 {
             return None;
         }
