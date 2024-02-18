@@ -21,7 +21,7 @@ hash.
 
 For example, bootstrap sources that are downloaded early are fetched using
 a special "builder hack", in which the `builder` field of the derivation is
-populated with the magic string `builtins:fetchurl` and the builder itself will
+populated with the magic string `builtin:fetchurl` and the builder itself will
 perform a fetch, with everything looking like a normal derivation to the user.
 
 These bootstrap sources are later on defined *again*, once `curl`is available,
