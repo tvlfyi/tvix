@@ -33,8 +33,7 @@ where
     }
 
     fn import_path(&self, path: &Path) -> io::Result<PathBuf> {
-        let imported_path = self.actual.as_ref().import_path(path)?;
-        Ok(imported_path)
+        self.actual.as_ref().import_path(path)
     }
 
     fn path_exists(&self, path: &Path) -> io::Result<bool> {
