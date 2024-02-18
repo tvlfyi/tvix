@@ -155,20 +155,30 @@ where
 }
 
 impl<'co, 'ro> Evaluation<'co, 'ro, Box<dyn EvalIO>> {
-    #[cfg(feature = "impure")]
-    /// Initialise an `Evaluation`, with all impure features turned on by default.
-    pub fn new_impure() -> Self {
-        let mut eval = Self::new(Box::new(StdIO) as Box<dyn EvalIO>, true);
-
-        eval.builtins.extend(builtins::impure_builtins());
-
-        eval
-    }
-
     /// Initialize an `Evaluation`, without the import statement available, and
     /// all IO operations stubbed out.
     pub fn new_pure() -> Self {
         Self::new(Box::new(DummyIO) as Box<dyn EvalIO>, false)
+    }
+
+    #[cfg(feature = "impure")]
+    /// Configure an `Evaluation` to have impure features available
+    /// with the given I/O implementation.
+    ///
+    /// If no I/O implementation is supplied, [`StdIO`] is used by
+    /// default.
+    pub fn enable_impure(&mut self, io: Option<Box<dyn EvalIO>>) {
+        self.io_handle = io.unwrap_or_else(|| Box::new(StdIO) as Box<dyn EvalIO>);
+        self.enable_import = true;
+        self.builtins.extend(builtins::impure_builtins());
+    }
+
+    #[cfg(feature = "impure")]
+    /// Initialise an `Evaluation`, with all impure features turned on by default.
+    pub fn new_impure() -> Self {
+        let mut eval = Self::new_pure();
+        eval.enable_impure(None);
+        eval
     }
 }
 
