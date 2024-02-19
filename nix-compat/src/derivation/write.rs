@@ -65,7 +65,7 @@ fn write_array_elements<S: AsRef<[u8]>>(
     Ok(())
 }
 
-pub fn write_outputs(
+pub(crate) fn write_outputs(
     writer: &mut impl Write,
     outputs: &BTreeMap<String, Output>,
 ) -> Result<(), io::Error> {
@@ -99,7 +99,7 @@ pub fn write_outputs(
     Ok(())
 }
 
-pub fn write_input_derivations(
+pub(crate) fn write_input_derivations(
     writer: &mut impl Write,
     input_derivations: &BTreeMap<String, BTreeSet<String>>,
 ) -> Result<(), io::Error> {
@@ -132,7 +132,7 @@ pub fn write_input_derivations(
     Ok(())
 }
 
-pub fn write_input_sources(
+pub(crate) fn write_input_sources(
     writer: &mut impl Write,
     input_sources: &BTreeSet<String>,
 ) -> Result<(), io::Error> {
@@ -146,17 +146,20 @@ pub fn write_input_sources(
     Ok(())
 }
 
-pub fn write_system(writer: &mut impl Write, platform: &str) -> Result<(), Error> {
+pub(crate) fn write_system(writer: &mut impl Write, platform: &str) -> Result<(), Error> {
     write_field(writer, platform, true)?;
     Ok(())
 }
 
-pub fn write_builder(writer: &mut impl Write, builder: &str) -> Result<(), Error> {
+pub(crate) fn write_builder(writer: &mut impl Write, builder: &str) -> Result<(), Error> {
     write_field(writer, builder, true)?;
     Ok(())
 }
 
-pub fn write_arguments(writer: &mut impl Write, arguments: &[String]) -> Result<(), io::Error> {
+pub(crate) fn write_arguments(
+    writer: &mut impl Write,
+    arguments: &[String],
+) -> Result<(), io::Error> {
     write_char(writer, BRACKET_OPEN)?;
     write_array_elements(
         writer,
@@ -170,7 +173,10 @@ pub fn write_arguments(writer: &mut impl Write, arguments: &[String]) -> Result<
     Ok(())
 }
 
-pub fn write_environment<E, K, V>(writer: &mut impl Write, environment: E) -> Result<(), io::Error>
+pub(crate) fn write_environment<E, K, V>(
+    writer: &mut impl Write,
+    environment: E,
+) -> Result<(), io::Error>
 where
     E: IntoIterator<Item = (K, V)>,
     K: AsRef<[u8]>,
