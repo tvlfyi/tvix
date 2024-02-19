@@ -61,11 +61,7 @@ impl NixHash {
     /// Formats a [NixHash] in the Nix default hash format,
     /// which is the algo, followed by a colon, then the lower hex encoded digest.
     pub fn to_nix_hex_string(&self) -> String {
-        format!(
-            "{}:{}",
-            self.algo(),
-            HEXLOWER.encode(self.digest_as_bytes())
-        )
+        format!("{}:{}", self.algo(), self.to_plain_hex_string())
     }
 
     /// Formats a [NixHash] in the format that's used inside CAHash,
@@ -76,6 +72,11 @@ impl NixHash {
             self.algo(),
             nixbase32::encode(self.digest_as_bytes())
         )
+    }
+
+    /// Returns the digest as a hex string -- without any algorithm prefix.
+    pub fn to_plain_hex_string(&self) -> String {
+        HEXLOWER.encode(self.digest_as_bytes())
     }
 }
 
