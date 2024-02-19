@@ -6,6 +6,8 @@ pub mod tvix_build;
 pub mod tvix_io;
 pub mod tvix_store_io;
 
+mod fetchurl;
+
 #[cfg(test)]
 mod tests;
 

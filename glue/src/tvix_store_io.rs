@@ -1,5 +1,4 @@
 //! This module provides an implementation of EvalIO talking to tvix-store.
-
 use bytes::Bytes;
 use futures::{StreamExt, TryStreamExt};
 use nix_compat::nixhash::NixHash;
@@ -138,7 +137,8 @@ impl TvixStoreIO {
                 // The store path doesn't exist yet, so we need to fetch or build it.
                 // We check for fetches first, as we might have both native
                 // fetchers and FODs in KnownPaths, and prefer the former.
-
+                // This will also find [Fetch] synthesized from
+                // `builtin:fetchurl` Derivations.
                 let maybe_fetch = self
                     .known_paths
                     .borrow()
@@ -156,9 +156,9 @@ impl TvixStoreIO {
                         })?;
 
                         debug_assert_eq!(
-                            sp.to_string(),
-                            store_path.to_string(),
-                            "store path returned from fetcher should match"
+                            sp.to_absolute_path(),
+                            store_path.as_ref().to_absolute_path(),
+                            "store path returned from fetcher must match store path we have in fetchers"
                         );
 
                         root_node

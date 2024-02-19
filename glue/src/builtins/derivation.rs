@@ -170,6 +170,7 @@ pub(crate) mod derivation_builtins {
     use std::collections::BTreeMap;
 
     use crate::builtins::utils::{select_string, strong_importing_coerce_to_string};
+    use crate::fetchurl::fetchurl_derivation_to_fetch;
 
     use super::*;
     use bstr::ByteSlice;
@@ -505,6 +506,17 @@ pub(crate) mod derivation_builtins {
                     ),
                 ))),
         )));
+
+        // If the derivation is a fake derivation (builtins:fetchurl),
+        // synthesize a [Fetch] and add it there, too.
+        if drv.builder == "builtin:fetchurl" {
+            let (name, fetch) =
+                fetchurl_derivation_to_fetch(&drv).map_err(|e| ErrorKind::TvixError(Rc::new(e)))?;
+
+            known_paths
+                .add_fetch(fetch, &name)
+                .map_err(|e| ErrorKind::TvixError(Rc::new(e)))?;
+        }
 
         // Register the Derivation in known_paths.
         known_paths.add_derivation(drv_path, drv);
