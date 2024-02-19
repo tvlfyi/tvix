@@ -2,7 +2,7 @@
 //! Derivations from ATerm.
 use nom::IResult;
 
-use crate::nixhash;
+use crate::{nixhash, store_path};
 
 pub type NomResult<I, O> = IResult<I, O, NomError<I>>;
 
@@ -21,6 +21,9 @@ pub enum ErrorKind {
 
     #[error("nix hash error: {0}")]
     NixHashError(nixhash::Error),
+
+    #[error("store path error: {0}")]
+    StorePathError(#[from] store_path::Error),
 
     #[error("nom error: {0:?}")]
     Nom(nom::error::ErrorKind),
