@@ -41,7 +41,7 @@ pub enum ValidatePathInfoError {
     InvalidRootNode(ValidateNodeError),
 
     /// Invalid node name encountered. Root nodes in PathInfos have more strict name requirements
-    #[error("Failed to parse {0:?} as StorePath: {1}")]
+    #[error("Failed to parse {} as StorePath: {1}", String::from_utf8_lossy(.0))]
     InvalidNodeName(Vec<u8>, store_path::Error),
 
     /// The digest in narinfo.nar_sha256 has an invalid len.
