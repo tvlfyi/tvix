@@ -475,7 +475,7 @@ mod tests {
     use tvix_eval::{EvalIO, EvaluationResult};
     use tvix_store::pathinfoservice::MemoryPathInfoService;
 
-    use crate::builtins::add_derivation_builtins;
+    use crate::builtins::{add_derivation_builtins, add_fetcher_builtins};
 
     use super::TvixStoreIO;
 
@@ -503,6 +503,7 @@ mod tests {
         let mut eval = tvix_eval::Evaluation::new(io.clone() as Rc<dyn EvalIO>, true);
 
         add_derivation_builtins(&mut eval, io.clone());
+        add_fetcher_builtins(&mut eval, io.clone());
 
         // run the evaluation itself.
         eval.evaluate(str, None)

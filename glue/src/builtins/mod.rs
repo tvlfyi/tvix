@@ -6,6 +6,7 @@ use crate::tvix_store_io::TvixStoreIO;
 
 mod derivation;
 mod derivation_error;
+mod fetchers;
 
 pub use derivation_error::Error as DerivationError;
 
@@ -17,11 +18,21 @@ pub use derivation_error::Error as DerivationError;
 /// `known_paths`.
 pub fn add_derivation_builtins<IO>(eval: &mut tvix_eval::Evaluation<IO>, io: Rc<TvixStoreIO>) {
     eval.builtins
-        .extend(derivation::derivation_builtins::builtins(io));
+        .extend(derivation::derivation_builtins::builtins(Rc::clone(&io)));
 
     // Add the actual `builtins.derivation` from compiled Nix code
     eval.src_builtins
         .push(("derivation", include_str!("derivation.nix")));
+}
+
+/// Adds fetcher builtins to the passed [tvix_eval::Evaluation]:
+///
+/// * `fetchurl`
+/// * `fetchTarball`
+/// * `fetchGit`
+pub fn add_fetcher_builtins<IO>(eval: &mut tvix_eval::Evaluation<IO>, io: Rc<TvixStoreIO>) {
+    eval.builtins
+        .extend(fetchers::fetcher_builtins::builtins(Rc::clone(&io)));
 }
 
 #[cfg(test)]
@@ -30,7 +41,7 @@ mod tests {
 
     use crate::tvix_store_io::TvixStoreIO;
 
-    use super::add_derivation_builtins;
+    use super::{add_derivation_builtins, add_fetcher_builtins};
     use nix_compat::store_path::hash_placeholder;
     use test_case::test_case;
     use tvix_build::buildservice::DummyBuildService;
@@ -57,7 +68,8 @@ mod tests {
 
         let mut eval = tvix_eval::Evaluation::new(io.clone() as Rc<dyn EvalIO>, false);
 
-        add_derivation_builtins(&mut eval, io);
+        add_derivation_builtins(&mut eval, Rc::clone(&io));
+        add_fetcher_builtins(&mut eval, io);
 
         // run the evaluation itself.
         eval.evaluate(str, None)
