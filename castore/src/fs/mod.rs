@@ -415,6 +415,9 @@ where
                         Node::Symlink(_) => libc::S_IFLNK,
                     };
 
+                    #[cfg(target_os = "macos")]
+                    let ty = ty as u32;
+
                     let written = add_entry(fuse_backend_rs::api::filesystem::DirEntry {
                         ino,
                         offset: offset + i as u64 + 1,
