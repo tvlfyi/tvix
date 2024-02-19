@@ -111,9 +111,9 @@ fn for_each(reader: impl Read, mut f: impl FnMut(&str) -> Result<()>) -> Result<
 /// }
 /// ```
 struct FrameBuilder {
-    store_path_hash_str: Utf8ChunkedBuilder,
+    store_path_hash_str: StringChunkedBuilder,
     store_path_hash: BinaryChunkedBuilder,
-    store_path_name: Utf8ChunkedBuilder,
+    store_path_name: StringChunkedBuilder,
     nar_hash: BinaryChunkedBuilder,
     nar_size: PrimitiveChunkedBuilder<UInt64Type>,
     references: ListBinaryChunkedBuilder,
@@ -130,18 +130,22 @@ struct FrameBuilder {
 impl Default for FrameBuilder {
     fn default() -> Self {
         Self {
-            store_path_hash_str: Utf8ChunkedBuilder::new("store_path_hash_str", 0, 0),
+            store_path_hash_str: StringChunkedBuilder::new("store_path_hash_str", 0, 0),
             store_path_hash: BinaryChunkedBuilder::new("store_path_hash", 0, 0),
-            store_path_name: Utf8ChunkedBuilder::new("store_path_name", 0, 0),
+            store_path_name: StringChunkedBuilder::new("store_path_name", 0, 0),
             nar_hash: BinaryChunkedBuilder::new("nar_hash", 0, 0),
             nar_size: PrimitiveChunkedBuilder::new("nar_size", 0),
             references: ListBinaryChunkedBuilder::new("references", 0, 0),
             signature: BinaryChunkedBuilder::new("signature", 0, 0),
-            ca_algo: CategoricalChunkedBuilder::new("ca_algo", 0),
+            ca_algo: CategoricalChunkedBuilder::new("ca_algo", 0, CategoricalOrdering::Lexical),
             ca_hash: BinaryChunkedBuilder::new("ca_hash", 0, 0),
             file_hash: BinaryChunkedBuilder::new("file_hash", 0, 0),
             file_size: PrimitiveChunkedBuilder::new("file_size", 0),
-            compression: CategoricalChunkedBuilder::new("compression", 0),
+            compression: CategoricalChunkedBuilder::new(
+                "compression",
+                0,
+                CategoricalOrdering::Lexical,
+            ),
             quirk_references_out_of_order: BooleanChunkedBuilder::new(
                 "quirk_references_out_of_order",
                 0,

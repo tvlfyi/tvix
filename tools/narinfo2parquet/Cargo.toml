@@ -16,7 +16,7 @@ tempfile-fast = "0.3.4"
 zstd = "0.13.0"
 
 [dependencies.polars]
-version = "0.34.2"
+version = "0.36.2"
 default-features = false
 features = [
     "parquet",
