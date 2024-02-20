@@ -35,6 +35,11 @@ type DirectoryServiceClient interface {
 	// Keep in mind multiple DirectoryNodes in different parts of the graph might
 	// have the same digest if they have the same underlying contents,
 	// so sending subsequent ones can be omitted.
+	//
+	// It is okay for certain implementations to only allow retrieval of
+	// Directory digests that are at the "root", aka the last element that's
+	// sent in a Put. This makes sense for implementations bundling closures of
+	// directories together in batches.
 	Get(ctx context.Context, in *GetDirectoryRequest, opts ...grpc.CallOption) (DirectoryService_GetClient, error)
 	// Put uploads a graph of Directory messages.
 	// Individual Directory messages need to be send in an order walking up
@@ -131,6 +136,11 @@ type DirectoryServiceServer interface {
 	// Keep in mind multiple DirectoryNodes in different parts of the graph might
 	// have the same digest if they have the same underlying contents,
 	// so sending subsequent ones can be omitted.
+	//
+	// It is okay for certain implementations to only allow retrieval of
+	// Directory digests that are at the "root", aka the last element that's
+	// sent in a Put. This makes sense for implementations bundling closures of
+	// directories together in batches.
 	Get(*GetDirectoryRequest, DirectoryService_GetServer) error
 	// Put uploads a graph of Directory messages.
 	// Individual Directory messages need to be send in an order walking up

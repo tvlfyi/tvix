@@ -23,6 +23,11 @@ pub trait DirectoryService: Send + Sync {
     /// Looks up a single Directory message by its digest.
     /// The returned Directory message *must* be valid.
     /// In case the directory is not found, Ok(None) is returned.
+    ///
+    /// It is okay for certain implementations to only allow retrieval of
+    /// Directory digests that are at the "root", aka the last element that's
+    /// sent to a DirectoryPutter. This makes sense for implementations bundling
+    /// closures of directories together in batches.
     async fn get(&self, digest: &B3Digest) -> Result<Option<proto::Directory>, Error>;
     /// Uploads a single Directory message, and returns the calculated
     /// digest, or an error. An error *must* also be returned if the message is
