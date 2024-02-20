@@ -18,7 +18,7 @@ pub use derivation_error::Error as DerivationError;
 /// `known_paths`.
 pub fn add_derivation_builtins<IO>(eval: &mut tvix_eval::Evaluation<IO>, io: Rc<TvixStoreIO>) {
     eval.builtins
-        .extend(derivation::derivation_builtins::builtins(Rc::clone(&io)));
+        .extend(derivation::derivation_builtins::builtins(io));
 
     // Add the actual `builtins.derivation` from compiled Nix code
     eval.src_builtins
@@ -32,7 +32,7 @@ pub fn add_derivation_builtins<IO>(eval: &mut tvix_eval::Evaluation<IO>, io: Rc<
 /// * `fetchGit`
 pub fn add_fetcher_builtins<IO>(eval: &mut tvix_eval::Evaluation<IO>, io: Rc<TvixStoreIO>) {
     eval.builtins
-        .extend(fetchers::fetcher_builtins::builtins(Rc::clone(&io)));
+        .extend(fetchers::fetcher_builtins::builtins(io));
 }
 
 #[cfg(test)]
@@ -68,7 +68,7 @@ mod tests {
 
         let mut eval = tvix_eval::Evaluation::new(io.clone() as Rc<dyn EvalIO>, false);
 
-        add_derivation_builtins(&mut eval, Rc::clone(&io));
+        add_derivation_builtins(&mut eval, io.clone());
         add_fetcher_builtins(&mut eval, io);
 
         // run the evaluation itself.

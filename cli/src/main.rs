@@ -129,7 +129,7 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
     );
     eval.strict = args.strict;
     eval.builtins.extend(impure_builtins());
-    add_derivation_builtins(&mut eval, Rc::clone(&tvix_store_io));
+    add_derivation_builtins(&mut eval, tvix_store_io.clone());
     add_fetcher_builtins(&mut eval, tvix_store_io);
     configure_nix_path(&mut eval, &args.nix_search_path);
 
