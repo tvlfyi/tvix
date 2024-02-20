@@ -293,10 +293,11 @@ pub struct Error {
     pub kind: ErrorKind,
     pub span: Span,
     pub contexts: Vec<String>,
+    pub source: SourceCode,
 }
 
 impl Error {
-    pub fn new(mut kind: ErrorKind, span: Span) -> Self {
+    pub fn new(mut kind: ErrorKind, span: Span, source: SourceCode) -> Self {
         let mut contexts = vec![];
         while let ErrorKind::WithContext {
             context,
@@ -311,6 +312,7 @@ impl Error {
             kind,
             span,
             contexts,
+            source,
         }
     }
 }

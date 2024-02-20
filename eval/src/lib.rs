@@ -261,7 +261,7 @@ where
             code.as_ref(),
             file.clone(),
             location,
-            source,
+            source.clone(),
             self.builtins,
             self.src_builtins,
             self.enable_import,
@@ -295,6 +295,7 @@ where
             nix_path,
             self.io_handle,
             runtime_observer,
+            source,
             globals,
             lambda,
             self.strict,
@@ -335,6 +336,7 @@ fn parse_compile_internal(
         result.errors.push(Error::new(
             ErrorKind::ParseErrors(parse_errors.to_vec()),
             file.span,
+            source,
         ));
         return None;
     }
@@ -344,13 +346,15 @@ fn parse_compile_internal(
     // the result, in case the caller needs it for something.
     result.expr = parsed.tree().expr();
 
-    let builtins = crate::compiler::prepare_globals(builtins, src_builtins, source, enable_import);
+    let builtins =
+        crate::compiler::prepare_globals(builtins, src_builtins, source.clone(), enable_import);
 
     let compiler_result = match compiler::compile(
         result.expr.as_ref().unwrap(),
         location,
-        file,
         builtins,
+        &source,
+        &file,
         compiler_observer,
     ) {
         Ok(result) => result,

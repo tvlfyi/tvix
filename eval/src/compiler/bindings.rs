@@ -261,10 +261,10 @@ impl TrackedBindings {
 trait HasEntryProxy {
     fn inherits(&self) -> Box<dyn Iterator<Item = ast::Inherit>>;
 
-    fn attributes(
+    fn attributes<'a>(
         &self,
-        file: Arc<codemap::File>,
-    ) -> Box<dyn Iterator<Item = (Span, PeekableAttrs, ast::Expr)>>;
+        file: &'a codemap::File,
+    ) -> Box<dyn Iterator<Item = (Span, PeekableAttrs, ast::Expr)> + 'a>;
 }
 
 impl<N: HasEntry> HasEntryProxy for N {
@@ -272,13 +272,13 @@ impl<N: HasEntry> HasEntryProxy for N {
         Box::new(ast::HasEntry::inherits(self))
     }
 
-    fn attributes(
+    fn attributes<'a>(
         &self,
-        file: Arc<codemap::File>,
-    ) -> Box<dyn Iterator<Item = (Span, PeekableAttrs, ast::Expr)>> {
+        file: &'a codemap::File,
+    ) -> Box<dyn Iterator<Item = (Span, PeekableAttrs, ast::Expr)> + 'a> {
         Box::new(ast::HasEntry::attrpath_values(self).map(move |entry| {
             (
-                entry.span_for(&file),
+                entry.span_for(file),
                 entry.attrpath().unwrap().attrs().peekable(),
                 entry.value().unwrap(),
             )
@@ -291,16 +291,16 @@ impl HasEntryProxy for AttributeSet {
         Box::new(self.inherits.clone().into_iter())
     }
 
-    fn attributes(
+    fn attributes<'a>(
         &self,
-        _: Arc<codemap::File>,
-    ) -> Box<dyn Iterator<Item = (Span, PeekableAttrs, ast::Expr)>> {
+        _: &'a codemap::File,
+    ) -> Box<dyn Iterator<Item = (Span, PeekableAttrs, ast::Expr)> + 'a> {
         Box::new(self.entries.clone().into_iter())
     }
 }
 
 /// AST-traversing functions related to bindings.
-impl Compiler<'_> {
+impl Compiler<'_, '_> {
     /// Compile all inherits of a node with entries that do *not* have a
     /// namespace to inherit from, and return the remaining ones that do.
     fn compile_plain_inherits<N>(
@@ -465,7 +465,7 @@ impl Compiler<'_> {
     ) where
         N: ToSpan + HasEntryProxy,
     {
-        for (span, mut path, value) in node.attributes(self.file.clone()) {
+        for (span, mut path, value) in node.attributes(self.file) {
             let key = path.next().unwrap();
 
             if bindings.try_merge(self, span, &key, path.clone(), value.clone()) {
@@ -765,7 +765,7 @@ impl Compiler<'_> {
 }
 
 /// Private compiler helpers related to bindings.
-impl Compiler<'_> {
+impl Compiler<'_, '_> {
     fn resolve_upvalue<N: ToSpan>(
         &mut self,
         ctx_idx: usize,

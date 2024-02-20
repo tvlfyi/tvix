@@ -58,13 +58,14 @@ async fn import_impl(
     let result = crate::compiler::compile(
         &parsed.tree().expr().unwrap(),
         Some(path.clone()),
-        file,
         // The VM must ensure that a strong reference to the globals outlives
         // any self-references (which are weak) embedded within the globals. If
         // the expect() below panics, it means that did not happen.
         globals
             .upgrade()
             .expect("globals dropped while still in use"),
+        &source,
+        &file,
         &mut NoOpObserver::default(),
     )
     .map_err(|err| ErrorKind::ImportCompilerError {

@@ -24,7 +24,6 @@ use smol_str::SmolStr;
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
-use std::sync::Arc;
 
 use crate::chunk::Chunk;
 use crate::errors::{CatchableErrorKind, Error, ErrorKind, EvalResult};
@@ -151,7 +150,7 @@ const GLOBAL_BUILTINS: &[&str] = &[
     "__curPos",
 ];
 
-pub struct Compiler<'observer> {
+pub struct Compiler<'source, 'observer> {
     contexts: Vec<LambdaCtx>,
     warnings: Vec<EvalWarning>,
     errors: Vec<Error>,
@@ -165,10 +164,13 @@ pub struct Compiler<'observer> {
     /// and a function that should emit code for the token.
     globals: Rc<GlobalsMap>,
 
-    /// File reference in the codemap contains all known source code
-    /// and is used to track the spans from which instructions where
-    /// derived.
-    file: Arc<codemap::File>,
+    /// Reference to the struct holding all of the source code, which
+    /// is used for error creation.
+    source: &'source SourceCode,
+
+    /// File reference in the source map for the current file, which
+    /// is used for creating spans.
+    file: &'source codemap::File,
 
     /// Carry an observer for the compilation process, which is called
     /// whenever a chunk is emitted.
@@ -180,18 +182,19 @@ pub struct Compiler<'observer> {
     dead_scope: usize,
 }
 
-impl Compiler<'_> {
+impl Compiler<'_, '_> {
     pub(super) fn span_for<S: ToSpan>(&self, to_span: &S) -> Span {
-        to_span.span_for(&self.file)
+        to_span.span_for(self.file)
     }
 }
 
 /// Compiler construction
-impl<'observer> Compiler<'observer> {
+impl<'source, 'observer> Compiler<'source, 'observer> {
     pub(crate) fn new(
         location: Option<PathBuf>,
-        file: Arc<codemap::File>,
         globals: Rc<GlobalsMap>,
+        source: &'source SourceCode,
+        file: &'source codemap::File,
         observer: &'observer mut dyn CompilerObserver,
     ) -> EvalResult<Self> {
         let mut root_dir = match location {
@@ -204,6 +207,7 @@ impl<'observer> Compiler<'observer> {
                             e
                         )),
                         file.span,
+                        source.clone(),
                     )
                 })?;
                 if let Some(dir) = location {
@@ -226,6 +230,7 @@ impl<'observer> Compiler<'observer> {
 
         Ok(Self {
             root_dir,
+            source,
             file,
             observer,
             globals,
@@ -239,7 +244,7 @@ impl<'observer> Compiler<'observer> {
 
 // Helper functions for emitting code and metadata to the internal
 // structures of the compiler.
-impl Compiler<'_> {
+impl Compiler<'_, '_> {
     fn context(&self) -> &LambdaCtx {
         &self.contexts[self.contexts.len() - 1]
     }
@@ -285,7 +290,7 @@ impl Compiler<'_> {
 }
 
 // Actual code-emitting AST traversal methods.
-impl Compiler<'_> {
+impl Compiler<'_, '_> {
     fn compile(&mut self, slot: LocalIdx, expr: ast::Expr) {
         let expr = optimiser::optimise_expr(self, slot, expr);
 
@@ -1473,7 +1478,8 @@ impl Compiler<'_> {
 
     fn emit_error<N: ToSpan>(&mut self, node: &N, kind: ErrorKind) {
         let span = self.span_for(node);
-        self.errors.push(Error::new(kind, span))
+        self.errors
+            .push(Error::new(kind, span, self.source.clone()))
     }
 }
 
@@ -1519,7 +1525,7 @@ fn expr_static_attr_str(node: &ast::Attr) -> Option<SmolStr> {
 fn compile_src_builtin(
     name: &'static str,
     code: &str,
-    source: &SourceCode,
+    source: SourceCode,
     weak: &Weak<GlobalsMap>,
 ) -> Value {
     use std::fmt::Write;
@@ -1542,8 +1548,9 @@ fn compile_src_builtin(
         let result = compile(
             &parsed.tree().expr().unwrap(),
             None,
-            file.clone(),
             weak.upgrade().unwrap(),
+            &source,
+            &file,
             &mut crate::observer::NoOpObserver {},
         )
         .map_err(|e| ErrorKind::NativeError {
@@ -1621,7 +1628,7 @@ pub fn prepare_globals(
         // If "source builtins" were supplied, compile them and insert
         // them.
         builtins.extend(src_builtins.into_iter().map(move |(name, code)| {
-            let compiled = compile_src_builtin(name, code, &source, weak);
+            let compiled = compile_src_builtin(name, code, source.clone(), weak);
             (name, compiled)
         }));
 
@@ -1647,11 +1654,12 @@ pub fn prepare_globals(
 pub fn compile(
     expr: &ast::Expr,
     location: Option<PathBuf>,
-    file: Arc<codemap::File>,
     globals: Rc<GlobalsMap>,
+    source: &SourceCode,
+    file: &codemap::File,
     observer: &mut dyn CompilerObserver,
 ) -> EvalResult<CompilationOutput> {
-    let mut c = Compiler::new(location, file, globals.clone(), observer)?;
+    let mut c = Compiler::new(location, globals.clone(), source, file, observer)?;
 
     let root_span = c.span_for(expr);
     let root_slot = c.scope_mut().declare_phantom(root_span, false);

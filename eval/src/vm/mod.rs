@@ -36,7 +36,7 @@ use crate::{
     },
     vm::generators::GenCo,
     warnings::{EvalWarning, WarningKind},
-    NixString,
+    NixString, SourceCode,
 };
 
 use generators::{call_functor, Generator, GeneratorState};
@@ -85,15 +85,18 @@ impl<T, S: GetSpan, IO> WithSpan<T, S, IO> for Result<T, ErrorKind> {
         match self {
             Ok(something) => Ok(something),
             Err(kind) => {
-                let mut error = Error::new(kind, top_span.get_span());
+                let mut error = Error::new(kind, top_span.get_span(), vm.source.clone());
 
                 // Wrap the top-level error in chaining errors for each element
                 // of the frame stack.
                 for frame in vm.frames.iter().rev() {
                     match frame {
                         Frame::CallFrame { span, .. } => {
-                            error =
-                                Error::new(ErrorKind::BytecodeError(Box::new(error)), span.span());
+                            error = Error::new(
+                                ErrorKind::BytecodeError(Box::new(error)),
+                                span.span(),
+                                vm.source.clone(),
+                            );
                         }
                         Frame::Generator { name, span, .. } => {
                             error = Error::new(
@@ -102,6 +105,7 @@ impl<T, S: GetSpan, IO> WithSpan<T, S, IO> for Result<T, ErrorKind> {
                                     gen_type: name,
                                 },
                                 span.span(),
+                                vm.source.clone(),
                             );
                         }
                     }
@@ -275,6 +279,10 @@ struct VM<'o, IO> {
     // TODO: should probably be based on a file hash
     pub import_cache: ImportCache,
 
+    /// Data structure holding all source code evaluated in this VM,
+    /// used for pretty error reporting.
+    source: SourceCode,
+
     /// Parsed Nix search path, which is used to resolve `<...>`
     /// references.
     nix_search_path: NixSearchPath,
@@ -333,6 +341,7 @@ where
         nix_search_path: NixSearchPath,
         io_handle: IO,
         observer: &'o mut dyn RuntimeObserver,
+        source: SourceCode,
         globals: Rc<GlobalsMap>,
         reasonable_span: LightSpan,
     ) -> Self {
@@ -342,6 +351,7 @@ where
             observer,
             globals,
             reasonable_span,
+            source,
             frames: vec![],
             stack: vec![],
             with_stack: vec![],
@@ -1315,6 +1325,7 @@ pub fn run_lambda<IO>(
     nix_search_path: NixSearchPath,
     io_handle: IO,
     observer: &mut dyn RuntimeObserver,
+    source: SourceCode,
     globals: Rc<GlobalsMap>,
     lambda: Rc<Lambda>,
     strict: bool,
@@ -1334,6 +1345,7 @@ where
         nix_search_path,
         io_handle,
         observer,
+        source,
         globals,
         root_span.into(),
     );
