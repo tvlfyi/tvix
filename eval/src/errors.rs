@@ -514,7 +514,7 @@ to a missing value in the attribute set(s) included via `with`."#,
 
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.fancy_format_str())
+        write!(f, "{}", self.kind)
     }
 }
 
