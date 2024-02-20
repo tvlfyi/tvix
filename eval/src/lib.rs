@@ -171,6 +171,12 @@ impl<'co, 'ro> Evaluation<'co, 'ro, Box<dyn EvalIO>> {
         self.io_handle = io.unwrap_or_else(|| Box::new(StdIO) as Box<dyn EvalIO>);
         self.enable_import = true;
         self.builtins.extend(builtins::impure_builtins());
+
+        // Make `NIX_PATH` resolutions work by default, unless the
+        // user already overrode this with something else.
+        if self.nix_path.is_none() {
+            self.nix_path = std::env::var("NIX_PATH").ok();
+        }
     }
 
     #[cfg(feature = "impure")]
