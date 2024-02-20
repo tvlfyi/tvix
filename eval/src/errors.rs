@@ -35,9 +35,7 @@ use crate::{SourceCode, Value};
 /// ... where T is any type other than Value.  This is unfortunate,
 /// because Rust's magic `?`-syntax does not work on nested Result
 /// values like this.
-///
-/// TODO(amjoseph): investigate result<T,Either<CatchableErrorKind,ErrorKind>>
-///
+// TODO(amjoseph): investigate result<T,Either<CatchableErrorKind,ErrorKind>>
 #[derive(Clone, Debug)]
 pub enum CatchableErrorKind {
     Throw(Box<str>),
@@ -45,6 +43,21 @@ pub enum CatchableErrorKind {
     UnimplementedFeature(Box<str>),
     /// Resolving a user-supplied angle brackets path literal failed in some way.
     NixPathResolution(Box<str>),
+}
+
+impl Display for CatchableErrorKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CatchableErrorKind::Throw(s) => write!(f, "error thrown: {}", s),
+            CatchableErrorKind::AssertionFailed => write!(f, "assertion failed"),
+            CatchableErrorKind::UnimplementedFeature(s) => {
+                write!(f, "feature {} is not implemented yet", s)
+            }
+            CatchableErrorKind::NixPathResolution(s) => {
+                write!(f, "Nix path entry could not be resolved: {}", s)
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -208,6 +221,14 @@ pub enum ErrorKind {
 
     /// Unexpected context string
     UnexpectedContext,
+
+    /// Top-level evaluation result was a catchable Nix error, and
+    /// should fail the evaluation.
+    ///
+    /// This variant **must** only be used at the top-level of
+    /// tvix-eval when returning a result to the user, never inside of
+    /// eval code.
+    CatchableError(CatchableErrorKind),
 }
 
 impl error::Error for Error {
@@ -508,6 +529,10 @@ to a missing value in the attribute set(s) included via `with`."#,
             ErrorKind::UnexpectedContext => {
                 write!(f, "unexpected context string")
             }
+
+            ErrorKind::CatchableError(inner) => {
+                write!(f, "{}", inner)
+            }
         }
     }
 }
@@ -795,7 +820,8 @@ impl Error {
             | ErrorKind::TvixError(_)
             | ErrorKind::TvixBug { .. }
             | ErrorKind::NotImplemented(_)
-            | ErrorKind::WithContext { .. } => return None,
+            | ErrorKind::WithContext { .. }
+            | ErrorKind::CatchableError(_) => return None,
         };
 
         Some(label.into())
@@ -805,11 +831,14 @@ impl Error {
     /// used to refer users to documentation.
     fn code(&self) -> &'static str {
         match self.kind {
+            ErrorKind::CatchableError(CatchableErrorKind::Throw(_)) => "E001",
             ErrorKind::Abort(_) => "E002",
+            ErrorKind::CatchableError(CatchableErrorKind::AssertionFailed) => "E003",
             ErrorKind::InvalidAttributeName { .. } => "E004",
             ErrorKind::AttributeNotFound { .. } => "E005",
             ErrorKind::TypeError { .. } => "E006",
             ErrorKind::Incomparable { .. } => "E007",
+            ErrorKind::CatchableError(CatchableErrorKind::NixPathResolution(_)) => "E008",
             ErrorKind::DynamicKeyInScope(_) => "E009",
             ErrorKind::UnknownStaticVariable => "E010",
             ErrorKind::UnknownDynamicVariable(_) => "E011",
@@ -848,7 +877,8 @@ impl Error {
             ErrorKind::TvixBug { .. } => "E998",
 
             // Placeholder error while Tvix is under construction.
-            ErrorKind::NotImplemented(_) => "E999",
+            ErrorKind::CatchableError(CatchableErrorKind::UnimplementedFeature(_))
+            | ErrorKind::NotImplemented(_) => "E999",
 
             // Chained errors should yield the code of the innermost
             // error.
