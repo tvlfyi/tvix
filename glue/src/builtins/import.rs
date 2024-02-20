@@ -129,7 +129,7 @@ mod import_builtins {
         path: Value,
     ) -> Result<Value, ErrorKind> {
         let p = path.to_path()?;
-        let root_node = filtered_ingest(state.clone(), co, &p, Some(&filter)).await?;
+        let root_node = filtered_ingest(Rc::clone(&state), co, &p, Some(&filter)).await?;
         let name = tvix_store::import::path_to_name(&p)?;
 
         Ok(state
