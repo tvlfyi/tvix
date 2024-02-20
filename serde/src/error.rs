@@ -27,10 +27,7 @@ pub enum Error {
 
     /// Evaluation of the supplied Nix code failed while computing the
     /// value for deserialisation.
-    NixErrors {
-        errors: Vec<tvix_eval::Error>,
-        source: tvix_eval::SourceCode,
-    },
+    NixErrors { errors: Vec<tvix_eval::Error> },
 
     /// Could not determine an externally tagged enum representation.
     AmbiguousEnum,
@@ -56,7 +53,7 @@ impl Display for Error {
                 write!(f, "expected type {}, but got Nix type {}", expected, got)
             }
 
-            Error::NixErrors { errors, source } => {
+            Error::NixErrors { errors } => {
                 writeln!(
                     f,
                     "{} occured during Nix evaluation: ",
@@ -64,7 +61,7 @@ impl Display for Error {
                 )?;
 
                 for err in errors {
-                    writeln!(f, "{}", err.fancy_format_str(source))?;
+                    writeln!(f, "{}", err.fancy_format_str())?;
                 }
 
                 Ok(())

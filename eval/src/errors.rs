@@ -514,7 +514,7 @@ to a missing value in the attribute set(s) included via `with`."#,
 
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.kind)
+        write!(f, "{}", self.fancy_format_str())
     }
 }
 
@@ -739,17 +739,16 @@ fn spans_for_parse_errors(file: &File, errors: &[rnix::parser::ParseError]) -> V
 }
 
 impl Error {
-    pub fn fancy_format_str(&self, source: &SourceCode) -> String {
+    pub fn fancy_format_str(&self) -> String {
         let mut out = vec![];
-        Emitter::vec(&mut out, Some(&*source.codemap())).emit(&self.diagnostics(source));
+        Emitter::vec(&mut out, Some(&*self.source.codemap())).emit(&self.diagnostics());
         String::from_utf8_lossy(&out).to_string()
     }
 
     /// Render a fancy, human-readable output of this error and print
     /// it to stderr.
-    pub fn fancy_format_stderr(&self, source: &SourceCode) {
-        Emitter::stderr(ColorConfig::Auto, Some(&*source.codemap()))
-            .emit(&self.diagnostics(source));
+    pub fn fancy_format_stderr(&self) {
+        Emitter::stderr(ColorConfig::Auto, Some(&*self.source.codemap())).emit(&self.diagnostics());
     }
 
     /// Create the optional span label displayed as an annotation on
@@ -863,14 +862,14 @@ impl Error {
         }
     }
 
-    fn spans(&self, source: &SourceCode) -> Vec<SpanLabel> {
+    fn spans(&self) -> Vec<SpanLabel> {
         let mut spans = match &self.kind {
             ErrorKind::ImportParseError { errors, file, .. } => {
                 spans_for_parse_errors(file, errors)
             }
 
             ErrorKind::ParseErrors(errors) => {
-                let file = source.get_file(self.span);
+                let file = self.source.get_file(self.span);
                 spans_for_parse_errors(&file, errors)
             }
 
@@ -949,22 +948,22 @@ impl Error {
     }
 
     /// Create the primary diagnostic for a given error.
-    fn diagnostic(&self, source: &SourceCode) -> Diagnostic {
+    fn diagnostic(&self) -> Diagnostic {
         Diagnostic {
             level: Level::Error,
             message: self.to_string(),
-            spans: self.spans(source),
+            spans: self.spans(),
             code: Some(self.code().into()),
         }
     }
 
     /// Return the primary diagnostic and all further associated diagnostics (if
     /// any) of an error.
-    fn diagnostics(&self, source: &SourceCode) -> Vec<Diagnostic> {
+    fn diagnostics(&self) -> Vec<Diagnostic> {
         match &self.kind {
             ErrorKind::ImportCompilerError { errors, .. } => {
-                let mut out = vec![self.diagnostic(source)];
-                out.extend(errors.iter().map(|e| e.diagnostic(source)));
+                let mut out = vec![self.diagnostic()];
+                out.extend(errors.iter().map(|e| e.diagnostic()));
                 out
             }
 
@@ -991,7 +990,7 @@ impl Error {
                 let mut this_span = self.span;
 
                 // Diagnostic spans for *this* error.
-                let mut this_spans = self.spans(source);
+                let mut this_spans = self.spans();
 
                 loop {
                     if is_new_span(
@@ -1008,7 +1007,7 @@ impl Error {
 
                     this_message = next.to_string();
                     this_span = next.span;
-                    this_spans = next.spans(source);
+                    this_spans = next.spans();
 
                     match next.kind {
                         ErrorKind::NativeError { err: inner, .. }
@@ -1017,7 +1016,7 @@ impl Error {
                             continue;
                         }
                         _ => {
-                            diagnostics.extend(next.diagnostics(source));
+                            diagnostics.extend(next.diagnostics());
                             break;
                         }
                     }
@@ -1026,7 +1025,7 @@ impl Error {
                 diagnostics
             }
 
-            _ => vec![self.diagnostic(source)],
+            _ => vec![self.diagnostic()],
         }
     }
 }

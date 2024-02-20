@@ -51,13 +51,11 @@ where
     config(&mut eval);
 
     eval.strict = true;
-    let source = eval.source_map();
     let result = eval.evaluate(src, None);
 
     if !result.errors.is_empty() {
         return Err(Error::NixErrors {
             errors: result.errors,
-            source,
         });
     }
 

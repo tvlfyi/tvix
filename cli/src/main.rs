@@ -159,7 +159,7 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
     }
 
     for error in &result.errors {
-        error.fancy_format_stderr(&source_map);
+        error.fancy_format_stderr();
     }
 
     if !args.no_warnings {
@@ -207,7 +207,7 @@ fn lint(code: &str, path: Option<PathBuf>, args: &Args) -> bool {
     }
 
     for error in &result.errors {
-        error.fancy_format_stderr(&source_map);
+        error.fancy_format_stderr();
     }
 
     for warning in &result.warnings {
