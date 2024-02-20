@@ -3417,6 +3417,7 @@ dependencies = [
  "async-recursion",
  "async-stream",
  "blake3",
+ "bstr",
  "bytes",
  "clap",
  "count-write",

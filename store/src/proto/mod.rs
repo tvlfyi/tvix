@@ -1,4 +1,5 @@
 #![allow(clippy::derive_partial_eq_without_eq, non_snake_case)]
+use bstr::ByteSlice;
 use bytes::Bytes;
 use data_encoding::BASE64;
 // https://github.com/hyperium/tonic/issues/1056
@@ -41,7 +42,7 @@ pub enum ValidatePathInfoError {
     InvalidRootNode(ValidateNodeError),
 
     /// Invalid node name encountered. Root nodes in PathInfos have more strict name requirements
-    #[error("Failed to parse {} as StorePath: {1}", String::from_utf8_lossy(.0))]
+    #[error("Failed to parse {} as StorePath: {1}", .0.to_str_lossy())]
     InvalidNodeName(Vec<u8>, store_path::Error),
 
     /// The digest in narinfo.nar_sha256 has an invalid len.
