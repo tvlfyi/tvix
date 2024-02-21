@@ -36,7 +36,7 @@ pub struct Derivation {
 
     /// Map from drv path to output names used from this derivation.
     #[serde(rename = "inputDrvs")]
-    pub input_derivations: BTreeMap<String, BTreeSet<String>>,
+    pub input_derivations: BTreeMap<StorePath, BTreeSet<String>>,
 
     /// Plain store paths of additional inputs.
     #[serde(rename = "inputSrcs")]
@@ -70,19 +70,7 @@ impl Derivation {
         write_outputs(writer, &self.outputs)?;
         write_char(writer, COMMA)?;
 
-        // To reproduce the exact hashes of original nix, we need to sort
-        // these by their aterm representation.
-        // StorePath has a different sort order, so we convert it here.
-        let input_derivations: BTreeMap<BString, &BTreeSet<String>> = input_derivations
-            .iter()
-            .map(|(k, v)| {
-                let mut aterm_k = Vec::new();
-                k.aterm_write(&mut aterm_k).expect("no write error to Vec");
-                (BString::new(aterm_k), v)
-            })
-            .collect();
-
-        write_input_derivations(writer, &input_derivations)?;
+        write_input_derivations(writer, input_derivations)?;
         write_char(writer, COMMA)?;
 
         write_input_sources(writer, &self.input_sources)?;
@@ -145,8 +133,11 @@ impl Derivation {
         // into a (sorted, guaranteed by BTreeSet) list of references
         let references: BTreeSet<String> = {
             let mut inputs = self.input_sources.clone();
-            let input_derivation_keys: Vec<String> =
-                self.input_derivations.keys().cloned().collect();
+            let input_derivation_keys: Vec<String> = self
+                .input_derivations
+                .keys()
+                .map(|k| k.to_absolute_path())
+                .collect();
             inputs.extend(input_derivation_keys);
             inputs
         };
@@ -211,12 +202,8 @@ impl Derivation {
             // derivation_or_fod_hash, and replace the derivation path with
             // it's HEXLOWER digest.
             let input_derivations = BTreeMap::from_iter(self.input_derivations.iter().map(
-                |(drv_path_str, output_names)| {
-                    // parse drv_path to StorePathRef
-                    let drv_path = StorePathRef::from_absolute_path(drv_path_str.as_bytes())
-                        .expect("invalid input derivation path");
-
-                    let hash = fn_get_derivation_or_fod_hash(&drv_path);
+                |(drv_path, output_names)| {
+                    let hash = fn_get_derivation_or_fod_hash(&drv_path.into());
 
                     (hash, output_names.to_owned())
                 },

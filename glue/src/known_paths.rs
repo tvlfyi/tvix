@@ -59,14 +59,8 @@ impl KnownPaths {
         // check input derivations to have been inserted.
         #[cfg(debug_assertions)]
         {
-            // TODO: b/264
-            // We assume derivations to be passed validated, so ignoring rest
-            // and expecting parsing is ok.
-            for input_drv_path_str in drv.input_derivations.keys() {
-                let (input_drv_path, _rest) =
-                    StorePath::from_absolute_path_full(input_drv_path_str)
-                        .expect("parse input drv path");
-                debug_assert!(self.derivations.contains_key(&input_drv_path));
+            for input_drv_path in drv.input_derivations.keys() {
+                debug_assert!(self.derivations.contains_key(input_drv_path));
             }
         }
 

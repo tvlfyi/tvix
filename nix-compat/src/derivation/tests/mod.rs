@@ -104,7 +104,7 @@ fn from_aterm_bytes(path_to_drv_file: &str) {
 
     assert_eq!(
         &aterm_bytes,
-        &parsed_drv.to_aterm_bytes(),
+        &BString::new(parsed_drv.to_aterm_bytes()),
         "expected serialized ATerm to match initial input"
     );
 }
@@ -381,10 +381,9 @@ fn output_path_construction() {
     );
 
     // assemble foo input_derivations
-    foo_drv.input_derivations.insert(
-        bar_drv_path.to_absolute_path(),
-        BTreeSet::from(["out".to_string()]),
-    );
+    foo_drv
+        .input_derivations
+        .insert(bar_drv_path, BTreeSet::from(["out".to_string()]));
 
     // calculate foo output paths
     let foo_calc_result = foo_drv.calculate_output_paths(

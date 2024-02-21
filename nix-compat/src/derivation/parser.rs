@@ -14,6 +14,7 @@ use thiserror;
 
 use crate::derivation::parse_error::{into_nomerror, ErrorKind, NomError, NomResult};
 use crate::derivation::{write, CAHash, Derivation, Output};
+use crate::store_path::{self, StorePath, StorePathRef};
 use crate::{aterm, nixhash};
 
 #[derive(Debug, thiserror::Error)]
@@ -142,11 +143,11 @@ fn parse_outputs(i: &[u8]) -> NomResult<&[u8], BTreeMap<String, Output>> {
     }
 }
 
-fn parse_input_derivations(i: &[u8]) -> NomResult<&[u8], BTreeMap<String, BTreeSet<String>>> {
+fn parse_input_derivations(i: &[u8]) -> NomResult<&[u8], BTreeMap<StorePath, BTreeSet<String>>> {
     let (i, input_derivations_list) = parse_kv::<Vec<String>, _>(aterm::parse_str_list)(i)?;
 
     // This is a HashMap of drv paths to a list of output names.
-    let mut input_derivations: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut input_derivations: BTreeMap<StorePath, BTreeSet<String>> = BTreeMap::new();
 
     for (input_derivation, output_names) in input_derivations_list {
         let mut new_output_names = BTreeSet::new();
@@ -159,10 +160,26 @@ fn parse_input_derivations(i: &[u8]) -> NomResult<&[u8], BTreeMap<String, BTreeS
                         output_name.to_string(),
                     ),
                 }));
-            } else {
-                new_output_names.insert(output_name);
             }
+            new_output_names.insert(output_name);
         }
+
+        #[cfg(debug_assertions)]
+        let input_derivation_str = input_derivation.clone();
+
+        let input_derivation: StorePath =
+            StorePathRef::from_absolute_path(input_derivation.as_bytes())
+                .map_err(|e: store_path::Error| {
+                    nom::Err::Failure(NomError {
+                        input: i,
+                        code: e.into(),
+                    })
+                })?
+                .to_owned();
+
+        #[cfg(debug_assertions)]
+        assert_eq!(input_derivation_str, input_derivation.to_absolute_path());
+
         input_derivations.insert(input_derivation, new_output_names);
     }
 
@@ -297,8 +314,11 @@ where
 mod tests {
     use std::collections::{BTreeMap, BTreeSet};
 
-    use crate::derivation::{
-        parse_error::ErrorKind, parser::from_algo_and_mode_and_digest, CAHash, NixHash, Output,
+    use crate::{
+        derivation::{
+            parse_error::ErrorKind, parser::from_algo_and_mode_and_digest, CAHash, NixHash, Output,
+        },
+        store_path::StorePath,
     };
     use bstr::{BString, ByteSlice};
     use hex_literal::hex;
@@ -334,10 +354,11 @@ mod tests {
             b.insert("b".to_string(), b"2".as_bstr().to_owned());
             b
         };
-        static ref EXP_INPUT_DERIVATIONS_SIMPLE: BTreeMap<String, BTreeSet<String>> = {
+        static ref EXP_INPUT_DERIVATIONS_SIMPLE: BTreeMap<StorePath, BTreeSet<String>> = {
             let mut b = BTreeMap::new();
             b.insert(
-                "/nix/store/8bjm87p310sb7r2r0sg4xrynlvg86j8k-hello-2.12.1.tar.gz.drv".to_string(),
+                StorePath::from_bytes(b"8bjm87p310sb7r2r0sg4xrynlvg86j8k-hello-2.12.1.tar.gz.drv")
+                    .unwrap(),
                 {
                     let mut output_names = BTreeSet::new();
                     output_names.insert("out".to_string());
@@ -345,7 +366,8 @@ mod tests {
                 },
             );
             b.insert(
-                "/nix/store/p3jc8aw45dza6h52v81j7lk69khckmcj-bash-5.2-p15.drv".to_string(),
+                StorePath::from_bytes(b"p3jc8aw45dza6h52v81j7lk69khckmcj-bash-5.2-p15.drv")
+                    .unwrap(),
                 {
                     let mut output_names = BTreeSet::new();
                     output_names.insert("out".to_string());
@@ -400,7 +422,7 @@ mod tests {
     #[test_case(EXP_INPUT_DERIVATIONS_SIMPLE_ATERM.as_bytes(), &EXP_INPUT_DERIVATIONS_SIMPLE; "simple")]
     fn parse_input_derivations(
         input: &'static [u8],
-        expected: &BTreeMap<String, BTreeSet<String>>,
+        expected: &BTreeMap<StorePath, BTreeSet<String>>,
     ) {
         let (rest, parsed) = super::parse_input_derivations(input).expect("must parse");
 

@@ -4,6 +4,7 @@ use crate::tvix_store_io::TvixStoreIO;
 use bstr::BString;
 use nix_compat::derivation::{Derivation, Output};
 use nix_compat::nixhash;
+use nix_compat::store_path::StorePath;
 use std::collections::{btree_map, BTreeSet};
 use std::rc::Rc;
 use tvix_eval::builtin_macros::builtins;
@@ -26,7 +27,23 @@ fn populate_inputs(drv: &mut Derivation, full_context: NixContext) {
                 drv.input_sources.insert(source.clone());
             }
 
-            NixContextElement::Single { name, derivation } => {
+            NixContextElement::Single {
+                name,
+                derivation: derivation_str,
+            } => {
+                // TODO: b/264
+                // We assume derivations to be passed validated, so ignoring rest
+                // and expecting parsing is ok.
+                let (derivation, _rest) =
+                    StorePath::from_absolute_path_full(derivation_str).expect("valid store path");
+
+                #[cfg(debug_assertions)]
+                assert!(
+                    _rest.iter().next().is_none(),
+                    "Extra path not empty for {}",
+                    derivation_str
+                );
+
                 match drv.input_derivations.entry(derivation.clone()) {
                     btree_map::Entry::Vacant(entry) => {
                         entry.insert(BTreeSet::from([name.clone()]));

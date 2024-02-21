@@ -75,9 +75,26 @@ impl PartialOrd for StorePath {
     }
 }
 
+/// `StorePath`s are sorted by their reverse digest to match the sorting order
+/// of the nixbase32-encoded string.
 impl Ord for StorePath {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.digest.cmp(&other.digest)
+        let order = self.digest.iter().rev().cmp(other.digest.iter().rev());
+
+        // This order must match the order of the nixbase32 encoded digests.
+        #[cfg(debug_assertions)]
+        {
+            let self_hash = nixbase32::encode(&self.digest);
+            let other_hash = nixbase32::encode(&other.digest);
+            let canonical_order = self_hash.cmp(&other_hash);
+            assert_eq!(
+                order, canonical_order,
+                "Ordering of nixbase32 differs, {:?} instead of {:?}:\n{:?}\n{:?}",
+                order, canonical_order, self_hash, other_hash
+            );
+        }
+
+        order
     }
 }
 
@@ -339,10 +356,12 @@ impl fmt::Display for StorePathRef<'_> {
 
 #[cfg(test)]
 mod tests {
+    use std::cmp::Ordering;
     use std::path::PathBuf;
 
     use crate::store_path::{StorePathRef, DIGEST_SIZE};
     use hex_literal::hex;
+    use pretty_assertions::assert_eq;
     use test_case::test_case;
 
     use super::{Error, StorePath};
@@ -360,6 +379,47 @@ mod tests {
         assert_eq!(nixpath.digest, expected_digest);
 
         assert_eq!(example_nix_path_str, nixpath.to_string())
+    }
+
+    #[test]
+    fn store_path_ordering() {
+        let store_paths = [
+            "/nix/store/0lk5dgi01r933abzfj9c9wlndg82yd3g-psutil-5.9.6.tar.gz.drv",
+            "/nix/store/1xj43bva89f9qmwm37zl7r3d7m67i9ck-shorttoc-1.3-tex.drv",
+            "/nix/store/2gb633czchi20jq1kqv70rx2yvvgins8-lifted-base-0.2.3.12.tar.gz.drv",
+            "/nix/store/2vksym3r3zqhp15q3fpvw2mnvffv11b9-docbook-xml-4.5.zip.drv",
+            "/nix/store/5q918awszjcz5720xvpc2czbg1sdqsf0-rust_renaming-0.1.0-lib",
+            "/nix/store/7jw30i342sr2p1fmz5xcfnch65h4zbd9-dbus-1.14.10.tar.xz.drv",
+            "/nix/store/96yqwqhnp3qya4rf4n0rcl0lwvrylp6k-eap8021x-222.40.1.tar.gz.drv",
+            "/nix/store/9gjqg36a1v0axyprbya1hkaylmnffixg-virtualenv-20.24.5.tar.gz.drv",
+            "/nix/store/a4i5mci2g9ada6ff7ks38g11dg6iqyb8-perl-5.32.1.drv",
+            "/nix/store/a5g76ljava4h5pxlggz3aqdhs3a4fk6p-ToolchainInfo.plist.drv",
+            "/nix/store/db46l7d6nswgz4ffp1mmd56vjf9g51v6-version.plist.drv",
+            "/nix/store/g6f7w20sd7vwy0rc1r4bfsw4ciclrm4q-crates-io-num_cpus-1.12.0.drv",
+            "/nix/store/iw82n1wwssb8g6772yddn8c3vafgv9np-bootstrap-stage1-sysctl-stdenv-darwin.drv",
+            "/nix/store/lp78d1y5wxpcn32d5c4r7xgbjwiw0cgf-logo.svg.drv",
+            "/nix/store/mf00ank13scv1f9l1zypqdpaawjhfr3s-python3.11-psutil-5.9.6.drv",
+            "/nix/store/mpfml61ra7pz90124jx9r3av0kvkz2w1-perl5.36.0-Encode-Locale-1.05",
+            "/nix/store/qhsvwx4h87skk7c4mx0xljgiy3z93i23-source.drv",
+            "/nix/store/riv7d73adim8hq7i04pr8kd0jnj93nav-fdk-aac-2.0.2.tar.gz.drv",
+            "/nix/store/s64b9031wga7vmpvgk16xwxjr0z9ln65-human-signals-5.0.0.tgz-extracted",
+            "/nix/store/w6svg3m2xdh6dhx0gl1nwa48g57d3hxh-thiserror-1.0.49",
+        ];
+
+        for w in store_paths.windows(2) {
+            if w.len() < 2 {
+                continue;
+            }
+            let (pa, _) = StorePath::from_absolute_path_full(w[0]).expect("parseable");
+            let (pb, _) = StorePath::from_absolute_path_full(w[1]).expect("parseable");
+            assert_eq!(
+                Ordering::Less,
+                pa.cmp(&pb),
+                "{:?} not less than {:?}",
+                w[0],
+                w[1]
+            );
+        }
     }
 
     /// This is the store path rejected when `nix-store --add`'ing an
@@ -440,10 +500,10 @@ mod tests {
 
     #[test]
     fn serialize_ref() {
-        let store_path_str =
-            "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432";
-        let nixpath_actual =
-            StorePathRef::from_absolute_path(store_path_str.as_bytes()).expect("can parse");
+        let nixpath_actual = StorePathRef::from_bytes(
+            b"00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432",
+        )
+        .expect("can parse");
 
         let serialized = serde_json::to_string(&nixpath_actual).expect("can serialize");
 
@@ -455,11 +515,10 @@ mod tests {
 
     #[test]
     fn serialize_owned() {
-        let store_path_str =
-            "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432";
-        let nixpath_actual = StorePathRef::from_absolute_path(store_path_str.as_bytes())
-            .expect("can parse")
-            .to_owned();
+        let nixpath_actual = StorePath::from_bytes(
+            b"00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432",
+        )
+        .expect("can parse");
 
         let serialized = serde_json::to_string(&nixpath_actual).expect("can serialize");
 

@@ -53,14 +53,7 @@ impl Derivation {
         // Validate all input_derivations
         for (input_derivation_path, output_names) in &self.input_derivations {
             // Validate input_derivation_path
-            if let Err(e) = StorePathRef::from_absolute_path(input_derivation_path.as_bytes()) {
-                return Err(DerivationError::InvalidInputDerivationPath(
-                    input_derivation_path.to_string(),
-                    e,
-                ));
-            }
-
-            if !input_derivation_path.ends_with(".drv") {
+            if !input_derivation_path.name().ends_with(".drv") {
                 return Err(DerivationError::InvalidInputDerivationPrefix(
                     input_derivation_path.to_string(),
                 ));
