@@ -5,13 +5,18 @@
 
 use crate::aterm::escape_bytes;
 use crate::derivation::{ca_kind_prefix, output::Output};
+use crate::nixbase32;
+use crate::store_path::{StorePath, StorePathRef, STORE_DIR_WITH_SLASH};
 use bstr::BString;
+use std::fmt::Display;
 use std::{
     collections::{BTreeMap, BTreeSet},
     io,
     io::Error,
     io::Write,
 };
+
+use super::NixHash;
 
 pub const DERIVATION_PREFIX: &str = "Derive";
 pub const PAREN_OPEN: char = '(';
@@ -20,6 +25,49 @@ pub const BRACKET_OPEN: char = '[';
 pub const BRACKET_CLOSE: char = ']';
 pub const COMMA: char = ',';
 pub const QUOTE: char = '"';
+
+/// Something that can be written as ATerm.
+///
+/// Note that we mostly use explicit `write_*` calls
+/// instead since the serialization of the items depends on
+/// the context a lot.
+pub(crate) trait AtermWriteable: Display {
+    fn aterm_write(&self, writer: &mut impl Write) -> std::io::Result<()>;
+}
+
+impl AtermWriteable for StorePathRef<'_> {
+    fn aterm_write(&self, writer: &mut impl Write) -> std::io::Result<()> {
+        write_char(writer, QUOTE)?;
+        writer.write_all(STORE_DIR_WITH_SLASH.as_bytes())?;
+        writer.write_all(nixbase32::encode(self.digest()).as_bytes())?;
+        write_char(writer, '-')?;
+        writer.write_all(self.name().as_bytes())?;
+        write_char(writer, QUOTE)?;
+        Ok(())
+    }
+}
+
+impl AtermWriteable for StorePath {
+    fn aterm_write(&self, writer: &mut impl Write) -> std::io::Result<()> {
+        let r: StorePathRef = self.into();
+        r.aterm_write(writer)
+    }
+}
+
+impl AtermWriteable for String {
+    fn aterm_write(&self, writer: &mut impl Write) -> std::io::Result<()> {
+        write_field(writer, self, true)
+    }
+}
+
+impl AtermWriteable for NixHash {
+    fn aterm_write(&self, writer: &mut impl Write) -> std::io::Result<()> {
+        // When we serialize the placeholder hashes,
+        // they need to be SHA256.
+        debug_assert!(matches!(self, NixHash::Sha256(_)));
+        write_field(writer, self.to_plain_hex_string(), false)
+    }
+}
 
 // Writes a character to the writer.
 pub(crate) fn write_char(writer: &mut impl Write, c: char) -> io::Result<()> {
@@ -101,17 +149,17 @@ pub(crate) fn write_outputs(
 
 pub(crate) fn write_input_derivations(
     writer: &mut impl Write,
-    input_derivations: &BTreeMap<String, BTreeSet<String>>,
+    input_derivations: &BTreeMap<BString, &BTreeSet<String>>,
 ) -> Result<(), io::Error> {
     write_char(writer, BRACKET_OPEN)?;
 
-    for (ii, (input_derivation, output_names)) in input_derivations.iter().enumerate() {
+    for (ii, (input_derivation_aterm, output_names)) in input_derivations.iter().enumerate() {
         if ii > 0 {
             write_char(writer, COMMA)?;
         }
 
         write_char(writer, PAREN_OPEN)?;
-        write_field(writer, input_derivation.as_str(), false)?;
+        writer.write_all(input_derivation_aterm)?;
         write_char(writer, COMMA)?;
 
         write_char(writer, BRACKET_OPEN)?;
