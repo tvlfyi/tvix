@@ -229,6 +229,10 @@ pub enum ErrorKind {
     /// tvix-eval when returning a result to the user, never inside of
     /// eval code.
     CatchableError(CatchableErrorKind),
+
+    /// Invalid hash type specified, must be one of "md5", "sha1", "sha256"
+    /// or "sha512"
+    UnknownHashType(String),
 }
 
 impl error::Error for Error {
@@ -533,6 +537,10 @@ to a missing value in the attribute set(s) included via `with`."#,
             ErrorKind::CatchableError(inner) => {
                 write!(f, "{}", inner)
             }
+
+            ErrorKind::UnknownHashType(hash_type) => {
+                write!(f, "unknown hash type '{}'", hash_type)
+            }
         }
     }
 }
@@ -821,6 +829,7 @@ impl Error {
             | ErrorKind::TvixBug { .. }
             | ErrorKind::NotImplemented(_)
             | ErrorKind::WithContext { .. }
+            | ErrorKind::UnknownHashType(_)
             | ErrorKind::CatchableError(_) => return None,
         };
 
@@ -866,6 +875,7 @@ impl Error {
             ErrorKind::NotSerialisableToJson(_) => "E036",
             ErrorKind::UnexpectedContext => "E037",
             ErrorKind::Utf8 => "E038",
+            ErrorKind::UnknownHashType(_) => "E039",
 
             // Special error code for errors from other Tvix
             // components. We may want to introduce a code namespacing

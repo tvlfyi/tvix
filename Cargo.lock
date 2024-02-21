@@ -1417,6 +1417,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e7465ac9959cc2b1404e8e2367b43684a6d13790fe23056cc8c6c5a6b7bcb94"
 
 [[package]]
+name = "md-5"
+version = "0.10.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d89e7ee0cfbedfc4da3340218492196241d89eefb6dab27de5df917a6d2e78cf"
+dependencies = [
+ "cfg-if",
+ "digest",
+]
+
+[[package]]
 name = "memchr"
 version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2544,6 +2554,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha1"
+version = "0.10.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3bf829a2d51ab4a5ddf1352d8470c140cadc8301b2ae1789db023f01cedd6ba"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "digest",
+]
+
+[[package]]
 name = "sha2"
 version = "0.10.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3346,12 +3367,14 @@ dependencies = [
  "codemap",
  "codemap-diagnostic",
  "criterion",
+ "data-encoding",
  "dirs",
  "genawaiter",
  "imbl",
  "itertools 0.12.0",
  "lazy_static",
  "lexical-core",
+ "md-5",
  "os_str_bytes",
  "path-clean",
  "pretty_assertions",
@@ -3362,6 +3385,8 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
+ "sha1",
+ "sha2",
  "smol_str",
  "tabwriter",
  "tempfile",

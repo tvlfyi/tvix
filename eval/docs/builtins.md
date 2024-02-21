@@ -66,7 +66,7 @@ The `impl` column indicates implementation status in tvix:
 | hasAttr                       | false  |       |       |         |
 | hasContext                    | false  |       |       |         |
 | hashFile                      | false  |       | false | todo    |
-| hashString                    | false  |       |       | todo    |
+| hashString                    | false  |       |       |         |
 | head                          | false  |       |       |         |
 | import                        | true   |       |       |         |
 | intersectAttrs                | false  |       |       |         |

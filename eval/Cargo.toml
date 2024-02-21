@@ -33,6 +33,10 @@ tabwriter = "1.2"
 test-strategy = { version = "0.2.1", optional = true }
 toml = "0.6.0"
 xml-rs = "0.8.4"
+sha2 = "0.10.8"
+sha1 = "0.10.6"
+md-5 = "0.10.6"
+data-encoding = "2.5.0"
 
 [dev-dependencies]
 criterion = "0.5"

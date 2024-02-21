@@ -5,9 +5,14 @@
 
 use bstr::{ByteSlice, ByteVec};
 use builtin_macros::builtins;
+use data_encoding::HEXLOWER;
 use genawaiter::rc::Gen;
 use imbl::OrdMap;
+use md5::Md5;
 use regex::Regex;
+use sha1::Sha1;
+use sha2::digest::Output;
+use sha2::{Digest, Sha256, Sha512};
 use std::cmp::{self, Ordering};
 use std::collections::VecDeque;
 use std::collections::{BTreeMap, HashSet};
@@ -686,15 +691,24 @@ mod pure_builtins {
 
     #[builtin("hashString")]
     #[allow(non_snake_case)]
-    async fn builtin_hashString(
-        co: GenCo,
-        _algo: Value,
-        _string: Value,
-    ) -> Result<Value, ErrorKind> {
-        // FIXME: propagate contexts here.
-        Ok(Value::from(CatchableErrorKind::UnimplementedFeature(
-            "hashString".into(),
-        )))
+    async fn builtin_hashString(co: GenCo, algo: Value, s: Value) -> Result<Value, ErrorKind> {
+        fn hash<D: Digest>(b: &[u8]) -> Output<D> {
+            let mut hasher = D::new();
+            hasher.update(b);
+            hasher.finalize()
+        }
+
+        let s = s.to_str()?;
+
+        let encoded_hash = match algo.to_str()?.as_bytes() {
+            b"md5" => HEXLOWER.encode(hash::<Md5>(&s).as_bstr()),
+            b"sha1" => HEXLOWER.encode(hash::<Sha1>(&s).as_bstr()),
+            b"sha256" => HEXLOWER.encode(hash::<Sha256>(&s).as_bstr()),
+            b"sha512" => HEXLOWER.encode(hash::<Sha512>(&s).as_bstr()),
+            _ => return Err(ErrorKind::UnknownHashType(s.into())),
+        };
+
+        Ok(Value::from(encoded_hash))
     }
 
     #[builtin("head")]
