@@ -44,7 +44,7 @@ where
         self.actual.as_ref().path_exists(path)
     }
 
-    fn read_to_string(&self, path: &Path) -> io::Result<String> {
+    fn read_to_end(&self, path: &Path) -> io::Result<Vec<u8>> {
         // Bundled version of corepkgs/fetchurl.nix. The counterpart
         // of this happens in [crate::configure_nix_path], where the `nix_path`
         // of the evaluation has `nix=/__corepkgs__` added to it.
@@ -55,10 +55,10 @@ where
         // TODO: this comparison is bad and allocates, we should use
         // the sane path library.
         if path.starts_with("/__corepkgs__/fetchurl.nix") {
-            return Ok(include_str!("fetchurl.nix").to_string());
+            return Ok(include_bytes!("fetchurl.nix").to_vec());
         }
 
-        self.actual.as_ref().read_to_string(path)
+        self.actual.as_ref().read_to_end(path)
     }
 
     fn read_dir(&self, path: &Path) -> io::Result<Vec<(bytes::Bytes, FileType)>> {

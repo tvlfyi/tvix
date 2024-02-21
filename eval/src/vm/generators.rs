@@ -429,7 +429,7 @@ where
                             let content = self
                                 .io_handle
                                 .as_ref()
-                                .read_to_string(&path)
+                                .read_to_end(&path)
                                 .map_err(|e| ErrorKind::IO {
                                     path: Some(path),
                                     error: e.into(),

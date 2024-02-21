@@ -371,7 +371,7 @@ impl EvalIO for TvixStoreIO {
     }
 
     #[instrument(skip(self), err)]
-    fn read_to_string(&self, path: &Path) -> io::Result<String> {
+    fn read_to_end(&self, path: &Path) -> io::Result<Vec<u8>> {
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
         {
@@ -416,9 +416,9 @@ impl EvalIO for TvixStoreIO {
                                 }
                             };
 
-                            let mut buf = String::new();
+                            let mut buf = Vec::new();
 
-                            reader.read_to_string(&mut buf).await?;
+                            reader.read_to_end(&mut buf).await?;
                             Ok(buf)
                         })
                     }
@@ -430,11 +430,11 @@ impl EvalIO for TvixStoreIO {
             } else {
                 // As tvix-store doesn't manage /nix/store on the filesystem,
                 // we still need to also ask self.std_io here.
-                self.std_io.read_to_string(path)
+                self.std_io.read_to_end(path)
             }
         } else {
             // The store path is no store path, so do regular StdIO.
-            self.std_io.read_to_string(path)
+            self.std_io.read_to_end(path)
         }
     }
 
