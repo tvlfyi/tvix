@@ -4,7 +4,7 @@ use crate::tvix_store_io::TvixStoreIO;
 use bstr::BString;
 use nix_compat::derivation::{Derivation, Output};
 use nix_compat::nixhash;
-use nix_compat::store_path::StorePath;
+use nix_compat::store_path::{StorePath, StorePathRef};
 use std::collections::{btree_map, BTreeSet};
 use std::rc::Rc;
 use tvix_eval::builtin_macros::builtins;
@@ -24,7 +24,10 @@ fn populate_inputs(drv: &mut Derivation, full_context: NixContext) {
     for element in full_context.iter() {
         match element {
             NixContextElement::Plain(source) => {
-                drv.input_sources.insert(source.clone());
+                let sp = StorePathRef::from_absolute_path(source.as_bytes())
+                    .expect("invalid store path")
+                    .to_owned();
+                drv.input_sources.insert(sp);
             }
 
             NixContextElement::Single {

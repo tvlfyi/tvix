@@ -186,11 +186,19 @@ fn parse_input_derivations(i: &[u8]) -> NomResult<&[u8], BTreeMap<StorePath, BTr
     Ok((i, input_derivations))
 }
 
-fn parse_input_sources(i: &[u8]) -> NomResult<&[u8], BTreeSet<String>> {
+fn parse_input_sources(i: &[u8]) -> NomResult<&[u8], BTreeSet<StorePath>> {
     let (i, input_sources_lst) = aterm::parse_str_list(i).map_err(into_nomerror)?;
 
     let mut input_sources: BTreeSet<_> = BTreeSet::new();
     for input_source in input_sources_lst.into_iter() {
+        let input_source: StorePath = StorePathRef::from_absolute_path(input_source.as_bytes())
+            .map_err(|e: store_path::Error| {
+                nom::Err::Failure(NomError {
+                    input: i,
+                    code: e.into(),
+                })
+            })?
+            .to_owned();
         if input_sources.contains(&input_source) {
             return Err(nom::Err::Failure(NomError {
                 input: i,
@@ -312,6 +320,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::store_path::StorePathRef;
     use std::collections::{BTreeMap, BTreeSet};
 
     use crate::{
@@ -460,7 +469,14 @@ mod tests {
     fn parse_input_sources(input: &'static [u8], expected: &BTreeSet<String>) {
         let (rest, parsed) = super::parse_input_sources(input).expect("must parse");
 
-        assert_eq!(expected, &parsed, "parsed mismatch");
+        assert_eq!(
+            expected,
+            &parsed
+                .iter()
+                .map(StorePath::to_absolute_path)
+                .collect::<BTreeSet<_>>(),
+            "parsed mismatch"
+        );
         assert!(rest.is_empty(), "rest must be empty");
     }
 
@@ -474,7 +490,11 @@ mod tests {
             nom::Err::Failure(e) => {
                 assert_eq!(
                     ErrorKind::DuplicateInputSource(
-                        "/nix/store/55lwldka5nyxa08wnvlizyqw02ihy8ic-foo".to_string()
+                        StorePathRef::from_absolute_path(
+                            "/nix/store/55lwldka5nyxa08wnvlizyqw02ihy8ic-foo".as_bytes()
+                        )
+                        .unwrap()
+                        .to_owned()
                     ),
                     e.code
                 );

@@ -40,7 +40,7 @@ pub struct Derivation {
 
     /// Plain store paths of additional inputs.
     #[serde(rename = "inputSrcs")]
-    pub input_sources: BTreeSet<String>,
+    pub input_sources: BTreeSet<StorePath>,
 
     /// Maps output names to Output.
     pub outputs: BTreeMap<String, Output>,
@@ -131,16 +131,12 @@ impl Derivation {
 
         // collect the list of paths from input_sources and input_derivations
         // into a (sorted, guaranteed by BTreeSet) list of references
-        let references: BTreeSet<String> = {
-            let mut inputs = self.input_sources.clone();
-            let input_derivation_keys: Vec<String> = self
-                .input_derivations
-                .keys()
-                .map(|k| k.to_absolute_path())
-                .collect();
-            inputs.extend(input_derivation_keys);
-            inputs
-        };
+        let references: BTreeSet<String> = self
+            .input_sources
+            .iter()
+            .chain(self.input_derivations.keys())
+            .map(StorePath::to_absolute_path)
+            .collect();
 
         build_text_path(name, self.to_aterm_bytes(), references)
             .map(|s| s.to_owned())

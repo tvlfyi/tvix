@@ -1,5 +1,5 @@
 use crate::derivation::{Derivation, DerivationError};
-use crate::store_path::{self, StorePathRef};
+use crate::store_path;
 
 impl Derivation {
     /// validate ensures a Derivation struct is properly populated,
@@ -84,16 +84,6 @@ impl Derivation {
                         output_name.to_string(),
                     ));
                 }
-            }
-        }
-
-        // Validate all input_sources
-        for input_source in self.input_sources.iter() {
-            if let Err(e) = StorePathRef::from_absolute_path(input_source.as_bytes()) {
-                return Err(DerivationError::InvalidInputSourcesPath(
-                    input_source.to_string(),
-                    e,
-                ));
             }
         }
 

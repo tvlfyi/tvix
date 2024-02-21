@@ -2,7 +2,10 @@
 //! Derivations from ATerm.
 use nom::IResult;
 
-use crate::{nixhash, store_path};
+use crate::{
+    nixhash,
+    store_path::{self, StorePath},
+};
 
 pub type NomResult<I, O> = IResult<I, O, NomError<I>>;
 
@@ -17,7 +20,7 @@ pub enum ErrorKind {
     DuplicateInputDerivationOutputName(String, String),
 
     #[error("duplicate input source: {0}")]
-    DuplicateInputSource(String),
+    DuplicateInputSource(StorePath),
 
     #[error("nix hash error: {0}")]
     NixHashError(nixhash::Error),
