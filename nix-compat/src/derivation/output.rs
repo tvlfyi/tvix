@@ -1,14 +1,16 @@
-use crate::derivation::OutputError;
 use crate::nixhash::CAHash;
 use crate::store_path::StorePathRef;
+use crate::{derivation::OutputError, store_path::StorePath};
+use serde::de::Unexpected;
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
+use std::borrow::Cow;
 
 /// References the derivation output.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct Output {
     /// Store path of build result.
-    pub path: String,
+    pub path: Option<StorePath>,
 
     #[serde(flatten)]
     pub ca_hash: Option<CAHash>, // we can only represent a subset here.
@@ -20,18 +22,21 @@ impl<'de> Deserialize<'de> for Output {
         D: serde::Deserializer<'de>,
     {
         let fields = Map::deserialize(deserializer)?;
+        let path: &str = fields
+            .get("path")
+            .ok_or(serde::de::Error::missing_field(
+                "`path` is missing but required for outputs",
+            ))?
+            .as_str()
+            .ok_or(serde::de::Error::invalid_type(
+                serde::de::Unexpected::Other("certainly not a string"),
+                &"a string",
+            ))?;
+
+        let path = StorePathRef::from_absolute_path(path.as_bytes())
+            .map_err(|_| serde::de::Error::invalid_value(Unexpected::Str(path), &"StorePath"))?;
         Ok(Self {
-            path: fields
-                .get("path")
-                .ok_or(serde::de::Error::missing_field(
-                    "`path` is missing but required for outputs",
-                ))?
-                .as_str()
-                .ok_or(serde::de::Error::invalid_type(
-                    serde::de::Unexpected::Other("certainly not a string"),
-                    &"a string",
-                ))?
-                .to_owned(),
+            path: Some(path.to_owned()),
             ca_hash: CAHash::from_map::<D>(&fields)?,
         })
     }
@@ -40,6 +45,14 @@ impl<'de> Deserialize<'de> for Output {
 impl Output {
     pub fn is_fixed(&self) -> bool {
         self.ca_hash.is_some()
+    }
+
+    /// The output path as a string -- use `""` to indicate an unset output path.
+    pub fn path_str(&self) -> Cow<str> {
+        match &self.path {
+            None => Cow::Borrowed(""),
+            Some(path) => Cow::Owned(path.to_absolute_path()),
+        }
     }
 
     pub fn validate(&self, validate_output_paths: bool) -> Result<(), OutputError> {
@@ -52,10 +65,8 @@ impl Output {
             }
         }
 
-        if validate_output_paths {
-            if let Err(e) = StorePathRef::from_absolute_path(self.path.as_bytes()) {
-                return Err(OutputError::InvalidOutputPath(self.path.to_string(), e));
-            }
+        if validate_output_paths && self.path.is_none() {
+            return Err(OutputError::MissingOutputPath);
         }
         Ok(())
     }
@@ -67,7 +78,7 @@ impl Output {
 fn deserialize_valid_input_addressed_output() {
     let json_bytes = r#"
     {
-      "path": "/nix/store/blablabla"
+      "path": "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432"
     }"#;
     let output: Output = serde_json::from_str(json_bytes).expect("must parse");
 
@@ -80,7 +91,7 @@ fn deserialize_valid_input_addressed_output() {
 fn deserialize_valid_fixed_output() {
     let json_bytes = r#"
     {
-        "path": "/nix/store/blablablabla",
+        "path": "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432",
         "hash": "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba",
         "hashAlgo": "r:sha256"
     }"#;
@@ -95,7 +106,7 @@ fn deserialize_valid_fixed_output() {
 fn deserialize_with_error_invalid_hash_encoding_fixed_output() {
     let json_bytes = r#"
     {
-        "path": "/nix/store/blablablabla",
+        "path": "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432",
         "hash": "IAMNOTVALIDNIXBASE32",
         "hashAlgo": "r:sha256"
     }"#;
@@ -110,7 +121,7 @@ fn deserialize_with_error_invalid_hash_encoding_fixed_output() {
 fn deserialize_with_error_invalid_hash_algo_fixed_output() {
     let json_bytes = r#"
     {
-        "path": "/nix/store/blablablabla",
+        "path": "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432",
         "hash": "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba",
         "hashAlgo": "r:sha1024"
     }"#;
@@ -125,7 +136,7 @@ fn deserialize_with_error_invalid_hash_algo_fixed_output() {
 fn deserialize_with_error_missing_hash_algo_fixed_output() {
     let json_bytes = r#"
     {
-        "path": "/nix/store/blablablabla",
+        "path": "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432",
         "hash": "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba",
     }"#;
     let output: Result<Output, _> = serde_json::from_str(json_bytes);
@@ -139,7 +150,7 @@ fn deserialize_with_error_missing_hash_algo_fixed_output() {
 fn deserialize_with_error_missing_hash_fixed_output() {
     let json_bytes = r#"
     {
-        "path": "/nix/store/blablablabla",
+        "path": "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432",
         "hashAlgo": "r:sha1024"
     }"#;
     let output: Result<Output, _> = serde_json::from_str(json_bytes);

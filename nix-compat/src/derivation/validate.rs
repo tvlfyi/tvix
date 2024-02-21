@@ -123,7 +123,7 @@ mod test {
         outputs.insert(
             "out".to_string(),
             Output {
-                path: "".to_string(),
+                path: None,
                 ca_hash: Some(CAHash::Text([0; 32])), // This is disallowed
             },
         );

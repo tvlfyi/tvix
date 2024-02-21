@@ -97,7 +97,13 @@ fn parse_output(i: &[u8]) -> NomResult<&[u8], (String, Output)> {
                     Ok(hash_with_mode) => Ok((
                         output_name,
                         Output {
-                            path: output_path,
+                            // TODO: Check if allowing empty paths here actually makes sense
+                            //       or we should make this code stricter.
+                            path: if output_path.is_empty() {
+                                None
+                            } else {
+                                Some(string_to_store_path(i, output_path)?)
+                            },
                             ca_hash: hash_with_mode,
                         },
                     )),
@@ -164,21 +170,7 @@ fn parse_input_derivations(i: &[u8]) -> NomResult<&[u8], BTreeMap<StorePath, BTr
             new_output_names.insert(output_name);
         }
 
-        #[cfg(debug_assertions)]
-        let input_derivation_str = input_derivation.clone();
-
-        let input_derivation: StorePath =
-            StorePathRef::from_absolute_path(input_derivation.as_bytes())
-                .map_err(|e: store_path::Error| {
-                    nom::Err::Failure(NomError {
-                        input: i,
-                        code: e.into(),
-                    })
-                })?
-                .to_owned();
-
-        #[cfg(debug_assertions)]
-        assert_eq!(input_derivation_str, input_derivation.to_absolute_path());
+        let input_derivation: StorePath = string_to_store_path(i, input_derivation)?;
 
         input_derivations.insert(input_derivation, new_output_names);
     }
@@ -191,14 +183,7 @@ fn parse_input_sources(i: &[u8]) -> NomResult<&[u8], BTreeSet<StorePath>> {
 
     let mut input_sources: BTreeSet<_> = BTreeSet::new();
     for input_source in input_sources_lst.into_iter() {
-        let input_source: StorePath = StorePathRef::from_absolute_path(input_source.as_bytes())
-            .map_err(|e: store_path::Error| {
-                nom::Err::Failure(NomError {
-                    input: i,
-                    code: e.into(),
-                })
-            })?
-            .to_owned();
+        let input_source: StorePath = string_to_store_path(i, input_source)?;
         if input_sources.contains(&input_source) {
             return Err(nom::Err::Failure(NomError {
                 input: i,
@@ -210,6 +195,28 @@ fn parse_input_sources(i: &[u8]) -> NomResult<&[u8], BTreeSet<StorePath>> {
     }
 
     Ok((i, input_sources))
+}
+
+fn string_to_store_path(
+    i: &[u8],
+    path_str: String,
+) -> Result<StorePath, nom::Err<NomError<&[u8]>>> {
+    #[cfg(debug_assertions)]
+    let path_str2 = path_str.clone();
+
+    let path: StorePath = StorePathRef::from_absolute_path(path_str.as_bytes())
+        .map_err(|e: store_path::Error| {
+            nom::Err::Failure(NomError {
+                input: i,
+                code: e.into(),
+            })
+        })?
+        .to_owned();
+
+    #[cfg(debug_assertions)]
+    assert_eq!(path_str2, path.to_absolute_path());
+
+    Ok(path)
 }
 
 pub fn parse_derivation(i: &[u8]) -> NomResult<&[u8], Derivation> {
@@ -343,15 +350,24 @@ mod tests {
             b.insert(
                 "lib".to_string(),
                 Output {
-                    path: "/nix/store/2vixb94v0hy2xc6p7mbnxxcyc095yyia-has-multi-out-lib"
-                        .to_string(),
+                    path: Some(
+                        StorePath::from_bytes(
+                            b"2vixb94v0hy2xc6p7mbnxxcyc095yyia-has-multi-out-lib",
+                        )
+                        .unwrap(),
+                    ),
                     ca_hash: None,
                 },
             );
             b.insert(
                 "out".to_string(),
                 Output {
-                    path: "/nix/store/55lwldka5nyxa08wnvlizyqw02ihy8ic-has-multi-out".to_string(),
+                    path: Some(
+                        StorePath::from_bytes(
+                            b"55lwldka5nyxa08wnvlizyqw02ihy8ic-has-multi-out".as_bytes(),
+                        )
+                        .unwrap(),
+                    ),
                     ca_hash: None,
                 },
             );
@@ -506,14 +522,17 @@ mod tests {
     #[test_case(
         br#"("out","/nix/store/5vyvcwah9l9kf07d52rcgdk70g2f4y13-foo","","")"#,
         ("out".to_string(), Output {
-            path: "/nix/store/5vyvcwah9l9kf07d52rcgdk70g2f4y13-foo".to_string(),
+            path: Some(
+                StorePathRef::from_absolute_path("/nix/store/5vyvcwah9l9kf07d52rcgdk70g2f4y13-foo".as_bytes()).unwrap().to_owned()),
             ca_hash: None
         }); "simple"
     )]
     #[test_case(
         br#"("out","/nix/store/4q0pg5zpfmznxscq3avycvf9xdvx50n3-bar","r:sha256","08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba")"#,
         ("out".to_string(), Output {
-            path: "/nix/store/4q0pg5zpfmznxscq3avycvf9xdvx50n3-bar".to_string(),
+            path: Some(
+                StorePathRef::from_absolute_path(
+                "/nix/store/4q0pg5zpfmznxscq3avycvf9xdvx50n3-bar".as_bytes()).unwrap().to_owned()),
             ca_hash: Some(from_algo_and_mode_and_digest("r:sha256",
                    data_encoding::HEXLOWER.decode(b"08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba").unwrap()            ).unwrap()),
         }); "fod"

@@ -132,7 +132,8 @@ pub(crate) fn write_outputs(
 
         write_char(writer, PAREN_OPEN)?;
 
-        let mut elements: Vec<&str> = vec![output_name, &output.path];
+        let path_str = output.path_str();
+        let mut elements: Vec<&str> = vec![output_name, &path_str];
 
         let (mode_and_algo, digest) = match &output.ca_hash {
             Some(ca_hash) => (

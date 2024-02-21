@@ -170,7 +170,7 @@ fn derivation_with_trimmed_output_paths(derivation: &Derivation) -> Derivation {
         trimmed_outputs.insert(
             output_name.to_string(),
             Output {
-                path: "".to_string(),
+                path: None,
                 ..output.clone()
             },
         );
@@ -314,7 +314,7 @@ fn output_path_construction() {
     bar_drv.outputs.insert(
         "out".to_string(),
         Output {
-            path: "".to_string(), // will be calculated
+            path: None, // will be calculated
             ca_hash: Some(crate::nixhash::CAHash::Nar(
                 crate::nixhash::from_algo_and_digest(
                     crate::nixhash::HashAlgo::Sha256,
@@ -365,7 +365,16 @@ fn output_path_construction() {
 
     // assemble foo env
     let foo_env = &mut foo_drv.environment;
-    foo_env.insert("bar".to_string(), bar_output_path.to_owned().into());
+    // foo_env.insert("bar".to_string(), StorePathRef:: bar_output_path.to_owned().try_into().unwrap());
+    foo_env.insert(
+        "bar".to_string(),
+        bar_output_path
+            .as_ref()
+            .unwrap()
+            .to_absolute_path()
+            .as_bytes()
+            .into(),
+    );
     foo_env.insert("builder".to_string(), ":".into());
     foo_env.insert("name".to_string(), "foo".into());
     foo_env.insert("out".to_string(), "".into()); // will be calculated
@@ -375,7 +384,7 @@ fn output_path_construction() {
     foo_drv.outputs.insert(
         "out".to_string(),
         Output {
-            path: "".to_string(), // will be calculated
+            path: None, // will be calculated
             ca_hash: None,
         },
     );

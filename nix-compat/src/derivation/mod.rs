@@ -161,7 +161,13 @@ impl Derivation {
                 "fixed:out:{}{}:{}",
                 ca_kind_prefix(ca_hash),
                 ca_hash.digest().to_nix_hex_string(),
-                out_output.path
+                out_output
+                    .path
+                    .as_ref()
+                    .map(StorePath::to_absolute_path)
+                    .as_ref()
+                    .map(|s| s as &str)
+                    .unwrap_or(""),
             ))
             .finalize()
             .into(),
@@ -239,7 +245,7 @@ impl Derivation {
             // Assert that outputs are not yet populated, to avoid using this function wrongly.
             // We don't also go over self.environment, but it's a sufficient
             // footgun prevention mechanism.
-            assert!(output.path.is_empty());
+            assert!(output.path.is_none());
 
             let path_name = output_path_name(name, output_name);
 
@@ -258,7 +264,7 @@ impl Derivation {
                 })?
             };
 
-            output.path = abs_store_path.to_absolute_path();
+            output.path = Some(abs_store_path.to_owned());
             self.environment.insert(
                 output_name.to_string(),
                 abs_store_path.to_absolute_path().into(),

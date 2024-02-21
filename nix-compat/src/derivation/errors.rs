@@ -53,6 +53,8 @@ pub enum DerivationError {
 pub enum OutputError {
     #[error("Invalid output path {0}: {1}")]
     InvalidOutputPath(String, store_path::Error),
+    #[error("Missing output path")]
+    MissingOutputPath,
     #[error("Invalid CAHash: {:?}", .0)]
     InvalidCAHash(CAHash),
 }

@@ -52,7 +52,7 @@ pub(crate) fn derivation_to_build_request(
     let mut output_paths: Vec<String> = derivation
         .outputs
         .values()
-        .map(|e| e.path[1..].to_owned())
+        .map(|e| e.path_str()[1..].to_owned())
         .collect();
 
     // Sort the outputs. We can use sort_unstable, as these are unique strings.

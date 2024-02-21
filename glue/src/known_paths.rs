@@ -74,14 +74,8 @@ impl KnownPaths {
         // For all output paths, update our lookup table.
         // We only write into the lookup table once.
         for output in drv.outputs.values() {
-            // We assume derivations to be passed validated, so ignoring rest
-            // and expecting parsing is ok.
-            // TODO: b/264
-            let (output_path, _rest) =
-                StorePath::from_absolute_path_full(&output.path).expect("parse output path");
-
             self.outputs_to_drvpath
-                .entry(output_path)
+                .entry(output.path.as_ref().expect("missing store path").clone())
                 .or_insert(drv_path.to_owned());
         }
 

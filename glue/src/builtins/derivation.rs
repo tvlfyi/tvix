@@ -116,7 +116,7 @@ fn handle_fixed_output(
         drv.outputs.insert(
             "out".to_string(),
             Output {
-                path: "".to_string(),
+                path: None,
                 ca_hash: match hash_mode_str.as_deref() {
                     None | Some("flat") => Some(nixhash::CAHash::Flat(nixhash)),
                     Some("recursive") => Some(nixhash::CAHash::Nar(nixhash)),
@@ -486,7 +486,7 @@ pub(crate) mod derivation_builtins {
                 (
                     name.clone(),
                     (
-                        output.path,
+                        output.path.unwrap().to_absolute_path(),
                         Some(
                             NixContextElement::Single {
                                 name,
