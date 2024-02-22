@@ -65,7 +65,7 @@ The `impl` column indicates implementation status in tvix:
 | getEnv                        | false  |       | false |         |
 | hasAttr                       | false  |       |       |         |
 | hasContext                    | false  |       |       |         |
-| hashFile                      | false  |       | false | todo    |
+| hashFile                      | false  |       | false |         |
 | hashString                    | false  |       |       |         |
 | head                          | false  |       |       |         |
 | import                        | true   |       |       |         |

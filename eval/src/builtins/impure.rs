@@ -21,13 +21,24 @@ mod impure_builtins {
     use std::os::unix::ffi::OsStrExt;
 
     use super::*;
-    use crate::builtins::coerce_value_to_path;
+    use crate::builtins::{coerce_value_to_path, hash::hash_nix_string};
 
     #[builtin("getEnv")]
     async fn builtin_get_env(co: GenCo, var: Value) -> Result<Value, ErrorKind> {
         Ok(env::var(OsStr::from_bytes(&var.to_str()?))
             .unwrap_or_else(|_| "".into())
             .into())
+    }
+
+    #[builtin("hashFile")]
+    #[allow(non_snake_case)]
+    async fn builtin_hashFile(co: GenCo, algo: Value, path: Value) -> Result<Value, ErrorKind> {
+        let path = match coerce_value_to_path(&co, path).await? {
+            Err(cek) => return Ok(Value::from(cek)),
+            Ok(p) => p,
+        };
+        let s = generators::request_read_to_string(&co, path).await;
+        hash_nix_string(algo.to_str()?, s.to_str()?).map(Value::from)
     }
 
     #[builtin("pathExists")]
