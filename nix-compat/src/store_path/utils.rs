@@ -62,10 +62,8 @@ pub fn build_ca_path<'a, S: AsRef<str>, I: IntoIterator<Item = S>>(
     self_reference: bool,
 ) -> Result<StorePathRef<'a>, BuildStorePathError> {
     // self references are only allowed for CAHash::Nar(NixHash::Sha256(_)).
-    if self_reference {
-        let CAHash::Nar(NixHash::Sha256(_)) = ca_hash else {
-            return Err(BuildStorePathError::InvalidReference());
-        };
+    if self_reference && matches!(ca_hash, CAHash::Nar(NixHash::Sha256(_))) {
+        return Err(BuildStorePathError::InvalidReference());
     }
 
     let (ty, hash) = match &ca_hash {
@@ -86,11 +84,7 @@ pub fn build_ca_path<'a, S: AsRef<str>, I: IntoIterator<Item = S>>(
 
             (
                 "output:out".to_string(),
-                NixHash::Sha256(
-                    Sha256::new_with_prefix(format!("fixed:out:r:{}:", hash.to_nix_hex_string()))
-                        .finalize()
-                        .into(),
-                ),
+                NixHash::Sha256(fixed_out_digest("fixed:out:r", hash)),
             )
         }
         // CaHash::Flat is using something very similar, except the `r:` prefix.
@@ -101,17 +95,21 @@ pub fn build_ca_path<'a, S: AsRef<str>, I: IntoIterator<Item = S>>(
 
             (
                 "output:out".to_string(),
-                NixHash::Sha256(
-                    Sha256::new_with_prefix(format!("fixed:out:{}:", hash.to_nix_hex_string()))
-                        .finalize()
-                        .into(),
-                ),
+                NixHash::Sha256(fixed_out_digest("fixed:out", hash)),
             )
         }
     };
 
     build_store_path_from_fingerprint_parts(&ty, &hash, name)
         .map_err(BuildStorePathError::InvalidStorePath)
+}
+
+/// Helper function, used in [build_ca_path] for the non-sha256 [CAHash::Nar]
+/// and [CAHash::Flat].
+fn fixed_out_digest(prefix: &str, hash: &NixHash) -> [u8; 32] {
+    Sha256::new_with_prefix(format!("{}:{}:", prefix, hash.to_nix_hex_string()))
+        .finalize()
+        .into()
 }
 
 /// For given NAR sha256 digest and name, return the new [StorePathRef] this
