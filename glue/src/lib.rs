@@ -5,6 +5,7 @@ pub mod tvix_build;
 pub mod tvix_io;
 pub mod tvix_store_io;
 
+mod decompression;
 #[cfg(test)]
 mod tests;
 
