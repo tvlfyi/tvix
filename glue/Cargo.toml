@@ -10,12 +10,14 @@ bytes = "1.4.0"
 data-encoding = "2.3.3"
 futures = "0.3.30"
 nix-compat = { path = "../nix-compat" }
+reqwest = { version = "0.11.22", features = ["rustls-tls-native-roots"], default-features = false }
 tvix-build = { path = "../build", default-features = false, features = []}
 tvix-eval = { path = "../eval" }
 tvix-castore = { path = "../castore" }
 tvix-store = { path = "../store", default-features = false, features = []}
 tracing = "0.1.37"
 tokio = "1.28.0"
+tokio-util = { version = "0.7.9", features = ["io", "io-util", "compat"] }
 thiserror = "1.0.38"
 serde = "1.0.195"
 serde_json = "1.0"

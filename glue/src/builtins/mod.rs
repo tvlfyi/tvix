@@ -8,8 +8,9 @@ mod derivation;
 mod errors;
 mod fetchers;
 mod import;
+mod utils;
 
-pub use errors::DerivationError;
+pub use errors::{DerivationError, FetcherError};
 
 /// Adds derivation-related builtins to the passed [tvix_eval::Evaluation].
 ///

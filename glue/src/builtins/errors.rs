@@ -1,5 +1,8 @@
 //! Contains errors that can occur during evaluation of builtins in this crate
-use nix_compat::nixhash;
+use nix_compat::{
+    nixhash::{self, NixHash},
+    store_path::BuildStorePathError,
+};
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -22,6 +25,31 @@ pub enum DerivationError {
 
 impl From<DerivationError> for tvix_eval::ErrorKind {
     fn from(err: DerivationError) -> Self {
+        tvix_eval::ErrorKind::TvixError(Rc::new(err))
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum FetcherError {
+    #[error("hash mismatch in file downloaded from {url}:\n  wanted: {wanted}\n     got: {got}")]
+    HashMismatch {
+        url: String,
+        wanted: NixHash,
+        got: NixHash,
+    },
+
+    #[error("Invalid hash type '{0}' for fetcher")]
+    InvalidHashType(&'static str),
+
+    #[error("Error in store path for fetcher output: {0}")]
+    StorePath(#[from] BuildStorePathError),
+
+    #[error(transparent)]
+    Http(#[from] reqwest::Error),
+}
+
+impl From<FetcherError> for tvix_eval::ErrorKind {
+    fn from(err: FetcherError) -> Self {
         tvix_eval::ErrorKind::TvixError(Rc::new(err))
     }
 }

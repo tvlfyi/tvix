@@ -10793,6 +10793,12 @@ rec {
             packageId = "nix-compat";
           }
           {
+            name = "reqwest";
+            packageId = "reqwest";
+            usesDefaultFeatures = false;
+            features = [ "rustls-tls-native-roots" ];
+          }
+          {
             name = "serde";
             packageId = "serde";
           }
@@ -10811,6 +10817,11 @@ rec {
           {
             name = "tokio";
             packageId = "tokio";
+          }
+          {
+            name = "tokio-util";
+            packageId = "tokio-util";
+            features = [ "io" "io-util" "compat" ];
           }
           {
             name = "tracing";

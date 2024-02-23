@@ -10,8 +10,7 @@ use std::rc::Rc;
 use tvix_eval::builtin_macros::builtins;
 use tvix_eval::generators::{self, emit_warning_kind, GenCo};
 use tvix_eval::{
-    AddContext, CatchableErrorKind, CoercionKind, ErrorKind, NixAttrs, NixContext,
-    NixContextElement, Value, WarningKind,
+    AddContext, ErrorKind, NixAttrs, NixContext, NixContextElement, Value, WarningKind,
 };
 
 // Constants used for strangely named fields in derivation inputs.
@@ -144,6 +143,8 @@ fn handle_fixed_output(
 pub(crate) mod derivation_builtins {
     use std::collections::BTreeMap;
 
+    use crate::builtins::utils::{select_string, strong_importing_coerce_to_string};
+
     use super::*;
     use bstr::ByteSlice;
     use nix_compat::store_path::hash_placeholder;
@@ -196,27 +197,6 @@ pub(crate) mod derivation_builtins {
         let mut drv = Derivation::default();
         drv.outputs.insert("out".to_string(), Default::default());
         let mut input_context = NixContext::new();
-
-        #[inline]
-        async fn strong_importing_coerce_to_string(
-            co: &GenCo,
-            val: Value,
-        ) -> Result<NixString, CatchableErrorKind> {
-            let val = generators::request_force(co, val).await;
-            match generators::request_string_coerce(
-                co,
-                val,
-                CoercionKind {
-                    strong: true,
-                    import_paths: true,
-                },
-            )
-            .await
-            {
-                Err(cek) => Err(cek),
-                Ok(val_str) => Ok(val_str),
-            }
-        }
 
         /// Inserts a key and value into the drv.environment BTreeMap, and fails if the
         /// key did already exist before.
@@ -385,21 +365,6 @@ pub(crate) mod derivation_builtins {
 
         // Configure fixed-output derivations if required.
         {
-            async fn select_string(
-                co: &GenCo,
-                attrs: &NixAttrs,
-                key: &str,
-            ) -> Result<Result<Option<String>, CatchableErrorKind>, ErrorKind> {
-                if let Some(attr) = attrs.select(key) {
-                    match strong_importing_coerce_to_string(co, attr.clone()).await {
-                        Err(cek) => return Ok(Err(cek)),
-                        Ok(str) => return Ok(Ok(Some(str.to_str()?.to_owned()))),
-                    }
-                }
-
-                Ok(Ok(None))
-            }
-
             let output_hash = match select_string(&co, &input, "outputHash")
                 .await
                 .context("evaluating the `outputHash` parameter")?
