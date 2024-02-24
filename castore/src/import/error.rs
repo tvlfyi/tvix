@@ -1,6 +1,6 @@
 use std::{fs::FileType, path::PathBuf};
 
-use crate::Error as CastoreError;
+use crate::{proto::ValidateDirectoryError, Error as CastoreError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -19,8 +19,17 @@ pub enum Error {
     #[error("unable to read {0}: {1}")]
     UnableToRead(PathBuf, std::io::Error),
 
+    #[error("error reading from archive: {0}")]
+    Archive(std::io::Error),
+
     #[error("unsupported file {0} type: {1:?}")]
     UnsupportedFileType(PathBuf, FileType),
+
+    #[error("invalid directory contents {0}: {1}")]
+    InvalidDirectory(PathBuf, ValidateDirectoryError),
+
+    #[error("unsupported tar entry {0} type: {1:?}")]
+    UnsupportedTarEntry(PathBuf, tokio_tar::EntryType),
 }
 
 impl From<CastoreError> for Error {

@@ -205,7 +205,7 @@ mod import_builtins {
         };
 
         let obtained_hash = ca.hash().clone().into_owned();
-        let (path_info, output_path) = state.tokio_handle.block_on(async {
+        let (path_info, _hash, output_path) = state.tokio_handle.block_on(async {
             state
                 .node_to_path_info(name.as_ref(), path.as_ref(), ca, root_node)
                 .await

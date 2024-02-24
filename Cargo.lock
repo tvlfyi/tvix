@@ -4292,6 +4292,7 @@ dependencies = [
  "tokio",
  "tokio-retry",
  "tokio-stream",
+ "tokio-tar",
  "tokio-util",
  "tonic 0.11.0",
  "tonic-build",

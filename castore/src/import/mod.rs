@@ -1,4 +1,3 @@
-//! Deals with ingesting contents into castore.
 //! The main library function here is [ingest_entries], receiving a stream of
 //! [IngestionEntry].
 //!
@@ -32,6 +31,7 @@ use tracing::instrument;
 mod error;
 pub use error::Error;
 
+pub mod archive;
 pub mod fs;
 
 /// Ingests [IngestionEntry] from the given stream into a the passed [DirectoryService].
