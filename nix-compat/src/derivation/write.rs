@@ -137,8 +137,8 @@ pub(crate) fn write_outputs(
 
         let (mode_and_algo, digest) = match &output.ca_hash {
             Some(ca_hash) => (
-                format!("{}{}", ca_kind_prefix(ca_hash), ca_hash.digest().algo()),
-                data_encoding::HEXLOWER.encode(ca_hash.digest().digest_as_bytes()),
+                format!("{}{}", ca_kind_prefix(ca_hash), ca_hash.hash().algo()),
+                data_encoding::HEXLOWER.encode(ca_hash.hash().digest_as_bytes()),
             ),
             None => ("".to_string(), "".to_string()),
         };

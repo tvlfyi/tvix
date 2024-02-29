@@ -23,7 +23,7 @@ pub enum CAHash {
 }
 
 impl CAHash {
-    pub fn digest(&self) -> Cow<NixHash> {
+    pub fn hash(&self) -> Cow<NixHash> {
         match *self {
             CAHash::Flat(ref digest) => Cow::Borrowed(digest),
             CAHash::Nar(ref digest) => Cow::Borrowed(digest),

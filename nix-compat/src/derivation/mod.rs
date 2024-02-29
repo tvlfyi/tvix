@@ -160,7 +160,7 @@ impl Derivation {
             Sha256::new_with_prefix(format!(
                 "fixed:out:{}{}:{}",
                 ca_kind_prefix(ca_hash),
-                ca_hash.digest().to_nix_hex_string(),
+                ca_hash.hash().to_nix_hex_string(),
                 out_output
                     .path
                     .as_ref()
