@@ -22,12 +22,28 @@ pub enum CAHash {
     Text([u8; 32]), // "text", only supports sha256
 }
 
+/// Representation for the supported hash modes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HashMode {
+    Flat,
+    Nar,
+    Text,
+}
+
 impl CAHash {
     pub fn hash(&self) -> Cow<NixHash> {
         match *self {
             CAHash::Flat(ref digest) => Cow::Borrowed(digest),
             CAHash::Nar(ref digest) => Cow::Borrowed(digest),
             CAHash::Text(digest) => Cow::Owned(NixHash::Sha256(digest)),
+        }
+    }
+
+    pub fn mode(&self) -> HashMode {
+        match self {
+            CAHash::Flat(_) => HashMode::Flat,
+            CAHash::Nar(_) => HashMode::Nar,
+            CAHash::Text(_) => HashMode::Text,
         }
     }
 

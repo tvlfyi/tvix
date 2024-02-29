@@ -9,6 +9,7 @@ mod ca_hash;
 
 pub use algos::HashAlgo;
 pub use ca_hash::CAHash;
+pub use ca_hash::HashMode as CAHashMode;
 
 /// NixHash represents hashes known by Nix.
 #[derive(Clone, Debug, Eq, PartialEq)]
