@@ -301,26 +301,27 @@ impl TryFrom<&nar_info::Ca> for nix_compat::nixhash::CAHash {
     }
 }
 
+impl From<&nix_compat::nixhash::CAHash> for nar_info::ca::Hash {
+    fn from(value: &nix_compat::nixhash::CAHash) -> Self {
+        match value {
+            CAHash::Flat(NixHash::Md5(_)) => nar_info::ca::Hash::FlatMd5,
+            CAHash::Flat(NixHash::Sha1(_)) => nar_info::ca::Hash::FlatSha1,
+            CAHash::Flat(NixHash::Sha256(_)) => nar_info::ca::Hash::FlatSha256,
+            CAHash::Flat(NixHash::Sha512(_)) => nar_info::ca::Hash::FlatSha512,
+            CAHash::Nar(NixHash::Md5(_)) => nar_info::ca::Hash::NarMd5,
+            CAHash::Nar(NixHash::Sha1(_)) => nar_info::ca::Hash::NarSha1,
+            CAHash::Nar(NixHash::Sha256(_)) => nar_info::ca::Hash::NarSha256,
+            CAHash::Nar(NixHash::Sha512(_)) => nar_info::ca::Hash::NarSha512,
+            CAHash::Text(_) => nar_info::ca::Hash::TextSha256,
+        }
+    }
+}
+
 impl From<&nix_compat::nixhash::CAHash> for nar_info::Ca {
     fn from(value: &nix_compat::nixhash::CAHash) -> Self {
         nar_info::Ca {
-            r#type: match value {
-                CAHash::Flat(NixHash::Md5(_)) => nar_info::ca::Hash::FlatMd5.into(),
-                CAHash::Flat(NixHash::Sha1(_)) => nar_info::ca::Hash::FlatSha1.into(),
-                CAHash::Flat(NixHash::Sha256(_)) => nar_info::ca::Hash::FlatSha256.into(),
-                CAHash::Flat(NixHash::Sha512(_)) => nar_info::ca::Hash::FlatSha512.into(),
-                CAHash::Nar(NixHash::Md5(_)) => nar_info::ca::Hash::NarMd5.into(),
-                CAHash::Nar(NixHash::Sha1(_)) => nar_info::ca::Hash::NarSha1.into(),
-                CAHash::Nar(NixHash::Sha256(_)) => nar_info::ca::Hash::NarSha256.into(),
-                CAHash::Nar(NixHash::Sha512(_)) => nar_info::ca::Hash::NarSha512.into(),
-                CAHash::Text(_) => nar_info::ca::Hash::TextSha256.into(),
-            },
-            digest: match value {
-                CAHash::Flat(ref nixhash) | CAHash::Nar(ref nixhash) => {
-                    nixhash.digest_as_bytes().to_vec().into()
-                }
-                CAHash::Text(digest) => digest.to_vec().into(),
-            },
+            r#type: Into::<nar_info::ca::Hash>::into(value) as i32,
+            digest: value.hash().digest_as_bytes().to_vec().into(),
         }
     }
 }
