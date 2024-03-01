@@ -65,7 +65,7 @@ pub trait BlobService: Send + Sync {
 /// A [tokio::io::AsyncWrite] that the user needs to close() afterwards for persist.
 /// On success, it returns the digest of the written blob.
 #[async_trait]
-pub trait BlobWriter: tokio::io::AsyncWrite + Send + Sync + Unpin + 'static {
+pub trait BlobWriter: tokio::io::AsyncWrite + Send + Unpin {
     /// Signal there's no more data to be written, and return the digest of the
     /// contents written.
     ///
