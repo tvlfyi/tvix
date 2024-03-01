@@ -1,15 +1,4 @@
----
-title: "Specification of the Nix language"
-numbersections: true
-author:
-- tazjin
-email:
-- tazjin@tvl.su
-lang: en-GB
----
-
-The Nix Language
-================
+# Specification of the Nix Language
 
 WARNING: This document is a work in progress. Please keep an eye on
 [`topic:nix-spec`](https://cl.tvl.fyi/q/topic:nix-spec) for ongoing

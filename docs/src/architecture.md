@@ -1,21 +1,6 @@
----
-title: "Tvix - Architecture & data flow"
-numbersections: true
-author:
-- adisbladis
-- flokli
-- tazjin
-email:
-- adis@blad.is
-- mail@tazj.in
-lang: en-GB
-classoption:
-- twocolumn
-header-includes:
-- \usepackage{caption, graphicx, tikz, aeguill, pdflscape}
----
+# Tvix - Architecture & data flow
 
-# Background
+## Background
 
 We intend for Tvix tooling to be more decoupled than the existing,
 monolithic Nix implementation. In practice, we expect to gain several
@@ -32,9 +17,9 @@ benefits from this, such as:
 Communication between different components of the system will use
 gRPC. The rest of this document outlines the components.
 
-# Components
+## Components
 
-## Coordinator
+### Coordinator
 
 *Purpose:* The coordinator (in the simplest case, the Tvix CLI tool)
 oversees the flow of a build process and delegates tasks to the right
@@ -52,7 +37,7 @@ coordinator on top of a state-machine model that would make it
 possible to reuse the FSM logic without tying it to any particular
 kind of application.
 
-## Evaluator
+### Evaluator
 
 *Purpose:* Eval takes care of evaluating Nix code. In a typical build
 flow it would be responsible for producing derivations. It can also be
@@ -72,7 +57,7 @@ accessible by the evaluator (this could be a FUSE filesystem, or the "real"
 We might be okay with running the evaluator with filesystem access for now and
 can extend the interface if the need arises.
 
-## Builder
+### Builder
 
 *Purpose:* A builder receives derivations from the coordinator and
 builds them.
@@ -106,7 +91,7 @@ derivations to that format). [^1]
 To build, the builder needs to be able to mount all build inputs into the build
 environment. For this, it needs the store to expose a filesystem interface.
 
-## Store
+### Store
 
 *Purpose:* Store takes care of storing build results. It provides a
 unified interface to get store paths and upload new ones, as well as querying
@@ -151,9 +136,11 @@ interface, exposing a lazily-substituting /nix/store mountpoint. Using this in
 remote build context dramatically reduces the amount of data transferred to a
 builder, as only the files really accessed during the build are substituted.
 
-# Figures
+## Figures
 
-![component flow](./component-flow.svg)
+```plantuml,format=svg
+{{#include figures/component-flow.puml}}
+```
 
 [^1]: There have already been some discussions in the Nix community, to switch
   to REAPI:

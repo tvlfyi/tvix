@@ -1,15 +1,4 @@
----
-title: ".drvPath inconsistencies"
-author:
- - tazjin
- - flokli
-email:
- - tazjin@tvl.su
- - flokli@flokli.de
-lang: en-GB
----
-
-# Why .drvPath differs between Nix and Tvix
+# .drvPath inconsistencies / Why .drvPath differs between Nix and Tvix
 
 Nix and Tvix currently use a different approach when it comes to tracking input
 references, in order to build the right dependencies in advance.
