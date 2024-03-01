@@ -10,6 +10,7 @@ mod from_addr;
 mod grpc;
 mod memory;
 mod naive_seeker;
+mod object_store;
 mod simplefs;
 mod sled;
 
@@ -21,6 +22,7 @@ pub use self::combinator::CombinedBlobService;
 pub use self::from_addr::from_addr;
 pub use self::grpc::GRPCBlobService;
 pub use self::memory::MemoryBlobService;
+pub use self::object_store::ObjectStoreBlobService;
 pub use self::simplefs::SimpleFilesystemBlobService;
 pub use self::sled::SledBlobService;
 
@@ -80,4 +82,5 @@ pub trait BlobReader: tokio::io::AsyncRead + tokio::io::AsyncSeek + Send + Unpin
 impl BlobReader for io::Cursor<&'static [u8]> {}
 impl BlobReader for io::Cursor<&'static [u8; 0]> {}
 impl BlobReader for io::Cursor<Vec<u8>> {}
+impl BlobReader for io::Cursor<bytes::Bytes> {}
 impl BlobReader for tokio::fs::File {}

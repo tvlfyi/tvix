@@ -25,6 +25,7 @@ use super::{BlobReader, BlobService, BlobWriter};
 ///
 /// **Disclaimer** : This very simple implementation is subject to change and does not give any
 /// final guarantees on the on-disk format.
+/// TODO: migrate to object_store?
 #[derive(Clone)]
 pub struct SimpleFilesystemBlobService {
     /// Where the blobs are located on a filesystem already mounted.
