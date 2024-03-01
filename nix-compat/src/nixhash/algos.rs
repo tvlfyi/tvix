@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::nixhash::Error;
 
 /// This are the hash algorithms supported by cppnix.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HashAlgo {
     Md5,
     Sha1,
@@ -33,6 +33,25 @@ impl Display for HashAlgo {
             HashAlgo::Sha256 => write!(f, "sha256"),
             HashAlgo::Sha512 => write!(f, "sha512"),
         }
+    }
+}
+
+impl Serialize for HashAlgo {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.collect_str(&self)
+    }
+}
+
+impl<'de> Deserialize<'de> for HashAlgo {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s: &str = Deserialize::deserialize(deserializer)?;
+        HashAlgo::try_from(s).map_err(serde::de::Error::custom)
     }
 }
 

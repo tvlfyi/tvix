@@ -157,3 +157,33 @@ fn deserialize_with_error_missing_hash_fixed_output() {
 
     assert!(output.is_err());
 }
+
+#[test]
+fn serialize_deserialize() {
+    let json_bytes = r#"
+    {
+      "path": "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432"
+    }"#;
+    let output: Output = serde_json::from_str(json_bytes).expect("must parse");
+
+    let s = serde_json::to_string(&output).expect("Serialize");
+    let output2: Output = serde_json::from_str(&s).expect("must parse again");
+
+    assert_eq!(output, output2);
+}
+
+#[test]
+fn serialize_deserialize_fixed() {
+    let json_bytes = r#"
+    {
+        "path": "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432",
+        "hash": "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba",
+        "hashAlgo": "r:sha256"
+    }"#;
+    let output: Output = serde_json::from_str(json_bytes).expect("must parse");
+
+    let s = serde_json::to_string_pretty(&output).expect("Serialize");
+    let output2: Output = serde_json::from_str(&s).expect("must parse again");
+
+    assert_eq!(output, output2);
+}

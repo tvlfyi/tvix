@@ -1,5 +1,5 @@
 use crate::nixbase32;
-use crate::nixhash::{self, HashAlgo, NixHash};
+use crate::nixhash::{HashAlgo, NixHash};
 use serde::de::Unexpected;
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -7,7 +7,7 @@ use serde_json::{Map, Value};
 use std::borrow::Cow;
 
 use super::algos::SUPPORTED_ALGOS;
-use super::from_algo_and_digest;
+use super::decode_digest;
 
 /// A Nix CAHash describes a content-addressed hash of a path.
 ///
@@ -99,73 +99,40 @@ impl CAHash {
             return Ok(None);
         }
 
-        let digest: Vec<u8> = {
-            if let Some(v) = map.get("hash") {
-                if let Some(s) = v.as_str() {
-                    data_encoding::HEXLOWER
-                        .decode(s.as_bytes())
-                        .map_err(|e| serde::de::Error::custom(e.to_string()))?
-                } else {
-                    return Err(serde::de::Error::invalid_type(
-                        Unexpected::Other(&v.to_string()),
-                        &"a string",
-                    ));
-                }
-            } else {
-                return Err(serde::de::Error::missing_field(
-                    "couldn't extract `hash` key but `hashAlgo` key present",
-                ));
-            }
-        };
-
-        if let Some(v) = map.get("hashAlgo") {
-            if let Some(s) = v.as_str() {
-                match s.strip_prefix("r:") {
-                    Some(rest) => Ok(Some(Self::Nar(
-                        from_algo_and_digest(
-                            HashAlgo::try_from(rest).map_err(|e| {
-                                serde::de::Error::invalid_value(
-                                    Unexpected::Other(&e.to_string()),
-                                    &format!("one of {}", SUPPORTED_ALGOS.join(",")).as_str(),
-                                )
-                            })?,
-                            &digest,
-                        )
-                        .map_err(|e: nixhash::Error| {
-                            serde::de::Error::invalid_value(
-                                Unexpected::Other(&e.to_string()),
-                                &"a digest with right length",
-                            )
-                        })?,
-                    ))),
-                    None => Ok(Some(Self::Flat(
-                        from_algo_and_digest(
-                            HashAlgo::try_from(s).map_err(|e| {
-                                serde::de::Error::invalid_value(
-                                    Unexpected::Other(&e.to_string()),
-                                    &format!("one of {}", SUPPORTED_ALGOS.join(",")).as_str(),
-                                )
-                            })?,
-                            &digest,
-                        )
-                        .map_err(|e: nixhash::Error| {
-                            serde::de::Error::invalid_value(
-                                Unexpected::Other(&e.to_string()),
-                                &"a digest with right length",
-                            )
-                        })?,
-                    ))),
-                }
-            } else {
-                Err(serde::de::Error::invalid_type(
-                    Unexpected::Other(&v.to_string()),
-                    &"a string",
-                ))
-            }
-        } else {
-            Err(serde::de::Error::missing_field(
+        let hash_algo_v = map.get("hashAlgo").ok_or_else(|| {
+            serde::de::Error::missing_field(
                 "couldn't extract `hashAlgo` key, but `hash` key present",
-            ))
+            )
+        })?;
+        let hash_algo = hash_algo_v.as_str().ok_or_else(|| {
+            serde::de::Error::invalid_type(Unexpected::Other(&hash_algo_v.to_string()), &"a string")
+        })?;
+        let (mode_is_nar, hash_algo) = if let Some(s) = hash_algo.strip_prefix("r:") {
+            (true, s)
+        } else {
+            (false, hash_algo)
+        };
+        let hash_algo = HashAlgo::try_from(hash_algo).map_err(|e| {
+            serde::de::Error::invalid_value(
+                Unexpected::Other(&e.to_string()),
+                &format!("one of {}", SUPPORTED_ALGOS.join(",")).as_str(),
+            )
+        })?;
+
+        let hash_v = map.get("hash").ok_or_else(|| {
+            serde::de::Error::missing_field(
+                "couldn't extract `hash` key but `hashAlgo` key present",
+            )
+        })?;
+        let hash = hash_v.as_str().ok_or_else(|| {
+            serde::de::Error::invalid_type(Unexpected::Other(&hash_v.to_string()), &"a string")
+        })?;
+        let hash = decode_digest(hash.as_bytes(), hash_algo)
+            .map_err(|e| serde::de::Error::custom(e.to_string()))?;
+        if mode_is_nar {
+            Ok(Some(Self::Nar(hash)))
+        } else {
+            Ok(Some(Self::Flat(hash)))
         }
     }
 }
@@ -209,5 +176,152 @@ impl<'de> Deserialize<'de> for CAHash {
             None => Err(serde::de::Error::custom("couldn't parse as map")),
             Some(v) => Ok(v),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{derivation::CAHash, nixhash};
+
+    #[test]
+    fn serialize_flat() {
+        let json_bytes = r#"{
+  "hash": "1fnf2m46ya7r7afkcb8ba2j0sc4a85m749sh9jz64g4hx6z3r088",
+  "hashAlgo": "sha256"
+}"#;
+        let hash = CAHash::Flat(
+            nixhash::from_nix_str(
+                "sha256:08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba",
+            )
+            .unwrap(),
+        );
+        let serialized = serde_json::to_string_pretty(&hash).unwrap();
+        assert_eq!(serialized, json_bytes);
+    }
+
+    #[test]
+    fn serialize_nar() {
+        let json_bytes = r#"{
+  "hash": "1fnf2m46ya7r7afkcb8ba2j0sc4a85m749sh9jz64g4hx6z3r088",
+  "hashAlgo": "r:sha256"
+}"#;
+        let hash = CAHash::Nar(
+            nixhash::from_nix_str(
+                "sha256:08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba",
+            )
+            .unwrap(),
+        );
+        let serialized = serde_json::to_string_pretty(&hash).unwrap();
+        assert_eq!(serialized, json_bytes);
+    }
+
+    #[test]
+    fn deserialize_flat() {
+        let json_bytes = r#"
+        {
+            "hash": "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba",
+            "hashAlgo": "sha256"
+        }"#;
+        let hash: CAHash = serde_json::from_str(json_bytes).expect("must parse");
+
+        assert_eq!(
+            hash,
+            CAHash::Flat(
+                nixhash::from_nix_str(
+                    "sha256:08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba"
+                )
+                .unwrap()
+            )
+        );
+    }
+
+    #[test]
+    fn deserialize_hex() {
+        let json_bytes = r#"
+        {
+            "hash": "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba",
+            "hashAlgo": "r:sha256"
+        }"#;
+        let hash: CAHash = serde_json::from_str(json_bytes).expect("must parse");
+
+        assert_eq!(
+            hash,
+            CAHash::Nar(
+                nixhash::from_nix_str(
+                    "sha256:08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba"
+                )
+                .unwrap()
+            )
+        );
+    }
+
+    #[test]
+    fn deserialize_nixbase32() {
+        let json_bytes = r#"
+        {
+            "hash": "1fnf2m46ya7r7afkcb8ba2j0sc4a85m749sh9jz64g4hx6z3r088",
+            "hashAlgo": "r:sha256"
+        }"#;
+        let hash: CAHash = serde_json::from_str(json_bytes).expect("must parse");
+
+        assert_eq!(
+            hash,
+            CAHash::Nar(
+                nixhash::from_nix_str(
+                    "sha256:08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba"
+                )
+                .unwrap()
+            )
+        );
+    }
+
+    #[test]
+    fn deserialize_base64() {
+        let json_bytes = r#"
+        {
+            "hash": "CIE8vumQPGK+TFAncmpBijANpFALLTadOvkob0gVzro=",
+            "hashAlgo": "r:sha256"
+        }"#;
+        let hash: CAHash = serde_json::from_str(json_bytes).expect("must parse");
+
+        assert_eq!(
+            hash,
+            CAHash::Nar(
+                nixhash::from_nix_str(
+                    "sha256:08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba"
+                )
+                .unwrap()
+            )
+        );
+    }
+
+    #[test]
+    fn serialize_deserialize_nar() {
+        let json_bytes = r#"
+        {
+            "hash": "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba",
+            "hashAlgo": "r:sha256"
+        }"#;
+        let hash: CAHash = serde_json::from_str(json_bytes).expect("must parse");
+
+        let serialized = serde_json::to_string(&hash).expect("Serialize");
+        let hash2: CAHash = serde_json::from_str(&serialized).expect("must parse again");
+
+        assert_eq!(hash, hash2);
+    }
+
+    #[test]
+    fn serialize_deserialize_flat() {
+        let json_bytes = r#"
+        {
+            "hash": "08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba",
+            "hashAlgo": "sha256"
+        }"#;
+        let hash: CAHash = serde_json::from_str(json_bytes).expect("must parse");
+
+        let serialized = serde_json::to_string(&hash).expect("Serialize");
+        let hash2: CAHash = serde_json::from_str(&serialized).expect("must parse again");
+
+        assert_eq!(hash, hash2);
     }
 }
