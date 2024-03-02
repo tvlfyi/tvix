@@ -77,5 +77,7 @@ pub trait BlobWriter: tokio::io::AsyncWrite + Send + Unpin {
 pub trait BlobReader: tokio::io::AsyncRead + tokio::io::AsyncSeek + Send + Unpin + 'static {}
 
 /// A [`io::Cursor<Vec<u8>>`] can be used as a BlobReader.
+impl BlobReader for io::Cursor<&'static [u8]> {}
+impl BlobReader for io::Cursor<&'static [u8; 0]> {}
 impl BlobReader for io::Cursor<Vec<u8>> {}
 impl BlobReader for tokio::fs::File {}
