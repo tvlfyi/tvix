@@ -6711,6 +6711,12 @@ rec {
             features = [ "dangerous_configuration" ];
           }
           {
+            name = "rustls-native-certs";
+            packageId = "rustls-native-certs";
+            optional = true;
+            target = { target, features }: (!("wasm32" == target."arch" or null));
+          }
+          {
             name = "rustls-pemfile";
             packageId = "rustls-pemfile";
             optional = true;
@@ -6791,12 +6797,6 @@ rec {
             features = [ "AbortController" "AbortSignal" "Headers" "Request" "RequestInit" "RequestMode" "Response" "Window" "FormData" "Blob" "BlobPropertyBag" "ServiceWorkerGlobalScope" "RequestCredentials" "File" "ReadableStream" ];
           }
           {
-            name = "webpki-roots";
-            packageId = "webpki-roots";
-            optional = true;
-            target = { target, features }: (!("wasm32" == target."arch" or null));
-          }
-          {
             name = "winreg";
             packageId = "winreg";
             target = { target, features }: (target."windows" or false);
@@ -6875,7 +6875,7 @@ rec {
           "wasm-streams" = [ "dep:wasm-streams" ];
           "webpki-roots" = [ "dep:webpki-roots" ];
         };
-        resolvedDefaultFeatures = [ "__rustls" "__tls" "hyper-rustls" "rustls" "rustls-pemfile" "rustls-tls" "rustls-tls-webpki-roots" "stream" "tokio-rustls" "tokio-util" "wasm-streams" "webpki-roots" ];
+        resolvedDefaultFeatures = [ "__rustls" "__tls" "hyper-rustls" "rustls" "rustls-native-certs" "rustls-pemfile" "rustls-tls-native-roots" "stream" "tokio-rustls" "tokio-util" "wasm-streams" ];
       };
       "ring" = rec {
         crateName = "ring";
@@ -11009,7 +11009,7 @@ rec {
             name = "reqwest";
             packageId = "reqwest";
             usesDefaultFeatures = false;
-            features = [ "rustls-tls" "stream" ];
+            features = [ "rustls-tls-native-roots" "stream" ];
           }
           {
             name = "sha2";
@@ -12345,13 +12345,6 @@ rec {
             target = { target, features }: ((builtins.elem "wasm" target."family") && (!(("emscripten" == target."os" or null) || ("wasi" == target."os" or null))));
           }
         ];
-
-      };
-      "webpki-roots" = rec {
-        crateName = "webpki-roots";
-        version = "0.25.3";
-        edition = "2018";
-        sha256 = "045g7az4mj1002m55iydln4jhyah4br2n0zms3wbz41vicpa8y0p";
 
       };
       "which" = rec {
