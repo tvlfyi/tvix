@@ -115,7 +115,11 @@ mod tests {
     /// Correct scheme to connect to localhost over http, but with additional path, which is invalid.
     #[test_case("grpc+http://localhost/some-path", false; "grpc valid invalid host and path")]
     #[tokio::test]
-    async fn test_from_addr_tokio(uri_str: &str, is_ok: bool) {
-        assert_eq!(from_addr(uri_str).await.is_ok(), is_ok)
+    async fn test_from_addr_tokio(uri_str: &str, exp_succeed: bool) {
+        if exp_succeed {
+            from_addr(uri_str).await.expect("should succeed");
+        } else {
+            assert!(from_addr(uri_str).await.is_err(), "should fail");
+        }
     }
 }
