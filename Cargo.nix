@@ -923,6 +923,12 @@ rec {
             packageId = "constant_time_eq";
           }
           {
+            name = "digest";
+            packageId = "digest";
+            optional = true;
+            features = [ "mac" ];
+          }
+          {
             name = "rayon";
             packageId = "rayon";
             optional = true;
@@ -943,7 +949,7 @@ rec {
           "traits-preview" = [ "digest" ];
           "zeroize" = [ "dep:zeroize" "arrayvec/zeroize" ];
         };
-        resolvedDefaultFeatures = [ "default" "rayon" "std" ];
+        resolvedDefaultFeatures = [ "default" "digest" "rayon" "std" "traits-preview" ];
       };
       "block-buffer" = rec {
         crateName = "block-buffer";
@@ -1917,6 +1923,12 @@ rec {
             name = "crypto-common";
             packageId = "crypto-common";
           }
+          {
+            name = "subtle";
+            packageId = "subtle";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
         ];
         features = {
           "blobby" = [ "dep:blobby" ];
@@ -1931,7 +1943,7 @@ rec {
           "std" = [ "alloc" "crypto-common/std" ];
           "subtle" = [ "dep:subtle" ];
         };
-        resolvedDefaultFeatures = [ "alloc" "block-buffer" "core-api" "default" "std" ];
+        resolvedDefaultFeatures = [ "alloc" "block-buffer" "core-api" "default" "mac" "std" "subtle" ];
       };
       "dirs" = rec {
         crateName = "dirs";
@@ -10288,7 +10300,7 @@ rec {
           {
             name = "blake3";
             packageId = "blake3";
-            features = [ "rayon" "std" ];
+            features = [ "rayon" "std" "traits-preview" ];
           }
           {
             name = "bstr";
@@ -10301,6 +10313,10 @@ rec {
           {
             name = "data-encoding";
             packageId = "data-encoding";
+          }
+          {
+            name = "digest";
+            packageId = "digest";
           }
           {
             name = "fuse-backend-rs";

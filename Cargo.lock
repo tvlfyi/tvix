@@ -280,6 +280,7 @@ dependencies = [
  "cc",
  "cfg-if",
  "constant_time_eq",
+ "digest",
  "rayon",
 ]
 
@@ -649,6 +650,7 @@ checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer",
  "crypto-common",
+ "subtle",
 ]
 
 [[package]]
@@ -3304,6 +3306,7 @@ dependencies = [
  "bstr",
  "bytes",
  "data-encoding",
+ "digest",
  "fuse-backend-rs",
  "futures",
  "hex-literal",

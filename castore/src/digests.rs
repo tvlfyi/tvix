@@ -26,6 +26,13 @@ impl From<B3Digest> for bytes::Bytes {
     }
 }
 
+impl From<digest::Output<blake3::Hasher>> for B3Digest {
+    fn from(value: digest::Output<blake3::Hasher>) -> Self {
+        let v = Into::<[u8; B3_LEN]>::into(value);
+        Self(Bytes::copy_from_slice(&v))
+    }
+}
+
 impl TryFrom<Vec<u8>> for B3Digest {
     type Error = Error;
 
