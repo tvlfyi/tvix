@@ -17,10 +17,10 @@
         "homepage": "",
         "owner": "nix-community",
         "repo": "emacs-overlay",
-        "rev": "89541209151acb287bfb71659e738038521b0bcb",
-        "sha256": "17yhvhlwx5bn0f28prh26pvd8wlvh4vn9bc7gr6fqi1xr7wgqh2z",
+        "rev": "35b810dcbe9543e026f6a7095b955f7c9643b9b3",
+        "sha256": "1c29snz9fvhhgg8pxw5cgx90apsq5r3sdzmq8dfbqg6pizdjf57h",
         "type": "tarball",
-        "url": "https://github.com/nix-community/emacs-overlay/archive/89541209151acb287bfb71659e738038521b0bcb.tar.gz",
+        "url": "https://github.com/nix-community/emacs-overlay/archive/35b810dcbe9543e026f6a7095b955f7c9643b9b3.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "home-manager": {
@@ -29,10 +29,10 @@
         "homepage": "https://nix-community.github.io/home-manager/",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "2f3367769a93b226c467551315e9e270c3f78b15",
-        "sha256": "0y84576pv8l5afcizy6z00800bjy5vv00d92gp75bcs788mrsn2k",
+        "rev": "cf111d1a849ddfc38e9155be029519b0e2329615",
+        "sha256": "0f89x9r6s1i969acs9bxjbbf7wbllwjmkdszy66yh9b8h8kkhlzs",
         "type": "tarball",
-        "url": "https://github.com/nix-community/home-manager/archive/2f3367769a93b226c467551315e9e270c3f78b15.tar.gz",
+        "url": "https://github.com/nix-community/home-manager/archive/cf111d1a849ddfc38e9155be029519b0e2329615.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "impermanence": {
@@ -77,10 +77,10 @@
         "homepage": "",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "1536926ef5621b09bba54035ae2bb6d806d72ac8",
-        "sha256": "1nwmy7j4nd9ilgvlaqddrrmmzzpmid4zns2yzbqs9ri4xsn80bkk",
+        "rev": "9df3e30ce24fd28c7b3e2de0d986769db5d6225d",
+        "sha256": "0mhh8wyfcncg1sjkpdy72afhi964h5i70vampc60pslaqd1s06pa",
         "type": "tarball",
-        "url": "https://github.com/NixOS/nixpkgs/archive/1536926ef5621b09bba54035ae2bb6d806d72ac8.tar.gz",
+        "url": "https://github.com/NixOS/nixpkgs/archive/9df3e30ce24fd28c7b3e2de0d986769db5d6225d.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nixpkgs-stable": {
@@ -89,10 +89,10 @@
         "homepage": "",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "068d4db604958d05d0b46c47f79b507d84dbc069",
-        "sha256": "03ql9z5pqfnkyrlg9pj1xz20fxs522p35nrywg1y9a8zr7y5fawz",
+        "rev": "880992dcc006a5e00dd0591446fdf723e6a51a64",
+        "sha256": "1rsbjwbjgnrh0gm54w7nlshkkgp5718d5rk4x8kvklpfivlpfb5n",
         "type": "tarball",
-        "url": "https://github.com/NixOS/nixpkgs/archive/068d4db604958d05d0b46c47f79b507d84dbc069.tar.gz",
+        "url": "https://github.com/NixOS/nixpkgs/archive/880992dcc006a5e00dd0591446fdf723e6a51a64.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "rust-overlay": {
@@ -101,10 +101,10 @@
         "homepage": "",
         "owner": "oxalica",
         "repo": "rust-overlay",
-        "rev": "6e6fde31711e699be2e7fb67aae1c7e23ef606e0",
-        "sha256": "1sanyq0yavlj9i6qfjvhmpw8iyax2kcsk3kjrjpc3v9x8fg6qsqk",
+        "rev": "7fdb7a7a846dc1f407cd6b24af04a0b8d018c3de",
+        "sha256": "0zaxb97fwjqhlvlmklxxwis07zvby640hrlxfc6hrbd6w6xjs59r",
         "type": "tarball",
-        "url": "https://github.com/oxalica/rust-overlay/archive/6e6fde31711e699be2e7fb67aae1c7e23ef606e0.tar.gz",
+        "url": "https://github.com/oxalica/rust-overlay/archive/7fdb7a7a846dc1f407cd6b24af04a0b8d018c3de.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "rustsec-advisory-db": {
@@ -113,10 +113,10 @@
         "homepage": "https://rustsec.org",
         "owner": "RustSec",
         "repo": "advisory-db",
-        "rev": "eb02e7e60eec3b4ceeb3459970eb11e5a65726d8",
-        "sha256": "0d5hlxdaqf8qn83y1ksqv2242svkqqp11swfjacsj4wh0qrs6frc",
+        "rev": "120db258e97454f900dff7cb8eb1b61a134f3eb0",
+        "sha256": "1ghnpribfrfsrx7r1bpi7b3g3yxdraci3jx34lgllwcy318g6rn2",
         "type": "tarball",
-        "url": "https://github.com/RustSec/advisory-db/archive/eb02e7e60eec3b4ceeb3459970eb11e5a65726d8.tar.gz",
+        "url": "https://github.com/RustSec/advisory-db/archive/120db258e97454f900dff7cb8eb1b61a134f3eb0.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }
