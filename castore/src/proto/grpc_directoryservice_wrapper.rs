@@ -25,7 +25,7 @@ where
 {
     type GetStream = ReceiverStream<tonic::Result<proto::Directory, Status>>;
 
-    #[instrument(skip(self))]
+    #[instrument(skip_all)]
     async fn get(
         &self,
         request: Request<proto::GetDirectoryRequest>,
@@ -44,14 +44,20 @@ where
                     .map_err(|_e| Status::invalid_argument("invalid digest length"))?;
 
                 if !req_inner.recursive {
-                    let e: Result<proto::Directory, Status> =
-                        match self.directory_service.get(&digest).await {
-                            Ok(Some(directory)) => Ok(directory),
-                            Ok(None) => {
-                                Err(Status::not_found(format!("directory {} not found", digest)))
-                            }
-                            Err(e) => Err(e.into()),
-                        };
+                    let e: Result<proto::Directory, Status> = match self
+                        .directory_service
+                        .get(&digest)
+                        .await
+                    {
+                        Ok(Some(directory)) => Ok(directory),
+                        Ok(None) => {
+                            Err(Status::not_found(format!("directory {} not found", digest)))
+                        }
+                        Err(e) => {
+                            warn!(err = %e, directory.digest=%digest, "failed to get directory");
+                            Err(e.into())
+                        }
+                    };
 
                     if tx.send(e).await.is_err() {
                         debug!("receiver dropped");
@@ -76,7 +82,7 @@ where
         Ok(Response::new(receiver_stream))
     }
 
-    #[instrument(skip(self, request))]
+    #[instrument(skip_all)]
     async fn put(
         &self,
         request: Request<Streaming<proto::Directory>>,
@@ -98,11 +104,11 @@ where
         while let Some(directory) = req_inner.message().await? {
             // validate the directory itself.
             if let Err(e) = directory.validate() {
-                return Err(Status::invalid_argument(format!(
-                    "directory {} failed validation: {}",
-                    directory.digest(),
+                warn!(err = %e, "invalid directory");
+                Err(Status::invalid_argument(format!(
+                    "directory failed validation: {}",
                     e,
-                )));
+                )))?;
             }
 
             // for each child directory this directory refers to, we need
@@ -154,7 +160,7 @@ where
             // inserting if it's already there, as that'd be a no-op.
             match self.directory_service.get(&dgst).await {
                 Err(e) => {
-                    warn!("error checking if directory already exists: {}", e);
+                    warn!(err = %e, "failed to check if directory already exists");
                     return Err(e.into());
                 }
                 // skip if already exists
