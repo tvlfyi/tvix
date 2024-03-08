@@ -86,7 +86,7 @@ where
     // https://github.com/tokio-rs/tokio/issues/2723#issuecomment-1534723933
     type ReadStream = BoxStream<'static, Result<super::BlobChunk, Status>>;
 
-    #[instrument(skip(self))]
+    #[instrument(skip_all)]
     async fn stat(
         &self,
         request: Request<super::StatBlobRequest>,
@@ -103,11 +103,14 @@ where
                 chunks: chunk_metas,
                 ..Default::default()
             })),
-            Err(e) => Err(e.into()),
+            Err(e) => {
+                warn!(err=%e, "failed to request chunks");
+                Err(e.into())
+            }
         }
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip_all)]
     async fn read(
         &self,
         request: Request<super::ReadBlobRequest>,
@@ -126,11 +129,14 @@ where
                 Ok(Response::new(Box::pin(chunks_stream)))
             }
             Ok(None) => Err(Status::not_found(format!("blob {} not found", &req_digest))),
-            Err(e) => Err(e.into()),
+            Err(e) => {
+                warn!(err=%e, "failed to call open_read");
+                Err(e.into())
+            }
         }
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip_all)]
     async fn put(
         &self,
         request: Request<Streaming<super::BlobChunk>>,
