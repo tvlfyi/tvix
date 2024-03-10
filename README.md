@@ -16,9 +16,14 @@ For more information about Tvix, feel free to reach out. We are interested in
 people who would like to help us review designs, brainstorm and describe
 requirements that we may not yet have considered.
 
-Most of the discussion around development happens on our IRC channel, which you
-can join in several ways documented on [tvl.fyi][getting-in-touch], or on our
-[mailing list][].
+Most of the discussion around development happens in our dedicated IRC channel,
+[`#tvix-dev`][tvix-dev-irc] on [hackint][],
+which is also reachable [via XMPP][hackint-xmpp]
+at [`#tvix-dev@irc.hackint.org`][tvix-dev-xmpp] (sic!)
+and [via Matrix][hackint-matrix] at [`#tvix-dev:hackint.org`][tvix-dev-matrix].
+
+There's also the IRC channel of the [wider TVL community][tvl-getting-in-touch],
+less on-topic, or our [mailing list][].
 
 Contributions to Tvix follow the TVL [review flow][review-docs] and
 [contribution guidelines][contributing].
@@ -28,10 +33,17 @@ Contributions to Tvix follow the TVL [review flow][review-docs] and
 [tvix-src]: https://cs.tvl.fyi/depot/-/tree/tvix/
 [tvix-gerrit]: https://cl.tvl.fyi/q/path:%255Etvix.*
 [b]: https://b.tvl.fyi
-[getting-in-touch]: https://tvl.fyi/#getting-in-touch
+[tvl-getting-in-touch]: https://tvl.fyi/#getting-in-touch
 [mailing list]: https://inbox.tvl.su
 [review-docs]: https://code.tvl.fyi/about/docs/REVIEWS.md
 [contributing]: https://code.tvl.fyi/about/docs/CONTRIBUTING.md
+[tvix-dev-irc]: ircs://irc.hackint.org:6697/#tvix-dev
+[hackint]: https://hackint.org/
+[hackint-xmpp]: https://hackint.org/transport/xmpp
+[tvix-dev-xmpp]: xmpp:#tvix-dev@irc.hackint.org?join
+[hackint-matrix]: https://hackint.org/transport/matrix
+[tvix-dev-matrix]: https://matrix.to/#/#tvix-dev:hackint.org
+[tvix-dev-webchat]: https://webirc.hackint.org/#ircs://irc.hackint.org/#tvix-dev
 
 WARNING: Tvix is not ready for use in production. None of our current APIs
 should be considered stable in any way.
