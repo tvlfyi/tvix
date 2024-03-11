@@ -51,6 +51,10 @@ struct Cli {
     #[arg(long)]
     json: bool,
 
+    /// Whether to configure OTLP. Set --otlp=false to disable.
+    #[arg(long, default_missing_value = "true", default_value = "true", num_args(0..=1), require_equals(true), action(clap::ArgAction::Set))]
+    otlp: bool,
+
     #[arg(long)]
     log_level: Option<Level>,
 
@@ -184,43 +188,46 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ),
         );
 
-    // Add the otlp layer (when otlp is enabled), then init the registry.
-    // Or if the feature is disabled, just init without adding the layer.
+    // Add the otlp layer (when otlp is enabled, and it's not disabled in the CLI)
+    // then init the registry.
+    // If the feature is feature-flagged out, just init without adding the layer.
     // It's necessary to do this separately, as every with() call chains the
     // layer into the type of the registry.
     #[cfg(feature = "otlp")]
     {
-        subscriber
-            .with({
-                let tracer = opentelemetry_otlp::new_pipeline()
-                    .tracing()
-                    .with_exporter(opentelemetry_otlp::new_exporter().tonic())
-                    .with_batch_config(BatchConfig::default())
-                    .with_trace_config(opentelemetry_sdk::trace::config().with_resource({
-                        // use SdkProvidedResourceDetector.detect to detect resources,
-                        // but replace the default service name with our default.
-                        // https://github.com/open-telemetry/opentelemetry-rust/issues/1298
-                        let resources =
-                            SdkProvidedResourceDetector.detect(std::time::Duration::from_secs(0));
+        let subscriber = if cli.otlp {
+            let tracer = opentelemetry_otlp::new_pipeline()
+                .tracing()
+                .with_exporter(opentelemetry_otlp::new_exporter().tonic())
+                .with_batch_config(BatchConfig::default())
+                .with_trace_config(opentelemetry_sdk::trace::config().with_resource({
+                    // use SdkProvidedResourceDetector.detect to detect resources,
+                    // but replace the default service name with our default.
+                    // https://github.com/open-telemetry/opentelemetry-rust/issues/1298
+                    let resources =
+                        SdkProvidedResourceDetector.detect(std::time::Duration::from_secs(0));
+                    // SdkProvidedResourceDetector currently always sets
+                    // `service.name`, but we don't like its default.
+                    if resources.get("service.name".into()).unwrap() == "unknown_service".into() {
+                        resources.merge(&Resource::new([KeyValue::new(
+                            "service.name",
+                            "tvix.store",
+                        )]))
+                    } else {
+                        resources
+                    }
+                }))
+                .install_batch(opentelemetry_sdk::runtime::Tokio)?;
 
-                        // SdkProvidedResourceDetector currently always sets
-                        // `service.name`, but we don't like its default.
-                        if resources.get("service.name".into()).unwrap() == "unknown_service".into()
-                        {
-                            resources.merge(&Resource::new([KeyValue::new(
-                                "service.name",
-                                "tvix.store",
-                            )]))
-                        } else {
-                            resources
-                        }
-                    }))
-                    .install_batch(opentelemetry_sdk::runtime::Tokio)?;
+            // Create a tracing layer with the configured tracer
+            let layer = tracing_opentelemetry::layer().with_tracer(tracer);
 
-                // Create a tracing layer with the configured tracer
-                tracing_opentelemetry::layer().with_tracer(tracer)
-            })
-            .try_init()?;
+            subscriber.with(Some(layer))
+        } else {
+            subscriber.with(None)
+        };
+
+        subscriber.try_init()?;
     }
 
     // Init the registry (when otlp is not enabled)
