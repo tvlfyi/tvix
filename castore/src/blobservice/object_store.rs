@@ -14,7 +14,7 @@ use prost::Message;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio_stream::StreamExt;
 use tonic::async_trait;
-use tracing::{debug, info, instrument, trace};
+use tracing::{debug, info, instrument, trace, Level};
 use url::Url;
 
 use crate::{
@@ -97,6 +97,7 @@ impl ObjectStoreBlobService {
     }
 }
 
+#[instrument(level=Level::TRACE, skip_all,fields(base_path=%base_path,blob.digest=%digest),ret(Display))]
 fn derive_blob_path(base_path: &Path, digest: &B3Digest) -> Path {
     base_path
         .child("blobs")
@@ -105,6 +106,7 @@ fn derive_blob_path(base_path: &Path, digest: &B3Digest) -> Path {
         .child(HEXLOWER.encode(digest.as_slice()))
 }
 
+#[instrument(level=Level::TRACE, skip_all,fields(base_path=%base_path,chunk.digest=%digest),ret(Display))]
 fn derive_chunk_path(base_path: &Path, digest: &B3Digest) -> Path {
     base_path
         .child("chunks")
