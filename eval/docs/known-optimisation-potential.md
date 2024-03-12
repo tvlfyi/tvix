@@ -157,3 +157,6 @@ optimisations, but note the most important ones here.
   be used. We should create a phantom binding for the from expression that
   is reused in the inherits, so only a single thunk is created for the from
   expression.
+
+  Since we discovered this, C++ Nix has implemented a similar optimization:
+  <https://github.com/NixOS/nix/pull/9847>.
