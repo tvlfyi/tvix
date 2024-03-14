@@ -5149,6 +5149,12 @@ rec {
             name = "thiserror";
             packageId = "thiserror";
           }
+          {
+            name = "tokio";
+            packageId = "tokio";
+            optional = true;
+            features = [ "io-util" "macros" ];
+          }
         ];
         devDependencies = [
           {
@@ -5187,15 +5193,20 @@ rec {
             packageId = "test-generator";
           }
           {
+            name = "tokio-test";
+            packageId = "tokio-test";
+          }
+          {
             name = "zstd";
             packageId = "zstd";
           }
         ];
         features = {
-          "async" = [ "futures-util" ];
+          "async" = [ "futures-util" "tokio" ];
           "futures-util" = [ "dep:futures-util" ];
+          "tokio" = [ "dep:tokio" ];
         };
-        resolvedDefaultFeatures = [ "async" "futures-util" ];
+        resolvedDefaultFeatures = [ "async" "futures-util" "tokio" ];
       };
       "nom" = rec {
         crateName = "nom";
@@ -9687,7 +9698,7 @@ rec {
           "tracing" = [ "dep:tracing" ];
           "windows-sys" = [ "dep:windows-sys" ];
         };
-        resolvedDefaultFeatures = [ "bytes" "default" "fs" "io-std" "io-util" "libc" "macros" "mio" "net" "num_cpus" "rt" "rt-multi-thread" "signal" "signal-hook-registry" "socket2" "sync" "time" "tokio-macros" "windows-sys" ];
+        resolvedDefaultFeatures = [ "bytes" "default" "fs" "io-std" "io-util" "libc" "macros" "mio" "net" "num_cpus" "rt" "rt-multi-thread" "signal" "signal-hook-registry" "socket2" "sync" "test-util" "time" "tokio-macros" "windows-sys" ];
       };
       "tokio-io-timeout" = rec {
         crateName = "tokio-io-timeout";
@@ -9994,6 +10005,46 @@ rec {
           "xattr" = [ "dep:xattr" ];
         };
         resolvedDefaultFeatures = [ "default" "xattr" ];
+      };
+      "tokio-test" = rec {
+        crateName = "tokio-test";
+        version = "0.4.3";
+        edition = "2021";
+        sha256 = "06fplzcc2ymahfzykd2ickw2qn7g3lz47bll00865s1spnx3r6z8";
+        authors = [
+          "Tokio Contributors <team@tokio.rs>"
+        ];
+        dependencies = [
+          {
+            name = "async-stream";
+            packageId = "async-stream";
+          }
+          {
+            name = "bytes";
+            packageId = "bytes";
+          }
+          {
+            name = "futures-core";
+            packageId = "futures-core";
+          }
+          {
+            name = "tokio";
+            packageId = "tokio";
+            features = [ "rt" "sync" "time" "test-util" ];
+          }
+          {
+            name = "tokio-stream";
+            packageId = "tokio-stream";
+          }
+        ];
+        devDependencies = [
+          {
+            name = "tokio";
+            packageId = "tokio";
+            features = [ "full" ];
+          }
+        ];
+
       };
       "tokio-util" = rec {
         crateName = "tokio-util";
