@@ -215,10 +215,21 @@ impl<'a> StorePathRef<'a> {
     }
 
     /// Construct a [StorePathRef] from a name and digest.
+    /// The name is validated, and the digest checked for size.
     pub fn from_name_and_digest(name: &'a str, digest: &[u8]) -> Result<Self, Error> {
+        let digest_fixed = digest.try_into().map_err(|_| Error::InvalidLength)?;
+        Self::from_name_and_digest_fixed(name, digest_fixed)
+    }
+
+    /// Construct a [StorePathRef] from a name and digest of correct length.
+    /// The name is validated.
+    pub fn from_name_and_digest_fixed(
+        name: &'a str,
+        digest: [u8; DIGEST_SIZE],
+    ) -> Result<Self, Error> {
         Ok(Self {
             name: validate_name(name.as_bytes())?,
-            digest: digest.try_into().map_err(|_| Error::InvalidLength)?,
+            digest,
         })
     }
 

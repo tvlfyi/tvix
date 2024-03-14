@@ -1,6 +1,6 @@
 use crate::nixbase32;
 use crate::nixhash::{CAHash, NixHash};
-use crate::store_path::{Error, StorePathRef, DIGEST_SIZE, STORE_DIR};
+use crate::store_path::{Error, StorePathRef, STORE_DIR};
 use data_encoding::HEXLOWER;
 use sha2::{Digest, Sha256};
 use thiserror;
@@ -154,10 +154,11 @@ fn build_store_path_from_fingerprint_parts<'a>(
         "{ty}:sha256:{}:{STORE_DIR}:{name}",
         HEXLOWER.encode(inner_digest)
     );
-    let digest: [u8; DIGEST_SIZE] = compress_hash(&Sha256::new_with_prefix(fingerprint).finalize());
-
     // name validation happens in here.
-    StorePathRef::from_name_and_digest(name, &digest)
+    StorePathRef::from_name_and_digest_fixed(
+        name,
+        compress_hash(&Sha256::new_with_prefix(fingerprint).finalize()),
+    )
 }
 
 /// This contains the Nix logic to create "text hash strings", which are used
