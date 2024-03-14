@@ -97,7 +97,9 @@ impl Derivation {
         self.to_aterm_bytes_with_replacements(&self.input_derivations)
     }
 
-    /// Like `to_aterm_bytes` but allow input_derivation replacements for hashing.
+    /// Like `to_aterm_bytes`, but accept a different BTreeMap for input_derivations.
+    /// This is used to render the ATerm representation of a Derivation "modulo
+    /// fixed-output derivations".
     fn to_aterm_bytes_with_replacements(
         &self,
         input_derivations: &BTreeMap<impl AtermWriteable, BTreeSet<String>>,
@@ -203,19 +205,18 @@ impl Derivation {
             // For each input_derivation, look up the
             // derivation_or_fod_hash, and replace the derivation path with
             // it's HEXLOWER digest.
-            let input_derivations = BTreeMap::from_iter(self.input_derivations.iter().map(
-                |(drv_path, output_names)| {
-                    let hash = fn_get_derivation_or_fod_hash(&drv_path.into());
+            let aterm_bytes = self.to_aterm_bytes_with_replacements(&BTreeMap::from_iter(
+                self.input_derivations
+                    .iter()
+                    .map(|(drv_path, output_names)| {
+                        let hash = fn_get_derivation_or_fod_hash(&drv_path.into());
 
-                    (hash, output_names.to_owned())
-                },
+                        (hash, output_names.to_owned())
+                    }),
             ));
 
-            // write the ATerm of that to the hash function
-            let mut hasher = Sha256::new();
-            hasher.update(self.to_aterm_bytes_with_replacements(&input_derivations));
-
-            hasher.finalize().into()
+            // write the ATerm of that to the hash function and return its digest.
+            Sha256::new_with_prefix(aterm_bytes).finalize().into()
         })
     }
 
