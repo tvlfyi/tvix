@@ -5,25 +5,24 @@
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 #[allow(dead_code)]
-/// Read a u64 from the stream (little endian).
+/// Read a u64 from the AsyncRead (little endian).
 pub async fn read_u64<R: AsyncReadExt + Unpin>(r: &mut R) -> std::io::Result<u64> {
     r.read_u64_le().await
 }
 
-#[allow(dead_code)]
-/// Write a u64 from the stream (little endian).
+/// Write a u64 to the AsyncWrite (little endian).
 pub async fn write_u64<W: AsyncWrite + Unpin>(w: &mut W, v: u64) -> std::io::Result<()> {
     w.write_u64_le(v).await
 }
 
 #[allow(dead_code)]
-/// Read a boolean from the stream, encoded as u64 (>0 is true).
+/// Read a boolean from the AsyncRead, encoded as u64 (>0 is true).
 pub async fn read_bool<R: AsyncRead + Unpin>(r: &mut R) -> std::io::Result<bool> {
     Ok(read_u64(r).await? > 0)
 }
 
 #[allow(dead_code)]
-/// Write a boolean to the stream, encoded as u64 (>0 is true).
+/// Write a boolean to the AsyncWrite, encoded as u64 (>0 is true).
 pub async fn write_bool<W: AsyncWrite + Unpin>(w: &mut W, v: bool) -> std::io::Result<()> {
     write_u64(w, if v { 1u64 } else { 0u64 }).await
 }
