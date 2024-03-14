@@ -1,8 +1,8 @@
 use crate::nixbase32;
 use crate::nixhash::{CAHash, NixHash};
 use crate::store_path::{Error, StorePathRef, DIGEST_SIZE, STORE_DIR};
+use data_encoding::HEXLOWER;
 use sha2::{Digest, Sha256};
-use std::io::Write;
 use thiserror;
 
 /// Errors that can occur when creating a content-addressed store path.
@@ -66,14 +66,11 @@ pub fn build_ca_path<'a, S: AsRef<str>, I: IntoIterator<Item = S>>(
         return Err(BuildStorePathError::InvalidReference());
     }
 
-    let (ty, hash) = match &ca_hash {
-        CAHash::Text(ref digest) => (
-            make_references_string("text", references, false),
-            NixHash::Sha256(*digest),
-        ),
+    let (ty, inner_digest) = match &ca_hash {
+        CAHash::Text(ref digest) => (make_references_string("text", references, false), *digest),
         CAHash::Nar(NixHash::Sha256(ref digest)) => (
             make_references_string("source", references, self_reference),
-            NixHash::Sha256(*digest),
+            *digest,
         ),
 
         // for all other CAHash::Nar, another custom scheme is used.
@@ -84,7 +81,7 @@ pub fn build_ca_path<'a, S: AsRef<str>, I: IntoIterator<Item = S>>(
 
             (
                 "output:out".to_string(),
-                NixHash::Sha256(fixed_out_digest("fixed:out:r", hash)),
+                fixed_out_digest("fixed:out:r", hash),
             )
         }
         // CaHash::Flat is using something very similar, except the `r:` prefix.
@@ -95,12 +92,12 @@ pub fn build_ca_path<'a, S: AsRef<str>, I: IntoIterator<Item = S>>(
 
             (
                 "output:out".to_string(),
-                NixHash::Sha256(fixed_out_digest("fixed:out", hash)),
+                fixed_out_digest("fixed:out", hash),
             )
         }
     };
 
-    build_store_path_from_fingerprint_parts(&ty, &hash, name)
+    build_store_path_from_fingerprint_parts(&ty, &inner_digest, name)
         .map_err(BuildStorePathError::InvalidStorePath)
 }
 
@@ -128,13 +125,13 @@ pub fn build_nar_based_store_path<'a>(
 /// Input-addresed store paths are always derivation outputs, the "input" in question is the
 /// derivation and its closure.
 pub fn build_output_path<'a>(
-    drv_hash: &NixHash,
+    drv_sha256: &[u8; 32],
     output_name: &str,
     output_path_name: &'a str,
 ) -> Result<StorePathRef<'a>, Error> {
     build_store_path_from_fingerprint_parts(
         &(String::from("output:") + output_name),
-        drv_hash,
+        drv_sha256,
         output_path_name,
     )
 }
@@ -145,18 +142,20 @@ pub fn build_output_path<'a>(
 /// but other fingerprints starting with "output:" are also used in Derivation
 /// output path calculation.
 ///
-/// The fingerprint is hashed with sha256, its digest is compressed to 20 bytes,
-/// and nixbase32-encoded (32 characters).
+/// The fingerprint is hashed with sha256, and its digest is compressed to 20
+/// bytes.
+/// Inside a StorePath, that digest is printed nixbase32-encoded
+/// (32 characters).
 fn build_store_path_from_fingerprint_parts<'a>(
     ty: &str,
-    hash: &NixHash,
+    inner_digest: &[u8; 32],
     name: &'a str,
 ) -> Result<StorePathRef<'a>, Error> {
-    let digest: [u8; DIGEST_SIZE] = compress_hash(&{
-        let mut h = Sha256::new();
-        write!(h, "{ty}:{}:{STORE_DIR}:{name}", hash.to_nix_hex_string()).unwrap();
-        h.finalize()
-    });
+    let fingerprint = format!(
+        "{ty}:sha256:{}:{STORE_DIR}:{name}",
+        HEXLOWER.encode(inner_digest)
+    );
+    let digest: [u8; DIGEST_SIZE] = compress_hash(&Sha256::new_with_prefix(fingerprint).finalize());
 
     // name validation happens in here.
     StorePathRef::from_name_and_digest(name, &digest)

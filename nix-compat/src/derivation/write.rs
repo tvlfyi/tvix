@@ -8,15 +8,14 @@ use crate::derivation::{ca_kind_prefix, output::Output};
 use crate::nixbase32;
 use crate::store_path::{StorePath, StorePathRef, STORE_DIR_WITH_SLASH};
 use bstr::BString;
-use std::fmt::Display;
+use data_encoding::HEXLOWER;
+
 use std::{
     collections::{BTreeMap, BTreeSet},
     io,
     io::Error,
     io::Write,
 };
-
-use super::NixHash;
 
 pub const DERIVATION_PREFIX: &str = "Derive";
 pub const PAREN_OPEN: char = '(';
@@ -31,7 +30,7 @@ pub const QUOTE: char = '"';
 /// Note that we mostly use explicit `write_*` calls
 /// instead since the serialization of the items depends on
 /// the context a lot.
-pub(crate) trait AtermWriteable: Display {
+pub(crate) trait AtermWriteable {
     fn aterm_write(&self, writer: &mut impl Write) -> std::io::Result<()>;
 
     fn aterm_bytes(&self) -> Vec<u8> {
@@ -67,12 +66,9 @@ impl AtermWriteable for String {
     }
 }
 
-impl AtermWriteable for NixHash {
+impl AtermWriteable for [u8; 32] {
     fn aterm_write(&self, writer: &mut impl Write) -> std::io::Result<()> {
-        // When we serialize the placeholder hashes,
-        // they need to be SHA256.
-        debug_assert!(matches!(self, NixHash::Sha256(_)));
-        write_field(writer, self.to_plain_hex_string(), false)
+        write_field(writer, HEXLOWER.encode(self), false)
     }
 }
 

@@ -5,6 +5,7 @@ use crate::derivation::parser::Error;
 use crate::derivation::Derivation;
 use crate::store_path::StorePath;
 use bstr::{BStr, BString};
+use hex_literal::hex;
 use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::Read;
@@ -184,16 +185,15 @@ fn derivation_with_trimmed_output_paths(derivation: &Derivation) -> Derivation {
     }
 }
 
-#[test_case("0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv", "sha256:724f3e3634fce4cbbbd3483287b8798588e80280660b9a63fd13a1bc90485b33"; "fixed_sha256")]
-#[test_case("ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv", "sha256:c79aebd0ce3269393d4a1fde2cbd1d975d879b40f0bf40a48f550edc107fd5df";"fixed-sha1")]
-fn derivation_or_fod_hash(drv_path: &str, expected_nix_hash_string: &str) {
+#[test_case("0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv", hex!("724f3e3634fce4cbbbd3483287b8798588e80280660b9a63fd13a1bc90485b33"); "fixed_sha256")]
+#[test_case("ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv", hex!("c79aebd0ce3269393d4a1fde2cbd1d975d879b40f0bf40a48f550edc107fd5df");"fixed-sha1")]
+fn derivation_or_fod_hash(drv_path: &str, expected_digest: [u8; 32]) {
     // read in the fixture
     let json_bytes = read_file(&format!("{}/ok/{}.json", RESOURCES_PATHS, drv_path));
     let drv: Derivation = serde_json::from_slice(&json_bytes).expect("must deserialize");
 
     let actual = drv.derivation_or_fod_hash(|_| panic!("must not be called"));
-
-    assert_eq!(expected_nix_hash_string, actual.to_nix_hex_string());
+    assert_eq!(expected_digest, actual);
 }
 
 /// This reads a Derivation (in A-Term), trims out all fields containing
@@ -401,7 +401,7 @@ fn output_path_construction() {
             if drv_path.to_string() != "0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv" {
                 panic!("lookup called with unexpected drv_path: {}", drv_path);
             }
-            bar_drv_derivation_or_fod_hash.clone()
+            bar_drv_derivation_or_fod_hash
         }),
     );
     assert!(foo_calc_result.is_ok());

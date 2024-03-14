@@ -178,8 +178,8 @@ impl Derivation {
     ///
     /// This is called `hashDerivationModulo` in nixcpp.
     ///
-    /// It returns a [NixHash], created by calculating the sha256 digest of
-    /// the derivation ATerm representation, except that:
+    /// It returns the sha256 digest of the derivation ATerm representation,
+    /// except that:
     ///  -  any input derivation paths have beed replaced "by the result of a
     ///     recursive call to this function" and that
     ///  - for fixed-output derivations the special
@@ -190,16 +190,16 @@ impl Derivation {
     /// this function to provide a lookup function to lookup these calculation
     /// results of parent derivations at `fn_get_derivation_or_fod_hash` (by
     /// drv path).
-    pub fn derivation_or_fod_hash<F>(&self, fn_get_derivation_or_fod_hash: F) -> NixHash
+    pub fn derivation_or_fod_hash<F>(&self, fn_get_derivation_or_fod_hash: F) -> [u8; 32]
     where
-        F: Fn(&StorePathRef) -> NixHash,
+        F: Fn(&StorePathRef) -> [u8; 32],
     {
         // Fixed-output derivations return a fixed hash.
         // Non-Fixed-output derivations return the sha256 digest of the ATerm
         // notation, but with all input_derivation paths replaced by a recursive
         // call to this function.
         // We use fn_get_derivation_or_fod_hash here, so callers can precompute this.
-        NixHash::Sha256(self.fod_digest().unwrap_or({
+        self.fod_digest().unwrap_or({
             // For each input_derivation, look up the
             // derivation_or_fod_hash, and replace the derivation path with
             // it's HEXLOWER digest.
@@ -216,7 +216,7 @@ impl Derivation {
             hasher.update(self.to_aterm_bytes_with_replacements(&input_derivations));
 
             hasher.finalize().into()
-        }))
+        })
     }
 
     /// This calculates all output paths of a Derivation and updates the struct.
@@ -238,7 +238,7 @@ impl Derivation {
     pub fn calculate_output_paths(
         &mut self,
         name: &str,
-        derivation_or_fod_hash: &NixHash,
+        derivation_or_fod_hash: &[u8; 32],
     ) -> Result<(), DerivationError> {
         // The fingerprint and hash differs per output
         for (output_name, output) in self.outputs.iter_mut() {

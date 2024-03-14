@@ -8,7 +8,7 @@
 //! This data is required to find the derivation needed to actually trigger the
 //! build, if necessary.
 
-use nix_compat::{derivation::Derivation, nixhash::NixHash, store_path::StorePath};
+use nix_compat::{derivation::Derivation, store_path::StorePath};
 use std::collections::HashMap;
 
 /// Struct keeping track of all known Derivations in the current evaluation.
@@ -20,7 +20,7 @@ pub struct KnownPaths {
     ///
     /// Keys are derivation paths, values are a tuple of the "hash derivation
     /// modulo" and the Derivation struct itself.
-    derivations: HashMap<StorePath, (NixHash, Derivation)>,
+    derivations: HashMap<StorePath, ([u8; 32], Derivation)>,
 
     /// A map from output path to (one) drv path.
     /// Note that in the case of FODs, multiple drvs can produce the same output
@@ -30,7 +30,7 @@ pub struct KnownPaths {
 
 impl KnownPaths {
     /// Fetch the opaque "hash derivation modulo" for a given derivation path.
-    pub fn get_hash_derivation_modulo(&self, drv_path: &StorePath) -> Option<&NixHash> {
+    pub fn get_hash_derivation_modulo(&self, drv_path: &StorePath) -> Option<&[u8; 32]> {
         self.derivations
             .get(drv_path)
             .map(|(hash_derivation_modulo, _derivation)| hash_derivation_modulo)
@@ -83,7 +83,7 @@ impl KnownPaths {
         #[allow(unused_variables)] // assertions on this only compiled in debug builds
         let old = self
             .derivations
-            .insert(drv_path.to_owned(), (hash_derivation_modulo.clone(), drv));
+            .insert(drv_path.to_owned(), (hash_derivation_modulo, drv));
 
         #[cfg(debug_assertions)]
         {
@@ -99,7 +99,7 @@ impl KnownPaths {
 
 #[cfg(test)]
 mod tests {
-    use nix_compat::{derivation::Derivation, nixhash::NixHash, store_path::StorePath};
+    use nix_compat::{derivation::Derivation, store_path::StorePath};
 
     use super::KnownPaths;
     use hex_literal::hex;
@@ -165,9 +165,9 @@ mod tests {
 
         // It should be possible to get the hash derivation modulo.
         assert_eq!(
-            Some(&NixHash::Sha256(hex!(
+            Some(&hex!(
                 "c79aebd0ce3269393d4a1fde2cbd1d975d879b40f0bf40a48f550edc107fd5df"
-            ))),
+            )),
             known_paths.get_hash_derivation_modulo(&BAR_DRV_PATH.clone())
         );
 
@@ -180,9 +180,9 @@ mod tests {
             known_paths.get_drv_by_drvpath(&FOO_DRV_PATH)
         );
         assert_eq!(
-            Some(&NixHash::Sha256(hex!(
+            Some(&hex!(
                 "af030d36d63d3d7f56a71adaba26b36f5fa1f9847da5eed953ed62e18192762f"
-            ))),
+            )),
             known_paths.get_hash_derivation_modulo(&FOO_DRV_PATH.clone())
         );
 
