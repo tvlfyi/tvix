@@ -66,6 +66,13 @@ pub fn build_ca_path<'a, S: AsRef<str>, I: IntoIterator<Item = S>>(
         return Err(BuildStorePathError::InvalidReference());
     }
 
+    /// Helper function, used for the non-sha256 [CAHash::Nar] and all [CAHash::Flat].
+    fn fixed_out_digest(prefix: &str, hash: &NixHash) -> [u8; 32] {
+        Sha256::new_with_prefix(format!("{}:{}:", prefix, hash.to_nix_hex_string()))
+            .finalize()
+            .into()
+    }
+
     let (ty, inner_digest) = match &ca_hash {
         CAHash::Text(ref digest) => (make_references_string("text", references, false), *digest),
         CAHash::Nar(NixHash::Sha256(ref digest)) => (
@@ -99,14 +106,6 @@ pub fn build_ca_path<'a, S: AsRef<str>, I: IntoIterator<Item = S>>(
 
     build_store_path_from_fingerprint_parts(&ty, &inner_digest, name)
         .map_err(BuildStorePathError::InvalidStorePath)
-}
-
-/// Helper function, used in [build_ca_path] for the non-sha256 [CAHash::Nar]
-/// and [CAHash::Flat].
-fn fixed_out_digest(prefix: &str, hash: &NixHash) -> [u8; 32] {
-    Sha256::new_with_prefix(format!("{}:{}:", prefix, hash.to_nix_hex_string()))
-        .finalize()
-        .into()
 }
 
 /// For given NAR sha256 digest and name, return the new [StorePathRef] this
