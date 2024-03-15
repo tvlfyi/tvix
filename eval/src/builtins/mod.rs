@@ -523,7 +523,7 @@ mod pure_builtins {
     async fn builtin_gen_list(
         co: GenCo,
         // Nix 2.3 doesn't propagate failures here
-        #[catch] generator: Value,
+        #[lazy] generator: Value,
         length: Value,
     ) -> Result<Value, ErrorKind> {
         let mut out = imbl::Vector::<Value>::new();
@@ -905,7 +905,7 @@ mod pure_builtins {
     }
 
     #[builtin("map")]
-    async fn builtin_map(co: GenCo, #[catch] f: Value, list: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_map(co: GenCo, #[lazy] f: Value, list: Value) -> Result<Value, ErrorKind> {
         let mut out = imbl::Vector::<Value>::new();
 
         // the best span we can get…
@@ -920,7 +920,11 @@ mod pure_builtins {
     }
 
     #[builtin("mapAttrs")]
-    async fn builtin_map_attrs(co: GenCo, f: Value, attrs: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_map_attrs(
+        co: GenCo,
+        #[lazy] f: Value,
+        attrs: Value,
+    ) -> Result<Value, ErrorKind> {
         let attrs = attrs.to_attrs()?;
         let mut out = imbl::OrdMap::new();
 
