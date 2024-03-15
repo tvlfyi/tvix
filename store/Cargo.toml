@@ -24,10 +24,10 @@ sha2 = "0.10.6"
 sled = { version = "0.34.7" }
 thiserror = "1.0.38"
 tokio = { version = "1.32.0", features = ["fs", "macros", "net", "rt", "rt-multi-thread", "signal"] }
-tokio-listener = { version = "0.2.2", features = [ "tonic010" ] }
+tokio-listener = { version = "0.3.2", features = [ "tonic011" ] }
 tokio-stream = { version = "0.1.14", features = ["fs"] }
 tokio-util = { version = "0.7.9", features = ["io", "io-util", "compat"] }
-tonic = { version = "0.10.2", features = ["tls", "tls-roots"] }
+tonic = { version = "0.11.0", features = ["tls", "tls-roots"] }
 tower = "0.4.13"
 tracing = "0.1.37"
 tracing-opentelemetry = "0.22.0"
@@ -41,11 +41,11 @@ xz2 = "0.1.7"
 
 [dependencies.tonic-reflection]
 optional = true
-version = "0.10.2"
+version = "0.11.0"
 
 [build-dependencies]
 prost-build = "0.12.1"
-tonic-build = "0.10.2"
+tonic-build = "0.11.0"
 
 [dev-dependencies]
 test-case = "3.3.1"
