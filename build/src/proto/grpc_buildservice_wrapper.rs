@@ -4,7 +4,7 @@ use tonic::async_trait;
 
 use super::{Build, BuildRequest};
 
-/// Implements the gRPC server trait ([self::build_service_server::BuildService]
+/// Implements the gRPC server trait ([crate::proto::build_service_server::BuildService]
 /// for anything implementing [BuildService].
 pub struct GRPCBuildServiceWrapper<BUILD> {
     inner: BUILD,

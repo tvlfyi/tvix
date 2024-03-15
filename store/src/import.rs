@@ -84,7 +84,7 @@ pub fn derive_nar_ca_path_info(nar_size: u64, nar_sha256: [u8; 32], root_node: N
     }
 }
 
-/// Ingest the given path [`path`] and register the resulting output path in the
+/// Ingest the given path `path` and register the resulting output path in the
 /// [`PathInfoService`] as a recursive fixed output NAR.
 #[instrument(skip_all, fields(store_name=name, path=?path), err)]
 pub async fn import_path_as_nar_ca<BS, DS, PS, P>(

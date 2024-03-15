@@ -48,7 +48,7 @@ pub trait EvalIO {
     /// * `builtins.pathExists :: path -> bool`
     fn path_exists(&self, path: &Path) -> io::Result<bool>;
 
-    /// Read the file at the specified path to a Vec<u8>.
+    /// Read the file at the specified path to a `Vec<u8>`.
     ///
     /// This is used for the following language evaluation cases:
     ///

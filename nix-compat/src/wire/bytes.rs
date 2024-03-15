@@ -7,7 +7,7 @@ use super::primitive;
 #[allow(dead_code)]
 /// Read a limited number of bytes from the AsyncRead.
 /// Rejects reading more than `allowed_size` bytes of payload.
-/// Internally takes care of dealing with the padding, so the returned Vec<u8>
+/// Internally takes care of dealing with the padding, so the returned `Vec<u8>`
 /// only contains the payload.
 /// This always buffers the entire contents into memory, we'll add a streaming
 /// version later.
@@ -67,7 +67,7 @@ where
 /// Read an unlimited number of bytes from the AsyncRead.
 /// Note this can exhaust memory.
 /// Internally uses [read_bytes], which takes care of dealing with the padding,
-/// so the returned Vec<u8> only contains the payload.
+/// so the returned `Vec<u8>` only contains the payload.
 pub async fn read_bytes_unchecked<R: AsyncReadExt + Unpin>(r: &mut R) -> std::io::Result<Vec<u8>> {
     read_bytes(r, 0u64..).await
 }
