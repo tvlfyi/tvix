@@ -501,7 +501,13 @@ mod pure_builtins {
             let attrs = val.to_attrs()?;
             let key = attrs.select_required("key")?;
 
-            if !bgc_insert_key(&co, key.clone(), &mut done_keys).await? {
+            let value_missing = bgc_insert_key(&co, key.clone(), &mut done_keys).await?;
+
+            if let Err(cek) = value_missing {
+                return Ok(Value::Catchable(Box::new(cek)));
+            }
+
+            if let Ok(false) = value_missing {
                 continue;
             }
 
@@ -1485,7 +1491,11 @@ mod pure_builtins {
 
 /// Internal helper function for genericClosure, determining whether a
 /// value has been seen before.
-async fn bgc_insert_key(co: &GenCo, key: Value, done: &mut Vec<Value>) -> Result<bool, ErrorKind> {
+async fn bgc_insert_key(
+    co: &GenCo,
+    key: Value,
+    done: &mut Vec<Value>,
+) -> Result<Result<bool, CatchableErrorKind>, ErrorKind> {
     for existing in done.iter() {
         match generators::check_equality(
             co,
@@ -1496,16 +1506,14 @@ async fn bgc_insert_key(co: &GenCo, key: Value, done: &mut Vec<Value>) -> Result
         )
         .await?
         {
-            Ok(true) => return Ok(false),
+            Ok(true) => return Ok(Ok(false)),
             Ok(false) => (),
-            Err(_cek) => {
-                unimplemented!("TODO(amjoseph): not sure what the correct behavior is here")
-            }
+            Err(cek) => return Ok(Err(cek)),
         }
     }
 
     done.push(key);
-    Ok(true)
+    Ok(Ok(true))
 }
 
 /// The set of standard pure builtins in Nix, mostly concerned with
