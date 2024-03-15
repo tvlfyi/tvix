@@ -24,7 +24,7 @@
     ];
     operator = { key, initial, ... }:
       if initial
-      then [ { key = key - 1; initial = false;  value = throw "lol"; } ]
+      then [{ key = key - 1; initial = false; value = throw "lol"; }]
       else [ ];
   }))
   (builtins.length (builtins.concatMap (m: [ m (builtins.throw m) ]) [ "Marusja" ]))

@@ -6,7 +6,8 @@ let
   list3 = [ (2 + 2) ];
   list4 = [ (2 + 2) ];
   list5 = [ (2 + 2) ];
-in [
+in
+[
   (attrs1 == attrs2)
   (list1 == list2)
   (list3 == list2)

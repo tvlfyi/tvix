@@ -3,13 +3,14 @@
 # provide the value.
 
 # Provide a dynamic `x` identifier in the scope.
-with ({ x = 1;});
+with ({ x = 1; });
 
 # inherit this `x` as a static identifier
 let inherit x;
 
-# Provide another dynamic `x` identifier
-in with ({ x = 3; });
+  # Provide another dynamic `x` identifier
+in
+with ({ x = 3; });
 
 # Inherited static identifier should have precedence
 x

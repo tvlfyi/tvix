@@ -6,7 +6,8 @@ let
   set = {
     value = 2;
   };
-in [
+in
+[
   1
   (with set; value)
   3

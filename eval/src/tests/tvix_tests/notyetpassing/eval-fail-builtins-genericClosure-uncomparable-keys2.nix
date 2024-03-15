@@ -3,10 +3,10 @@ let
 in
 
 builtins.genericClosure {
-  startSet = [ { key = id; first = true; } ];
+  startSet = [{ key = id; first = true; }];
   operator =
     { first, ... }:
     if first then [
       { key = id; first = false; }
-    ] else [];
+    ] else [ ];
 }

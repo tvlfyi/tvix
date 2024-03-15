@@ -15,4 +15,7 @@ with { c = 3; d = 3; };
 _:
 with { d = 4; };
 
-[ a b c d ]) null null null null
+[ a b c d ]) null
+  null
+  null
+  null

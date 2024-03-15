@@ -4,7 +4,7 @@ let
       ord1 = builtins.compareVersions a b;
       ord2 = builtins.compareVersions b a;
     in
-      assert ord1 == -ord2; ord1;
+    assert ord1 == -ord2; ord1;
 in
 
 [

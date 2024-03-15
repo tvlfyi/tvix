@@ -1,1 +1,1 @@
-builtins.genList (_: {}.foo) 1
+builtins.genList (_: { }.foo) 1

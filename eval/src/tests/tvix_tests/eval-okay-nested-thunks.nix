@@ -4,4 +4,5 @@ let
   a = b;
   b = c;
   c = 42;
-in a
+in
+a

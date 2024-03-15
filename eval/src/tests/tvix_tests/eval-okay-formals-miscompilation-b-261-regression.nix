@@ -14,7 +14,7 @@ let
 in
 
 # Note that the crash did not occur if the offending expression was the rhs
-# argument to `builtins.seq`, hence we need to put the assert in between.
+  # argument to `builtins.seq`, hence we need to put the assert in between.
 assert builtins.seq bomb true;
 
 f { finalise = bomb; }

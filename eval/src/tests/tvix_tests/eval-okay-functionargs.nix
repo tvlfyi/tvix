@@ -1,21 +1,22 @@
 let
 
-  stdenvFun = { }: { name = "stdenv"; };
-  stdenv2Fun = { }: { name = "stdenv2"; };
+  stdenvFun = {}: { name = "stdenv"; };
+  stdenv2Fun = {}: { name = "stdenv2"; };
   fetchurlFun = { stdenv }: assert stdenv.name == "stdenv"; { name = "fetchurl"; };
   atermFun = { stdenv, fetchurl }: { name = "aterm-${stdenv.name}"; };
   aterm2Fun = { stdenv, fetchurl }: { name = "aterm2-${stdenv.name}"; };
   nixFun = { stdenv, fetchurl, aterm }: { name = "nix-${stdenv.name}-${aterm.name}"; };
 
   mplayerFun =
-    { stdenv, fetchurl, enableX11 ? false, xorg ? null, enableFoo ? true, foo ? null  }:
-    assert stdenv.name == "stdenv2";
-    assert enableX11 -> xorg.libXv.name == "libXv";
-    assert enableFoo -> foo != null;
-    { name = "mplayer-${stdenv.name}.${xorg.libXv.name}-${xorg.libX11.name}"; };
+    { stdenv, fetchurl, enableX11 ? false, xorg ? null, enableFoo ? true, foo ? null }:
+      assert stdenv.name == "stdenv2";
+      assert enableX11 -> xorg.libXv.name == "libXv";
+      assert enableFoo -> foo != null;
+      { name = "mplayer-${stdenv.name}.${xorg.libXv.name}-${xorg.libX11.name}"; };
 
   makeOverridable = f: origArgs: f origArgs //
-    { override = newArgs:
+    {
+      override = newArgs:
         makeOverridable f (origArgs // (if builtins.isFunction newArgs then newArgs origArgs else newArgs));
     };
 
@@ -37,7 +38,8 @@ let
         mplayer = callPackage mplayerFun { stdenv = pkgs.stdenv2; enableFoo = false; };
         nix = callPackage nixFun { };
       };
-    in pkgs;
+    in
+    pkgs;
 
   libX11Fun = { stdenv, fetchurl }: { name = "libX11"; };
   libX11_2Fun = { stdenv, fetchurl }: { name = "libX11_2"; };
@@ -67,14 +69,15 @@ let
 
 in
 
-  [ pkgs.stdenv.name
-    pkgs.fetchurl.name
-    pkgs.aterm.name
-    pkgs2.aterm.name
-    pkgs.xorg.libX11.name
-    pkgs.xorg.libXv.name
-    pkgs.mplayer.name
-    pkgs2.mplayer.name
-    pkgs.nix.name
-    pkgs2.nix.name
-  ]
+[
+  pkgs.stdenv.name
+  pkgs.fetchurl.name
+  pkgs.aterm.name
+  pkgs2.aterm.name
+  pkgs.xorg.libX11.name
+  pkgs.xorg.libXv.name
+  pkgs.mplayer.name
+  pkgs2.mplayer.name
+  pkgs.nix.name
+  pkgs2.nix.name
+]

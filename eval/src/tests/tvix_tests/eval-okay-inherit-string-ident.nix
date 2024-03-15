@@ -4,4 +4,5 @@ let
   set = {
     inherit ({ value = 42; }) "value";
   };
-in set.value
+in
+set.value

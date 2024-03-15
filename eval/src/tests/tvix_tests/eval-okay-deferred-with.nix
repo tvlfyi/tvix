@@ -5,4 +5,5 @@ let
   set = {
     value = 42;
   };
-in result
+in
+result

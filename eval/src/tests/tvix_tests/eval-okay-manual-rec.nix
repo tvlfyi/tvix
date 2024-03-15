@@ -6,4 +6,5 @@ let
     a = 21;
     b = a * 2;
   };
-in set.b
+in
+set.b

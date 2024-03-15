@@ -1,1 +1,1 @@
-with {}; let { body = 42; }
+with { }; let { body = 42; }

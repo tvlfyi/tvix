@@ -17,9 +17,9 @@ let
   };
 
   multiTail = {
-   val = 42;
-   tail1 = multiTail;
-   tail2 = multiTail;
+    val = 42;
+    tail1 = multiTail;
+    tail2 = multiTail;
   };
 in
 

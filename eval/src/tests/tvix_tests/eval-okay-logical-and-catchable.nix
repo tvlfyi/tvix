@@ -1,1 +1,1 @@
-(builtins.tryEval (  (throw "fred") && (throw "jill") )).success
+(builtins.tryEval ((throw "fred") && (throw "jill"))).success

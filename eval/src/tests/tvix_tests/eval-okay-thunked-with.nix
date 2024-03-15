@@ -4,4 +4,5 @@ let
   set = {
     a = with { b = 42; }; b;
   };
-in set.a
+in
+set.a

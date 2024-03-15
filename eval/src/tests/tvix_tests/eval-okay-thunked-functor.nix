@@ -1,7 +1,8 @@
 let
   __functor = f;
   f = self: x: self.out * x;
-in {
+in
+{
   inherit __functor;
   out = 21;
 } 2

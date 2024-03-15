@@ -1,1 +1,1 @@
-(builtins.concatMap (x: [x] ++ ["z"]) ["a" "b"])
+(builtins.concatMap (x: [ x ] ++ [ "z" ]) [ "a" "b" ])

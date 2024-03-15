@@ -9,4 +9,5 @@ let
     ${with set1; key} = 20;
     ${with { key = "c"; }; key} = 2;
   };
-in set2.a + set2.b + set2.c
+in
+set2.a + set2.b + set2.c
