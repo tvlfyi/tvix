@@ -19,6 +19,7 @@ fn main() -> Result<()> {
     builder
         .build_server(true)
         .build_client(true)
+        .emit_rerun_if_changed(false)
         .compile_with_config(
             config,
             &[
@@ -33,6 +34,5 @@ fn main() -> Result<()> {
                 Some(proto_root) => proto_root.to_str().unwrap().to_owned(),
                 None => "../..".to_string(),
             }],
-        )?;
-    Ok(())
+        )
 }
