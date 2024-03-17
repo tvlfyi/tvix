@@ -2,7 +2,7 @@ use bytes::Bytes;
 use data_encoding::BASE64;
 use thiserror::Error;
 
-#[derive(PartialEq, Eq, Hash, Debug)]
+#[derive(PartialEq, Eq, Hash)]
 pub struct B3Digest(Bytes);
 
 // TODO: allow converting these errors to crate::Error
@@ -74,6 +74,12 @@ impl Clone for B3Digest {
 }
 
 impl std::fmt::Display for B3Digest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "b3:{}", BASE64.encode(&self.0))
+    }
+}
+
+impl std::fmt::Debug for B3Digest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "b3:{}", BASE64.encode(&self.0))
     }
