@@ -10,7 +10,8 @@ use tokio_listener::UserOptions;
 use tonic::transport::Server;
 use tracing::info;
 use tracing::Level;
-use tracing_subscriber::fmt::writer::MakeWriterExt;
+use tracing_subscriber::EnvFilter;
+use tracing_subscriber::Layer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use tvix_castore::proto::blob_service_server::BlobServiceServer;
@@ -55,6 +56,10 @@ struct Cli {
     #[arg(long, default_missing_value = "true", default_value = "true", num_args(0..=1), require_equals(true), action(clap::ArgAction::Set))]
     otlp: bool,
 
+    /// A global log level to use when printing logs.
+    /// It's also possible to set `RUST_LOG` according to
+    /// `tracing_subscriber::filter::EnvFilter`, which will always have
+    /// priority.
     #[arg(long)]
     log_level: Option<Level>,
 
@@ -172,19 +177,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // configure log settings
     let level = cli.log_level.unwrap_or(Level::INFO);
 
+    // Set up the tracing subscriber.
     let subscriber = tracing_subscriber::registry()
         .with(
             cli.json.then_some(
                 tracing_subscriber::fmt::Layer::new()
-                    .with_writer(std::io::stderr.with_max_level(level))
-                    .json(),
+                    .with_writer(std::io::stderr)
+                    .json()
+                    .with_filter(
+                        EnvFilter::builder()
+                            .with_default_directive(level.into())
+                            .from_env()
+                            .expect("invalid RUST_LOG"),
+                    ),
             ),
         )
         .with(
             (!cli.json).then_some(
                 tracing_subscriber::fmt::Layer::new()
-                    .with_writer(std::io::stderr.with_max_level(level))
-                    .pretty(),
+                    .with_writer(std::io::stderr)
+                    .pretty()
+                    .with_filter(
+                        EnvFilter::builder()
+                            .with_default_directive(level.into())
+                            .from_env()
+                            .expect("invalid RUST_LOG"),
+                    ),
             ),
         );
 

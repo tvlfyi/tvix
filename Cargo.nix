@@ -1333,7 +1333,7 @@ rec {
           }
           {
             name = "regex-automata";
-            packageId = "regex-automata";
+            packageId = "regex-automata 0.4.3";
             optional = true;
             usesDefaultFeatures = false;
             features = [ "dfa-search" ];
@@ -5264,6 +5264,22 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "v5-04" "v5-05" "v5-10" "v5-13" "v5-20" "v5-21" "v5-22" "v5-23" "v5-25" "v5-27" "v5-32" "v5-35" "v5-38" ];
       };
+      "matchers" = rec {
+        crateName = "matchers";
+        version = "0.1.0";
+        edition = "2018";
+        sha256 = "0n2mbk7lg2vf962c8xwzdq96yrc9i0p8dbmm4wa1nnkcp1dhfqw2";
+        authors = [
+          "Eliza Weisman <eliza@buoyant.io>"
+        ];
+        dependencies = [
+          {
+            name = "regex-automata";
+            packageId = "regex-automata 0.1.10";
+          }
+        ];
+
+      };
       "matchit" = rec {
         crateName = "matchit";
         version = "0.7.3";
@@ -7094,7 +7110,7 @@ rec {
           }
           {
             name = "regex-syntax";
-            packageId = "regex-syntax";
+            packageId = "regex-syntax 0.8.2";
             optional = true;
           }
           {
@@ -7777,13 +7793,13 @@ rec {
           }
           {
             name = "regex-automata";
-            packageId = "regex-automata";
+            packageId = "regex-automata 0.4.3";
             usesDefaultFeatures = false;
             features = [ "alloc" "syntax" "meta" "nfa-pikevm" ];
           }
           {
             name = "regex-syntax";
-            packageId = "regex-syntax";
+            packageId = "regex-syntax 0.8.2";
             usesDefaultFeatures = false;
           }
         ];
@@ -7811,7 +7827,31 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "perf" "perf-backtrack" "perf-cache" "perf-dfa" "perf-inline" "perf-literal" "perf-onepass" "std" "unicode" "unicode-age" "unicode-bool" "unicode-case" "unicode-gencat" "unicode-perl" "unicode-script" "unicode-segment" ];
       };
-      "regex-automata" = rec {
+      "regex-automata 0.1.10" = rec {
+        crateName = "regex-automata";
+        version = "0.1.10";
+        edition = "2015";
+        sha256 = "0ci1hvbzhrfby5fdpf4ganhf7kla58acad9i1ff1p34dzdrhs8vc";
+        authors = [
+          "Andrew Gallant <jamslam@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "regex-syntax";
+            packageId = "regex-syntax 0.6.29";
+            optional = true;
+          }
+        ];
+        features = {
+          "default" = [ "std" ];
+          "fst" = [ "dep:fst" ];
+          "regex-syntax" = [ "dep:regex-syntax" ];
+          "std" = [ "regex-syntax" ];
+          "transducer" = [ "std" "fst" ];
+        };
+        resolvedDefaultFeatures = [ "default" "regex-syntax" "std" ];
+      };
+      "regex-automata 0.4.3" = rec {
         crateName = "regex-automata";
         version = "0.4.3";
         edition = "2021";
@@ -7835,7 +7875,7 @@ rec {
           }
           {
             name = "regex-syntax";
-            packageId = "regex-syntax";
+            packageId = "regex-syntax 0.8.2";
             optional = true;
             usesDefaultFeatures = false;
           }
@@ -7871,7 +7911,21 @@ rec {
         };
         resolvedDefaultFeatures = [ "alloc" "dfa-onepass" "dfa-search" "hybrid" "meta" "nfa-backtrack" "nfa-pikevm" "nfa-thompson" "perf-inline" "perf-literal" "perf-literal-multisubstring" "perf-literal-substring" "std" "syntax" "unicode" "unicode-age" "unicode-bool" "unicode-case" "unicode-gencat" "unicode-perl" "unicode-script" "unicode-segment" "unicode-word-boundary" ];
       };
-      "regex-syntax" = rec {
+      "regex-syntax 0.6.29" = rec {
+        crateName = "regex-syntax";
+        version = "0.6.29";
+        edition = "2018";
+        sha256 = "1qgj49vm6y3zn1hi09x91jvgkl2b1fiaq402skj83280ggfwcqpi";
+        authors = [
+          "The Rust Project Developers"
+        ];
+        features = {
+          "default" = [ "unicode" ];
+          "unicode" = [ "unicode-age" "unicode-bool" "unicode-case" "unicode-gencat" "unicode-perl" "unicode-script" "unicode-segment" ];
+        };
+        resolvedDefaultFeatures = [ "default" "unicode" "unicode-age" "unicode-bool" "unicode-case" "unicode-gencat" "unicode-perl" "unicode-script" "unicode-segment" ];
+      };
+      "regex-syntax 0.8.2" = rec {
         crateName = "regex-syntax";
         version = "0.8.2";
         edition = "2021";
@@ -11774,9 +11828,26 @@ rec {
         ];
         dependencies = [
           {
+            name = "matchers";
+            packageId = "matchers";
+            optional = true;
+          }
+          {
             name = "nu-ansi-term";
             packageId = "nu-ansi-term";
             optional = true;
+          }
+          {
+            name = "once_cell";
+            packageId = "once_cell";
+            optional = true;
+          }
+          {
+            name = "regex";
+            packageId = "regex";
+            optional = true;
+            usesDefaultFeatures = false;
+            features = [ "std" "unicode-case" "unicode-perl" ];
           }
           {
             name = "serde";
@@ -11804,6 +11875,12 @@ rec {
             optional = true;
           }
           {
+            name = "tracing";
+            packageId = "tracing";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
+          {
             name = "tracing-core";
             packageId = "tracing-core";
             usesDefaultFeatures = false;
@@ -11822,6 +11899,16 @@ rec {
           }
         ];
         devDependencies = [
+          {
+            name = "regex";
+            packageId = "regex";
+            usesDefaultFeatures = false;
+            features = [ "std" ];
+          }
+          {
+            name = "tracing";
+            packageId = "tracing";
+          }
           {
             name = "tracing-log";
             packageId = "tracing-log";
@@ -11855,7 +11942,7 @@ rec {
           "valuable-serde" = [ "dep:valuable-serde" ];
           "valuable_crate" = [ "dep:valuable_crate" ];
         };
-        resolvedDefaultFeatures = [ "alloc" "ansi" "default" "fmt" "json" "nu-ansi-term" "registry" "serde" "serde_json" "sharded-slab" "smallvec" "std" "thread_local" "tracing-log" "tracing-serde" ];
+        resolvedDefaultFeatures = [ "alloc" "ansi" "default" "env-filter" "fmt" "json" "matchers" "nu-ansi-term" "once_cell" "regex" "registry" "serde" "serde_json" "sharded-slab" "smallvec" "std" "thread_local" "tracing" "tracing-log" "tracing-serde" ];
       };
       "try-lock" = rec {
         crateName = "try-lock";
@@ -12796,7 +12883,7 @@ rec {
           {
             name = "tracing-subscriber";
             packageId = "tracing-subscriber";
-            features = [ "json" ];
+            features = [ "env-filter" "json" ];
           }
           {
             name = "tvix-castore";
