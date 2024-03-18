@@ -3,7 +3,9 @@ package http
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -94,12 +96,24 @@ func (s *Server) Shutdown(ctx context.Context) error {
 // shutdown, after which it'll return ErrServerClosed.
 func (s *Server) ListenAndServe(addr string) error {
 	s.srv = &http.Server{
-		Addr:         addr,
 		Handler:      s.handler,
 		ReadTimeout:  500 * time.Second,
 		WriteTimeout: 500 * time.Second,
 		IdleTimeout:  500 * time.Second,
 	}
 
-	return s.srv.ListenAndServe()
+	var listener net.Listener
+	var err error
+
+	// check addr. If it contains slashes, assume it's a unix domain socket.
+	if strings.Contains(addr, "/") {
+		listener, err = net.Listen("unix", addr)
+	} else {
+		listener, err = net.Listen("tcp", addr)
+	}
+	if err != nil {
+		return fmt.Errorf("unable to listen on %v: %w", addr, err)
+	}
+
+	return s.srv.Serve(listener)
 }
