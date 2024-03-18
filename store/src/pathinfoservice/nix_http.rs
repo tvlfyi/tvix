@@ -5,6 +5,7 @@ use futures::{stream::BoxStream, TryStreamExt};
 use nix_compat::{
     narinfo::{self, NarInfo},
     nixbase32,
+    nixhash::NixHash,
 };
 use reqwest::StatusCode;
 use sha2::{digest::FixedOutput, Digest, Sha256};
@@ -223,10 +224,11 @@ where
                         io::ErrorKind::InvalidData,
                         "NarSize mismatch".to_string(),
                     ))?;
-                } else if narinfo.nar_hash != nar_hash {
+                }
+                if narinfo.nar_hash != nar_hash {
                     warn!(
-                        narinfo.nar_hash = BASE64.encode(&narinfo.nar_hash),
-                        http.nar_hash = BASE64.encode(&nar_hash),
+                        narinfo.nar_hash = %NixHash::Sha256(narinfo.nar_hash),
+                        http.nar_hash = %NixHash::Sha256(nar_hash),
                         "NarHash mismatch"
                     );
                     Err(io::Error::new(
