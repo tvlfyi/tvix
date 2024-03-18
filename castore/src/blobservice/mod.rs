@@ -56,11 +56,10 @@ pub trait BlobService: Send + Sync {
     async fn chunks(&self, digest: &B3Digest) -> io::Result<Option<Vec<ChunkMeta>>> {
         if !self.has(digest).await? {
             return Ok(None);
-        } else {
-            // default implementation, signalling the backend does not have more
-            // granular chunks available.
-            return Ok(Some(vec![]));
         }
+        // default implementation, signalling the backend does not have more
+        // granular chunks available.
+        Ok(Some(vec![]))
     }
 }
 
