@@ -1,4 +1,3 @@
-use data_encoding::BASE64;
 use futures::{StreamExt, TryStreamExt};
 use tokio_util::io::{ReaderStream, StreamReader};
 use tonic::async_trait;
@@ -114,10 +113,7 @@ where
         let blob_service = blob_service.clone();
         async move {
             blob_service.open_read(&d.to_owned()).await?.ok_or_else(|| {
-                warn!(
-                    chunk.digest = BASE64.encode(digest.as_slice()),
-                    "chunk not found"
-                );
+                warn!(chunk.digest = %digest, "chunk not found");
                 std::io::Error::new(std::io::ErrorKind::NotFound, "chunk not found")
             })
         }

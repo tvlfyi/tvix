@@ -1,4 +1,3 @@
-use data_encoding::BASE64;
 use futures::TryStreamExt;
 use pin_project_lite::pin_project;
 use tokio::io::{AsyncRead, AsyncSeekExt};
@@ -222,10 +221,7 @@ where
                         .open_read(&chunk_digest.to_owned())
                         .await?
                         .ok_or_else(|| {
-                            warn!(
-                                chunk.digest = BASE64.encode(chunk_digest.as_slice()),
-                                "chunk not found"
-                            );
+                            warn!(chunk.digest = %chunk_digest, "chunk not found");
                             std::io::Error::new(std::io::ErrorKind::NotFound, "chunk not found")
                         })?;
 
