@@ -1,9 +1,7 @@
 use std::path::Path;
-
-use data_encoding::BASE64;
 use tracing::{debug, instrument};
 use tvix_castore::{
-    blobservice::BlobService, directoryservice::DirectoryService, proto::node::Node,
+    blobservice::BlobService, directoryservice::DirectoryService, proto::node::Node, B3Digest,
 };
 
 use nix_compat::store_path::{self, StorePath};
@@ -19,7 +17,7 @@ pub fn log_node(node: &Node, path: &Path) {
             debug!(
                 path = ?path,
                 name = ?directory_node.name,
-                digest = BASE64.encode(&directory_node.digest),
+                digest = %B3Digest::try_from(directory_node.digest.clone()).unwrap(),
                 "import successful",
             )
         }
@@ -27,7 +25,7 @@ pub fn log_node(node: &Node, path: &Path) {
             debug!(
                 path = ?path,
                 name = ?file_node.name,
-                digest = BASE64.encode(&file_node.digest),
+                digest = %B3Digest::try_from(file_node.digest.clone()).unwrap(),
                 "import successful"
             )
         }
