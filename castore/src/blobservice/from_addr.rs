@@ -3,8 +3,7 @@ use url::Url;
 use crate::{proto::blob_service_client::BlobServiceClient, Error};
 
 use super::{
-    BlobService, GRPCBlobService, MemoryBlobService, ObjectStoreBlobService,
-    SimpleFilesystemBlobService, SledBlobService,
+    BlobService, GRPCBlobService, MemoryBlobService, ObjectStoreBlobService, SledBlobService,
 };
 
 /// Constructs a new instance of a [BlobService] from an URI.
@@ -13,7 +12,6 @@ use super::{
 /// - `memory://` ([MemoryBlobService])
 /// - `sled://` ([SledBlobService])
 /// - `grpc+*://` ([GRPCBlobService])
-/// - `simplefs://` ([SimpleFilesystemBlobService])
 ///
 /// See their `from_url` methods for more details about their syntax.
 pub async fn from_addr(uri: &str) -> Result<Box<dyn BlobService>, crate::Error> {
@@ -57,13 +55,6 @@ pub async fn from_addr(uri: &str) -> Result<Box<dyn BlobService>, crate::Error> 
             // Constructing the channel is handled by tvix_castore::channel::from_url.
             let client = BlobServiceClient::new(crate::tonic::channel_from_url(&url).await?);
             Box::new(GRPCBlobService::from_client(client))
-        }
-        "simplefs" => {
-            if url.path().is_empty() {
-                return Err(Error::StorageError("Invalid filesystem path".to_string()));
-            }
-
-            Box::new(SimpleFilesystemBlobService::new(url.path().into()).await?)
         }
         scheme if scheme.starts_with("objectstore+") => {
             // We need to convert the URL to string, strip the prefix there, and then

@@ -11,7 +11,6 @@ mod grpc;
 mod memory;
 mod naive_seeker;
 mod object_store;
-mod simplefs;
 mod sled;
 
 #[cfg(test)]
@@ -23,7 +22,6 @@ pub use self::from_addr::from_addr;
 pub use self::grpc::GRPCBlobService;
 pub use self::memory::MemoryBlobService;
 pub use self::object_store::ObjectStoreBlobService;
-pub use self::simplefs::SimpleFilesystemBlobService;
 pub use self::sled::SledBlobService;
 
 /// The base trait all BlobService services need to implement.
