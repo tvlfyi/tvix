@@ -44,7 +44,10 @@ pub trait DirectoryService: Send + Sync {
     /// Rust doesn't support this as a generic in traits yet. This is the same thing that
     /// [async_trait] generates, but for streams instead of futures.
     ///
-    /// The individual Directory messages *must* be valid.
+    /// The individually returned Directory messages *must* be valid.
+    /// Directories are sent in an order from the root to the leaves, so that
+    /// the receiving side can validate each message to be a connected to the root
+    /// that has initially been requested.
     fn get_recursive(
         &self,
         root_directory_digest: &B3Digest,
