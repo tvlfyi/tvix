@@ -12,6 +12,7 @@ use super::{
 /// - `memory://` ([MemoryBlobService])
 /// - `sled://` ([SledBlobService])
 /// - `grpc+*://` ([GRPCBlobService])
+/// - `objectstore+*://` ([ObjectStoreBlobService])
 ///
 /// See their `from_url` methods for more details about their syntax.
 pub async fn from_addr(uri: &str) -> Result<Box<dyn BlobService>, crate::Error> {
