@@ -5,6 +5,7 @@ use crate::{
     directoryservice::MemoryDirectoryService,
     proto::directory_service_server::DirectoryServiceServer,
 };
+
 use tonic::transport::{Endpoint, Server, Uri};
 
 /// Constructs and returns a gRPC DirectoryService.

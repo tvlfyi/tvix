@@ -22,6 +22,12 @@ pub use self::sled::SledDirectoryService;
 pub use self::traverse::descend_to;
 pub use self::utils::traverse_directory;
 
+#[cfg(feature = "cloud")]
+mod bigtable;
+
+#[cfg(feature = "cloud")]
+pub use self::bigtable::BigtableDirectoryService;
+
 /// The base trait all Directory services need to implement.
 /// This is a simple get and put of [crate::proto::Directory], returning their
 /// digest.

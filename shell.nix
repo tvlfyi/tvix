@@ -19,10 +19,12 @@ pkgs.mkShell {
     pkgs.cargo
     pkgs.cargo-machete
     pkgs.cargo-expand
+    pkgs.cbtemulator
     pkgs.clippy
     pkgs.evans
     pkgs.fuse
     pkgs.go
+    pkgs.google-cloud-bigtable-tool
     pkgs.grpcurl
     pkgs.hyperfine
     pkgs.mdbook

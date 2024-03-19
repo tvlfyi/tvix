@@ -19,7 +19,8 @@ use super::{DirectoryService, GRPCDirectoryService, MemoryDirectoryService, Sled
 /// - `grpc+http://host:port`, `grpc+https://host:port`
 ///    Connects to a (remote) tvix-store gRPC service.
 pub async fn from_addr(uri: &str) -> Result<Box<dyn DirectoryService>, crate::Error> {
-    let url = Url::parse(uri)
+    #[allow(unused_mut)]
+    let mut url = Url::parse(uri)
         .map_err(|e| crate::Error::StorageError(format!("unable to parse url: {}", e)))?;
 
     let directory_service: Box<dyn DirectoryService> = match url.scheme() {
@@ -61,6 +62,30 @@ pub async fn from_addr(uri: &str) -> Result<Box<dyn DirectoryService>, crate::Er
             // Constructing the channel is handled by tvix_castore::channel::from_url.
             let client = DirectoryServiceClient::new(crate::tonic::channel_from_url(&url).await?);
             Box::new(GRPCDirectoryService::from_client(client))
+        }
+        #[cfg(feature = "cloud")]
+        "bigtable" => {
+            use super::bigtable::BigtableParameters;
+            use super::BigtableDirectoryService;
+
+            // parse the instance name from the hostname.
+            let instance_name = url
+                .host_str()
+                .ok_or_else(|| Error::StorageError("instance name missing".into()))?
+                .to_string();
+
+            // … but add it to the query string now, so we just need to parse that.
+            url.query_pairs_mut()
+                .append_pair("instance_name", &instance_name);
+
+            let params: BigtableParameters = serde_qs::from_str(url.query().unwrap_or_default())
+                .map_err(|e| Error::InvalidRequest(format!("failed to parse parameters: {}", e)))?;
+
+            Box::new(
+                BigtableDirectoryService::connect(params)
+                    .await
+                    .map_err(|e| Error::StorageError(e.to_string()))?,
+            )
         }
         _ => {
             return Err(crate::Error::StorageError(format!(
@@ -117,6 +142,27 @@ mod tests {
     #[case::grpc_valid_https_host_without_port("grpc+https://localhost", true)]
     /// Correct scheme to connect to localhost over http, but with additional path, which is invalid.
     #[case::grpc_invalid_host_and_path("grpc+http://localhost/some-path", false)]
+    /// A valid example for Bigtable
+    #[cfg_attr(
+        feature = "cloud",
+        case::bigtable_valid_url(
+            "bigtable://instance-1?project_id=project-1&table_name=table-1&family_name=cf1",
+            true
+        )
+    )]
+    /// A valid example for Bigtable, specifying a custom channel size and timeout
+    #[cfg_attr(
+        feature = "cloud",
+        case::bigtable_valid_url(
+            "bigtable://instance-1?project_id=project-1&table_name=table-1&family_name=cf1&channel_size=10&timeout=10",
+            true
+        )
+    )]
+    /// A invalid Bigtable example (missing fields)
+    #[cfg_attr(
+        feature = "cloud",
+        case::bigtable_invalid_url("bigtable://instance-1", false)
+    )]
     #[tokio::test]
     async fn test_from_addr_tokio(#[case] uri_str: &str, #[case] exp_succeed: bool) {
         if exp_succeed {
