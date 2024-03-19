@@ -22,51 +22,54 @@ pub async fn from_addr(uri: &str) -> Result<Box<dyn DirectoryService>, crate::Er
     let url = Url::parse(uri)
         .map_err(|e| crate::Error::StorageError(format!("unable to parse url: {}", e)))?;
 
-    Ok(if url.scheme() == "memory" {
-        // memory doesn't support host or path in the URL.
-        if url.has_host() || !url.path().is_empty() {
-            return Err(Error::StorageError("invalid url".to_string()));
+    let directory_service: Box<dyn DirectoryService> = match url.scheme() {
+        "memory" => {
+            // memory doesn't support host or path in the URL.
+            if url.has_host() || !url.path().is_empty() {
+                return Err(Error::StorageError("invalid url".to_string()));
+            }
+            Box::<MemoryDirectoryService>::default()
         }
-        Box::<MemoryDirectoryService>::default()
-    } else if url.scheme() == "sled" {
-        // sled doesn't support host, and a path can be provided (otherwise
-        // it'll live in memory only).
-        if url.has_host() {
-            return Err(Error::StorageError("no host allowed".to_string()));
-        }
+        "sled" => {
+            // sled doesn't support host, and a path can be provided (otherwise
+            // it'll live in memory only).
+            if url.has_host() {
+                return Err(Error::StorageError("no host allowed".to_string()));
+            }
 
-        if url.path() == "/" {
-            return Err(Error::StorageError(
-                "cowardly refusing to open / with sled".to_string(),
-            ));
-        }
+            if url.path() == "/" {
+                return Err(Error::StorageError(
+                    "cowardly refusing to open / with sled".to_string(),
+                ));
+            }
 
-        // TODO: expose compression and other parameters as URL parameters?
+            // TODO: expose compression and other parameters as URL parameters?
 
-        if url.path().is_empty() {
-            return Ok(Box::new(
+            Box::new(if url.path().is_empty() {
                 SledDirectoryService::new_temporary()
-                    .map_err(|e| Error::StorageError(e.to_string()))?,
-            ));
+                    .map_err(|e| Error::StorageError(e.to_string()))?
+            } else {
+                SledDirectoryService::new(url.path())
+                    .map_err(|e| Error::StorageError(e.to_string()))?
+            })
         }
-        return Ok(Box::new(
-            SledDirectoryService::new(url.path())
-                .map_err(|e| Error::StorageError(e.to_string()))?,
-        ));
-    } else if url.scheme().starts_with("grpc+") {
-        // schemes starting with grpc+ go to the GRPCPathInfoService.
-        //   That's normally grpc+unix for unix sockets, and grpc+http(s) for the HTTP counterparts.
-        // - In the case of unix sockets, there must be a path, but may not be a host.
-        // - In the case of non-unix sockets, there must be a host, but no path.
-        // Constructing the channel is handled by tvix_castore::channel::from_url.
-        let client = DirectoryServiceClient::new(crate::tonic::channel_from_url(&url).await?);
-        Box::new(GRPCDirectoryService::from_client(client))
-    } else {
-        Err(crate::Error::StorageError(format!(
-            "unknown scheme: {}",
-            url.scheme()
-        )))?
-    })
+        scheme if scheme.starts_with("grpc+") => {
+            // schemes starting with grpc+ go to the GRPCPathInfoService.
+            //   That's normally grpc+unix for unix sockets, and grpc+http(s) for the HTTP counterparts.
+            // - In the case of unix sockets, there must be a path, but may not be a host.
+            // - In the case of non-unix sockets, there must be a host, but no path.
+            // Constructing the channel is handled by tvix_castore::channel::from_url.
+            let client = DirectoryServiceClient::new(crate::tonic::channel_from_url(&url).await?);
+            Box::new(GRPCDirectoryService::from_client(client))
+        }
+        _ => {
+            return Err(crate::Error::StorageError(format!(
+                "unknown scheme: {}",
+                url.scheme()
+            )))
+        }
+    };
+    Ok(directory_service)
 }
 
 #[cfg(test)]
