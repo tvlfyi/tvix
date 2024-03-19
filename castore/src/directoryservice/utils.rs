@@ -7,7 +7,9 @@ use async_stream::stream;
 use futures::stream::BoxStream;
 use std::collections::{HashSet, VecDeque};
 use tonic::async_trait;
+use tracing::instrument;
 use tracing::warn;
+use tracing::Level;
 
 /// Traverses a [proto::Directory] from the root to the children.
 ///
@@ -103,6 +105,7 @@ impl<DS: DirectoryService> SimplePutter<DS> {
 
 #[async_trait]
 impl<DS: DirectoryService + 'static> DirectoryPutter for SimplePutter<DS> {
+    #[instrument(skip_all, fields(directory.digest=%directory.digest()), err)]
     async fn put(&mut self, directory: proto::Directory) -> Result<(), Error> {
         if self.closed {
             return Err(Error::StorageError("already closed".to_string()));
@@ -116,6 +119,7 @@ impl<DS: DirectoryService + 'static> DirectoryPutter for SimplePutter<DS> {
         Ok(())
     }
 
+    #[instrument(skip_all, ret(Display, level=Level::TRACE), err)]
     async fn close(&mut self) -> Result<B3Digest, Error> {
         if self.closed {
             return Err(Error::StorageError("already closed".to_string()));
