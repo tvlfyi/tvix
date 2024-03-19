@@ -53,7 +53,8 @@ tempfile = "3.3.0"
 tokio-retry = "0.3.0"
 
 [features]
-default = ["fuse", "otlp", "tonic-reflection"]
+default = ["cloud", "fuse", "otlp", "tonic-reflection"]
+cloud = ["tvix-castore/cloud"]
 fuse = ["tvix-castore/fuse"]
 otlp = ["dep:opentelemetry", "dep:opentelemetry-otlp", "dep:opentelemetry_sdk"]
 tonic-reflection = ["dep:tonic-reflection", "tvix-castore/tonic-reflection"]

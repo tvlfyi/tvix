@@ -12117,7 +12117,7 @@ rec {
           {
             name = "object_store";
             packageId = "object_store";
-            features = [ "aws" "azure" "gcp" "http" ];
+            features = [ "http" ];
           }
           {
             name = "parking_lot";
@@ -12243,12 +12243,13 @@ rec {
           }
         ];
         features = {
+          "cloud" = [ "object_store/aws" "object_store/azure" "object_store/gcp" ];
           "fs" = [ "dep:libc" "dep:fuse-backend-rs" ];
           "fuse" = [ "fs" ];
           "tonic-reflection" = [ "dep:tonic-reflection" ];
           "virtiofs" = [ "fs" "dep:vhost" "dep:vhost-user-backend" "dep:virtio-queue" "dep:vm-memory" "dep:vmm-sys-util" "dep:virtio-bindings" "fuse-backend-rs?/vhost-user-fs" "fuse-backend-rs?/virtiofs" ];
         };
-        resolvedDefaultFeatures = [ "default" "fs" "fuse" "tonic-reflection" "virtiofs" ];
+        resolvedDefaultFeatures = [ "cloud" "default" "fs" "fuse" "tonic-reflection" "virtiofs" ];
       };
       "tvix-cli" = rec {
         crateName = "tvix-cli";
@@ -12927,13 +12928,14 @@ rec {
           }
         ];
         features = {
-          "default" = [ "fuse" "otlp" "tonic-reflection" ];
+          "cloud" = [ "tvix-castore/cloud" ];
+          "default" = [ "cloud" "fuse" "otlp" "tonic-reflection" ];
           "fuse" = [ "tvix-castore/fuse" ];
           "otlp" = [ "dep:opentelemetry" "dep:opentelemetry-otlp" "dep:opentelemetry_sdk" ];
           "tonic-reflection" = [ "dep:tonic-reflection" "tvix-castore/tonic-reflection" ];
           "virtiofs" = [ "tvix-castore/virtiofs" ];
         };
-        resolvedDefaultFeatures = [ "default" "fuse" "otlp" "tonic-reflection" "virtiofs" ];
+        resolvedDefaultFeatures = [ "cloud" "default" "fuse" "otlp" "tonic-reflection" "virtiofs" ];
       };
       "typenum" = rec {
         crateName = "typenum";

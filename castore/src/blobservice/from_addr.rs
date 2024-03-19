@@ -131,17 +131,29 @@ mod tests {
     /// Correct scheme to connect to localhost over http, without specifying a port.
     #[test_case("grpc+https://localhost", true; "grpc valid https host without port")]
     /// Correct scheme to connect to localhost over http, but with additional path, which is invalid.
-    #[test_case("grpc+http://localhost/some-path", false; "grpc valid invalid host and path")]
-    /// An example for object store (Memory)
+    #[test_case("grpc+http://localhost/some-path", false; "grpc invalid has path")]
+    /// An example for object store (InMemory)
     #[test_case("objectstore+memory:///", true; "objectstore valid memory url")]
-    /// An example for object store (File)
-    #[test_case("objectstore+file:///foo/bar", true; "objectstore valid file url")] // ??
+    /// An example for object store (LocalFileSystem)
+    #[test_case("objectstore+file:///foo/bar", true; "objectstore valid file url")]
+    // An example for object store (HTTP / WebDAV)
+    #[test_case("objectstore+https://localhost:8080/some-path", true; "objectstore valid http url")]
+    #[tokio::test]
+    async fn test_from_addr_tokio(uri_str: &str, exp_succeed: bool) {
+        if exp_succeed {
+            from_addr(uri_str).await.expect("should succeed");
+        } else {
+            assert!(from_addr(uri_str).await.is_err(), "should fail");
+        }
+    }
+
+    #[cfg(feature = "cloud")]
     /// An example for object store (S3)
     #[test_case("objectstore+s3://bucket/path", true; "objectstore valid s3 url")]
     /// An example for object store (GCS)
     #[test_case("objectstore+gs://bucket/path", true; "objectstore valid gcs url")]
     #[tokio::test]
-    async fn test_from_addr_tokio(uri_str: &str, exp_succeed: bool) {
+    async fn test_from_addr_tokio_cloud(uri_str: &str, exp_succeed: bool) {
         if exp_succeed {
             from_addr(uri_str).await.expect("should succeed");
         } else {

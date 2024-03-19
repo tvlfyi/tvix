@@ -14,7 +14,7 @@ digest = "0.10.7"
 fastcdc = { version = "3.1.0", features = ["tokio"] }
 futures = "0.3.30"
 lazy_static = "1.4.0"
-object_store = { version = "0.9.1", features = ["aws", "azure", "gcp", "http"] }
+object_store = { version = "0.9.1", features = ["http"] }
 parking_lot = "0.12.1"
 pin-project-lite = "0.2.13"
 prost = "0.12.1"
@@ -78,6 +78,11 @@ hex-literal = "0.4.1"
 
 [features]
 default = []
+cloud = [
+  "object_store/aws",
+  "object_store/azure",
+  "object_store/gcp",
+]
 fs = ["dep:libc", "dep:fuse-backend-rs"]
 virtiofs = [
   "fs",
