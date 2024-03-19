@@ -40,78 +40,81 @@ pub async fn from_addr(
     let url =
         Url::parse(uri).map_err(|e| Error::StorageError(format!("unable to parse url: {}", e)))?;
 
-    Ok(if url.scheme() == "memory" {
-        // memory doesn't support host or path in the URL.
-        if url.has_host() || !url.path().is_empty() {
-            return Err(Error::StorageError("invalid url".to_string()));
+    let path_info_service: Box<dyn PathInfoService> = match url.scheme() {
+        "memory" => {
+            // memory doesn't support host or path in the URL.
+            if url.has_host() || !url.path().is_empty() {
+                return Err(Error::StorageError("invalid url".to_string()));
+            }
+            Box::new(MemoryPathInfoService::new(blob_service, directory_service))
         }
-        Box::new(MemoryPathInfoService::new(blob_service, directory_service))
-    } else if url.scheme() == "sled" {
-        // sled doesn't support host, and a path can be provided (otherwise
-        // it'll live in memory only).
-        if url.has_host() {
-            return Err(Error::StorageError("no host allowed".to_string()));
-        }
+        "sled" => {
+            // sled doesn't support host, and a path can be provided (otherwise
+            // it'll live in memory only).
+            if url.has_host() {
+                return Err(Error::StorageError("no host allowed".to_string()));
+            }
 
-        if url.path() == "/" {
-            return Err(Error::StorageError(
-                "cowardly refusing to open / with sled".to_string(),
-            ));
-        }
+            if url.path() == "/" {
+                return Err(Error::StorageError(
+                    "cowardly refusing to open / with sled".to_string(),
+                ));
+            }
 
-        // TODO: expose other parameters as URL parameters?
+            // TODO: expose other parameters as URL parameters?
 
-        if url.path().is_empty() {
-            return Ok(Box::new(
+            Box::new(if url.path().is_empty() {
                 SledPathInfoService::new_temporary(blob_service, directory_service)
-                    .map_err(|e| Error::StorageError(e.to_string()))?,
-            ));
+                    .map_err(|e| Error::StorageError(e.to_string()))?
+            } else {
+                SledPathInfoService::new(url.path(), blob_service, directory_service)
+                    .map_err(|e| Error::StorageError(e.to_string()))?
+            })
         }
-        return Ok(Box::new(
-            SledPathInfoService::new(url.path(), blob_service, directory_service)
-                .map_err(|e| Error::StorageError(e.to_string()))?,
-        ));
-    } else if url.scheme() == "nix+http" || url.scheme() == "nix+https" {
-        // Stringify the URL and remove the nix+ prefix.
-        // We can't use `url.set_scheme(rest)`, as it disallows
-        // setting something http(s) that previously wasn't.
-        let new_url = Url::parse(url.to_string().strip_prefix("nix+").unwrap()).unwrap();
+        "nix+http" | "nix+https" => {
+            // Stringify the URL and remove the nix+ prefix.
+            // We can't use `url.set_scheme(rest)`, as it disallows
+            // setting something http(s) that previously wasn't.
+            let new_url = Url::parse(url.to_string().strip_prefix("nix+").unwrap()).unwrap();
 
-        let mut nix_http_path_info_service =
-            NixHTTPPathInfoService::new(new_url, blob_service, directory_service);
+            let mut nix_http_path_info_service =
+                NixHTTPPathInfoService::new(new_url, blob_service, directory_service);
 
-        let pairs = &url.query_pairs();
-        for (k, v) in pairs.into_iter() {
-            if k == "trusted-public-keys" {
-                let pubkey_strs: Vec<_> = v.split_ascii_whitespace().collect();
+            let pairs = &url.query_pairs();
+            for (k, v) in pairs.into_iter() {
+                if k == "trusted-public-keys" {
+                    let pubkey_strs: Vec<_> = v.split_ascii_whitespace().collect();
 
-                let mut pubkeys: Vec<narinfo::PubKey> = Vec::with_capacity(pubkey_strs.len());
-                for pubkey_str in pubkey_strs {
-                    pubkeys
-                        .push(narinfo::PubKey::parse(pubkey_str).map_err(|e| {
+                    let mut pubkeys: Vec<narinfo::PubKey> = Vec::with_capacity(pubkey_strs.len());
+                    for pubkey_str in pubkey_strs {
+                        pubkeys.push(narinfo::PubKey::parse(pubkey_str).map_err(|e| {
                             Error::StorageError(format!("invalid public key: {e}"))
                         })?);
+                    }
+
+                    nix_http_path_info_service.set_public_keys(pubkeys);
                 }
-
-                nix_http_path_info_service.set_public_keys(pubkeys);
             }
-        }
 
-        Box::new(nix_http_path_info_service)
-    } else if url.scheme().starts_with("grpc+") {
-        // schemes starting with grpc+ go to the GRPCPathInfoService.
-        //   That's normally grpc+unix for unix sockets, and grpc+http(s) for the HTTP counterparts.
-        // - In the case of unix sockets, there must be a path, but may not be a host.
-        // - In the case of non-unix sockets, there must be a host, but no path.
-        // Constructing the channel is handled by tvix_castore::channel::from_url.
-        let client = PathInfoServiceClient::new(tvix_castore::tonic::channel_from_url(&url).await?);
-        Box::new(GRPCPathInfoService::from_client(client))
-    } else {
-        Err(Error::StorageError(format!(
+            Box::new(nix_http_path_info_service)
+        }
+        scheme if scheme.starts_with("grpc+") => {
+            // schemes starting with grpc+ go to the GRPCPathInfoService.
+            //   That's normally grpc+unix for unix sockets, and grpc+http(s) for the HTTP counterparts.
+            // - In the case of unix sockets, there must be a path, but may not be a host.
+            // - In the case of non-unix sockets, there must be a host, but no path.
+            // Constructing the channel is handled by tvix_castore::channel::from_url.
+            let client =
+                PathInfoServiceClient::new(tvix_castore::tonic::channel_from_url(&url).await?);
+            Box::new(GRPCPathInfoService::from_client(client))
+        }
+        _ => Err(Error::StorageError(format!(
             "unknown scheme: {}",
             url.scheme()
-        )))?
-    })
+        )))?,
+    };
+
+    Ok(path_info_service)
 }
 
 #[cfg(test)]
