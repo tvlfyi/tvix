@@ -201,7 +201,9 @@ impl DirectoryService for GRPCDirectoryService {
             Ok(s)
         });
 
-        Box::new(GRPCPutter::new(tx, task))
+        Box::new(GRPCPutter {
+            rq: Some((task, tx)),
+        })
     }
 }
 
@@ -219,15 +221,6 @@ pub struct GRPCPutter {
 }
 
 impl GRPCPutter {
-    pub fn new(
-        directory_sender: UnboundedSender<proto::Directory>,
-        task: JoinHandle<Result<proto::PutDirectoryResponse, Status>>,
-    ) -> Self {
-        Self {
-            rq: Some((task, directory_sender)),
-        }
-    }
-
     // allows checking if the tx part of the channel is closed.
     // only used in the test case.
     #[cfg(test)]
