@@ -1,4 +1,3 @@
-use super::DirectoryPutter;
 use super::DirectoryService;
 use crate::proto;
 use crate::B3Digest;
@@ -6,8 +5,6 @@ use crate::Error;
 use async_stream::stream;
 use futures::stream::BoxStream;
 use std::collections::{HashSet, VecDeque};
-use tonic::async_trait;
-use tracing::instrument;
 use tracing::warn;
 
 /// Traverses a [proto::Directory] from the root to the children.
@@ -82,56 +79,4 @@ pub fn traverse_directory<'a, DS: DirectoryService + 'static>(
     };
 
     Box::pin(stream)
-}
-
-/// This is a simple implementation of a Directory uploader.
-/// TODO: verify connectivity? Factor out these checks into generic helpers?
-pub struct SimplePutter<DS: DirectoryService> {
-    directory_service: DS,
-    last_directory_digest: Option<B3Digest>,
-    closed: bool,
-}
-
-impl<DS: DirectoryService> SimplePutter<DS> {
-    pub fn new(directory_service: DS) -> Self {
-        Self {
-            directory_service,
-            closed: false,
-            last_directory_digest: None,
-        }
-    }
-}
-
-#[async_trait]
-impl<DS: DirectoryService + 'static> DirectoryPutter for SimplePutter<DS> {
-    #[instrument(level = "trace", skip_all, fields(directory.digest=%directory.digest()), err)]
-    async fn put(&mut self, directory: proto::Directory) -> Result<(), Error> {
-        if self.closed {
-            return Err(Error::StorageError("already closed".to_string()));
-        }
-
-        let digest = self.directory_service.put(directory).await?;
-
-        // track the last directory digest
-        self.last_directory_digest = Some(digest);
-
-        Ok(())
-    }
-
-    #[instrument(level = "trace", skip_all, ret, err)]
-    async fn close(&mut self) -> Result<B3Digest, Error> {
-        if self.closed {
-            return Err(Error::StorageError("already closed".to_string()));
-        }
-
-        match &self.last_directory_digest {
-            Some(last_digest) => {
-                self.closed = true;
-                Ok(last_digest.clone())
-            }
-            None => Err(Error::InvalidRequest(
-                "no directories sent, can't show root digest".to_string(),
-            )),
-        }
-    }
 }

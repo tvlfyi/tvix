@@ -7,8 +7,8 @@ use std::path::Path;
 use tonic::async_trait;
 use tracing::{instrument, warn};
 
-use super::utils::{traverse_directory, SimplePutter};
-use super::DirectoryService;
+use super::utils::traverse_directory;
+use super::{DirectoryService, SimplePutter};
 
 #[derive(Clone)]
 pub struct SledDirectoryService {

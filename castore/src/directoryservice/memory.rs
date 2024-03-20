@@ -5,8 +5,8 @@ use std::sync::{Arc, RwLock};
 use tonic::async_trait;
 use tracing::{instrument, warn};
 
-use super::utils::{traverse_directory, SimplePutter};
-use super::{DirectoryPutter, DirectoryService};
+use super::utils::traverse_directory;
+use super::{DirectoryPutter, DirectoryService, SimplePutter};
 
 #[derive(Clone, Default)]
 pub struct MemoryDirectoryService {
