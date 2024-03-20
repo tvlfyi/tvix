@@ -39,7 +39,7 @@ pub struct ClosureValidator {
 impl ClosureValidator {
     /// Insert a new Directory into the closure.
     /// Perform individual Directory validation, validation of insertion order
-    // and size fields.
+    /// and size fields.
     #[instrument(level = "trace", skip_all, fields(directory.digest=%directory.digest()), err)]
     pub fn add(&mut self, directory: proto::Directory) -> Result<(), Error> {
         let digest = directory.digest();
