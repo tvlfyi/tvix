@@ -234,6 +234,7 @@ impl GRPCPutter {
 
 #[async_trait]
 impl DirectoryPutter for GRPCPutter {
+    #[instrument(level = "trace", skip_all, fields(directory.digest=%directory.digest()), err)]
     async fn put(&mut self, directory: proto::Directory) -> Result<(), crate::Error> {
         match self.rq {
             // If we're not already closed, send the directory to directory_sender.
@@ -253,7 +254,8 @@ impl DirectoryPutter for GRPCPutter {
         }
     }
 
-    /// Closes the stream for sending, and returns the value
+    /// Closes the stream for sending, and returns the value.
+    #[instrument(level = "trace", skip_all, ret, err)]
     async fn close(&mut self) -> Result<B3Digest, crate::Error> {
         // get self.rq, and replace it with None.
         // This ensures we can only close it once.
