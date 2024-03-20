@@ -180,7 +180,8 @@ async fn upload_reject_failing_validation(directory_service: impl DirectoryServi
     );
 
     // Try to upload via put_multiple. We're a bit more permissive here, the
-    // intermediate .put() might succeed, but then the close MUST fail.
+    // intermediate .put() might succeed, due to client-side bursting (in the
+    // case of gRPC), but then the close MUST fail.
     let mut handle = directory_service.put_multiple_start();
     if handle.put(broken_directory).await.is_ok() {
         assert!(

@@ -51,7 +51,10 @@ mod tests {
 
     use super::from_addr;
     use test_case::test_case;
-    use tvix_castore::utils::{gen_blob_service, gen_directory_service};
+    use tvix_castore::{
+        blobservice::{BlobService, MemoryBlobService},
+        directoryservice::{DirectoryService, MemoryDirectoryService},
+    };
 
     /// This uses an unsupported scheme.
     #[test_case("http://foo.example/test", false; "unsupported scheme")]
@@ -71,14 +74,13 @@ mod tests {
     #[test_case("grpc+http://localhost/some-path", false; "grpc valid invalid host and path")]
     #[tokio::test]
     async fn test_from_addr(uri_str: &str, is_ok: bool) {
+        let blob_service: Arc<dyn BlobService> = Arc::from(MemoryBlobService::default());
+        let directory_service: Arc<dyn DirectoryService> =
+            Arc::from(MemoryDirectoryService::default());
         assert_eq!(
-            from_addr(
-                uri_str,
-                Arc::from(gen_blob_service()),
-                Arc::from(gen_directory_service())
-            )
-            .await
-            .is_ok(),
+            from_addr(uri_str, blob_service, directory_service)
+                .await
+                .is_ok(),
             is_ok
         )
     }

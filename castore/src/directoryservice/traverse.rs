@@ -87,14 +87,16 @@ where
 mod tests {
     use std::path::PathBuf;
 
-    use crate::fixtures::{DIRECTORY_COMPLICATED, DIRECTORY_WITH_KEEP};
-    use crate::utils::gen_directory_service;
+    use crate::{
+        directoryservice,
+        fixtures::{DIRECTORY_COMPLICATED, DIRECTORY_WITH_KEEP},
+    };
 
     use super::descend_to;
 
     #[tokio::test]
     async fn test_descend_to() {
-        let directory_service = gen_directory_service();
+        let directory_service = directoryservice::from_addr("memory://").await.unwrap();
 
         let mut handle = directory_service.put_multiple_start();
         handle

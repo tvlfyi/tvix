@@ -1,8 +1,9 @@
-use crate::blobservice::BlobService;
+use crate::blobservice::{self, BlobService};
+use crate::directoryservice;
 use crate::fixtures::*;
 use crate::import::ingest_path;
 use crate::proto;
-use crate::utils::{gen_blob_service, gen_directory_service};
+
 use std::sync::Arc;
 use tempfile::TempDir;
 
@@ -12,8 +13,8 @@ use std::os::unix::ffi::OsStrExt;
 #[cfg(target_family = "unix")]
 #[tokio::test]
 async fn symlink() {
-    let blob_service = gen_blob_service();
-    let directory_service = gen_directory_service();
+    let blob_service = blobservice::from_addr("memory://").await.unwrap();
+    let directory_service = directoryservice::from_addr("memory://").await.unwrap();
 
     let tmpdir = TempDir::new().unwrap();
 
@@ -43,8 +44,9 @@ async fn symlink() {
 
 #[tokio::test]
 async fn single_file() {
-    let blob_service: Arc<dyn BlobService> = gen_blob_service().into();
-    let directory_service = gen_directory_service();
+    let blob_service =
+        Arc::from(blobservice::from_addr("memory://").await.unwrap()) as Arc<dyn BlobService>;
+    let directory_service = directoryservice::from_addr("memory://").await.unwrap();
 
     let tmpdir = TempDir::new().unwrap();
 
@@ -75,8 +77,9 @@ async fn single_file() {
 #[cfg(target_family = "unix")]
 #[tokio::test]
 async fn complicated() {
-    let blob_service: Arc<dyn BlobService> = gen_blob_service().into();
-    let directory_service = gen_directory_service();
+    let blob_service =
+        Arc::from(blobservice::from_addr("memory://").await.unwrap()) as Arc<dyn BlobService>;
+    let directory_service = directoryservice::from_addr("memory://").await.unwrap();
 
     let tmpdir = TempDir::new().unwrap();
 
