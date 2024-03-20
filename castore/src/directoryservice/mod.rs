@@ -2,6 +2,7 @@ use crate::{proto, B3Digest, Error};
 use futures::stream::BoxStream;
 use tonic::async_trait;
 
+mod closure_validator;
 mod from_addr;
 mod grpc;
 mod memory;
@@ -9,6 +10,7 @@ mod sled;
 mod traverse;
 mod utils;
 
+pub use self::closure_validator::ClosureValidator;
 pub use self::from_addr::from_addr;
 pub use self::grpc::GRPCDirectoryService;
 pub use self::memory::MemoryDirectoryService;
