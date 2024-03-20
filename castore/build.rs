@@ -15,6 +15,7 @@ fn main() -> Result<()> {
     // https://github.com/hyperium/tonic/issues/908
     let mut config = prost_build::Config::new();
     config.bytes(["."]);
+    config.type_attribute(".", "#[derive(Eq, Hash)]");
 
     builder
         .build_server(true)

@@ -1,4 +1,4 @@
-#![allow(clippy::derive_partial_eq_without_eq, non_snake_case)]
+#![allow(non_snake_case)]
 // https://github.com/hyperium/tonic/issues/1056
 use bstr::ByteSlice;
 use std::{collections::HashSet, iter::Peekable, str};
@@ -166,8 +166,6 @@ impl node::Node {
         }
     }
 }
-
-impl Eq for node::Node {}
 
 impl PartialOrd for node::Node {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
