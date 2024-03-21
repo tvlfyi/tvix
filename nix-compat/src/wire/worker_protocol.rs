@@ -81,3 +81,25 @@ pub async fn write_op<W: AsyncWriteExt + Unpin>(w: &mut W, op: &Operation) -> st
     ))?;
     w.write_u64(op).await
 }
+
+#[derive(Debug, PartialEq)]
+pub enum Trust {
+    Trusted,
+    NotTrusted,
+}
+
+/// Write the worker [Trust] level to the wire.
+///
+/// Cpp Nix has a legacy third option: u8 0. This option is meant to
+/// be used as a backward compatible measure. Since we're not
+/// targetting protocol versions pre-dating the trust notion, we
+/// decided not to implement it here.
+pub async fn write_worker_trust_level<W>(conn: &mut W, t: Trust) -> std::io::Result<()>
+where
+    W: AsyncReadExt + AsyncWriteExt + Unpin + std::fmt::Debug,
+{
+    match t {
+        Trust::Trusted => primitive::write_u64(conn, 1).await,
+        Trust::NotTrusted => primitive::write_u64(conn, 2).await,
+    }
+}
