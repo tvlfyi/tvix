@@ -6,3 +6,6 @@ pub mod bytes;
 
 #[cfg(feature = "async")]
 pub mod primitive;
+
+#[cfg(feature = "async")]
+pub mod worker_protocol;

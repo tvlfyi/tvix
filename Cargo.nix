@@ -2692,6 +2692,32 @@ rec {
         ];
 
       };
+      "enum-primitive-derive" = rec {
+        crateName = "enum-primitive-derive";
+        version = "0.3.0";
+        edition = "2018";
+        sha256 = "0k6wcf58h5kh64yq5nfq71va53kaya0kzxwsjwbgwm2n2zd9axxs";
+        procMacro = true;
+        authors = [
+          "Doug Goldstein <cardoe@cardoe.com>"
+        ];
+        dependencies = [
+          {
+            name = "num-traits";
+            packageId = "num-traits";
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "quote";
+            packageId = "quote 1.0.35";
+          }
+          {
+            name = "syn";
+            packageId = "syn 2.0.48";
+          }
+        ];
+
+      };
       "equivalent" = rec {
         crateName = "equivalent";
         version = "1.0.1";
@@ -5722,6 +5748,10 @@ rec {
             packageId = "ed25519-dalek";
           }
           {
+            name = "enum-primitive-derive";
+            packageId = "enum-primitive-derive";
+          }
+          {
             name = "futures-util";
             packageId = "futures-util";
             optional = true;
@@ -5734,6 +5764,10 @@ rec {
           {
             name = "nom";
             packageId = "nom";
+          }
+          {
+            name = "num-traits";
+            packageId = "num-traits";
           }
           {
             name = "serde";
@@ -5886,9 +5920,9 @@ rec {
       };
       "num-traits" = rec {
         crateName = "num-traits";
-        version = "0.2.17";
+        version = "0.2.18";
         edition = "2018";
-        sha256 = "0z16bi5zwgfysz6765v3rd6whfbjpihx3mhsn4dg8dzj2c221qrr";
+        sha256 = "0yjib8p2p9kzmaz48xwhs69w5dh1wipph9jgnillzd2x33jz03fs";
         authors = [
           "The Rust Project Developers"
         ];
