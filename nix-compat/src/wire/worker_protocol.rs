@@ -6,6 +6,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use crate::wire::primitive;
 
+pub static STDERR_LAST: u64 = 0x616c7473;
+
 /// Worker Operation
 ///
 /// These operations are encoded as unsigned 64 bits before being sent
