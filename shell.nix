@@ -25,11 +25,14 @@ pkgs.mkShell {
     pkgs.go
     pkgs.grpcurl
     pkgs.hyperfine
+    pkgs.mdbook
+    pkgs.mdbook-plantuml
     pkgs.nix_2_3 # b/313
     pkgs.pkg-config
     pkgs.rust-analyzer
     pkgs.rustc
     pkgs.rustfmt
+    pkgs.plantuml
     pkgs.protobuf
   ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
     # We need these two dependencies in the ambient environment to be able to
