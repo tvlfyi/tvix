@@ -773,9 +773,8 @@ mod pure_builtins {
     }
 
     #[builtin("hashString")]
-    #[allow(non_snake_case)]
-    async fn builtin_hashString(co: GenCo, algo: Value, s: Value) -> Result<Value, ErrorKind> {
-        hash_nix_string(algo.to_str()?, s.to_str()?).map(Value::from)
+    async fn builtin_hash_string(co: GenCo, algo: Value, s: Value) -> Result<Value, ErrorKind> {
+        hash_nix_string(algo.to_str()?, std::io::Cursor::new(s.to_str()?)).map(Value::from)
     }
 
     #[builtin("head")]

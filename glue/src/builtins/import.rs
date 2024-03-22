@@ -177,9 +177,9 @@ mod import_builtins {
             })
             .transpose()?;
 
-        // FUTUREWORK(performance): this reads the file instead of using a stat-like
-        // system call to the file, this degrades very badly on large files.
-        if !recursive_ingestion && state.read_to_end(path.as_ref()).is_err() {
+        // FUTUREWORK(performance): this opens the file instead of using a stat-like
+        // system call to the file.
+        if !recursive_ingestion && state.open(path.as_ref()).is_err() {
             Err(ImportError::FlatImportOfNonFile(
                 path.to_string_lossy().to_string(),
             ))?;

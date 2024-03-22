@@ -6,7 +6,6 @@
 //! instance, or observers).
 
 use super::GlobalsMap;
-use bstr::ByteSlice;
 use genawaiter::rc::Gen;
 use std::rc::Weak;
 
@@ -39,9 +38,11 @@ async fn import_impl(
         return Ok(cached);
     }
 
-    // TODO(tazjin): make this return a string directly instead
-    let contents: Value = generators::request_read_to_string(&co, path.clone()).await;
-    let contents = contents.to_str()?.to_str()?.to_owned();
+    let mut reader = generators::request_open_file(&co, path.clone()).await;
+    // We read to a String instead of a Vec<u8> because rnix only supports
+    // string source files.
+    let mut contents = String::new();
+    reader.read_to_string(&mut contents)?;
 
     let parsed = rnix::ast::Root::parse(&contents);
     let errors = parsed.errors();

@@ -17,7 +17,7 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-use tokio::io::AsyncReadExt;
+use tokio_util::io::SyncIoBridge;
 use tracing::{error, instrument, warn, Level};
 use tvix_build::buildservice::BuildService;
 use tvix_eval::{ErrorKind, EvalIO, FileType, StdIO};
@@ -478,7 +478,7 @@ impl EvalIO for TvixStoreIO {
     }
 
     #[instrument(skip(self), err)]
-    fn read_to_end(&self, path: &Path) -> io::Result<Vec<u8>> {
+    fn open(&self, path: &Path) -> io::Result<Box<dyn io::Read>> {
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
         {
@@ -509,27 +509,24 @@ impl EvalIO for TvixStoreIO {
                             })?;
 
                         self.tokio_handle.block_on(async {
-                            let mut reader = {
-                                let resp = self.blob_service.as_ref().open_read(&digest).await?;
-                                match resp {
-                                    Some(blob_reader) => blob_reader,
-                                    None => {
-                                        error!(
-                                            blob.digest = %digest,
-                                            "blob not found",
-                                        );
-                                        Err(io::Error::new(
-                                            io::ErrorKind::NotFound,
-                                            format!("blob {} not found", &digest),
-                                        ))?
-                                    }
+                            let resp = self.blob_service.as_ref().open_read(&digest).await?;
+                            match resp {
+                                Some(blob_reader) => {
+                                    // The VM Response needs a sync [std::io::Reader].
+                                    Ok(Box::new(SyncIoBridge::new(blob_reader))
+                                        as Box<dyn io::Read>)
                                 }
-                            };
-
-                            let mut buf = Vec::new();
-
-                            reader.read_to_end(&mut buf).await?;
-                            Ok(buf)
+                                None => {
+                                    error!(
+                                        blob.digest = %digest,
+                                        "blob not found",
+                                    );
+                                    Err(io::Error::new(
+                                        io::ErrorKind::NotFound,
+                                        format!("blob {} not found", &digest),
+                                    ))
+                                }
+                            }
                         })
                     }
                     Node::Symlink(_symlink_node) => Err(io::Error::new(
@@ -540,11 +537,11 @@ impl EvalIO for TvixStoreIO {
             } else {
                 // As tvix-store doesn't manage /nix/store on the filesystem,
                 // we still need to also ask self.std_io here.
-                self.std_io.read_to_end(path)
+                self.std_io.open(path)
             }
         } else {
             // The store path is no store path, so do regular StdIO.
-            self.std_io.read_to_end(path)
+            self.std_io.open(path)
         }
     }
 

@@ -16,6 +16,7 @@
 //! how store paths are opened and so on.
 
 use std::{
+    fs::File,
     io,
     path::{Path, PathBuf},
 };
@@ -48,13 +49,8 @@ pub trait EvalIO {
     /// * `builtins.pathExists :: path -> bool`
     fn path_exists(&self, path: &Path) -> io::Result<bool>;
 
-    /// Read the file at the specified path to a `Vec<u8>`.
-    ///
-    /// This is used for the following language evaluation cases:
-    ///
-    /// * `builtins.readFile :: path -> string`
-    /// * `builtins.import :: path -> any`
-    fn read_to_end(&self, path: &Path) -> io::Result<Vec<u8>>;
+    /// Open the file at the specified path to a `io::Read`.
+    fn open(&self, path: &Path) -> io::Result<Box<dyn io::Read>>;
 
     /// Read the directory at the specified path and return the names
     /// of its entries associated with their [`FileType`].
@@ -99,8 +95,8 @@ impl EvalIO for StdIO {
         path.try_exists()
     }
 
-    fn read_to_end(&self, path: &Path) -> io::Result<Vec<u8>> {
-        std::fs::read(path)
+    fn open(&self, path: &Path) -> io::Result<Box<dyn io::Read>> {
+        Ok(Box::new(File::open(path)?))
     }
 
     fn read_dir(&self, path: &Path) -> io::Result<Vec<(bytes::Bytes, FileType)>> {
@@ -145,7 +141,7 @@ impl EvalIO for DummyIO {
         ))
     }
 
-    fn read_to_end(&self, _: &Path) -> io::Result<Vec<u8>> {
+    fn open(&self, _: &Path) -> io::Result<Box<dyn io::Read>> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
             "I/O methods are not implemented in DummyIO",

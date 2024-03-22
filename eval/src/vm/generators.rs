@@ -102,8 +102,8 @@ pub enum VMRequest {
     /// Request that the VM imports the given path through its I/O interface.
     PathImport(PathBuf),
 
-    /// Request that the VM reads the given path to a string.
-    ReadToString(PathBuf),
+    /// Request that the VM opens the specified file and provides a reader.
+    OpenFile(PathBuf),
 
     /// Request that the VM checks whether the given path exists.
     PathExists(PathBuf),
@@ -170,8 +170,8 @@ impl Display for VMRequest {
                 write!(f, "import_cache_put({})", p.to_string_lossy())
             }
             VMRequest::PathImport(p) => write!(f, "path_import({})", p.to_string_lossy()),
-            VMRequest::ReadToString(p) => {
-                write!(f, "read_to_string({})", p.to_string_lossy())
+            VMRequest::OpenFile(p) => {
+                write!(f, "open_file({})", p.to_string_lossy())
             }
             VMRequest::PathExists(p) => write!(f, "path_exists({})", p.to_string_lossy()),
             VMRequest::ReadDir(p) => write!(f, "read_dir({})", p.to_string_lossy()),
@@ -199,6 +199,9 @@ pub enum VMResponse {
 
     /// VM response with a span to use at the current point.
     Span(LightSpan),
+
+    /// [std::io::Reader] produced by the VM in response to some IO operation.
+    Reader(Box<dyn std::io::Read>),
 }
 
 impl Display for VMResponse {
@@ -209,6 +212,7 @@ impl Display for VMResponse {
             VMResponse::Path(p) => write!(f, "path({})", p.to_string_lossy()),
             VMResponse::Directory(d) => write!(f, "dir(len = {})", d.len()),
             VMResponse::Span(_) => write!(f, "span"),
+            VMResponse::Reader(_) => write!(f, "reader"),
         }
     }
 }
@@ -425,18 +429,18 @@ where
                             message = VMResponse::Path(imported);
                         }
 
-                        VMRequest::ReadToString(path) => {
-                            let content = self
+                        VMRequest::OpenFile(path) => {
+                            let reader = self
                                 .io_handle
                                 .as_ref()
-                                .read_to_end(&path)
+                                .open(&path)
                                 .map_err(|e| ErrorKind::IO {
                                     path: Some(path),
                                     error: e.into(),
                                 })
                                 .with_span(&span, self)?;
 
-                            message = VMResponse::Value(content.into())
+                            message = VMResponse::Reader(reader)
                         }
 
                         VMRequest::PathExists(path) => {
@@ -730,9 +734,10 @@ pub(crate) async fn request_path_import(co: &GenCo, path: PathBuf) -> PathBuf {
     }
 }
 
-pub(crate) async fn request_read_to_string(co: &GenCo, path: PathBuf) -> Value {
-    match co.yield_(VMRequest::ReadToString(path)).await {
-        VMResponse::Value(value) => value,
+/// Request that the VM open a [std::io::Read] for the specified file.
+pub async fn request_open_file(co: &GenCo, path: PathBuf) -> Box<dyn std::io::Read> {
+    match co.yield_(VMRequest::OpenFile(path)).await {
+        VMResponse::Reader(value) => value,
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg

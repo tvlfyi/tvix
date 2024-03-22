@@ -31,14 +31,13 @@ mod impure_builtins {
     }
 
     #[builtin("hashFile")]
-    #[allow(non_snake_case)]
-    async fn builtin_hashFile(co: GenCo, algo: Value, path: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_hash_file(co: GenCo, algo: Value, path: Value) -> Result<Value, ErrorKind> {
         let path = match coerce_value_to_path(&co, path).await? {
             Err(cek) => return Ok(Value::from(cek)),
             Ok(p) => p,
         };
-        let s = generators::request_read_to_string(&co, path).await;
-        hash_nix_string(algo.to_str()?, s.to_str()?).map(Value::from)
+        let r = generators::request_open_file(&co, path).await;
+        Ok(hash_nix_string(algo.to_str()?, r).map(Value::from)?)
     }
 
     #[builtin("pathExists")]
@@ -79,7 +78,13 @@ mod impure_builtins {
     async fn builtin_read_file(co: GenCo, path: Value) -> Result<Value, ErrorKind> {
         match coerce_value_to_path(&co, path).await? {
             Err(cek) => Ok(Value::from(cek)),
-            Ok(path) => Ok(generators::request_read_to_string(&co, path).await),
+            Ok(path) => {
+                let mut buf = Vec::new();
+                generators::request_open_file(&co, path)
+                    .await
+                    .read_to_end(&mut buf)?;
+                Ok(Value::from(buf))
+            }
         }
     }
 }

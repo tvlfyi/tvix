@@ -8,7 +8,7 @@
 //! otherwise fundamental features like nixpkgs bootstrapping and hash
 //! calculation will not work.
 
-use std::io;
+use std::io::{self, Cursor};
 use std::path::{Path, PathBuf};
 use tvix_eval::{EvalIO, FileType};
 
@@ -44,7 +44,7 @@ where
         self.actual.as_ref().path_exists(path)
     }
 
-    fn read_to_end(&self, path: &Path) -> io::Result<Vec<u8>> {
+    fn open(&self, path: &Path) -> io::Result<Box<dyn io::Read>> {
         // Bundled version of corepkgs/fetchurl.nix. The counterpart
         // of this happens in [crate::configure_nix_path], where the `nix_path`
         // of the evaluation has `nix=/__corepkgs__` added to it.
@@ -52,13 +52,12 @@ where
         // This workaround is similar to what cppnix does for passing
         // the path through.
         //
-        // TODO: this comparison is bad and allocates, we should use
-        // the sane path library.
+        // TODO: this comparison is bad we should use the sane path library.
         if path.starts_with("/__corepkgs__/fetchurl.nix") {
-            return Ok(include_bytes!("fetchurl.nix").to_vec());
+            return Ok(Box::new(Cursor::new(include_bytes!("fetchurl.nix"))));
         }
 
-        self.actual.as_ref().read_to_end(path)
+        self.actual.as_ref().open(path)
     }
 
     fn read_dir(&self, path: &Path) -> io::Result<Vec<(bytes::Bytes, FileType)>> {
