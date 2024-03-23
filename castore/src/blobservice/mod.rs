@@ -61,6 +61,28 @@ pub trait BlobService: Send + Sync {
     }
 }
 
+#[async_trait]
+impl<A> BlobService for A
+where
+    A: AsRef<dyn BlobService> + Send + Sync,
+{
+    async fn has(&self, digest: &B3Digest) -> io::Result<bool> {
+        self.as_ref().has(digest).await
+    }
+
+    async fn open_read(&self, digest: &B3Digest) -> io::Result<Option<Box<dyn BlobReader>>> {
+        self.as_ref().open_read(digest).await
+    }
+
+    async fn open_write(&self) -> Box<dyn BlobWriter> {
+        self.as_ref().open_write().await
+    }
+
+    async fn chunks(&self, digest: &B3Digest) -> io::Result<Option<Vec<ChunkMeta>>> {
+        self.as_ref().chunks(digest).await
+    }
+}
+
 /// A [tokio::io::AsyncWrite] that the user needs to close() afterwards for persist.
 /// On success, it returns the digest of the written blob.
 #[async_trait]
