@@ -8428,6 +8428,38 @@ rec {
         };
         resolvedDefaultFeatures = [ "async-timeout" ];
       };
+      "rstest_reuse" = rec {
+        crateName = "rstest_reuse";
+        version = "0.6.0";
+        edition = "2021";
+        sha256 = "191l5gfwx9rmkqd48s85fkh21b73f38838fc896r4rxy39l0nlw8";
+        procMacro = true;
+        authors = [
+          "Michele d'Amico <michele.damico@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "quote";
+            packageId = "quote 1.0.35";
+          }
+          {
+            name = "rand";
+            packageId = "rand";
+          }
+          {
+            name = "syn";
+            packageId = "syn 2.0.48";
+            features = [ "full" "extra-traits" ];
+          }
+        ];
+        buildDependencies = [
+          {
+            name = "rustc_version";
+            packageId = "rustc_version";
+          }
+        ];
+
+      };
       "rustc-demangle" = rec {
         crateName = "rustc-demangle";
         version = "0.1.23";
@@ -12228,6 +12260,14 @@ rec {
           {
             name = "hex-literal";
             packageId = "hex-literal";
+          }
+          {
+            name = "rstest";
+            packageId = "rstest";
+          }
+          {
+            name = "rstest_reuse";
+            packageId = "rstest_reuse";
           }
           {
             name = "tempfile";

@@ -8,6 +8,8 @@ mod grpc;
 mod memory;
 mod simple_putter;
 mod sled;
+#[cfg(test)]
+mod tests;
 mod traverse;
 mod utils;
 

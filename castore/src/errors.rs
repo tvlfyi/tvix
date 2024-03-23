@@ -4,7 +4,7 @@ use tokio::task::JoinError;
 use tonic::Status;
 
 /// Errors related to communication with the store.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 pub enum Error {
     #[error("invalid request: {0}")]
     InvalidRequest(String),

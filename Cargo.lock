@@ -2691,6 +2691,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rstest_reuse"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88530b681abe67924d42cca181d070e3ac20e0740569441a9e35a7cedd2b34a4"
+dependencies = [
+ "quote 1.0.35",
+ "rand",
+ "rustc_version",
+ "syn 2.0.48",
+]
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3823,6 +3835,8 @@ dependencies = [
  "pin-project-lite",
  "prost 0.12.3",
  "prost-build",
+ "rstest",
+ "rstest_reuse",
  "sled",
  "tempfile",
  "test-case",
