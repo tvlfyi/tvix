@@ -10,7 +10,7 @@ use tonic::Status;
 
 /// Send the specified GetDirectoryRequest.
 /// Returns an error in the case of an error response, or an error in one of
-// the items in the stream, or a Vec<Directory> in the case of a successful
+/// the items in the stream, or a Vec<Directory> in the case of a successful
 /// request.
 async fn get_directories(
     grpc_client: &mut DirectoryServiceClient<Channel>,
