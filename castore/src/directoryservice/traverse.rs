@@ -106,6 +106,8 @@ mod tests {
             .await
             .expect("must succeed");
 
+        handle.close().await.expect("must upload");
+
         // construct the node for DIRECTORY_COMPLICATED
         let node_directory_complicated =
             crate::proto::node::Node::Directory(crate::proto::DirectoryNode {
