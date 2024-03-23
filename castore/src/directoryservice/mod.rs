@@ -63,6 +63,31 @@ pub trait DirectoryService: Send + Sync {
     fn put_multiple_start(&self) -> Box<dyn DirectoryPutter>;
 }
 
+#[async_trait]
+impl<A> DirectoryService for A
+where
+    A: AsRef<dyn DirectoryService> + Send + Sync,
+{
+    async fn get(&self, digest: &B3Digest) -> Result<Option<proto::Directory>, Error> {
+        self.as_ref().get(digest).await
+    }
+
+    async fn put(&self, directory: proto::Directory) -> Result<B3Digest, Error> {
+        self.as_ref().put(directory).await
+    }
+
+    fn get_recursive(
+        &self,
+        root_directory_digest: &B3Digest,
+    ) -> BoxStream<Result<proto::Directory, Error>> {
+        self.as_ref().get_recursive(root_directory_digest)
+    }
+
+    fn put_multiple_start(&self) -> Box<dyn DirectoryPutter> {
+        self.as_ref().put_multiple_start()
+    }
+}
+
 /// Provides a handle to put a closure of connected [proto::Directory] elements.
 ///
 /// The consumer can periodically call [DirectoryPutter::put], starting from the
