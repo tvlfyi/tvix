@@ -1,5 +1,6 @@
 //! Implements `builtins.derivation`, the core of what makes Nix build packages.
 use crate::builtins::DerivationError;
+use crate::known_paths::KnownPaths;
 use crate::tvix_store_io::TvixStoreIO;
 use bstr::BString;
 use nix_compat::derivation::{Derivation, Output};
@@ -19,7 +20,7 @@ const IGNORE_NULLS: &str = "__ignoreNulls";
 
 /// Populate the inputs of a derivation from the build references
 /// found when scanning the derivation's parameters and extracting their contexts.
-fn populate_inputs(drv: &mut Derivation, full_context: NixContext) {
+fn populate_inputs(drv: &mut Derivation, full_context: NixContext, known_paths: &KnownPaths) {
     for element in full_context.iter() {
         match element {
             NixContextElement::Plain(source) => {
@@ -57,12 +58,37 @@ fn populate_inputs(drv: &mut Derivation, full_context: NixContext) {
                 }
             }
 
-            NixContextElement::Derivation(_drv_path) => {
-                // This is a hard one, it means that
-                // we are depending on a drvPath of ourselves
-                // *or* another derivation's drvPath.
-                // What to do here?
-                panic!("please do not depend on drvPath, I have 2 hours of sleep in blood");
+            NixContextElement::Derivation(drv_path) => {
+                let (derivation, _rest) =
+                    StorePath::from_absolute_path_full(drv_path).expect("valid store path");
+
+                #[cfg(debug_assertions)]
+                assert!(
+                    _rest.iter().next().is_none(),
+                    "Extra path not empty for {}",
+                    drv_path
+                );
+
+                // We need to know all the outputs *names* of that derivation.
+                let output_names = known_paths
+                    .get_drv_by_drvpath(&derivation)
+                    .expect("no known derivation associated to that derivation path")
+                    .outputs
+                    .keys();
+
+                // FUTUREWORK(performance): ideally, we should be able to clone
+                // cheaply those outputs rather than duplicate them all around.
+                match drv.input_derivations.entry(derivation.clone()) {
+                    btree_map::Entry::Vacant(entry) => {
+                        entry.insert(output_names.cloned().collect());
+                    }
+
+                    btree_map::Entry::Occupied(mut entry) => {
+                        entry.get_mut().extend(output_names.cloned());
+                    }
+                }
+
+                drv.input_sources.insert(derivation);
             }
         }
     }
@@ -416,8 +442,8 @@ pub(crate) mod derivation_builtins {
             );
         }
 
-        populate_inputs(&mut drv, input_context);
         let mut known_paths = state.as_ref().known_paths.borrow_mut();
+        populate_inputs(&mut drv, input_context, &known_paths);
 
         // At this point, derivation fields are fully populated from
         // eval data structures.
