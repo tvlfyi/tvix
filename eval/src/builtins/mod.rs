@@ -1570,6 +1570,19 @@ mod placeholder_builtins {
         Ok(Value::from(v))
     }
 
+    #[builtin("unsafeDiscardOutputDependency")]
+    async fn builtin_unsafe_discard_output_dependency(
+        co: GenCo,
+        s: Value,
+    ) -> Result<Value, ErrorKind> {
+        generators::emit_warning_kind(
+            &co,
+            WarningKind::NotImplemented("builtins.unsafeDiscardOutputDependency"),
+        )
+        .await;
+        Ok(s)
+    }
+
     #[builtin("addErrorContext")]
     async fn builtin_add_error_context(
         co: GenCo,
