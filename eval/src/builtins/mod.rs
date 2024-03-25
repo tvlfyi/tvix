@@ -1575,12 +1575,42 @@ mod placeholder_builtins {
         co: GenCo,
         s: Value,
     ) -> Result<Value, ErrorKind> {
-        generators::emit_warning_kind(
-            &co,
-            WarningKind::NotImplemented("builtins.unsafeDiscardOutputDependency"),
-        )
-        .await;
-        Ok(s)
+        let span = generators::request_span(&co).await;
+        let mut v = s
+            .coerce_to_string(
+                co,
+                // It's weak because
+                // lists, integers, floats and null are not
+                // accepted as parameters.
+                CoercionKind {
+                    strong: false,
+                    import_paths: true,
+                },
+                span,
+            )
+            .await?
+            .to_contextful_str()?;
+
+        // If there's any context, we will swap any ... by a path one.
+        if let Some(ctx) = v.context_mut() {
+            let new_context: tvix_eval::NixContext = ctx
+                .iter()
+                .map(|elem| match elem {
+                    // FUTUREWORK(performance): ideally, we should either:
+                    // (a) do interior mutation of the existing context.
+                    // (b) let the structural sharing make those clones cheap.
+                    crate::NixContextElement::Derivation(drv_path) => {
+                        crate::NixContextElement::Plain(drv_path.to_string())
+                    }
+                    elem => elem.clone(),
+                })
+                .collect::<HashSet<_>>()
+                .into();
+
+            *ctx = new_context;
+        }
+
+        Ok(Value::from(v))
     }
 
     #[builtin("addErrorContext")]
