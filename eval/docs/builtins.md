@@ -24,7 +24,7 @@ The `impl` column indicates implementation status in tvix:
 | addErrorContext               | false  | ?     |       | context |
 | all                           | false  | 2     | true  |         |
 | any                           | false  | 2     | true  |         |
-| appendContext                 | false  | ?     |       | context |
+| appendContext                 | false  | ?     |       |         |
 | attrNames                     | false  | 1     | true  |         |
 | attrValues                    | false  |       | true  |         |
 | baseNameOf                    | true   |       |       |         |

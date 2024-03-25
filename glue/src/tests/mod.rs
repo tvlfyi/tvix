@@ -134,9 +134,13 @@ fn nix_eval_okay(#[files("src/tests/nix_tests/eval-okay-*.nix")] code_path: Path
 // notyetpassing; this makes the test suite much more useful for
 // regression testing, since there should always be zero non-ignored
 // failing tests.
-#[rstest]
-fn nix_eval_okay_currently_failing(
-    #[files("src/tests/nix_tests/notyetpassing/eval-okay-*.nix")] code_path: PathBuf,
-) {
-    eval_test(code_path, false)
-}
+//
+// NOTE: There's no such test anymore. `rstest` does not handle empty directories, so, we
+// just comment it for now.
+//
+// #[rstest]
+// fn nix_eval_okay_currently_failing(
+//     #[files("src/tests/nix_tests/notyetpassing/eval-okay-*.nix")] code_path: PathBuf,
+// ) {
+//     eval_test(code_path, false)
+// }

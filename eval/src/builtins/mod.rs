@@ -692,6 +692,86 @@ mod pure_builtins {
         Ok(Value::attrs(NixAttrs::from_iter(elements)))
     }
 
+    #[builtin("appendContext")]
+    #[allow(non_snake_case)]
+    async fn builtin_appendContext(
+        co: GenCo,
+        origin: Value,
+        added_context: Value,
+    ) -> Result<Value, ErrorKind> {
+        // `appendContext` is a "grow" context function.
+        // It cannot remove a context element, neither replace a piece of its contents.
+        //
+        // Growing context is always a safe operation, there's no loss of dependency tracking
+        // information.
+        //
+        // This is why this operation is not prefixed by `unsafe` and is deemed *safe*.
+        // Nonetheless, it is possible to craft nonsensical context elements referring
+        // to inexistent derivations, output paths or output names.
+        //
+        // In Nix, those nonsensical context elements are partially mitigated by checking
+        // that various parameters are indeed syntatically valid store paths in the context, i.e.
+        // starting with the same prefix as `builtins.storeDir`, or ending with `.drv`.
+        // In addition, if writing to the store is possible (evaluator not in read-only mode), Nix
+        // will realize some paths and ensures they are present in the store.
+        //
+        // In this implementation, we do none of that, no syntax checks, no realization.
+        // The next `TODO` are the checks that Nix implements.
+        let mut ctx_elements: HashSet<NixContextElement> = HashSet::new();
+        let span = generators::request_span(&co).await;
+        let origin = origin
+            .coerce_to_string(
+                co,
+                CoercionKind {
+                    strong: true,
+                    import_paths: true,
+                },
+                span,
+            )
+            .await?;
+        let mut origin = origin.to_contextful_str()?;
+
+        let added_context = added_context.to_attrs()?;
+        for (context_key, context_element) in added_context.into_iter() {
+            // Invariant checks:
+            // - TODO: context_key must be a syntactically valid store path.
+            // - Perform a deep force `context_element`.
+            let context_element = context_element.to_attrs()?;
+            if let Some(path) = context_element.select("path") {
+                if path.as_bool()? {
+                    ctx_elements.insert(NixContextElement::Plain(context_key.to_string()));
+                }
+            }
+            if let Some(all_outputs) = context_element.select("allOutputs") {
+                if all_outputs.as_bool()? {
+                    // TODO: check if `context_key` is a derivation path.
+                    // This may require realization.
+                    ctx_elements.insert(NixContextElement::Derivation(context_key.to_string()));
+                }
+            }
+            if let Some(some_outputs) = context_element.select("outputs") {
+                let some_outputs = some_outputs.to_list()?;
+                // TODO: check if `context_key` is a derivation path.
+                // This may require realization.
+                for output in some_outputs.into_iter() {
+                    let output = output.to_str()?;
+                    ctx_elements.insert(NixContextElement::Single {
+                        derivation: context_key.to_string(),
+                        name: output.to_string(),
+                    });
+                }
+            }
+        }
+
+        if let Some(origin_ctx) = origin.context_mut() {
+            // FUTUREWORK(performance): avoid this clone
+            // and extend in-place.
+            *origin_ctx = origin_ctx.clone().join(&mut ctx_elements.into());
+        }
+
+        Ok(origin.into())
+    }
+
     #[builtin("hashString")]
     #[allow(non_snake_case)]
     async fn builtin_hashString(co: GenCo, algo: Value, s: Value) -> Result<Value, ErrorKind> {
