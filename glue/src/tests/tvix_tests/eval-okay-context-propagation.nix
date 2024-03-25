@@ -93,4 +93,27 @@ in
   (preserveContext other-drv (builtins.concatStringsSep "${other-drv}" [ "abc" "def" ]))
   # `attrNames` will never ever produce context.
   (preserveContext "abc" (toString (builtins.attrNames { a = { }; b = { }; c = { }; })))
+  # `toJSON` preserves context of its inputs.
+  (preserveContexts [ drv other-drv ] (builtins.toJSON {
+    a = [ drv ];
+    b = [ other-drv ];
+  }))
+  (preserveContexts [ drv other-drv ] (builtins.toJSON {
+    a.deep = [ drv ];
+    b = [ other-drv ];
+  }))
+  (preserveContexts [ drv other-drv ] (builtins.toJSON {
+    a = "${drv}";
+    b = [ other-drv ];
+  }))
+  (preserveContexts [ drv other-drv ] (builtins.toJSON {
+    a.deep = "${drv}";
+    b = [ other-drv ];
+  }))
+  (preserveContexts [ drv other-drv ] (builtins.toJSON {
+    a = "${drv} ${other-drv}";
+  }))
+  (preserveContexts [ drv other-drv ] (builtins.toJSON {
+    a.b.c.d.e.f = "${drv} ${other-drv}";
+  }))
 ]

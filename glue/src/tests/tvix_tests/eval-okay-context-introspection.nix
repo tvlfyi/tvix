@@ -41,6 +41,13 @@ let
   reconstructed-path = appendContextFrom combo-path
     (builtins.unsafeDiscardStringContext combo-path);
 
+  an-str = {
+    a = "${drv}";
+  };
+  an-list = {
+    b = [ drv ];
+  };
+
   # Eta rule for strings with context.
   etaRule = str:
     str == appendContextFrom
@@ -70,4 +77,7 @@ in
   (etaRule "foo")
   (etaRule drv.drvPath)
   (etaRule drv.foo.outPath)
+  # `toJSON` tests
+  (builtins.hasContext (builtins.toJSON an-str))
+  (builtins.hasContext (builtins.toJSON an-list))
 ]

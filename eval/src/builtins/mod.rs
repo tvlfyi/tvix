@@ -453,11 +453,11 @@ mod pure_builtins {
 
     #[builtin("toJSON")]
     async fn builtin_to_json(co: GenCo, val: Value) -> Result<Value, ErrorKind> {
-        match val.into_json(&co).await? {
+        match val.into_contextful_json(&co).await? {
             Err(cek) => Ok(Value::from(cek)),
-            Ok(json_value) => {
+            Ok((json_value, ctx)) => {
                 let json_str = serde_json::to_string(&json_value)?;
-                Ok(json_str.into())
+                Ok(NixString::new_context_from(ctx, json_str).into())
             }
         }
     }

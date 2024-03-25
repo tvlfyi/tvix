@@ -493,7 +493,7 @@ where
                         VMRequest::ToJson(value) => {
                             self.reenqueue_generator(name, span.clone(), generator);
                             self.enqueue_generator("to_json", span, |co| {
-                                value.into_json_generator(co)
+                                value.into_contextful_json_generator(co)
                             });
                             return Ok(false);
                         }
@@ -778,9 +778,9 @@ pub(crate) async fn request_span(co: &GenCo) -> LightSpan {
 pub(crate) async fn request_to_json(
     co: &GenCo,
     value: Value,
-) -> Result<serde_json::Value, CatchableErrorKind> {
+) -> Result<(serde_json::Value, NixContext), CatchableErrorKind> {
     match co.yield_(VMRequest::ToJson(value)).await {
-        VMResponse::Value(Value::Json(json)) => Ok(*json),
+        VMResponse::Value(Value::Json(json_with_ctx)) => Ok(*json_with_ctx),
         VMResponse::Value(Value::Catchable(cek)) => Err(*cek),
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",

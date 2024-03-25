@@ -78,7 +78,7 @@ pub enum Value {
     #[serde(skip)]
     UnresolvedPath(Box<PathBuf>),
     #[serde(skip)]
-    Json(Box<serde_json::Value>),
+    Json(Box<(serde_json::Value, NixContext)>),
 
     #[serde(skip)]
     FinaliseRequest(bool),
@@ -294,7 +294,7 @@ impl Value {
                 | Value::Blueprint(_)
                 | Value::DeferredUpvalue(_)
                 | Value::UnresolvedPath(_)
-                | Value::Json(_)
+                | Value::Json(..)
                 | Value::FinaliseRequest(_) => panic!(
                     "Tvix bug: internal value left on stack: {}",
                     value.type_of()
@@ -444,7 +444,7 @@ impl Value {
                 | (Value::Blueprint(_), _)
                 | (Value::DeferredUpvalue(_), _)
                 | (Value::UnresolvedPath(_), _)
-                | (Value::Json(_), _)
+                | (Value::Json(..), _)
                 | (Value::FinaliseRequest(_), _) => {
                     panic!("tvix bug: .coerce_to_string() called on internal value")
                 }
@@ -681,7 +681,7 @@ impl Value {
             Value::Blueprint(_) => "internal[blueprint]",
             Value::DeferredUpvalue(_) => "internal[deferred_upvalue]",
             Value::UnresolvedPath(_) => "internal[unresolved_path]",
-            Value::Json(_) => "internal[json]",
+            Value::Json(..) => "internal[json]",
             Value::FinaliseRequest(_) => "internal[finaliser_sentinel]",
             Value::Catchable(_) => "internal[catchable]",
         }
@@ -877,7 +877,7 @@ impl Value {
             | Value::Blueprint(_)
             | Value::DeferredUpvalue(_)
             | Value::UnresolvedPath(_)
-            | Value::Json(_)
+            | Value::Json(..)
             | Value::FinaliseRequest(_) => "an internal Tvix evaluator value".into(),
         }
     }
@@ -991,7 +991,7 @@ impl TotalDisplay for Value {
             Value::Blueprint(_) => f.write_str("internal[blueprint]"),
             Value::DeferredUpvalue(_) => f.write_str("internal[deferred_upvalue]"),
             Value::UnresolvedPath(_) => f.write_str("internal[unresolved_path]"),
-            Value::Json(_) => f.write_str("internal[json]"),
+            Value::Json(..) => f.write_str("internal[json]"),
             Value::FinaliseRequest(_) => f.write_str("internal[finaliser_sentinel]"),
 
             // Delegate thunk display to the type, as it must handle
