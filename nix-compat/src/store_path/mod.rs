@@ -183,7 +183,7 @@ impl Serialize for StorePath {
 /// Like [StorePath], but without a heap allocation for the name.
 /// Used by [StorePath] for parsing.
 ///
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
 pub struct StorePathRef<'a> {
     digest: [u8; DIGEST_SIZE],
     name: &'a str,
