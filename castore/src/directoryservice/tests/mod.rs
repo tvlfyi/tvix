@@ -16,6 +16,9 @@ use crate::{
 mod utils;
 use self::utils::make_grpc_directory_service_client;
 
+// TODO: add tests doing individual puts of a closure, then doing a get_recursive
+// (and figure out semantics if necessary)
+
 /// This produces a template, which will be applied to all individual test functions.
 /// See https://github.com/la10736/rstest/issues/130#issuecomment-968864832
 #[template]
