@@ -50,3 +50,28 @@ pub trait PathInfoService: Send + Sync {
     /// [async_trait] generates, but for streams instead of futures.
     fn list(&self) -> BoxStream<'static, Result<PathInfo, Error>>;
 }
+
+#[async_trait]
+impl<A> PathInfoService for A
+where
+    A: AsRef<dyn PathInfoService> + Send + Sync,
+{
+    async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
+        self.as_ref().get(digest).await
+    }
+
+    async fn put(&self, path_info: PathInfo) -> Result<PathInfo, Error> {
+        self.as_ref().put(path_info).await
+    }
+
+    async fn calculate_nar(
+        &self,
+        root_node: &castorepb::node::Node,
+    ) -> Result<(u64, [u8; 32]), Error> {
+        self.as_ref().calculate_nar(root_node).await
+    }
+
+    fn list(&self) -> BoxStream<'static, Result<PathInfo, Error>> {
+        self.as_ref().list()
+    }
+}
