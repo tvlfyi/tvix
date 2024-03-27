@@ -122,27 +122,33 @@ impl PathInfoService for GRPCPathInfoService {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
     use std::time::Duration;
 
+    use rstest::*;
     use tempfile::TempDir;
     use tokio::net::UnixListener;
     use tokio_retry::strategy::ExponentialBackoff;
     use tokio_retry::Retry;
     use tokio_stream::wrappers::UnixListenerStream;
+    use tvix_castore::blobservice::BlobService;
+    use tvix_castore::directoryservice::DirectoryService;
 
     use crate::pathinfoservice::MemoryPathInfoService;
     use crate::proto::path_info_service_client::PathInfoServiceClient;
     use crate::proto::GRPCPathInfoServiceWrapper;
-    use crate::tests::fixtures;
-    use crate::tests::utils::gen_blob_service;
-    use crate::tests::utils::gen_directory_service;
+    use crate::tests::fixtures::{self, blob_service, directory_service};
 
     use super::GRPCPathInfoService;
     use super::PathInfoService;
 
     /// This ensures connecting via gRPC works as expected.
+    #[rstest]
     #[tokio::test]
-    async fn test_valid_unix_path_ping_pong() {
+    async fn test_valid_unix_path_ping_pong(
+        blob_service: Arc<dyn BlobService>,
+        directory_service: Arc<dyn DirectoryService>,
+    ) {
         let tmpdir = TempDir::new().unwrap();
         let socket_path = tmpdir.path().join("daemon");
 
@@ -158,8 +164,8 @@ mod tests {
             let router = server.add_service(
                 crate::proto::path_info_service_server::PathInfoServiceServer::new(
                     GRPCPathInfoServiceWrapper::new(Box::new(MemoryPathInfoService::new(
-                        gen_blob_service(),
-                        gen_directory_service(),
+                        blob_service,
+                        directory_service,
                     ))
                         as Box<dyn PathInfoService>),
                 ),
