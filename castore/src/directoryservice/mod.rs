@@ -9,7 +9,7 @@ mod memory;
 mod simple_putter;
 mod sled;
 #[cfg(test)]
-mod tests;
+pub mod tests;
 mod traverse;
 mod utils;
 

@@ -14,7 +14,7 @@ mod object_store;
 mod sled;
 
 #[cfg(test)]
-mod tests;
+pub mod tests;
 
 pub use self::chunked_reader::ChunkedReader;
 pub use self::combinator::CombinedBlobService;

@@ -7,6 +7,9 @@ mod sled;
 #[cfg(any(feature = "fuse", feature = "virtiofs"))]
 mod fs;
 
+#[cfg(test)]
+mod tests;
+
 use futures::stream::BoxStream;
 use tonic::async_trait;
 use tvix_castore::proto as castorepb;

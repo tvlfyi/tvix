@@ -1,8 +1,17 @@
 use lazy_static::lazy_static;
+use rstest::*;
+use std::sync::Arc;
 pub use tvix_castore::fixtures::*;
-use tvix_castore::proto as castorepb;
+use tvix_castore::{
+    blobservice::{BlobService, MemoryBlobService},
+    directoryservice::{DirectoryService, MemoryDirectoryService},
+    proto as castorepb,
+};
 
-use crate::proto::{nar_info::ca, nar_info::Ca, NarInfo, PathInfo};
+use crate::proto::{
+    nar_info::{ca, Ca},
+    NarInfo, PathInfo,
+};
 
 pub const DUMMY_NAME: &str = "00000000000000000000000000000000-dummy";
 pub const DUMMY_OUTPUT_HASH: [u8; 20] = [0; 20];
@@ -120,4 +129,14 @@ lazy_static! {
         }),
       ..PATH_INFO_WITHOUT_NARINFO.clone()
     };
+}
+
+#[fixture]
+pub(crate) fn blob_service() -> Arc<dyn BlobService> {
+    Arc::from(MemoryBlobService::default())
+}
+
+#[fixture]
+pub(crate) fn directory_service() -> Arc<dyn DirectoryService> {
+    Arc::from(MemoryDirectoryService::default())
 }
