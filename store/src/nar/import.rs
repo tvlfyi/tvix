@@ -223,6 +223,7 @@ mod test {
     use std::io::Cursor;
     use std::sync::Arc;
 
+    use rstest::*;
     use tokio_stream::StreamExt;
     use tvix_castore::blobservice::BlobService;
     use tvix_castore::directoryservice::DirectoryService;
@@ -231,17 +232,18 @@ mod test {
         HELLOWORLD_BLOB_DIGEST,
     };
     use tvix_castore::proto as castorepb;
-    use tvix_castore::utils::{gen_blob_service, gen_directory_service};
 
     use crate::tests::fixtures::{
-        NAR_CONTENTS_COMPLICATED, NAR_CONTENTS_HELLOWORLD, NAR_CONTENTS_SYMLINK,
+        blob_service, directory_service, NAR_CONTENTS_COMPLICATED, NAR_CONTENTS_HELLOWORLD,
+        NAR_CONTENTS_SYMLINK,
     };
 
+    #[rstest]
     #[tokio::test]
-    async fn single_symlink() {
-        let blob_service = gen_blob_service();
-        let directory_service = gen_directory_service();
-
+    async fn single_symlink(
+        blob_service: Arc<dyn BlobService>,
+        directory_service: Arc<dyn DirectoryService>,
+    ) {
         let handle = tokio::runtime::Handle::current();
 
         let root_node = handle
@@ -265,11 +267,12 @@ mod test {
         );
     }
 
+    #[rstest]
     #[tokio::test]
-    async fn single_file() {
-        let blob_service: Arc<dyn BlobService> = gen_blob_service().into();
-        let directory_service = gen_directory_service();
-
+    async fn single_file(
+        blob_service: Arc<dyn BlobService>,
+        directory_service: Arc<dyn DirectoryService>,
+    ) {
         let handle = tokio::runtime::Handle::current();
 
         let root_node = handle
@@ -301,11 +304,12 @@ mod test {
         assert!(blob_service.has(&HELLOWORLD_BLOB_DIGEST).await.unwrap());
     }
 
+    #[rstest]
     #[tokio::test]
-    async fn complicated() {
-        let blob_service: Arc<dyn BlobService> = gen_blob_service().into();
-        let directory_service: Arc<dyn DirectoryService> = gen_directory_service().into();
-
+    async fn complicated(
+        blob_service: Arc<dyn BlobService>,
+        directory_service: Arc<dyn DirectoryService>,
+    ) {
         let handle = tokio::runtime::Handle::current();
 
         let root_node = handle
