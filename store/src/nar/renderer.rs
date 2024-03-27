@@ -23,8 +23,8 @@ pub async fn calculate_size_and_sha256<BS, DS>(
     directory_service: DS,
 ) -> Result<(u64, [u8; 32]), RenderError>
 where
-    BS: AsRef<dyn BlobService> + Send,
-    DS: AsRef<dyn DirectoryService> + Send,
+    BS: BlobService + Send,
+    DS: DirectoryService + Send,
 {
     let mut h = Sha256::new();
     let mut cw = CountWrite::from(&mut h);
@@ -79,8 +79,8 @@ pub async fn write_nar<W, BS, DS>(
 ) -> Result<(), RenderError>
 where
     W: AsyncWrite + Unpin + Send,
-    BS: AsRef<dyn BlobService> + Send,
-    DS: AsRef<dyn DirectoryService> + Send,
+    BS: BlobService + Send,
+    DS: DirectoryService + Send,
 {
     // Initialize NAR writer
     let mut w = w.compat_write();
@@ -109,8 +109,8 @@ async fn walk_node<BS, DS>(
     directory_service: DS,
 ) -> Result<(BS, DS), RenderError>
 where
-    BS: AsRef<dyn BlobService> + Send,
-    DS: AsRef<dyn DirectoryService> + Send,
+    BS: BlobService + Send,
+    DS: DirectoryService + Send,
 {
     match proto_node {
         castorepb::node::Node::Symlink(proto_symlink_node) => {
@@ -129,7 +129,6 @@ where
             })?;
 
             let blob_reader = match blob_service
-                .as_ref()
                 .open_read(&digest)
                 .await
                 .map_err(RenderError::StoreError)?
@@ -165,7 +164,6 @@ where
 
             // look it up with the directory service
             match directory_service
-                .as_ref()
                 .get(&digest)
                 .await
                 .map_err(|e| RenderError::StoreError(e.into()))?
