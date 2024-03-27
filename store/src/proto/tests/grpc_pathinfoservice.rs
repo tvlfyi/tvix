@@ -7,6 +7,7 @@ use crate::tests::fixtures::DUMMY_OUTPUT_HASH;
 use crate::tests::utils::gen_blob_service;
 use crate::tests::utils::gen_directory_service;
 use crate::tests::utils::gen_pathinfo_service;
+use bytes::Bytes;
 use futures::stream::BoxStream;
 use std::sync::Arc;
 use tonic::Request;
@@ -35,7 +36,7 @@ async fn not_found() {
 
     let resp = service
         .get(Request::new(GetPathInfoRequest {
-            by_what: Some(ByOutputHash(DUMMY_OUTPUT_HASH.clone())),
+            by_what: Some(ByOutputHash(Bytes::from(DUMMY_OUTPUT_HASH.to_vec()))),
         }))
         .await;
 
@@ -65,7 +66,7 @@ async fn put_get() {
 
     let resp = service
         .get(Request::new(GetPathInfoRequest {
-            by_what: Some(ByOutputHash(DUMMY_OUTPUT_HASH.clone())),
+            by_what: Some(ByOutputHash(Bytes::from(DUMMY_OUTPUT_HASH.to_vec()))),
         }))
         .await;
 

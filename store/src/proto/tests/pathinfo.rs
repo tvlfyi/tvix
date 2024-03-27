@@ -235,8 +235,8 @@ fn validate_inconsistent_narinfo_reference_name_digest() {
 
     match path_info.validate().expect_err("must fail") {
         ValidatePathInfoError::InconsistentNarinfoReferenceNameDigest(0, e_expected, e_actual) => {
-            assert_eq!(path_info.references[0][..], e_expected);
-            assert_eq!(DUMMY_OUTPUT_HASH[..], e_actual);
+            assert_eq!(path_info.references[0][..], e_expected[..]);
+            assert_eq!(DUMMY_OUTPUT_HASH, e_actual);
         }
         e => panic!("unexpected error: {:?}", e),
     }
@@ -274,7 +274,7 @@ fn validate_valid_deriver() {
     let narinfo = path_info.narinfo.as_mut().unwrap();
     narinfo.deriver = Some(crate::proto::StorePath {
         name: "foo".to_string(),
-        digest: DUMMY_OUTPUT_HASH.clone(),
+        digest: Bytes::from(DUMMY_OUTPUT_HASH.as_slice()),
     });
 
     path_info.validate().expect("must validate");

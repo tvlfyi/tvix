@@ -5,11 +5,9 @@ use tvix_castore::proto as castorepb;
 use crate::proto::{nar_info::ca, nar_info::Ca, NarInfo, PathInfo};
 
 pub const DUMMY_NAME: &str = "00000000000000000000000000000000-dummy";
+pub const DUMMY_OUTPUT_HASH: [u8; 20] = [0; 20];
 
 lazy_static! {
-    // output hash
-    pub static ref DUMMY_OUTPUT_HASH: bytes::Bytes = vec![0; 20].into();
-
     /// The NAR representation of a symlink pointing to `/nix/store/somewhereelse`
     pub static ref NAR_CONTENTS_SYMLINK: Vec<u8> = vec![
         13, 0, 0, 0, 0, 0, 0, 0, b'n', b'i', b'x', b'-', b'a', b'r', b'c', b'h', b'i', b'v', b'e', b'-', b'1', 0,
@@ -104,7 +102,7 @@ lazy_static! {
                 size: 0,
             })),
         }),
-        references: vec![DUMMY_OUTPUT_HASH.clone()],
+        references: vec![DUMMY_OUTPUT_HASH.as_slice().into()],
         narinfo: None,
     };
 
