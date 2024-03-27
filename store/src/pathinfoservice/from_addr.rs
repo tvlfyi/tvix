@@ -121,9 +121,13 @@ pub async fn from_addr(
 mod tests {
     use super::from_addr;
     use lazy_static::lazy_static;
+    use std::sync::Arc;
     use tempfile::TempDir;
     use test_case::test_case;
-    use tvix_castore::utils::{gen_blob_service, gen_directory_service};
+    use tvix_castore::{
+        blobservice::{BlobService, MemoryBlobService},
+        directoryservice::{DirectoryService, MemoryDirectoryService},
+    };
 
     lazy_static! {
         static ref TMPDIR_SLED_1: TempDir = TempDir::new().unwrap();
@@ -178,12 +182,11 @@ mod tests {
     #[test_case("grpc+http://localhost/some-path", false; "grpc valid invalid host and path")]
     #[tokio::test]
     async fn test_from_addr_tokio(uri_str: &str, exp_succeed: bool) {
-        let resp = from_addr(
-            uri_str,
-            gen_blob_service().into(),
-            gen_directory_service().into(),
-        )
-        .await;
+        let blob_service: Arc<dyn BlobService> = Arc::from(MemoryBlobService::default());
+        let directory_service: Arc<dyn DirectoryService> =
+            Arc::from(MemoryDirectoryService::default());
+
+        let resp = from_addr(uri_str, blob_service, directory_service).await;
 
         if exp_succeed {
             resp.expect("should succeed");
