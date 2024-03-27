@@ -23,8 +23,8 @@ use self::utils::make_grpc_directory_service_client;
 /// See https://github.com/la10736/rstest/issues/130#issuecomment-968864832
 #[template]
 #[rstest]
-#[case::memory(directoryservice::from_addr("memory://").await.unwrap())]
 #[case::grpc(make_grpc_directory_service_client().await)]
+#[case::memory(directoryservice::from_addr("memory://").await.unwrap())]
 #[case::sled(directoryservice::from_addr("sled://").await.unwrap())]
 pub fn directory_services(#[case] directory_service: impl DirectoryService) {}
 

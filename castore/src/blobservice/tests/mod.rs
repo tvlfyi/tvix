@@ -22,8 +22,9 @@ use self::utils::make_grpc_blob_service_client;
 /// See https://github.com/la10736/rstest/issues/130#issuecomment-968864832
 #[template]
 #[rstest]
-#[case::memory(blobservice::from_addr("memory://").await.unwrap())]
 #[case::grpc(make_grpc_blob_service_client().await)]
+#[case::memory(blobservice::from_addr("memory://").await.unwrap())]
+#[case::objectstore_memory(blobservice::from_addr("objectstore+memory://").await.unwrap())]
 #[case::sled(blobservice::from_addr("sled://").await.unwrap())]
 pub fn blob_services(#[case] blob_service: impl BlobService) {}
 
