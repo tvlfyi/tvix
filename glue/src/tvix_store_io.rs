@@ -273,15 +273,6 @@ impl TvixStoreIO {
             .map_err(|e| std::io::Error::new(io::ErrorKind::Other, e))
     }
 
-    fn store_path_to_node_sync(
-        &self,
-        store_path: &StorePath,
-        sub_path: &Path,
-    ) -> io::Result<Option<Node>> {
-        self.tokio_handle
-            .block_on(async { self.store_path_to_node(store_path, sub_path).await })
-    }
-
     /// This forwards the ingestion to the [`tvix_castore::import::ingest_entries`]
     /// with a [`tokio::runtime::Handle::block_on`] call for synchronicity.
     pub(crate) fn ingest_entries_sync<S>(&self, entries_stream: S) -> io::Result<Node>
@@ -454,7 +445,8 @@ impl EvalIO for TvixStoreIO {
             StorePath::from_absolute_path_full(&path.to_string_lossy())
         {
             if self
-                .store_path_to_node_sync(&store_path, &sub_path)?
+                .tokio_handle
+                .block_on(async { self.store_path_to_node(&store_path, &sub_path).await })?
                 .is_some()
             {
                 Ok(true)
@@ -474,7 +466,10 @@ impl EvalIO for TvixStoreIO {
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
         {
-            if let Some(node) = self.store_path_to_node_sync(&store_path, &sub_path)? {
+            if let Some(node) = self
+                .tokio_handle
+                .block_on(async { self.store_path_to_node(&store_path, &sub_path).await })?
+            {
                 // depending on the node type, treat read_to_string differently
                 match node {
                     Node::Directory(_) => {
@@ -542,7 +537,10 @@ impl EvalIO for TvixStoreIO {
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())
         {
-            if let Some(node) = self.store_path_to_node_sync(&store_path, &sub_path)? {
+            if let Some(node) = self
+                .tokio_handle
+                .block_on(async { self.store_path_to_node(&store_path, &sub_path).await })?
+            {
                 match node {
                     Node::Directory(directory_node) => {
                         // fetch the Directory itself.
