@@ -119,6 +119,7 @@ mod import_builtins {
 
     use super::*;
 
+    use nix_compat::nixhash::{CAHash, NixHash};
     use tvix_eval::generators::Gen;
     use tvix_eval::{generators::GenCo, ErrorKind, Value};
 
@@ -138,8 +139,19 @@ mod import_builtins {
         Ok(state
             .tokio_handle
             .block_on(async {
+                let (_, nar_sha256) = state
+                    .path_info_service
+                    .as_ref()
+                    .calculate_nar(&root_node)
+                    .await?;
+
                 state
-                    .register_node_in_path_info_service(name, &p, root_node)
+                    .register_node_in_path_info_service(
+                        name,
+                        &p,
+                        CAHash::Nar(NixHash::Sha256(nar_sha256)),
+                        root_node,
+                    )
                     .await
             })
             .map_err(|err| ErrorKind::IO {

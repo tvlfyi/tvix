@@ -53,7 +53,8 @@ use crate::tvix_build::derivation_to_build_request;
 pub struct TvixStoreIO {
     blob_service: Arc<dyn BlobService>,
     directory_service: Arc<dyn DirectoryService>,
-    path_info_service: Arc<dyn PathInfoService>,
+    // This is public so builtins can put PathInfos directly.
+    pub(crate) path_info_service: Arc<dyn PathInfoService>,
     std_io: StdIO,
     #[allow(dead_code)]
     build_service: Arc<dyn BuildService>,
@@ -293,9 +294,13 @@ impl TvixStoreIO {
         &self,
         name: &str,
         path: &Path,
+        ca: CAHash,
         root_node: Node,
     ) -> io::Result<(PathInfo, StorePath)> {
         // Ask the PathInfoService for the NAR size and sha256
+        // We always need it no matter what is the actual hash mode
+        // because the path info construct a narinfo which *always*
+        // require a SHA256 of the NAR representation and the NAR size.
         let (nar_size, nar_sha256) = self
             .path_info_service
             .as_ref()
@@ -303,20 +308,22 @@ impl TvixStoreIO {
             .await?;
 
         // Calculate the output path. This might still fail, as some names are illegal.
-        let output_path = nix_compat::store_path::build_nar_based_store_path(&nar_sha256, name)
-            .map_err(|_| {
-                std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    format!("invalid name: {}", name),
-                )
-            })?;
+        let output_path =
+            nix_compat::store_path::build_ca_path(name, &ca, Vec::<String>::new(), false).map_err(
+                |_| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!("invalid name: {}", name),
+                    )
+                },
+            )?;
 
         // assemble a new root_node with a name that is derived from the nar hash.
         let root_node = root_node.rename(output_path.to_string().into_bytes().into());
         tvix_store::import::log_node(&root_node, path);
 
         let path_info =
-            tvix_store::import::derive_nar_ca_path_info(nar_size, nar_sha256, root_node);
+            tvix_store::import::derive_nar_ca_path_info(nar_size, nar_sha256, Some(ca), root_node);
 
         Ok((path_info, output_path.to_owned()))
     }
@@ -325,9 +332,10 @@ impl TvixStoreIO {
         &self,
         name: &str,
         path: &Path,
+        ca: CAHash,
         root_node: Node,
     ) -> io::Result<StorePath> {
-        let (path_info, output_path) = self.node_to_path_info(name, path, root_node).await?;
+        let (path_info, output_path) = self.node_to_path_info(name, path, ca, root_node).await?;
         let _path_info = self.path_info_service.as_ref().put(path_info).await?;
 
         Ok(output_path)

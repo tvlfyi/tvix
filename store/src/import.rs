@@ -4,12 +4,26 @@ use tvix_castore::{
     blobservice::BlobService, directoryservice::DirectoryService, proto::node::Node, B3Digest,
 };
 
-use nix_compat::store_path::{self, StorePath};
+use nix_compat::{
+    nixhash::{CAHash, NixHash},
+    store_path::{self, StorePath},
+};
 
 use crate::{
     pathinfoservice::PathInfoService,
     proto::{nar_info, NarInfo, PathInfo},
 };
+
+impl From<CAHash> for nar_info::Ca {
+    fn from(value: CAHash) -> Self {
+        let hash_type: nar_info::ca::Hash = (&value).into();
+        let digest: bytes::Bytes = value.hash().to_string().into();
+        nar_info::Ca {
+            r#type: hash_type.into(),
+            digest,
+        }
+    }
+}
 
 pub fn log_node(node: &Node, path: &Path) {
     match node {
@@ -54,13 +68,20 @@ pub fn path_to_name(path: &Path) -> std::io::Result<&str> {
         })
 }
 
-/// Takes the NAR size, SHA-256 of the NAR representation and the root node.
-/// Returns the path information object for a content addressed NAR-style (recursive) object.
+/// Takes the NAR size, SHA-256 of the NAR representation, the root node and optionally
+/// a CA hash information.
+///
+/// Returns the path information object for a NAR-style object.
 ///
 /// This [`PathInfo`] can be further filled for signatures, deriver or verified for the expected
 /// hashes.
 #[inline]
-pub fn derive_nar_ca_path_info(nar_size: u64, nar_sha256: [u8; 32], root_node: Node) -> PathInfo {
+pub fn derive_nar_ca_path_info(
+    nar_size: u64,
+    nar_sha256: [u8; 32],
+    ca: Option<CAHash>,
+    root_node: Node,
+) -> PathInfo {
     // assemble the [crate::proto::PathInfo] object.
     PathInfo {
         node: Some(tvix_castore::proto::Node {
@@ -74,10 +95,7 @@ pub fn derive_nar_ca_path_info(nar_size: u64, nar_sha256: [u8; 32], root_node: N
             signatures: vec![],
             reference_names: vec![],
             deriver: None,
-            ca: Some(nar_info::Ca {
-                r#type: nar_info::ca::Hash::NarSha256.into(),
-                digest: nar_sha256.to_vec().into(),
-            }),
+            ca: ca.map(|ca_hash| ca_hash.into()),
         }),
     }
 }
@@ -118,7 +136,12 @@ where
     let root_node = root_node.rename(output_path.to_string().into_bytes().into());
     log_node(&root_node, path.as_ref());
 
-    let path_info = derive_nar_ca_path_info(nar_size, nar_sha256, root_node);
+    let path_info = derive_nar_ca_path_info(
+        nar_size,
+        nar_sha256,
+        Some(CAHash::Nar(NixHash::Sha256(nar_sha256))),
+        root_node,
+    );
 
     // This new [`PathInfo`] that we get back from there might contain additional signatures or
     // information set by the service itself. In this function, we silently swallow it because
