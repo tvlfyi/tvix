@@ -273,21 +273,20 @@ impl TvixStoreIO {
             .map_err(|e| std::io::Error::new(io::ErrorKind::Other, e))
     }
 
-    /// This forwards the ingestion to the [`tvix_castore::import::ingest_entries`]
-    /// with a [`tokio::runtime::Handle::block_on`] call for synchronicity.
-    pub(crate) fn ingest_entries_sync<S>(&self, entries_stream: S) -> io::Result<Node>
+    /// This forwards the ingestion to the [`tvix_castore::import::ingest_entries`],
+    /// passing the blob_service and directory_service that's used.
+    /// The error is mapped to std::io::Error for simplicity.
+    pub(crate) async fn ingest_entries<S>(&self, entries_stream: S) -> io::Result<Node>
     where
         S: Stream<Item = DirEntry> + Unpin,
     {
-        self.tokio_handle.block_on(async move {
-            tvix_castore::import::ingest_entries(
-                &self.blob_service,
-                &self.directory_service,
-                entries_stream,
-            )
-            .await
-            .map_err(|err| std::io::Error::new(io::ErrorKind::Other, err))
-        })
+        tvix_castore::import::ingest_entries(
+            &self.blob_service,
+            &self.directory_service,
+            entries_stream,
+        )
+        .await
+        .map_err(|err| std::io::Error::new(io::ErrorKind::Other, err))
     }
 
     pub(crate) async fn node_to_path_info(

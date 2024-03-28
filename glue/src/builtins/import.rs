@@ -102,12 +102,15 @@ async fn filtered_ingest(
 
     pin_mut!(entries_stream);
 
-    state
-        .ingest_entries_sync(entries_stream)
-        .map_err(|err| ErrorKind::IO {
-            path: Some(path.to_path_buf()),
-            error: err.into(),
-        })
+    state.tokio_handle.block_on(async {
+        state
+            .ingest_entries(entries_stream)
+            .await
+            .map_err(|err| ErrorKind::IO {
+                path: Some(path.to_path_buf()),
+                error: err.into(),
+            })
+    })
 }
 
 #[builtins(state = "Rc<TvixStoreIO>")]
