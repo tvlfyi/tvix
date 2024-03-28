@@ -133,7 +133,12 @@ mod import_builtins {
         let name = tvix_store::import::path_to_name(&p)?;
 
         Ok(state
-            .register_node_in_path_info_service_sync(name, &p, root_node)
+            .tokio_handle
+            .block_on(async {
+                state
+                    .register_node_in_path_info_service(name, &p, root_node)
+                    .await
+            })
             .map_err(|err| ErrorKind::IO {
                 path: Some(p.to_path_buf()),
                 error: err.into(),

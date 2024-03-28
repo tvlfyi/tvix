@@ -334,18 +334,6 @@ impl TvixStoreIO {
         Ok(output_path)
     }
 
-    pub(crate) fn register_node_in_path_info_service_sync(
-        &self,
-        name: &str,
-        path: &Path,
-        root_node: Node,
-    ) -> io::Result<StorePath> {
-        self.tokio_handle.block_on(async {
-            self.register_node_in_path_info_service(name, path, root_node)
-                .await
-        })
-    }
-
     pub async fn store_path_exists<'a>(&'a self, store_path: StorePathRef<'a>) -> io::Result<bool> {
         Ok(self
             .path_info_service
