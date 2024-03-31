@@ -11,18 +11,6 @@
         "url": "https://github.com/ryantm/agenix/archive/0.15.0.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
-    "emacs-overlay": {
-        "branch": "master",
-        "description": "Bleeding edge emacs overlay [maintainer=@adisbladis] ",
-        "homepage": "",
-        "owner": "nix-community",
-        "repo": "emacs-overlay",
-        "rev": "15f5f7d5eb82b1d2e7a4f754b11480b91aea9e91",
-        "sha256": "14fzs2b0h2lsbygrla6bx0a1r8jf2q4y1rl226ia7kcl5sakgzi9",
-        "type": "tarball",
-        "url": "https://github.com/nix-community/emacs-overlay/archive/15f5f7d5eb82b1d2e7a4f754b11480b91aea9e91.tar.gz",
-        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
-    },
     "home-manager": {
         "branch": "master",
         "description": "Manage a user environment using Nix  [maintainer=@rycee] ",
