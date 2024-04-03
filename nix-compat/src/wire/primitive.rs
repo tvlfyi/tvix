@@ -11,25 +11,6 @@ pub static MAGIC_HELLO_RESPONSE: [u8; 8] = *b"oixd\0\0\0\0";
 // LE-encoded protocol version.
 pub static PROTOCOL_VERSION: [u8; 8] = [0x23, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
 
-/// Read a LE u32 from the least-significant bytes of a LE u64.
-///
-/// Overall, it looks like this on the wire:
-///
-/// 00 0x12 0x32 0x00 0x00 0x00 0x00 0x00 0x00
-///    |------------------|-------------------|
-///          LE u32            padding
-///
-/// Not sure why the protocol does this instead of using a plain u64,
-/// but well, it is what it is.
-///
-/// Analogous to the readInt function in cppnix.
-pub async fn read_u32<R: AsyncReadExt + Unpin>(r: &mut R) -> std::io::Result<u32> {
-    let val64 = r.read_u64_le().await?;
-    u32::try_from(val64).map_err(|_| {
-        std::io::Error::new(std::io::ErrorKind::InvalidData, "padding is not all zeroes")
-    })
-}
-
 #[allow(dead_code)]
 /// Read a u64 from the AsyncRead (little endian).
 pub async fn read_u64<R: AsyncReadExt + Unpin>(r: &mut R) -> std::io::Result<u64> {
@@ -56,8 +37,7 @@ pub async fn write_bool<W: AsyncWrite + Unpin>(w: &mut W, v: bool) -> std::io::R
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hex_literal::hex;
-    use tokio_test::{assert_err, io::Builder};
+    use tokio_test::io::Builder;
 
     // Integers.
     #[tokio::test]
@@ -97,17 +77,5 @@ mod tests {
     async fn test_write_bool_true() {
         let mut mock = Builder::new().write(&1u64.to_le_bytes()).build();
         write_bool(&mut mock, true).await.unwrap();
-    }
-    #[tokio::test]
-    async fn test_read_u32() {
-        let mut mock = Builder::new().read(&hex!("7856341200000000")).build();
-        let res = read_u32(&mut mock).await.unwrap();
-        assert_eq!(res, 0x12345678);
-    }
-    #[tokio::test]
-    async fn test_read_too_large_u32_fail() {
-        let mut mock = Builder::new().read(&hex!("7856341298760000")).build();
-        let res = read_u32(&mut mock).await;
-        assert_err!(res);
     }
 }
