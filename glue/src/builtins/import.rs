@@ -123,6 +123,7 @@ mod import_builtins {
     use nix_compat::nixhash::{CAHash, NixHash};
     use tvix_eval::generators::Gen;
     use tvix_eval::{generators::GenCo, ErrorKind, Value};
+    use tvix_eval::{NixContextElement, NixString};
 
     use tvix_castore::B3Digest;
 
@@ -242,7 +243,13 @@ mod import_builtins {
             Ok::<_, std::io::Error>(state.path_info_service.as_ref().put(path_info).await?)
         })?;
 
-        Ok(output_path.to_absolute_path().into())
+        // We need to attach context to the final output path.
+        let outpath = output_path.to_absolute_path();
+
+        Ok(
+            NixString::new_context_from(NixContextElement::Plain(outpath.clone()).into(), outpath)
+                .into(),
+        )
     }
 
     #[builtin("filterSource")]
@@ -256,7 +263,7 @@ mod import_builtins {
         let root_node = filtered_ingest(Rc::clone(&state), co, &p, Some(&filter)).await?;
         let name = tvix_store::import::path_to_name(&p)?;
 
-        Ok(state
+        let outpath = state
             .tokio_handle
             .block_on(async {
                 let (_, nar_sha256) = state
@@ -278,8 +285,12 @@ mod import_builtins {
                 path: Some(p.to_path_buf()),
                 error: err.into(),
             })?
-            .to_absolute_path()
-            .into())
+            .to_absolute_path();
+
+        Ok(
+            NixString::new_context_from(NixContextElement::Plain(outpath.clone()).into(), outpath)
+                .into(),
+        )
     }
 }
 

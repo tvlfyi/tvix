@@ -12,6 +12,11 @@ let
     system = "x86_64-linux";
     outputs = [ "out" "bar" ];
   };
+  a-path-drv = builtins.path {
+    name = "a-path-drv";
+    path = ./eval-okay-context-introspection.nix;
+  };
+  another-path-drv = builtins.filterSource (_: true) ./eval-okay-context-introspection.nix;
 
   # `substr` propagates context, we truncate to an empty string and concatenate to the target
   # to infect it with the context of `copied`.
@@ -37,6 +42,9 @@ in
   (builtins.hasContext "${(builtins.toFile "myself" "${./eval-okay-context-introspection.nix}")}")
   # `derivation` should produce context.
   (builtins.hasContext "${drv}")
+  # `builtins.path` / `builtins.filterSource` should produce context.
+  (builtins.hasContext "${a-path-drv}")
+  (builtins.hasContext "${another-path-drv}")
   # Low-level test to ensure that interpolation is working as expected.
   (builtins.length (builtins.attrNames (builtins.getContext "${drv}${other-drv}")) == 2)
   (builtins.getContext "${drv}${other-drv}" == mergeContext drv other-drv)
