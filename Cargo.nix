@@ -5770,6 +5770,11 @@ rec {
             packageId = "num-traits";
           }
           {
+            name = "pin-project-lite";
+            packageId = "pin-project-lite";
+            optional = true;
+          }
+          {
             name = "serde";
             packageId = "serde";
             features = [ "derive" ];
@@ -5839,11 +5844,12 @@ rec {
           }
         ];
         features = {
-          "async" = [ "futures-util" "tokio" ];
+          "async" = [ "futures-util" "tokio" "pin-project-lite" ];
           "futures-util" = [ "dep:futures-util" ];
+          "pin-project-lite" = [ "dep:pin-project-lite" ];
           "tokio" = [ "dep:tokio" ];
         };
-        resolvedDefaultFeatures = [ "async" "futures-util" "tokio" ];
+        resolvedDefaultFeatures = [ "async" "futures-util" "pin-project-lite" "tokio" ];
       };
       "nom" = rec {
         crateName = "nom";

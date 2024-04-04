@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-async = ["futures-util", "tokio"]
+async = ["futures-util", "tokio", "pin-project-lite"]
 
 [dependencies]
 bitflags = "2.4.1"
@@ -28,6 +28,10 @@ thiserror = "1.0.38"
 optional = true
 version = "1.32.0"
 features = ["io-util", "macros"]
+
+[dependencies.pin-project-lite]
+optional = true
+version = "0.2.13"
 
 [dev-dependencies]
 futures = { version = "0.3.30", default-features = false, features = ["executor"] }
