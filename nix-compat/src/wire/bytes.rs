@@ -95,7 +95,7 @@ pub async fn read_bytes_unchecked<R: AsyncReadExt + Unpin>(r: &mut R) -> std::io
 
 /// Computes the number of bytes we should add to len (a length in
 /// bytes) to be alined on 64 bits (8 bytes).
-fn padding_len(len: u64) -> u8 {
+pub(crate) fn padding_len(len: u64) -> u8 {
     let modulo = len % 8;
     if modulo == 0 {
         0
