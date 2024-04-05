@@ -23,6 +23,11 @@ pub use self::memory::MemoryPathInfoService;
 pub use self::nix_http::NixHTTPPathInfoService;
 pub use self::sled::SledPathInfoService;
 
+#[cfg(feature = "cloud")]
+mod bigtable;
+#[cfg(feature = "cloud")]
+pub use self::bigtable::BigtablePathInfoService;
+
 #[cfg(any(feature = "fuse", feature = "virtiofs"))]
 pub use self::fs::make_fs;
 

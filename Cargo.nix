@@ -14473,6 +14473,11 @@ rec {
             packageId = "async-stream";
           }
           {
+            name = "bigtable_rs";
+            packageId = "bigtable_rs";
+            optional = true;
+          }
+          {
             name = "blake3";
             packageId = "blake3";
             features = [ "rayon" "std" ];
@@ -14540,6 +14545,19 @@ rec {
             packageId = "reqwest";
             usesDefaultFeatures = false;
             features = [ "rustls-tls-native-roots" "stream" ];
+          }
+          {
+            name = "serde";
+            packageId = "serde";
+            features = [ "derive" ];
+          }
+          {
+            name = "serde_qs";
+            packageId = "serde_qs";
+          }
+          {
+            name = "serde_with";
+            packageId = "serde_with";
           }
           {
             name = "sha2";
@@ -14629,6 +14647,10 @@ rec {
         ];
         devDependencies = [
           {
+            name = "async-process";
+            packageId = "async-process";
+          }
+          {
             name = "rstest";
             packageId = "rstest";
           }
@@ -14650,7 +14672,7 @@ rec {
           }
         ];
         features = {
-          "cloud" = [ "tvix-castore/cloud" ];
+          "cloud" = [ "dep:bigtable_rs" "tvix-castore/cloud" ];
           "default" = [ "cloud" "fuse" "otlp" "tonic-reflection" ];
           "fuse" = [ "tvix-castore/fuse" ];
           "otlp" = [ "dep:opentelemetry" "dep:opentelemetry-otlp" "dep:opentelemetry_sdk" ];

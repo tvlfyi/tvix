@@ -37,7 +37,8 @@ pub async fn from_addr(
     blob_service: Arc<dyn BlobService>,
     directory_service: Arc<dyn DirectoryService>,
 ) -> Result<Box<dyn PathInfoService>, Error> {
-    let url =
+    #[allow(unused_mut)]
+    let mut url =
         Url::parse(uri).map_err(|e| Error::StorageError(format!("unable to parse url: {}", e)))?;
 
     let path_info_service: Box<dyn PathInfoService> = match url.scheme() {
@@ -107,6 +108,30 @@ pub async fn from_addr(
             let client =
                 PathInfoServiceClient::new(tvix_castore::tonic::channel_from_url(&url).await?);
             Box::new(GRPCPathInfoService::from_client(client))
+        }
+        #[cfg(feature = "cloud")]
+        "bigtable" => {
+            use super::bigtable::BigtableParameters;
+            use super::BigtablePathInfoService;
+
+            // parse the instance name from the hostname.
+            let instance_name = url
+                .host_str()
+                .ok_or_else(|| Error::StorageError("instance name missing".into()))?
+                .to_string();
+
+            // … but add it to the query string now, so we just need to parse that.
+            url.query_pairs_mut()
+                .append_pair("instance_name", &instance_name);
+
+            let params: BigtableParameters = serde_qs::from_str(url.query().unwrap_or_default())
+                .map_err(|e| Error::InvalidRequest(format!("failed to parse parameters: {}", e)))?;
+
+            Box::new(
+                BigtablePathInfoService::connect(params)
+                    .await
+                    .map_err(|e| Error::StorageError(e.to_string()))?,
+            )
         }
         _ => Err(Error::StorageError(format!(
             "unknown scheme: {}",
@@ -182,6 +207,26 @@ mod tests {
     #[test_case("grpc+http://localhost/some-path", false; "grpc valid invalid host and path")]
     #[tokio::test]
     async fn test_from_addr_tokio(uri_str: &str, exp_succeed: bool) {
+        let blob_service: Arc<dyn BlobService> = Arc::from(MemoryBlobService::default());
+        let directory_service: Arc<dyn DirectoryService> =
+            Arc::from(MemoryDirectoryService::default());
+
+        let resp = from_addr(uri_str, blob_service, directory_service).await;
+
+        if exp_succeed {
+            resp.expect("should succeed");
+        } else {
+            assert!(resp.is_err(), "should fail");
+        }
+    }
+
+    #[cfg(feature = "cloud")]
+    /// A valid example for Bigtable.
+    #[test_case("bigtable://instance-1?project_id=project-1&table_name=table-1&family_name=cf1", true; "objectstore valid bigtable url")]
+    /// An invalid examplee for Bigtable, missing fields
+    #[test_case("bigtable://instance-1", false; "objectstore invalid bigtable url, missing fields")]
+    #[tokio::test]
+    async fn test_from_addr_tokio_cloud(uri_str: &str, exp_succeed: bool) {
         let blob_service: Arc<dyn BlobService> = Arc::from(MemoryBlobService::default());
         let directory_service: Arc<dyn DirectoryService> =
             Arc::from(MemoryDirectoryService::default());

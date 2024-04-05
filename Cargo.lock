@@ -4505,8 +4505,10 @@ name = "tvix-store"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-process",
  "async-recursion",
  "async-stream",
+ "bigtable_rs",
  "blake3",
  "bstr",
  "bytes",
@@ -4525,6 +4527,9 @@ dependencies = [
  "reqwest",
  "rstest",
  "rstest_reuse",
+ "serde",
+ "serde_qs",
+ "serde_with",
  "sha2",
  "sled",
  "tempfile",
