@@ -1,4 +1,7 @@
-use std::ops::RangeBounds;
+use std::{
+    io::{Error, ErrorKind},
+    ops::RangeBounds,
+};
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -56,6 +59,21 @@ where
     // return the data without the padding
     buf.truncate(len as usize);
     Ok(buf)
+}
+
+/// Read a Nix daemon string from the AsyncWrite, encoded as utf8.
+/// Rejects reading more than `allowed_size` bytes
+///
+/// A Nix daemon string is made up of two distincts parts:
+/// 1. Its lenght, LE-encoded on 64 bits.
+/// 2. Its content. 0-padded on 64 bits.
+pub async fn read_string<R, S>(r: &mut R, allowed_size: S) -> std::io::Result<String>
+where
+    R: AsyncReadExt + Unpin,
+    S: RangeBounds<u64>,
+{
+    let bytes = read_bytes(r, allowed_size).await?;
+    String::from_utf8(bytes).map_err(|e| Error::new(ErrorKind::InvalidData, e))
 }
 
 /// Writes a sequence of sized bits to a (hopefully buffered)
