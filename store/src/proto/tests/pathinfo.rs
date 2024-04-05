@@ -3,8 +3,7 @@ use crate::tests::fixtures::*;
 use bytes::Bytes;
 use data_encoding::BASE64;
 use nix_compat::nixbase32;
-use nix_compat::store_path::{self, StorePath, StorePathRef};
-use std::str::FromStr;
+use nix_compat::store_path::{self, StorePathRef};
 use test_case::test_case;
 use tvix_castore::proto as castorepb;
 
@@ -20,7 +19,7 @@ use tvix_castore::proto as castorepb;
 )]
 fn validate_no_node(
     t_node: Option<castorepb::Node>,
-    t_result: Result<StorePath, ValidatePathInfoError>,
+    t_result: Result<StorePathRef, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
     let p = PathInfo {
@@ -36,7 +35,7 @@ fn validate_no_node(
         digest: DUMMY_DIGEST.clone().into(),
         size: 0,
     },
-    Ok(StorePath::from_str(DUMMY_NAME).expect("must succeed"));
+    Ok(StorePathRef::from_bytes(DUMMY_NAME.as_bytes()).expect("must succeed"));
     "ok"
 )]
 #[test_case(
@@ -62,7 +61,7 @@ fn validate_no_node(
 )]
 fn validate_directory(
     t_directory_node: castorepb::DirectoryNode,
-    t_result: Result<StorePath, ValidatePathInfoError>,
+    t_result: Result<StorePathRef, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
     let p = PathInfo {
@@ -81,7 +80,7 @@ fn validate_directory(
         size: 0,
         executable: false,
     },
-    Ok(StorePath::from_str(DUMMY_NAME).expect("must succeed"));
+    Ok(StorePathRef::from_bytes(DUMMY_NAME.as_bytes()).expect("must succeed"));
     "ok"
 )]
 #[test_case(
@@ -107,7 +106,7 @@ fn validate_directory(
 )]
 fn validate_file(
     t_file_node: castorepb::FileNode,
-    t_result: Result<StorePath, ValidatePathInfoError>,
+    t_result: Result<StorePathRef, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
     let p = PathInfo {
@@ -124,7 +123,7 @@ fn validate_file(
         name: DUMMY_NAME.into(),
         target: "foo".into(),
     },
-    Ok(StorePath::from_str(DUMMY_NAME).expect("must succeed"));
+    Ok(StorePathRef::from_bytes(DUMMY_NAME.as_bytes()).expect("must succeed"));
     "ok"
 )]
 #[test_case(
@@ -140,7 +139,7 @@ fn validate_file(
 )]
 fn validate_symlink(
     t_symlink_node: castorepb::SymlinkNode,
-    t_result: Result<StorePath, ValidatePathInfoError>,
+    t_result: Result<StorePathRef, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
     let p = PathInfo {

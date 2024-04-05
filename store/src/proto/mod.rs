@@ -74,23 +74,20 @@ pub enum ValidatePathInfoError {
 
 /// Parses a root node name.
 ///
-/// On success, this returns the parsed [store_path::StorePath].
+/// On success, this returns the parsed [store_path::StorePathRef].
 /// On error, it returns an error generated from the supplied constructor.
 fn parse_node_name_root<E>(
     name: &[u8],
     err: fn(Vec<u8>, store_path::Error) -> E,
-) -> Result<store_path::StorePath, E> {
-    match store_path::StorePath::from_bytes(name) {
-        Ok(np) => Ok(np),
-        Err(e) => Err(err(name.to_vec(), e)),
-    }
+) -> Result<store_path::StorePathRef<'_>, E> {
+    store_path::StorePathRef::from_bytes(name).map_err(|e| err(name.to_vec(), e))
 }
 
 impl PathInfo {
     /// validate performs some checks on the PathInfo struct,
     /// Returning either a [store_path::StorePath] of the root node, or a
     /// [ValidatePathInfoError].
-    pub fn validate(&self) -> Result<store_path::StorePath, ValidatePathInfoError> {
+    pub fn validate(&self) -> Result<store_path::StorePathRef<'_>, ValidatePathInfoError> {
         // ensure the references have the right number of bytes.
         for (i, reference) in self.references.iter().enumerate() {
             if reference.len() != store_path::DIGEST_SIZE {
@@ -154,8 +151,7 @@ impl PathInfo {
                 // converting to this field.
                 if let Some(deriver) = &narinfo.deriver {
                     store_path::StorePathRef::from_name_and_digest(&deriver.name, &deriver.digest)
-                        .map_err(ValidatePathInfoError::InvalidDeriverField)?
-                        .to_owned();
+                        .map_err(ValidatePathInfoError::InvalidDeriverField)?;
                 }
             }
         }
