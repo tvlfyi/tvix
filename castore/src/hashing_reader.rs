@@ -62,7 +62,7 @@ where
 mod tests {
     use std::io::Cursor;
 
-    use test_case::test_case;
+    use rstest::rstest;
 
     use crate::fixtures::BLOB_A;
     use crate::fixtures::BLOB_A_DIGEST;
@@ -71,11 +71,12 @@ mod tests {
     use crate::fixtures::EMPTY_BLOB_DIGEST;
     use crate::{B3Digest, B3HashingReader};
 
-    #[test_case(&BLOB_A, &BLOB_A_DIGEST; "blob a")]
-    #[test_case(&BLOB_B, &BLOB_B_DIGEST; "blob b")]
-    #[test_case(&[], &EMPTY_BLOB_DIGEST; "empty blob")]
+    #[rstest]
+    #[case::blob_a(&BLOB_A, &BLOB_A_DIGEST)]
+    #[case::blob_b(&BLOB_B, &BLOB_B_DIGEST)]
+    #[case::empty_blob(&[], &EMPTY_BLOB_DIGEST)]
     #[tokio::test]
-    async fn test_b3_hashing_reader(data: &[u8], b3_digest: &B3Digest) {
+    async fn test_b3_hashing_reader(#[case] data: &[u8], #[case] b3_digest: &B3Digest) {
         let r = Cursor::new(data);
         let mut hr = B3HashingReader::from(r);
 
