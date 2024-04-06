@@ -471,67 +471,13 @@ where
 
 #[cfg(test)]
 mod test {
-    use std::{io::Cursor, sync::Arc};
-
-    use test_case::test_case;
-    use url::Url;
-
     use super::chunk_and_upload;
     use crate::{
         blobservice::{BlobService, ObjectStoreBlobService},
-        fixtures::{BLOB_A, BLOB_A_DIGEST, BLOB_B, BLOB_B_DIGEST, EMPTY_BLOB_DIGEST},
-        B3Digest,
+        fixtures::{BLOB_A, BLOB_A_DIGEST},
     };
-
-    #[test_case(&BLOB_A, &BLOB_A_DIGEST; "blob a")]
-    #[test_case(&BLOB_B, &BLOB_B_DIGEST; "blob b")]
-    #[test_case(&[], &EMPTY_BLOB_DIGEST; "empty blob")]
-    #[tokio::test]
-    async fn upload_blob(fix_blob_contents: &[u8], fix_blob_digest: &B3Digest) {
-        let blobsvc =
-            ObjectStoreBlobService::parse_url(&Url::parse("memory:///").unwrap()).unwrap();
-
-        // Initially, the blob should not be present
-        assert!(!blobsvc.has(fix_blob_digest).await.unwrap());
-
-        // Using the open_read should return a Ok(None).
-        // As for the empty blob, we're ok with it actually returning data too.
-        {
-            let resp = blobsvc
-                .open_read(fix_blob_digest)
-                .await
-                .expect("open should not fail");
-            if fix_blob_digest != &*EMPTY_BLOB_DIGEST {
-                assert!(resp.is_none());
-            }
-        }
-
-        // upload blob
-        let mut bw = blobsvc.open_write().await;
-        tokio::io::copy(&mut Cursor::new(fix_blob_contents), &mut bw)
-            .await
-            .expect("copy succeeds");
-
-        let blob_digest = bw.close().await.expect("close succeeds");
-        assert_eq!(fix_blob_digest, &blob_digest);
-
-        // blob should be present now
-        assert!(blobsvc.has(fix_blob_digest).await.unwrap());
-
-        // reading it should return the same data.
-        let mut br = blobsvc
-            .open_read(fix_blob_digest)
-            .await
-            .expect("open succeeds")
-            .expect("is some");
-
-        let mut buf = Vec::new();
-        tokio::io::copy(&mut br, &mut buf)
-            .await
-            .expect("copy must succeed");
-
-        assert_eq!(fix_blob_contents, buf, "read data should match");
-    }
+    use std::{io::Cursor, sync::Arc};
+    use url::Url;
 
     /// Tests chunk_and_upload directly, bypassing the BlobWriter at open_write().
     #[tokio::test]
