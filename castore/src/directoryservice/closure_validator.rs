@@ -174,7 +174,7 @@ mod tests {
         proto::{self, Directory},
     };
     use lazy_static::lazy_static;
-    use test_case::test_case;
+    use rstest::rstest;
 
     lazy_static! {
         pub static ref BROKEN_DIRECTORY : Directory = Directory {
@@ -197,28 +197,29 @@ mod tests {
 
     use super::ClosureValidator;
 
+    #[rstest]
     /// Uploading an empty directory should succeed.
-    #[test_case(vec![&DIRECTORY_A], false, Some(vec![&DIRECTORY_A]); "empty directory")]
+    #[case::empty_directory(&[&*DIRECTORY_A], false, Some(vec![&*DIRECTORY_A]))]
     /// Uploading A, then B (referring to A) should succeed.
-    #[test_case(vec![&DIRECTORY_A, &DIRECTORY_B], false, Some(vec![&DIRECTORY_A, &DIRECTORY_B]); "simple closure")]
+    #[case::simple_closure(&[&*DIRECTORY_A, &*DIRECTORY_B], false, Some(vec![&*DIRECTORY_A, &*DIRECTORY_B]))]
     /// Uploading A, then A, then C (referring to A twice) should succeed.
     /// We pretend to be a dumb client not deduping directories.
-    #[test_case(vec![&DIRECTORY_A, &DIRECTORY_A, &DIRECTORY_C], false, Some(vec![&DIRECTORY_A, &DIRECTORY_C]); "same child")]
+    #[case::same_child(&[&*DIRECTORY_A, &*DIRECTORY_A, &*DIRECTORY_C], false, Some(vec![&*DIRECTORY_A, &*DIRECTORY_C]))]
     /// Uploading A, then C (referring to A twice) should succeed.
-    #[test_case(vec![&DIRECTORY_A, &DIRECTORY_C], false, Some(vec![&DIRECTORY_A, &DIRECTORY_C]); "same child dedup")]
+    #[case::same_child_dedup(&[&*DIRECTORY_A, &*DIRECTORY_C], false, Some(vec![&*DIRECTORY_A, &*DIRECTORY_C]))]
     /// Uploading A, then C (referring to A twice), then B (itself referring to A) should fail during close,
     /// as B itself would be left unconnected.
-    #[test_case(vec![&DIRECTORY_A, &DIRECTORY_C, &DIRECTORY_B], false, None; "unconnected node")]
+    #[case::unconnected_node(&[&*DIRECTORY_A, &*DIRECTORY_C, &*DIRECTORY_B], false, None)]
     /// Uploading B (referring to A) should fail immediately, because A was never uploaded.
-    #[test_case(vec![&DIRECTORY_B], true, None; "dangling pointer")]
+    #[case::dangling_pointer(&[&*DIRECTORY_B], true, None)]
     /// Uploading a directory failing validation should fail immediately.
-    #[test_case(vec![&BROKEN_DIRECTORY], true, None; "failing validation")]
+    #[case::failing_validation(&[&*BROKEN_DIRECTORY], true, None)]
     /// Uploading a directory which refers to another Directory with a wrong size should fail.
-    #[test_case(vec![&DIRECTORY_A, &BROKEN_PARENT_DIRECTORY], true, None; "wrong size in parent")]
+    #[case::wrong_size_in_parent(&[&*DIRECTORY_A, &*BROKEN_PARENT_DIRECTORY], true, None)]
     fn test_uploads(
-        directories_to_upload: Vec<&Directory>,
-        exp_fail_upload_last: bool,
-        exp_finalize: Option<Vec<&Directory>>, // Some(_) if finalize successful, None if not.
+        #[case] directories_to_upload: &[&Directory],
+        #[case] exp_fail_upload_last: bool,
+        #[case] exp_finalize: Option<Vec<&Directory>>, // Some(_) if finalize successful, None if not.
     ) {
         let mut dcv = ClosureValidator::default();
         let len_directories_to_upload = directories_to_upload.len();
@@ -242,7 +243,7 @@ mod tests {
         match exp_finalize {
             Some(exp_drain) => {
                 assert_eq!(
-                    Vec::from_iter(exp_drain.into_iter().map(|e| e.to_owned())),
+                    Vec::from_iter(exp_drain.iter().map(|e| (*e).to_owned())),
                     resp.expect("drain should succeed")
                 );
             }
