@@ -87,31 +87,35 @@ impl From<tonic::transport::Error> for Error {
 #[cfg(test)]
 mod tests {
     use super::channel_from_url;
-    use test_case::test_case;
+    use rstest::rstest;
     use url::Url;
 
+    #[rstest]
     /// Correct scheme to connect to a unix socket.
-    #[test_case("grpc+unix:///path/to/somewhere", true; "grpc valid unix socket")]
+    #[case::valid_unix_socket("grpc+unix:///path/to/somewhere", true)]
     /// Connecting with wait-connect set to 0 succeeds, as that's the default.
-    #[test_case("grpc+unix:///path/to/somewhere?wait-connect=0", true; "grpc valid unix wait-connect=0")]
+    #[case::valid_unix_socket_wait_connect_0("grpc+unix:///path/to/somewhere?wait-connect=0", true)]
     /// Connecting with wait-connect set to 1 fails, as the path doesn't exist.
-    #[test_case("grpc+unix:///path/to/somewhere?wait-connect=1", false; "grpc valid unix wait-connect=1")]
+    #[case::valid_unix_socket_wait_connect_1(
+        "grpc+unix:///path/to/somewhere?wait-connect=1",
+        false
+    )]
     /// Correct scheme for unix socket, but setting a host too, which is invalid.
-    #[test_case("grpc+unix://host.example/path/to/somewhere", false; "grpc invalid unix socket and host")]
+    #[case::invalid_unix_socket_and_host("grpc+unix://host.example/path/to/somewhere", false)]
     /// Correct scheme to connect to localhost, with port 12345
-    #[test_case("grpc+http://[::1]:12345", true; "grpc valid IPv6 localhost port 12345")]
+    #[case::valid_ipv6_localhost_port_12345("grpc+http://[::1]:12345", true)]
     /// Correct scheme to connect to localhost over http, without specifying a port.
-    #[test_case("grpc+http://localhost", true; "grpc valid http host without port")]
+    #[case::valid_http_host_without_port("grpc+http://localhost", true)]
     /// Correct scheme to connect to localhost over http, without specifying a port.
-    #[test_case("grpc+https://localhost", true; "grpc valid https host without port")]
+    #[case::valid_https_host_without_port("grpc+https://localhost", true)]
     /// Correct scheme to connect to localhost over http, but with additional path, which is invalid.
-    #[test_case("grpc+http://localhost/some-path", false; "grpc valid invalid host and path")]
+    #[case::invalid_host_and_path("grpc+http://localhost/some-path", false)]
     /// Connecting with wait-connect set to 0 succeeds, as that's the default.
-    #[test_case("grpc+http://localhost?wait-connect=0", true; "grpc valid host wait-connect=0")]
+    #[case::valid_host_wait_connect_0("grpc+http://localhost?wait-connect=0", true)]
     /// Connecting with wait-connect set to 1 fails, as the host doesn't exist.
-    #[test_case("grpc+http://nonexist.invalid?wait-connect=1", false; "grpc valid host wait-connect=1")]
+    #[case::valid_host_wait_connect_1_fails("grpc+http://nonexist.invalid?wait-connect=1", false)]
     #[tokio::test]
-    async fn test_from_addr_tokio(uri_str: &str, is_ok: bool) {
+    async fn test_from_addr_tokio(#[case] uri_str: &str, #[case] is_ok: bool) {
         let url = Url::parse(uri_str).expect("must parse");
         assert_eq!(channel_from_url(&url).await.is_ok(), is_ok)
     }
