@@ -3853,7 +3853,6 @@ dependencies = [
  "rstest_reuse",
  "sled",
  "tempfile",
- "test-case",
  "thiserror",
  "tokio",
  "tokio-retry",
