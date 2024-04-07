@@ -102,15 +102,6 @@ pub async fn write_bytes<W: AsyncWriteExt + Unpin>(w: &mut W, b: &[u8]) -> std::
     Ok(())
 }
 
-#[allow(dead_code)]
-/// Read an unlimited number of bytes from the AsyncRead.
-/// Note this can exhaust memory.
-/// Internally uses [read_bytes], which takes care of dealing with the padding,
-/// so the returned `Vec<u8>` only contains the payload.
-pub async fn read_bytes_unchecked<R: AsyncReadExt + Unpin>(r: &mut R) -> std::io::Result<Vec<u8>> {
-    read_bytes(r, 0u64..).await
-}
-
 /// Computes the number of bytes we should add to len (a length in
 /// bytes) to be alined on 64 bits (8 bytes).
 pub(crate) fn padding_len(len: u64) -> u8 {
@@ -129,8 +120,12 @@ mod tests {
     use super::*;
     use hex_literal::hex;
 
+    /// The maximum length of bytes packets we're willing to accept in the test
+    /// cases.
+    const MAX_LEN: u64 = 1024;
+
     #[tokio::test]
-    async fn test_read_8_bytes_unchecked() {
+    async fn test_read_8_bytes() {
         let mut mock = Builder::new()
             .read(&8u64.to_le_bytes())
             .read(&12345678u64.to_le_bytes())
@@ -138,12 +133,15 @@ mod tests {
 
         assert_eq!(
             &12345678u64.to_le_bytes(),
-            read_bytes_unchecked(&mut mock).await.unwrap().as_slice()
+            read_bytes(&mut mock, 0u64..MAX_LEN)
+                .await
+                .unwrap()
+                .as_slice()
         );
     }
 
     #[tokio::test]
-    async fn test_read_9_bytes_unchecked() {
+    async fn test_read_9_bytes() {
         let mut mock = Builder::new()
             .read(&9u64.to_le_bytes())
             .read(&hex!("01020304050607080900000000000000"))
@@ -151,19 +149,25 @@ mod tests {
 
         assert_eq!(
             hex!("010203040506070809"),
-            read_bytes_unchecked(&mut mock).await.unwrap().as_slice()
+            read_bytes(&mut mock, 0u64..MAX_LEN)
+                .await
+                .unwrap()
+                .as_slice()
         );
     }
 
     #[tokio::test]
-    async fn test_read_0_bytes_unchecked() {
+    async fn test_read_0_bytes() {
         // A empty byte packet is essentially just the 0 length field.
         // No data is read, and there's zero padding.
         let mut mock = Builder::new().read(&0u64.to_le_bytes()).build();
 
         assert_eq!(
             hex!(""),
-            read_bytes_unchecked(&mut mock).await.unwrap().as_slice()
+            read_bytes(&mut mock, 0u64..MAX_LEN)
+                .await
+                .unwrap()
+                .as_slice()
         );
     }
 
