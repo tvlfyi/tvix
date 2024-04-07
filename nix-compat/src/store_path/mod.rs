@@ -275,7 +275,7 @@ impl<'a> StorePathRef<'a> {
     }
 }
 
-impl<'de> Deserialize<'de> for StorePathRef<'de> {
+impl<'de: 'a, 'a> Deserialize<'de> for StorePathRef<'a> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -373,15 +373,23 @@ impl fmt::Display for StorePathRef<'_> {
 
 #[cfg(test)]
 mod tests {
+    use super::Error;
     use std::cmp::Ordering;
     use std::path::PathBuf;
 
-    use crate::store_path::{StorePathRef, DIGEST_SIZE};
+    use crate::store_path::{StorePath, StorePathRef, DIGEST_SIZE};
     use hex_literal::hex;
     use pretty_assertions::assert_eq;
+    use serde::Deserialize;
     use test_case::test_case;
 
-    use super::{Error, StorePath};
+    #[derive(Deserialize)]
+    /// An example struct, holding a StorePathRef.
+    /// Used to test deserializing StorePathRef.
+    struct Container<'a> {
+        #[serde(borrow)]
+        store_path: StorePathRef<'a>,
+    }
 
     #[test]
     fn happy_path() {
@@ -547,6 +555,32 @@ mod tests {
 
     #[test]
     fn deserialize_ref() {
+        let store_path_str_json =
+            "\"/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432\"";
+
+        let store_path: StorePathRef<'_> =
+            serde_json::from_str(store_path_str_json).expect("valid json");
+
+        assert_eq!(
+            "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432",
+            store_path.to_absolute_path()
+        );
+    }
+
+    #[test]
+    fn deserialize_ref_container() {
+        let str_json = "{\"store_path\":\"/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432\"}";
+
+        let container: Container<'_> = serde_json::from_str(str_json).expect("must deserialize");
+
+        assert_eq!(
+            "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432",
+            container.store_path.to_absolute_path()
+        );
+    }
+
+    #[test]
+    fn deserialize_owned() {
         let store_path_str_json =
             "\"/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432\"";
 
