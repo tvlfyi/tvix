@@ -8,12 +8,23 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use super::primitive;
 
 #[allow(dead_code)]
-/// Read a limited number of bytes from the AsyncRead.
+/// Read a "bytes wire packet" from the AsyncRead.
 /// Rejects reading more than `allowed_size` bytes of payload.
-/// Internally takes care of dealing with the padding, so the returned `Vec<u8>`
-/// only contains the payload.
-/// This always buffers the entire contents into memory, we'll add a streaming
-/// version later.
+///
+/// The packet is made up of three parts:
+/// - a length header, u64, LE-encoded
+/// - the payload itself
+/// - null bytes to the next 8 byte boundary
+///
+/// Ensures the payload size fits into the `allowed_size` passed,
+/// and that the padding is actual null bytes.
+///
+/// On success, the returned `Vec<u8>` only contains the payload itself.
+/// On failure (for example if a too large byte packet was sent), the reader
+/// becomes unusable.
+///
+/// This buffers the entire payload into memory, a streaming version will be
+/// added later.
 pub async fn read_bytes<R, S>(r: &mut R, allowed_size: S) -> std::io::Result<Vec<u8>>
 where
     R: AsyncReadExt + Unpin,
@@ -61,12 +72,9 @@ where
     Ok(buf)
 }
 
-/// Read a Nix daemon string from the AsyncWrite, encoded as utf8.
-/// Rejects reading more than `allowed_size` bytes
-///
-/// A Nix daemon string is made up of two distincts parts:
-/// 1. Its lenght, LE-encoded on 64 bits.
-/// 2. Its content. 0-padded on 64 bits.
+/// Read a "bytes wire packet" of from the AsyncRead and tries to parse as string.
+/// Internally uses [read_bytes].
+/// Rejects reading more than `allowed_size` bytes of payload.
 pub async fn read_string<R, S>(r: &mut R, allowed_size: S) -> std::io::Result<String>
 where
     R: AsyncReadExt + Unpin,
@@ -76,15 +84,9 @@ where
     String::from_utf8(bytes).map_err(|e| Error::new(ErrorKind::InvalidData, e))
 }
 
-/// Writes a sequence of sized bits to a (hopefully buffered)
-/// [AsyncWriteExt] handle.
+/// Writes a "bytes wire packet" to a (hopefully buffered) [AsyncWriteExt].
 ///
-/// On the wire, it looks as follows:
-///
-/// 1. Number of bytes contained in the buffer we're about to write on
-///    the wire. (LE-encoded on 64 bits)
-/// 2. Raw payload.
-/// 3. Null padding up until the next 8 bytes alignment block.
+/// See [read_bytes] for a description of the format.
 ///
 /// Note: if performance matters to you, make sure your
 /// [AsyncWriteExt] handle is buffered. This function is quite
