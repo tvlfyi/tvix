@@ -7,6 +7,9 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use super::primitive;
 
+/// 8 null bytes, used to write out padding.
+pub(crate) const EMPTY_BYTES: &[u8; 8] = &[0u8; 8];
+
 #[allow(dead_code)]
 /// Read a "bytes wire packet" from the AsyncRead.
 /// Rejects reading more than `allowed_size` bytes of payload.
@@ -92,14 +95,16 @@ where
 /// [AsyncWriteExt] handle is buffered. This function is quite
 /// write-intesive.
 pub async fn write_bytes<W: AsyncWriteExt + Unpin>(w: &mut W, b: &[u8]) -> std::io::Result<()> {
-    // We're assuming the handle is buffered: we can afford not
-    // writing all the bytes in one go.
-    let len = b.len();
-    primitive::write_u64(w, len as u64).await?;
+    // write the size packet.
+    primitive::write_u64(w, b.len() as u64).await?;
+
+    // write the payload
     w.write_all(b).await?;
-    let padding = padding_len(len as u64);
-    if padding != 0 {
-        w.write_all(&vec![0; padding as usize]).await?;
+
+    // write padding if needed
+    let padding_len = padding_len(b.len() as u64) as usize;
+    if padding_len != 0 {
+        w.write_all(&EMPTY_BYTES[..padding_len]).await?;
     }
     Ok(())
 }

@@ -3,11 +3,10 @@ use std::task::{ready, Poll};
 
 use tokio::io::AsyncWrite;
 
+use super::bytes::EMPTY_BYTES;
+
 /// The length of the size field, in bytes is always 8.
 const LEN_SIZE: usize = 8;
-
-/// 8 null bytes, used to write out padding.
-const EMPTY_BYTES: &[u8; 8] = &[0u8; 8];
 
 pin_project! {
     /// Writes a "bytes wire packet" to the underlying writer.
