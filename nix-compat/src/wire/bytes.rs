@@ -89,20 +89,25 @@ where
 
 /// Writes a "bytes wire packet" to a (hopefully buffered) [AsyncWriteExt].
 ///
+/// Accepts anything implementing AsRef<[u8]> as payload.
+///
 /// See [read_bytes] for a description of the format.
 ///
 /// Note: if performance matters to you, make sure your
 /// [AsyncWriteExt] handle is buffered. This function is quite
 /// write-intesive.
-pub async fn write_bytes<W: AsyncWriteExt + Unpin>(w: &mut W, b: &[u8]) -> std::io::Result<()> {
+pub async fn write_bytes<W: AsyncWriteExt + Unpin, B: AsRef<[u8]>>(
+    w: &mut W,
+    b: B,
+) -> std::io::Result<()> {
     // write the size packet.
-    primitive::write_u64(w, b.len() as u64).await?;
+    primitive::write_u64(w, b.as_ref().len() as u64).await?;
 
     // write the payload
-    w.write_all(b).await?;
+    w.write_all(b.as_ref()).await?;
 
     // write padding if needed
-    let padding_len = padding_len(b.len() as u64) as usize;
+    let padding_len = padding_len(b.as_ref().len() as u64) as usize;
     if padding_len != 0 {
         w.write_all(&EMPTY_BYTES[..padding_len]).await?;
     }
@@ -206,6 +211,17 @@ mod tests {
         let mut mock = Builder::new()
             .write(&len.to_le_bytes())
             .write(&hex!("322e332e31370000"))
+            .build();
+        assert_ok!(write_bytes(&mut mock, &input).await)
+    }
+
+    #[tokio::test]
+    async fn test_write_string() {
+        let input = "Hello, World!";
+        let len = input.len() as u64;
+        let mut mock = Builder::new()
+            .write(&len.to_le_bytes())
+            .write(&hex!("48656c6c6f2c20576f726c6421000000"))
             .build();
         assert_ok!(write_bytes(&mut mock, &input).await)
     }
