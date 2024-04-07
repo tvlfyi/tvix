@@ -4,13 +4,6 @@
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-// LE-encoded nixc on 64 bits. Because why not.
-pub static MAGIC_HELLO: [u8; 8] = *b"cxin\0\0\0\0";
-// LE-encoded dxio on 64 bits. What's dxio? I have no clue.
-pub static MAGIC_HELLO_RESPONSE: [u8; 8] = *b"oixd\0\0\0\0";
-// LE-encoded protocol version.
-pub static PROTOCOL_VERSION: [u8; 8] = [0x23, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-
 #[allow(dead_code)]
 /// Read a u64 from the AsyncRead (little endian).
 pub async fn read_u64<R: AsyncReadExt + Unpin>(r: &mut R) -> std::io::Result<u64> {
