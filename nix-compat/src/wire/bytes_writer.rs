@@ -190,7 +190,7 @@ where
                         let bytes_written = ensure_nonzero_bytes_written(ready!(this
                             .inner
                             .as_mut()
-                            .poll_write(cx, &EMPTY_BYTES[..total_padding_len]))?)?;
+                            .poll_write(cx, &EMPTY_BYTES[pos..total_padding_len]))?)?;
                         *this.state = BytesPacketPosition::Padding(pos + bytes_written);
                     } else {
                         // everything written, break
@@ -235,6 +235,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use crate::wire::bytes::write_bytes;
     use hex_literal::hex;
     use lazy_static::lazy_static;
@@ -356,6 +358,31 @@ mod tests {
         assert_ok!(w.write_all(&payload[4..]).await);
         assert_ok!(w.flush().await);
         assert_ok!(w.shutdown().await);
+    }
+
+    /// Write a 9 bytes packet, but cause the sink to only accept half of the
+    /// padding, ensuring we correctly write (only) the rest of the padding later.
+    /// We write another 2 bytes of "bait", where a faulty implementation (pre
+    /// cl/11384) would put too many null bytes.
+    #[tokio::test]
+    async fn write_9b_write_padding_2steps() {
+        let payload = &hex!("000102030405060708");
+        let exp_bytes = produce_exp_bytes(payload).await;
+
+        let mut mock = Builder::new()
+            .write(&exp_bytes[0..8]) // size
+            .write(&exp_bytes[8..17]) // payload
+            .write(&exp_bytes[17..19]) // padding (2 of 7 bytes)
+            // insert a wait to prevent Mock from merging the two writes into one
+            .wait(Duration::from_nanos(1))
+            .write(&hex!("0000000000ffff")) // padding (5 of 7 bytes, plus 2 bytes of "bait")
+            .build();
+
+        let mut w = BytesWriter::new(&mut mock, payload.len() as u64);
+        assert_ok!(w.write_all(&payload[..]).await);
+        assert_ok!(w.flush().await);
+        // Write bait
+        assert_ok!(mock.write_all(&hex!("ffff")).await);
     }
 
     /// Write a larger bytes packet
