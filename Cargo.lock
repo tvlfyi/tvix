@@ -2195,6 +2195,7 @@ dependencies = [
  "num-traits",
  "pin-project-lite",
  "pretty_assertions",
+ "rstest",
  "serde",
  "serde_json",
  "sha2",

@@ -5,7 +5,11 @@
 pub mod bytes;
 
 #[cfg(feature = "async")]
+mod bytes_reader;
+#[cfg(feature = "async")]
 mod bytes_writer;
+#[cfg(feature = "async")]
+pub use bytes_reader::BytesReader;
 #[cfg(feature = "async")]
 pub use bytes_writer::BytesWriter;
 

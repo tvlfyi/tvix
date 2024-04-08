@@ -6,7 +6,7 @@ use tokio::io::AsyncWrite;
 use super::bytes::EMPTY_BYTES;
 
 /// The length of the size field, in bytes is always 8.
-const LEN_SIZE: usize = 8;
+pub(crate) const LEN_SIZE: usize = 8;
 
 pin_project! {
     /// Writes a "bytes wire packet" to the underlying writer.
@@ -52,6 +52,8 @@ pin_project! {
 /// move to the beginning of the next one:
 /// - Size(LEN_SIZE) must be expressed as Payload(0)
 /// - Payload(self.payload_len) must be expressed as Padding(0)
+/// There's one exception - Size(LEN_SIZE) in the reader represents a failure
+/// state we enter in case the allowed size doesn't match the allowed range.
 ///
 /// Padding(padding_len) means we're at the end of the bytes wire packet.
 #[derive(Clone, Debug, PartialEq, Eq)]

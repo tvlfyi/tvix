@@ -6789,6 +6789,10 @@ rec {
             packageId = "pretty_assertions";
           }
           {
+            name = "rstest";
+            packageId = "rstest";
+          }
+          {
             name = "serde_json";
             packageId = "serde_json";
           }
