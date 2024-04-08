@@ -316,8 +316,16 @@ pub(crate) mod derivation_builtins {
                         output_names.push(output_name.to_str()?.to_owned());
                     }
 
-                    // Add drv.environment[outputs] unconditionally.
-                    insert_env(&mut drv, arg_name, output_names.join(" ").into())?;
+                    match structured_attrs.as_mut() {
+                        // add outputs to the json itself (as a list of strings)
+                        Some(structured_attrs) => {
+                            structured_attrs.insert(arg_name.into(), output_names.into());
+                        }
+                        // add drv.environment["outputs"] as a space-separated list
+                        None => {
+                            insert_env(&mut drv, arg_name, output_names.join(" ").into())?;
+                        }
+                    }
                     // drv.environment[$output_name] is added after the loop,
                     // with whatever is in drv.outputs[$output_name].
                 }
