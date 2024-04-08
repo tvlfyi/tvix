@@ -184,13 +184,13 @@ where
                 }
                 BytesPacketPosition::Padding(pos) => {
                     // Write remaining padding, if there is padding to write.
-                    let padding_len = super::bytes::padding_len(*this.payload_len) as usize;
+                    let total_padding_len = super::bytes::padding_len(*this.payload_len) as usize;
 
-                    if pos != padding_len {
+                    if pos != total_padding_len {
                         let bytes_written = ensure_nonzero_bytes_written(ready!(this
                             .inner
                             .as_mut()
-                            .poll_write(cx, &EMPTY_BYTES[..padding_len]))?)?;
+                            .poll_write(cx, &EMPTY_BYTES[..total_padding_len]))?)?;
                         *this.state = BytesPacketPosition::Padding(pos + bytes_written);
                     } else {
                         // everything written, break
