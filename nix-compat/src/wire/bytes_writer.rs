@@ -308,7 +308,7 @@ mod tests {
     /// Write a 8 bytes payload (no padding)
     #[tokio::test]
     async fn write_8b() {
-        let payload = &hex!("000102030405060708");
+        let payload = &hex!("0001020304050607");
 
         let mut mock = Builder::new()
             .write(&produce_exp_bytes(payload).await)
@@ -322,7 +322,7 @@ mod tests {
     /// Write a 9 bytes payload (7 bytes padding)
     #[tokio::test]
     async fn write_9b() {
-        let payload = &hex!("00010203040506070809");
+        let payload = &hex!("000102030405060708");
 
         let mut mock = Builder::new()
             .write(&produce_exp_bytes(payload).await)
@@ -337,7 +337,7 @@ mod tests {
     /// and a shutdown at the end.
     #[tokio::test]
     async fn write_9b_flush() {
-        let payload = &hex!("00010203040506070809");
+        let payload = &hex!("000102030405060708");
         let exp_bytes = produce_exp_bytes(payload).await;
 
         let mut mock = Builder::new().write(&exp_bytes).build();
@@ -359,7 +359,7 @@ mod tests {
 
     /// Write a larger bytes packet
     #[tokio::test]
-    async fn write_1m_debug() {
+    async fn write_1m() {
         let payload = LARGE_PAYLOAD.as_slice();
         let exp_bytes = produce_exp_bytes(payload).await;
 
