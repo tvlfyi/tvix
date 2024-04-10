@@ -2,13 +2,20 @@ use std::{
     io::{Error, ErrorKind},
     ops::RangeBounds,
 };
-
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+mod reader;
+pub use reader::BytesReader;
+mod writer;
+pub use writer::BytesWriter;
 
 use super::primitive;
 
 /// 8 null bytes, used to write out padding.
-pub(crate) const EMPTY_BYTES: &[u8; 8] = &[0u8; 8];
+const EMPTY_BYTES: &[u8; 8] = &[0u8; 8];
+
+/// The length of the size field, in bytes is always 8.
+const LEN_SIZE: usize = 8;
 
 #[allow(dead_code)]
 /// Read a "bytes wire packet" from the AsyncRead.
@@ -116,13 +123,32 @@ pub async fn write_bytes<W: AsyncWriteExt + Unpin, B: AsRef<[u8]>>(
 
 /// Computes the number of bytes we should add to len (a length in
 /// bytes) to be alined on 64 bits (8 bytes).
-pub(crate) fn padding_len(len: u64) -> u8 {
+fn padding_len(len: u64) -> u8 {
     let modulo = len % 8;
     if modulo == 0 {
         0
     } else {
         8 - modulo as u8
     }
+}
+
+/// Models the position inside a "bytes wire packet" that the reader or writer
+/// is in.
+/// It can be in three different stages, inside size, payload or padding fields.
+/// The number tracks the number of bytes written inside the specific field.
+/// There shall be no ambiguous states, at the end of a stage we immediately
+/// move to the beginning of the next one:
+/// - Size(LEN_SIZE) must be expressed as Payload(0)
+/// - Payload(self.payload_len) must be expressed as Padding(0)
+/// There's one exception - Size(LEN_SIZE) in the reader represents a failure
+/// state we enter in case the allowed size doesn't match the allowed range.
+///
+/// Padding(padding_len) means we're at the end of the bytes wire packet.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum BytesPacketPosition {
+    Size(usize),
+    Payload(u64),
+    Padding(usize),
 }
 
 #[cfg(test)]

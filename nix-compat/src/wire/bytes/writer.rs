@@ -3,10 +3,7 @@ use std::task::{ready, Poll};
 
 use tokio::io::AsyncWrite;
 
-use super::bytes::EMPTY_BYTES;
-
-/// The length of the size field, in bytes is always 8.
-pub(crate) const LEN_SIZE: usize = 8;
+use super::{padding_len, BytesPacketPosition, EMPTY_BYTES, LEN_SIZE};
 
 pin_project! {
     /// Writes a "bytes wire packet" to the underlying writer.
@@ -42,25 +39,6 @@ pin_project! {
         payload_len: u64,
         state: BytesPacketPosition,
     }
-}
-
-/// Models the position inside a "bytes wire packet" that the reader or writer
-/// is in.
-/// It can be in three different stages, inside size, payload or padding fields.
-/// The number tracks the number of bytes written inside the specific field.
-/// There shall be no ambiguous states, at the end of a stage we immediately
-/// move to the beginning of the next one:
-/// - Size(LEN_SIZE) must be expressed as Payload(0)
-/// - Payload(self.payload_len) must be expressed as Padding(0)
-/// There's one exception - Size(LEN_SIZE) in the reader represents a failure
-/// state we enter in case the allowed size doesn't match the allowed range.
-///
-/// Padding(padding_len) means we're at the end of the bytes wire packet.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum BytesPacketPosition {
-    Size(usize),
-    Payload(u64),
-    Padding(usize),
 }
 
 impl<W> BytesWriter<W>
@@ -186,7 +164,7 @@ where
                 }
                 BytesPacketPosition::Padding(pos) => {
                     // Write remaining padding, if there is padding to write.
-                    let total_padding_len = super::bytes::padding_len(*this.payload_len) as usize;
+                    let total_padding_len = padding_len(*this.payload_len) as usize;
 
                     if pos != total_padding_len {
                         let bytes_written = ensure_nonzero_bytes_written(ready!(this
@@ -217,7 +195,7 @@ where
         // After a flush, being inside the padding state, and at the end of the padding
         // is the only way to prevent a dirty shutdown.
         if let BytesPacketPosition::Padding(pos) = *this.state {
-            let padding_len = super::bytes::padding_len(*this.payload_len) as usize;
+            let padding_len = padding_len(*this.payload_len) as usize;
             if padding_len == pos {
                 // Shutdown the underlying writer
                 return this.inner.poll_shutdown(cx);

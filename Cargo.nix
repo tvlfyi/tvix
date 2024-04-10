@@ -6814,12 +6814,13 @@ rec {
           }
         ];
         features = {
-          "async" = [ "futures-util" "tokio" "pin-project-lite" ];
+          "async" = [ "futures-util" ];
           "futures-util" = [ "dep:futures-util" ];
           "pin-project-lite" = [ "dep:pin-project-lite" ];
           "tokio" = [ "dep:tokio" ];
+          "wire" = [ "tokio" "pin-project-lite" ];
         };
-        resolvedDefaultFeatures = [ "async" "futures-util" "pin-project-lite" "tokio" ];
+        resolvedDefaultFeatures = [ "async" "futures-util" "pin-project-lite" "tokio" "wire" ];
       };
       "nom" = rec {
         crateName = "nom";

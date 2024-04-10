@@ -5,9 +5,7 @@ use std::{
 };
 use tokio::io::AsyncRead;
 
-use crate::wire::bytes::padding_len;
-
-use super::bytes_writer::{BytesPacketPosition, LEN_SIZE};
+use super::{padding_len, BytesPacketPosition, LEN_SIZE};
 
 pin_project! {
     /// Reads a "bytes wire packet" from the underlying reader.

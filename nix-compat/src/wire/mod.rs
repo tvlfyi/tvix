@@ -1,20 +1,10 @@
 //! Module parsing and emitting the wire format used by Nix, both in the
 //! nix-daemon protocol as well as in the NAR format.
 
-#[cfg(feature = "async")]
-pub mod bytes;
+mod bytes;
+pub use bytes::*;
 
-#[cfg(feature = "async")]
-mod bytes_reader;
-#[cfg(feature = "async")]
-mod bytes_writer;
-#[cfg(feature = "async")]
-pub use bytes_reader::BytesReader;
-#[cfg(feature = "async")]
-pub use bytes_writer::BytesWriter;
+mod primitive;
+pub use primitive::*;
 
-#[cfg(feature = "async")]
-pub mod primitive;
-
-#[cfg(feature = "async")]
 pub mod worker_protocol;

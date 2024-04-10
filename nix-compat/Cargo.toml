@@ -4,7 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-async = ["futures-util", "tokio", "pin-project-lite"]
+# async NAR writer
+async = ["futures-util"]
+# code emitting low-level packets used in the daemon protocol.
+wire = ["tokio", "pin-project-lite"]
 
 [dependencies]
 bitflags = "2.4.1"
