@@ -6718,12 +6718,6 @@ rec {
             packageId = "enum-primitive-derive";
           }
           {
-            name = "futures-util";
-            packageId = "futures-util";
-            optional = true;
-            features = [ "io" ];
-          }
-          {
             name = "glob";
             packageId = "glob";
           }
@@ -6814,13 +6808,12 @@ rec {
           }
         ];
         features = {
-          "async" = [ "futures-util" ];
-          "futures-util" = [ "dep:futures-util" ];
+          "async" = [ "tokio" ];
           "pin-project-lite" = [ "dep:pin-project-lite" ];
           "tokio" = [ "dep:tokio" ];
           "wire" = [ "tokio" "pin-project-lite" ];
         };
-        resolvedDefaultFeatures = [ "async" "futures-util" "pin-project-lite" "tokio" "wire" ];
+        resolvedDefaultFeatures = [ "async" "pin-project-lite" "tokio" "wire" ];
       };
       "nom" = rec {
         crateName = "nom";

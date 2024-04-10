@@ -6,7 +6,6 @@ use count_write::CountWrite;
 use nix_compat::nar::writer::r#async as nar_writer;
 use sha2::{Digest, Sha256};
 use tokio::io::{self, AsyncWrite, BufReader};
-use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tvix_castore::{
     blobservice::BlobService,
     directoryservice::DirectoryService,
@@ -45,7 +44,7 @@ where
 /// necessary lookups as it traverses the structure.
 /// The contents in NAR serialization are writen to the passed [AsyncWrite].
 pub async fn write_nar<W, BS, DS>(
-    w: W,
+    mut w: W,
     proto_root_node: &castorepb::node::Node,
     blob_service: BS,
     directory_service: DS,
@@ -56,7 +55,6 @@ where
     DS: DirectoryService + Send,
 {
     // Initialize NAR writer
-    let mut w = w.compat_write();
     let nar_root_node = nar_writer::open(&mut w)
         .await
         .map_err(RenderError::NARWriterError)?;
@@ -101,7 +99,7 @@ where
                 ))
             })?;
 
-            let blob_reader = match blob_service
+            let mut blob_reader = match blob_service
                 .open_read(&digest)
                 .await
                 .map_err(RenderError::StoreError)?
@@ -117,7 +115,7 @@ where
                 .file(
                     proto_file_node.executable,
                     proto_file_node.size,
-                    &mut blob_reader.compat(),
+                    &mut blob_reader,
                 )
                 .await
                 .map_err(RenderError::NARWriterError)?;

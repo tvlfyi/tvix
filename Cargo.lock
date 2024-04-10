@@ -2187,7 +2187,6 @@ dependencies = [
  "ed25519-dalek",
  "enum-primitive-derive",
  "futures",
- "futures-util",
  "glob",
  "hex-literal",
  "lazy_static",

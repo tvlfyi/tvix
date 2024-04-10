@@ -10,7 +10,7 @@
 //!
 //! ```rust
 //! # futures::executor::block_on(async {
-//! # use futures::io::BufReader;
+//! # use tokio::io::BufReader;
 //! # let some_file: Vec<u8> = vec![0, 1, 2, 3, 4];
 //!
 //! // Output location to write the NAR to.
@@ -31,7 +31,6 @@
 //! ```
 
 use crate::nar::wire;
-use futures_util::{AsyncBufRead, AsyncBufReadExt, AsyncWrite, AsyncWriteExt};
 use std::{
     io::{
         self,
@@ -39,6 +38,7 @@ use std::{
     },
     pin::Pin,
 };
+use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWrite, AsyncWriteExt};
 
 /// Convenience type alias for types implementing [`AsyncWrite`].
 pub type Writer<'a> = dyn AsyncWrite + Unpin + Send + 'a;
