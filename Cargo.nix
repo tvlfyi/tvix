@@ -9663,9 +9663,9 @@ rec {
       };
       "rstest" = rec {
         crateName = "rstest";
-        version = "0.18.2";
+        version = "0.19.0";
         edition = "2021";
-        sha256 = "1681ncnlzhc8894idm3pqf40nndn4k4kcp0kpv29n68a7hpspvlp";
+        sha256 = "0c43nsxpm1b74jxc73xwg94is6bwqvfzkrr1xbqyx7j7l791clwx";
         authors = [
           "Michele d'Amico <michele.damico@gmail.com>"
         ];
@@ -9700,9 +9700,9 @@ rec {
       };
       "rstest_macros" = rec {
         crateName = "rstest_macros";
-        version = "0.18.2";
+        version = "0.19.0";
         edition = "2021";
-        sha256 = "01g6rg60snmscipc9xiili7nsn0v25sv64713gp99y2jg0jgha6l";
+        sha256 = "09ackagv8kc2v4xy0s7blyg4agij9bz9pbb31l5h4rqzrirdza84";
         procMacro = true;
         authors = [
           "Michele d'Amico <michele.damico@gmail.com>"
