@@ -9,3 +9,8 @@ pub mod store_path;
 
 #[cfg(feature = "wire")]
 pub mod wire;
+
+#[cfg(feature = "wire")]
+mod nix_daemon;
+#[cfg(feature = "wire")]
+pub use nix_daemon::worker_protocol;
