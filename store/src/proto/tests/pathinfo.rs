@@ -424,7 +424,7 @@ CA: fixed:sha256:086vqwk2wl8zfs47sq2xpjc9k066ilmb8z6dn0q6ymwjzlm196cd"#
     let path_info: PathInfo = (&narinfo_parsed).into();
 
     let mut narinfo_returned = path_info
-        .as_narinfo(
+        .to_narinfo(
             StorePathRef::from_bytes(b"pa10z4ngm0g83kx9mssrqzz30s84vq7k-hello-2.12.1.tar.gz")
                 .expect("invalid storepath"),
         )

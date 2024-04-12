@@ -173,12 +173,16 @@ impl PathInfo {
         Ok(root_nix_path)
     }
 
-    /// With self and a given StorePathRef, this reconstructs a
+    /// With self and its store path name, this reconstructs a
     /// [nix_compat::narinfo::NarInfo<'_>].
     /// It can be used to validate Signatures, or get back a (sparse) NarInfo
     /// struct to prepare writing it out.
     ///
-    /// This doesn't allocate any new data.
+    /// It assumes self to be validated first, and will only return None if the
+    /// `narinfo` field is unpopulated.
+    ///
+    /// It does very little allocation (a Vec each for `signatures` and
+    /// `references`), the rest points to data owned elsewhere.
     ///
     /// Keep in mind this is not able to reconstruct all data present in the
     /// NarInfo<'_>, as some of it is not stored at all:
@@ -188,7 +192,7 @@ impl PathInfo {
     ///
     /// If you want to render it out to a string and be able to parse it back
     /// in, at least URL *must* be set again.
-    pub fn as_narinfo<'a>(
+    pub fn to_narinfo<'a>(
         &'a self,
         store_path: store_path::StorePathRef<'a>,
     ) -> Option<nix_compat::narinfo::NarInfo<'_>> {
@@ -197,7 +201,11 @@ impl PathInfo {
         Some(nix_compat::narinfo::NarInfo {
             flags: Flags::empty(),
             store_path,
-            nar_hash: narinfo.nar_sha256.to_vec().try_into().unwrap(),
+            nar_hash: narinfo
+                .nar_sha256
+                .as_ref()
+                .try_into()
+                .expect("invalid narhash"),
             nar_size: narinfo.nar_size,
             references: narinfo
                 .reference_names
