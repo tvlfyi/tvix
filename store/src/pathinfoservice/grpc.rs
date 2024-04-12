@@ -1,8 +1,10 @@
 use super::PathInfoService;
 use crate::proto::{self, ListPathInfoRequest, PathInfo};
 use async_stream::try_stream;
+use data_encoding::BASE64;
 use futures::stream::BoxStream;
 use tonic::{async_trait, transport::Channel, Code};
+use tracing::instrument;
 use tvix_castore::{proto as castorepb, Error};
 
 /// Connects to a (remote) tvix-store PathInfoService over gRPC.
@@ -25,6 +27,7 @@ impl GRPCPathInfoService {
 
 #[async_trait]
 impl PathInfoService for GRPCPathInfoService {
+    #[instrument(level = "trace", skip_all, fields(path_info.digest = BASE64.encode(&digest)))]
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
         let path_info = self
             .grpc_client
@@ -51,6 +54,7 @@ impl PathInfoService for GRPCPathInfoService {
         }
     }
 
+    #[instrument(level = "trace", skip_all, fields(path_info.root_node = ?path_info.node))]
     async fn put(&self, path_info: PathInfo) -> Result<PathInfo, Error> {
         let path_info = self
             .grpc_client
@@ -63,6 +67,7 @@ impl PathInfoService for GRPCPathInfoService {
         Ok(path_info)
     }
 
+    #[instrument(level = "trace", skip_all, fields(root_node = ?root_node))]
     async fn calculate_nar(
         &self,
         root_node: &castorepb::node::Node,
@@ -86,6 +91,7 @@ impl PathInfoService for GRPCPathInfoService {
         Ok((path_info.nar_size, nar_sha256))
     }
 
+    #[instrument(level = "trace", skip_all)]
     fn list(&self) -> BoxStream<'static, Result<PathInfo, Error>> {
         let mut grpc_client = self.grpc_client.clone();
 
