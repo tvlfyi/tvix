@@ -2,8 +2,9 @@ use std::fmt::{self, Display};
 
 use data_encoding::BASE64;
 use ed25519_dalek::SIGNATURE_LENGTH;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Signature<'a> {
     name: &'a str,
     bytes: [u8; SIGNATURE_LENGTH],
@@ -57,6 +58,29 @@ impl<'a> Signature<'a> {
     }
 }
 
+impl<'de: 'a, 'a> Deserialize<'de> for Signature<'a> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let str: &'de str = Deserialize::deserialize(deserializer)?;
+        Self::parse(str).map_err(|_| {
+            serde::de::Error::invalid_value(serde::de::Unexpected::Str(str), &"Signature")
+        })
+    }
+}
+
+impl<'a> Serialize for Signature<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let string: String = self.to_string();
+
+        string.serialize(serializer)
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Invalid name: {0}")]
@@ -79,6 +103,7 @@ impl Display for Signature<'_> {
 mod test {
     use data_encoding::BASE64;
     use ed25519_dalek::VerifyingKey;
+    use hex_literal::hex;
     use lazy_static::lazy_static;
 
     use super::Signature;
@@ -128,5 +153,26 @@ mod test {
     #[test_case("u01BybwQhyI5H1bW1EIWXssMDhDDIvXOG5uh8Qzgdyjz6U1qg6DHhMAvXZOUStIj6X5t4/ufFgR8i3fjf0bMAw=="; "b64 only")]
     fn parse_fail(input: &'static str) {
         Signature::parse(input).expect_err("must fail");
+    }
+
+    #[test]
+    fn serialize_deserialize() {
+        let signature_actual = Signature {
+            name: "cache.nixos.org-1",
+            bytes: hex!(
+                r#"4e c4 d3 6f 75 86 4d 92  a9 86 f6 1d 04 75 f0 a3
+                   ac 1e 54 82 e6 4f 2b 54  8c b0 7e bd c5 fc f5 f3
+                   a3 8d 18 9c 08 79 8a 03  84 42 3c c5 4b 92 3e 93
+                   30 9e 06 31 7d c7 3d 55  91 74 3d 61 91 e2 99 05"#
+            ),
+        };
+        let signature_str_json = "\"cache.nixos.org-1:TsTTb3WGTZKphvYdBHXwo6weVILmTytUjLB+vcX89fOjjRicCHmKA4RCPMVLkj6TMJ4GMX3HPVWRdD1hkeKZBQ==\"";
+
+        let serialized = serde_json::to_string(&signature_actual).expect("must serialize");
+        assert_eq!(signature_str_json, &serialized);
+
+        let deserialized: Signature<'_> =
+            serde_json::from_str(signature_str_json).expect("must deserialize");
+        assert_eq!(&signature_actual, &deserialized);
     }
 }
