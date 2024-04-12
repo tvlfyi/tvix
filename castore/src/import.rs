@@ -302,7 +302,7 @@ impl MerkleInvariantChecker {
 pub async fn ingest_entries<'a, BS, DS, S>(
     blob_service: BS,
     directory_service: DS,
-    mut entries_async_iterator: S,
+    mut direntry_stream: S,
 ) -> Result<Node, Error>
 where
     BS: AsRef<dyn BlobService> + Clone,
@@ -319,7 +319,7 @@ where
     // We need to process a directory's children before processing
     // the directory itself in order to have all the data needed
     // to compute the hash.
-    while let Some(entry) = entries_async_iterator.next().await {
+    while let Some(entry) = direntry_stream.next().await {
         #[cfg(debug_assertions)]
         {
             // If we find an ancestor before we see this entry, this means that the caller
