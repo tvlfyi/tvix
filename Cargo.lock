@@ -4528,6 +4528,7 @@ dependencies = [
  "rstest",
  "rstest_reuse",
  "serde",
+ "serde_json",
  "serde_qs",
  "serde_with",
  "sha2",

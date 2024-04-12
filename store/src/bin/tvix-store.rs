@@ -2,6 +2,9 @@ use clap::Parser;
 use clap::Subcommand;
 
 use futures::future::try_join_all;
+use nix_compat::path_info::ExportedPathInfo;
+use serde::Deserialize;
+use serde::Serialize;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio_listener::Listener;
@@ -13,6 +16,9 @@ use tracing::Level;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::Layer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tvix_castore::import::ingest_path;
+use tvix_store::proto::NarInfo;
+use tvix_store::proto::PathInfo;
 
 use tvix_castore::proto::blob_service_server::BlobServiceServer;
 use tvix_castore::proto::directory_service_server::DirectoryServiceServer;
@@ -100,6 +106,30 @@ enum Commands {
 
         #[arg(long, env, default_value = "grpc+http://[::1]:8000")]
         path_info_service_addr: String,
+    },
+
+    /// Copies a list of store paths on the system into tvix-store.
+    Copy {
+        #[arg(long, env, default_value = "grpc+http://[::1]:8000")]
+        blob_service_addr: String,
+
+        #[arg(long, env, default_value = "grpc+http://[::1]:8000")]
+        directory_service_addr: String,
+
+        #[arg(long, env, default_value = "grpc+http://[::1]:8000")]
+        path_info_service_addr: String,
+
+        /// A path pointing to a JSON file produced by the Nix
+        /// `__structuredAttrs` containing reference graph information provided
+        /// by the `exportReferencesGraph` feature.
+        ///
+        /// This can be used to invoke tvix-store inside a Nix derivation
+        /// copying to a Tvix store (or outside, if the JSON file is copied
+        /// out).
+        ///
+        /// Currently limited to the `closure` key inside that JSON file.
+        #[arg(value_name = "NIX_ATTRS_JSON_FILE", env = "NIX_ATTRS_JSON_FILE")]
+        reference_graph_path: PathBuf,
     },
     /// Mounts a tvix-store at the given mountpoint
     #[cfg(feature = "fuse")]
@@ -356,6 +386,69 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .collect::<Vec<_>>();
 
             try_join_all(tasks).await?;
+        }
+        Commands::Copy {
+            blob_service_addr,
+            directory_service_addr,
+            path_info_service_addr,
+            reference_graph_path,
+        } => {
+            let (blob_service, directory_service, path_info_service) =
+                tvix_store::utils::construct_services(
+                    blob_service_addr,
+                    directory_service_addr,
+                    path_info_service_addr,
+                )
+                .await?;
+
+            // Parse the file at reference_graph_path.
+            let reference_graph_json = tokio::fs::read(&reference_graph_path).await?;
+
+            #[derive(Deserialize, Serialize)]
+            struct ReferenceGraph<'a> {
+                #[serde(borrow)]
+                closure: Vec<ExportedPathInfo<'a>>,
+            }
+
+            let reference_graph: ReferenceGraph<'_> =
+                serde_json::from_slice(reference_graph_json.as_slice())?;
+
+            // We currently simply upload all store paths in linear order.
+            // FUTUREWORK: properly walk the reference graph from the leaves, and upload multiple in parallel.
+            for elem in reference_graph.closure {
+                // Skip if that store path already exists
+                if path_info_service.get(*elem.path.digest()).await?.is_some() {
+                    continue;
+                }
+
+                let path: PathBuf = elem.path.to_absolute_path().into();
+                // Ingest the given path
+                let root_node =
+                    ingest_path(blob_service.clone(), directory_service.clone(), path).await?;
+
+                // Create and upload a PathInfo pointing to the root_node,
+                // annotated with information we have from the reference graph.
+                let path_info = PathInfo {
+                    node: Some(tvix_castore::proto::Node {
+                        node: Some(root_node),
+                    }),
+                    references: Vec::from_iter(
+                        elem.references.iter().map(|e| e.digest().to_vec().into()),
+                    ),
+                    narinfo: Some(NarInfo {
+                        nar_size: elem.nar_size,
+                        nar_sha256: elem.nar_sha256.to_vec().into(),
+                        signatures: vec![],
+                        reference_names: Vec::from_iter(
+                            elem.references.iter().map(|e| e.to_string()),
+                        ),
+                        deriver: None,
+                        ca: None,
+                    }),
+                };
+
+                path_info_service.put(path_info).await?;
+            }
         }
         #[cfg(feature = "fuse")]
         Commands::Mount {
