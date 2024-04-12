@@ -86,22 +86,7 @@ impl PartialOrd for StorePath {
 /// of the nixbase32-encoded string.
 impl Ord for StorePath {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let order = self.digest.iter().rev().cmp(other.digest.iter().rev());
-
-        // This order must match the order of the nixbase32 encoded digests.
-        #[cfg(debug_assertions)]
-        {
-            let self_hash = nixbase32::encode(&self.digest);
-            let other_hash = nixbase32::encode(&other.digest);
-            let canonical_order = self_hash.cmp(&other_hash);
-            assert_eq!(
-                order, canonical_order,
-                "Ordering of nixbase32 differs, {:?} instead of {:?}:\n{:?}\n{:?}",
-                order, canonical_order, self_hash, other_hash
-            );
-        }
-
-        order
+        self.as_ref().cmp(&other.as_ref())
     }
 }
 
@@ -195,6 +180,20 @@ impl<'a> From<&'a StorePath> for StorePathRef<'a> {
             digest,
             name: name.as_ref(),
         }
+    }
+}
+
+impl<'a> PartialOrd for StorePathRef<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+/// `StorePathRef`s are sorted by their reverse digest to match the sorting order
+/// of the nixbase32-encoded string.
+impl<'a> Ord for StorePathRef<'a> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.digest.iter().rev().cmp(other.digest.iter().rev())
     }
 }
 
