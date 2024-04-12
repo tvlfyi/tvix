@@ -34,6 +34,7 @@ impl GRPCDirectoryService {
 
 #[async_trait]
 impl DirectoryService for GRPCDirectoryService {
+    #[instrument(level = "trace", skip_all, fields(directory.digest = %digest))]
     async fn get(
         &self,
         digest: &B3Digest,
@@ -82,6 +83,7 @@ impl DirectoryService for GRPCDirectoryService {
         }
     }
 
+    #[instrument(level = "trace", skip_all, fields(directory.digest = %directory.digest()))]
     async fn put(&self, directory: crate::proto::Directory) -> Result<B3Digest, crate::Error> {
         let resp = self
             .grpc_client
@@ -101,7 +103,7 @@ impl DirectoryService for GRPCDirectoryService {
         }
     }
 
-    #[instrument(skip_all, fields(directory.digest = %root_directory_digest))]
+    #[instrument(level = "trace", skip_all, fields(directory.digest = %root_directory_digest))]
     fn get_recursive(
         &self,
         root_directory_digest: &B3Digest,
