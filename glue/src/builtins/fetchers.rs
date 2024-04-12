@@ -61,7 +61,7 @@ impl FetchArgs {
         name: Option<String>,
         sha256: Option<String>,
         mode: HashMode,
-    ) -> nixhash::Result<Self> {
+    ) -> nixhash::NixHashResult<Self> {
         Ok(Self {
             name: name.unwrap_or_else(|| url_basename(&url).to_owned()),
             url,

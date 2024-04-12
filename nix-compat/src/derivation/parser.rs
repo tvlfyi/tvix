@@ -48,7 +48,7 @@ pub(crate) fn parse(i: &[u8]) -> Result<Derivation, Error<&[u8]>> {
 fn from_algo_and_mode_and_digest<B: AsRef<[u8]>>(
     algo_and_mode: &str,
     digest: B,
-) -> crate::nixhash::Result<CAHash> {
+) -> crate::nixhash::NixHashResult<CAHash> {
     Ok(match algo_and_mode.strip_prefix("r:") {
         Some(algo) => nixhash::CAHash::Nar(nixhash::from_algo_and_digest(
             algo.try_into()?,

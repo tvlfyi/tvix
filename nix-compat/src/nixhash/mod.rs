@@ -1,6 +1,8 @@
 use crate::nixbase32;
 use bstr::ByteSlice;
 use data_encoding::{BASE64, BASE64_NOPAD, HEXLOWER};
+use serde::Deserialize;
+use serde::Serialize;
 use std::cmp::Ordering;
 use std::fmt::Display;
 use thiserror;
@@ -50,7 +52,7 @@ impl Display for NixHash {
 }
 
 /// convenience Result type for all nixhash parsing Results.
-pub type Result<V> = std::result::Result<V, Error>;
+pub type NixHashResult<V> = std::result::Result<V, Error>;
 
 impl NixHash {
     /// returns the algo as [HashAlgo].
@@ -118,16 +120,39 @@ impl TryFrom<(HashAlgo, &[u8])> for NixHash {
     /// Constructs a new [NixHash] by specifying [HashAlgo] and digest.
     /// It can fail if the passed digest length doesn't match what's expected for
     /// the passed algo.
-    fn try_from(value: (HashAlgo, &[u8])) -> Result<Self> {
+    fn try_from(value: (HashAlgo, &[u8])) -> NixHashResult<Self> {
         let (algo, digest) = value;
         from_algo_and_digest(algo, digest)
+    }
+}
+
+impl<'de> Deserialize<'de> for NixHash {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let str: &'de str = Deserialize::deserialize(deserializer)?;
+        from_str(str, None).map_err(|_| {
+            serde::de::Error::invalid_value(serde::de::Unexpected::Str(str), &"NixHash")
+        })
+    }
+}
+
+impl Serialize for NixHash {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // encode as SRI
+        let string = format!("{}-{}", self.algo(), BASE64.encode(self.digest_as_bytes()));
+        string.serialize(serializer)
     }
 }
 
 /// Constructs a new [NixHash] by specifying [HashAlgo] and digest.
 /// It can fail if the passed digest length doesn't match what's expected for
 /// the passed algo.
-pub fn from_algo_and_digest(algo: HashAlgo, digest: &[u8]) -> Result<NixHash> {
+pub fn from_algo_and_digest(algo: HashAlgo, digest: &[u8]) -> NixHashResult<NixHash> {
     if digest.len() != algo.digest_length() {
         return Err(Error::InvalidEncodedDigestLength(digest.len(), algo));
     }
@@ -180,7 +205,7 @@ pub enum Error {
 /// The hash is communicated out-of-band, but might also be in-band (in the
 /// case of a nix hash string or SRI), in which it needs to be consistent with the
 /// one communicated out-of-band.
-pub fn from_str(s: &str, algo_str: Option<&str>) -> Result<NixHash> {
+pub fn from_str(s: &str, algo_str: Option<&str>) -> NixHashResult<NixHash> {
     // if algo_str is some, parse or bail out
     let algo: Option<HashAlgo> = if let Some(algo_str) = algo_str {
         Some(algo_str.try_into()?)
@@ -230,7 +255,7 @@ pub fn from_str(s: &str, algo_str: Option<&str>) -> Result<NixHash> {
 }
 
 /// Parses a Nix hash string ($algo:$digest) to a NixHash.
-pub fn from_nix_str(s: &str) -> Result<NixHash> {
+pub fn from_nix_str(s: &str) -> NixHashResult<NixHash> {
     if let Some(rest) = s.strip_prefix("sha1:") {
         decode_digest(rest.as_bytes(), HashAlgo::Sha1)
     } else if let Some(rest) = s.strip_prefix("sha256:") {
@@ -250,7 +275,7 @@ pub fn from_nix_str(s: &str) -> Result<NixHash> {
 /// It instead simply cuts everything off after the expected length for the
 /// specified algo, and tries to parse the rest in permissive base64 (allowing
 /// missing padding).
-pub fn from_sri_str(s: &str) -> Result<NixHash> {
+pub fn from_sri_str(s: &str) -> NixHashResult<NixHash> {
     // split at the first occurence of "-"
     let (algo_str, digest_str) = s
         .split_once('-')
@@ -294,7 +319,7 @@ pub fn from_sri_str(s: &str) -> Result<NixHash> {
 /// Decode a plain digest depending on the hash algo specified externally.
 /// hexlower, nixbase32 and base64 encodings are supported - the encoding is
 /// inferred from the input length.
-fn decode_digest(s: &[u8], algo: HashAlgo) -> Result<NixHash> {
+fn decode_digest(s: &[u8], algo: HashAlgo) -> NixHashResult<NixHash> {
     // for the chosen hash algo, calculate the expected (decoded) digest length
     // (as bytes)
     let digest = if s.len() == HEXLOWER.encode_len(algo.digest_length()) {
@@ -555,5 +580,21 @@ mod tests {
 
         // not passing SRI, but hash algo out of band should fail
         nixhash::from_str(weird_base64, Some("sha256")).expect_err("must fail");
+    }
+
+    #[test]
+    fn serialize_deserialize() {
+        let nixhash_actual = NixHash::Sha256(hex!(
+            "b3271e24c5049270430872bc786b3aad45372109fe1e741f5117c2ac3c583daf"
+        ));
+        let nixhash_str_json = "\"sha256-syceJMUEknBDCHK8eGs6rUU3IQn+HnQfURfCrDxYPa8=\"";
+
+        let serialized = serde_json::to_string(&nixhash_actual).expect("can serialize");
+
+        assert_eq!(nixhash_str_json, &serialized);
+
+        let deserialized: NixHash =
+            serde_json::from_str(nixhash_str_json).expect("must deserialize");
+        assert_eq!(&nixhash_actual, &deserialized);
     }
 }
