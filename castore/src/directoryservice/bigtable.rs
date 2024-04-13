@@ -118,7 +118,9 @@ impl BigtableDirectoryService {
             .expect("failed to spwan emulator");
 
         Retry::spawn(
-            ExponentialBackoff::from_millis(20).max_delay(Duration::from_secs(1)),
+            ExponentialBackoff::from_millis(20)
+                .max_delay(Duration::from_secs(1))
+                .take(3),
             || async {
                 if socket_path.exists() {
                     Ok(())
