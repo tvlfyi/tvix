@@ -8,6 +8,7 @@
   pkgs ? (import ./nixpkgs {
     depotOverlays = false;
     depot.third_party.sources = import ./sources { };
+    additionalOverlays = [ ];
   })
 , ...
 }:

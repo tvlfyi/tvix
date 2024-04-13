@@ -13,6 +13,9 @@
 , depotOverlays ? true
 , localSystem ? externalArgs.localSystem or builtins.currentSystem
 , crossSystem ? externalArgs.crossSystem or localSystem
+  # additional overlays to be applied.
+  # Useful when calling this file in a view exported from depot.
+, additionalOverlays ? [ ]
 , ...
 }:
 
@@ -69,5 +72,5 @@ import nixpkgsSrc (commonNixpkgsArgs // {
     depot.third_party.overlays.ecl-static
     depot.third_party.overlays.dhall
     (import depot.third_party.sources.rust-overlay)
-  ] else [ ]);
+  ] else [ ] ++ additionalOverlays);
 })
