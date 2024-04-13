@@ -8,7 +8,16 @@
   pkgs ? (import ./nixpkgs {
     depotOverlays = false;
     depot.third_party.sources = import ./sources { };
-    additionalOverlays = [ ];
+    additionalOverlays = [
+      (self: super: {
+        # https://github.com/googleapis/google-cloud-go/pull/9665
+        cbtemulator = super.cbtemulator.overrideAttrs (old: {
+          patches = old.patches or [ ] ++ [
+            ./nixpkgs/cbtemulator-uds.patch
+          ];
+        });
+      })
+    ];
   })
 , ...
 }:
