@@ -7,3 +7,4 @@ steps:
   - label: ":crab: cargo build"
     command: |
       nix-shell --run "cargo build && cargo test"
+    timeout_in_minutes: 10
