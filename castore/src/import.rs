@@ -284,14 +284,8 @@ impl MerkleInvariantChecker {
     }
 
     /// Returns a potential ancestor already seen for that directory entry.
-    fn find_ancestor(&self, node: &DirEntry) -> Option<PathBuf> {
-        for anc in node.path().ancestors() {
-            if self.seen.contains(anc) {
-                return Some(anc.to_owned());
-            }
-        }
-
-        None
+    fn find_ancestor<'a>(&self, node: &'a DirEntry) -> Option<&'a Path> {
+        node.path().ancestors().find(|p| self.seen.contains(*p))
     }
 }
 
