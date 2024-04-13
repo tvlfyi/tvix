@@ -140,7 +140,7 @@ pub async fn ingest_path<'a, BS, DS, P>(
 ) -> Result<Node, Error>
 where
     P: AsRef<Path> + std::fmt::Debug,
-    BS: AsRef<dyn BlobService> + Clone,
+    BS: AsRef<dyn BlobService>,
     DS: AsRef<dyn DirectoryService>,
 {
     // produce the leveled-key vector of DirEntry.
@@ -204,7 +204,7 @@ pub async fn ingest_entries<'a, BS, DS, S>(
     #[allow(unused_mut)] mut direntry_stream: S,
 ) -> Result<Node, Error>
 where
-    BS: AsRef<dyn BlobService> + Clone,
+    BS: AsRef<dyn BlobService>,
     DS: AsRef<dyn DirectoryService>,
     S: Stream<Item = DirEntry> + std::marker::Unpin,
 {
