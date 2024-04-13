@@ -143,11 +143,12 @@ where
     BS: AsRef<dyn BlobService> + Clone,
     DS: AsRef<dyn DirectoryService>,
 {
-    let entries = walk_path_for_ingestion(path)?;
-    let entries_stream = leveled_entries_to_stream(entries);
-    pin_mut!(entries_stream);
+    // produce the leveled-key vector of DirEntry.
+    let entries_per_depths = walk_path_for_ingestion(path)?;
+    let direntry_stream = leveled_entries_to_stream(entries_per_depths);
+    pin_mut!(direntry_stream);
 
-    ingest_entries(blob_service, directory_service, entries_stream).await
+    ingest_entries(blob_service, directory_service, direntry_stream).await
 }
 
 /// The Merkle invariant checker is an internal structure to perform bookkeeping of all directory

@@ -3,6 +3,7 @@
 use crate::builtins::errors::ImportError;
 use futures::pin_mut;
 use std::path::Path;
+use tvix_castore::import::leveled_entries_to_stream;
 use tvix_eval::{
     builtin_macros::builtins,
     generators::{self, GenCo},
@@ -17,6 +18,7 @@ async fn filtered_ingest(
     path: &Path,
     filter: Option<&Value>,
 ) -> Result<tvix_castore::proto::node::Node, ErrorKind> {
+    // produce the leveled-key vector of DirEntry.
     let mut entries_per_depths: Vec<Vec<walkdir::DirEntry>> = vec![Vec::new()];
     let mut it = walkdir::WalkDir::new(path)
         .follow_links(false)
@@ -99,13 +101,12 @@ async fn filtered_ingest(
         // FUTUREWORK: determine when it's the right moment to flush a level to the ingester.
     }
 
-    let entries_stream = tvix_castore::import::leveled_entries_to_stream(entries_per_depths);
-
-    pin_mut!(entries_stream);
+    let direntry_stream = leveled_entries_to_stream(entries_per_depths);
+    pin_mut!(direntry_stream);
 
     state.tokio_handle.block_on(async {
         state
-            .ingest_entries(entries_stream)
+            .ingest_entries(direntry_stream)
             .await
             .map_err(|err| ErrorKind::IO {
                 path: Some(path.to_path_buf()),
