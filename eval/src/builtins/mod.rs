@@ -1716,7 +1716,7 @@ mod placeholder_builtins {
         .await;
         let res = [
             ("line", 42.into()),
-            ("col", 42.into()),
+            ("column", 42.into()),
             ("file", Value::String("/deep/thought".into())),
         ];
         Ok(Value::attrs(NixAttrs::from_iter(res.into_iter())))
