@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 /// This is not to be confused with the format Nix uses in its `nix path-info` command.
 /// It includes some more fields, like `registrationTime`, `signatures` and `ultimate`,
 /// does not include the `closureSize` and encodes `narHash` as SRI.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct ExportedPathInfo<'a> {
     #[serde(rename = "closureSize")]
     pub closure_size: u64,
