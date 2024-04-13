@@ -8,7 +8,7 @@ use crate::proto::SymlinkNode;
 use crate::Error as CastoreError;
 use async_stream::stream;
 use futures::pin_mut;
-use futures::Stream;
+use futures::{Stream, StreamExt};
 use std::fs::FileType;
 use tracing::Level;
 
@@ -21,7 +21,6 @@ use std::{
     os::unix::prelude::PermissionsExt,
     path::{Path, PathBuf},
 };
-use tokio_stream::StreamExt;
 use tracing::instrument;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
@@ -201,7 +200,7 @@ impl MerkleInvariantChecker {
 pub async fn ingest_entries<'a, BS, DS, S>(
     blob_service: BS,
     directory_service: DS,
-    mut direntry_stream: S,
+    #[allow(unused_mut)] mut direntry_stream: S,
 ) -> Result<Node, Error>
 where
     BS: AsRef<dyn BlobService> + Clone,
@@ -215,25 +214,26 @@ where
     #[cfg(debug_assertions)]
     let mut invariant_checker: MerkleInvariantChecker = Default::default();
 
+    #[cfg(debug_assertions)]
+    let mut direntry_stream = direntry_stream.inspect(|e| {
+        // If we find an ancestor before we see this entry, this means that the caller
+        // broke the contract, refer to the documentation of the invariant checker to
+        // understand the reasoning here.
+        if let Some(ancestor) = invariant_checker.find_ancestor(e) {
+            panic!(
+                "Tvix bug: merkle invariant checker discovered that {} was processed before {}!",
+                ancestor.display(),
+                e.path().display()
+            );
+        }
+
+        invariant_checker.see(e);
+    });
+
     // We need to process a directory's children before processing
     // the directory itself in order to have all the data needed
     // to compute the hash.
     while let Some(entry) = direntry_stream.next().await {
-        #[cfg(debug_assertions)]
-        {
-            // If we find an ancestor before we see this entry, this means that the caller
-            // broke the contract, refer to the documentation of the invariant checker to
-            // understand the reasoning here.
-            if let Some(ancestor) = invariant_checker.find_ancestor(&entry) {
-                panic!("Tvix bug: merkle invariant checker discovered that {} was processed before {}!",
-                    ancestor.display(),
-                    entry.path().display()
-                );
-            }
-
-            invariant_checker.see(&entry);
-        }
-
         let file_type = entry.file_type();
 
         let node = if file_type.is_dir() {
