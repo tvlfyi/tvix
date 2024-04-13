@@ -32,6 +32,7 @@ zstd = "0.13.0"
 serde = { version = "1.0.197", features = [ "derive" ] }
 serde_with = "3.7.0"
 serde_qs = "0.12.0"
+petgraph = "0.6.4"
 
 [dependencies.bigtable_rs]
 optional = true

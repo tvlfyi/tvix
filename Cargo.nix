@@ -7768,6 +7768,7 @@ rec {
           "serde_derive" = [ "dep:serde_derive" ];
           "unstable" = [ "generate" ];
         };
+        resolvedDefaultFeatures = [ "default" "graphmap" "matrix_graph" "stable_graph" ];
       };
       "pin-project" = rec {
         crateName = "pin-project";
@@ -13813,6 +13814,10 @@ rec {
           {
             name = "parking_lot";
             packageId = "parking_lot 0.12.1";
+          }
+          {
+            name = "petgraph";
+            packageId = "petgraph";
           }
           {
             name = "pin-project-lite";

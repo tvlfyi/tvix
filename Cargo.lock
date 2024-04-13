@@ -4352,6 +4352,7 @@ dependencies = [
  "libc",
  "object_store",
  "parking_lot 0.12.1",
+ "petgraph",
  "pin-project-lite",
  "prost 0.12.3",
  "prost-build",
