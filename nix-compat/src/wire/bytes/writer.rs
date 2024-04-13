@@ -56,6 +56,7 @@ where
 }
 
 /// Returns an error if the passed usize is 0.
+#[inline]
 fn ensure_nonzero_bytes_written(bytes_written: usize) -> Result<usize, std::io::Error> {
     if bytes_written == 0 {
         Err(std::io::Error::new(

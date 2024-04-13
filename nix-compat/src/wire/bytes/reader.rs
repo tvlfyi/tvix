@@ -60,6 +60,7 @@ where
     }
 }
 /// Returns an error if the passed usize is 0.
+#[inline]
 fn ensure_nonzero_bytes_read(bytes_read: usize) -> Result<usize, std::io::Error> {
     if bytes_read == 0 {
         Err(std::io::Error::new(
