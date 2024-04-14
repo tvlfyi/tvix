@@ -218,18 +218,51 @@ impl BlobService for ObjectStoreBlobService {
 
     #[instrument(skip_all, err, fields(blob.digest=%digest))]
     async fn chunks(&self, digest: &B3Digest) -> io::Result<Option<Vec<ChunkMeta>>> {
-        let p = derive_blob_path(&self.base_path, digest);
-
-        match self.object_store.get(&p).await {
+        match self
+            .object_store
+            .get(&derive_blob_path(&self.base_path, digest))
+            .await
+        {
             Ok(get_result) => {
                 // fetch the data at the blob path
                 let blob_data = get_result.bytes().await?;
                 // parse into StatBlobResponse
                 let stat_blob_response: StatBlobResponse = StatBlobResponse::decode(blob_data)?;
 
+                debug!(
+                    chunk.count = stat_blob_response.chunks.len(),
+                    blob.size = stat_blob_response
+                        .chunks
+                        .iter()
+                        .map(|x| x.size)
+                        .sum::<u64>(),
+                    "found more granular chunks"
+                );
+
                 Ok(Some(stat_blob_response.chunks))
             }
-            Err(object_store::Error::NotFound { .. }) => Ok(None),
+            Err(object_store::Error::NotFound { .. }) => {
+                // If there's only a chunk, we must return the empty vec here, rather than None.
+                match self
+                    .object_store
+                    .head(&derive_chunk_path(&self.base_path, digest))
+                    .await
+                {
+                    Ok(_) => {
+                        // present, but no more chunks available
+                        debug!("found a single chunk");
+                        Ok(Some(vec![]))
+                    }
+                    Err(object_store::Error::NotFound { .. }) => {
+                        // Neither blob nor single chunk found
+                        debug!("not found");
+                        Ok(None)
+                    }
+                    // error checking for chunk
+                    Err(e) => Err(e.into()),
+                }
+            }
+            // error checking for blob
             Err(err) => Err(err.into()),
         }
     }
