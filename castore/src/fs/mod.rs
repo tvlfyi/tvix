@@ -19,10 +19,14 @@ use crate::{
     proto::{node::Node, NamedNode},
     B3Digest,
 };
+use bstr::ByteVec;
 use fuse_backend_rs::abi::fuse_abi::stat64;
-use fuse_backend_rs::api::filesystem::{Context, FileSystem, FsOptions, ROOT_ID};
+use fuse_backend_rs::api::filesystem::{
+    Context, FileSystem, FsOptions, GetxattrReply, ListxattrReply, ROOT_ID,
+};
 use futures::StreamExt;
 use parking_lot::RwLock;
+use std::ffi::CStr;
 use std::{
     collections::HashMap,
     io,
@@ -83,6 +87,9 @@ pub struct TvixStoreFs<BS, DS, RN> {
     /// Whether to (try) listing elements in the root.
     list_root: bool,
 
+    /// Whether to expose blob and directory digests as extended attributes.
+    show_xattr: bool,
+
     /// This maps a given basename in the root to the inode we allocated for the node.
     root_nodes: RwLock<HashMap<Vec<u8>, u64>>,
 
@@ -109,6 +116,7 @@ where
         directory_service: DS,
         root_nodes_provider: RN,
         list_root: bool,
+        show_xattr: bool,
     ) -> Self {
         Self {
             blob_service,
@@ -116,6 +124,7 @@ where
             root_nodes_provider,
 
             list_root,
+            show_xattr,
 
             root_nodes: RwLock::new(HashMap::default()),
             inode_tracker: RwLock::new(Default::default()),
@@ -266,6 +275,9 @@ where
         }
     }
 }
+
+const XATTR_NAME_DIRECTORY_DIGEST: &[u8] = b"user.tvix.castore.directory.digest";
+const XATTR_NAME_BLOB_DIGEST: &[u8] = b"user.tvix.castore.blob.digest";
 
 impl<BS, DS, RN> FileSystem for TvixStoreFs<BS, DS, RN>
 where
@@ -626,6 +638,87 @@ where
                 Err(io::Error::from_raw_os_error(libc::EINVAL))
             }
             InodeData::Symlink(ref target) => Ok(target.to_vec()),
+        }
+    }
+
+    #[tracing::instrument(skip_all, fields(rq.inode = inode, name=?name))]
+    fn getxattr(
+        &self,
+        _ctx: &Context,
+        inode: Self::Inode,
+        name: &CStr,
+        size: u32,
+    ) -> io::Result<GetxattrReply> {
+        if !self.show_xattr {
+            return Err(io::Error::from_raw_os_error(libc::ENOSYS));
+        }
+
+        // Peek at the inode requested, and construct the response.
+        let digest_str = match *self
+            .inode_tracker
+            .read()
+            .get(inode)
+            .ok_or_else(|| io::Error::from_raw_os_error(libc::ENODATA))?
+        {
+            InodeData::Directory(DirectoryInodeData::Sparse(ref digest, _))
+            | InodeData::Directory(DirectoryInodeData::Populated(ref digest, _))
+                if name.to_bytes() == XATTR_NAME_DIRECTORY_DIGEST =>
+            {
+                digest.to_string()
+            }
+            InodeData::Regular(ref digest, _, _) if name.to_bytes() == XATTR_NAME_BLOB_DIGEST => {
+                digest.to_string()
+            }
+            _ => {
+                return Err(io::Error::from_raw_os_error(libc::ENODATA));
+            }
+        };
+
+        if size == 0 {
+            Ok(GetxattrReply::Count(digest_str.len() as u32))
+        } else if size < digest_str.len() as u32 {
+            Err(io::Error::from_raw_os_error(libc::ERANGE))
+        } else {
+            Ok(GetxattrReply::Value(digest_str.into_bytes()))
+        }
+    }
+
+    #[tracing::instrument(skip_all, fields(rq.inode = inode))]
+    fn listxattr(
+        &self,
+        _ctx: &Context,
+        inode: Self::Inode,
+        size: u32,
+    ) -> io::Result<ListxattrReply> {
+        if !self.show_xattr {
+            return Err(io::Error::from_raw_os_error(libc::ENOSYS));
+        }
+
+        // determine the (\0-terminated list) to of xattr keys present, depending on the type of the inode.
+        let xattrs_names = {
+            let mut out = Vec::new();
+            if let Some(inode_data) = self.inode_tracker.read().get(inode) {
+                match *inode_data {
+                    InodeData::Directory(_) => {
+                        out.extend_from_slice(XATTR_NAME_DIRECTORY_DIGEST);
+                        out.push_byte(b'\x00');
+                    }
+                    InodeData::Regular(..) => {
+                        out.extend_from_slice(XATTR_NAME_BLOB_DIGEST);
+                        out.push_byte(b'\x00');
+                    }
+                    _ => {}
+                }
+            }
+            out
+        };
+
+        if size == 0 {
+            Ok(ListxattrReply::Count(xattrs_names.len() as u32))
+        } else if size < xattrs_names.len() as u32 {
+            Err(io::Error::from_raw_os_error(libc::ERANGE))
+        } else {
+            Ok(ListxattrReply::Names(xattrs_names.to_vec()))
         }
     }
 }

@@ -1,18 +1,19 @@
+use bstr::ByteSlice;
+use bytes::Bytes;
 use std::{
     collections::BTreeMap,
+    ffi::{OsStr, OsString},
     io::{self, Cursor},
-    os::unix::fs::MetadataExt,
+    os::unix::{ffi::OsStrExt, fs::MetadataExt},
     path::Path,
     sync::Arc,
 };
-
-use bytes::Bytes;
 use tempfile::TempDir;
 use tokio_stream::{wrappers::ReadDirStream, StreamExt};
 
 use super::{fuse::FuseDaemon, TvixStoreFs};
+use crate::proto as castorepb;
 use crate::proto::node::Node;
-use crate::proto::{self as castorepb};
 use crate::{
     blobservice::{BlobService, MemoryBlobService},
     directoryservice::{DirectoryService, MemoryDirectoryService},
@@ -40,6 +41,7 @@ fn do_mount<P: AsRef<Path>, BS, DS>(
     root_nodes: BTreeMap<bytes::Bytes, Node>,
     mountpoint: P,
     list_root: bool,
+    show_xattr: bool,
 ) -> io::Result<FuseDaemon>
 where
     BS: AsRef<dyn BlobService> + Send + Sync + Clone + 'static,
@@ -50,6 +52,7 @@ where
         directory_service,
         Arc::new(root_nodes),
         list_root,
+        show_xattr,
     );
     FuseDaemon::new(Arc::new(fs), mountpoint.as_ref(), 4, false)
 }
@@ -250,6 +253,7 @@ async fn mount() {
         BTreeMap::default(),
         tmpdir.path(),
         false,
+        false,
     )
     .expect("must succeed");
 
@@ -271,6 +275,7 @@ async fn root() {
         directory_service,
         BTreeMap::default(),
         tmpdir.path(),
+        false,
         false,
     )
     .expect("must succeed");
@@ -311,6 +316,7 @@ async fn root_with_listing() {
         root_nodes,
         tmpdir.path(),
         true, /* allow listing */
+        false,
     )
     .expect("must succeed");
 
@@ -354,6 +360,7 @@ async fn stat_file_at_root() {
         root_nodes,
         tmpdir.path(),
         false,
+        false,
     )
     .expect("must succeed");
 
@@ -390,6 +397,7 @@ async fn read_file_at_root() {
         root_nodes,
         tmpdir.path(),
         false,
+        false,
     )
     .expect("must succeed");
 
@@ -425,6 +433,7 @@ async fn read_large_file_at_root() {
         directory_service,
         root_nodes,
         tmpdir.path(),
+        false,
         false,
     )
     .expect("must succeed");
@@ -469,6 +478,7 @@ async fn symlink_readlink() {
         directory_service,
         root_nodes,
         tmpdir.path(),
+        false,
         false,
     )
     .expect("must succeed");
@@ -516,6 +526,7 @@ async fn read_stat_through_symlink() {
         root_nodes,
         tmpdir.path(),
         false,
+        false,
     )
     .expect("must succeed");
 
@@ -560,6 +571,7 @@ async fn read_stat_directory() {
         root_nodes,
         tmpdir.path(),
         false,
+        false,
     )
     .expect("must succeed");
 
@@ -569,6 +581,91 @@ async fn read_stat_directory() {
     let metadata = tokio::fs::metadata(p).await.expect("must succeed");
     assert!(metadata.is_dir());
     assert!(metadata.permissions().readonly());
+
+    fuse_daemon.unmount().expect("unmount");
+}
+
+/// Read a directory and file in the root, and ensure the xattrs expose blob or
+/// directory digests.
+#[tokio::test]
+async fn xattr() {
+    // https://plume.benboeckel.net/~/JustAnotherBlog/skipping-tests-in-rust
+    if !std::path::Path::new("/dev/fuse").exists() {
+        eprintln!("skipping test");
+        return;
+    }
+    let tmpdir = TempDir::new().unwrap();
+
+    let (blob_service, directory_service) = gen_svcs();
+    let mut root_nodes = BTreeMap::default();
+
+    populate_directory_with_keep(&blob_service, &directory_service, &mut root_nodes).await;
+    populate_blob_a(&blob_service, &mut root_nodes).await;
+
+    let mut fuse_daemon = do_mount(
+        blob_service,
+        directory_service,
+        root_nodes,
+        tmpdir.path(),
+        false,
+        true, /* support xattr */
+    )
+    .expect("must succeed");
+
+    // peek at the directory
+    {
+        let p = tmpdir.path().join(DIRECTORY_WITH_KEEP_NAME);
+
+        let xattr_names: Vec<OsString> = xattr::list(&p).expect("must succeed").collect();
+        // There should be 1 key, XATTR_NAME_DIRECTORY_DIGEST.
+        assert_eq!(1, xattr_names.len(), "there should be 1 xattr name");
+        assert_eq!(
+            super::XATTR_NAME_DIRECTORY_DIGEST,
+            xattr_names.first().unwrap().as_encoded_bytes()
+        );
+
+        // The key should equal to the string-formatted b3 digest.
+        let val = xattr::get(&p, OsStr::from_bytes(super::XATTR_NAME_DIRECTORY_DIGEST))
+            .expect("must succeed")
+            .expect("must be some");
+        assert_eq!(
+            fixtures::DIRECTORY_WITH_KEEP
+                .digest()
+                .to_string()
+                .as_bytes()
+                .as_bstr(),
+            val.as_bstr()
+        );
+
+        // Reading another xattr key is gonna return None.
+        let val = xattr::get(&p, OsStr::from_bytes(b"user.cheesecake")).expect("must succeed");
+        assert_eq!(None, val);
+    }
+    // peek at the file
+    {
+        let p = tmpdir.path().join(BLOB_A_NAME);
+
+        let xattr_names: Vec<OsString> = xattr::list(&p).expect("must succeed").collect();
+        // There should be 1 key, XATTR_NAME_BLOB_DIGEST.
+        assert_eq!(1, xattr_names.len(), "there should be 1 xattr name");
+        assert_eq!(
+            super::XATTR_NAME_BLOB_DIGEST,
+            xattr_names.first().unwrap().as_encoded_bytes()
+        );
+
+        // The key should equal to the string-formatted b3 digest.
+        let val = xattr::get(&p, OsStr::from_bytes(super::XATTR_NAME_BLOB_DIGEST))
+            .expect("must succeed")
+            .expect("must be some");
+        assert_eq!(
+            fixtures::BLOB_A_DIGEST.to_string().as_bytes().as_bstr(),
+            val.as_bstr()
+        );
+
+        // Reading another xattr key is gonna return None.
+        let val = xattr::get(&p, OsStr::from_bytes(b"user.cheesecake")).expect("must succeed");
+        assert_eq!(None, val);
+    }
 
     fuse_daemon.unmount().expect("unmount");
 }
@@ -593,6 +690,7 @@ async fn read_blob_inside_dir() {
         directory_service,
         root_nodes,
         tmpdir.path(),
+        false,
         false,
     )
     .expect("must succeed");
@@ -632,6 +730,7 @@ async fn read_blob_deep_inside_dir() {
         directory_service,
         root_nodes,
         tmpdir.path(),
+        false,
         false,
     )
     .expect("must succeed");
@@ -674,6 +773,7 @@ async fn readdir() {
         directory_service,
         root_nodes,
         tmpdir.path(),
+        false,
         false,
     )
     .expect("must succeed");
@@ -734,6 +834,7 @@ async fn readdir_deep() {
         root_nodes,
         tmpdir.path(),
         false,
+        false,
     )
     .expect("must succeed");
 
@@ -782,6 +883,7 @@ async fn check_attributes() {
         directory_service,
         root_nodes,
         tmpdir.path(),
+        false,
         false,
     )
     .expect("must succeed");
@@ -857,6 +959,7 @@ async fn compare_inodes_directories() {
         root_nodes,
         tmpdir.path(),
         false,
+        false,
     )
     .expect("must succeed");
 
@@ -899,6 +1002,7 @@ async fn compare_inodes_files() {
         directory_service,
         root_nodes,
         tmpdir.path(),
+        false,
         false,
     )
     .expect("must succeed");
@@ -948,6 +1052,7 @@ async fn compare_inodes_symlinks() {
         root_nodes,
         tmpdir.path(),
         false,
+        false,
     )
     .expect("must succeed");
 
@@ -989,6 +1094,7 @@ async fn read_wrong_paths_in_root() {
         directory_service,
         root_nodes,
         tmpdir.path(),
+        false,
         false,
     )
     .expect("must succeed");
@@ -1044,6 +1150,7 @@ async fn disallow_writes() {
         root_nodes,
         tmpdir.path(),
         false,
+        false,
     )
     .expect("must succeed");
 
@@ -1074,6 +1181,7 @@ async fn missing_directory() {
         directory_service,
         root_nodes,
         tmpdir.path(),
+        false,
         false,
     )
     .expect("must succeed");
@@ -1121,6 +1229,7 @@ async fn missing_blob() {
         directory_service,
         root_nodes,
         tmpdir.path(),
+        false,
         false,
     )
     .expect("must succeed");

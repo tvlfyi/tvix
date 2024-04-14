@@ -13953,6 +13953,10 @@ rec {
             name = "tokio-retry";
             packageId = "tokio-retry";
           }
+          {
+            name = "xattr";
+            packageId = "xattr";
+          }
         ];
         features = {
           "cloud" = [ "dep:bigtable_rs" "object_store/aws" "object_store/azure" "object_store/gcp" ];

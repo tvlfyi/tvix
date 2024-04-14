@@ -4380,6 +4380,7 @@ dependencies = [
  "vm-memory",
  "vmm-sys-util",
  "walkdir",
+ "xattr",
  "zstd",
 ]
 

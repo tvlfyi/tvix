@@ -17,6 +17,7 @@ pub fn make_fs<BS, DS, PS>(
     directory_service: DS,
     path_info_service: PS,
     list_root: bool,
+    show_xattr: bool,
 ) -> TvixStoreFs<BS, DS, RootNodesWrapper<PS>>
 where
     BS: AsRef<dyn BlobService> + Send + Clone + 'static,
@@ -28,6 +29,7 @@ where
         directory_service,
         RootNodesWrapper(path_info_service),
         list_root,
+        show_xattr,
     )
 }
 

@@ -161,6 +161,10 @@ enum Commands {
         /// (exhaustive) listing.
         #[clap(long, short, action)]
         list_root: bool,
+
+        #[arg(long, default_value_t = true)]
+        /// Whether to expose blob and directory digests as extended attributes.
+        show_xattr: bool,
     },
     /// Starts a tvix-store virtiofs daemon at the given socket path.
     #[cfg(feature = "virtiofs")]
@@ -183,6 +187,10 @@ enum Commands {
         /// (exhaustive) listing.
         #[clap(long, short, action)]
         list_root: bool,
+
+        #[arg(long, default_value_t = true)]
+        /// Whether to expose blob and directory digests as extended attributes.
+        show_xattr: bool,
     },
 }
 
@@ -459,6 +467,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             list_root,
             threads,
             allow_other,
+            show_xattr,
         } => {
             let (blob_service, directory_service, path_info_service) =
                 tvix_store::utils::construct_services(
@@ -474,6 +483,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     directory_service,
                     Arc::from(path_info_service),
                     list_root,
+                    show_xattr,
                 );
                 info!(mount_path=?dest, "mounting");
 
@@ -499,6 +509,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             directory_service_addr,
             path_info_service_addr,
             list_root,
+            show_xattr,
         } => {
             let (blob_service, directory_service, path_info_service) =
                 tvix_store::utils::construct_services(
@@ -514,6 +525,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     directory_service,
                     Arc::from(path_info_service),
                     list_root,
+                    show_xattr,
                 );
                 info!(socket_path=?socket, "starting virtiofs-daemon");
 
