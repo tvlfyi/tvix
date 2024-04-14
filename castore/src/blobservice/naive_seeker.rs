@@ -1,4 +1,5 @@
 use super::BlobReader;
+use futures::ready;
 use pin_project_lite::pin_project;
 use std::io;
 use std::task::Poll;
@@ -83,18 +84,13 @@ impl<R: tokio::io::AsyncRead> tokio::io::AsyncRead for NaiveSeeker<R> {
         // The amount of data read can be determined by the increase
         // in the length of the slice returned by `ReadBuf::filled`.
         let filled_before = buf.filled().len();
+
         let this = self.project();
-        let pos: &mut u64 = this.pos;
+        ready!(this.r.poll_read(cx, buf))?;
+        let bytes_read = buf.filled().len() - filled_before;
+        *this.pos += bytes_read as u64;
 
-        match this.r.poll_read(cx, buf) {
-            Poll::Ready(a) => {
-                let bytes_read = buf.filled().len() - filled_before;
-                *pos += bytes_read as u64;
-
-                Poll::Ready(a)
-            }
-            Poll::Pending => Poll::Pending,
-        }
+        Ok(()).into()
     }
 }
 
@@ -115,7 +111,7 @@ impl<R: tokio::io::AsyncRead> tokio::io::AsyncBufRead for NaiveSeeker<R> {
 }
 
 impl<R: tokio::io::AsyncRead> tokio::io::AsyncSeek for NaiveSeeker<R> {
-    #[instrument(skip(self))]
+    #[instrument(skip(self), err(Debug))]
     fn start_seek(
         self: std::pin::Pin<&mut Self>,
         position: std::io::SeekFrom,
