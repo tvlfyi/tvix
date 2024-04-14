@@ -162,12 +162,11 @@ where
             InodeData::Directory(DirectoryInodeData::Sparse(ref parent_digest, _)) => {
                 let directory = self
                     .tokio_handle
-                    .block_on(self.tokio_handle.spawn({
+                    .block_on({
                         let directory_service = self.directory_service.clone();
                         let parent_digest = parent_digest.to_owned();
                         async move { directory_service.as_ref().get(&parent_digest).await }
-                    }))
-                    .unwrap()?
+                    })?
                     .ok_or_else(|| {
                         warn!(directory.digest=%parent_digest, "directory not found");
                         // If the Directory can't be found, this is a hole, bail out.
@@ -505,15 +504,11 @@ where
                 let span = info_span!("read", blob.digest = %blob_digest);
                 let _enter = span.enter();
 
-                let task = self.tokio_handle.spawn({
+                match self.tokio_handle.block_on({
                     let blob_service = self.blob_service.clone();
                     let blob_digest = blob_digest.clone();
                     async move { blob_service.as_ref().open_read(&blob_digest).await }
-                });
-
-                let blob_reader = self.tokio_handle.block_on(task).unwrap();
-
-                match blob_reader {
+                }) {
                     Ok(None) => {
                         warn!("blob not found");
                         Err(io::Error::from_raw_os_error(libc::EIO))
@@ -594,7 +589,7 @@ where
             }
         };
 
-        let task = self.tokio_handle.spawn(async move {
+        let buf = self.tokio_handle.block_on(async move {
             let mut blob_reader = blob_reader.lock().await;
 
             // seek to the offset specified, which is relative to the start of the file.
@@ -619,9 +614,7 @@ where
             tokio::io::copy(&mut blob_reader.as_mut().take(size as u64), &mut buf).await?;
 
             Ok(buf)
-        });
-
-        let buf = self.tokio_handle.block_on(task).unwrap()?;
+        })?;
 
         w.write(&buf)
     }
