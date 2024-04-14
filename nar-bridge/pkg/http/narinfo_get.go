@@ -96,37 +96,42 @@ func renderNarinfo(
 }
 
 func registerNarinfoGet(s *Server) {
-	// GET $outHash.narinfo looks up the PathInfo from the tvix-store,
-	// and then render a .narinfo file to the client.
-	// It will keep the PathInfo in the lookup map,
-	// so a subsequent GET /nar/ $narhash.nar request can find it.
-	s.handler.Get("/{outputhash:^["+nixbase32.Alphabet+"]{32}}.narinfo", func(w http.ResponseWriter, r *http.Request) {
-		defer r.Body.Close()
+	// GET/HEAD $outHash.narinfo looks up the PathInfo from the tvix-store,
+	// and, if it's a GET request, render a .narinfo file to the client.
+	// In both cases it will keep the PathInfo in the lookup map,
+	// so a subsequent GET/HEAD /nar/ $narhash.nar request can find it.
+	genNarinfoHandler := func(isHead bool) func(w http.ResponseWriter, r *http.Request) {
+		return func(w http.ResponseWriter, r *http.Request) {
+			defer r.Body.Close()
 
-		ctx := r.Context()
-		log := log.WithField("outputhash", chi.URLParamFromCtx(ctx, "outputhash"))
+			ctx := r.Context()
+			log := log.WithField("outputhash", chi.URLParamFromCtx(ctx, "outputhash"))
 
-		// parse the output hash sent in the request URL
-		outputHash, err := nixbase32.DecodeString(chi.URLParamFromCtx(ctx, "outputhash"))
-		if err != nil {
-			log.WithError(err).Error("unable to decode output hash from url")
-			w.WriteHeader(http.StatusBadRequest)
-			_, err := w.Write([]byte("unable to decode output hash from url"))
+			// parse the output hash sent in the request URL
+			outputHash, err := nixbase32.DecodeString(chi.URLParamFromCtx(ctx, "outputhash"))
 			if err != nil {
-				log.WithError(err).Errorf("unable to write error message to client")
+				log.WithError(err).Error("unable to decode output hash from url")
+				w.WriteHeader(http.StatusBadRequest)
+				_, err := w.Write([]byte("unable to decode output hash from url"))
+				if err != nil {
+					log.WithError(err).Errorf("unable to write error message to client")
+				}
+
+				return
 			}
 
-			return
-		}
-
-		err = renderNarinfo(ctx, log, s.pathInfoServiceClient, &s.narDbMu, s.narDb, outputHash, w, false)
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				w.WriteHeader(http.StatusNotFound)
-			} else {
-				log.WithError(err).Warn("unable to render narinfo")
-				w.WriteHeader(http.StatusInternalServerError)
+			err = renderNarinfo(ctx, log, s.pathInfoServiceClient, &s.narDbMu, s.narDb, outputHash, w, isHead)
+			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					w.WriteHeader(http.StatusNotFound)
+				} else {
+					log.WithError(err).Warn("unable to render narinfo")
+					w.WriteHeader(http.StatusInternalServerError)
+				}
 			}
 		}
-	})
+	}
+
+	s.handler.Get("/{outputhash:^["+nixbase32.Alphabet+"]{32}}.narinfo", genNarinfoHandler(false))
+	s.handler.Head("/{outputhash:^["+nixbase32.Alphabet+"]{32}}.narinfo", genNarinfoHandler(true))
 }
