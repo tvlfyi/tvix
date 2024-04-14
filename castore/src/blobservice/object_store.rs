@@ -125,7 +125,14 @@ impl BlobService for ObjectStoreBlobService {
 
         match self.object_store.head(&p).await {
             Ok(_) => Ok(true),
-            Err(object_store::Error::NotFound { .. }) => Ok(false),
+            Err(object_store::Error::NotFound { .. }) => {
+                let p = derive_chunk_path(&self.base_path, digest);
+                match self.object_store.head(&p).await {
+                    Ok(_) => Ok(true),
+                    Err(object_store::Error::NotFound { .. }) => Ok(false),
+                    Err(e) => Err(e)?,
+                }
+            }
             Err(e) => Err(e)?,
         }
     }
