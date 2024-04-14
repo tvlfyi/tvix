@@ -14,7 +14,7 @@ use prost::Message;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio_stream::StreamExt;
 use tonic::async_trait;
-use tracing::{debug, info, instrument, trace, Level};
+use tracing::{debug, instrument, trace, Level};
 use url::Url;
 
 use crate::{
@@ -325,7 +325,7 @@ async fn upload_chunk(
     match object_store.head(&chunk_path).await {
         // chunk already exists, nothing to do
         Ok(_) => {
-            info!("chunk already exists");
+            debug!("chunk already exists");
         }
 
         // chunk does not yet exist, compress and upload.
@@ -333,7 +333,7 @@ async fn upload_chunk(
             let chunk_data_compressed =
                 zstd::encode_all(Cursor::new(chunk_data), zstd::DEFAULT_COMPRESSION_LEVEL)?;
 
-            info!(chunk.compressed_size=%chunk_data_compressed.len(), "uploading chunk");
+            debug!(chunk.compressed_size=%chunk_data_compressed.len(), "uploading chunk");
 
             object_store
                 .as_ref()
