@@ -13,7 +13,7 @@ use tokio_util::{
     sync::PollSender,
 };
 use tonic::{async_trait, transport::Channel, Code, Status};
-use tracing::{instrument, warn};
+use tracing::instrument;
 
 /// Connects to a (remote) tvix-store BlobService over gRPC.
 #[derive(Clone)]
@@ -161,9 +161,6 @@ impl BlobService for GRPCBlobService {
                 resp.validate()
                     .map_err(|e| std::io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-                if resp.chunks.is_empty() {
-                    warn!("chunk list is empty");
-                }
                 Ok(Some(resp.chunks))
             }
         }
