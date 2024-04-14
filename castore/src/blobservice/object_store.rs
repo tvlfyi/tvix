@@ -149,6 +149,7 @@ impl BlobService for ObjectStoreBlobService {
             .await
         {
             Ok(res) => {
+                // handle reading blobs that are small enough to fit inside a single chunk:
                 // fetch the entire chunk into memory, decompress, ensure the b3 digest matches,
                 // and return a io::Cursor over that data.
                 // FUTUREWORK: use zstd::bulk to prevent decompression bombs
