@@ -1,5 +1,6 @@
 use crate::blobservice::BlobService;
 use core::pin::pin;
+use data_encoding::BASE64;
 use futures::{stream::BoxStream, TryFutureExt};
 use std::{
     collections::VecDeque,
@@ -86,7 +87,7 @@ where
     // https://github.com/tokio-rs/tokio/issues/2723#issuecomment-1534723933
     type ReadStream = BoxStream<'static, Result<super::BlobChunk, Status>>;
 
-    #[instrument(skip_all)]
+    #[instrument(skip_all, fields(blob.digest=format!("b3:{}", BASE64.encode(&request.get_ref().digest))))]
     async fn stat(
         &self,
         request: Request<super::StatBlobRequest>,
@@ -110,7 +111,7 @@ where
         }
     }
 
-    #[instrument(skip_all)]
+    #[instrument(skip_all, fields(blob.digest=format!("b3:{}", BASE64.encode(&request.get_ref().digest))))]
     async fn read(
         &self,
         request: Request<super::ReadBlobRequest>,
