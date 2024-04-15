@@ -2,6 +2,8 @@
 //! about inodes, which present tvix-castore nodes in a filesystem.
 use std::time::Duration;
 
+use bytes::Bytes;
+
 use crate::proto as castorepb;
 use crate::B3Digest;
 
@@ -12,7 +14,36 @@ pub enum InodeData {
     Directory(DirectoryInodeData), // either [DirectoryInodeData:Sparse] or [DirectoryInodeData:Populated]
 }
 
+/// This encodes the two different states of [InodeData::Directory].
+/// Either the data still is sparse (we only saw a [castorepb::DirectoryNode],
+/// but didn't fetch the [castorepb::Directory] struct yet, or we processed a
+/// lookup and did fetch the data.
+#[derive(Clone, Debug)]
+pub enum DirectoryInodeData {
+    Sparse(B3Digest, u64),                                  // digest, size
+    Populated(B3Digest, Vec<(u64, castorepb::node::Node)>), // [(child_inode, node)]
+}
+
 impl InodeData {
+    /// Constructs a new InodeData by consuming a [Node].
+    /// It splits off the orginal name, so it can be used later.
+    pub fn from_node(node: castorepb::node::Node) -> (Self, Bytes) {
+        match node {
+            castorepb::node::Node::Directory(n) => (
+                Self::Directory(DirectoryInodeData::Sparse(
+                    n.digest.try_into().unwrap(),
+                    n.size,
+                )),
+                n.name,
+            ),
+            castorepb::node::Node::File(n) => (
+                Self::Regular(n.digest.try_into().unwrap(), n.size, n.executable),
+                n.name,
+            ),
+            castorepb::node::Node::Symlink(n) => (Self::Symlink(n.target), n.name),
+        }
+    }
+
     pub fn as_fuse_file_attr(&self, inode: u64) -> fuse_backend_rs::abi::fuse_abi::Attr {
         fuse_backend_rs::abi::fuse_abi::Attr {
             ino: inode,
@@ -45,50 +76,19 @@ impl InodeData {
             ..Default::default()
         }
     }
-}
 
-/// This encodes the two different states of [InodeData::Directory].
-/// Either the data still is sparse (we only saw a [castorepb::DirectoryNode],
-/// but didn't fetch the [castorepb::Directory] struct yet, or we processed a
-/// lookup and did fetch the data.
-#[derive(Clone, Debug)]
-pub enum DirectoryInodeData {
-    Sparse(B3Digest, u64),                                  // digest, size
-    Populated(B3Digest, Vec<(u64, castorepb::node::Node)>), // [(child_inode, node)]
-}
+    /// Returns the u32 fuse type
+    pub fn as_fuse_type(&self) -> u32 {
+        #[allow(clippy::let_and_return)]
+        let ty = match self {
+            InodeData::Regular(_, _, _) => libc::S_IFREG,
+            InodeData::Symlink(_) => libc::S_IFLNK,
+            InodeData::Directory(_) => libc::S_IFDIR,
+        };
+        // libc::S_IFDIR is u32 on Linux and u16 on MacOS
+        #[cfg(target_os = "macos")]
+        let ty = ty as u32;
 
-impl From<&castorepb::node::Node> for InodeData {
-    fn from(value: &castorepb::node::Node) -> Self {
-        match value {
-            castorepb::node::Node::Directory(directory_node) => directory_node.into(),
-            castorepb::node::Node::File(file_node) => file_node.into(),
-            castorepb::node::Node::Symlink(symlink_node) => symlink_node.into(),
-        }
-    }
-}
-
-impl From<&castorepb::SymlinkNode> for InodeData {
-    fn from(value: &castorepb::SymlinkNode) -> Self {
-        InodeData::Symlink(value.target.clone())
-    }
-}
-
-impl From<&castorepb::FileNode> for InodeData {
-    fn from(value: &castorepb::FileNode) -> Self {
-        InodeData::Regular(
-            value.digest.clone().try_into().unwrap(),
-            value.size,
-            value.executable,
-        )
-    }
-}
-
-/// Converts a DirectoryNode to a sparsely populated InodeData::Directory.
-impl From<&castorepb::DirectoryNode> for InodeData {
-    fn from(value: &castorepb::DirectoryNode) -> Self {
-        InodeData::Directory(DirectoryInodeData::Sparse(
-            value.digest.clone().try_into().unwrap(),
-            value.size,
-        ))
+        ty
     }
 }

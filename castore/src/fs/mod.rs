@@ -26,6 +26,7 @@ use crate::{
     B3Digest,
 };
 use bstr::ByteVec;
+use bytes::Bytes;
 use fuse_backend_rs::abi::fuse_abi::{stat64, OpenOptions};
 use fuse_backend_rs::api::filesystem::{
     Context, FileSystem, FsOptions, GetxattrReply, ListxattrReply, ROOT_ID,
@@ -91,7 +92,7 @@ pub struct TvixStoreFs<BS, DS, RN> {
     show_xattr: bool,
 
     /// This maps a given basename in the root to the inode we allocated for the node.
-    root_nodes: RwLock<HashMap<Vec<u8>, u64>>,
+    root_nodes: RwLock<HashMap<Bytes, u64>>,
 
     /// This keeps track of inodes and data alongside them.
     inode_tracker: RwLock<InodeTracker>,
@@ -196,13 +197,16 @@ where
 
                 // Turn the retrieved directory into a InodeData::Directory(DirectoryInodeData::Populated(..)),
                 // allocating inodes for the children on the way.
+                // FUTUREWORK: there's a bunch of cloning going on here, which we can probably avoid.
                 let children = {
                     let mut inode_tracker = self.inode_tracker.write();
 
                     let children: Vec<(u64, castorepb::node::Node)> = directory
                         .nodes()
                         .map(|child_node| {
-                            let child_ino = inode_tracker.put((&child_node).into());
+                            let (inode_data, _) = InodeData::from_node(child_node.clone());
+
+                            let child_ino = inode_tracker.put(inode_data);
                             (child_ino, child_node)
                         })
                         .collect();
@@ -263,7 +267,7 @@ where
             // the root node doesn't exist, so the file doesn't exist.
             Ok(None) => Err(io::Error::from_raw_os_error(libc::ENOENT)),
             // The root node does exist
-            Ok(Some(ref root_node)) => {
+            Ok(Some(root_node)) => {
                 // The name must match what's passed in the lookup, otherwise this is also a ENOENT.
                 if root_node.get_name() != name.to_bytes() {
                     debug!(root_node.name=?root_node.get_name(), found_node.name=%name.to_string_lossy(), "node name mismatch");
@@ -286,9 +290,9 @@ where
 
                 // insert the (sparse) inode data and register in
                 // self.root_nodes.
-                let inode_data: InodeData = root_node.into();
+                let (inode_data, name) = InodeData::from_node(root_node);
                 let ino = inode_tracker.put(inode_data.clone());
-                root_nodes.insert(name.to_bytes().into(), ino);
+                root_nodes.insert(name, ino);
 
                 Ok((ino, Arc::new(inode_data)))
             }
@@ -463,30 +467,22 @@ where
                     io::Error::from_raw_os_error(libc::EIO)
                 })?;
 
-                let name = root_node.get_name();
-                let ty = match root_node {
-                    Node::Directory(_) => libc::S_IFDIR,
-                    Node::File(_) => libc::S_IFREG,
-                    Node::Symlink(_) => libc::S_IFLNK,
-                };
+                let (inode_data, name) = InodeData::from_node(root_node);
 
                 // obtain the inode, or allocate a new one.
-                let ino = self.get_inode_for_root_name(name).unwrap_or_else(|| {
+                let ino = self.get_inode_for_root_name(&name).unwrap_or_else(|| {
                     // insert the (sparse) inode data and register in
                     // self.root_nodes.
-                    let ino = self.inode_tracker.write().put((&root_node).into());
-                    self.root_nodes.write().insert(name.into(), ino);
+                    let ino = self.inode_tracker.write().put(inode_data.clone());
+                    self.root_nodes.write().insert(name.clone(), ino);
                     ino
                 });
-
-                #[cfg(target_os = "macos")]
-                let ty = ty as u32;
 
                 let written = add_entry(fuse_backend_rs::api::filesystem::DirEntry {
                     ino,
                     offset: offset + i as u64 + 1,
-                    type_: ty,
-                    name,
+                    type_: inode_data.as_fuse_type(),
+                    name: &name,
                 })?;
                 // If the buffer is full, add_entry will return `Ok(0)`.
                 if written == 0 {
@@ -500,23 +496,15 @@ where
         let (parent_digest, children) = self.get_directory_children(inode)?;
         Span::current().record("directory.digest", parent_digest.to_string());
 
-        for (i, (ino, child_node)) in children.iter().skip(offset as usize).enumerate() {
+        for (i, (ino, child_node)) in children.into_iter().skip(offset as usize).enumerate() {
+            let (inode_data, name) = InodeData::from_node(child_node);
+
             // the second parameter will become the "offset" parameter on the next call.
             let written = add_entry(fuse_backend_rs::api::filesystem::DirEntry {
-                ino: *ino,
+                ino,
                 offset: offset + i as u64 + 1,
-                type_: match child_node {
-                    #[allow(clippy::unnecessary_cast)]
-                    // libc::S_IFDIR is u32 on Linux and u16 on MacOS
-                    Node::Directory(_) => libc::S_IFDIR as u32,
-                    #[allow(clippy::unnecessary_cast)]
-                    // libc::S_IFDIR is u32 on Linux and u16 on MacOS
-                    Node::File(_) => libc::S_IFREG as u32,
-                    #[allow(clippy::unnecessary_cast)]
-                    // libc::S_IFDIR is u32 on Linux and u16 on MacOS
-                    Node::Symlink(_) => libc::S_IFLNK as u32,
-                },
-                name: child_node.get_name(),
+                type_: inode_data.as_fuse_type(),
+                name: &name,
             })?;
             // If the buffer is full, add_entry will return `Ok(0)`.
             if written == 0 {
@@ -566,33 +554,23 @@ where
                     io::Error::from_raw_os_error(libc::EPERM)
                 })?;
 
-                let name = root_node.get_name();
-                let ty = match root_node {
-                    Node::Directory(_) => libc::S_IFDIR,
-                    Node::File(_) => libc::S_IFREG,
-                    Node::Symlink(_) => libc::S_IFLNK,
-                };
-
-                let inode_data: InodeData = (&root_node).into();
+                let (inode_data, name) = InodeData::from_node(root_node);
 
                 // obtain the inode, or allocate a new one.
-                let ino = self.get_inode_for_root_name(name).unwrap_or_else(|| {
+                let ino = self.get_inode_for_root_name(&name).unwrap_or_else(|| {
                     // insert the (sparse) inode data and register in
                     // self.root_nodes.
                     let ino = self.inode_tracker.write().put(inode_data.clone());
-                    self.root_nodes.write().insert(name.into(), ino);
+                    self.root_nodes.write().insert(name.clone(), ino);
                     ino
                 });
-
-                #[cfg(target_os = "macos")]
-                let ty = ty as u32;
 
                 let written = add_entry(
                     fuse_backend_rs::api::filesystem::DirEntry {
                         ino,
                         offset: offset + i as u64 + 1,
-                        type_: ty,
-                        name,
+                        type_: inode_data.as_fuse_type(),
+                        name: &name,
                     },
                     inode_data.as_fuse_entry(ino),
                 )?;
@@ -608,27 +586,18 @@ where
         let (parent_digest, children) = self.get_directory_children(inode)?;
         Span::current().record("directory.digest", parent_digest.to_string());
 
-        for (i, (ino, child_node)) in children.iter().skip(offset as usize).enumerate() {
-            let inode_data: InodeData = child_node.into();
+        for (i, (ino, child_node)) in children.into_iter().skip(offset as usize).enumerate() {
+            let (inode_data, name) = InodeData::from_node(child_node);
+
             // the second parameter will become the "offset" parameter on the next call.
             let written = add_entry(
                 fuse_backend_rs::api::filesystem::DirEntry {
-                    ino: *ino,
+                    ino,
                     offset: offset + i as u64 + 1,
-                    type_: match child_node {
-                        #[allow(clippy::unnecessary_cast)]
-                        // libc::S_IFDIR is u32 on Linux and u16 on MacOS
-                        Node::Directory(_) => libc::S_IFDIR as u32,
-                        #[allow(clippy::unnecessary_cast)]
-                        // libc::S_IFDIR is u32 on Linux and u16 on MacOS
-                        Node::File(_) => libc::S_IFREG as u32,
-                        #[allow(clippy::unnecessary_cast)]
-                        // libc::S_IFDIR is u32 on Linux and u16 on MacOS
-                        Node::Symlink(_) => libc::S_IFLNK as u32,
-                    },
-                    name: child_node.get_name(),
+                    type_: inode_data.as_fuse_type(),
+                    name: &name,
                 },
-                inode_data.as_fuse_entry(*ino),
+                inode_data.as_fuse_entry(ino),
             )?;
             // If the buffer is full, add_entry will return `Ok(0)`.
             if written == 0 {
