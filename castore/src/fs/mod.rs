@@ -14,7 +14,7 @@ mod tests;
 
 pub use self::root_nodes::RootNodes;
 use self::{
-    file_attr::{gen_file_attr, ROOT_FILE_ATTR},
+    file_attr::ROOT_FILE_ATTR,
     inode_tracker::InodeTracker,
     inodes::{DirectoryInodeData, InodeData},
 };
@@ -328,9 +328,9 @@ where
 
         match self.inode_tracker.read().get(inode) {
             None => Err(io::Error::from_raw_os_error(libc::ENOENT)),
-            Some(node) => {
-                debug!(node = ?node, "found node");
-                Ok((gen_file_attr(&node, inode).into(), Duration::MAX))
+            Some(inode_data) => {
+                debug!(inode_data = ?inode_data, "found node");
+                Ok((inode_data.as_fuse_file_attr(inode).into(), Duration::MAX))
             }
         }
     }
@@ -353,13 +353,7 @@ where
             let (ino, inode_data) = self.name_in_root_to_ino_and_data(name)?;
 
             debug!(inode_data=?&inode_data, ino=ino, "Some");
-            return Ok(fuse_backend_rs::api::filesystem::Entry {
-                inode: ino,
-                attr: gen_file_attr(&inode_data, ino).into(),
-                attr_timeout: Duration::MAX,
-                entry_timeout: Duration::MAX,
-                ..Default::default()
-            });
+            return Ok(inode_data.as_fuse_entry(ino));
         }
         // This is the "lookup for "a" inside inode 42.
         // We already know that inode 42 must be a directory.
@@ -376,13 +370,7 @@ where
 
             // Reply with the file attributes for the child.
             // For child directories, we still have all data we need to reply.
-            Ok(fuse_backend_rs::api::filesystem::Entry {
-                inode: *child_ino,
-                attr: gen_file_attr(&child_inode_data, *child_ino).into(),
-                attr_timeout: Duration::MAX,
-                entry_timeout: Duration::MAX,
-                ..Default::default()
-            })
+            Ok(child_inode_data.as_fuse_entry(*child_ino))
         } else {
             // Child not found, return ENOENT.
             Err(io::Error::from_raw_os_error(libc::ENOENT))
@@ -606,13 +594,7 @@ where
                         type_: ty,
                         name,
                     },
-                    fuse_backend_rs::api::filesystem::Entry {
-                        inode: ino,
-                        attr: gen_file_attr(&inode_data, ino).into(),
-                        attr_timeout: Duration::MAX,
-                        entry_timeout: Duration::MAX,
-                        ..Default::default()
-                    },
+                    inode_data.as_fuse_entry(ino),
                 )?;
                 // If the buffer is full, add_entry will return `Ok(0)`.
                 if written == 0 {
@@ -646,13 +628,7 @@ where
                     },
                     name: child_node.get_name(),
                 },
-                fuse_backend_rs::api::filesystem::Entry {
-                    inode: *ino,
-                    attr: gen_file_attr(&inode_data, *ino).into(),
-                    attr_timeout: Duration::MAX,
-                    entry_timeout: Duration::MAX,
-                    ..Default::default()
-                },
+                inode_data.as_fuse_entry(*ino),
             )?;
             // If the buffer is full, add_entry will return `Ok(0)`.
             if written == 0 {

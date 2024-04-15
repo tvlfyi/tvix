@@ -1,5 +1,5 @@
 #![allow(clippy::unnecessary_cast)] // libc::S_IFDIR is u32 on Linux and u16 on MacOS
-use super::inodes::{DirectoryInodeData, InodeData};
+
 use fuse_backend_rs::abi::fuse_abi::Attr;
 
 /// The [Attr] describing the root
@@ -27,27 +27,3 @@ pub const ROOT_FILE_ATTR: Attr = Attr {
     #[cfg(target_os = "macos")]
     padding: 0,
 };
-
-/// for given &Node and inode, construct an [Attr]
-pub fn gen_file_attr(inode_data: &InodeData, inode: u64) -> Attr {
-    Attr {
-        ino: inode,
-        // FUTUREWORK: play with this numbers, as it affects read sizes for client applications.
-        blocks: 1024,
-        size: match inode_data {
-            InodeData::Regular(_, size, _) => *size as u64,
-            InodeData::Symlink(target) => target.len() as u64,
-            InodeData::Directory(DirectoryInodeData::Sparse(_, size)) => *size as u64,
-            InodeData::Directory(DirectoryInodeData::Populated(_, ref children)) => {
-                children.len() as u64
-            }
-        },
-        mode: match inode_data {
-            InodeData::Regular(_, _, false) => libc::S_IFREG as u32 | 0o444, // no-executable files
-            InodeData::Regular(_, _, true) => libc::S_IFREG as u32 | 0o555,  // executable files
-            InodeData::Symlink(_) => libc::S_IFLNK as u32 | 0o444,
-            InodeData::Directory(_) => libc::S_IFDIR as u32 | 0o555,
-        },
-        ..Default::default()
-    }
-}

@@ -1,5 +1,7 @@
 //! This module contains all the data structures used to track information
 //! about inodes, which present tvix-castore nodes in a filesystem.
+use std::time::Duration;
+
 use crate::proto as castorepb;
 use crate::B3Digest;
 
@@ -8,6 +10,41 @@ pub enum InodeData {
     Regular(B3Digest, u64, bool),  // digest, size, executable
     Symlink(bytes::Bytes),         // target
     Directory(DirectoryInodeData), // either [DirectoryInodeData:Sparse] or [DirectoryInodeData:Populated]
+}
+
+impl InodeData {
+    pub fn as_fuse_file_attr(&self, inode: u64) -> fuse_backend_rs::abi::fuse_abi::Attr {
+        fuse_backend_rs::abi::fuse_abi::Attr {
+            ino: inode,
+            // FUTUREWORK: play with this numbers, as it affects read sizes for client applications.
+            blocks: 1024,
+            size: match self {
+                InodeData::Regular(_, size, _) => *size,
+                InodeData::Symlink(target) => target.len() as u64,
+                InodeData::Directory(DirectoryInodeData::Sparse(_, size)) => *size,
+                InodeData::Directory(DirectoryInodeData::Populated(_, ref children)) => {
+                    children.len() as u64
+                }
+            },
+            mode: match self {
+                InodeData::Regular(_, _, false) => libc::S_IFREG | 0o444, // no-executable files
+                InodeData::Regular(_, _, true) => libc::S_IFREG | 0o555,  // executable files
+                InodeData::Symlink(_) => libc::S_IFLNK | 0o444,
+                InodeData::Directory(_) => libc::S_IFDIR | 0o555,
+            },
+            ..Default::default()
+        }
+    }
+
+    pub fn as_fuse_entry(&self, inode: u64) -> fuse_backend_rs::api::filesystem::Entry {
+        fuse_backend_rs::api::filesystem::Entry {
+            inode,
+            attr: self.as_fuse_file_attr(inode).into(),
+            attr_timeout: Duration::MAX,
+            entry_timeout: Duration::MAX,
+            ..Default::default()
+        }
+    }
 }
 
 /// This encodes the two different states of [InodeData::Directory].
