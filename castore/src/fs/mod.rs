@@ -12,6 +12,12 @@ pub mod virtiofs;
 #[cfg(test)]
 mod tests;
 
+pub use self::root_nodes::RootNodes;
+use self::{
+    file_attr::{gen_file_attr, ROOT_FILE_ATTR},
+    inode_tracker::InodeTracker,
+    inodes::{DirectoryInodeData, InodeData},
+};
 use crate::proto as castorepb;
 use crate::{
     blobservice::{BlobReader, BlobService},
@@ -39,14 +45,7 @@ use tokio::{
     io::{AsyncReadExt, AsyncSeekExt},
     sync::mpsc,
 };
-use tracing::{debug, info_span, instrument, warn};
-
-pub use self::root_nodes::RootNodes;
-use self::{
-    file_attr::{gen_file_attr, ROOT_FILE_ATTR},
-    inode_tracker::InodeTracker,
-    inodes::{DirectoryInodeData, InodeData},
-};
+use tracing::{debug, instrument, warn, Span};
 
 /// This implements a read-only FUSE filesystem for a tvix-store
 /// with the passed [BlobService], [DirectoryService] and [RootNodes].
@@ -359,9 +358,7 @@ where
         // We already know that inode 42 must be a directory.
         let (parent_digest, children) = self.get_directory_children(parent)?;
 
-        let span = info_span!("lookup", directory.digest = %parent_digest);
-        let _enter = span.enter();
-
+        Span::current().record("directory.digest", parent_digest.to_string());
         // Search for that name in the list of children and return the FileAttrs.
 
         // in the children, find the one with the desired name.
@@ -507,9 +504,7 @@ where
 
         // Non root-node case: lookup the children, or return an error if it's not a directory.
         let (parent_digest, children) = self.get_directory_children(inode)?;
-
-        let span = info_span!("lookup", directory.digest = %parent_digest);
-        let _enter = span.enter();
+        Span::current().record("directory.digest", parent_digest.to_string());
 
         for (i, (ino, child_node)) in children.iter().skip(offset as usize).enumerate() {
             // the second parameter will become the "offset" parameter on the next call.
@@ -623,9 +618,7 @@ where
 
         // Non root-node case: lookup the children, or return an error if it's not a directory.
         let (parent_digest, children) = self.get_directory_children(inode)?;
-
-        let span = info_span!("lookup", directory.digest = %parent_digest);
-        let _enter = span.enter();
+        Span::current().record("directory.digest", parent_digest.to_string());
 
         for (i, (ino, child_node)) in children.iter().skip(offset as usize).enumerate() {
             let inode_data: InodeData = child_node.into();
@@ -709,8 +702,7 @@ where
                 Err(io::Error::from_raw_os_error(libc::EISDIR))
             }
             InodeData::Regular(ref blob_digest, _blob_size, _) => {
-                let span = info_span!("read", blob.digest = %blob_digest);
-                let _enter = span.enter();
+                Span::current().record("blob.digest", blob_digest.to_string());
 
                 match self.tokio_handle.block_on({
                     let blob_service = self.blob_service.clone();
