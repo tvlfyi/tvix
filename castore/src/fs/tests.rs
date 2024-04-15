@@ -281,14 +281,8 @@ async fn root() {
     .expect("must succeed");
 
     {
-        // read_dir succeeds, but getting the first element will fail.
-        let mut it = ReadDirStream::new(tokio::fs::read_dir(tmpdir).await.expect("must succeed"));
-
-        let err = it
-            .next()
-            .await
-            .expect("must be some")
-            .expect_err("must be err");
+        // read_dir fails (as opendir fails).
+        let err = tokio::fs::read_dir(tmpdir).await.expect_err("must fail");
         assert_eq!(std::io::ErrorKind::PermissionDenied, err.kind());
     }
 
