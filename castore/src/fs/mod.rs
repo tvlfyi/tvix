@@ -537,7 +537,132 @@ where
 
         Ok(())
     }
-    // TODO: readdirplus?
+
+    #[tracing::instrument(skip_all, fields(rq.inode = inode, rq.handle = handle))]
+    fn readdirplus(
+        &self,
+        _ctx: &Context,
+        inode: Self::Inode,
+        handle: Self::Handle,
+        _size: u32,
+        offset: u64,
+        add_entry: &mut dyn FnMut(
+            fuse_backend_rs::api::filesystem::DirEntry,
+            fuse_backend_rs::api::filesystem::Entry,
+        ) -> io::Result<usize>,
+    ) -> io::Result<()> {
+        debug!("readdirplus");
+
+        if inode == ROOT_ID {
+            if !self.list_root {
+                return Err(io::Error::from_raw_os_error(libc::EPERM)); // same error code as ipfs/kubo
+            }
+
+            // get the handle from [self.dir_handles]
+            let rx = match self.dir_handles.read().get(&handle) {
+                Some(rx) => rx.clone(),
+                None => {
+                    warn!("dir handle {} unknown", handle);
+                    return Err(io::Error::from_raw_os_error(libc::EIO));
+                }
+            };
+
+            let mut rx = rx
+                .lock()
+                .map_err(|_| crate::Error::StorageError("mutex poisoned".into()))?;
+
+            while let Some((i, n)) = rx.blocking_recv() {
+                let root_node = n.map_err(|e| {
+                    warn!("failed to retrieve root node: {}", e);
+                    io::Error::from_raw_os_error(libc::EPERM)
+                })?;
+
+                let name = root_node.get_name();
+                let ty = match root_node {
+                    Node::Directory(_) => libc::S_IFDIR,
+                    Node::File(_) => libc::S_IFREG,
+                    Node::Symlink(_) => libc::S_IFLNK,
+                };
+
+                let inode_data: InodeData = (&root_node).into();
+
+                // obtain the inode, or allocate a new one.
+                let ino = self.get_inode_for_root_name(name).unwrap_or_else(|| {
+                    // insert the (sparse) inode data and register in
+                    // self.root_nodes.
+                    let ino = self.inode_tracker.write().put(inode_data.clone());
+                    self.root_nodes.write().insert(name.into(), ino);
+                    ino
+                });
+
+                #[cfg(target_os = "macos")]
+                let ty = ty as u32;
+
+                let written = add_entry(
+                    fuse_backend_rs::api::filesystem::DirEntry {
+                        ino,
+                        offset: offset + i as u64 + 1,
+                        type_: ty,
+                        name,
+                    },
+                    fuse_backend_rs::api::filesystem::Entry {
+                        inode: ino,
+                        attr: gen_file_attr(&inode_data, ino).into(),
+                        attr_timeout: Duration::MAX,
+                        entry_timeout: Duration::MAX,
+                        ..Default::default()
+                    },
+                )?;
+                // If the buffer is full, add_entry will return `Ok(0)`.
+                if written == 0 {
+                    break;
+                }
+            }
+            return Ok(());
+        }
+
+        // Non root-node case: lookup the children, or return an error if it's not a directory.
+        let (parent_digest, children) = self.get_directory_children(inode)?;
+
+        let span = info_span!("lookup", directory.digest = %parent_digest);
+        let _enter = span.enter();
+
+        for (i, (ino, child_node)) in children.iter().skip(offset as usize).enumerate() {
+            let inode_data: InodeData = child_node.into();
+            // the second parameter will become the "offset" parameter on the next call.
+            let written = add_entry(
+                fuse_backend_rs::api::filesystem::DirEntry {
+                    ino: *ino,
+                    offset: offset + i as u64 + 1,
+                    type_: match child_node {
+                        #[allow(clippy::unnecessary_cast)]
+                        // libc::S_IFDIR is u32 on Linux and u16 on MacOS
+                        Node::Directory(_) => libc::S_IFDIR as u32,
+                        #[allow(clippy::unnecessary_cast)]
+                        // libc::S_IFDIR is u32 on Linux and u16 on MacOS
+                        Node::File(_) => libc::S_IFREG as u32,
+                        #[allow(clippy::unnecessary_cast)]
+                        // libc::S_IFDIR is u32 on Linux and u16 on MacOS
+                        Node::Symlink(_) => libc::S_IFLNK as u32,
+                    },
+                    name: child_node.get_name(),
+                },
+                fuse_backend_rs::api::filesystem::Entry {
+                    inode: *ino,
+                    attr: gen_file_attr(&inode_data, *ino).into(),
+                    attr_timeout: Duration::MAX,
+                    entry_timeout: Duration::MAX,
+                    ..Default::default()
+                },
+            )?;
+            // If the buffer is full, add_entry will return `Ok(0)`.
+            if written == 0 {
+                break;
+            }
+        }
+
+        Ok(())
+    }
 
     #[tracing::instrument(skip_all, fields(rq.inode = inode, rq.handle = handle))]
     fn releasedir(
