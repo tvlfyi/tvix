@@ -426,7 +426,6 @@ where
             // for the discussion on alternatives.
             let dh = self.next_dir_handle.fetch_add(1, Ordering::SeqCst);
 
-            debug!("add dir handle {}", dh);
             self.dir_handles
                 .write()
                 .insert(dh, (Span::current(), Arc::new(Mutex::new(rx))));
@@ -732,7 +731,6 @@ where
                         // for the discussion on alternatives.
                         let fh = self.next_file_handle.fetch_add(1, Ordering::SeqCst);
 
-                        debug!("add file handle {}", fh);
                         self.file_handles
                             .write()
                             .insert(fh, (Span::current(), Arc::new(Mutex::new(blob_reader))));
