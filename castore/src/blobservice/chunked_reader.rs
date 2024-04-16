@@ -76,12 +76,9 @@ where
     #[instrument(skip(self), err(Debug))]
     fn start_seek(self: Pin<&mut Self>, position: std::io::SeekFrom) -> std::io::Result<()> {
         let total_len = self.chunked_blob.blob_length();
-        let current_pos = self.pos;
-        let this = self.project();
-        let pos: &mut u64 = this.pos;
-        let mut r: Pin<&mut Box<dyn AsyncRead + Send + Unpin>> = this.r;
+        let mut this = self.project();
 
-        let new_position: u64 = match position {
+        let absolute_offset: u64 = match position {
             std::io::SeekFrom::Start(from_start) => from_start,
             std::io::SeekFrom::End(from_end) => {
                 // note from_end is i64, not u64, so this is usually negative.
@@ -94,7 +91,7 @@ where
             }
             std::io::SeekFrom::Current(from_current) => {
                 // note from_end is i64, not u64, so this can be positive or negative.
-                current_pos
+                (*this.pos)
                     .checked_add_signed(from_current)
                     .ok_or_else(|| {
                         std::io::Error::new(
@@ -105,17 +102,20 @@ where
             }
         };
 
-        // ensure the new position still is inside the file.
-        if new_position > total_len {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "seeked beyond EOF",
-            ))?
-        }
+        // check if the position actually did change.
+        if absolute_offset != *this.pos {
+            // ensure the new position still is inside the file.
+            if absolute_offset > total_len {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "seeked beyond EOF",
+                ))?
+            }
 
-        // Update the position and the internal reader.
-        *pos = new_position;
-        *r = this.chunked_blob.reader_skipped_offset(new_position);
+            // Update the position and the internal reader.
+            *this.pos = absolute_offset;
+            *this.r = this.chunked_blob.reader_skipped_offset(absolute_offset);
+        }
 
         Ok(())
     }
