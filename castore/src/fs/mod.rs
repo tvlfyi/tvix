@@ -33,7 +33,6 @@ use fuse_backend_rs::api::filesystem::{
 };
 use futures::StreamExt;
 use parking_lot::RwLock;
-use std::ffi::CStr;
 use std::sync::Mutex;
 use std::{
     collections::HashMap,
@@ -42,11 +41,12 @@ use std::{
     sync::{atomic::Ordering, Arc},
     time::Duration,
 };
+use std::{ffi::CStr, io::Cursor};
 use tokio::{
     io::{AsyncReadExt, AsyncSeekExt},
     sync::mpsc,
 };
-use tracing::{debug, instrument, warn, Span};
+use tracing::{debug, error, instrument, warn, Span};
 
 /// This implements a read-only FUSE filesystem for a tvix-store
 /// with the passed [BlobService], [DirectoryService] and [RootNodes].
@@ -767,7 +767,16 @@ where
             Ok::<_, std::io::Error>(buf)
         })?;
 
-        w.write(&buf)
+        // We cannot use w.write() here, we're required to call write multiple
+        // times until we wrote the entirety of the buffer (which is `size`, except on EOF).
+        let buf_len = buf.len();
+        let bytes_written = io::copy(&mut Cursor::new(buf), w)?;
+        if bytes_written != buf_len as u64 {
+            error!(bytes_written=%bytes_written, "unable to write all of buf to kernel");
+            return Err(io::Error::from_raw_os_error(libc::EIO));
+        }
+
+        Ok(bytes_written as usize)
     }
 
     #[tracing::instrument(skip_all, fields(rq.inode = inode))]
