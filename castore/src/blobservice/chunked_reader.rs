@@ -209,8 +209,8 @@ where
 
         let blob_service = self.blob_service.clone();
         let chunks: Vec<_> = self.chunks[start_chunk_idx..].to_vec();
-        let readers_stream = tokio_stream::iter(chunks).map(
-            move |(_chunk_start_offset, _chunk_size, chunk_digest)| {
+        let readers_stream = tokio_stream::iter(chunks.into_iter().enumerate()).map(
+            move |(nth_chunk, (_chunk_start_offset, _chunk_size, chunk_digest))| {
                 let chunk_digest = chunk_digest.to_owned();
                 let blob_service = blob_service.clone();
                 async move {
@@ -223,7 +223,8 @@ where
                             std::io::Error::new(std::io::ErrorKind::NotFound, "chunk not found")
                         })?;
 
-                    if skip_first_chunk_bytes > 0 {
+                    // iff this is the first chunk in the stream, skip by skip_first_chunk_bytes
+                    if nth_chunk == 0 && skip_first_chunk_bytes > 0 {
                         blob_reader
                             .seek(std::io::SeekFrom::Start(skip_first_chunk_bytes as u64))
                             .await?;
