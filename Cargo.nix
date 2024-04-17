@@ -2126,6 +2126,47 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "std" ];
       };
+      "console" = rec {
+        crateName = "console";
+        version = "0.15.8";
+        edition = "2018";
+        sha256 = "1sz4nl9nz8pkmapqni6py7jxzi7nzqjxzb3ya4kxvmkb0zy867qf";
+        authors = [
+          "Armin Ronacher <armin.ronacher@active-4.com>"
+        ];
+        dependencies = [
+          {
+            name = "encode_unicode";
+            packageId = "encode_unicode";
+            target = { target, features }: (target."windows" or false);
+          }
+          {
+            name = "lazy_static";
+            packageId = "lazy_static";
+          }
+          {
+            name = "libc";
+            packageId = "libc";
+          }
+          {
+            name = "unicode-width";
+            packageId = "unicode-width";
+            optional = true;
+          }
+          {
+            name = "windows-sys";
+            packageId = "windows-sys 0.52.0";
+            target = { target, features }: (target."windows" or false);
+            features = [ "Win32_Foundation" "Win32_System_Console" "Win32_Storage_FileSystem" "Win32_UI_Input_KeyboardAndMouse" ];
+          }
+        ];
+        features = {
+          "default" = [ "unicode-width" "ansi-parsing" ];
+          "unicode-width" = [ "dep:unicode-width" ];
+          "windows-console-colors" = [ "ansi-parsing" ];
+        };
+        resolvedDefaultFeatures = [ "ansi-parsing" "unicode-width" ];
+      };
       "const-oid" = rec {
         crateName = "const-oid";
         version = "0.9.6";
@@ -3071,6 +3112,21 @@ rec {
           "serde" = [ "dep:serde" ];
         };
         resolvedDefaultFeatures = [ "default" "use_std" ];
+      };
+      "encode_unicode" = rec {
+        crateName = "encode_unicode";
+        version = "0.3.6";
+        edition = "2015";
+        sha256 = "07w3vzrhxh9lpjgsg2y5bwzfar2aq35mdznvcp3zjl0ssj7d4mx3";
+        authors = [
+          "Torbjørn Birch Moltu <t.b.moltu@lyse.net>"
+        ];
+        features = {
+          "ascii" = [ "dep:ascii" ];
+          "clippy" = [ "dep:clippy" ];
+          "default" = [ "std" ];
+        };
+        resolvedDefaultFeatures = [ "default" "std" ];
       };
       "encoding_rs" = rec {
         crateName = "encoding_rs";
@@ -5057,6 +5113,55 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "serde" "std" ];
       };
+      "indicatif" = rec {
+        crateName = "indicatif";
+        version = "0.17.8";
+        edition = "2021";
+        sha256 = "18xyqxw9i5x4sbpzckhfz3nm984iq9r7nbi2lk76nz888n7mlfkn";
+        dependencies = [
+          {
+            name = "console";
+            packageId = "console";
+            usesDefaultFeatures = false;
+            features = [ "ansi-parsing" ];
+          }
+          {
+            name = "instant";
+            packageId = "instant";
+            target = { target, features }: ("wasm32" == target."arch" or null);
+          }
+          {
+            name = "number_prefix";
+            packageId = "number_prefix";
+          }
+          {
+            name = "portable-atomic";
+            packageId = "portable-atomic";
+          }
+          {
+            name = "unicode-width";
+            packageId = "unicode-width";
+            optional = true;
+          }
+          {
+            name = "vt100";
+            packageId = "vt100";
+            optional = true;
+          }
+        ];
+        features = {
+          "default" = [ "unicode-width" "console/unicode-width" ];
+          "futures" = [ "dep:futures-core" ];
+          "improved_unicode" = [ "unicode-segmentation" "unicode-width" "console/unicode-width" ];
+          "in_memory" = [ "vt100" ];
+          "rayon" = [ "dep:rayon" ];
+          "tokio" = [ "dep:tokio" ];
+          "unicode-segmentation" = [ "dep:unicode-segmentation" ];
+          "unicode-width" = [ "dep:unicode-width" ];
+          "vt100" = [ "dep:vt100" ];
+        };
+        resolvedDefaultFeatures = [ "default" "in_memory" "unicode-width" "vt100" ];
+      };
       "instant" = rec {
         crateName = "instant";
         version = "0.1.12";
@@ -6440,6 +6545,19 @@ rec {
         ];
 
       };
+      "number_prefix" = rec {
+        crateName = "number_prefix";
+        version = "0.4.0";
+        edition = "2015";
+        sha256 = "1wvh13wvlajqxkb1filsfzbrnq0vrmrw298v2j3sy82z1rm282w3";
+        authors = [
+          "Benjamin Sago <ogham@bsago.me>"
+        ];
+        features = {
+          "default" = [ "std" ];
+        };
+        resolvedDefaultFeatures = [ "default" "std" ];
+      };
       "object" = rec {
         crateName = "object";
         version = "0.32.2";
@@ -7534,6 +7652,18 @@ rec {
           }
         ];
 
+      };
+      "portable-atomic" = rec {
+        crateName = "portable-atomic";
+        version = "1.6.0";
+        edition = "2018";
+        sha256 = "1h77x9qx7pns0d66vdrmdbmwpi7586h7ysnkdnhrn5mwi2cyyw3i";
+        features = {
+          "critical-section" = [ "dep:critical-section" ];
+          "default" = [ "fallback" ];
+          "serde" = [ "dep:serde" ];
+        };
+        resolvedDefaultFeatures = [ "default" "fallback" ];
       };
       "powerfmt" = rec {
         crateName = "powerfmt";
@@ -12414,6 +12544,33 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "pin-project" "std" "std-future" ];
       };
+      "tracing-indicatif" = rec {
+        crateName = "tracing-indicatif";
+        version = "0.3.6";
+        edition = "2021";
+        sha256 = "07cmn4ilw8hdfzc1mirccwkgl160k3x9fhgg7xydj4gy9r181586";
+        libName = "tracing_indicatif";
+        dependencies = [
+          {
+            name = "indicatif";
+            packageId = "indicatif";
+            features = [ "in_memory" ];
+          }
+          {
+            name = "tracing";
+            packageId = "tracing";
+          }
+          {
+            name = "tracing-core";
+            packageId = "tracing-core";
+          }
+          {
+            name = "tracing-subscriber";
+            packageId = "tracing-subscriber";
+          }
+        ];
+
+      };
       "tracing-log" = rec {
         crateName = "tracing-log";
         version = "0.2.0";
@@ -12829,6 +12986,10 @@ rec {
             packageId = "futures";
           }
           {
+            name = "indicatif";
+            packageId = "indicatif";
+          }
+          {
             name = "lazy_static";
             packageId = "lazy_static";
           }
@@ -12914,6 +13075,10 @@ rec {
           {
             name = "tracing";
             packageId = "tracing";
+          }
+          {
+            name = "tracing-indicatif";
+            packageId = "tracing-indicatif";
           }
           {
             name = "url";
@@ -13387,6 +13552,10 @@ rec {
             packageId = "tracing";
           }
           {
+            name = "tracing-indicatif";
+            packageId = "tracing-indicatif";
+          }
+          {
             name = "tvix-build";
             packageId = "tvix-build";
             usesDefaultFeatures = false;
@@ -13549,6 +13718,10 @@ rec {
             packageId = "futures";
           }
           {
+            name = "indicatif";
+            packageId = "indicatif";
+          }
+          {
             name = "lazy_static";
             packageId = "lazy_static";
           }
@@ -13661,6 +13834,10 @@ rec {
           {
             name = "tracing";
             packageId = "tracing";
+          }
+          {
+            name = "tracing-indicatif";
+            packageId = "tracing-indicatif";
           }
           {
             name = "tracing-opentelemetry";
@@ -14246,6 +14423,97 @@ rec {
           "serde_derive" = [ "dep:serde_derive" ];
           "with-serde" = [ "serde" "serde_derive" ];
         };
+      };
+      "vt100" = rec {
+        crateName = "vt100";
+        version = "0.15.2";
+        edition = "2021";
+        sha256 = "1pklc8y984axmxr0cd363srr2d27wd5rj15xlcmkjznvy0xqdkc4";
+        authors = [
+          "Jesse Luehrs <doy@tozt.net>"
+        ];
+        dependencies = [
+          {
+            name = "itoa";
+            packageId = "itoa";
+          }
+          {
+            name = "log";
+            packageId = "log";
+          }
+          {
+            name = "unicode-width";
+            packageId = "unicode-width";
+          }
+          {
+            name = "vte";
+            packageId = "vte";
+          }
+        ];
+        devDependencies = [
+          {
+            name = "vte";
+            packageId = "vte";
+          }
+        ];
+
+      };
+      "vte" = rec {
+        crateName = "vte";
+        version = "0.11.1";
+        edition = "2021";
+        sha256 = "15r1ff4j8ndqj9vsyil3wqwxhhl7jsz5g58f31n0h1wlpxgjn0pm";
+        authors = [
+          "Joe Wilm <joe@jwilm.com>"
+          "Christian Duerr <contact@christianduerr.com>"
+        ];
+        dependencies = [
+          {
+            name = "arrayvec";
+            packageId = "arrayvec";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "utf8parse";
+            packageId = "utf8parse";
+          }
+          {
+            name = "vte_generate_state_changes";
+            packageId = "vte_generate_state_changes";
+          }
+        ];
+        features = {
+          "ansi" = [ "log" ];
+          "arrayvec" = [ "dep:arrayvec" ];
+          "default" = [ "no_std" ];
+          "log" = [ "dep:log" ];
+          "nightly" = [ "utf8parse/nightly" ];
+          "no_std" = [ "arrayvec" ];
+          "serde" = [ "dep:serde" ];
+        };
+        resolvedDefaultFeatures = [ "arrayvec" "default" "no_std" ];
+      };
+      "vte_generate_state_changes" = rec {
+        crateName = "vte_generate_state_changes";
+        version = "0.1.1";
+        edition = "2018";
+        sha256 = "1zs5q766q7jmc80c5c80gpzy4qpg5lnydf94mgdzrpy7h5q82myj";
+        procMacro = true;
+        authors = [
+          "Christian Duerr <contact@christianduerr.com>"
+        ];
+        dependencies = [
+          {
+            name = "proc-macro2";
+            packageId = "proc-macro2";
+          }
+          {
+            name = "quote";
+            packageId = "quote";
+          }
+        ];
+
       };
       "wait-timeout" = rec {
         crateName = "wait-timeout";
@@ -15725,7 +15993,7 @@ rec {
           "Win32_Web" = [ "Win32" ];
           "Win32_Web_InternetExplorer" = [ "Win32_Web" ];
         };
-        resolvedDefaultFeatures = [ "Wdk" "Wdk_Foundation" "Wdk_Storage" "Wdk_Storage_FileSystem" "Win32" "Win32_Foundation" "Win32_NetworkManagement" "Win32_NetworkManagement_IpHelper" "Win32_Networking" "Win32_Networking_WinSock" "Win32_Security" "Win32_Security_Authentication" "Win32_Security_Authentication_Identity" "Win32_Security_Credentials" "Win32_Security_Cryptography" "Win32_Storage" "Win32_Storage_FileSystem" "Win32_System" "Win32_System_Com" "Win32_System_Console" "Win32_System_Diagnostics" "Win32_System_Diagnostics_Debug" "Win32_System_IO" "Win32_System_LibraryLoader" "Win32_System_Memory" "Win32_System_Threading" "Win32_System_WindowsProgramming" "Win32_UI" "Win32_UI_Shell" "default" ];
+        resolvedDefaultFeatures = [ "Wdk" "Wdk_Foundation" "Wdk_Storage" "Wdk_Storage_FileSystem" "Win32" "Win32_Foundation" "Win32_NetworkManagement" "Win32_NetworkManagement_IpHelper" "Win32_Networking" "Win32_Networking_WinSock" "Win32_Security" "Win32_Security_Authentication" "Win32_Security_Authentication_Identity" "Win32_Security_Credentials" "Win32_Security_Cryptography" "Win32_Storage" "Win32_Storage_FileSystem" "Win32_System" "Win32_System_Com" "Win32_System_Console" "Win32_System_Diagnostics" "Win32_System_Diagnostics_Debug" "Win32_System_IO" "Win32_System_LibraryLoader" "Win32_System_Memory" "Win32_System_Threading" "Win32_System_WindowsProgramming" "Win32_UI" "Win32_UI_Input" "Win32_UI_Input_KeyboardAndMouse" "Win32_UI_Shell" "default" ];
       };
       "windows-targets 0.48.5" = rec {
         crateName = "windows-targets";

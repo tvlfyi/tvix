@@ -43,6 +43,8 @@ walkdir = "2.4.0"
 reqwest = { version = "0.11.22", features = ["rustls-tls-native-roots", "stream"], default-features = false }
 lru = "0.12.3"
 parking_lot = "0.12.2"
+indicatif = "0.17.8"
+tracing-indicatif = "0.3.6"
 
 [dependencies.tonic-reflection]
 optional = true

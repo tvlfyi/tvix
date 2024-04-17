@@ -7,6 +7,8 @@ use std::os::unix::ffi::OsStringExt;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::PermissionsExt;
 use tracing::instrument;
+use tracing::Span;
+use tracing_indicatif::span_ext::IndicatifSpanExt;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
 
@@ -37,6 +39,7 @@ where
     BS: BlobService + Clone,
     DS: DirectoryService,
 {
+    Span::current().pb_start();
     let iter = WalkDir::new(path.as_ref())
         .follow_links(false)
         .follow_root_links(false)
@@ -44,7 +47,17 @@ where
         .into_iter();
 
     let entries = dir_entries_to_ingestion_stream(blob_service, iter, path.as_ref());
-    ingest_entries(directory_service, entries).await
+    ingest_entries(
+        directory_service,
+        entries.inspect(|e| {
+            if let Ok(e) = e {
+                let s = Span::current();
+                s.pb_inc(1);
+                s.pb_set_message(&format!("Ingesting {}", e.path()));
+            }
+        }),
+    )
+    .await
 }
 
 /// Converts an iterator of [walkdir::DirEntry]s into a stream of ingestion entries.
