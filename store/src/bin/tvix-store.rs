@@ -5,6 +5,7 @@ use futures::future::try_join_all;
 use nix_compat::path_info::ExportedPathInfo;
 use serde::Deserialize;
 use serde::Serialize;
+use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio_listener::Listener;
@@ -430,9 +431,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
 
                 let path: PathBuf = elem.path.to_absolute_path().into();
+                let root_name = path.file_name().unwrap().as_bytes().to_vec().into();
                 // Ingest the given path
-                let root_node =
-                    ingest_path(blob_service.clone(), directory_service.clone(), path).await?;
+                let root_node = ingest_path(blob_service.clone(), directory_service.clone(), &path)
+                    .await?
+                    .rename(root_name);
 
                 // Create and upload a PathInfo pointing to the root_node,
                 // annotated with information we have from the reference graph.

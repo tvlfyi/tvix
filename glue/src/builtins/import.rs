@@ -1,9 +1,7 @@
 //! Implements builtins used to import paths in the store.
 
 use crate::builtins::errors::ImportError;
-use futures::pin_mut;
 use std::path::Path;
-use tvix_castore::import::leveled_entries_to_stream;
 use tvix_eval::{
     builtin_macros::builtins,
     generators::{self, GenCo},
@@ -18,17 +16,15 @@ async fn filtered_ingest(
     path: &Path,
     filter: Option<&Value>,
 ) -> Result<tvix_castore::proto::node::Node, ErrorKind> {
-    // produce the leveled-key vector of DirEntry.
-    let mut entries_per_depths: Vec<Vec<walkdir::DirEntry>> = vec![Vec::new()];
+    let mut entries: Vec<walkdir::DirEntry> = vec![];
     let mut it = walkdir::WalkDir::new(path)
         .follow_links(false)
         .follow_root_links(false)
         .contents_first(false)
-        .sort_by_file_name()
         .into_iter();
 
     // Skip root node.
-    entries_per_depths[0].push(
+    entries.push(
         it.next()
             .ok_or_else(|| ErrorKind::IO {
                 path: Some(path.to_path_buf()),
@@ -85,28 +81,14 @@ async fn filtered_ingest(
             continue;
         }
 
-        if entry.depth() >= entries_per_depths.len() {
-            debug_assert!(
-                entry.depth() == entries_per_depths.len(),
-                "Received unexpected entry with depth {} during descent, previously at {}",
-                entry.depth(),
-                entries_per_depths.len()
-            );
-
-            entries_per_depths.push(vec![entry]);
-        } else {
-            entries_per_depths[entry.depth()].push(entry);
-        }
-
-        // FUTUREWORK: determine when it's the right moment to flush a level to the ingester.
+        entries.push(entry);
     }
 
-    let direntry_stream = leveled_entries_to_stream(entries_per_depths);
-    pin_mut!(direntry_stream);
+    let entries_iter = entries.into_iter().rev().map(Ok);
 
     state.tokio_handle.block_on(async {
         state
-            .ingest_entries(direntry_stream)
+            .ingest_dir_entries(entries_iter, path)
             .await
             .map_err(|err| ErrorKind::IO {
                 path: Some(path.to_path_buf()),
