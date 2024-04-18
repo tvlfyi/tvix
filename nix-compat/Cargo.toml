@@ -9,6 +9,9 @@ async = ["tokio"]
 # code emitting low-level packets used in the daemon protocol.
 wire = ["tokio", "pin-project-lite"]
 
+# Enable all features by default.
+default = ["async", "wire"]
+
 [dependencies]
 bitflags = "2.4.1"
 bstr = { version = "1.6.0", features = ["alloc", "unicode", "serde"] }
