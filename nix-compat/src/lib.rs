@@ -14,3 +14,5 @@ pub mod wire;
 mod nix_daemon;
 #[cfg(feature = "wire")]
 pub use nix_daemon::worker_protocol;
+#[cfg(feature = "wire")]
+pub use nix_daemon::ProtocolVersion;
