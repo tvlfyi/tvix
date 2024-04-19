@@ -4318,7 +4318,7 @@ dependencies = [
  "itertools 0.12.0",
  "prost 0.12.3",
  "prost-build",
- "test-case",
+ "rstest",
  "thiserror",
  "tokio",
  "tokio-listener",

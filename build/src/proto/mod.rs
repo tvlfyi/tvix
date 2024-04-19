@@ -236,28 +236,27 @@ impl build_request::BuildConstraints {
 
 #[cfg(test)]
 mod tests {
-    use test_case::test_case;
+    use super::{is_clean_path, is_clean_relative_path};
+    use rstest::rstest;
 
-    use crate::proto::is_clean_relative_path;
-
-    use super::is_clean_path;
-
-    #[test_case("foo/bar/", false; "fail trailing slash")]
-    #[test_case("foo/../bar", false; "fail dotdot")]
-    #[test_case("foo/./bar", false; "fail singledot")]
-    #[test_case("foo//bar", false; "fail unnecessary slashes")]
-    #[test_case("//foo/bar", false; "fail absolute unnecessary slashes")]
-    #[test_case("", true; "ok empty")]
-    #[test_case("foo/bar", true; "ok relative")]
-    #[test_case("/", true; "ok absolute")]
-    #[test_case("/foo/bar", true; "ok absolute2")]
-    fn test_is_clean_path(s: &str, expected: bool) {
+    #[rstest]
+    #[case::fail_trailing_slash("foo/bar/", false)]
+    #[case::fail_dotdot("foo/../bar", false)]
+    #[case::fail_singledot("foo/./bar", false)]
+    #[case::fail_unnecessary_slashes("foo//bar", false)]
+    #[case::fail_absolute_unnecessary_slashes("//foo/bar", false)]
+    #[case::ok_empty("", true)]
+    #[case::ok_relative("foo/bar", true)]
+    #[case::ok_absolute("/", true)]
+    #[case::ok_absolute2("/foo/bar", true)]
+    fn test_is_clean_path(#[case] s: &str, #[case] expected: bool) {
         assert_eq!(is_clean_path(s), expected);
     }
 
-    #[test_case("/", false; "fail absolute")]
-    #[test_case("foo/bar", true; "ok relative")]
-    fn test_is_clean_relative_path(s: &str, expected: bool) {
+    #[rstest]
+    #[case::fail_absolute("/", false)]
+    #[case::ok_relative("foo/bar", true)]
+    fn test_is_clean_relative_path(#[case] s: &str, #[case] expected: bool) {
         assert_eq!(is_clean_relative_path(s), expected);
     }
 

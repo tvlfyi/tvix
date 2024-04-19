@@ -50,38 +50,41 @@ mod tests {
     use std::sync::Arc;
 
     use super::from_addr;
-    use test_case::test_case;
+    use rstest::rstest;
     use tvix_castore::{
         blobservice::{BlobService, MemoryBlobService},
         directoryservice::{DirectoryService, MemoryDirectoryService},
     };
 
+    #[rstest]
     /// This uses an unsupported scheme.
-    #[test_case("http://foo.example/test", false; "unsupported scheme")]
+    #[case::unsupported_scheme("http://foo.example/test", false)]
     /// This configures dummy
-    #[test_case("dummy://", true; "valid dummy")]
+    #[case::valid_dummy("dummy://", true)]
     /// Correct scheme to connect to a unix socket.
-    #[test_case("grpc+unix:///path/to/somewhere", true; "grpc valid unix socket")]
+    #[case::grpc_valid_unix_socket("grpc+unix:///path/to/somewhere", true)]
     /// Correct scheme for unix socket, but setting a host too, which is invalid.
-    #[test_case("grpc+unix://host.example/path/to/somewhere", false; "grpc invalid unix socket and host")]
+    #[case::grpc_invalid_unix_socket_and_host("grpc+unix://host.example/path/to/somewhere", false)]
     /// Correct scheme to connect to localhost, with port 12345
-    #[test_case("grpc+http://[::1]:12345", true; "grpc valid IPv6 localhost port 12345")]
+    #[case::grpc_valid_ipv6_localhost_port_12345("grpc+http://[::1]:12345", true)]
     /// Correct scheme to connect to localhost over http, without specifying a port.
-    #[test_case("grpc+http://localhost", true; "grpc valid http host without port")]
+    #[case::grpc_valid_http_host_without_port("grpc+http://localhost", true)]
     /// Correct scheme to connect to localhost over http, without specifying a port.
-    #[test_case("grpc+https://localhost", true; "grpc valid https host without port")]
+    #[case::grpc_valid_https_host_without_port("grpc+https://localhost", true)]
     /// Correct scheme to connect to localhost over http, but with additional path, which is invalid.
-    #[test_case("grpc+http://localhost/some-path", false; "grpc valid invalid host and path")]
+    #[case::grpc_invalid_host_and_path("grpc+http://localhost/some-path", false)]
     #[tokio::test]
-    async fn test_from_addr(uri_str: &str, is_ok: bool) {
+    async fn test_from_addr(#[case] uri_str: &str, #[case] exp_succeed: bool) {
         let blob_service: Arc<dyn BlobService> = Arc::from(MemoryBlobService::default());
         let directory_service: Arc<dyn DirectoryService> =
             Arc::from(MemoryDirectoryService::default());
-        assert_eq!(
-            from_addr(uri_str, blob_service, directory_service)
-                .await
-                .is_ok(),
-            is_ok
-        )
+
+        let resp = from_addr(uri_str, blob_service, directory_service).await;
+
+        if exp_succeed {
+            resp.expect("should succeed");
+        } else {
+            assert!(resp.is_err(), "should fail");
+        }
     }
 }

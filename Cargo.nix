@@ -13730,8 +13730,8 @@ rec {
         ];
         devDependencies = [
           {
-            name = "test-case";
-            packageId = "test-case";
+            name = "rstest";
+            packageId = "rstest";
           }
         ];
         features = {
