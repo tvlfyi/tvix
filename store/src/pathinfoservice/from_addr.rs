@@ -146,9 +146,9 @@ pub async fn from_addr(
 mod tests {
     use super::from_addr;
     use lazy_static::lazy_static;
+    use rstest::rstest;
     use std::sync::Arc;
     use tempfile::TempDir;
-    use test_case::test_case;
     use tvix_castore::{
         blobservice::{BlobService, MemoryBlobService},
         directoryservice::{DirectoryService, MemoryDirectoryService},
@@ -161,72 +161,66 @@ mod tests {
 
     // the gRPC tests below don't fail, because we connect lazily.
 
+    #[rstest]
     /// This uses a unsupported scheme.
-    #[test_case("http://foo.example/test", false; "unsupported scheme")]
+    #[case::unsupported_scheme("http://foo.example/test", false)]
     /// This configures sled in temporary mode.
-    #[test_case("sled://", true; "sled valid temporary")]
+    #[case::sled_temporary("sled://", true)]
     /// This configures sled with /, which should fail.
-    #[test_case("sled:///", false; "sled invalid root")]
+    #[case::sled_invalid_root("sled:///", false)]
     /// This configures sled with a host, not path, which should fail.
-    #[test_case("sled://foo.example", false; "sled invalid host")]
+    #[case::sled_invalid_host("sled://foo.example", false)]
     /// This configures sled with a valid path path, which should succeed.
-    #[test_case(&format!("sled://{}", &TMPDIR_SLED_1.path().to_str().unwrap()), true; "sled valid path")]
+    #[case::sled_valid_path(&format!("sled://{}", &TMPDIR_SLED_1.path().to_str().unwrap()), true)]
     /// This configures sled with a host, and a valid path path, which should fail.
-    #[test_case(&format!("sled://foo.example{}", &TMPDIR_SLED_2.path().to_str().unwrap()), false; "sled invalid host with valid path")]
+    #[case::sled_invalid_host_with_valid_path(&format!("sled://foo.example{}", &TMPDIR_SLED_2.path().to_str().unwrap()), false)]
     /// This correctly sets the scheme, and doesn't set a path.
-    #[test_case("memory://", true; "memory valid")]
+    #[case::memory_valid("memory://", true)]
     /// This sets a memory url host to `foo`
-    #[test_case("memory://foo", false; "memory invalid host")]
+    #[case::memory_invalid_host("memory://foo", false)]
     /// This sets a memory url path to "/", which is invalid.
-    #[test_case("memory:///", false; "memory invalid root path")]
+    #[case::memory_invalid_root_path("memory:///", false)]
     /// This sets a memory url path to "/foo", which is invalid.
-    #[test_case("memory:///foo", false; "memory invalid root path foo")]
+    #[case::memory_invalid_root_path_foo("memory:///foo", false)]
     /// Correct Scheme for the cache.nixos.org binary cache.
-    #[test_case("nix+https://cache.nixos.org", true; "correct nix+https")]
+    #[case::correct_nix_https("nix+https://cache.nixos.org", true)]
     /// Correct Scheme for the cache.nixos.org binary cache (HTTP URL).
-    #[test_case("nix+http://cache.nixos.org", true; "correct nix+http")]
+    #[case::correct_nix_http("nix+http://cache.nixos.org", true)]
     /// Correct Scheme for Nix HTTP Binary cache, with a subpath.
-    #[test_case("nix+http://192.0.2.1/foo", true; "correct nix http with subpath")]
+    #[case::correct_nix_http_with_subpath("nix+http://192.0.2.1/foo", true)]
     /// Correct Scheme for Nix HTTP Binary cache, with a subpath and port.
-    #[test_case("nix+http://[::1]:8080/foo", true; "correct nix http with subpath and port")]
+    #[case::correct_nix_http_with_subpath_and_port("nix+http://[::1]:8080/foo", true)]
     /// Correct Scheme for the cache.nixos.org binary cache, and correct trusted public key set
-    #[test_case("nix+https://cache.nixos.org?trusted-public-keys=cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=", true; "correct nix+https with trusted-public-key")]
+    #[case::correct_nix_https_with_trusted_public_key("nix+https://cache.nixos.org?trusted-public-keys=cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=", true)]
     /// Correct Scheme for the cache.nixos.org binary cache, and two correct trusted public keys set
-    #[test_case("nix+https://cache.nixos.org?trusted-public-keys=cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=%20foo:jp4fCEx9tBEId/L0ZsVJ26k0wC0fu7vJqLjjIGFkup8=", true; "correct nix+https with two trusted-public-key")]
+    #[case::correct_nix_https_with_two_trusted_public_keys("nix+https://cache.nixos.org?trusted-public-keys=cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=%20foo:jp4fCEx9tBEId/L0ZsVJ26k0wC0fu7vJqLjjIGFkup8=", true)]
     /// Correct scheme to connect to a unix socket.
-    #[test_case("grpc+unix:///path/to/somewhere", true; "grpc valid unix socket")]
+    #[case::grpc_valid_unix_socket("grpc+unix:///path/to/somewhere", true)]
     /// Correct scheme for unix socket, but setting a host too, which is invalid.
-    #[test_case("grpc+unix://host.example/path/to/somewhere", false; "grpc invalid unix socket and host")]
+    #[case::grpc_invalid_unix_socket_and_host("grpc+unix://host.example/path/to/somewhere", false)]
     /// Correct scheme to connect to localhost, with port 12345
-    #[test_case("grpc+http://[::1]:12345", true; "grpc valid IPv6 localhost port 12345")]
+    #[case::grpc_valid_ipv6_localhost_port_12345("grpc+http://[::1]:12345", true)]
     /// Correct scheme to connect to localhost over http, without specifying a port.
-    #[test_case("grpc+http://localhost", true; "grpc valid http host without port")]
+    #[case::grpc_valid_http_host_without_port("grpc+http://localhost", true)]
     /// Correct scheme to connect to localhost over http, without specifying a port.
-    #[test_case("grpc+https://localhost", true; "grpc valid https host without port")]
+    #[case::grpc_valid_https_host_without_port("grpc+https://localhost", true)]
     /// Correct scheme to connect to localhost over http, but with additional path, which is invalid.
-    #[test_case("grpc+http://localhost/some-path", false; "grpc valid invalid host and path")]
-    #[tokio::test]
-    async fn test_from_addr_tokio(uri_str: &str, exp_succeed: bool) {
-        let blob_service: Arc<dyn BlobService> = Arc::from(MemoryBlobService::default());
-        let directory_service: Arc<dyn DirectoryService> =
-            Arc::from(MemoryDirectoryService::default());
-
-        let resp = from_addr(uri_str, blob_service, directory_service).await;
-
-        if exp_succeed {
-            resp.expect("should succeed");
-        } else {
-            assert!(resp.is_err(), "should fail");
-        }
-    }
-
-    #[cfg(feature = "cloud")]
+    #[case::grpc_invalid_host_and_path("grpc+http://localhost/some-path", false)]
     /// A valid example for Bigtable.
-    #[test_case("bigtable://instance-1?project_id=project-1&table_name=table-1&family_name=cf1", true; "objectstore valid bigtable url")]
-    /// An invalid examplee for Bigtable, missing fields
-    #[test_case("bigtable://instance-1", false; "objectstore invalid bigtable url, missing fields")]
+    #[cfg_attr(
+        feature = "cloud",
+        case::bigtable_valid(
+            "bigtable://instance-1?project_id=project-1&table_name=table-1&family_name=cf1",
+            true
+        )
+    )]
+    /// An invalid example for Bigtable, missing fields
+    #[cfg_attr(
+        feature = "cloud",
+        case::bigtable_invalid_missing_fields("bigtable://instance-1", false)
+    )]
     #[tokio::test]
-    async fn test_from_addr_tokio_cloud(uri_str: &str, exp_succeed: bool) {
+    async fn test_from_addr_tokio(#[case] uri_str: &str, #[case] exp_succeed: bool) {
         let blob_service: Arc<dyn BlobService> = Arc::from(MemoryBlobService::default());
         let directory_service: Arc<dyn DirectoryService> =
             Arc::from(MemoryDirectoryService::default());
