@@ -207,7 +207,7 @@ mod tests {
         };
 
         let path_info = grpc_client
-            .get(fixtures::DUMMY_OUTPUT_HASH)
+            .get(fixtures::DUMMY_PATH_DIGEST)
             .await
             .expect("must not be error");
 

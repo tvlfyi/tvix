@@ -4,95 +4,81 @@ use bytes::Bytes;
 use data_encoding::BASE64;
 use nix_compat::nixbase32;
 use nix_compat::store_path::{self, StorePathRef};
-use test_case::test_case;
+use rstest::rstest;
 use tvix_castore::proto as castorepb;
 
-#[test_case(
-    None,
-    Err(ValidatePathInfoError::NoNodePresent) ;
-    "No node"
-)]
-#[test_case(
-    Some(castorepb::Node { node: None }),
-    Err(ValidatePathInfoError::NoNodePresent);
-    "No node 2"
-)]
-fn validate_no_node(
-    t_node: Option<castorepb::Node>,
-    t_result: Result<StorePathRef, ValidatePathInfoError>,
+#[rstest]
+#[case::no_node(None, Err(ValidatePathInfoError::NoNodePresent))]
+#[case::no_node_2(Some(castorepb::Node { node: None}), Err(ValidatePathInfoError::NoNodePresent))]
+
+fn validate_pathinfo(
+    #[case] node: Option<castorepb::Node>,
+    #[case] exp_result: Result<StorePathRef, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
     let p = PathInfo {
-        node: t_node,
+        node,
         ..Default::default()
     };
-    assert_eq!(t_result, p.validate());
+
+    assert_eq!(exp_result, p.validate());
+
+    let err = p.validate().expect_err("validation should fail");
+    assert!(matches!(err, ValidatePathInfoError::NoNodePresent));
 }
 
-#[test_case(
-    castorepb::DirectoryNode {
-        name: DUMMY_NAME.into(),
+#[rstest]
+#[case::ok(castorepb::DirectoryNode {
+        name: DUMMY_PATH.into(),
         digest: DUMMY_DIGEST.clone().into(),
         size: 0,
-    },
-    Ok(StorePathRef::from_bytes(DUMMY_NAME.as_bytes()).expect("must succeed"));
-    "ok"
-)]
-#[test_case(
-    castorepb::DirectoryNode {
-        name: DUMMY_NAME.into(),
+}, Ok(StorePathRef::from_bytes(DUMMY_PATH.as_bytes()).unwrap()))]
+#[case::invalid_digest_length(castorepb::DirectoryNode {
+        name: DUMMY_PATH.into(),
         digest: Bytes::new(),
         size: 0,
-    },
-    Err(ValidatePathInfoError::InvalidRootNode(castorepb::ValidateNodeError::InvalidDigestLen(0)));
-    "invalid digest length"
-)]
-#[test_case(
-    castorepb::DirectoryNode {
+}, Err(ValidatePathInfoError::InvalidRootNode(castorepb::ValidateNodeError::InvalidDigestLen(0))))]
+#[case::invalid_node_name_no_storepath(castorepb::DirectoryNode {
         name: "invalid".into(),
         digest: DUMMY_DIGEST.clone().into(),
         size: 0,
-    },
-    Err(ValidatePathInfoError::InvalidNodeName(
+}, Err(ValidatePathInfoError::InvalidNodeName(
         "invalid".into(),
         store_path::Error::InvalidLength
-    ));
-    "invalid node name"
-)]
+)))]
 fn validate_directory(
-    t_directory_node: castorepb::DirectoryNode,
-    t_result: Result<StorePathRef, ValidatePathInfoError>,
+    #[case] directory_node: castorepb::DirectoryNode,
+    #[case] exp_result: Result<StorePathRef, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
     let p = PathInfo {
         node: Some(castorepb::Node {
-            node: Some(castorepb::node::Node::Directory(t_directory_node)),
+            node: Some(castorepb::node::Node::Directory(directory_node)),
         }),
         ..Default::default()
     };
-    assert_eq!(t_result, p.validate());
+    assert_eq!(exp_result, p.validate());
 }
 
-#[test_case(
+#[rstest]
+#[case::ok(
     castorepb::FileNode {
-        name: DUMMY_NAME.into(),
+        name: DUMMY_PATH.into(),
         digest: DUMMY_DIGEST.clone().into(),
         size: 0,
         executable: false,
     },
-    Ok(StorePathRef::from_bytes(DUMMY_NAME.as_bytes()).expect("must succeed"));
-    "ok"
+    Ok(StorePathRef::from_bytes(DUMMY_PATH.as_bytes()).unwrap())
 )]
-#[test_case(
+#[case::invalid_digest_len(
     castorepb::FileNode {
-        name: DUMMY_NAME.into(),
+        name: DUMMY_PATH.into(),
         digest: Bytes::new(),
         ..Default::default()
     },
-    Err(ValidatePathInfoError::InvalidRootNode(castorepb::ValidateNodeError::InvalidDigestLen(0)));
-    "invalid digest length"
+    Err(ValidatePathInfoError::InvalidRootNode(castorepb::ValidateNodeError::InvalidDigestLen(0)))
 )]
-#[test_case(
+#[case::invalid_node_name(
     castorepb::FileNode {
         name: "invalid".into(),
         digest: DUMMY_DIGEST.clone().into(),
@@ -101,32 +87,31 @@ fn validate_directory(
     Err(ValidatePathInfoError::InvalidNodeName(
         "invalid".into(),
         store_path::Error::InvalidLength
-    ));
-    "invalid node name"
+    ))
 )]
 fn validate_file(
-    t_file_node: castorepb::FileNode,
-    t_result: Result<StorePathRef, ValidatePathInfoError>,
+    #[case] file_node: castorepb::FileNode,
+    #[case] exp_result: Result<StorePathRef, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
     let p = PathInfo {
         node: Some(castorepb::Node {
-            node: Some(castorepb::node::Node::File(t_file_node)),
+            node: Some(castorepb::node::Node::File(file_node)),
         }),
         ..Default::default()
     };
-    assert_eq!(t_result, p.validate());
+    assert_eq!(exp_result, p.validate());
 }
 
-#[test_case(
+#[rstest]
+#[case::ok(
     castorepb::SymlinkNode {
-        name: DUMMY_NAME.into(),
+        name: DUMMY_PATH.into(),
         target: "foo".into(),
     },
-    Ok(StorePathRef::from_bytes(DUMMY_NAME.as_bytes()).expect("must succeed"));
-    "ok"
+    Ok(StorePathRef::from_bytes(DUMMY_PATH.as_bytes()).unwrap())
 )]
-#[test_case(
+#[case::invalid_node_name(
     castorepb::SymlinkNode {
         name: "invalid".into(),
         target: "foo".into(),
@@ -134,21 +119,20 @@ fn validate_file(
     Err(ValidatePathInfoError::InvalidNodeName(
         "invalid".into(),
         store_path::Error::InvalidLength
-    ));
-    "invalid node name"
+    ))
 )]
 fn validate_symlink(
-    t_symlink_node: castorepb::SymlinkNode,
-    t_result: Result<StorePathRef, ValidatePathInfoError>,
+    #[case] symlink_node: castorepb::SymlinkNode,
+    #[case] exp_result: Result<StorePathRef, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
     let p = PathInfo {
         node: Some(castorepb::Node {
-            node: Some(castorepb::node::Node::Symlink(t_symlink_node)),
+            node: Some(castorepb::node::Node::Symlink(symlink_node)),
         }),
         ..Default::default()
     };
-    assert_eq!(t_result, p.validate());
+    assert_eq!(exp_result, p.validate());
 }
 
 /// Ensure parsing a correct PathInfo without narinfo populated succeeds.
@@ -235,7 +219,7 @@ fn validate_inconsistent_narinfo_reference_name_digest() {
     match path_info.validate().expect_err("must fail") {
         ValidatePathInfoError::InconsistentNarinfoReferenceNameDigest(0, e_expected, e_actual) => {
             assert_eq!(path_info.references[0][..], e_expected[..]);
-            assert_eq!(DUMMY_OUTPUT_HASH, e_actual);
+            assert_eq!(DUMMY_PATH_DIGEST, e_actual);
         }
         e => panic!("unexpected error: {:?}", e),
     }
@@ -273,7 +257,7 @@ fn validate_valid_deriver() {
     let narinfo = path_info.narinfo.as_mut().unwrap();
     narinfo.deriver = Some(crate::proto::StorePath {
         name: "foo".to_string(),
-        digest: Bytes::from(DUMMY_OUTPUT_HASH.as_slice()),
+        digest: Bytes::from(DUMMY_PATH_DIGEST.as_slice()),
     });
 
     path_info.validate().expect("must validate");

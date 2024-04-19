@@ -156,21 +156,22 @@ mod tests {
     use std::{ffi::OsStr, path::PathBuf};
 
     use crate::import::path_to_name;
-    use test_case::test_case;
+    use rstest::rstest;
 
-    #[test_case("a/b/c", "c"; "simple path")]
-    #[test_case("a/b/../c", "c"; "simple path containing ..")]
-    #[test_case("a/b/../c/d/../e", "e"; "path containing multiple ..")]
+    #[rstest]
+    #[case::simple_path("a/b/c", "c")]
+    #[case::simple_path_containing_dotdot("a/b/../c", "c")]
+    #[case::path_containing_multiple_dotdot("a/b/../c/d/../e", "e")]
 
-    fn test_path_to_name(path: &str, expected_name: &str) {
+    fn test_path_to_name(#[case] path: &str, #[case] expected_name: &str) {
         let path: PathBuf = path.into();
         assert_eq!(path_to_name(&path).expect("must succeed"), expected_name);
     }
 
-    #[test_case(b"a/b/.."; "path ending in ..")]
-    #[test_case(b"\xf8\xa1\xa1\xa1\xa1"; "non unicode path")]
-
-    fn test_invalid_path_to_name(invalid_path: &[u8]) {
+    #[rstest]
+    #[case::path_ending_in_dotdot(b"a/b/..")]
+    #[case::non_unicode_path(b"\xf8\xa1\xa1\xa1\xa1")]
+    fn test_invalid_path_to_name(#[case] invalid_path: &[u8]) {
         let path: PathBuf = unsafe { OsStr::from_encoded_bytes_unchecked(invalid_path) }.into();
         path_to_name(&path).expect_err("must fail");
     }

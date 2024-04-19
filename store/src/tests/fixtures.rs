@@ -13,8 +13,8 @@ use crate::proto::{
     NarInfo, PathInfo,
 };
 
-pub const DUMMY_NAME: &str = "00000000000000000000000000000000-dummy";
-pub const DUMMY_OUTPUT_HASH: [u8; 20] = [0; 20];
+pub const DUMMY_PATH: &str = "00000000000000000000000000000000-dummy";
+pub const DUMMY_PATH_DIGEST: [u8; 20] = [0; 20];
 
 lazy_static! {
     /// The NAR representation of a symlink pointing to `/nix/store/somewhereelse`
@@ -106,12 +106,12 @@ lazy_static! {
     pub static ref PATH_INFO_WITHOUT_NARINFO : PathInfo = PathInfo {
         node: Some(castorepb::Node {
             node: Some(castorepb::node::Node::Directory(castorepb::DirectoryNode {
-                name: DUMMY_NAME.into(),
+                name: DUMMY_PATH.into(),
                 digest: DUMMY_DIGEST.clone().into(),
                 size: 0,
             })),
         }),
-        references: vec![DUMMY_OUTPUT_HASH.as_slice().into()],
+        references: vec![DUMMY_PATH_DIGEST.as_slice().into()],
         narinfo: None,
     };
 
@@ -123,7 +123,7 @@ lazy_static! {
             nar_size: 0,
             nar_sha256: DUMMY_DIGEST.clone().into(),
             signatures: vec![],
-            reference_names: vec![DUMMY_NAME.to_string()],
+            reference_names: vec![DUMMY_PATH.to_string()],
             deriver: None,
             ca: Some(Ca { r#type: ca::Hash::NarSha256.into(), digest:  DUMMY_DIGEST.clone().into() })
         }),

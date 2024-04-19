@@ -10,7 +10,7 @@ use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService}
 
 use super::PathInfoService;
 use crate::proto::PathInfo;
-use crate::tests::fixtures::DUMMY_OUTPUT_HASH;
+use crate::tests::fixtures::DUMMY_PATH_DIGEST;
 
 mod utils;
 use self::utils::make_grpc_path_info_service_client;
@@ -71,7 +71,7 @@ pub fn path_info_services(
 async fn not_found(services: BSDSPS) {
     let (_, _, path_info_service) = services;
     assert!(path_info_service
-        .get(DUMMY_OUTPUT_HASH)
+        .get(DUMMY_PATH_DIGEST)
         .await
         .expect("must succeed")
         .is_none());
@@ -105,7 +105,7 @@ async fn put_get(services: BSDSPS) {
 
     // get it back
     let resp = path_info_service
-        .get(DUMMY_OUTPUT_HASH)
+        .get(DUMMY_PATH_DIGEST)
         .await
         .expect("must succeed");
 
