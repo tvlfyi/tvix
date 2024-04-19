@@ -106,40 +106,43 @@ impl Display for PubKey {
 mod test {
     use data_encoding::BASE64;
     use ed25519_dalek::PUBLIC_KEY_LENGTH;
-    use test_case::test_case;
+    use rstest::rstest;
 
     use crate::narinfo::Signature;
 
     use super::PubKey;
     const FINGERPRINT: &str = "1;/nix/store/syd87l2rxw8cbsxmxl853h0r6pdwhwjr-curl-7.82.0-bin;sha256:1b4sb93wp679q4zx9k1ignby1yna3z7c4c2ri3wphylbc2dwsys0;196040;/nix/store/0jqd0rlxzra1rs38rdxl43yh6rxchgc6-curl-7.82.0,/nix/store/6w8g7njm4mck5dmjxws0z1xnrxvl81xa-glibc-2.34-115,/nix/store/j5jxw3iy7bbz4a57fh9g2xm2gxmyal8h-zlib-1.2.12,/nix/store/yxvjs9drzsphm9pcf42a4byzj1kb9m7k-openssl-1.1.1n";
 
-    #[test_case("cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=", "cache.nixos.org-1", BASE64.decode(b"6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=").unwrap()[..].try_into().unwrap(); "cache.nixos.org")]
-    #[test_case("cheesecake:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=", "cheesecake", BASE64.decode(b"6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=").unwrap()[..].try_into().unwrap(); "cache.nixos.org different name")]
-    #[test_case("test1:tLAEn+EeaBUJYqEpTd2yeerr7Ic6+0vWe+aXL/vYUpE=", "test1", BASE64.decode(b"tLAEn+EeaBUJYqEpTd2yeerr7Ic6+0vWe+aXL/vYUpE=").unwrap()[..].try_into().unwrap(); "test-1")]
+    #[rstest]
+    #[case::cache_nixos_org("cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=", "cache.nixos.org-1", &BASE64.decode(b"6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=").unwrap()[..].try_into().unwrap())]
+    #[case::cache_nixos_org_different_name("cheesecake:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=", "cheesecake", &BASE64.decode(b"6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=").unwrap()[..].try_into().unwrap())]
+    #[case::test_1("test1:tLAEn+EeaBUJYqEpTd2yeerr7Ic6+0vWe+aXL/vYUpE=", "test1", &BASE64.decode(b"tLAEn+EeaBUJYqEpTd2yeerr7Ic6+0vWe+aXL/vYUpE=").unwrap()[..].try_into().unwrap())]
     fn parse(
-        input: &'static str,
-        exp_name: &'static str,
-        exp_verifying_key_bytes: &[u8; PUBLIC_KEY_LENGTH],
+        #[case] input: &'static str,
+        #[case] exp_name: &'static str,
+        #[case] exp_verifying_key_bytes: &[u8; PUBLIC_KEY_LENGTH],
     ) {
         let pubkey = PubKey::parse(input).expect("must parse");
         assert_eq!(exp_name, pubkey.name());
         assert_eq!(exp_verifying_key_bytes, pubkey.verifying_key.as_bytes());
     }
 
-    #[test_case("6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="; "empty name")]
-    #[test_case("cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY"; "missing padding")]
-    #[test_case("cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDS"; "wrong length")]
-    fn parse_fail(input: &'static str) {
+    #[rstest]
+    #[case::empty_name("6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=")]
+    #[case::missing_padding("cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY")]
+    #[case::wrong_length("cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDS")]
+    fn parse_fail(#[case] input: &'static str) {
         PubKey::parse(input).expect_err("must fail");
     }
 
-    #[test_case("cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=", FINGERPRINT, "cache.nixos.org-1:TsTTb3WGTZKphvYdBHXwo6weVILmTytUjLB+vcX89fOjjRicCHmKA4RCPMVLkj6TMJ4GMX3HPVWRdD1hkeKZBQ==", true; "correct cache.nixos.org")]
-    #[test_case("cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=", FINGERPRINT, "cache.nixos.org:TsTTb3WGTZKphvYdBHXwo6weVILmTytUjLB+vcX89fOjjRicCHmKA4RCPMVLkj6TMJ4GMX3HPVWRdD1hkeKZBQ==", false; "wrong name mismatch")]
+    #[rstest]
+    #[case::correct_cache_nixos_org("cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=", FINGERPRINT, "cache.nixos.org-1:TsTTb3WGTZKphvYdBHXwo6weVILmTytUjLB+vcX89fOjjRicCHmKA4RCPMVLkj6TMJ4GMX3HPVWRdD1hkeKZBQ==", true)]
+    #[case::wrong_name_mismatch("cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=", FINGERPRINT, "cache.nixos.org:TsTTb3WGTZKphvYdBHXwo6weVILmTytUjLB+vcX89fOjjRicCHmKA4RCPMVLkj6TMJ4GMX3HPVWRdD1hkeKZBQ==", false)]
     fn verify(
-        pubkey_str: &'static str,
-        fingerprint: &'static str,
-        signature_str: &'static str,
-        expected: bool,
+        #[case] pubkey_str: &'static str,
+        #[case] fingerprint: &'static str,
+        #[case] signature_str: &'static str,
+        #[case] expected: bool,
     ) {
         let pubkey = PubKey::parse(pubkey_str).expect("must parse");
         let signature = Signature::parse(signature_str).expect("must parse");
