@@ -141,27 +141,30 @@ pub const fn encode_len(len: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use hex_literal::hex;
-    use test_case::test_case;
+    use rstest::rstest;
 
-    #[test_case("", &[]; "empty bytes")]
-    #[test_case("0z", &hex!("1f"); "one byte")]
-    #[test_case("00bgd045z0d4icpbc2yyz4gx48ak44la", &hex!("8a12321522fd91efbd60ebb2481af88580f61600"); "store path")]
-    #[test_case("0c5b8vw40dy178xlpddw65q9gf1h2186jcc3p4swinwggbllv8mk", &hex!("b3a24de97a8fdbc835b9833169501030b8977031bcb54b3b3ac13740f846ab30"); "sha256")]
-    fn encode(enc: &str, dec: &[u8]) {
+    #[rstest]
+    #[case::empty_bytes("", &[])]
+    #[case::one_byte("0z", &hex!("1f"))]
+    #[case::store_path("00bgd045z0d4icpbc2yyz4gx48ak44la", &hex!("8a12321522fd91efbd60ebb2481af88580f61600"))]
+    #[case::sha256("0c5b8vw40dy178xlpddw65q9gf1h2186jcc3p4swinwggbllv8mk", &hex!("b3a24de97a8fdbc835b9833169501030b8977031bcb54b3b3ac13740f846ab30"))]
+    #[test]
+    fn encode(#[case] enc: &str, #[case] dec: &[u8]) {
         assert_eq!(enc, super::encode(dec));
     }
 
-    #[test_case("", Some(&[]) ; "empty bytes")]
-    #[test_case("0z", Some(&hex!("1f")); "one byte")]
-    #[test_case("00bgd045z0d4icpbc2yyz4gx48ak44la", Some(&hex!("8a12321522fd91efbd60ebb2481af88580f61600")); "store path")]
-    #[test_case("0c5b8vw40dy178xlpddw65q9gf1h2186jcc3p4swinwggbllv8mk", Some(&hex!("b3a24de97a8fdbc835b9833169501030b8977031bcb54b3b3ac13740f846ab30")); "sha256")]
+    #[rstest]
+    #[case::empty_bytes("", Some(&[][..]) )]
+    #[case::one_byte("0z", Some(&hex!("1f")[..]))]
+    #[case::store_path("00bgd045z0d4icpbc2yyz4gx48ak44la", Some(&hex!("8a12321522fd91efbd60ebb2481af88580f61600")[..]))]
+    #[case::sha256("0c5b8vw40dy178xlpddw65q9gf1h2186jcc3p4swinwggbllv8mk", Some(&hex!("b3a24de97a8fdbc835b9833169501030b8977031bcb54b3b3ac13740f846ab30")[..]))]
     // this is invalid encoding, because it encodes 10 1-bits, so the carry
     // would be 2 1-bits
-    #[test_case("zz", None; "invalid encoding-1")]
+    #[case::invalid_encoding_1("zz", None)]
     // this is an even more specific example - it'd decode as 00000000 11
-    #[test_case("c0", None; "invalid encoding-2")]
-
-    fn decode(enc: &str, dec: Option<&[u8]>) {
+    #[case::invalid_encoding_2("c0", None)]
+    #[test]
+    fn decode(#[case] enc: &str, #[case] dec: Option<&[u8]>) {
         match dec {
             Some(dec) => {
                 // The decode needs to match what's passed in dec
