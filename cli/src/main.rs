@@ -80,12 +80,7 @@ struct Args {
     build_service_addr: String,
 }
 
-/// Interprets the given code snippet, printing out warnings, errors
-/// and the result itself. The return value indicates whether
-/// evaluation succeeded.
-fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> bool {
-    let tokio_runtime = tokio::runtime::Runtime::new().expect("failed to setup tokio runtime");
-
+fn init_io_handle(tokio_runtime: &tokio::runtime::Runtime, args: &Args) -> Rc<TvixStoreIO> {
     let (blob_service, directory_service, path_info_service) = tokio_runtime
         .block_on({
             let blob_service_addr = args.blob_service_addr.clone();
@@ -117,14 +112,25 @@ fn interpret(code: &str, path: Option<PathBuf>, args: &Args, explain: bool) -> b
         })
         .expect("unable to setup buildservice before interpreter setup");
 
-    let tvix_store_io = Rc::new(TvixStoreIO::new(
+    Rc::new(TvixStoreIO::new(
         blob_service.clone(),
         directory_service.clone(),
         path_info_service.into(),
         build_service.into(),
         tokio_runtime.handle().clone(),
-    ));
+    ))
+}
 
+/// Interprets the given code snippet, printing out warnings, errors
+/// and the result itself. The return value indicates whether
+/// evaluation succeeded.
+fn interpret(
+    tvix_store_io: Rc<TvixStoreIO>,
+    code: &str,
+    path: Option<PathBuf>,
+    args: &Args,
+    explain: bool,
+) -> bool {
     let mut eval = tvix_eval::Evaluation::new(
         Box::new(TvixIO::new(tvix_store_io.clone() as Rc<dyn EvalIO>)) as Box<dyn EvalIO>,
         true,
@@ -242,18 +248,22 @@ fn main() {
         .try_init()
         .expect("unable to set up tracing subscriber");
 
+    let tokio_runtime = tokio::runtime::Runtime::new().expect("failed to setup tokio runtime");
+
+    let io_handle = init_io_handle(&tokio_runtime, &args);
+
     if let Some(file) = &args.script {
-        run_file(file.clone(), &args)
+        run_file(io_handle, file.clone(), &args)
     } else if let Some(expr) = &args.expr {
-        if !interpret(expr, None, &args, false) {
+        if !interpret(io_handle, expr, None, &args, false) {
             std::process::exit(1);
         }
     } else {
-        run_prompt(&args)
+        run_prompt(io_handle, &args)
     }
 }
 
-fn run_file(mut path: PathBuf, args: &Args) {
+fn run_file(io_handle: Rc<TvixStoreIO>, mut path: PathBuf, args: &Args) {
     if path.is_dir() {
         path.push("default.nix");
     }
@@ -262,7 +272,7 @@ fn run_file(mut path: PathBuf, args: &Args) {
     let success = if args.compile_only {
         lint(&contents, Some(path), args)
     } else {
-        interpret(&contents, Some(path), args, false)
+        interpret(io_handle, &contents, Some(path), args, false)
     };
 
     if !success {
@@ -286,7 +296,7 @@ fn state_dir() -> Option<PathBuf> {
     path
 }
 
-fn run_prompt(args: &Args) {
+fn run_prompt(io_handle: Rc<TvixStoreIO>, args: &Args) {
     let mut rl = Editor::<()>::new().expect("should be able to launch rustyline");
 
     if args.compile_only {
@@ -317,9 +327,9 @@ fn run_prompt(args: &Args) {
                 rl.add_history_entry(&line);
 
                 if let Some(without_prefix) = line.strip_prefix(":d ") {
-                    interpret(without_prefix, None, args, true);
+                    interpret(Rc::clone(&io_handle), without_prefix, None, args, true);
                 } else {
-                    interpret(&line, None, args, false);
+                    interpret(Rc::clone(&io_handle), &line, None, args, false);
                 }
             }
             Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => break,
