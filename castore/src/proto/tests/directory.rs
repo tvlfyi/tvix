@@ -1,5 +1,6 @@
 use crate::proto::{
-    Directory, DirectoryNode, FileNode, SymlinkNode, ValidateDirectoryError, ValidateNodeError,
+    node, Directory, DirectoryNode, FileNode, SymlinkNode, ValidateDirectoryError,
+    ValidateNodeError,
 };
 
 use hex_literal::hex;
@@ -370,4 +371,82 @@ fn validate_overflow() {
         ValidateDirectoryError::SizeOverflow => {}
         _ => panic!("unexpected error"),
     }
+}
+
+#[test]
+fn add_nodes_to_directory() {
+    let mut d = Directory {
+        ..Default::default()
+    };
+
+    d.add(node::Node::Directory(DirectoryNode {
+        name: "b".into(),
+        digest: DUMMY_DIGEST.to_vec().into(),
+        size: 1,
+    }));
+    d.add(node::Node::Directory(DirectoryNode {
+        name: "a".into(),
+        digest: DUMMY_DIGEST.to_vec().into(),
+        size: 1,
+    }));
+    d.add(node::Node::Directory(DirectoryNode {
+        name: "z".into(),
+        digest: DUMMY_DIGEST.to_vec().into(),
+        size: 1,
+    }));
+
+    d.add(node::Node::File(FileNode {
+        name: "f".into(),
+        digest: DUMMY_DIGEST.to_vec().into(),
+        size: 1,
+        executable: true,
+    }));
+    d.add(node::Node::File(FileNode {
+        name: "c".into(),
+        digest: DUMMY_DIGEST.to_vec().into(),
+        size: 1,
+        executable: true,
+    }));
+    d.add(node::Node::File(FileNode {
+        name: "g".into(),
+        digest: DUMMY_DIGEST.to_vec().into(),
+        size: 1,
+        executable: true,
+    }));
+
+    d.add(node::Node::Symlink(SymlinkNode {
+        name: "t".into(),
+        target: "a".into(),
+    }));
+    d.add(node::Node::Symlink(SymlinkNode {
+        name: "o".into(),
+        target: "a".into(),
+    }));
+    d.add(node::Node::Symlink(SymlinkNode {
+        name: "e".into(),
+        target: "a".into(),
+    }));
+
+    d.validate().expect("directory should be valid");
+}
+
+#[test]
+#[cfg_attr(not(debug_assertions), ignore)]
+#[should_panic = "name already exists in directories"]
+fn add_duplicate_node_to_directory_panics() {
+    let mut d = Directory {
+        ..Default::default()
+    };
+
+    d.add(node::Node::Directory(DirectoryNode {
+        name: "a".into(),
+        digest: DUMMY_DIGEST.to_vec().into(),
+        size: 1,
+    }));
+    d.add(node::Node::File(FileNode {
+        name: "a".into(),
+        digest: DUMMY_DIGEST.to_vec().into(),
+        size: 1,
+        executable: true,
+    }));
 }

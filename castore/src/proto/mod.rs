@@ -179,6 +179,42 @@ impl Ord for node::Node {
     }
 }
 
+impl PartialOrd for FileNode {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for FileNode {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.get_name().cmp(other.get_name())
+    }
+}
+
+impl PartialOrd for SymlinkNode {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for SymlinkNode {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.get_name().cmp(other.get_name())
+    }
+}
+
+impl PartialOrd for DirectoryNode {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for DirectoryNode {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.get_name().cmp(other.get_name())
+    }
+}
+
 /// Accepts a name, and a mutable reference to the previous name.
 /// If the passed name is larger than the previous one, the reference is updated.
 /// If it's not, an error is returned.
@@ -302,6 +338,56 @@ impl Directory {
             i_files: self.files.iter().peekable(),
             i_symlinks: self.symlinks.iter().peekable(),
         };
+    }
+
+    /// Adds the specified [node::Node] to the [Directory], preserving sorted entries.
+    /// This assumes the [Directory] to be sorted prior to adding the node.
+    ///
+    /// Inserting an element that already exists with the same name in the directory is not
+    /// supported.
+    pub fn add(&mut self, node: node::Node) {
+        debug_assert!(
+            !self.files.iter().any(|x| x.get_name() == node.get_name()),
+            "name already exists in files"
+        );
+        debug_assert!(
+            !self
+                .directories
+                .iter()
+                .any(|x| x.get_name() == node.get_name()),
+            "name already exists in directories"
+        );
+        debug_assert!(
+            !self
+                .symlinks
+                .iter()
+                .any(|x| x.get_name() == node.get_name()),
+            "name already exists in symlinks"
+        );
+
+        match node {
+            node::Node::File(node) => {
+                let pos = self
+                    .files
+                    .binary_search(&node)
+                    .expect_err("Tvix bug: dir entry with name already exists");
+                self.files.insert(pos, node);
+            }
+            node::Node::Directory(node) => {
+                let pos = self
+                    .directories
+                    .binary_search(&node)
+                    .expect_err("Tvix bug: dir entry with name already exists");
+                self.directories.insert(pos, node);
+            }
+            node::Node::Symlink(node) => {
+                let pos = self
+                    .symlinks
+                    .binary_search(&node)
+                    .expect_err("Tvix bug: dir entry with name already exists");
+                self.symlinks.insert(pos, node);
+            }
+        }
     }
 }
 
