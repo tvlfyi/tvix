@@ -379,8 +379,8 @@ mod tests {
     use crate::store_path::{StorePath, StorePathRef, DIGEST_SIZE};
     use hex_literal::hex;
     use pretty_assertions::assert_eq;
+    use rstest::rstest;
     use serde::Deserialize;
-    use test_case::test_case;
 
     #[derive(Deserialize)]
     /// An example struct, holding a StorePathRef.
@@ -591,25 +591,29 @@ mod tests {
         );
     }
 
-    #[test_case(
+    #[rstest]
+    #[case::without_prefix(
         "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432",
-        (StorePath::from_bytes(b"00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432").unwrap(), PathBuf::new())
-    ; "without prefix")]
-    #[test_case(
+        StorePath::from_bytes(b"00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432").unwrap(), PathBuf::new())]
+    #[case::without_prefix_but_trailing_slash(
         "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432/",
-        (StorePath::from_bytes(b"00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432").unwrap(), PathBuf::new())
-    ; "without prefix, but trailing slash")]
-    #[test_case(
+        StorePath::from_bytes(b"00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432").unwrap(), PathBuf::new())]
+    #[case::with_prefix(
         "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432/bin/arp",
-        (StorePath::from_bytes(b"00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432").unwrap(), PathBuf::from("bin/arp"))
-    ; "with prefix")]
-    #[test_case(
+        StorePath::from_bytes(b"00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432").unwrap(), PathBuf::from("bin/arp"))]
+    #[case::with_prefix_and_trailing_slash(
         "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432/bin/arp/",
-        (StorePath::from_bytes(b"00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432").unwrap(), PathBuf::from("bin/arp/"))
-    ; "with prefix and trailing slash")]
-    fn from_absolute_path_full(s: &str, expected: (StorePath, PathBuf)) {
-        let actual = StorePath::from_absolute_path_full(s).expect("must succeed");
-        assert_eq!(expected, actual);
+        StorePath::from_bytes(b"00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432").unwrap(), PathBuf::from("bin/arp/"))]
+    fn from_absolute_path_full(
+        #[case] s: &str,
+        #[case] exp_store_path: StorePath,
+        #[case] exp_path: PathBuf,
+    ) {
+        let (actual_store_path, actual_path) =
+            StorePath::from_absolute_path_full(s).expect("must succeed");
+
+        assert_eq!(exp_store_path, actual_store_path);
+        assert_eq!(exp_path, actual_path);
     }
 
     #[test]
