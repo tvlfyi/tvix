@@ -347,7 +347,7 @@ mod tests {
     };
     use data_encoding::{BASE64, BASE64_NOPAD, HEXLOWER};
     use hex_literal::hex;
-    use test_case::test_case;
+    use rstest::rstest;
 
     const DIGEST_SHA1: [u8; 20] = hex!("6016777997c30ab02413cf5095622cd7924283ac");
     const DIGEST_SHA256: [u8; 32] =
@@ -380,11 +380,12 @@ mod tests {
     }
 
     /// Test parsing a hash string in various formats, and also when/how the out-of-band algo is needed.
-    #[test_case(&NixHash::Sha1(DIGEST_SHA1); "sha1")]
-    #[test_case(&NixHash::Sha256(DIGEST_SHA256); "sha256")]
-    #[test_case(&NixHash::Sha512(Box::new(DIGEST_SHA512)); "sha512")]
-    #[test_case(&NixHash::Md5(DIGEST_MD5); "md5")]
-    fn from_str(expected_hash: &NixHash) {
+    #[rstest]
+    #[case::sha1(&NixHash::Sha1(DIGEST_SHA1))]
+    #[case::sha256(&NixHash::Sha256(DIGEST_SHA256))]
+    #[case::sha512(&NixHash::Sha512(Box::new(DIGEST_SHA512)))]
+    #[case::md5(&NixHash::Md5(DIGEST_MD5))]
+    fn from_str(#[case] expected_hash: &NixHash) {
         let algo = &expected_hash.algo();
         let digest = expected_hash.digest_as_bytes();
         // parse SRI
@@ -490,12 +491,13 @@ mod tests {
     }
 
     /// Test parsing sha512 SRI hash with various paddings, Nix accepts all of them.
-    #[test_case("sha512-7g91TBvYoYQorRTqo+rYD/i5YnWvUBLnqDhPHxBJDaBW7smuPMeRp6E6JOFuVN9bzN0QnH1ToUU0u9c2CjALEQ"; "no padding")]
-    #[test_case("sha512-7g91TBvYoYQorRTqo+rYD/i5YnWvUBLnqDhPHxBJDaBW7smuPMeRp6E6JOFuVN9bzN0QnH1ToUU0u9c2CjALEQ="; "too little padding")]
-    #[test_case("sha512-7g91TBvYoYQorRTqo+rYD/i5YnWvUBLnqDhPHxBJDaBW7smuPMeRp6E6JOFuVN9bzN0QnH1ToUU0u9c2CjALEQ=="; "correct padding")]
-    #[test_case("sha512-7g91TBvYoYQorRTqo+rYD/i5YnWvUBLnqDhPHxBJDaBW7smuPMeRp6E6JOFuVN9bzN0QnH1ToUU0u9c2CjALEQ==="; "too much padding")]
-    #[test_case("sha512-7g91TBvYoYQorRTqo+rYD/i5YnWvUBLnqDhPHxBJDaBW7smuPMeRp6E6JOFuVN9bzN0QnH1ToUU0u9c2CjALEQ== cheesecake"; "additional suffix ignored")]
-    fn from_sri_str_sha512_paddings(sri_str: &str) {
+    #[rstest]
+    #[case::no_padding("sha512-7g91TBvYoYQorRTqo+rYD/i5YnWvUBLnqDhPHxBJDaBW7smuPMeRp6E6JOFuVN9bzN0QnH1ToUU0u9c2CjALEQ")]
+    #[case::too_little_padding("sha512-7g91TBvYoYQorRTqo+rYD/i5YnWvUBLnqDhPHxBJDaBW7smuPMeRp6E6JOFuVN9bzN0QnH1ToUU0u9c2CjALEQ=")]
+    #[case::correct_padding("sha512-7g91TBvYoYQorRTqo+rYD/i5YnWvUBLnqDhPHxBJDaBW7smuPMeRp6E6JOFuVN9bzN0QnH1ToUU0u9c2CjALEQ==")]
+    #[case::too_much_padding("sha512-7g91TBvYoYQorRTqo+rYD/i5YnWvUBLnqDhPHxBJDaBW7smuPMeRp6E6JOFuVN9bzN0QnH1ToUU0u9c2CjALEQ===")]
+    #[case::additional_suffix_ignored("sha512-7g91TBvYoYQorRTqo+rYD/i5YnWvUBLnqDhPHxBJDaBW7smuPMeRp6E6JOFuVN9bzN0QnH1ToUU0u9c2CjALEQ== cheesecake")]
+    fn from_sri_str_sha512_paddings(#[case] sri_str: &str) {
         let nix_hash = nixhash::from_sri_str(sri_str).expect("must succeed");
 
         assert_eq!(HashAlgo::Sha512, nix_hash.algo());
