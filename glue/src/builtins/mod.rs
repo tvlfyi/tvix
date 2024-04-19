@@ -56,8 +56,8 @@ mod tests {
 
     use super::{add_derivation_builtins, add_fetcher_builtins, add_import_builtins};
     use nix_compat::store_path::hash_placeholder;
+    use rstest::rstest;
     use tempfile::TempDir;
-    use test_case::test_case;
     use tvix_build::buildservice::DummyBuildService;
     use tvix_eval::{EvalIO, EvaluationResult};
     use tvix_store::utils::construct_services;
@@ -119,26 +119,27 @@ mod tests {
 
     /// construct some calls to builtins.derivation and compare produced output
     /// paths.
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/17wgs52s7kcamcyin4ja58njkf91ipq8-foo"; "r:sha256")]
-    #[test_case(r#"(builtins.derivation { name = "foo2"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/gi0p8vd635vpk1nq029cz3aa3jkhar5k-foo2"; "r:sha256 other name")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha1"; outputHash = "sha1-VUCRC+16gU5lcrLYHlPSUyx0Y/Q="; }).outPath"#, "/nix/store/p5sammmhpa84ama7ymkbgwwzrilva24x-foo"; "r:sha1")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "md5"; outputHash = "md5-07BzhNET7exJ6qYjitX/AA=="; }).outPath"#, "/nix/store/gmmxgpy1jrzs86r5y05wy6wiy2m15xgi-foo"; "r:md5")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha512"; outputHash = "sha512-DPkYCnZKuoY6Z7bXLwkYvBMcZ3JkLLLc5aNPCnAvlHDdwr8SXBIZixmVwjPDS0r9NGxUojNMNQqUilG26LTmtg=="; }).outPath"#, "/nix/store/lfi2bfyyap88y45mfdwi4j99gkaxaj19-foo"; "r:sha512")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "4374173a8cbe88de152b609f96f46e958bcf65762017474eec5a05ec2bd61530"; }).outPath"#, "/nix/store/17wgs52s7kcamcyin4ja58njkf91ipq8-foo"; "r:sha256 base16")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "0c0msqmyq1asxi74f5r0frjwz2wmdvs9d7v05caxx25yihx1fx23"; }).outPath"#, "/nix/store/17wgs52s7kcamcyin4ja58njkf91ipq8-foo"; "r:sha256 nixbase32")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/17wgs52s7kcamcyin4ja58njkf91ipq8-foo"; "r:sha256 base64")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "sha256-fgIr3TyFGDAXP5+qoAaiMKDg/a1MlT6Fv/S/DaA24S8="; }).outPath"#, "/nix/store/xm1l9dx4zgycv9qdhcqqvji1z88z534b-foo"; "r:sha256 base64 nopad")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "flat"; outputHashAlgo = "sha256"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/q4pkwkxdib797fhk22p0k3g1q32jmxvf-foo"; "sha256")]
-    #[test_case(r#"(builtins.derivation { name = "foo2"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "flat"; outputHashAlgo = "sha256"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/znw17xlmx9r6gw8izjkqxkl6s28sza4l-foo2"; "sha256 other name")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "flat"; outputHashAlgo = "sha1"; outputHash = "sha1-VUCRC+16gU5lcrLYHlPSUyx0Y/Q="; }).outPath"#, "/nix/store/zgpnjjmga53d8srp8chh3m9fn7nnbdv6-foo"; "sha1")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "flat"; outputHashAlgo = "md5"; outputHash = "md5-07BzhNET7exJ6qYjitX/AA=="; }).outPath"#, "/nix/store/jfhcwnq1852ccy9ad9nakybp2wadngnd-foo"; "md5")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "flat"; outputHashAlgo = "sha512"; outputHash = "sha512-DPkYCnZKuoY6Z7bXLwkYvBMcZ3JkLLLc5aNPCnAvlHDdwr8SXBIZixmVwjPDS0r9NGxUojNMNQqUilG26LTmtg=="; }).outPath"#, "/nix/store/as736rr116ian9qzg457f96j52ki8bm3-foo"; "sha512")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/17wgs52s7kcamcyin4ja58njkf91ipq8-foo"; "r:sha256 outputHashAlgo omitted")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/q4pkwkxdib797fhk22p0k3g1q32jmxvf-foo"; "r:sha256 outputHashAlgo and outputHashMode omitted")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; }).outPath"#, "/nix/store/xpcvxsx5sw4rbq666blz6sxqlmsqphmr-foo"; "outputHash* omitted")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; outputs = ["foo" "bar"]; system = "x86_64-linux"; }).outPath"#, "/nix/store/hkwdinvz2jpzgnjy9lv34d2zxvclj4s3-foo-foo"; "multiple outputs")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; args = ["--foo" "42" "--bar"]; system = "x86_64-linux"; }).outPath"#, "/nix/store/365gi78n2z7vwc1bvgb98k0a9cqfp6as-foo"; "args")]
-    #[test_case(r#"
+    #[rstest]
+    #[case::r_sha256(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/17wgs52s7kcamcyin4ja58njkf91ipq8-foo")]
+    #[case::r_sha256_other_name(r#"(builtins.derivation { name = "foo2"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/gi0p8vd635vpk1nq029cz3aa3jkhar5k-foo2")]
+    #[case::r_sha1(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha1"; outputHash = "sha1-VUCRC+16gU5lcrLYHlPSUyx0Y/Q="; }).outPath"#, "/nix/store/p5sammmhpa84ama7ymkbgwwzrilva24x-foo")]
+    #[case::r_md5(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "md5"; outputHash = "md5-07BzhNET7exJ6qYjitX/AA=="; }).outPath"#, "/nix/store/gmmxgpy1jrzs86r5y05wy6wiy2m15xgi-foo")]
+    #[case::r_sha512(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha512"; outputHash = "sha512-DPkYCnZKuoY6Z7bXLwkYvBMcZ3JkLLLc5aNPCnAvlHDdwr8SXBIZixmVwjPDS0r9NGxUojNMNQqUilG26LTmtg=="; }).outPath"#, "/nix/store/lfi2bfyyap88y45mfdwi4j99gkaxaj19-foo")]
+    #[case::r_sha256_base16(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "4374173a8cbe88de152b609f96f46e958bcf65762017474eec5a05ec2bd61530"; }).outPath"#, "/nix/store/17wgs52s7kcamcyin4ja58njkf91ipq8-foo")]
+    #[case::r_sha256_nixbase32(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "0c0msqmyq1asxi74f5r0frjwz2wmdvs9d7v05caxx25yihx1fx23"; }).outPath"#, "/nix/store/17wgs52s7kcamcyin4ja58njkf91ipq8-foo")]
+    #[case::r_sha256_base64(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/17wgs52s7kcamcyin4ja58njkf91ipq8-foo")]
+    #[case::r_sha256_base64_nopad(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "sha256-fgIr3TyFGDAXP5+qoAaiMKDg/a1MlT6Fv/S/DaA24S8="; }).outPath"#, "/nix/store/xm1l9dx4zgycv9qdhcqqvji1z88z534b-foo")]
+    #[case::sha256(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "flat"; outputHashAlgo = "sha256"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/q4pkwkxdib797fhk22p0k3g1q32jmxvf-foo")]
+    #[case::sha256_other_name(r#"(builtins.derivation { name = "foo2"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "flat"; outputHashAlgo = "sha256"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/znw17xlmx9r6gw8izjkqxkl6s28sza4l-foo2")]
+    #[case::sha1(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "flat"; outputHashAlgo = "sha1"; outputHash = "sha1-VUCRC+16gU5lcrLYHlPSUyx0Y/Q="; }).outPath"#, "/nix/store/zgpnjjmga53d8srp8chh3m9fn7nnbdv6-foo")]
+    #[case::md5(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "flat"; outputHashAlgo = "md5"; outputHash = "md5-07BzhNET7exJ6qYjitX/AA=="; }).outPath"#, "/nix/store/jfhcwnq1852ccy9ad9nakybp2wadngnd-foo")]
+    #[case::sha512(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "flat"; outputHashAlgo = "sha512"; outputHash = "sha512-DPkYCnZKuoY6Z7bXLwkYvBMcZ3JkLLLc5aNPCnAvlHDdwr8SXBIZixmVwjPDS0r9NGxUojNMNQqUilG26LTmtg=="; }).outPath"#, "/nix/store/as736rr116ian9qzg457f96j52ki8bm3-foo")]
+    #[case::r_sha256_outputhashalgo_omitted(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/17wgs52s7kcamcyin4ja58njkf91ipq8-foo")]
+    #[case::r_sha256_outputhashalgo_and_outputhashmode_omitted(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#, "/nix/store/q4pkwkxdib797fhk22p0k3g1q32jmxvf-foo")]
+    #[case::outputhash_omitted(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; }).outPath"#, "/nix/store/xpcvxsx5sw4rbq666blz6sxqlmsqphmr-foo")]
+    #[case::multiple_outputs(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; outputs = ["foo" "bar"]; system = "x86_64-linux"; }).outPath"#, "/nix/store/hkwdinvz2jpzgnjy9lv34d2zxvclj4s3-foo-foo")]
+    #[case::args(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; args = ["--foo" "42" "--bar"]; system = "x86_64-linux"; }).outPath"#, "/nix/store/365gi78n2z7vwc1bvgb98k0a9cqfp6as-foo")]
+    #[case::full(r#"
                    let
                      bar = builtins.derivation {
                        name = "bar";
@@ -155,34 +156,34 @@ mod tests {
                      system = ":";
                      inherit bar;
                    }).outPath
-        "#, "/nix/store/5vyvcwah9l9kf07d52rcgdk70g2f4y13-foo"; "full")]
-    #[test_case(r#"(builtins.derivation { "name" = "foo"; passAsFile = ["bar"]; bar = "baz"; system = ":"; builder = ":";}).outPath"#, "/nix/store/25gf0r1ikgmh4vchrn8qlc4fnqlsa5a1-foo"; "passAsFile")]
+        "#, "/nix/store/5vyvcwah9l9kf07d52rcgdk70g2f4y13-foo")]
+    #[case::pass_as_file(r#"(builtins.derivation { "name" = "foo"; passAsFile = ["bar"]; bar = "baz"; system = ":"; builder = ":";}).outPath"#, "/nix/store/25gf0r1ikgmh4vchrn8qlc4fnqlsa5a1-foo")]
     // __ignoreNulls = true, but nothing set to null
-    #[test_case(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __ignoreNulls = true; }).drvPath"#, "/nix/store/xa96w6d7fxrlkk60z1fmx2ffp2wzmbqx-foo.drv"; "ignoreNulls no arg drvPath")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __ignoreNulls = true; }).outPath"#, "/nix/store/pk2agn9za8r9bxsflgh1y7fyyrmwcqkn-foo"; "ignoreNulls no arg outPath")]
+    #[case::ignore_nulls_true_no_arg_drvpath(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __ignoreNulls = true; }).drvPath"#, "/nix/store/xa96w6d7fxrlkk60z1fmx2ffp2wzmbqx-foo.drv")]
+    #[case::ignore_nulls_true_no_arg_outpath(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __ignoreNulls = true; }).outPath"#, "/nix/store/pk2agn9za8r9bxsflgh1y7fyyrmwcqkn-foo")]
     // __ignoreNulls = true, with a null arg, same paths
-    #[test_case(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __ignoreNulls = true; ignoreme = null; }).drvPath"#, "/nix/store/xa96w6d7fxrlkk60z1fmx2ffp2wzmbqx-foo.drv"; "ignoreNulls drvPath")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __ignoreNulls = true; ignoreme = null; }).outPath"#, "/nix/store/pk2agn9za8r9bxsflgh1y7fyyrmwcqkn-foo"; "ignoreNulls outPath")]
+    #[case::ignore_nulls_true_drvpath(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __ignoreNulls = true; ignoreme = null; }).drvPath"#, "/nix/store/xa96w6d7fxrlkk60z1fmx2ffp2wzmbqx-foo.drv")]
+    #[case::ignore_nulls_true_outpath(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __ignoreNulls = true; ignoreme = null; }).outPath"#, "/nix/store/pk2agn9za8r9bxsflgh1y7fyyrmwcqkn-foo")]
     // __ignoreNulls = false
-    #[test_case(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __ignoreNulls = false; }).drvPath"#, "/nix/store/xa96w6d7fxrlkk60z1fmx2ffp2wzmbqx-foo.drv"; "ignoreNulls false no arg drvPath")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __ignoreNulls = false; }).outPath"#, "/nix/store/pk2agn9za8r9bxsflgh1y7fyyrmwcqkn-foo"; "ignoreNulls false no arg arg outPath")]
+    #[case::ignore_nulls_false_no_arg_drvpath(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __ignoreNulls = false; }).drvPath"#, "/nix/store/xa96w6d7fxrlkk60z1fmx2ffp2wzmbqx-foo.drv")]
+    #[case::ignore_nulls_false_no_arg_outpath(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __ignoreNulls = false; }).outPath"#, "/nix/store/pk2agn9za8r9bxsflgh1y7fyyrmwcqkn-foo")]
     // __ignoreNulls = false, with a null arg
-    #[test_case(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __ignoreNulls = false; foo = null; }).drvPath"#, "/nix/store/xwkwbajfiyhdqmksrbzm0s4g4ib8d4ms-foo.drv"; "ignoreNulls false arg drvPath")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __ignoreNulls = false; foo = null; }).outPath"#, "/nix/store/2n2jqm6l7r2ahi19m58pl896ipx9cyx6-foo"; "ignoreNulls false arg arg outPath")]
+    #[case::ignore_nulls_fales_arg_path_drvpath(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __ignoreNulls = false; foo = null; }).drvPath"#, "/nix/store/xwkwbajfiyhdqmksrbzm0s4g4ib8d4ms-foo.drv")]
+    #[case::ignore_nulls_fales_arg_path_outpath(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __ignoreNulls = false; foo = null; }).outPath"#, "/nix/store/2n2jqm6l7r2ahi19m58pl896ipx9cyx6-foo")]
     // structured attrs set to false will render an empty string inside env
-    #[test_case(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __structuredAttrs = false; foo = "bar"; }).drvPath"#, "/nix/store/qs39krwr2lsw6ac910vqx4pnk6m63333-foo.drv"; "structuredAttrs-false-drvPath")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __structuredAttrs = false; foo = "bar"; }).outPath"#, "/nix/store/9yy3764rdip3fbm8ckaw4j9y7vh4d231-foo"; "structuredAttrs-false-outPath")]
+    #[case::structured_attrs_false_drvpath(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __structuredAttrs = false; foo = "bar"; }).drvPath"#, "/nix/store/qs39krwr2lsw6ac910vqx4pnk6m63333-foo.drv")]
+    #[case::structured_attrs_false_outpath(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __structuredAttrs = false; foo = "bar"; }).outPath"#, "/nix/store/9yy3764rdip3fbm8ckaw4j9y7vh4d231-foo")]
     // simple structured attrs
-    #[test_case(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __structuredAttrs = true; foo = "bar"; }).drvPath"#, "/nix/store/k6rlb4k10cb9iay283037ml1nv3xma2f-foo.drv"; "structuredAttrs-simple-drvPath")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __structuredAttrs = true; foo = "bar"; }).outPath"#, "/nix/store/6lmv3hyha1g4cb426iwjyifd7nrdv1xn-foo"; "structuredAttrs-simple-outPath")]
+    #[case::structured_attrs_simple_drvpath(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __structuredAttrs = true; foo = "bar"; }).drvPath"#, "/nix/store/k6rlb4k10cb9iay283037ml1nv3xma2f-foo.drv")]
+    #[case::structured_attrs_simple_outpath(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __structuredAttrs = true; foo = "bar"; }).outPath"#, "/nix/store/6lmv3hyha1g4cb426iwjyifd7nrdv1xn-foo")]
     // structured attrs with outputsCheck
-    #[test_case(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __structuredAttrs = true; foo = "bar"; outputChecks = {out = {maxClosureSize = 256 * 1024 * 1024; disallowedRequisites = [ "dev" ];};}; }).drvPath"#, "/nix/store/fx9qzpchh5wchchhy39bwsml978d6wp1-foo.drv"; "structuredAttrs-outputChecks-drvPath")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __structuredAttrs = true; foo = "bar"; outputChecks = {out = {maxClosureSize = 256 * 1024 * 1024; disallowedRequisites = [ "dev" ];};}; }).outPath"#, "/nix/store/pcywah1nwym69rzqdvpp03sphfjgyw1l-foo"; "structuredAttrs-outputChecks-outPath")]
+    #[case::structured_attrs_output_checks_drvpath(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __structuredAttrs = true; foo = "bar"; outputChecks = {out = {maxClosureSize = 256 * 1024 * 1024; disallowedRequisites = [ "dev" ];};}; }).drvPath"#, "/nix/store/fx9qzpchh5wchchhy39bwsml978d6wp1-foo.drv")]
+    #[case::structured_attrs_output_checks_outpath(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __structuredAttrs = true; foo = "bar"; outputChecks = {out = {maxClosureSize = 256 * 1024 * 1024; disallowedRequisites = [ "dev" ];};}; }).outPath"#, "/nix/store/pcywah1nwym69rzqdvpp03sphfjgyw1l-foo")]
     // structured attrs and __ignoreNulls. ignoreNulls is inactive (so foo ends up in __json, yet __ignoreNulls itself is not present.
-    #[test_case(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __ignoreNulls = false; foo = null; __structuredAttrs = true; }).drvPath"#, "/nix/store/rldskjdcwa3p7x5bqy3r217va1jsbjsc-foo.drv"; "structuredAttrs-and-ignore-nulls-drvPath")]
+    #[case::structured_attrs_and_ignore_nulls_drvpath(r#"(builtins.derivation { name = "foo"; system = ":"; builder = ":"; __ignoreNulls = false; foo = null; __structuredAttrs = true; }).drvPath"#, "/nix/store/rldskjdcwa3p7x5bqy3r217va1jsbjsc-foo.drv")]
     // structured attrs, setting outputs.
-    #[test_case(r#"(builtins.derivation { name = "test"; system = "aarch64-linux"; builder = "/bin/sh"; __structuredAttrs = true; outputs = [ "out"]; }).drvPath"#, "/nix/store/6sgawp30zibsh525p7c948xxd22y2ngy-test.drv"; "structuredAttrs-outputs-drvPath")]
-    fn test_outpath(code: &str, expected_path: &str) {
+    #[case::structured_attrs_outputs_drvpath(r#"(builtins.derivation { name = "test"; system = "aarch64-linux"; builder = "/bin/sh"; __structuredAttrs = true; outputs = [ "out"]; }).drvPath"#, "/nix/store/6sgawp30zibsh525p7c948xxd22y2ngy-test.drv")]
+    fn test_outpath(#[case] code: &str, #[case] expected_path: &str) {
         let value = eval(code).value.expect("must succeed");
 
         match value {
@@ -194,10 +195,11 @@ mod tests {
     }
 
     /// construct some calls to builtins.derivation that should be rejected
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "sha256-00"; }).outPath"#; "invalid outputhash")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha1"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#; "sha1 and sha256")]
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; outputs = ["foo" "foo"]; system = "x86_64-linux"; }).outPath"#; "duplicate output names")]
-    fn test_outpath_invalid(code: &str) {
+    #[rstest]
+    #[case::invalid_outputhash(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "sha256-00"; }).outPath"#)]
+    #[case::sha1_and_sha256(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha1"; outputHash = "sha256-Q3QXOoy+iN4VK2CflvRulYvPZXYgF0dO7FoF7CvWFTA="; }).outPath"#)]
+    #[case::duplicate_output_names(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; outputs = ["foo" "foo"]; system = "x86_64-linux"; }).outPath"#)]
+    fn test_outpath_invalid(#[case] code: &str) {
         let resp = eval(code);
         assert!(resp.value.is_none(), "Value should be None");
         assert!(
@@ -285,7 +287,8 @@ mod tests {
         }
     }
 
-    #[test_case(r#"
+    #[rstest]
+    #[case::input_in_args(r#"
                    let
                      bar = builtins.derivation {
                        name = "bar";
@@ -302,8 +305,8 @@ mod tests {
                      args = [ "${bar}" ];
                      system = ":";
                    }).drvPath
-        "#, "/nix/store/50yl2gmmljyl0lzyrp1mcyhn53vhjhkd-foo.drv"; "input in `args`")]
-    fn test_inputs_derivation_from_context(code: &str, expected_drvpath: &str) {
+        "#, "/nix/store/50yl2gmmljyl0lzyrp1mcyhn53vhjhkd-foo.drv")]
+    fn test_inputs_derivation_from_context(#[case] code: &str, #[case] expected_drvpath: &str) {
         let eval_result = eval(code);
 
         let value = eval_result.value.expect("must succeed");
@@ -331,8 +334,12 @@ mod tests {
     }
 
     /// constructs calls to builtins.derivation that should succeed, but produce warnings
-    #[test_case(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "sha256-fgIr3TyFGDAXP5+qoAaiMKDg/a1MlT6Fv/S/DaA24S8===="; }).outPath"#, "/nix/store/xm1l9dx4zgycv9qdhcqqvji1z88z534b-foo"; "r:sha256 wrong padding")]
-    fn builtins_derivation_hash_wrong_padding_warn(code: &str, expected_path: &str) {
+    #[rstest]
+    #[case::r_sha256_wrong_padding(r#"(builtins.derivation { name = "foo"; builder = "/bin/sh"; system = "x86_64-linux"; outputHashMode = "recursive"; outputHashAlgo = "sha256"; outputHash = "sha256-fgIr3TyFGDAXP5+qoAaiMKDg/a1MlT6Fv/S/DaA24S8===="; }).outPath"#, "/nix/store/xm1l9dx4zgycv9qdhcqqvji1z88z534b-foo")]
+    fn builtins_derivation_hash_wrong_padding_warn(
+        #[case] code: &str,
+        #[case] expected_path: &str,
+    ) {
         let eval_result = eval(code);
 
         let value = eval_result.value.expect("must succeed");
@@ -353,35 +360,117 @@ mod tests {
     /// Invokes `builtins.filterSource` on various carefully-crated subdirs, and
     /// ensures the resulting store paths matches what Nix produces.
     /// @fixtures is replaced to the fixtures directory.
+    #[rstest]
     #[cfg(target_family = "unix")]
-    #[test_case(r#"(builtins.filterSource (p: t: true) @fixtures)"#, "/nix/store/bqh6kd0x3vps2rzagzpl7qmbbgnx19cp-import_fixtures"; "complicated directory: filter nothing")]
-    #[test_case(r#"(builtins.filterSource (p: t: false) @fixtures)"#, "/nix/store/giq6czz24lpjg97xxcxk6rg950lcpib1-import_fixtures"; "complicated directory: filter everything")]
-    #[test_case(r#"(builtins.filterSource (p: t: t != "directory") @fixtures/a_dir)"#, "/nix/store/8vbqaxapywkvv1hacdja3pi075r14d43-a_dir"; "simple directory with one file: filter directories")]
-    #[test_case(r#"(builtins.filterSource (p: t: t != "regular") @fixtures/a_dir)"#, "/nix/store/zphlqc93s2iq4xm393l06hzf8hp85r4z-a_dir"; "simple directory with one file: filter files")]
-    #[test_case(r#"(builtins.filterSource (p: t: t != "symlink") @fixtures/a_dir)"#, "/nix/store/8vbqaxapywkvv1hacdja3pi075r14d43-a_dir"; "simple directory with one file: filter symlinks")]
-    #[test_case(r#"(builtins.filterSource (p: t: true) @fixtures/a_dir)"#, "/nix/store/8vbqaxapywkvv1hacdja3pi075r14d43-a_dir"; "simple directory with one file: filter nothing")]
-    #[test_case(r#"(builtins.filterSource (p: t: false) @fixtures/a_dir)"#, "/nix/store/zphlqc93s2iq4xm393l06hzf8hp85r4z-a_dir"; "simple directory with one file: filter everything")]
-    #[test_case(r#"builtins.filterSource (p: t: t != "directory") @fixtures/b_dir"#, "/nix/store/xzsfzdgrxg93icaamjm8zq1jq6xvf2fz-b_dir"; "simple directory with one directory: filter directories")]
-    #[test_case(r#"builtins.filterSource (p: t: t != "regular") @fixtures/b_dir"#, "/nix/store/8rjx64mm7173xp60rahv7cl3ixfkv3rf-b_dir"; "simple directory with one directory: filter files")]
-    #[test_case(r#"builtins.filterSource (p: t: t != "symlink") @fixtures/b_dir"#, "/nix/store/8rjx64mm7173xp60rahv7cl3ixfkv3rf-b_dir"; "simple directory with one directory: filter symlinks")]
-    #[test_case(r#"builtins.filterSource (p: t: true) @fixtures/b_dir"#, "/nix/store/8rjx64mm7173xp60rahv7cl3ixfkv3rf-b_dir"; "simple directory with one directory: filter nothing")]
-    #[test_case(r#"builtins.filterSource (p: t: false) @fixtures/b_dir"#, "/nix/store/xzsfzdgrxg93icaamjm8zq1jq6xvf2fz-b_dir"; "simple directory with one directory: filter everything")]
-    #[test_case(r#"builtins.filterSource (p: t: t != "directory") @fixtures/c_dir"#, "/nix/store/riigfmmzzrq65zqiffcjk5sbqr9c9h09-c_dir"; "simple directory with one symlink to a file: filter directory")]
-    #[test_case(r#"builtins.filterSource (p: t: t != "regular") @fixtures/c_dir"#, "/nix/store/riigfmmzzrq65zqiffcjk5sbqr9c9h09-c_dir"; "simple directory with one symlink to a file: filter files")]
-    #[test_case(r#"builtins.filterSource (p: t: t != "symlink") @fixtures/c_dir"#, "/nix/store/y5g1fz04vzjvf422q92qmv532axj5q26-c_dir"; "simple directory with one symlink to a file: filter symlinks")]
-    #[test_case(r#"builtins.filterSource (p: t: true) @fixtures/c_dir"#, "/nix/store/riigfmmzzrq65zqiffcjk5sbqr9c9h09-c_dir"; "simple directory with one symlink to a file: filter nothing")]
-    #[test_case(r#"builtins.filterSource (p: t: false) @fixtures/c_dir"#, "/nix/store/y5g1fz04vzjvf422q92qmv532axj5q26-c_dir"; "simple directory with one symlink to a file: filter everything")]
-    #[test_case(r#"builtins.filterSource (p: t: t != "directory") @fixtures/d_dir"#, "/nix/store/f2d1aixwiqy4lbzrd040ala2s4m2z199-d_dir"; "simple directory with dangling symlink: filter directory")]
-    #[test_case(r#"builtins.filterSource (p: t: t != "regular") @fixtures/d_dir"#, "/nix/store/f2d1aixwiqy4lbzrd040ala2s4m2z199-d_dir"; "simple directory with dangling symlink: filter file")]
-    #[test_case(r#"builtins.filterSource (p: t: t != "symlink") @fixtures/d_dir"#, "/nix/store/7l371xax8kknhpska4wrmyll1mzlhzvl-d_dir"; "simple directory with dangling symlink: filter symlinks")]
-    #[test_case(r#"builtins.filterSource (p: t: true) @fixtures/d_dir"#, "/nix/store/f2d1aixwiqy4lbzrd040ala2s4m2z199-d_dir"; "simple directory with dangling symlink: filter nothing")]
-    #[test_case(r#"builtins.filterSource (p: t: false) @fixtures/d_dir"#, "/nix/store/7l371xax8kknhpska4wrmyll1mzlhzvl-d_dir"; "simple directory with dangling symlink: filter everything")]
-    #[test_case(r#"builtins.filterSource (p: t: t != "directory") @fixtures/symlink_to_a_dir"#, "/nix/store/apmdprm8fwl2zrjpbyfcd99zrnhvf47q-symlink_to_a_dir"; "simple symlinked directory with one file: filter directories")]
-    #[test_case(r#"builtins.filterSource (p: t: t != "regular") @fixtures/symlink_to_a_dir"#, "/nix/store/apmdprm8fwl2zrjpbyfcd99zrnhvf47q-symlink_to_a_dir"; "simple symlinked directory with one file: filter file")]
-    #[test_case(r#"builtins.filterSource (p: t: t != "symlink") @fixtures/symlink_to_a_dir"#, "/nix/store/apmdprm8fwl2zrjpbyfcd99zrnhvf47q-symlink_to_a_dir"; "simple symlinked directory with one file: filter symlinks")]
-    #[test_case(r#"builtins.filterSource (p: t: true) @fixtures/symlink_to_a_dir"#, "/nix/store/apmdprm8fwl2zrjpbyfcd99zrnhvf47q-symlink_to_a_dir"; "simple symlinked directory with one file: filter nothing")]
-    #[test_case(r#"builtins.filterSource (p: t: false) @fixtures/symlink_to_a_dir"#, "/nix/store/apmdprm8fwl2zrjpbyfcd99zrnhvf47q-symlink_to_a_dir"; "simple symlinked directory with one file: filter everything")]
-    fn builtins_filter_source_succeed(code: &str, expected_outpath: &str) {
+    #[case::complicated_filter_nothing(
+        r#"(builtins.filterSource (p: t: true) @fixtures)"#,
+        "/nix/store/bqh6kd0x3vps2rzagzpl7qmbbgnx19cp-import_fixtures"
+    )]
+    #[case::complicated_filter_everything(
+        r#"(builtins.filterSource (p: t: false) @fixtures)"#,
+        "/nix/store/giq6czz24lpjg97xxcxk6rg950lcpib1-import_fixtures"
+    )]
+    #[case::simple_dir_with_one_file_filter_dirs(
+        r#"(builtins.filterSource (p: t: t != "directory") @fixtures/a_dir)"#,
+        "/nix/store/8vbqaxapywkvv1hacdja3pi075r14d43-a_dir"
+    )]
+    #[case::simple_dir_with_one_file_filter_files(
+        r#"(builtins.filterSource (p: t: t != "regular") @fixtures/a_dir)"#,
+        "/nix/store/zphlqc93s2iq4xm393l06hzf8hp85r4z-a_dir"
+    )]
+    #[case::simple_dir_with_one_file_filter_symlinks(
+        r#"(builtins.filterSource (p: t: t != "symlink") @fixtures/a_dir)"#,
+        "/nix/store/8vbqaxapywkvv1hacdja3pi075r14d43-a_dir"
+    )]
+    #[case::simple_dir_with_one_file_filter_nothing(
+        r#"(builtins.filterSource (p: t: true) @fixtures/a_dir)"#,
+        "/nix/store/8vbqaxapywkvv1hacdja3pi075r14d43-a_dir"
+    )]
+    #[case::simple_dir_with_one_file_filter_everything(
+        r#"(builtins.filterSource (p: t: false) @fixtures/a_dir)"#,
+        "/nix/store/zphlqc93s2iq4xm393l06hzf8hp85r4z-a_dir"
+    )]
+    #[case::simple_dir_with_one_dir_filter_dirs(
+        r#"builtins.filterSource (p: t: t != "directory") @fixtures/b_dir"#,
+        "/nix/store/xzsfzdgrxg93icaamjm8zq1jq6xvf2fz-b_dir"
+    )]
+    #[case::simple_dir_with_one_dir_filter_files(
+        r#"builtins.filterSource (p: t: t != "regular") @fixtures/b_dir"#,
+        "/nix/store/8rjx64mm7173xp60rahv7cl3ixfkv3rf-b_dir"
+    )]
+    #[case::simple_dir_with_one_dir_filter_symlinks(
+        r#"builtins.filterSource (p: t: t != "symlink") @fixtures/b_dir"#,
+        "/nix/store/8rjx64mm7173xp60rahv7cl3ixfkv3rf-b_dir"
+    )]
+    #[case::simple_dir_with_one_dir_filter_nothing(
+        r#"builtins.filterSource (p: t: true) @fixtures/b_dir"#,
+        "/nix/store/8rjx64mm7173xp60rahv7cl3ixfkv3rf-b_dir"
+    )]
+    #[case::simple_dir_with_one_dir_filter_everything(
+        r#"builtins.filterSource (p: t: false) @fixtures/b_dir"#,
+        "/nix/store/xzsfzdgrxg93icaamjm8zq1jq6xvf2fz-b_dir"
+    )]
+    #[case::simple_dir_with_one_symlink_to_file_filter_dirs(
+        r#"builtins.filterSource (p: t: t != "directory") @fixtures/c_dir"#,
+        "/nix/store/riigfmmzzrq65zqiffcjk5sbqr9c9h09-c_dir"
+    )]
+    #[case::simple_dir_with_one_symlink_to_file_filter_files(
+        r#"builtins.filterSource (p: t: t != "regular") @fixtures/c_dir"#,
+        "/nix/store/riigfmmzzrq65zqiffcjk5sbqr9c9h09-c_dir"
+    )]
+    #[case::simple_dir_with_one_symlink_to_file_filter_symlinks(
+        r#"builtins.filterSource (p: t: t != "symlink") @fixtures/c_dir"#,
+        "/nix/store/y5g1fz04vzjvf422q92qmv532axj5q26-c_dir"
+    )]
+    #[case::simple_dir_with_one_symlink_to_file_filter_nothing(
+        r#"builtins.filterSource (p: t: true) @fixtures/c_dir"#,
+        "/nix/store/riigfmmzzrq65zqiffcjk5sbqr9c9h09-c_dir"
+    )]
+    #[case::simple_dir_with_one_symlink_to_file_filter_everything(
+        r#"builtins.filterSource (p: t: false) @fixtures/c_dir"#,
+        "/nix/store/y5g1fz04vzjvf422q92qmv532axj5q26-c_dir"
+    )]
+    #[case::simple_dir_with_dangling_symlink_filter_dirs(
+        r#"builtins.filterSource (p: t: t != "directory") @fixtures/d_dir"#,
+        "/nix/store/f2d1aixwiqy4lbzrd040ala2s4m2z199-d_dir"
+    )]
+    #[case::simple_dir_with_dangling_symlink_filter_files(
+        r#"builtins.filterSource (p: t: t != "regular") @fixtures/d_dir"#,
+        "/nix/store/f2d1aixwiqy4lbzrd040ala2s4m2z199-d_dir"
+    )]
+    #[case::simple_dir_with_dangling_symlink_filter_symlinks(
+        r#"builtins.filterSource (p: t: t != "symlink") @fixtures/d_dir"#,
+        "/nix/store/7l371xax8kknhpska4wrmyll1mzlhzvl-d_dir"
+    )]
+    #[case::simple_dir_with_dangling_symlink_filter_nothing(
+        r#"builtins.filterSource (p: t: true) @fixtures/d_dir"#,
+        "/nix/store/f2d1aixwiqy4lbzrd040ala2s4m2z199-d_dir"
+    )]
+    #[case::simple_dir_with_dangling_symlink_filter_everything(
+        r#"builtins.filterSource (p: t: false) @fixtures/d_dir"#,
+        "/nix/store/7l371xax8kknhpska4wrmyll1mzlhzvl-d_dir"
+    )]
+    #[case::simple_symlinked_dir_with_one_file_filter_dirs(
+        r#"builtins.filterSource (p: t: t != "directory") @fixtures/symlink_to_a_dir"#,
+        "/nix/store/apmdprm8fwl2zrjpbyfcd99zrnhvf47q-symlink_to_a_dir"
+    )]
+    #[case::simple_symlinked_dir_with_one_file_filter_files(
+        r#"builtins.filterSource (p: t: t != "regular") @fixtures/symlink_to_a_dir"#,
+        "/nix/store/apmdprm8fwl2zrjpbyfcd99zrnhvf47q-symlink_to_a_dir"
+    )]
+    #[case::simple_symlinked_dir_with_one_file_filter_symlinks(
+        r#"builtins.filterSource (p: t: t != "symlink") @fixtures/symlink_to_a_dir"#,
+        "/nix/store/apmdprm8fwl2zrjpbyfcd99zrnhvf47q-symlink_to_a_dir"
+    )]
+    #[case::simple_symlinked_dir_with_one_file_filter_nothing(
+        r#"builtins.filterSource (p: t: true) @fixtures/symlink_to_a_dir"#,
+        "/nix/store/apmdprm8fwl2zrjpbyfcd99zrnhvf47q-symlink_to_a_dir"
+    )]
+    #[case::simple_symlinked_dir_with_one_file_filter_everything(
+        r#"builtins.filterSource (p: t: false) @fixtures/symlink_to_a_dir"#,
+        "/nix/store/apmdprm8fwl2zrjpbyfcd99zrnhvf47q-symlink_to_a_dir"
+    )]
+    fn builtins_filter_source_succeed(#[case] code: &str, #[case] expected_outpath: &str) {
         // populate the fixtures dir
         let temp = TempDir::new().expect("create temporary directory");
         let p = temp.path().join("import_fixtures");
@@ -440,16 +529,17 @@ mod tests {
     }
 
     // Space is an illegal character.
-    #[test_case(
+    #[rstest]
+    #[case(
         r#"(builtins.path { name = "valid-name"; path = @fixtures + "/te st"; recursive = true; })"#,
         true
     )]
     // Space is still an illegal character.
-    #[test_case(
+    #[case(
         r#"(builtins.path { name = "invalid name"; path = @fixtures + "/te st"; recursive = true; })"#,
         false
     )]
-    fn builtins_path_recursive_rename(code: &str, success: bool) {
+    fn builtins_path_recursive_rename(#[case] code: &str, #[case] success: bool) {
         // populate the fixtures dir
         let temp = TempDir::new().expect("create temporary directory");
         let p = temp.path().join("import_fixtures");
@@ -485,17 +575,18 @@ mod tests {
     }
 
     // Space is an illegal character.
-    #[test_case(
+    #[rstest]
+    #[case(
         r#"(builtins.path { name = "valid-name"; path = @fixtures + "/te st"; recursive = false; })"#,
         true
     )]
     // Space is still an illegal character.
-    #[test_case(
+    #[case(
         r#"(builtins.path { name = "invalid name"; path = @fixtures + "/te st"; recursive = false; })"#,
         false
     )]
     // The non-recursive variant passes explicitly `recursive = false;`
-    fn builtins_path_nonrecursive_rename(code: &str, success: bool) {
+    fn builtins_path_nonrecursive_rename(#[case] code: &str, #[case] success: bool) {
         // populate the fixtures dir
         let temp = TempDir::new().expect("create temporary directory");
         let p = temp.path().join("import_fixtures");
@@ -530,23 +621,24 @@ mod tests {
         }
     }
 
-    #[test_case(
+    #[rstest]
+    #[case(
         r#"(builtins.path { name = "valid-name"; path = @fixtures + "/te st"; recursive = false; sha256 = "sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="; })"#,
         true
     )]
-    #[test_case(
+    #[case(
         r#"(builtins.path { name = "valid-name"; path = @fixtures + "/te st"; recursive = true; sha256 = "sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="; })"#,
         false
     )]
-    #[test_case(
+    #[case(
         r#"(builtins.path { name = "valid-name"; path = @fixtures + "/te st"; recursive = true; sha256 = "sha256-d6xi4mKdjkX2JFicDIv5niSzpyI0m/Hnm8GGAIU04kY="; })"#,
         true
     )]
-    #[test_case(
+    #[case(
         r#"(builtins.path { name = "valid-name"; path = @fixtures + "/te st"; recursive = false; sha256 = "sha256-d6xi4mKdjkX2JFicDIv5niSzpyI0m/Hnm8GGAIU04kY="; })"#,
         false
     )]
-    fn builtins_path_fod_locking(code: &str, success: bool) {
+    fn builtins_path_fod_locking(#[case] code: &str, #[case] exp_success: bool) {
         // populate the fixtures dir
         let temp = TempDir::new().expect("create temporary directory");
         let p = temp.path().join("import_fixtures");
@@ -566,7 +658,7 @@ mod tests {
 
         let value = eval_result.value;
 
-        if success {
+        if exp_success {
             assert!(
                 value.is_some(),
                 "expected successful evaluation on legal rename and valid FOD sha256"
@@ -576,15 +668,16 @@ mod tests {
         }
     }
 
-    #[test_case(
+    #[rstest]
+    #[case(
         r#"(builtins.path { name = "valid-path"; path = @fixtures + "/te st dir"; filter = _: _: true; })"#,
         "/nix/store/i28jmi4fwym4fw3flkrkp2mdxx50pdy0-valid-path"
     )]
-    #[test_case(
+    #[case(
         r#"(builtins.path { name = "valid-path"; path = @fixtures + "/te st dir"; filter = _: _: false; })"#,
         "/nix/store/pwza2ij9gk1fmzhbjnynmfv2mq2sgcap-valid-path"
     )]
-    fn builtins_path_filter(code: &str, expected_outpath: &str) {
+    fn builtins_path_filter(#[case] code: &str, #[case] expected_outpath: &str) {
         // populate the fixtures dir
         let temp = TempDir::new().expect("create temporary directory");
         let p = temp.path().join("import_fixtures");
@@ -617,18 +710,35 @@ mod tests {
 
     // All tests filter out some unsupported (not representable in castore) nodes, confirming
     // invalid, but filtered-out nodes don't prevent ingestion of a path.
+    #[rstest]
     #[cfg(target_family = "unix")]
     // There is a set of invalid filetypes.
-    // We write a filter function for most subsets, excluding one that filters all of them.
-    // We expect these cases to make the evaluation fail as there are still invalid files present
-    // after the filtering.
-    #[test_case(r#"(builtins.filterSource (p: t: t == "unknown") @fixtures)"#, false; "complicated directory: filter unsupported types")]
-    #[test_case(r#"(builtins.filterSource (p: t: (builtins.baseNameOf p) != "a_charnode") @fixtures)"#, false; "complicated directory: filter character device nodes")]
-    #[test_case(r#"(builtins.filterSource (p: t: (builtins.baseNameOf p) != "a_socket") @fixtures)"#, false; "complicated directory: filter sockets")]
-    #[test_case(r#"(builtins.filterSource (p: t: (builtins.baseNameOf p) != "a_fifo") @fixtures)"#, false; "complicated directory: filter FIFOs")]
+    // We write various filter functions filtering them out, but usually leaving
+    // some behind.
+    // In case there's still invalid filetypes left after the filtering, we
+    // expect the evaluation to fail.
+    #[case::fail_kept_unknowns(
+        r#"(builtins.filterSource (p: t: t == "unknown") @fixtures)"#,
+        false
+    )]
     // We filter all invalid filetypes, so the evaluation has to succeed.
-    #[test_case(r#"(builtins.filterSource (p: t: t != "unknown") @fixtures)"#, true; "complicated directory: filter out unsupported types")]
-    fn builtins_filter_source_unsupported_files(code: &str, success: bool) {
+    #[case::succeed_filter_unknowns(
+        r#"(builtins.filterSource (p: t: t != "unknown") @fixtures)"#,
+        true
+    )]
+    #[case::fail_kept_charnode(
+        r#"(builtins.filterSource (p: t: (builtins.baseNameOf p) != "a_charnode") @fixtures)"#,
+        false
+    )]
+    #[case::fail_kept_socket(
+        r#"(builtins.filterSource (p: t: (builtins.baseNameOf p) != "a_socket") @fixtures)"#,
+        false
+    )]
+    #[case::fail_kept_fifo(
+        r#"(builtins.filterSource (p: t: (builtins.baseNameOf p) != "a_fifo") @fixtures)"#,
+        false
+    )]
+    fn builtins_filter_source_unsupported_files(#[case] code: &str, #[case] exp_success: bool) {
         use nix::sys::stat;
         use nix::unistd;
         use std::os::unix::net::UnixListener;
@@ -660,7 +770,7 @@ mod tests {
         let code_replaced = code.replace("@fixtures", &temp.path().to_string_lossy());
         let eval_result = eval(&code_replaced);
 
-        if success {
+        if exp_success {
             assert!(
                 eval_result.value.is_some(),
                 "unexpected failure on a directory of unsupported file types but all filtered: {:?}",

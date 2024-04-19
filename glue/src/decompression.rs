@@ -183,7 +183,7 @@ mod tests {
 
     use async_compression::tokio::bufread::GzipEncoder;
     use futures::TryStreamExt;
-    use test_case::test_case;
+    use rstest::rstest;
     use tokio::io::{AsyncReadExt, BufReader};
     use tokio_tar::Archive;
 
@@ -203,11 +203,12 @@ mod tests {
         assert_eq!(data[..], round_tripped[..]);
     }
 
-    #[test_case(include_bytes!("tests/blob.tar.gz"); "gzip")]
-    #[test_case(include_bytes!("tests/blob.tar.bz2"); "bzip2")]
-    #[test_case(include_bytes!("tests/blob.tar.xz"); "xz")]
+    #[rstest]
+    #[case::gzip(include_bytes!("tests/blob.tar.gz"))]
+    #[case::bzip2(include_bytes!("tests/blob.tar.bz2"))]
+    #[case::xz(include_bytes!("tests/blob.tar.xz"))]
     #[tokio::test]
-    async fn compressed_tar(data: &[u8]) {
+    async fn compressed_tar(#[case] data: &[u8]) {
         let reader = DecompressedReader::new(BufReader::new(data));
         let mut archive = Archive::new(reader);
         let mut entries: Vec<_> = archive.entries().unwrap().try_collect().await.unwrap();

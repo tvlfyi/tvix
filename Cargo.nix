@@ -11552,94 +11552,6 @@ rec {
         ];
 
       };
-      "test-case" = rec {
-        crateName = "test-case";
-        version = "3.3.1";
-        edition = "2021";
-        sha256 = "1a380yzm6787737cw7s09jqmkn9035hghahradl2ikdg2gfm09gb";
-        authors = [
-          "Marcin Sas-Szymanski <marcin.sas-szymanski@anixe.pl>"
-          "Wojciech Polak <frondeus@gmail.com>"
-          "Łukasz Biel <lukasz.p.biel@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "test-case-macros";
-            packageId = "test-case-macros";
-            usesDefaultFeatures = false;
-          }
-        ];
-        features = {
-          "regex" = [ "dep:regex" ];
-          "with-regex" = [ "regex" "test-case-macros/with-regex" ];
-        };
-      };
-      "test-case-core" = rec {
-        crateName = "test-case-core";
-        version = "3.3.1";
-        edition = "2021";
-        sha256 = "0krqi0gbi1yyycigyjlak63r8h1n0vms7mg3kckqwlfd87c7zjxd";
-        authors = [
-          "Marcin Sas-Szymanski <marcin.sas-szymanski@anixe.pl>"
-          "Wojciech Polak <frondeus@gmail.com>"
-          "Łukasz Biel <lukasz.p.biel@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "cfg-if";
-            packageId = "cfg-if";
-          }
-          {
-            name = "proc-macro2";
-            packageId = "proc-macro2";
-          }
-          {
-            name = "quote";
-            packageId = "quote";
-          }
-          {
-            name = "syn";
-            packageId = "syn 2.0.48";
-            features = [ "full" "extra-traits" ];
-          }
-        ];
-        features = { };
-      };
-      "test-case-macros" = rec {
-        crateName = "test-case-macros";
-        version = "3.3.1";
-        edition = "2021";
-        sha256 = "1yvgky3qax73bic6m368q04xc955p4a91mddd6b5fk7d04mfg2aw";
-        procMacro = true;
-        authors = [
-          "Marcin Sas-Szymanski <marcin.sas-szymanski@anixe.pl>"
-          "Wojciech Polak <frondeus@gmail.com>"
-          "Łukasz Biel <lukasz.p.biel@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "proc-macro2";
-            packageId = "proc-macro2";
-          }
-          {
-            name = "quote";
-            packageId = "quote";
-          }
-          {
-            name = "syn";
-            packageId = "syn 2.0.48";
-            features = [ "full" "extra-traits" "parsing" ];
-          }
-          {
-            name = "test-case-core";
-            packageId = "test-case-core";
-            usesDefaultFeatures = false;
-          }
-        ];
-        features = {
-          "with-regex" = [ "test-case-core/with-regex" ];
-        };
-      };
       "test-strategy" = rec {
         crateName = "test-strategy";
         version = "0.2.1";
@@ -14289,10 +14201,6 @@ rec {
           {
             name = "tempfile";
             packageId = "tempfile";
-          }
-          {
-            name = "test-case";
-            packageId = "test-case";
           }
         ];
         features = {
