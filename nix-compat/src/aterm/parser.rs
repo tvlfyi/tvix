@@ -76,25 +76,31 @@ pub(crate) fn parse_str_list(i: &[u8]) -> IResult<&[u8], Vec<String>> {
 
 #[cfg(test)]
 mod tests {
-    use test_case::test_case;
+    use rstest::rstest;
 
-    #[test_case(br#""""#, b"", b""; "empty")]
-    #[test_case(br#""Hello World""#, b"Hello World", b""; "hello world")]
-    #[test_case(br#""\"""#, br#"""#, b""; "doublequote")]
-    #[test_case(br#"":""#, b":", b""; "colon")]
-    #[test_case(br#""\""Rest"#, br#"""#, b"Rest"; "doublequote rest")]
-    fn parse_bstr_field(input: &[u8], expected: &[u8], exp_rest: &[u8]) {
+    #[rstest]
+    #[case::empty(br#""""#, b"", b"")]
+    #[case::hello_world(br#""Hello World""#, b"Hello World", b"")]
+    #[case::doublequote(br#""\"""#, br#"""#, b"")]
+    #[case::colon(br#"":""#, b":", b"")]
+    #[case::doublequote_rest(br#""\""Rest"#, br#"""#, b"Rest")]
+    fn test_parse_bstr_field(
+        #[case] input: &[u8],
+        #[case] expected: &[u8],
+        #[case] exp_rest: &[u8],
+    ) {
         let (rest, parsed) = super::parse_bstr_field(input).expect("must parse");
         assert_eq!(exp_rest, rest, "expected remainder");
         assert_eq!(expected, parsed);
     }
 
-    #[test_case(br#""""#, "", b""; "empty")]
-    #[test_case(br#""Hello World""#, "Hello World", b""; "hello world")]
-    #[test_case(br#""\"""#, r#"""#, b""; "doublequote")]
-    #[test_case(br#"":""#, ":", b""; "colon")]
-    #[test_case(br#""\""Rest"#, r#"""#, b"Rest"; "doublequote rest")]
-    fn parse_string_field(input: &[u8], expected: &str, exp_rest: &[u8]) {
+    #[rstest]
+    #[case::empty(br#""""#, "", b"")]
+    #[case::hello_world(br#""Hello World""#, "Hello World", b"")]
+    #[case::doublequote(br#""\"""#, r#"""#, b"")]
+    #[case::colon(br#"":""#, ":", b"")]
+    #[case::doublequote_rest(br#""\""Rest"#, r#"""#, b"Rest")]
+    fn parse_string_field(#[case] input: &[u8], #[case] expected: &str, #[case] exp_rest: &[u8]) {
         let (rest, parsed) = super::parse_string_field(input).expect("must parse");
         assert_eq!(exp_rest, rest, "expected remainder");
         assert_eq!(expected, &parsed);
@@ -107,10 +113,11 @@ mod tests {
         super::parse_string_field(&input).expect_err("must fail");
     }
 
-    #[test_case(br#"["foo"]"#, vec!["foo".to_string()], b""; "single foo")]
-    #[test_case(b"[]", vec![], b""; "empty list")]
-    #[test_case(b"[]blub", vec![], b"blub"; "empty list with rest")]
-    fn parse_list(input: &[u8], expected: Vec<String>, exp_rest: &[u8]) {
+    #[rstest]
+    #[case::single_foo(br#"["foo"]"#, vec!["foo".to_string()], b"")]
+    #[case::empty_list(b"[]", vec![], b"")]
+    #[case::empty_list_with_rest(b"[]blub", vec![], b"blub")]
+    fn parse_list(#[case] input: &[u8], #[case] expected: Vec<String>, #[case] exp_rest: &[u8]) {
         let (rest, parsed) = super::parse_str_list(input).expect("must parse");
         assert_eq!(exp_rest, rest, "expected remainder");
         assert_eq!(expected, parsed);

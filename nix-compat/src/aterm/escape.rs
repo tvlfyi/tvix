@@ -16,12 +16,13 @@ pub fn escape_bytes<P: AsRef<[u8]>>(s: P) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::escape_bytes;
-    use test_case::test_case;
+    use rstest::rstest;
 
-    #[test_case(b"", b""; "empty")]
-    #[test_case(b"\"", b"\\\""; "doublequote")]
-    #[test_case(b":", b":"; "colon")]
-    fn escape(input: &[u8], expected: &[u8]) {
+    #[rstest]
+    #[case::empty(b"", b"")]
+    #[case::doublequote(b"\"", b"\\\"")]
+    #[case::colon(b":", b":")]
+    fn escape(#[case] input: &[u8], #[case] expected: &[u8]) {
         assert_eq!(expected, escape_bytes(input))
     }
 }
