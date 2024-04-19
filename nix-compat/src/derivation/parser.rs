@@ -339,7 +339,8 @@ mod tests {
     use bstr::{BString, ByteSlice};
     use hex_literal::hex;
     use lazy_static::lazy_static;
-    use test_case::test_case;
+    use rstest::rstest;
+
     const DIGEST_SHA256: [u8; 32] =
         hex!("a5ce9c155ed09397614646c9717fc7cd94b1023d7b76b618d409e4fefd6e9d39");
 
@@ -418,9 +419,14 @@ mod tests {
     }
 
     /// Ensure parsing KVs works
-    #[test_case(b"[]", &BTreeMap::new(), b""; "empty")]
-    #[test_case(b"[(\"a\",\"1\"),(\"b\",\"2\")]", &EXP_AB_MAP, b""; "simple")]
-    fn parse_kv(input: &'static [u8], expected: &BTreeMap<String, BString>, exp_rest: &[u8]) {
+    #[rstest]
+    #[case::empty(b"[]", &BTreeMap::new(), b"")]
+    #[case::simple(b"[(\"a\",\"1\"),(\"b\",\"2\")]", &EXP_AB_MAP, b"")]
+    fn parse_kv(
+        #[case] input: &'static [u8],
+        #[case] expected: &BTreeMap<String, BString>,
+        #[case] exp_rest: &[u8],
+    ) {
         let (rest, parsed) = super::parse_kv::<BString, _>(crate::aterm::parse_bstr_field)(input)
             .expect("must parse");
         assert_eq!(exp_rest, rest, "expected remainder");
@@ -443,11 +449,12 @@ mod tests {
     }
 
     /// Ensure parsing input derivations works.
-    #[test_case(b"[]", &BTreeMap::new(); "empty")]
-    #[test_case(EXP_INPUT_DERIVATIONS_SIMPLE_ATERM.as_bytes(), &EXP_INPUT_DERIVATIONS_SIMPLE; "simple")]
+    #[rstest]
+    #[case::empty(b"[]", &BTreeMap::new())]
+    #[case::simple(EXP_INPUT_DERIVATIONS_SIMPLE_ATERM.as_bytes(), &EXP_INPUT_DERIVATIONS_SIMPLE)]
     fn parse_input_derivations(
-        input: &'static [u8],
-        expected: &BTreeMap<StorePath, BTreeSet<String>>,
+        #[case] input: &'static [u8],
+        #[case] expected: &BTreeMap<StorePath, BTreeSet<String>>,
     ) {
         let (rest, parsed) = super::parse_input_derivations(input).expect("must parse");
 
@@ -480,9 +487,10 @@ mod tests {
     }
 
     /// Ensure parsing input sources works
-    #[test_case(b"[]", &BTreeSet::new(); "empty")]
-    #[test_case(b"[\"/nix/store/55lwldka5nyxa08wnvlizyqw02ihy8ic-has-multi-out\",\"/nix/store/2vixb94v0hy2xc6p7mbnxxcyc095yyia-has-multi-out-lib\"]", &EXP_INPUT_SOURCES_SIMPLE; "simple")]
-    fn parse_input_sources(input: &'static [u8], expected: &BTreeSet<String>) {
+    #[rstest]
+    #[case::empty(b"[]", &BTreeSet::new())]
+    #[case::simple(b"[\"/nix/store/55lwldka5nyxa08wnvlizyqw02ihy8ic-has-multi-out\",\"/nix/store/2vixb94v0hy2xc6p7mbnxxcyc095yyia-has-multi-out-lib\"]", &EXP_INPUT_SOURCES_SIMPLE)]
+    fn parse_input_sources(#[case] input: &'static [u8], #[case] expected: &BTreeSet<String>) {
         let (rest, parsed) = super::parse_input_sources(input).expect("must parse");
 
         assert_eq!(
@@ -519,15 +527,16 @@ mod tests {
         }
     }
 
-    #[test_case(
+    #[rstest]
+    #[case::simple(
         br#"("out","/nix/store/5vyvcwah9l9kf07d52rcgdk70g2f4y13-foo","","")"#,
         ("out".to_string(), Output {
             path: Some(
                 StorePathRef::from_absolute_path("/nix/store/5vyvcwah9l9kf07d52rcgdk70g2f4y13-foo".as_bytes()).unwrap().to_owned()),
             ca_hash: None
-        }); "simple"
+        })
     )]
-    #[test_case(
+    #[case::fod(
         br#"("out","/nix/store/4q0pg5zpfmznxscq3avycvf9xdvx50n3-bar","r:sha256","08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba")"#,
         ("out".to_string(), Output {
             path: Some(
@@ -535,28 +544,33 @@ mod tests {
                 "/nix/store/4q0pg5zpfmznxscq3avycvf9xdvx50n3-bar".as_bytes()).unwrap().to_owned()),
             ca_hash: Some(from_algo_and_mode_and_digest("r:sha256",
                    data_encoding::HEXLOWER.decode(b"08813cbee9903c62be4c5027726a418a300da4500b2d369d3af9286f4815ceba").unwrap()            ).unwrap()),
-        }); "fod"
+        })
      )]
-    fn parse_output(input: &[u8], expected: (String, Output)) {
+    fn parse_output(#[case] input: &[u8], #[case] expected: (String, Output)) {
         let (rest, parsed) = super::parse_output(input).expect("must parse");
         assert!(rest.is_empty());
         assert_eq!(expected, parsed);
     }
 
-    #[test_case(
+    #[rstest]
+    #[case::multi_out(
         br#"[("lib","/nix/store/2vixb94v0hy2xc6p7mbnxxcyc095yyia-has-multi-out-lib","",""),("out","/nix/store/55lwldka5nyxa08wnvlizyqw02ihy8ic-has-multi-out","","")]"#,
-        &EXP_MULTI_OUTPUTS;
-        "multi-out"
+        &EXP_MULTI_OUTPUTS
     )]
-    fn parse_outputs(input: &[u8], expected: &BTreeMap<String, Output>) {
+    fn parse_outputs(#[case] input: &[u8], #[case] expected: &BTreeMap<String, Output>) {
         let (rest, parsed) = super::parse_outputs(input).expect("must parse");
         assert!(rest.is_empty());
         assert_eq!(*expected, parsed);
     }
 
-    #[test_case("sha256", &DIGEST_SHA256, CAHash::Flat(NIXHASH_SHA256.clone()); "sha256 flat")]
-    #[test_case("r:sha256", &DIGEST_SHA256, CAHash::Nar(NIXHASH_SHA256.clone()); "sha256 recursive")]
-    fn test_from_algo_and_mode_and_digest(algo_and_mode: &str, digest: &[u8], expected: CAHash) {
+    #[rstest]
+    #[case::sha256_flat("sha256", &DIGEST_SHA256, CAHash::Flat(NIXHASH_SHA256.clone()))]
+    #[case::sha256_recursive("r:sha256", &DIGEST_SHA256, CAHash::Nar(NIXHASH_SHA256.clone()))]
+    fn test_from_algo_and_mode_and_digest(
+        #[case] algo_and_mode: &str,
+        #[case] digest: &[u8],
+        #[case] expected: CAHash,
+    ) {
         assert_eq!(
             expected,
             from_algo_and_mode_and_digest(algo_and_mode, digest).unwrap()
