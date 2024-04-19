@@ -710,12 +710,12 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
             usesDefaultFeatures = false;
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
             usesDefaultFeatures = false;
           }
           {
@@ -833,11 +833,11 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -907,11 +907,11 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -2214,11 +2214,11 @@ rec {
           }
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -2792,11 +2792,11 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -2850,11 +2850,11 @@ rec {
           }
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "strsim";
@@ -2889,7 +2889,7 @@ rec {
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -3328,7 +3328,7 @@ rec {
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -4107,11 +4107,11 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -6791,14 +6791,6 @@ rec {
             packageId = "serde_json";
           }
           {
-            name = "test-case";
-            packageId = "test-case";
-          }
-          {
-            name = "test-generator";
-            packageId = "test-generator";
-          }
-          {
             name = "tokio-test";
             packageId = "tokio-test";
           }
@@ -7793,11 +7785,11 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -8116,7 +8108,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
             usesDefaultFeatures = false;
           }
           {
@@ -8129,7 +8121,7 @@ rec {
         devDependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
             usesDefaultFeatures = false;
           }
           {
@@ -8143,26 +8135,7 @@ rec {
           "verbatim" = [ "syn/parsing" ];
         };
       };
-      "proc-macro2 0.4.30" = rec {
-        crateName = "proc-macro2";
-        version = "0.4.30";
-        edition = "2015";
-        sha256 = "0nd71fl24sys066jrha6j7i34nfkjv44yzw8yww9742wmc8j0gfg";
-        authors = [
-          "Alex Crichton <alex@alexcrichton.com>"
-        ];
-        dependencies = [
-          {
-            name = "unicode-xid";
-            packageId = "unicode-xid";
-          }
-        ];
-        features = {
-          "default" = [ "proc-macro" ];
-        };
-        resolvedDefaultFeatures = [ "default" "proc-macro" ];
-      };
-      "proc-macro2 1.0.76" = rec {
+      "proc-macro2" = rec {
         crateName = "proc-macro2";
         version = "1.0.76";
         edition = "2021";
@@ -8450,11 +8423,11 @@ rec {
           }
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -8488,11 +8461,11 @@ rec {
           }
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -8595,7 +8568,7 @@ rec {
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
         ];
 
@@ -8757,28 +8730,7 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "overlapped-lists" "serde" "serialize" ];
       };
-      "quote 0.6.13" = rec {
-        crateName = "quote";
-        version = "0.6.13";
-        edition = "2015";
-        sha256 = "1qgqq48jymp5h4y082aanf25hrw6bpb678xh3zw993qfhxmkpqkc";
-        authors = [
-          "David Tolnay <dtolnay@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "proc-macro2";
-            packageId = "proc-macro2 0.4.30";
-            usesDefaultFeatures = false;
-          }
-        ];
-        features = {
-          "default" = [ "proc-macro" ];
-          "proc-macro" = [ "proc-macro2/proc-macro" ];
-        };
-        resolvedDefaultFeatures = [ "default" "proc-macro" ];
-      };
-      "quote 1.0.35" = rec {
+      "quote" = rec {
         crateName = "quote";
         version = "1.0.35";
         edition = "2018";
@@ -8789,7 +8741,7 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
             usesDefaultFeatures = false;
           }
         ];
@@ -9718,11 +9670,11 @@ rec {
           }
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "regex";
@@ -9765,7 +9717,7 @@ rec {
         dependencies = [
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "rand";
@@ -10565,13 +10517,13 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
             usesDefaultFeatures = false;
             features = [ "proc-macro" ];
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
             usesDefaultFeatures = false;
             features = [ "proc-macro" ];
           }
@@ -10857,11 +10809,11 @@ rec {
           }
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -11192,11 +11144,11 @@ rec {
           }
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -11332,11 +11284,11 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "structmeta-derive";
@@ -11368,11 +11320,11 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -11401,39 +11353,6 @@ rec {
           "default" = [ "std" "i128" ];
         };
       };
-      "syn 0.15.44" = rec {
-        crateName = "syn";
-        version = "0.15.44";
-        edition = "2015";
-        sha256 = "1id5g6x6zihv3j7hwrw3m1jp636bg8dpi671r7zy3jvpkavb794w";
-        authors = [
-          "David Tolnay <dtolnay@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "proc-macro2";
-            packageId = "proc-macro2 0.4.30";
-            usesDefaultFeatures = false;
-          }
-          {
-            name = "quote";
-            packageId = "quote 0.6.13";
-            optional = true;
-            usesDefaultFeatures = false;
-          }
-          {
-            name = "unicode-xid";
-            packageId = "unicode-xid";
-          }
-        ];
-        features = {
-          "default" = [ "derive" "parsing" "printing" "clone-impls" "proc-macro" ];
-          "printing" = [ "quote" ];
-          "proc-macro" = [ "proc-macro2/proc-macro" "quote/proc-macro" ];
-          "quote" = [ "dep:quote" ];
-        };
-        resolvedDefaultFeatures = [ "clone-impls" "default" "derive" "full" "parsing" "printing" "proc-macro" "quote" ];
-      };
       "syn 1.0.109" = rec {
         crateName = "syn";
         version = "1.0.109";
@@ -11445,12 +11364,12 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
             usesDefaultFeatures = false;
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
             optional = true;
             usesDefaultFeatures = false;
           }
@@ -11479,12 +11398,12 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
             usesDefaultFeatures = false;
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
             optional = true;
             usesDefaultFeatures = false;
           }
@@ -11672,11 +11591,11 @@ rec {
           }
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -11700,11 +11619,11 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -11721,41 +11640,6 @@ rec {
           "with-regex" = [ "test-case-core/with-regex" ];
         };
       };
-      "test-generator" = rec {
-        crateName = "test-generator";
-        version = "0.3.0";
-        edition = "2018";
-        workspace_member = null;
-        src = pkgs.fetchgit {
-          url = "https://github.com/JamesGuthrie/test-generator.git";
-          rev = "82e799979980962aec1aa324ec6e0e4cad781f41";
-          sha256 = "08brp3qqa55hijc7xby3lam2cc84hvx1zzfqv6lj7smlczh8k32y";
-        };
-        procMacro = true;
-        authors = [
-          "Frank Rehberger <frehberg@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "glob";
-            packageId = "glob";
-          }
-          {
-            name = "proc-macro2";
-            packageId = "proc-macro2 0.4.30";
-          }
-          {
-            name = "quote";
-            packageId = "quote 0.6.13";
-          }
-          {
-            name = "syn";
-            packageId = "syn 0.15.44";
-            features = [ "full" ];
-          }
-        ];
-
-      };
       "test-strategy" = rec {
         crateName = "test-strategy";
         version = "0.2.1";
@@ -11768,11 +11652,11 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "structmeta";
@@ -11827,11 +11711,11 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -12266,11 +12150,11 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -12990,7 +12874,7 @@ rec {
           }
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "prost-build";
@@ -12999,7 +12883,7 @@ rec {
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -13269,11 +13153,11 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -14247,11 +14131,11 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -14754,11 +14638,11 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -14867,18 +14751,6 @@ rec {
           "rustc-dep-of-std" = [ "std" "core" "compiler_builtins" ];
           "std" = [ "dep:std" ];
         };
-        resolvedDefaultFeatures = [ "default" ];
-      };
-      "unicode-xid" = rec {
-        crateName = "unicode-xid";
-        version = "0.1.0";
-        edition = "2015";
-        sha256 = "1z57lqh4s18rr4x0j4fw4fmp9hf9346h0kmdgqsqx0fhjr3k0wpw";
-        authors = [
-          "erick.tryzelaar <erick.tryzelaar@gmail.com>"
-          "kwantam <kwantam@gmail.com>"
-        ];
-        features = { };
         resolvedDefaultFeatures = [ "default" ];
       };
       "untrusted" = rec {
@@ -15348,11 +15220,11 @@ rec {
           }
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
@@ -15414,7 +15286,7 @@ rec {
         dependencies = [
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "wasm-bindgen-macro-support";
@@ -15438,11 +15310,11 @@ rec {
         dependencies = [
           {
             name = "proc-macro2";
-            packageId = "proc-macro2 1.0.76";
+            packageId = "proc-macro2";
           }
           {
             name = "quote";
-            packageId = "quote 1.0.35";
+            packageId = "quote";
           }
           {
             name = "syn";
