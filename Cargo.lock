@@ -4536,7 +4536,6 @@ dependencies = [
  "sha2",
  "sled",
  "tempfile",
- "test-case",
  "thiserror",
  "tokio",
  "tokio-listener",

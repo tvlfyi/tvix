@@ -6809,11 +6809,12 @@ rec {
         ];
         features = {
           "async" = [ "tokio" ];
+          "default" = [ "async" "wire" ];
           "pin-project-lite" = [ "dep:pin-project-lite" ];
           "tokio" = [ "dep:tokio" ];
           "wire" = [ "tokio" "pin-project-lite" ];
         };
-        resolvedDefaultFeatures = [ "async" "pin-project-lite" "tokio" "wire" ];
+        resolvedDefaultFeatures = [ "async" "default" "pin-project-lite" "tokio" "wire" ];
       };
       "nom" = rec {
         crateName = "nom";
@@ -14672,10 +14673,6 @@ rec {
           {
             name = "tempfile";
             packageId = "tempfile";
-          }
-          {
-            name = "test-case";
-            packageId = "test-case";
           }
           {
             name = "tokio-retry";
