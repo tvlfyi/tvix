@@ -6,51 +6,41 @@ use crate::derivation::Derivation;
 use crate::store_path::StorePath;
 use bstr::{BStr, BString};
 use hex_literal::hex;
+use rstest::rstest;
 use std::collections::BTreeSet;
-use std::fs::File;
-use std::io::Read;
-use std::path::Path;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use test_case::test_case;
-use test_generator::test_resources;
 
 const RESOURCES_PATHS: &str = "src/derivation/tests/derivation_tests";
 
-fn read_file(path: &str) -> BString {
-    let path = Path::new(path);
-    let mut file = File::open(path).unwrap();
-    let mut file_contents = Vec::new();
-
-    file.read_to_end(&mut file_contents).unwrap();
-
-    file_contents.into()
-}
-
-#[test_resources("src/derivation/tests/derivation_tests/ok/*.drv")]
-fn check_serialization(path_to_drv_file: &str) {
-    // skip JSON files known to fail parsing
-    if path_to_drv_file.ends_with("cp1252.drv") || path_to_drv_file.ends_with("latin1.drv") {
-        return;
-    }
-    let json_bytes = read_file(&format!("{}.json", path_to_drv_file));
+#[rstest]
+fn check_serialization(
+    #[files("src/derivation/tests/derivation_tests/ok/*.drv")]
+    #[exclude("(cp1252)|(latin1)")] // skip JSON files known to fail parsing
+    path_to_drv_file: PathBuf,
+) {
+    let json_bytes =
+        fs::read(path_to_drv_file.with_extension("drv.json")).expect("unable to read JSON");
     let derivation: Derivation =
         serde_json::from_slice(&json_bytes).expect("JSON was not well-formatted");
 
     let mut serialized_derivation = Vec::new();
     derivation.serialize(&mut serialized_derivation).unwrap();
 
-    let expected = read_file(path_to_drv_file);
+    let expected = fs::read(&path_to_drv_file).expect("unable to read .drv");
 
     assert_eq!(expected, BStr::new(&serialized_derivation));
 }
 
-#[test_resources("src/derivation/tests/derivation_tests/ok/*.drv")]
-fn validate(path_to_drv_file: &str) {
-    // skip JSON files known to fail parsing
-    if path_to_drv_file.ends_with("cp1252.drv") || path_to_drv_file.ends_with("latin1.drv") {
-        return;
-    }
-    let json_bytes = read_file(&format!("{}.json", path_to_drv_file));
+#[rstest]
+fn validate(
+    #[files("src/derivation/tests/derivation_tests/ok/*.drv")]
+    #[exclude("(cp1252)|(latin1)")] // skip JSON files known to fail parsing
+    path_to_drv_file: PathBuf,
+) {
+    let json_bytes =
+        fs::read(path_to_drv_file.with_extension("drv.json")).expect("unable to read JSON");
     let derivation: Derivation =
         serde_json::from_slice(&json_bytes).expect("JSON was not well-formatted");
 
@@ -59,17 +49,18 @@ fn validate(path_to_drv_file: &str) {
         .expect("derivation failed to validate")
 }
 
-#[test_resources("src/derivation/tests/derivation_tests/ok/*.drv")]
-fn check_to_aterm_bytes(path_to_drv_file: &str) {
-    // skip JSON files known to fail parsing
-    if path_to_drv_file.ends_with("cp1252.drv") || path_to_drv_file.ends_with("latin1.drv") {
-        return;
-    }
-    let json_bytes = read_file(&format!("{}.json", path_to_drv_file));
+#[rstest]
+fn check_to_aterm_bytes(
+    #[files("src/derivation/tests/derivation_tests/ok/*.drv")]
+    #[exclude("(cp1252)|(latin1)")] // skip JSON files known to fail parsing
+    path_to_drv_file: PathBuf,
+) {
+    let json_bytes =
+        fs::read(path_to_drv_file.with_extension("drv.json")).expect("unable to read JSON");
     let derivation: Derivation =
         serde_json::from_slice(&json_bytes).expect("JSON was not well-formatted");
 
-    let expected = read_file(path_to_drv_file);
+    let expected = fs::read(&path_to_drv_file).expect("unable to read .drv");
 
     assert_eq!(expected, BStr::new(&derivation.to_aterm_bytes()));
 }
@@ -77,22 +68,28 @@ fn check_to_aterm_bytes(path_to_drv_file: &str) {
 /// Reads in derivations in ATerm representation, parses with that parser,
 /// then compares the structs with the ones obtained by parsing the JSON
 /// representations.
-#[test_resources("src/derivation/tests/derivation_tests/ok/*.drv")]
-fn from_aterm_bytes(path_to_drv_file: &str) {
+#[rstest]
+fn from_aterm_bytes(
+    #[files("src/derivation/tests/derivation_tests/ok/*.drv")] path_to_drv_file: PathBuf,
+) {
     // Read in ATerm representation.
-    let aterm_bytes = read_file(path_to_drv_file);
+    let aterm_bytes = fs::read(&path_to_drv_file).expect("unable to read .drv");
     let parsed_drv = Derivation::from_aterm_bytes(&aterm_bytes).expect("must succeed");
 
     // For where we're able to load JSON fixtures, parse them and compare the structs.
     // For where we're not, compare the bytes manually.
-    if path_to_drv_file.ends_with("cp1252.drv") || path_to_drv_file.ends_with("latin1.drv") {
+    if path_to_drv_file.file_name().is_some_and(|s| {
+        s.as_encoded_bytes().ends_with(b"cp1252.drv")
+            || s.as_encoded_bytes().ends_with(b"latin1.drv")
+    }) {
         assert_eq!(
             &[0xc5, 0xc4, 0xd6][..],
             parsed_drv.environment.get("chars").unwrap(),
             "expected bytes to match",
         );
     } else {
-        let json_bytes = read_file(&format!("{}.json", path_to_drv_file));
+        let json_bytes =
+            fs::read(path_to_drv_file.with_extension("drv.json")).expect("unable to read JSON");
         let fixture_derivation: Derivation =
             serde_json::from_slice(&json_bytes).expect("JSON was not well-formatted");
 
@@ -112,7 +109,8 @@ fn from_aterm_bytes(path_to_drv_file: &str) {
 
 #[test]
 fn from_aterm_bytes_duplicate_map_key() {
-    let buf: Vec<u8> = read_file(&format!("{}/{}", RESOURCES_PATHS, "duplicate.drv")).into();
+    let buf: Vec<u8> =
+        fs::read(format!("{}/{}", RESOURCES_PATHS, "duplicate.drv")).expect("unable to read .drv");
 
     let err = Derivation::from_aterm_bytes(&buf).expect_err("must fail");
 
@@ -130,26 +128,31 @@ fn from_aterm_bytes_duplicate_map_key() {
 /// Ensure the parser detects and fails in this case.
 #[test]
 fn from_aterm_bytes_trailer() {
-    let mut buf: Vec<u8> = read_file(&format!(
+    let mut buf: Vec<u8> = fs::read(format!(
         "{}/ok/{}",
         RESOURCES_PATHS, "0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv"
     ))
-    .into();
+    .expect("unable to read .drv");
 
     buf.push(0x00);
 
     Derivation::from_aterm_bytes(&buf).expect_err("must fail");
 }
 
-#[test_case("bar","0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv"; "fixed_sha256")]
-#[test_case("foo", "4wvvbi4jwn0prsdxb7vs673qa5h9gr7x-foo.drv"; "simple-sha256")]
-#[test_case("bar", "ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv"; "fixed-sha1")]
-#[test_case("foo", "ch49594n9avinrf8ip0aslidkc4lxkqv-foo.drv"; "simple-sha1")]
-#[test_case("has-multi-out", "h32dahq0bx5rp1krcdx3a53asj21jvhk-has-multi-out.drv"; "multiple-outputs")]
-#[test_case("structured-attrs", "9lj1lkjm2ag622mh4h9rpy6j607an8g2-structured-attrs.drv"; "structured-attrs")]
-#[test_case("unicode", "52a9id8hx688hvlnz4d1n25ml1jdykz0-unicode.drv"; "unicode")]
-fn derivation_path(name: &str, expected_path: &str) {
-    let json_bytes = read_file(&format!("{}/ok/{}.json", RESOURCES_PATHS, expected_path));
+#[rstest]
+#[case::fixed_sha256("bar", "0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv")]
+#[case::simple_sha256("foo", "4wvvbi4jwn0prsdxb7vs673qa5h9gr7x-foo.drv")]
+#[case::fixed_sha1("bar", "ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv")]
+#[case::simple_sha1("foo", "ch49594n9avinrf8ip0aslidkc4lxkqv-foo.drv")]
+#[case::multiple_outputs("has-multi-out", "h32dahq0bx5rp1krcdx3a53asj21jvhk-has-multi-out.drv")]
+#[case::structured_attrs(
+    "structured-attrs",
+    "9lj1lkjm2ag622mh4h9rpy6j607an8g2-structured-attrs.drv"
+)]
+#[case::unicode("unicode", "52a9id8hx688hvlnz4d1n25ml1jdykz0-unicode.drv")]
+fn derivation_path(#[case] name: &str, #[case] expected_path: &str) {
+    let json_bytes = fs::read(format!("{}/ok/{}.json", RESOURCES_PATHS, expected_path))
+        .expect("unable to read JSON");
     let derivation: Derivation =
         serde_json::from_slice(&json_bytes).expect("JSON was not well-formatted");
 
@@ -185,11 +188,13 @@ fn derivation_with_trimmed_output_paths(derivation: &Derivation) -> Derivation {
     }
 }
 
-#[test_case("0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv", hex!("724f3e3634fce4cbbbd3483287b8798588e80280660b9a63fd13a1bc90485b33"); "fixed_sha256")]
-#[test_case("ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv", hex!("c79aebd0ce3269393d4a1fde2cbd1d975d879b40f0bf40a48f550edc107fd5df");"fixed-sha1")]
-fn derivation_or_fod_hash(drv_path: &str, expected_digest: [u8; 32]) {
+#[rstest]
+#[case::fixed_sha256("0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv", hex!("724f3e3634fce4cbbbd3483287b8798588e80280660b9a63fd13a1bc90485b33"))]
+#[case::fixed_sha1("ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv", hex!("c79aebd0ce3269393d4a1fde2cbd1d975d879b40f0bf40a48f550edc107fd5df"))]
+fn derivation_or_fod_hash(#[case] drv_path: &str, #[case] expected_digest: [u8; 32]) {
     // read in the fixture
-    let json_bytes = read_file(&format!("{}/ok/{}.json", RESOURCES_PATHS, drv_path));
+    let json_bytes =
+        fs::read(format!("{}/ok/{}.json", RESOURCES_PATHS, drv_path)).expect("unable to read JSON");
     let drv: Derivation = serde_json::from_slice(&json_bytes).expect("must deserialize");
 
     let actual = drv.derivation_or_fod_hash(|_| panic!("must not be called"));
@@ -199,19 +204,23 @@ fn derivation_or_fod_hash(drv_path: &str, expected_digest: [u8; 32]) {
 /// This reads a Derivation (in A-Term), trims out all fields containing
 /// calculated output paths, then triggers the output path calculation and
 /// compares the struct to match what was originally read in.
-#[test_case("bar","0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv"; "fixed_sha256")]
-#[test_case("foo", "4wvvbi4jwn0prsdxb7vs673qa5h9gr7x-foo.drv"; "simple-sha256")]
-#[test_case("bar", "ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv"; "fixed-sha1")]
-#[test_case("foo", "ch49594n9avinrf8ip0aslidkc4lxkqv-foo.drv"; "simple-sha1")]
-#[test_case("has-multi-out", "h32dahq0bx5rp1krcdx3a53asj21jvhk-has-multi-out.drv"; "multiple-outputs")]
-#[test_case("structured-attrs", "9lj1lkjm2ag622mh4h9rpy6j607an8g2-structured-attrs.drv"; "structured-attrs")]
-#[test_case("unicode", "52a9id8hx688hvlnz4d1n25ml1jdykz0-unicode.drv"; "unicode")]
-#[test_case("cp1252", "m1vfixn8iprlf0v9abmlrz7mjw1xj8kp-cp1252.drv"; "cp1252")]
-#[test_case("latin1", "x6p0hg79i3wg0kkv7699935f7rrj9jf3-latin1.drv"; "latin1")]
-fn output_paths(name: &str, drv_path_str: &str) {
+#[rstest]
+#[case::fixed_sha256("bar", "0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv")]
+#[case::simple_sha256("foo", "4wvvbi4jwn0prsdxb7vs673qa5h9gr7x-foo.drv")]
+#[case::fixed_sha1("bar", "ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv")]
+#[case::simple_sha1("foo", "ch49594n9avinrf8ip0aslidkc4lxkqv-foo.drv")]
+#[case::multiple_outputs("has-multi-out", "h32dahq0bx5rp1krcdx3a53asj21jvhk-has-multi-out.drv")]
+#[case::structured_attrs(
+    "structured-attrs",
+    "9lj1lkjm2ag622mh4h9rpy6j607an8g2-structured-attrs.drv"
+)]
+#[case::unicode("unicode", "52a9id8hx688hvlnz4d1n25ml1jdykz0-unicode.drv")]
+#[case::cp1252("cp1252", "m1vfixn8iprlf0v9abmlrz7mjw1xj8kp-cp1252.drv")]
+#[case::latin1("latin1", "x6p0hg79i3wg0kkv7699935f7rrj9jf3-latin1.drv")]
+fn output_paths(#[case] name: &str, #[case] drv_path_str: &str) {
     // read in the derivation
     let expected_derivation = Derivation::from_aterm_bytes(
-        read_file(&format!("{}/ok/{}", RESOURCES_PATHS, drv_path_str)).as_ref(),
+        &fs::read(format!("{}/ok/{}", RESOURCES_PATHS, drv_path_str)).expect("unable to read .drv"),
     )
     .expect("must succeed");
 
@@ -234,14 +243,15 @@ fn output_paths(name: &str, drv_path_str: &str) {
             // drv_name, and calculating its drv replacement (on the non-stripped version)
             // In a real-world scenario you would have already done this during construction.
 
-            let json_bytes = read_file(&format!(
+            let json_bytes = fs::read(format!(
                 "{}/ok/{}.json",
                 RESOURCES_PATHS,
                 Path::new(&parent_drv_path.to_string())
                     .file_name()
                     .unwrap()
                     .to_string_lossy()
-            ));
+            ))
+            .expect("unable to read JSON");
 
             let drv: Derivation = serde_json::from_slice(&json_bytes).expect("must deserialize");
 
@@ -338,10 +348,11 @@ fn output_path_construction() {
     assert!(bar_calc_result.is_ok());
 
     // ensure it matches our bar fixture
-    let bar_json_bytes = read_file(&format!(
+    let bar_json_bytes = fs::read(format!(
         "{}/ok/{}.json",
         RESOURCES_PATHS, "0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv"
-    ));
+    ))
+    .expect("unable to read JSON");
     let bar_drv_expected: Derivation =
         serde_json::from_slice(&bar_json_bytes).expect("must deserialize");
     assert_eq!(bar_drv_expected, bar_drv);
@@ -407,10 +418,11 @@ fn output_path_construction() {
     assert!(foo_calc_result.is_ok());
 
     // ensure it matches our foo fixture
-    let foo_json_bytes = read_file(&format!(
+    let foo_json_bytes = fs::read(format!(
         "{}/ok/{}.json",
         RESOURCES_PATHS, "4wvvbi4jwn0prsdxb7vs673qa5h9gr7x-foo.drv",
-    ));
+    ))
+    .expect("unable to read JSON");
     let foo_drv_expected: Derivation =
         serde_json::from_slice(&foo_json_bytes).expect("must deserialize");
     assert_eq!(foo_drv_expected, foo_drv);
