@@ -25,6 +25,3 @@ tracing-subscriber = { version = "0.3.16", features = ["json"] }
 
 [dependencies.wu-manber]
 git = "https://github.com/tvlfyi/wu-manber.git"
-
-[dev-dependencies]
-test-case = "3.3.1"

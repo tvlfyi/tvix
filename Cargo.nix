@@ -13940,12 +13940,6 @@ rec {
             packageId = "wu-manber";
           }
         ];
-        devDependencies = [
-          {
-            name = "test-case";
-            packageId = "test-case";
-          }
-        ];
 
       };
       "tvix-eval" = rec {

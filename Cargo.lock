@@ -4352,7 +4352,6 @@ dependencies = [
  "dirs",
  "nix-compat",
  "rustyline",
- "test-case",
  "thiserror",
  "tokio",
  "tracing",
