@@ -18,7 +18,7 @@ use std::{
 use tokio_util::io::SyncIoBridge;
 use tracing::{error, instrument, warn, Level};
 use tvix_build::buildservice::BuildService;
-use tvix_castore::import::dir_entry_iter_to_ingestion_stream;
+use tvix_castore::import::fs::dir_entry_iter_to_ingestion_stream;
 use tvix_eval::{ErrorKind, EvalIO, FileType, StdIO};
 use tvix_store::utils::AsyncIoBridge;
 use walkdir::DirEntry;

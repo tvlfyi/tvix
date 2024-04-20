@@ -17,7 +17,7 @@ use tracing::Level;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::Layer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use tvix_castore::import::ingest_path;
+use tvix_castore::import::fs::ingest_path;
 use tvix_store::proto::NarInfo;
 use tvix_store::proto::PathInfo;
 

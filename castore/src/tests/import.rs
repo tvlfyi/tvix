@@ -1,7 +1,7 @@
 use crate::blobservice::{self, BlobService};
 use crate::directoryservice;
 use crate::fixtures::*;
-use crate::import::ingest_path;
+use crate::import::fs::ingest_path;
 use crate::proto;
 
 use std::sync::Arc;

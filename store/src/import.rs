@@ -1,7 +1,8 @@
 use std::path::Path;
 use tracing::{debug, instrument};
 use tvix_castore::{
-    blobservice::BlobService, directoryservice::DirectoryService, proto::node::Node, B3Digest,
+    blobservice::BlobService, directoryservice::DirectoryService, import::fs::ingest_path,
+    proto::node::Node, B3Digest,
 };
 
 use nix_compat::{
@@ -116,8 +117,7 @@ where
     DS: AsRef<dyn DirectoryService>,
     PS: AsRef<dyn PathInfoService>,
 {
-    let root_node =
-        tvix_castore::import::ingest_path(blob_service, directory_service, path.as_ref()).await?;
+    let root_node = ingest_path(blob_service, directory_service, path.as_ref()).await?;
 
     // Ask the PathInfoService for the NAR size and sha256
     let (nar_size, nar_sha256) = path_info_service.as_ref().calculate_nar(&root_node).await?;
