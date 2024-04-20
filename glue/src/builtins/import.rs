@@ -2,6 +2,7 @@
 
 use crate::builtins::errors::ImportError;
 use std::path::Path;
+use tvix_castore::import::ingest_entries;
 use tvix_eval::{
     builtin_macros::builtins,
     generators::{self, GenCo},
@@ -84,15 +85,19 @@ async fn filtered_ingest(
         entries.push(entry);
     }
 
-    let entries_iter = entries.into_iter().rev().map(Ok);
+    let dir_entries = entries.into_iter().rev().map(Ok);
 
     state.tokio_handle.block_on(async {
-        state
-            .ingest_dir_entries(entries_iter, path)
+        let entries = tvix_castore::import::fs::dir_entries_to_ingestion_stream(
+            &state.blob_service,
+            dir_entries,
+            path,
+        );
+        ingest_entries(&state.directory_service, entries)
             .await
             .map_err(|err| ErrorKind::IO {
                 path: Some(path.to_path_buf()),
-                error: err.into(),
+                error: Rc::new(err.into()),
             })
     })
 }

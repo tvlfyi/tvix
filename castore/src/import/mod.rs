@@ -13,10 +13,9 @@ use crate::proto::DirectoryNode;
 use crate::proto::FileNode;
 use crate::proto::SymlinkNode;
 use crate::B3Digest;
-use futures::Future;
 use futures::{Stream, StreamExt};
 use std::fs::FileType;
-use std::pin::Pin;
+
 use tracing::Level;
 
 #[cfg(target_family = "unix")]
@@ -52,10 +51,10 @@ pub mod fs;
 ///
 /// On success, returns the root node.
 #[instrument(skip_all, ret(level = Level::TRACE), err)]
-pub async fn ingest_entries<'a, DS, S>(directory_service: DS, mut entries: S) -> Result<Node, Error>
+pub async fn ingest_entries<DS, S>(directory_service: DS, mut entries: S) -> Result<Node, Error>
 where
     DS: AsRef<dyn DirectoryService>,
-    S: Stream<Item = Result<IngestionEntry<'a>, Error>> + Send + std::marker::Unpin,
+    S: Stream<Item = Result<IngestionEntry, Error>> + Send + std::marker::Unpin,
 {
     // For a given path, this holds the [Directory] structs as they are populated.
     let mut directories: HashMap<PathBuf, Directory> = HashMap::default();
@@ -124,7 +123,7 @@ where
                 ..
             } => Node::File(FileNode {
                 name,
-                digest: digest.await?.into(),
+                digest: digest.to_owned().into(),
                 size: *size,
                 executable: *executable,
             }),
@@ -200,14 +199,12 @@ where
     Ok(digest)
 }
 
-type BlobFut<'a> = Pin<Box<dyn Future<Output = Result<B3Digest, Error>> + Send + 'a>>;
-
-pub enum IngestionEntry<'a> {
+pub enum IngestionEntry {
     Regular {
         path: PathBuf,
         size: u64,
         executable: bool,
-        digest: BlobFut<'a>,
+        digest: B3Digest,
     },
     Symlink {
         path: PathBuf,
@@ -222,7 +219,7 @@ pub enum IngestionEntry<'a> {
     },
 }
 
-impl<'a> IngestionEntry<'a> {
+impl IngestionEntry {
     fn path(&self) -> &Path {
         match self {
             IngestionEntry::Regular { path, .. } => path,

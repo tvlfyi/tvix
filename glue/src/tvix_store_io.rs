@@ -20,10 +20,8 @@ use tokio_util::io::{InspectReader, SyncIoBridge};
 use tracing::{error, instrument, warn, Level};
 use tvix_build::buildservice::BuildService;
 use tvix_castore::import::archive::ingest_archive;
-use tvix_castore::import::fs::dir_entry_iter_to_ingestion_stream;
 use tvix_eval::{ErrorKind, EvalIO, FileType, StdIO};
 use tvix_store::utils::AsyncIoBridge;
-use walkdir::DirEntry;
 
 use tvix_castore::{
     blobservice::BlobService,
@@ -54,9 +52,9 @@ use crate::tvix_build::derivation_to_build_request;
 /// implementation of "Tvix Store IO" which does not necessarily bring the concept of blob service,
 /// directory service or path info service.
 pub struct TvixStoreIO {
-    blob_service: Arc<dyn BlobService>,
-    directory_service: Arc<dyn DirectoryService>,
-    // This is public so builtins can put PathInfos directly.
+    // This is public so helper functions can interact with the stores directly.
+    pub(crate) blob_service: Arc<dyn BlobService>,
+    pub(crate) directory_service: Arc<dyn DirectoryService>,
     pub(crate) path_info_service: Arc<dyn PathInfoService>,
     std_io: StdIO,
     #[allow(dead_code)]
@@ -275,24 +273,6 @@ impl TvixStoreIO {
         directoryservice::descend_to(&self.directory_service, root_node, sub_path)
             .await
             .map_err(|e| std::io::Error::new(io::ErrorKind::Other, e))
-    }
-
-    /// This forwards the ingestion to the [`tvix_castore::import::ingest_entries`],
-    /// passing the blob_service and directory_service that's used.
-    /// The error is mapped to std::io::Error for simplicity.
-    pub(crate) async fn ingest_dir_entries<'a, I>(
-        &'a self,
-        iter: I,
-        root: &Path,
-    ) -> io::Result<Node>
-    where
-        I: Iterator<Item = Result<DirEntry, walkdir::Error>> + Send + Sync + 'a,
-    {
-        let entries_stream = dir_entry_iter_to_ingestion_stream(&self.blob_service, iter, root);
-
-        tvix_castore::import::ingest_entries(&self.directory_service, entries_stream)
-            .await
-            .map_err(|err| std::io::Error::new(io::ErrorKind::Other, err))
     }
 
     pub(crate) async fn node_to_path_info(
