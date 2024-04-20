@@ -40,7 +40,8 @@ pub mod fs;
 /// The stream must have the following invariants:
 /// - All children entries must come before their parents.
 /// - The last entry must be the root node which must have a single path component.
-/// - Every entry should have a unique path.
+/// - Every entry should have a unique path, and only consist of normal components.
+///   This means, no windows path prefixes, absolute paths, `.` or `..`.
 ///
 /// Internally we maintain a [HashMap] of [PathBuf] to partially populated [Directory] at that
 /// path. Once we receive an [IngestionEntry] for the directory itself, we remove it from the
@@ -64,6 +65,14 @@ where
             // The last entry of the stream must have 1 path component, after which
             // we break the loop manually.
             .expect("Tvix bug: unexpected end of stream")?;
+
+        debug_assert!(
+            entry
+                .path()
+                .components()
+                .all(|x| matches!(x, std::path::Component::Normal(_))),
+            "path may only contain normal components"
+        );
 
         let name = entry
             .path()
