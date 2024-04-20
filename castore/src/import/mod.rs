@@ -42,6 +42,9 @@ pub mod fs;
 /// - The last entry must be the root node which must have a single path component.
 /// - Every entry should have a unique path, and only consist of normal components.
 ///   This means, no windows path prefixes, absolute paths, `.` or `..`.
+/// - All referenced directories must have an associated directory entry in the stream.
+///   This means if there is a file entry for `foo/bar`, there must also be a `foo` directory
+///   entry.
 ///
 /// Internally we maintain a [HashMap] of [PathBuf] to partially populated [Directory] at that
 /// path. Once we receive an [IngestionEntry] for the directory itself, we remove it from the
@@ -140,6 +143,11 @@ where
             .or_default()
             .add(node);
     };
+
+    assert!(
+        directories.is_empty(),
+        "Tvix bug: left over directories after processing ingestion stream"
+    );
 
     // if there were directories uploaded, make sure we flush the putter, so
     // they're all persisted to the backend.
