@@ -168,7 +168,7 @@ async fn hash<D: Digest + std::io::Write>(
 
 impl<BS, DS, PS> Fetcher<BS, DS, PS>
 where
-    BS: AsRef<(dyn BlobService + 'static)> + Send + Sync,
+    BS: AsRef<(dyn BlobService + 'static)> + Clone + Send + Sync + 'static,
     DS: AsRef<(dyn DirectoryService + 'static)>,
     PS: PathInfoService,
 {
@@ -242,7 +242,7 @@ where
 
                 // Ingest the archive, get the root node
                 let node = tvix_castore::import::archive::ingest_archive(
-                    &self.blob_service,
+                    self.blob_service.clone(),
                     &self.directory_service,
                     archive,
                 )
