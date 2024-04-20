@@ -152,6 +152,7 @@ where
     // if there were directories uploaded, make sure we flush the putter, so
     // they're all persisted to the backend.
     if let Some(mut directory_putter) = maybe_directory_putter {
+        #[cfg_attr(not(debug_assertions), allow(unused))]
         let root_directory_digest = directory_putter.close().await?;
 
         #[cfg(debug_assertions)]

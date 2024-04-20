@@ -136,6 +136,7 @@ impl ClosureValidator {
         let mut visited_directory_count = 0;
         #[cfg(debug_assertions)]
         let mut visited_directory_ixs = HashSet::new();
+        #[cfg_attr(not(debug_assertions), allow(unused))]
         while let Some(directory_ix) = traversal.next(&self.graph) {
             #[cfg(debug_assertions)]
             visited_directory_ixs.insert(directory_ix);
