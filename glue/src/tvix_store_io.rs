@@ -536,13 +536,13 @@ impl EvalIO for TvixStoreIO {
                 .tokio_handle
                 .block_on(async { self.store_path_to_node(&store_path, &sub_path).await })?
             {
-                // depending on the node type, treat read_to_string differently
+                // depending on the node type, treat open differently
                 match node {
                     Node::Directory(_) => {
                         // This would normally be a io::ErrorKind::IsADirectory (still unstable)
                         Err(io::Error::new(
                             io::ErrorKind::Unsupported,
-                            format!("tried to read directory at {:?} to string", path),
+                            format!("tried to open directory at {:?}", path),
                         ))
                     }
                     Node::File(file_node) => {
@@ -581,7 +581,7 @@ impl EvalIO for TvixStoreIO {
                     }
                     Node::Symlink(_symlink_node) => Err(io::Error::new(
                         io::ErrorKind::Unsupported,
-                        "read_to_string for symlinks is unsupported",
+                        "open for symlinks is unsupported",
                     ))?,
                 }
             } else {
