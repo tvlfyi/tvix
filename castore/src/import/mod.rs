@@ -199,6 +199,7 @@ where
     Ok(digest)
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum IngestionEntry {
     Regular {
         path: PathBuf,
@@ -227,5 +228,9 @@ impl IngestionEntry {
             IngestionEntry::Dir { path } => path,
             IngestionEntry::Unknown { path, .. } => path,
         }
+    }
+
+    fn is_dir(&self) -> bool {
+        matches!(self, IngestionEntry::Dir { .. })
     }
 }

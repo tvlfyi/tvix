@@ -1,6 +1,6 @@
 use std::{fs::FileType, path::PathBuf};
 
-use crate::{proto::ValidateDirectoryError, Error as CastoreError};
+use crate::Error as CastoreError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -25,11 +25,14 @@ pub enum Error {
     #[error("unsupported file {0} type: {1:?}")]
     UnsupportedFileType(PathBuf, FileType),
 
-    #[error("invalid directory contents {0}: {1}")]
-    InvalidDirectory(PathBuf, ValidateDirectoryError),
-
     #[error("unsupported tar entry {0} type: {1:?}")]
     UnsupportedTarEntry(PathBuf, tokio_tar::EntryType),
+
+    #[error("symlink missing target {0}")]
+    MissingSymlinkTarget(PathBuf),
+
+    #[error("unexpected number of top level directory entries")]
+    UnexpectedNumberOfTopLevelEntries,
 }
 
 impl From<CastoreError> for Error {
