@@ -54,6 +54,9 @@ pub enum FetcherError {
     #[error(transparent)]
     Import(#[from] tvix_castore::import::Error),
 
+    #[error(transparent)]
+    ImportArchive(#[from] tvix_castore::import::archive::Error),
+
     #[error("Error calculating store path for fetcher output: {0}")]
     StorePath(#[from] BuildStorePathError),
 }
