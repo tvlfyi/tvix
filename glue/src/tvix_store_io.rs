@@ -15,7 +15,7 @@ use std::{
     sync::Arc,
 };
 use tokio_util::io::SyncIoBridge;
-use tracing::{error, instrument, warn, Level};
+use tracing::{error, info, instrument, warn, Level};
 use tvix_build::buildservice::BuildService;
 use tvix_castore::proto::node::Node;
 use tvix_eval::{EvalIO, FileType, StdIO};
@@ -61,6 +61,7 @@ pub struct TvixStoreIO {
     pub(crate) fetcher:
         Fetcher<Arc<dyn BlobService>, Arc<dyn DirectoryService>, Arc<dyn PathInfoService>>,
 
+    // Paths known how to produce, by building or fetching.
     pub(crate) known_paths: RefCell<KnownPaths>,
 }
 
@@ -121,8 +122,31 @@ impl TvixStoreIO {
             // it for things like <nixpkgs> pointing to a store path.
             // In the future, these things will (need to) have PathInfo.
             None => {
-                // The store path doesn't exist yet, so we need to build it.
-                warn!("triggering build");
+                // The store path doesn't exist yet, so we need to fetch or build it.
+                // We check for fetches first, as we might have both native
+                // fetchers and FODs in KnownPaths, and prefer the former.
+
+                let maybe_fetch = self
+                    .known_paths
+                    .borrow()
+                    .get_fetch_for_output_path(store_path);
+
+                if let Some((name, fetch)) = maybe_fetch {
+                    info!(?fetch, "triggering lazy fetch");
+                    let (sp, root_node) = self
+                        .fetcher
+                        .ingest_and_persist(&name, fetch)
+                        .await
+                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+                    debug_assert_eq!(
+                        sp.to_string(),
+                        store_path.to_string(),
+                        "store path returned from fetcher should match"
+                    );
+
+                    return Ok(Some(root_node));
+                }
 
                 // Look up the derivation for this output path.
                 let (drv_path, drv) = {
@@ -139,6 +163,8 @@ impl TvixStoreIO {
                         }
                     }
                 };
+
+                warn!("triggering build");
 
                 // derivation_to_build_request needs castore nodes for all inputs.
                 // Provide them, which means, here is where we recursively build

@@ -475,7 +475,7 @@ pub(crate) mod derivation_builtins {
             .map_err(DerivationError::InvalidDerivation)?;
 
         // TODO: avoid cloning
-        known_paths.add(drv_path.clone(), drv.clone());
+        known_paths.add_derivation(drv_path.clone(), drv.clone());
 
         let mut new_attrs: Vec<(String, NixString)> = drv
             .outputs

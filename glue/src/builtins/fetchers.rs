@@ -87,11 +87,20 @@ pub(crate) mod fetcher_builtins {
             .map_err(|e| ErrorKind::TvixError(Rc::new(e)))?
         {
             Some(store_path) => {
-                let path = store_path.to_absolute_path().into();
-                // TODO: add fetch to fetcher
-                drop(fetch);
+                // Move the fetch to KnownPaths, so it can be actually fetched later.
+                let sp = state
+                    .known_paths
+                    .borrow_mut()
+                    .add_fetch(fetch, &name)
+                    .expect("Tvix bug: should only fail if the store path cannot be calculated");
 
-                Ok(Value::Path(Box::new(path)))
+                debug_assert_eq!(
+                    sp, store_path,
+                    "calculated store path by KnownPaths should match"
+                );
+
+                // Emit the calculated Store Path.
+                Ok(Value::Path(Box::new(store_path.to_absolute_path().into())))
             }
             None => {
                 // If we don't have enough info, do the fetch now.
