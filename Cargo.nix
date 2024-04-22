@@ -14102,6 +14102,10 @@ rec {
             packageId = "magic";
           }
           {
+            name = "md-5";
+            packageId = "md-5";
+          }
+          {
             name = "nix-compat";
             packageId = "nix-compat";
           }
@@ -14122,6 +14126,10 @@ rec {
           {
             name = "serde_json";
             packageId = "serde_json";
+          }
+          {
+            name = "sha1";
+            packageId = "sha1";
           }
           {
             name = "sha2";

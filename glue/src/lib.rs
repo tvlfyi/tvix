@@ -1,4 +1,5 @@
 pub mod builtins;
+pub mod fetchers;
 pub mod known_paths;
 pub mod refscan;
 pub mod tvix_build;

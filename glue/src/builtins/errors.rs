@@ -41,17 +41,17 @@ pub enum FetcherError {
     #[error("Invalid hash type '{0}' for fetcher")]
     InvalidHashType(&'static str),
 
-    #[error("Error in store path for fetcher output: {0}")]
-    StorePath(#[from] BuildStorePathError),
-
     #[error(transparent)]
     Http(#[from] reqwest::Error),
-}
 
-impl From<FetcherError> for tvix_eval::ErrorKind {
-    fn from(err: FetcherError) -> Self {
-        tvix_eval::ErrorKind::TvixError(Rc::new(err))
-    }
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+
+    #[error(transparent)]
+    Import(#[from] tvix_castore::import::Error),
+
+    #[error("Error calculating store path for fetcher output: {0}")]
+    StorePath(#[from] BuildStorePathError),
 }
 
 /// Errors related to `builtins.path` and `builtins.filterSource`,

@@ -25,6 +25,8 @@ thiserror = "1.0.38"
 serde = "1.0.195"
 serde_json = "1.0"
 sha2 = "0.10.8"
+sha1 = "0.10.6"
+md-5 = "0.10.6"
 walkdir = "2.4.0"
 
 [dependencies.async-compression]
