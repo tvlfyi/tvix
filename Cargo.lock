@@ -4415,6 +4415,7 @@ dependencies = [
  "tvix-castore",
  "tvix-eval",
  "tvix-store",
+ "url",
  "walkdir",
  "wu-manber",
 ]

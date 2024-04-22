@@ -1,6 +1,8 @@
 [
-  # (fetchurl "url") cannot be tested, as that one has to fetch from the
-  # internet to calculate the path.
+  # (fetchurl "url") needs to immediately fetch, but our options without
+  # internet access are fairly limited.
+  # TODO: populate some fixtures at a known location instead.
+  (builtins.fetchurl "file:///dev/null")
 
   # fetchurl with url and sha256
   (builtins.fetchurl {

@@ -3,6 +3,7 @@ use nix_compat::{
     nixhash::{self, NixHash},
     store_path::BuildStorePathError,
 };
+use reqwest::Url;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -33,13 +34,16 @@ impl From<DerivationError> for tvix_eval::ErrorKind {
 pub enum FetcherError {
     #[error("hash mismatch in file downloaded from {url}:\n  wanted: {wanted}\n     got: {got}")]
     HashMismatch {
-        url: String,
+        url: Url,
         wanted: NixHash,
         got: NixHash,
     },
 
     #[error("Invalid hash type '{0}' for fetcher")]
     InvalidHashType(&'static str),
+
+    #[error("Unable to parse URL: {0}")]
+    InvalidUrl(#[from] url::ParseError),
 
     #[error(transparent)]
     Http(#[from] reqwest::Error),

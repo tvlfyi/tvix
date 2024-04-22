@@ -1,4 +1,4 @@
-//! Contains builtins that fetch paths from the Internet
+//! Contains builtins that fetch paths from the Internet, or local filesystem.
 
 use super::utils::select_string;
 use crate::{
@@ -15,7 +15,7 @@ use tvix_eval::generators::GenCo;
 use tvix_eval::{CatchableErrorKind, ErrorKind, Value};
 
 struct NixFetchArgs {
-    url: String,
+    url_str: String,
     name: Option<String>,
     sha256: Option<[u8; 32]>,
 }
@@ -26,11 +26,12 @@ async fn extract_fetch_args(
     co: &GenCo,
     args: Value,
 ) -> Result<Result<NixFetchArgs, CatchableErrorKind>, ErrorKind> {
-    if let Ok(url) = args.to_str() {
+    if let Ok(url_str) = args.to_str() {
         // Get the raw bytes, not the ToString repr.
-        let url = String::from_utf8(url.as_bytes().to_vec()).map_err(|_| ErrorKind::Utf8)?;
+        let url_str =
+            String::from_utf8(url_str.as_bytes().to_vec()).map_err(|_| ErrorKind::Utf8)?;
         return Ok(Ok(NixFetchArgs {
-            url,
+            url_str,
             name: None,
             sha256: None,
         }));
@@ -41,7 +42,7 @@ async fn extract_fetch_args(
         actual: args.type_of(),
     })?;
 
-    let url = match select_string(co, &attrs, "url").await? {
+    let url_str = match select_string(co, &attrs, "url").await? {
         Ok(s) => s.ok_or_else(|| ErrorKind::AttributeNotFound { name: "url".into() })?,
         Err(cek) => return Ok(Err(cek)),
     };
@@ -68,12 +69,19 @@ async fn extract_fetch_args(
         None => None,
     };
 
-    Ok(Ok(NixFetchArgs { url, name, sha256 }))
+    Ok(Ok(NixFetchArgs {
+        url_str,
+        name,
+        sha256,
+    }))
 }
 
 #[allow(unused_variables)] // for the `state` arg, for now
 #[builtins(state = "Rc<TvixStoreIO>")]
 pub(crate) mod fetcher_builtins {
+    use crate::builtins::FetcherError;
+    use url::Url;
+
     use super::*;
 
     /// Consumes a fetch.
@@ -130,12 +138,16 @@ pub(crate) mod fetcher_builtins {
         // Derive the name from the URL basename if not set explicitly.
         let name = args
             .name
-            .unwrap_or_else(|| url_basename(&args.url).to_owned());
+            .unwrap_or_else(|| url_basename(&args.url_str).to_owned());
+
+        // Parse the URL.
+        let url = Url::parse(&args.url_str)
+            .map_err(|e| ErrorKind::TvixError(Rc::new(FetcherError::InvalidUrl(e))))?;
 
         fetch_lazy(
             state,
             name,
-            Fetch::URL(args.url, args.sha256.map(NixHash::Sha256)),
+            Fetch::URL(url, args.sha256.map(NixHash::Sha256)),
         )
     }
 
@@ -156,7 +168,11 @@ pub(crate) mod fetcher_builtins {
             .name
             .unwrap_or_else(|| DEFAULT_NAME_FETCH_TARBALL.to_owned());
 
-        fetch_lazy(state, name, Fetch::Tarball(args.url, args.sha256))
+        // Parse the URL.
+        let url = Url::parse(&args.url_str)
+            .map_err(|e| ErrorKind::TvixError(Rc::new(FetcherError::InvalidUrl(e))))?;
+
+        fetch_lazy(state, name, Fetch::Tarball(url, args.sha256))
     }
 
     #[builtin("fetchGit")]

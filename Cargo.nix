@@ -14175,6 +14175,10 @@ rec {
             usesDefaultFeatures = false;
           }
           {
+            name = "url";
+            packageId = "url";
+          }
+          {
             name = "walkdir";
             packageId = "walkdir";
           }

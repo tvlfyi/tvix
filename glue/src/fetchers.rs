@@ -15,16 +15,17 @@ use tvix_castore::{
     proto::{node::Node, FileNode},
 };
 use tvix_store::{pathinfoservice::PathInfoService, proto::PathInfo};
+use url::Url;
 
 use crate::{builtins::FetcherError, decompression::DecompressedReader};
 
 /// Representing options for doing a fetch.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub enum Fetch {
     /// Fetch a literal file from the given URL, with an optional expected
     /// NixHash of it.
     /// TODO: check if this is *always* sha256, and if so, make it [u8; 32].
-    URL(String, Option<NixHash>),
+    URL(Url, Option<NixHash>),
 
     /// Fetch a tarball from the given URL and unpack.
     /// The file must be a tape archive (.tar) compressed with gzip, bzip2 or xz.
@@ -32,10 +33,53 @@ pub enum Fetch {
     /// so it is best if the tarball contains a single directory at top level.
     /// Optionally, a sha256 digest can be provided to verify the unpacked
     /// contents against.
-    Tarball(String, Option<[u8; 32]>),
+    Tarball(Url, Option<[u8; 32]>),
 
     /// TODO
     Git(),
+}
+
+// Drops potentially sensitive username and password from a URL.
+fn redact_url(url: &Url) -> Url {
+    let mut url = url.to_owned();
+    if !url.username().is_empty() {
+        let _ = url.set_username("redacted");
+    }
+
+    if url.password().is_some() {
+        let _ = url.set_password(Some("redacted"));
+    }
+
+    url
+}
+
+impl std::fmt::Debug for Fetch {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Fetch::URL(url, nixhash) => {
+                let url = redact_url(url);
+                if let Some(nixhash) = nixhash {
+                    write!(f, "URL [url: {}, exp_hash: Some({})]", &url, nixhash)
+                } else {
+                    write!(f, "URL [url: {}, exp_hash: None]", &url)
+                }
+            }
+            Fetch::Tarball(url, exp_digest) => {
+                let url = redact_url(url);
+                if let Some(exp_digest) = exp_digest {
+                    write!(
+                        f,
+                        "Tarball [url: {}, exp_hash: Some({})]",
+                        url,
+                        NixHash::Sha256(*exp_digest)
+                    )
+                } else {
+                    write!(f, "Tarball [url: {}, exp_hash: None]", url)
+                }
+            }
+            Fetch::Git() => todo!(),
+        }
+    }
 }
 
 impl Fetch {
@@ -76,18 +120,32 @@ impl<BS, DS, PS> Fetcher<BS, DS, PS> {
     }
 
     /// Constructs a HTTP request to the passed URL, and returns a AsyncReadBuf to it.
-    async fn download<'a>(
-        &self,
-        url: &str,
-    ) -> Result<impl AsyncBufRead + Unpin + 'a, reqwest::Error> {
-        let resp = self.http_client.get(url).send().await?;
-        Ok(tokio_util::io::StreamReader::new(
-            resp.bytes_stream().map_err(|e| {
-                let e = e.without_url();
-                warn!(%e, "failed to get response body");
-                std::io::Error::new(std::io::ErrorKind::BrokenPipe, e)
-            }),
-        ))
+    /// In case the URI uses the file:// scheme, use tokio::fs to open it.
+    async fn download(&self, url: Url) -> Result<Box<dyn AsyncBufRead + Unpin>, FetcherError> {
+        match url.scheme() {
+            "file" => {
+                let f = tokio::fs::File::open(url.to_file_path().map_err(|_| {
+                    // "Returns Err if the host is neither empty nor "localhost"
+                    // (except on Windows, where file: URLs may have a non-local host)"
+                    FetcherError::Io(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        "invalid host for file:// scheme",
+                    ))
+                })?)
+                .await?;
+                Ok(Box::new(tokio::io::BufReader::new(f)))
+            }
+            _ => {
+                let resp = self.http_client.get(url).send().await?;
+                Ok(Box::new(tokio_util::io::StreamReader::new(
+                    resp.bytes_stream().map_err(|e| {
+                        let e = e.without_url();
+                        warn!(%e, "failed to get response body");
+                        std::io::Error::new(std::io::ErrorKind::BrokenPipe, e)
+                    }),
+                )))
+            }
+        }
     }
 }
 
@@ -122,7 +180,7 @@ where
         match fetch {
             Fetch::URL(url, exp_nixhash) => {
                 // Construct a AsyncRead reading from the data as its downloaded.
-                let mut r = self.download(&url).await?;
+                let mut r = self.download(url.clone()).await?;
 
                 // Construct a AsyncWrite to write into the BlobService.
                 let mut blob_writer = self.blob_service.open_write().await;
@@ -175,7 +233,7 @@ where
             }
             Fetch::Tarball(url, exp_nar_sha256) => {
                 // Construct a AsyncRead reading from the data as its downloaded.
-                let r = self.download(&url).await?;
+                let r = self.download(url.clone()).await?;
 
                 // Pop compression.
                 let r = DecompressedReader::new(r);
@@ -324,13 +382,13 @@ mod tests {
 
         #[test]
         fn fetchurl_store_path() {
-            let url = "https://raw.githubusercontent.com/aaptel/notmuch-extract-patch/f732a53e12a7c91a06755ebfab2007adc9b3063b/notmuch-extract-patch";
+            let url = Url::parse("https://raw.githubusercontent.com/aaptel/notmuch-extract-patch/f732a53e12a7c91a06755ebfab2007adc9b3063b/notmuch-extract-patch").unwrap();
             let exp_nixhash = NixHash::Sha256(
                 nixbase32::decode_fixed("0nawkl04sj7psw6ikzay7kydj3dhd0fkwghcsf5rzaw4bmp4kbax")
                     .unwrap(),
             );
 
-            let fetch = Fetch::URL(url.into(), Some(exp_nixhash));
+            let fetch = Fetch::URL(url, Some(exp_nixhash));
             assert_eq!(
                 "06qi00hylriyfm0nl827crgjvbax84mz-notmuch-extract-patch",
                 &fetch
@@ -343,11 +401,11 @@ mod tests {
 
         #[test]
         fn fetch_tarball_store_path() {
-            let url = "https://github.com/NixOS/nixpkgs/archive/91050ea1e57e50388fa87a3302ba12d188ef723a.tar.gz";
+            let url = Url::parse("https://github.com/NixOS/nixpkgs/archive/91050ea1e57e50388fa87a3302ba12d188ef723a.tar.gz").unwrap();
             let exp_nixbase32 =
                 nixbase32::decode_fixed("1hf6cgaci1n186kkkjq106ryf8mmlq9vnwgfwh625wa8hfgdn4dm")
                     .unwrap();
-            let fetch = Fetch::Tarball(url.into(), Some(exp_nixbase32));
+            let fetch = Fetch::Tarball(url, Some(exp_nixbase32));
 
             assert_eq!(
                 "7adgvk5zdfq4pwrhsm3n9lzypb12gw0g-source",
