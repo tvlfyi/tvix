@@ -530,11 +530,7 @@ impl<'a> From<&'a NixString> for &'a BStr {
     }
 }
 
-impl From<NixString> for String {
-    fn from(s: NixString) -> Self {
-        s.to_string()
-    }
-}
+// No impl From<NixString> for String, that one quotes.
 
 impl From<NixString> for BString {
     fn from(s: NixString) -> Self {
