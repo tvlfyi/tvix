@@ -292,17 +292,13 @@ where
         fetch: Fetch,
     ) -> Result<(StorePathRef<'a>, Node), FetcherError> {
         // Fetch file, return the (unnamed) (File)Node of its contents, ca hash and filesize.
-        let (mut node, ca_hash, size) = self.ingest(fetch).await?;
+        let (node, ca_hash, size) = self.ingest(fetch).await?;
 
         // Calculate the store path to return later, which is done with the ca_hash.
         let store_path = build_ca_path(name, &ca_hash, Vec::<String>::new(), false)?;
 
         // Rename the node name to match the Store Path.
-        if let Node::File(file_node) = &mut node {
-            file_node.name = store_path.to_string().into();
-        } else {
-            unreachable!("Tvix bug: do_fetch for URL returned non-FileNode");
-        }
+        let node = node.rename(store_path.to_string().into());
 
         // If the resulting hash is not a CAHash::Nar, we also need to invoke
         // `calculate_nar` to calculate this representation, as it's required in
