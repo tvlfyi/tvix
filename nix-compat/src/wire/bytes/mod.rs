@@ -33,8 +33,8 @@ const LEN_SIZE: usize = 8;
 /// On failure (for example if a too large byte packet was sent), the reader
 /// becomes unusable.
 ///
-/// This buffers the entire payload into memory, a streaming version will be
-/// added later.
+/// This buffers the entire payload into memory,
+/// a streaming version is available at [crate::wire::bytes::BytesReader].
 pub async fn read_bytes<R, S>(r: &mut R, allowed_size: S) -> std::io::Result<Vec<u8>>
 where
     R: AsyncReadExt + Unpin,
