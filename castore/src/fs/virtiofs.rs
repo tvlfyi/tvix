@@ -34,6 +34,7 @@ enum Error {
     /// Invalid descriptor chain.
     InvalidDescriptorChain,
     /// Failed to handle filesystem requests.
+    #[allow(dead_code)]
     HandleRequests(fuse_backend_rs::Error),
     /// Failed to construct new vhost user daemon.
     NewDaemon,

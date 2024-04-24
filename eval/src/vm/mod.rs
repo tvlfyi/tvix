@@ -1148,7 +1148,7 @@ where
                     let mut captured_with_stack = frame
                         .upvalues
                         .with_stack()
-                        .map(Clone::clone)
+                        .cloned()
                         // ... or make an empty one if there isn't one already.
                         .unwrap_or_else(|| Vec::with_capacity(self.with_stack.len()));
 

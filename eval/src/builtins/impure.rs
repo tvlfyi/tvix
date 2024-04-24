@@ -37,7 +37,7 @@ mod impure_builtins {
             Ok(p) => p,
         };
         let r = generators::request_open_file(&co, path).await;
-        Ok(hash_nix_string(algo.to_str()?, r).map(Value::from)?)
+        hash_nix_string(algo.to_str()?, r).map(Value::from)
     }
 
     #[builtin("pathExists")]
