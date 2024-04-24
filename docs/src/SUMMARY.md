@@ -2,6 +2,7 @@
 
 # Tvix
 - [Architecture & data flow](./architecture.md)
+- [TODOs](./TODO.md)
 
 # Nix
 - [Specification of the Nix Language](./language-spec.md)
