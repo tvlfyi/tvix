@@ -19,10 +19,49 @@ mod test;
 
 pub type Reader<'a> = dyn BufRead + Send + 'a;
 
+struct ArchiveReader<'a, 'r> {
+    inner: &'a mut Reader<'r>,
+
+    /// In debug mode, also track when we need to abandon this archive reader.
+    /// The archive reader must be abandoned when:
+    ///   * An error is encountered at any point
+    ///   * A file or directory reader is dropped before being read entirely.
+    /// All of these checks vanish in release mode.
+    #[cfg(debug_assertions)]
+    status: ArchiveReaderStatus<'a>,
+}
+
+macro_rules! poison {
+    ($it:expr) => {
+        #[cfg(debug_assertions)]
+        {
+            $it.status.poison();
+        }
+    };
+}
+
+macro_rules! try_or_poison {
+    ($it:expr, $ex:expr) => {
+        match $ex {
+            Ok(x) => x,
+            Err(e) => {
+                poison!($it);
+                return Err(e.into());
+            }
+        }
+    };
+}
 /// Start reading a NAR file from `reader`.
 pub fn open<'a, 'r>(reader: &'a mut Reader<'r>) -> io::Result<Node<'a, 'r>> {
     read::token(reader, &wire::TOK_NAR)?;
-    Node::new(reader)
+    Node::new(ArchiveReader {
+        inner: reader,
+        #[cfg(debug_assertions)]
+        status: ArchiveReaderStatus::StackTop {
+            poisoned: false,
+            ready: true,
+        },
+    })
 }
 
 pub enum Node<'a, 'r> {
@@ -41,21 +80,28 @@ impl<'a, 'r> Node<'a, 'r> {
     ///
     /// Reading the terminating [wire::TOK_PAR] is done immediately for [Node::Symlink],
     /// but is otherwise left to [DirReader] or [FileReader].
-    fn new(reader: &'a mut Reader<'r>) -> io::Result<Self> {
-        Ok(match read::tag(reader)? {
+    #[allow(unused_mut)] // due to debug_assertions code
+    fn new(mut reader: ArchiveReader<'a, 'r>) -> io::Result<Self> {
+        Ok(match read::tag(reader.inner)? {
             wire::Node::Sym => {
-                let target = read::bytes(reader, wire::MAX_TARGET_LEN)?;
+                let target =
+                    try_or_poison!(reader, read::bytes(reader.inner, wire::MAX_TARGET_LEN));
 
                 if target.is_empty() || target.contains(&0) {
+                    poison!(reader);
                     return Err(InvalidData.into());
                 }
 
-                read::token(reader, &wire::TOK_PAR)?;
+                try_or_poison!(reader, read::token(reader.inner, &wire::TOK_PAR));
+                #[cfg(debug_assertions)]
+                {
+                    reader.status.ready_parent(); // Immediately allow reading from parent again
+                }
 
                 Node::Symlink { target }
             }
             tag @ (wire::Node::Reg | wire::Node::Exe) => {
-                let len = read::u64(reader)?;
+                let len = try_or_poison!(&mut reader, read::u64(reader.inner));
 
                 Node::File {
                     executable: tag == wire::Node::Exe,
@@ -74,10 +120,8 @@ impl<'a, 'r> Node<'a, 'r> {
 ///  * You must abandon the entire archive reader upon the first error.
 ///
 /// It's fine to read exactly `reader.len()` bytes without ever seeing an explicit EOF.
-///
-/// TODO(edef): enforce these in `#[cfg(debug_assertions)]`
 pub struct FileReader<'a, 'r> {
-    reader: &'a mut Reader<'r>,
+    reader: ArchiveReader<'a, 'r>,
     len: u64,
     /// Truncated original file length for padding computation.
     /// We only care about the 3 least significant bits; semantically, this is a u3.
@@ -87,12 +131,17 @@ pub struct FileReader<'a, 'r> {
 impl<'a, 'r> FileReader<'a, 'r> {
     /// Instantiate a new reader, starting after [wire::TOK_REG] or [wire::TOK_EXE].
     /// We handle the terminating [wire::TOK_PAR] on semantic EOF.
-    fn new(reader: &'a mut Reader<'r>, len: u64) -> io::Result<Self> {
+    #[allow(unused_mut)] // due to debug_assertions code
+    fn new(mut reader: ArchiveReader<'a, 'r>, len: u64) -> io::Result<Self> {
         // For zero-length files, we have to read the terminating TOK_PAR
         // immediately, since FileReader::read may never be called; we've
         // already reached semantic EOF by definition.
         if len == 0 {
-            read::token(reader, &wire::TOK_PAR)?;
+            read::token(reader.inner, &wire::TOK_PAR)?;
+            #[cfg(debug_assertions)]
+            {
+                reader.status.ready_parent();
+            }
         }
 
         Ok(Self {
@@ -121,9 +170,12 @@ impl FileReader<'_, '_> {
             return Ok(&[]);
         }
 
-        let mut buf = self.reader.fill_buf()?;
+        self.reader.check_correct();
+
+        let mut buf = try_or_poison!(self.reader, self.reader.inner.fill_buf());
 
         if buf.is_empty() {
+            poison!(self.reader);
             return Err(UnexpectedEof.into());
         }
 
@@ -141,12 +193,14 @@ impl FileReader<'_, '_> {
             return Ok(());
         }
 
+        self.reader.check_correct();
+
         self.len = self
             .len
             .checked_sub(n as u64)
             .expect("consumed bytes past EOF");
 
-        self.reader.consume(n);
+        self.reader.inner.consume(n);
 
         if self.is_empty() {
             self.finish()?;
@@ -159,7 +213,7 @@ impl FileReader<'_, '_> {
     pub fn copy(&mut self, mut dst: impl Write) -> io::Result<()> {
         while !self.is_empty() {
             let buf = self.fill_buf()?;
-            let n = dst.write(buf)?;
+            let n = try_or_poison!(self.reader, dst.write(buf));
             self.consume(n)?;
         }
 
@@ -173,14 +227,17 @@ impl Read for FileReader<'_, '_> {
             return Ok(0);
         }
 
+        self.reader.check_correct();
+
         if buf.len() as u64 > self.len {
             buf = &mut buf[..self.len as usize];
         }
 
-        let n = self.reader.read(buf)?;
+        let n = try_or_poison!(self.reader, self.reader.inner.read(buf));
         self.len -= n as u64;
 
         if n == 0 {
+            poison!(self.reader);
             return Err(UnexpectedEof.into());
         }
 
@@ -200,21 +257,30 @@ impl FileReader<'_, '_> {
 
         if pad != 0 {
             let mut buf = [0; 8];
-            self.reader.read_exact(&mut buf[pad..])?;
+            try_or_poison!(self.reader, self.reader.inner.read_exact(&mut buf[pad..]));
 
             if buf != [0; 8] {
+                poison!(self.reader);
                 return Err(InvalidData.into());
             }
         }
 
-        read::token(self.reader, &wire::TOK_PAR)
+        try_or_poison!(self.reader, read::token(self.reader.inner, &wire::TOK_PAR));
+
+        #[cfg(debug_assertions)]
+        {
+            // Done with reading this file, allow going back up the chain of readers
+            self.reader.status.ready_parent();
+        }
+
+        Ok(())
     }
 }
 
 /// A directory iterator, yielding a sequence of [Node]s.
 /// It must be fully consumed before reading further from the [DirReader] that produced it, if any.
 pub struct DirReader<'a, 'r> {
-    reader: &'a mut Reader<'r>,
+    reader: ArchiveReader<'a, 'r>,
     /// Previous directory entry name.
     /// We have to hang onto this to enforce name monotonicity.
     prev_name: Option<Vec<u8>>,
@@ -226,7 +292,7 @@ pub struct Entry<'a, 'r> {
 }
 
 impl<'a, 'r> DirReader<'a, 'r> {
-    fn new(reader: &'a mut Reader<'r>) -> Self {
+    fn new(reader: ArchiveReader<'a, 'r>) -> Self {
         Self {
             reader,
             prev_name: None,
@@ -242,23 +308,30 @@ impl<'a, 'r> DirReader<'a, 'r> {
     ///  * You must abandon the entire archive reader on the first error.
     ///  * You must abandon the directory reader upon the first [None].
     ///  * Even if you know the amount of elements up front, you must keep reading until you encounter [None].
-    ///
-    /// TODO(edef): enforce these in `#[cfg(debug_assertions)]`
     #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> io::Result<Option<Entry>> {
+    pub fn next(&mut self) -> io::Result<Option<Entry<'_, 'r>>> {
+        self.reader.check_correct();
+
         // COME FROM the previous iteration: if we've already read an entry,
         // read its terminating TOK_PAR here.
         if self.prev_name.is_some() {
-            read::token(self.reader, &wire::TOK_PAR)?;
+            try_or_poison!(self.reader, read::token(self.reader.inner, &wire::TOK_PAR));
         }
 
         // Determine if there are more entries to follow
-        if let wire::Entry::None = read::tag(self.reader)? {
+        if let wire::Entry::None = try_or_poison!(self.reader, read::tag(self.reader.inner)) {
             // We've reached the end of this directory.
+            #[cfg(debug_assertions)]
+            {
+                self.reader.status.ready_parent();
+            }
             return Ok(None);
         }
 
-        let name = read::bytes(self.reader, wire::MAX_NAME_LEN)?;
+        let name = try_or_poison!(
+            self.reader,
+            read::bytes(self.reader.inner, wire::MAX_NAME_LEN)
+        );
 
         if name.is_empty()
             || name.contains(&0)
@@ -266,6 +339,7 @@ impl<'a, 'r> DirReader<'a, 'r> {
             || name == b"."
             || name == b".."
         {
+            poison!(self.reader);
             return Err(InvalidData.into());
         }
 
@@ -276,6 +350,7 @@ impl<'a, 'r> DirReader<'a, 'r> {
             }
             Some(prev_name) => {
                 if *prev_name >= name {
+                    poison!(self.reader);
                     return Err(InvalidData.into());
                 }
 
@@ -283,11 +358,120 @@ impl<'a, 'r> DirReader<'a, 'r> {
             }
         }
 
-        read::token(self.reader, &wire::TOK_NOD)?;
+        try_or_poison!(self.reader, read::token(self.reader.inner, &wire::TOK_NOD));
 
         Ok(Some(Entry {
             name,
-            node: Node::new(&mut self.reader)?,
+            // Don't need to worry about poisoning here: Node::new will do it for us if needed
+            node: Node::new(self.reader.child())?,
         }))
+    }
+}
+
+/// We use a stack of statuses to:
+///   * Share poisoned state across all objects from the same underlying reader,
+///     so we can check they are abandoned when an error occurs
+///   * Make sure only the most recently created object is read from, and is fully exhausted
+///     before anything it was created from is used again.
+#[cfg(debug_assertions)]
+enum ArchiveReaderStatus<'a> {
+    StackTop {
+        poisoned: bool,
+        ready: bool,
+    },
+    StackChild {
+        poisoned: &'a mut bool,
+        parent_ready: &'a mut bool,
+        ready: bool,
+    },
+}
+
+#[cfg(debug_assertions)]
+impl ArchiveReaderStatus<'_> {
+    /// Poison all the objects sharing the same reader, to be used when an error occurs
+    fn poison(&mut self) {
+        match self {
+            ArchiveReaderStatus::StackTop { poisoned: x, .. } => *x = true,
+            ArchiveReaderStatus::StackChild { poisoned: x, .. } => **x = true,
+        }
+    }
+
+    /// Mark the parent as ready, allowing it to be used again and preventing this reference to the reader being used again.
+    fn ready_parent(&mut self) {
+        match self {
+            Self::StackTop { ready, .. } => {
+                *ready = false;
+            }
+            Self::StackChild {
+                ready,
+                parent_ready,
+                ..
+            } => {
+                *ready = false;
+                **parent_ready = true;
+            }
+        };
+    }
+
+    fn poisoned(&self) -> bool {
+        match self {
+            Self::StackTop { poisoned, .. } => *poisoned,
+            Self::StackChild { poisoned, .. } => **poisoned,
+        }
+    }
+
+    fn ready(&self) -> bool {
+        match self {
+            Self::StackTop { ready, .. } => *ready,
+            Self::StackChild { ready, .. } => *ready,
+        }
+    }
+}
+
+impl<'a, 'r> ArchiveReader<'a, 'r> {
+    /// Create a new child reader from this one.
+    /// In debug mode, this reader will panic if called before the new child is exhausted / calls `ready_parent`
+    fn child(&mut self) -> ArchiveReader<'_, 'r> {
+        ArchiveReader {
+            inner: self.inner,
+            #[cfg(debug_assertions)]
+            status: match &mut self.status {
+                ArchiveReaderStatus::StackTop { poisoned, ready } => {
+                    *ready = false;
+                    ArchiveReaderStatus::StackChild {
+                        poisoned,
+                        parent_ready: ready,
+                        ready: true,
+                    }
+                }
+                ArchiveReaderStatus::StackChild {
+                    poisoned, ready, ..
+                } => {
+                    *ready = false;
+                    ArchiveReaderStatus::StackChild {
+                        poisoned,
+                        parent_ready: ready,
+                        ready: true,
+                    }
+                }
+            },
+        }
+    }
+
+    /// Check the reader is in the correct status.
+    /// Only does anything when debug assertions are on.
+    #[inline(always)]
+    fn check_correct(&self) {
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(
+                !self.status.poisoned(),
+                "Archive reader used after it was meant to be abandoned!"
+            );
+            debug_assert!(
+                self.status.ready(),
+                "Non-ready archive reader used! (Should've been reading from something else)"
+            )
+        }
     }
 }
