@@ -96,7 +96,7 @@ where
                 }
                 BytesPacketPosition::Size(pos) => {
                     // try to read more of the size field.
-                    // We wrap a BufRead around this.payload_size here, and set_filled.
+                    // We wrap a ReadBuf around this.payload_size here, and set_filled.
                     let mut read_buf = tokio::io::ReadBuf::new(this.payload_size);
                     read_buf.advance(pos);
                     ready!(this.inner.as_mut().poll_read(cx, &mut read_buf))?;
