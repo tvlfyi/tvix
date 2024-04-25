@@ -116,7 +116,7 @@ impl BigtablePathInfoService {
             .stdout(Stdio::piped())
             .kill_on_drop(true)
             .spawn()
-            .expect("failed to spwan emulator");
+            .expect("failed to spawn emulator");
 
         Retry::spawn(
             ExponentialBackoff::from_millis(20)
