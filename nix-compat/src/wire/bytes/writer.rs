@@ -3,7 +3,7 @@ use std::task::{ready, Poll};
 
 use tokio::io::AsyncWrite;
 
-use super::{padding_len, BytesPacketPosition, EMPTY_BYTES, LEN_SIZE};
+use super::{padding_len, EMPTY_BYTES, LEN_SIZE};
 
 pin_project! {
     /// Writes a "bytes wire packet" to the underlying writer.
@@ -39,6 +39,22 @@ pin_project! {
         payload_len: u64,
         state: BytesPacketPosition,
     }
+}
+
+/// Models the position inside a "bytes wire packet" that the writer is in.
+/// It can be in three different stages, inside size, payload or padding fields.
+/// The number tracks the number of bytes written inside the specific field.
+/// There shall be no ambiguous states, at the end of a stage we immediately
+/// move to the beginning of the next one:
+/// - Size(LEN_SIZE) must be expressed as Payload(0)
+/// - Payload(self.payload_len) must be expressed as Padding(0)
+///
+/// Padding(padding_len) means we're at the end of the bytes wire packet.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum BytesPacketPosition {
+    Size(usize),
+    Payload(u64),
+    Padding(usize),
 }
 
 impl<W> BytesWriter<W>

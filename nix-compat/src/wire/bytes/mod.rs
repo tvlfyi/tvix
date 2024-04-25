@@ -132,25 +132,6 @@ fn padding_len(len: u64) -> u8 {
     }
 }
 
-/// Models the position inside a "bytes wire packet" that the reader or writer
-/// is in.
-/// It can be in three different stages, inside size, payload or padding fields.
-/// The number tracks the number of bytes written inside the specific field.
-/// There shall be no ambiguous states, at the end of a stage we immediately
-/// move to the beginning of the next one:
-/// - Size(LEN_SIZE) must be expressed as Payload(0)
-/// - Payload(self.payload_len) must be expressed as Padding(0)
-/// There's one exception - Size(LEN_SIZE) in the reader represents a failure
-/// state we enter in case the allowed size doesn't match the allowed range.
-///
-/// Padding(padding_len) means we're at the end of the bytes wire packet.
-#[derive(Clone, Debug, PartialEq, Eq)]
-enum BytesPacketPosition {
-    Size(usize),
-    Payload(u64),
-    Padding(usize),
-}
-
 #[cfg(test)]
 mod tests {
     use tokio_test::{assert_ok, io::Builder};
