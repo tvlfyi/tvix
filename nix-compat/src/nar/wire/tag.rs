@@ -10,6 +10,7 @@ pub trait Tag: Sized {
     const MIN: usize;
 
     /// Minimal suitably sized buffer for reading the wire representation
+    ///
     /// HACK: This is a workaround for const generics limitations.
     type Buf: AsMut<[u8]> + Send;
 
