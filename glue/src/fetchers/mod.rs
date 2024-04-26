@@ -17,7 +17,10 @@ use tvix_castore::{
 use tvix_store::{pathinfoservice::PathInfoService, proto::PathInfo};
 use url::Url;
 
-use crate::{builtins::FetcherError, decompression::DecompressedReader};
+use crate::builtins::FetcherError;
+
+mod decompression;
+use decompression::DecompressedReader;
 
 /// Representing options for doing a fetch.
 #[derive(Clone, Eq, PartialEq)]
