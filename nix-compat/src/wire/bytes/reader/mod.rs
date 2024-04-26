@@ -93,11 +93,11 @@ where
 
 impl<R: AsyncRead + Unpin> AsyncRead for BytesReader<R> {
     fn poll_read(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut task::Context,
         buf: &mut ReadBuf,
     ) -> Poll<io::Result<()>> {
-        let this = &mut self.get_mut().state;
+        let this = &mut self.state;
 
         loop {
             match this {

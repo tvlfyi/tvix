@@ -39,11 +39,11 @@ impl<R: AsyncRead + Unpin> TrailerReader<R> {
 
 impl<R: AsyncRead + Unpin> AsyncRead for TrailerReader<R> {
     fn poll_read(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut task::Context,
         user_buf: &mut ReadBuf,
     ) -> Poll<io::Result<()>> {
-        let this = self.get_mut();
+        let this = &mut *self;
 
         loop {
             match this {
