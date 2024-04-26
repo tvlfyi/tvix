@@ -241,7 +241,7 @@ mod tests {
     #[case::empty(&[])] // empty bytes packet
     #[case::size_1b(&[0xff])] // 1 bytes payload
     #[case::size_8b(&hex!("0001020304050607"))] // 8 bytes payload (no padding)
-    #[case::size_9b( &hex!("000102030405060708"))] // 9 bytes payload (7 bytes padding)
+    #[case::size_9b(&hex!("000102030405060708"))] // 9 bytes payload (7 bytes padding)
     #[case::size_1m(LARGE_PAYLOAD.as_slice())] // larger bytes packet
     #[tokio::test]
     async fn read_payload_correct(#[case] payload: &[u8]) {
@@ -262,7 +262,7 @@ mod tests {
     #[case::empty(&[])] // empty bytes packet
     #[case::size_1b(&[0xff])] // 1 bytes payload
     #[case::size_8b(&hex!("0001020304050607"))] // 8 bytes payload (no padding)
-    #[case::size_9b( &hex!("000102030405060708"))] // 9 bytes payload (7 bytes padding)
+    #[case::size_9b(&hex!("000102030405060708"))] // 9 bytes payload (7 bytes padding)
     #[case::size_1m(LARGE_PAYLOAD.as_slice())] // larger bytes packet
     #[tokio::test]
     async fn read_payload_correct_known(#[case] payload: &[u8]) {
