@@ -56,10 +56,6 @@ use tvix_store::proto::FILE_DESCRIPTOR_SET;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    /// Whether to log in JSON
-    #[arg(long)]
-    json: bool,
-
     /// Whether to configure OTLP. Set --otlp=false to disable.
     #[arg(long, default_missing_value = "true", default_value = "true", num_args(0..=1), require_equals(true), action(clap::ArgAction::Set))]
     otlp: bool,
@@ -218,33 +214,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let level = cli.log_level.unwrap_or(Level::INFO);
 
     // Set up the tracing subscriber.
-    let subscriber = tracing_subscriber::registry()
-        .with(
-            cli.json.then_some(
-                tracing_subscriber::fmt::Layer::new()
-                    .with_writer(std::io::stderr)
-                    .json()
-                    .with_filter(
-                        EnvFilter::builder()
-                            .with_default_directive(level.into())
-                            .from_env()
-                            .expect("invalid RUST_LOG"),
-                    ),
+    let subscriber = tracing_subscriber::registry().with(
+        tracing_subscriber::fmt::Layer::new()
+            .with_writer(std::io::stderr)
+            .compact()
+            .with_filter(
+                EnvFilter::builder()
+                    .with_default_directive(level.into())
+                    .from_env()
+                    .expect("invalid RUST_LOG"),
             ),
-        )
-        .with(
-            (!cli.json).then_some(
-                tracing_subscriber::fmt::Layer::new()
-                    .with_writer(std::io::stderr)
-                    .pretty()
-                    .with_filter(
-                        EnvFilter::builder()
-                            .with_default_directive(level.into())
-                            .from_env()
-                            .expect("invalid RUST_LOG"),
-                    ),
-            ),
-        );
+    );
 
     // Add the otlp layer (when otlp is enabled, and it's not disabled in the CLI)
     // then init the registry.
