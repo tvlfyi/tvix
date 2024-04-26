@@ -5,6 +5,7 @@ use std::{fs, path::PathBuf};
 use tracing::Level;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{EnvFilter, Layer};
 use tvix_build::buildservice;
 use tvix_eval::builtins::impure_builtins;
 use tvix_eval::observer::{DisassemblingObserver, TracingObserver};
@@ -229,7 +230,13 @@ fn main() {
     let subscriber = tracing_subscriber::registry().with(
         tracing_subscriber::fmt::Layer::new()
             .with_writer(std::io::stderr.with_max_level(level))
-            .pretty(),
+            .compact()
+            .with_filter(
+                EnvFilter::builder()
+                    .with_default_directive(level.into())
+                    .from_env()
+                    .expect("invalid RUST_LOG"),
+            ),
     );
     subscriber
         .try_init()
