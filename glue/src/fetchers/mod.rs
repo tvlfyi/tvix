@@ -60,10 +60,10 @@ fn redact_url(url: &Url) -> Url {
 impl std::fmt::Debug for Fetch {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Fetch::URL(url, nixhash) => {
+            Fetch::URL(url, exp_hash) => {
                 let url = redact_url(url);
-                if let Some(nixhash) = nixhash {
-                    write!(f, "URL [url: {}, exp_hash: Some({})]", &url, nixhash)
+                if let Some(exp_hash) = exp_hash {
+                    write!(f, "URL [url: {}, exp_hash: Some({})]", &url, exp_hash)
                 } else {
                     write!(f, "URL [url: {}, exp_hash: None]", &url)
                 }
@@ -182,7 +182,7 @@ where
     /// didn't match the previously communicated hash contained inside the FetchArgs.
     pub async fn ingest(&self, fetch: Fetch) -> Result<(Node, CAHash, u64), FetcherError> {
         match fetch {
-            Fetch::URL(url, exp_nixhash) => {
+            Fetch::URL(url, exp_hash) => {
                 // Construct a AsyncRead reading from the data as its downloaded.
                 let mut r = self.download(url.clone()).await?;
 
@@ -192,7 +192,7 @@ where
                 // Copy the contents from the download reader to the blob writer.
                 // Calculate the digest of the file received, depending on the
                 // communicated expected hash (or sha256 if none provided).
-                let (actual_nixhash, blob_size) = match exp_nixhash
+                let (actual_hash, blob_size) = match exp_hash
                     .as_ref()
                     .map(NixHash::algo)
                     .unwrap_or_else(|| HashAlgo::Sha256)
@@ -213,12 +213,12 @@ where
                     )?,
                 };
 
-                if let Some(exp_nixhash) = exp_nixhash {
-                    if exp_nixhash != actual_nixhash {
+                if let Some(exp_hash) = exp_hash {
+                    if exp_hash != actual_hash {
                         return Err(FetcherError::HashMismatch {
                             url,
-                            wanted: exp_nixhash,
-                            got: actual_nixhash,
+                            wanted: exp_hash,
+                            got: actual_hash,
                         });
                     }
                 }
@@ -231,7 +231,7 @@ where
                         size: blob_size,
                         executable: false,
                     }),
-                    CAHash::Flat(actual_nixhash),
+                    CAHash::Flat(actual_hash),
                     blob_size,
                 ))
             }
@@ -383,12 +383,12 @@ mod tests {
         #[test]
         fn fetchurl_store_path() {
             let url = Url::parse("https://raw.githubusercontent.com/aaptel/notmuch-extract-patch/f732a53e12a7c91a06755ebfab2007adc9b3063b/notmuch-extract-patch").unwrap();
-            let exp_nixhash = NixHash::Sha256(
+            let exp_hash = NixHash::Sha256(
                 nixbase32::decode_fixed("0nawkl04sj7psw6ikzay7kydj3dhd0fkwghcsf5rzaw4bmp4kbax")
                     .unwrap(),
             );
 
-            let fetch = Fetch::URL(url, Some(exp_nixhash));
+            let fetch = Fetch::URL(url, Some(exp_hash));
             assert_eq!(
                 "06qi00hylriyfm0nl827crgjvbax84mz-notmuch-extract-patch",
                 &fetch
