@@ -1,5 +1,5 @@
 use futures::TryStreamExt;
-use md5::Md5;
+use md5::{digest::DynDigest, Md5};
 use nix_compat::{
     nixhash::{CAHash, HashAlgo, NixHash},
     store_path::{build_ca_path, BuildStorePathError, StorePathRef},
@@ -48,6 +48,31 @@ pub enum Fetch {
         exp_nar_sha256: Option<[u8; 32]>,
     },
 
+    /// Fetch a NAR file from the given URL and unpack.
+    /// The file can optionally be compressed.
+    NAR {
+        /// The URL to fetch from.
+        url: Url,
+        /// The expected hash of the NAR representation.
+        /// This unfortunately supports more than sha256.
+        hash: NixHash,
+    },
+
+    /// Fetches a file at a URL, makes it the store path root node,
+    /// but executable.
+    /// Used by <nix/fetchurl.nix>, with `executable = true;`.
+    /// The expected hash is over the NAR representation, but can be not SHA256:
+    /// ```nix
+    /// (import <nix/fetchurl.nix> { url = "https://cache.nixos.org/nar/0r8nqa1klm5v17ifc6z96m9wywxkjvgbnqq9pmy0sgqj53wj3n12.nar.xz"; hash = "sha1-NKNeU1csW5YJ4lCeWH3Z/apppNU="; executable = true; })
+    /// ```
+    Executable {
+        /// The URL to fetch from.
+        url: Url,
+        /// The expected hash of the NAR representation.
+        /// This unfortunately supports more than sha256.
+        hash: NixHash,
+    },
+
     /// TODO
     Git(),
 }
@@ -93,6 +118,14 @@ impl std::fmt::Debug for Fetch {
                     write!(f, "Tarball [url: {}, exp_hash: None]", url)
                 }
             }
+            Fetch::NAR { url, hash } => {
+                let url = redact_url(url);
+                write!(f, "NAR [url: {}, hash: {}]", &url, hash)
+            }
+            Fetch::Executable { url, hash } => {
+                let url = redact_url(url);
+                write!(f, "Executable [url: {}, hash: {}]", &url, hash)
+            }
             Fetch::Git() => todo!(),
         }
     }
@@ -116,6 +149,10 @@ impl Fetch {
                 exp_nar_sha256: Some(exp_nar_sha256),
                 ..
             } => CAHash::Nar(NixHash::Sha256(*exp_nar_sha256)),
+
+            Fetch::NAR { hash, .. } | Fetch::Executable { hash, .. } => {
+                CAHash::Nar(hash.to_owned())
+            }
 
             Fetch::Git() => todo!(),
 
@@ -159,7 +196,10 @@ impl<BS, DS, PS, NS> Fetcher<BS, DS, PS, NS> {
 
     /// Constructs a HTTP request to the passed URL, and returns a AsyncReadBuf to it.
     /// In case the URI uses the file:// scheme, use tokio::fs to open it.
-    async fn download(&self, url: Url) -> Result<Box<dyn AsyncBufRead + Unpin>, FetcherError> {
+    async fn download(
+        &self,
+        url: Url,
+    ) -> Result<Box<dyn AsyncBufRead + Unpin + Send>, FetcherError> {
         match url.scheme() {
             "file" => {
                 let f = tokio::fs::File::open(url.to_file_path().map_err(|_| {
@@ -282,7 +322,7 @@ where
                 // Open the archive.
                 let archive = tokio_tar::Archive::new(r);
 
-                // Ingest the archive, get the root node
+                // Ingest the archive, get the root node.
                 let node = tvix_castore::import::archive::ingest_archive(
                     self.blob_service.clone(),
                     self.directory_service.clone(),
@@ -293,7 +333,7 @@ where
                 // If an expected NAR sha256 was provided, compare with the one
                 // calculated from our root node.
                 // Even if no expected NAR sha256 has been provided, we need
-                // the actual one later.
+                // the actual one to calculate the store path.
                 let (nar_size, actual_nar_sha256) = self
                     .nar_calculation_service
                     .calculate_nar(&node)
@@ -319,6 +359,71 @@ where
                     nar_size,
                 ))
             }
+            Fetch::NAR {
+                url,
+                hash: exp_hash,
+            } => {
+                // Construct a AsyncRead reading from the data as its downloaded.
+                let r = self.download(url.clone()).await?;
+
+                // Pop compression.
+                let r = DecompressedReader::new(r);
+
+                // Wrap the reader, calculating our own hash.
+                let mut hasher: Box<dyn DynDigest + Send> = match exp_hash.algo() {
+                    HashAlgo::Md5 => Box::new(Md5::new()),
+                    HashAlgo::Sha1 => Box::new(Sha1::new()),
+                    HashAlgo::Sha256 => Box::new(Sha256::new()),
+                    HashAlgo::Sha512 => Box::new(Sha512::new()),
+                };
+                let mut r = tokio_util::io::InspectReader::new(r, |b| {
+                    hasher.update(b);
+                });
+
+                // Ingest the NAR, get the root node.
+                let (root_node, actual_nar_sha256, actual_nar_size) =
+                    tvix_store::nar::ingest_nar_and_hash(
+                        self.blob_service.clone(),
+                        self.directory_service.clone(),
+                        &mut r,
+                    )
+                    .await
+                    .map_err(|e| FetcherError::Io(std::io::Error::other(e.to_string())))?;
+
+                // finalize the hasher.
+                let actual_hash = {
+                    match exp_hash.algo() {
+                        HashAlgo::Md5 => {
+                            NixHash::Md5(hasher.finalize().to_vec().try_into().unwrap())
+                        }
+                        HashAlgo::Sha1 => {
+                            NixHash::Sha1(hasher.finalize().to_vec().try_into().unwrap())
+                        }
+                        HashAlgo::Sha256 => {
+                            NixHash::Sha256(hasher.finalize().to_vec().try_into().unwrap())
+                        }
+                        HashAlgo::Sha512 => {
+                            NixHash::Sha512(hasher.finalize().to_vec().try_into().unwrap())
+                        }
+                    }
+                };
+
+                // Ensure the hash matches.
+                if exp_hash != actual_hash {
+                    return Err(FetcherError::HashMismatch {
+                        url,
+                        wanted: exp_hash,
+                        got: actual_hash,
+                    });
+                }
+
+                Ok((
+                    root_node,
+                    CAHash::Nar(NixHash::Sha256(actual_nar_sha256)),
+                    actual_nar_size,
+                ))
+            }
+            Fetch::Executable { url: _, hash: _ } => todo!(),
             Fetch::Git() => todo!(),
         }
     }
@@ -442,7 +547,31 @@ mod tests {
             Some(StorePathRef::from_bytes(b"06qi00hylriyfm0nl827crgjvbax84mz-notmuch-extract-patch").unwrap()),
             "notmuch-extract-patch"
         )]
-        fn fetchurl_store_path(
+        #[case::nar_sha256(
+            Fetch::NAR{
+                url: Url::parse("https://cache.nixos.org/nar/0r8nqa1klm5v17ifc6z96m9wywxkjvgbnqq9pmy0sgqj53wj3n12.nar.xz").unwrap(),
+                hash: nixhash::from_sri_str("sha256-oj6yfWKbcEerK8D9GdPJtIAOveNcsH1ztGeSARGypRA=").unwrap(),
+            },
+            Some(StorePathRef::from_bytes(b"b40vjphshq4fdgv8s3yrp0bdlafi4920-0r8nqa1klm5v17ifc6z96m9wywxkjvgbnqq9pmy0sgqj53wj3n12.nar.xz").unwrap()),
+            "0r8nqa1klm5v17ifc6z96m9wywxkjvgbnqq9pmy0sgqj53wj3n12.nar.xz"
+        )]
+        #[case::nar_sha1(
+            Fetch::NAR{
+                url: Url::parse("https://cache.nixos.org/nar/0r8nqa1klm5v17ifc6z96m9wywxkjvgbnqq9pmy0sgqj53wj3n12.nar.xz").unwrap(),
+                hash: nixhash::from_sri_str("sha1-F/fMsgwkXF8fPCg1v9zPZ4yOFIA=").unwrap(),
+            },
+            Some(StorePathRef::from_bytes(b"8kx7fdkdbzs4fkfb57xq0cbhs20ymq2n-0r8nqa1klm5v17ifc6z96m9wywxkjvgbnqq9pmy0sgqj53wj3n12.nar.xz").unwrap()),
+            "0r8nqa1klm5v17ifc6z96m9wywxkjvgbnqq9pmy0sgqj53wj3n12.nar.xz"
+        )]
+        #[case::nar_sha1(
+            Fetch::Executable{
+                url: Url::parse("https://cache.nixos.org/nar/0r8nqa1klm5v17ifc6z96m9wywxkjvgbnqq9pmy0sgqj53wj3n12.nar.xz").unwrap(),
+                hash: nixhash::from_sri_str("sha1-NKNeU1csW5YJ4lCeWH3Z/apppNU=").unwrap(),
+            },
+            Some(StorePathRef::from_bytes(b"y92hm2xfk1009hrq0ix80j4m5k4j4w21-0r8nqa1klm5v17ifc6z96m9wywxkjvgbnqq9pmy0sgqj53wj3n12.nar.xz").unwrap()),
+            "0r8nqa1klm5v17ifc6z96m9wywxkjvgbnqq9pmy0sgqj53wj3n12.nar.xz"
+        )]
+        fn fetch_store_path(
             #[case] fetch: Fetch,
             #[case] exp_path: Option<StorePathRef>,
             #[case] name: &str,
