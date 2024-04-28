@@ -474,38 +474,36 @@ pub(crate) mod derivation_builtins {
             .calculate_derivation_path(name)
             .map_err(DerivationError::InvalidDerivation)?;
 
-        // TODO: avoid cloning
-        known_paths.add_derivation(drv_path.clone(), drv.clone());
-
-        let mut new_attrs: Vec<(String, NixString)> = drv
-            .outputs
-            .into_iter()
-            .map(|(name, output)| {
-                (
-                    name.clone(),
+        // Assemble the attrset to return from this builtin.
+        let out = Value::Attrs(Box::new(NixAttrs::from_iter(
+            drv.outputs
+                .iter()
+                .map(|(name, output)| {
+                    (
+                        name.clone(),
+                        NixString::new_context_from(
+                            NixContextElement::Single {
+                                name: name.clone(),
+                                derivation: drv_path.to_absolute_path(),
+                            }
+                            .into(),
+                            output.path.as_ref().unwrap().to_absolute_path(),
+                        ),
+                    )
+                })
+                .chain(std::iter::once((
+                    "drvPath".to_owned(),
                     NixString::new_context_from(
-                        NixContextElement::Single {
-                            name,
-                            derivation: drv_path.to_absolute_path(),
-                        }
-                        .into(),
-                        output.path.unwrap().to_absolute_path(),
+                        NixContextElement::Derivation(drv_path.to_absolute_path()).into(),
+                        drv_path.to_absolute_path(),
                     ),
-                )
-            })
-            .collect();
+                ))),
+        )));
 
-        new_attrs.push((
-            "drvPath".to_string(),
-            NixString::new_context_from(
-                NixContextElement::Derivation(drv_path.to_absolute_path()).into(),
-                drv_path.to_absolute_path(),
-            ),
-        ));
+        // Register the Derivation in known_paths.
+        known_paths.add_derivation(drv_path, drv);
 
-        Ok(Value::Attrs(Box::new(NixAttrs::from_iter(
-            new_attrs.into_iter(),
-        ))))
+        Ok(out)
     }
 
     #[builtin("toFile")]
