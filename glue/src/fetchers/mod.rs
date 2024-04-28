@@ -31,7 +31,8 @@ pub enum Fetch {
     URL(Url, Option<NixHash>),
 
     /// Fetch a tarball from the given URL and unpack.
-    /// The file must be a tape archive (.tar) compressed with gzip, bzip2 or xz.
+    /// The file must be a tape archive (.tar), optionally compressed with gzip,
+    /// bzip2 or xz.
     /// The top-level path component of the files in the tarball is removed,
     /// so it is best if the tarball contains a single directory at top level.
     /// Optionally, a sha256 digest can be provided to verify the unpacked
