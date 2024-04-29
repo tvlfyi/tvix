@@ -14,6 +14,7 @@ use rstest::rstest;
 
 use crate::{
     builtins::{add_derivation_builtins, add_fetcher_builtins, add_import_builtins},
+    configure_nix_path,
     tvix_io::TvixIO,
     tvix_store_io::TvixStoreIO,
 };
@@ -61,6 +62,7 @@ fn eval_test(code_path: PathBuf, expect_success: bool) {
     add_derivation_builtins(&mut eval, tvix_store_io.clone());
     add_fetcher_builtins(&mut eval, tvix_store_io.clone());
     add_import_builtins(&mut eval, tvix_store_io.clone());
+    configure_nix_path(&mut eval, &None);
 
     let result = eval.evaluate(code, Some(code_path.clone()));
     let failed = match result.value {
