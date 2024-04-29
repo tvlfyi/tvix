@@ -739,6 +739,7 @@ mod tests {
         false
     )]
     fn builtins_filter_source_unsupported_files(#[case] code: &str, #[case] exp_success: bool) {
+        use nix::errno::Errno;
         use nix::sys::stat;
         use nix::unistd;
         use std::os::unix::net::UnixListener;
@@ -765,6 +766,15 @@ mod tests {
             stat::Mode::S_IRWXU,
             0,
         )
+        .inspect_err(|e| {
+            if *e == Errno::EPERM {
+                eprintln!(
+                    "\
+Missing permissions to create a character device node with mknod(2).
+Please run this test as root or set CAP_MKNOD."
+                );
+            }
+        })
         .expect("Failed to create a character device node");
 
         let code_replaced = code.replace("@fixtures", &temp.path().to_string_lossy());

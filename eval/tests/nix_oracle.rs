@@ -30,7 +30,14 @@ fn nix_eval(expr: &str, strictness: Strictness) -> String {
         .arg(format!("({expr})"))
         .env(
             "NIX_REMOTE",
-            format!("local?root={}", store_dir.path().display()),
+            format!(
+                "local?root={}",
+                store_dir
+                    .path()
+                    .canonicalize()
+                    .expect("valid path")
+                    .display()
+            ),
         )
         .output()
         .unwrap();

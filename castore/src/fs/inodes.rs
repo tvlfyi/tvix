@@ -57,13 +57,15 @@ impl InodeData {
                     children.len() as u64
                 }
             },
-            mode: match self {
-                InodeData::Regular(_, _, false) => libc::S_IFREG | 0o444, // no-executable files
-                InodeData::Regular(_, _, true) => libc::S_IFREG | 0o555,  // executable files
-                InodeData::Symlink(_) => libc::S_IFLNK | 0o444,
-                InodeData::Directory(_) => libc::S_IFDIR | 0o555,
-            },
+            mode: self.as_fuse_type() | self.mode(),
             ..Default::default()
+        }
+    }
+
+    fn mode(&self) -> u32 {
+        match self {
+            InodeData::Regular(_, _, false) | InodeData::Symlink(_) => 0o444,
+            InodeData::Regular(_, _, true) | InodeData::Directory(_) => 0o555,
         }
     }
 
