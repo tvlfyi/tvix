@@ -70,8 +70,7 @@ where
         } => {
             let (digest, size) = {
                 let mut blob_writer = blob_service.open_write().await;
-                // TODO(edef): fix the AsyncBufRead implementation of nix_compat::wire::BytesReader
-                let size = tokio::io::copy(&mut reader, &mut blob_writer).await?;
+                let size = tokio::io::copy_buf(&mut reader, &mut blob_writer).await?;
 
                 (blob_writer.close().await?, size)
             };

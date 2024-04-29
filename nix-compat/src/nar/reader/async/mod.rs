@@ -94,6 +94,16 @@ impl<'a, 'r> AsyncRead for FileReader<'a, 'r> {
     }
 }
 
+impl<'a, 'r> AsyncBufRead for FileReader<'a, 'r> {
+    fn poll_fill_buf(self: Pin<&mut Self>, cx: &mut task::Context) -> Poll<io::Result<&[u8]>> {
+        Pin::new(&mut self.get_mut().inner).poll_fill_buf(cx)
+    }
+
+    fn consume(self: Pin<&mut Self>, amt: usize) {
+        Pin::new(&mut self.get_mut().inner).consume(amt)
+    }
+}
+
 /// A directory iterator, yielding a sequence of [Node]s.
 /// It must be fully consumed before reading further from the [DirReader] that produced it, if any.
 pub struct DirReader<'a, 'r> {
