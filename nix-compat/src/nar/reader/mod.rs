@@ -16,6 +16,9 @@ use std::marker::PhantomData;
 // Required reading for understanding this module.
 use crate::nar::wire;
 
+#[cfg(feature = "async")]
+pub mod r#async;
+
 mod read;
 #[cfg(test)]
 mod test;

@@ -90,6 +90,23 @@ pub const TOK_DIR: [u8; 24] = *b"\x09\0\0\0\0\0\0\0directory\0\0\0\0\0\0\0";
 pub const TOK_ENT: [u8; 48] = *b"\x05\0\0\0\0\0\0\0entry\0\0\0\x01\0\0\0\0\0\0\0(\0\0\0\0\0\0\0\x04\0\0\0\0\0\0\0name\0\0\0\0";
 pub const TOK_NOD: [u8; 48] = *b"\x04\0\0\0\0\0\0\0node\0\0\0\0\x01\0\0\0\0\0\0\0(\0\0\0\0\0\0\0\x04\0\0\0\0\0\0\0type\0\0\0\0";
 pub const TOK_PAR: [u8; 16] = *b"\x01\0\0\0\0\0\0\0)\0\0\0\0\0\0\0";
+#[cfg(feature = "async")]
+const TOK_PAD_PAR: [u8; 24] = *b"\0\0\0\0\0\0\0\0\x01\0\0\0\0\0\0\0)\0\0\0\0\0\0\0";
+
+#[cfg(feature = "async")]
+#[derive(Debug)]
+pub(crate) enum PadPar {}
+
+#[cfg(feature = "async")]
+impl crate::wire::reader::Tag for PadPar {
+    const PATTERN: &'static [u8] = &TOK_PAD_PAR;
+
+    type Buf = [u8; 24];
+
+    fn make_buf() -> Self::Buf {
+        [0; 24]
+    }
+}
 
 #[test]
 fn tokens() {
