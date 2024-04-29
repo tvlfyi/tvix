@@ -58,7 +58,7 @@ pub(crate) struct ReadTrailer<R, T: Tag = Pad> {
     data_len: u8,
     filled: u8,
     buf: T::Buf,
-    _phantom: PhantomData<*const T>,
+    _phantom: PhantomData<fn(T) -> T>,
 }
 
 /// read_trailer returns a [Future] that reads a trailer with a given [Tag] from `reader`
