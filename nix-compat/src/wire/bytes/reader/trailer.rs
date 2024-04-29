@@ -81,6 +81,12 @@ pub(crate) fn read_trailer<R: AsyncRead + Unpin, T: Tag>(
     }
 }
 
+impl<R, T: Tag> ReadTrailer<R, T> {
+    pub fn len(&self) -> u8 {
+        self.data_len
+    }
+}
+
 impl<R: AsyncRead + Unpin, T: Tag> Future for ReadTrailer<R, T> {
     type Output = io::Result<Trailer>;
 
@@ -140,6 +146,17 @@ pub(crate) enum TrailerReader<R> {
 impl<R: AsyncRead + Unpin> TrailerReader<R> {
     pub fn new(reader: R, data_len: u8) -> Self {
         Self::Reading(read_trailer(reader, data_len))
+    }
+
+    pub fn len(&self) -> u8 {
+        match self {
+            TrailerReader::Reading(fut) => fut.len(),
+            &TrailerReader::Releasing {
+                off,
+                data: Trailer { data_len, .. },
+            } => data_len - off,
+            TrailerReader::Done => 0,
+        }
     }
 }
 

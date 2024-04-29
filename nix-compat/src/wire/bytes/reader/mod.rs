@@ -89,6 +89,20 @@ where
             },
         }
     }
+
+    /// Remaining data length, ie not including data already read.
+    ///
+    /// If the size has not been read yet, this is [None].
+    #[allow(clippy::len_without_is_empty)] // if size is unknown, we can't answer that
+    pub fn len(&self) -> Option<u64> {
+        match self.state {
+            State::Size { .. } => None,
+            State::Body {
+                consumed, user_len, ..
+            } => Some(user_len - consumed),
+            State::Trailer(ref r) => Some(r.len() as u64),
+        }
+    }
 }
 
 impl<R: AsyncRead + Unpin> AsyncRead for BytesReader<R> {
