@@ -14,6 +14,7 @@ use rstest::rstest;
 
 use crate::{
     builtins::{add_derivation_builtins, add_fetcher_builtins, add_import_builtins},
+    tvix_io::TvixIO,
     tvix_store_io::TvixStoreIO,
 };
 
@@ -50,7 +51,11 @@ fn eval_test(code_path: PathBuf, expect_success: bool) {
         Arc::new(DummyBuildService::default()),
         tokio_runtime.handle().clone(),
     ));
-    let mut eval = tvix_eval::Evaluation::new(tvix_store_io.clone() as Rc<dyn EvalIO>, true);
+    // Wrap with TvixIO, so <nix/fetchurl.nix can be imported.
+    let mut eval = tvix_eval::Evaluation::new(
+        Box::new(TvixIO::new(tvix_store_io.clone() as Rc<dyn EvalIO>)) as Box<dyn EvalIO>,
+        true,
+    );
 
     eval.strict = true;
     add_derivation_builtins(&mut eval, tvix_store_io.clone());
