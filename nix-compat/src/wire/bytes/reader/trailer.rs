@@ -53,7 +53,7 @@ impl Tag for Pad {
 }
 
 #[derive(Debug)]
-pub(crate) struct ReadTrailer<R, T: Tag> {
+pub(crate) struct ReadTrailer<R, T: Tag = Pad> {
     reader: R,
     data_len: u8,
     filled: u8,
@@ -90,7 +90,7 @@ impl<R, T: Tag> ReadTrailer<R, T> {
 impl<R: AsyncRead + Unpin, T: Tag> Future for ReadTrailer<R, T> {
     type Output = io::Result<Trailer>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut task::Context) -> task::Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut task::Context) -> Poll<Self::Output> {
         let this = &mut *self;
 
         loop {
@@ -136,72 +136,9 @@ impl<R: AsyncRead + Unpin, T: Tag> Future for ReadTrailer<R, T> {
     }
 }
 
-#[derive(Debug)]
-pub(crate) enum TrailerReader<R> {
-    Reading(ReadTrailer<R, Pad>),
-    Releasing { off: u8, data: Trailer },
-    Done,
-}
-
-impl<R: AsyncRead + Unpin> TrailerReader<R> {
-    pub fn new(reader: R, data_len: u8) -> Self {
-        Self::Reading(read_trailer(reader, data_len))
-    }
-
-    pub fn len(&self) -> u8 {
-        match self {
-            TrailerReader::Reading(fut) => fut.len(),
-            &TrailerReader::Releasing {
-                off,
-                data: Trailer { data_len, .. },
-            } => data_len - off,
-            TrailerReader::Done => 0,
-        }
-    }
-}
-
-impl<R: AsyncRead + Unpin> AsyncRead for TrailerReader<R> {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut task::Context,
-        user_buf: &mut ReadBuf,
-    ) -> Poll<io::Result<()>> {
-        let this = &mut *self;
-
-        loop {
-            match this {
-                Self::Reading(fut) => {
-                    *this = Self::Releasing {
-                        off: 0,
-                        data: ready!(Pin::new(fut).poll(cx))?,
-                    };
-                }
-                Self::Releasing { off: 8, .. } => {
-                    *this = Self::Done;
-                }
-                Self::Releasing { off, data } => {
-                    assert_ne!(user_buf.remaining(), 0);
-
-                    let buf = &data[*off as usize..];
-                    let buf = &buf[..usize::min(buf.len(), user_buf.remaining())];
-
-                    user_buf.put_slice(buf);
-                    *off += buf.len() as u8;
-
-                    break;
-                }
-                Self::Done => break,
-            }
-        }
-
-        Ok(()).into()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
-    use tokio::io::AsyncReadExt;
 
     use super::*;
 
@@ -213,11 +150,8 @@ mod tests {
             .read(&[0xef, 0x00])
             .build();
 
-        let mut reader = TrailerReader::new(reader, 2);
-
-        let mut buf = vec![];
         assert_eq!(
-            reader.read_to_end(&mut buf).await.unwrap_err().kind(),
+            read_trailer::<_, Pad>(reader, 2).await.unwrap_err().kind(),
             io::ErrorKind::UnexpectedEof
         );
     }
@@ -231,11 +165,8 @@ mod tests {
             .wait(Duration::ZERO)
             .build();
 
-        let mut reader = TrailerReader::new(reader, 2);
-
-        let mut buf = vec![];
         assert_eq!(
-            reader.read_to_end(&mut buf).await.unwrap_err().kind(),
+            read_trailer::<_, Pad>(reader, 2).await.unwrap_err().kind(),
             io::ErrorKind::InvalidData
         );
     }
@@ -250,21 +181,17 @@ mod tests {
             .read(&[0x00, 0x00, 0x00, 0x00, 0x00])
             .build();
 
-        let mut reader = TrailerReader::new(reader, 2);
-
-        let mut buf = vec![];
-        reader.read_to_end(&mut buf).await.unwrap();
-
-        assert_eq!(buf, &[0xed, 0xef]);
+        assert_eq!(
+            &*read_trailer::<_, Pad>(reader, 2).await.unwrap(),
+            &[0xed, 0xef]
+        );
     }
 
     #[tokio::test]
     async fn no_padding() {
-        let reader = tokio_test::io::Builder::new().build();
-        let mut reader = TrailerReader::new(reader, 0);
-
-        let mut buf = vec![];
-        reader.read_to_end(&mut buf).await.unwrap();
-        assert!(buf.is_empty());
+        assert!(read_trailer::<_, Pad>(io::empty(), 0)
+            .await
+            .unwrap()
+            .is_empty());
     }
 }
