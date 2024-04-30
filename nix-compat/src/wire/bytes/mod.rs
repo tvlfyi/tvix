@@ -119,14 +119,10 @@ pub async fn write_bytes<W: AsyncWriteExt + Unpin, B: AsRef<[u8]>>(
 }
 
 /// Computes the number of bytes we should add to len (a length in
-/// bytes) to be alined on 64 bits (8 bytes).
+/// bytes) to be aligned on 64 bits (8 bytes).
 fn padding_len(len: u64) -> u8 {
-    let modulo = len % 8;
-    if modulo == 0 {
-        0
-    } else {
-        8 - modulo as u8
-    }
+    let aligned = len.wrapping_add(7) & !7;
+    aligned.wrapping_sub(len) as u8
 }
 
 #[cfg(test)]
@@ -228,5 +224,10 @@ mod tests {
             .write(&hex!("48656c6c6f2c20576f726c6421000000"))
             .build();
         assert_ok!(write_bytes(&mut mock, &input).await)
+    }
+
+    #[test]
+    fn padding_len_u64_max() {
+        assert_eq!(padding_len(u64::MAX), 1);
     }
 }
