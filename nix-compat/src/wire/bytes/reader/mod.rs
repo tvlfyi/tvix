@@ -5,9 +5,7 @@ use std::{
     pin::Pin,
     task::{self, ready, Poll},
 };
-use tokio::io::{AsyncRead, ReadBuf};
-
-use crate::wire::read_u64;
+use tokio::io::{AsyncRead, AsyncReadExt, ReadBuf};
 
 use trailer::{read_trailer, ReadTrailer, Trailer};
 mod trailer;
@@ -52,7 +50,7 @@ where
 {
     /// Constructs a new BytesReader, using the underlying passed reader.
     pub async fn new<S: RangeBounds<u64>>(mut reader: R, allowed_size: S) -> io::Result<Self> {
-        let size = read_u64(&mut reader).await?;
+        let size = reader.read_u64_le().await?;
 
         if !allowed_size.contains(&size) {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid size"));

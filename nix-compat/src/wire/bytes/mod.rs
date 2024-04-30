@@ -9,8 +9,6 @@ pub use reader::BytesReader;
 mod writer;
 pub use writer::BytesWriter;
 
-use super::primitive;
-
 /// 8 null bytes, used to write out padding.
 const EMPTY_BYTES: &[u8; 8] = &[0u8; 8];
 
@@ -41,7 +39,7 @@ where
     S: RangeBounds<u64>,
 {
     // read the length field
-    let len = primitive::read_u64(r).await?;
+    let len = r.read_u64_le().await?;
 
     if !allowed_size.contains(&len) {
         return Err(std::io::Error::new(
@@ -52,7 +50,7 @@ where
 
     // calculate the total length, including padding.
     // byte packets are padded to 8 byte blocks each.
-    let padded_len = padding_len(len) as u64 + (len as u64);
+    let padded_len = padding_len(len) as u64 + len;
     let mut limited_reader = r.take(padded_len);
 
     let mut buf = Vec::new();
@@ -105,7 +103,7 @@ pub async fn write_bytes<W: AsyncWriteExt + Unpin, B: AsRef<[u8]>>(
     b: B,
 ) -> std::io::Result<()> {
     // write the size packet.
-    primitive::write_u64(w, b.as_ref().len() as u64).await?;
+    w.write_u64_le(b.as_ref().len() as u64).await?;
 
     // write the payload
     w.write_all(b.as_ref()).await?;

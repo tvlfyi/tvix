@@ -131,27 +131,27 @@ pub async fn read_client_settings<R: AsyncReadExt + Unpin>(
     r: &mut R,
     client_version: ProtocolVersion,
 ) -> std::io::Result<ClientSettings> {
-    let keep_failed = wire::read_bool(r).await?;
-    let keep_going = wire::read_bool(r).await?;
-    let try_fallback = wire::read_bool(r).await?;
-    let verbosity_uint = wire::read_u64(r).await?;
+    let keep_failed = r.read_u64_le().await? != 0;
+    let keep_going = r.read_u64_le().await? != 0;
+    let try_fallback = r.read_u64_le().await? != 0;
+    let verbosity_uint = r.read_u64_le().await?;
     let verbosity = Verbosity::from_u64(verbosity_uint).ok_or_else(|| {
         Error::new(
             ErrorKind::InvalidData,
             format!("Can't convert integer {} to verbosity", verbosity_uint),
         )
     })?;
-    let max_build_jobs = wire::read_u64(r).await?;
-    let max_silent_time = wire::read_u64(r).await?;
-    _ = wire::read_u64(r).await?; // obsolete useBuildHook
-    let verbose_build = wire::read_bool(r).await?;
-    _ = wire::read_u64(r).await?; // obsolete logType
-    _ = wire::read_u64(r).await?; // obsolete printBuildTrace
-    let build_cores = wire::read_u64(r).await?;
-    let use_substitutes = wire::read_bool(r).await?;
+    let max_build_jobs = r.read_u64_le().await?;
+    let max_silent_time = r.read_u64_le().await?;
+    _ = r.read_u64_le().await?; // obsolete useBuildHook
+    let verbose_build = r.read_u64_le().await? != 0;
+    _ = r.read_u64_le().await?; // obsolete logType
+    _ = r.read_u64_le().await?; // obsolete printBuildTrace
+    let build_cores = r.read_u64_le().await?;
+    let use_substitutes = r.read_u64_le().await? != 0;
     let mut overrides = HashMap::new();
     if client_version.minor() >= 12 {
-        let num_overrides = wire::read_u64(r).await?;
+        let num_overrides = r.read_u64_le().await?;
         for _ in 0..num_overrides {
             let name = wire::read_string(r, 0..MAX_SETTING_SIZE).await?;
             let value = wire::read_string(r, 0..MAX_SETTING_SIZE).await?;
@@ -197,17 +197,17 @@ pub async fn server_handshake_client<'a, RW: 'a>(
 where
     &'a mut RW: AsyncReadExt + AsyncWriteExt + Unpin,
 {
-    let worker_magic_1 = wire::read_u64(&mut conn).await?;
+    let worker_magic_1 = conn.read_u64_le().await?;
     if worker_magic_1 != WORKER_MAGIC_1 {
         Err(std::io::Error::new(
             ErrorKind::InvalidData,
             format!("Incorrect worker magic number received: {}", worker_magic_1),
         ))
     } else {
-        wire::write_u64(&mut conn, WORKER_MAGIC_2).await?;
-        wire::write_u64(&mut conn, PROTOCOL_VERSION.into()).await?;
+        conn.write_u64_le(WORKER_MAGIC_2).await?;
+        conn.write_u64_le(PROTOCOL_VERSION.into()).await?;
         conn.flush().await?;
-        let client_version = wire::read_u64(&mut conn).await?;
+        let client_version = conn.read_u64_le().await?;
         // Parse into ProtocolVersion.
         let client_version: ProtocolVersion = client_version
             .try_into()
@@ -220,14 +220,14 @@ where
         }
         if client_version.minor() >= 14 {
             // Obsolete CPU affinity.
-            let read_affinity = wire::read_u64(&mut conn).await?;
+            let read_affinity = conn.read_u64_le().await?;
             if read_affinity != 0 {
-                let _cpu_affinity = wire::read_u64(&mut conn).await?;
+                let _cpu_affinity = conn.read_u64_le().await?;
             };
         }
         if client_version.minor() >= 11 {
             // Obsolete reserveSpace
-            let _reserve_space = wire::read_u64(&mut conn).await?;
+            let _reserve_space = conn.read_u64_le().await?;
         }
         if client_version.minor() >= 33 {
             // Nix version. We're plain lying, we're not Nix, but eh…
@@ -245,7 +245,7 @@ where
 
 /// Read a worker [Operation] from the wire.
 pub async fn read_op<R: AsyncReadExt + Unpin>(r: &mut R) -> std::io::Result<Operation> {
-    let op_number = wire::read_u64(r).await?;
+    let op_number = r.read_u64_le().await?;
     Operation::from_u64(op_number).ok_or(Error::new(
         ErrorKind::InvalidData,
         format!("Invalid OP number {}", op_number),
@@ -278,8 +278,8 @@ where
     W: AsyncReadExt + AsyncWriteExt + Unpin,
 {
     match t {
-        Trust::Trusted => wire::write_u64(conn, 1).await,
-        Trust::NotTrusted => wire::write_u64(conn, 2).await,
+        Trust::Trusted => conn.write_u64_le(1).await,
+        Trust::NotTrusted => conn.write_u64_le(2).await,
     }
 }
 

@@ -3,6 +3,3 @@
 
 mod bytes;
 pub use bytes::*;
-
-mod primitive;
-pub use primitive::*;
