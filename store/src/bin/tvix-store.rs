@@ -78,7 +78,11 @@ enum Commands {
         #[arg(long, short = 'l')]
         listen_address: Option<String>,
 
-        #[arg(long, env, default_value = "sled:///var/lib/tvix-store/blobs.sled")]
+        #[arg(
+            long,
+            env,
+            default_value = "objectstore+file:///var/lib/tvix-store/blobs.object_store"
+        )]
         blob_service_addr: String,
 
         #[arg(
