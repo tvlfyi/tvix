@@ -114,7 +114,7 @@ where
             }
             IngestionEntry::Symlink { ref target, .. } => Node::Symlink(SymlinkNode {
                 name,
-                target: target.as_os_str().as_bytes().to_owned().into(),
+                target: target.to_owned().into(),
             }),
             IngestionEntry::Regular {
                 size,
@@ -209,7 +209,7 @@ pub enum IngestionEntry {
     },
     Symlink {
         path: PathBuf,
-        target: PathBuf,
+        target: Vec<u8>,
     },
     Dir {
         path: PathBuf,

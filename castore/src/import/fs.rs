@@ -2,6 +2,7 @@
 
 use futures::stream::BoxStream;
 use futures::StreamExt;
+use std::os::unix::ffi::OsStringExt;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
@@ -108,7 +109,9 @@ where
         Ok(IngestionEntry::Dir { path })
     } else if file_type.is_symlink() {
         let target = std::fs::read_link(entry.path())
-            .map_err(|e| Error::UnableToStat(entry.path().to_path_buf(), e))?;
+            .map_err(|e| Error::UnableToStat(entry.path().to_path_buf(), e))?
+            .into_os_string()
+            .into_vec();
 
         Ok(IngestionEntry::Symlink { path, target })
     } else if file_type.is_file() {
