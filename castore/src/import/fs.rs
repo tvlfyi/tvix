@@ -13,9 +13,9 @@ use walkdir::WalkDir;
 use crate::blobservice::BlobService;
 use crate::directoryservice::DirectoryService;
 use crate::proto::node::Node;
+use crate::B3Digest;
 
 use super::ingest_entries;
-use super::upload_blob_at_path;
 use super::Error;
 use super::IngestionEntry;
 
@@ -119,7 +119,7 @@ where
             .metadata()
             .map_err(|e| Error::UnableToStat(entry.path().to_path_buf(), e.into()))?;
 
-        let digest = upload_blob_at_path(blob_service, entry.path().to_path_buf()).await?;
+        let digest = upload_blob(blob_service, entry.path().to_path_buf()).await?;
 
         Ok(IngestionEntry::Regular {
             path,
@@ -132,4 +132,29 @@ where
     } else {
         Ok(IngestionEntry::Unknown { path, file_type })
     }
+}
+
+/// Uploads the file at the provided [Path] the the [BlobService].
+#[instrument(skip(blob_service), fields(path), err)]
+async fn upload_blob<BS>(blob_service: BS, path: impl AsRef<Path>) -> Result<B3Digest, Error>
+where
+    BS: BlobService,
+{
+    let mut file = match tokio::fs::File::open(path.as_ref()).await {
+        Ok(file) => file,
+        Err(e) => return Err(Error::UnableToRead(path.as_ref().to_path_buf(), e)),
+    };
+
+    let mut writer = blob_service.open_write().await;
+
+    if let Err(e) = tokio::io::copy(&mut file, &mut writer).await {
+        return Err(Error::UnableToRead(path.as_ref().to_path_buf(), e));
+    };
+
+    let digest = writer
+        .close()
+        .await
+        .map_err(|e| Error::UnableToRead(path.as_ref().to_path_buf(), e))?;
+
+    Ok(digest)
 }

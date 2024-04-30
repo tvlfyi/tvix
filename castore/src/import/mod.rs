@@ -4,7 +4,6 @@
 //! Specific implementations, such as ingesting from the filesystem, live in
 //! child modules.
 
-use crate::blobservice::BlobService;
 use crate::directoryservice::DirectoryPutter;
 use crate::directoryservice::DirectoryService;
 use crate::proto::node::Node;
@@ -172,31 +171,6 @@ where
     };
 
     Ok(root_node)
-}
-
-/// Uploads the file at the provided [Path] the the [BlobService].
-#[instrument(skip(blob_service), fields(path), err)]
-async fn upload_blob_at_path<BS>(blob_service: BS, path: PathBuf) -> Result<B3Digest, Error>
-where
-    BS: BlobService,
-{
-    let mut file = match tokio::fs::File::open(&path).await {
-        Ok(file) => file,
-        Err(e) => return Err(Error::UnableToRead(path, e)),
-    };
-
-    let mut writer = blob_service.open_write().await;
-
-    if let Err(e) = tokio::io::copy(&mut file, &mut writer).await {
-        return Err(Error::UnableToRead(path, e));
-    };
-
-    let digest = writer
-        .close()
-        .await
-        .map_err(|e| Error::UnableToRead(path, e))?;
-
-    Ok(digest)
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
