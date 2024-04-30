@@ -6,6 +6,7 @@ use nix_compat::{
 use reqwest::Url;
 use std::rc::Rc;
 use thiserror::Error;
+use tvix_castore::import;
 
 /// Errors related to derivation construction
 #[derive(Debug, Error)]
@@ -52,10 +53,7 @@ pub enum FetcherError {
     Io(#[from] std::io::Error),
 
     #[error(transparent)]
-    Import(#[from] tvix_castore::import::Error),
-
-    #[error(transparent)]
-    ImportArchive(#[from] tvix_castore::import::archive::Error),
+    Import(#[from] tvix_castore::import::IngestionError<import::archive::Error>),
 
     #[error("Error calculating store path for fetcher output: {0}")]
     StorePath(#[from] BuildStorePathError),

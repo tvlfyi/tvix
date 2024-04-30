@@ -95,9 +95,9 @@ async fn filtered_ingest(
         );
         ingest_entries(&state.directory_service, entries)
             .await
-            .map_err(|err| ErrorKind::IO {
+            .map_err(|e| ErrorKind::IO {
                 path: Some(path.to_path_buf()),
-                error: Rc::new(err.into()),
+                error: Rc::new(std::io::Error::new(std::io::ErrorKind::Other, e)),
             })
     })
 }
