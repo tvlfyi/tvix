@@ -454,9 +454,9 @@ rec {
       };
       "async-compression" = rec {
         crateName = "async-compression";
-        version = "0.4.6";
+        version = "0.4.9";
         edition = "2018";
-        sha256 = "0b6874q56g1cx8ivs9j89d757rsh9kyrrwlp1852094jjrmg85m1";
+        sha256 = "14r6vbsbbkqjiqy0qwwywjakdi29jfyidhqp389l5r4gm7bsp7jf";
         authors = [
           "Wim Looman <wim@nemo157.com>"
           "Allen Bui <fairingrey@gmail.com>"
@@ -496,6 +496,27 @@ rec {
             packageId = "xz2";
             optional = true;
           }
+          {
+            name = "zstd";
+            packageId = "zstd";
+            rename = "libzstd";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "zstd-safe";
+            packageId = "zstd-safe";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
+        ];
+        devDependencies = [
+          {
+            name = "tokio";
+            packageId = "tokio";
+            usesDefaultFeatures = false;
+            features = [ "io-util" "macros" "rt-multi-thread" "io-std" ];
+          }
         ];
         features = {
           "all" = [ "all-implementations" "all-algorithms" ];
@@ -518,7 +539,7 @@ rec {
           "zstd-safe" = [ "dep:zstd-safe" ];
           "zstdmt" = [ "zstd" "zstd-safe/zstdmt" ];
         };
-        resolvedDefaultFeatures = [ "bzip2" "flate2" "gzip" "tokio" "xz" "xz2" ];
+        resolvedDefaultFeatures = [ "bzip2" "flate2" "gzip" "libzstd" "tokio" "xz" "xz2" "zstd" "zstd-safe" ];
       };
       "async-io" = rec {
         crateName = "async-io";
@@ -14275,6 +14296,11 @@ rec {
             packageId = "anyhow";
           }
           {
+            name = "async-compression";
+            packageId = "async-compression";
+            features = [ "tokio" "bzip2" "gzip" "xz" "zstd" ];
+          }
+          {
             name = "async-recursion";
             packageId = "async-recursion";
           }
@@ -14443,10 +14469,6 @@ rec {
           {
             name = "walkdir";
             packageId = "walkdir";
-          }
-          {
-            name = "xz2";
-            packageId = "xz2";
           }
         ];
         buildDependencies = [
