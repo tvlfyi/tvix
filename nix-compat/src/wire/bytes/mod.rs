@@ -61,10 +61,7 @@ where
 
     // make sure we got exactly the number of bytes, and not less.
     if s as u64 != padded_len {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "got less bytes than expected",
-        ));
+        return Err(std::io::ErrorKind::UnexpectedEof.into());
     }
 
     let (_content, padding) = buf.split_at(len as usize);
