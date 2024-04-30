@@ -21,7 +21,7 @@ static PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion::from_parts(1, 37);
 ///
 /// This value has been arbitrarily choosen after looking the nix.conf
 /// manpage. Don't hesitate to increase it if it's too limiting.
-pub static MAX_SETTING_SIZE: u64 = 1024;
+pub static MAX_SETTING_SIZE: usize = 1024;
 
 /// Worker Operation
 ///
@@ -153,8 +153,8 @@ pub async fn read_client_settings<R: AsyncReadExt + Unpin>(
     if client_version.minor() >= 12 {
         let num_overrides = r.read_u64_le().await?;
         for _ in 0..num_overrides {
-            let name = wire::read_string(r, 0..MAX_SETTING_SIZE).await?;
-            let value = wire::read_string(r, 0..MAX_SETTING_SIZE).await?;
+            let name = wire::read_string(r, 0..=MAX_SETTING_SIZE).await?;
+            let value = wire::read_string(r, 0..=MAX_SETTING_SIZE).await?;
             overrides.insert(name, value);
         }
     }
