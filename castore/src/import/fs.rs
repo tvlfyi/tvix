@@ -1,3 +1,5 @@
+//! Import from a real filesystem.
+
 use futures::stream::BoxStream;
 use futures::StreamExt;
 use std::os::unix::fs::MetadataExt;
@@ -15,8 +17,6 @@ use super::ingest_entries;
 use super::upload_blob_at_path;
 use super::Error;
 use super::IngestionEntry;
-
-///! Imports that deal with a real filesystem.
 
 /// Ingests the contents at a given path into the tvix store, interacting with a [BlobService] and
 /// [DirectoryService]. It returns the root node or an error.

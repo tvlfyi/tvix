@@ -1,3 +1,5 @@
+//! Imports from an archive (tarballs)
+
 use std::io::{Cursor, Write};
 use std::sync::Arc;
 use std::{collections::HashMap, path::PathBuf};
