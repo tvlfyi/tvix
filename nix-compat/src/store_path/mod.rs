@@ -303,8 +303,7 @@ impl Serialize for StorePathRef<'_> {
     }
 }
 
-/// NAME_CHARS contains `true` for bytes that are valid in store path names,
-/// not accounting for '.' being permitted only past the first character.
+/// NAME_CHARS contains `true` for bytes that are valid in store path names.
 static NAME_CHARS: [bool; 256] = {
     let mut tbl = [false; 256];
     let mut c = 0;
@@ -330,10 +329,6 @@ pub(crate) fn validate_name(s: &(impl AsRef<[u8]> + ?Sized)) -> Result<&str, Err
     // Empty or excessively long names are not allowed.
     if s.is_empty() || s.len() > 211 {
         return Err(Error::InvalidLength);
-    }
-
-    if s[0] == b'.' {
-        return Err(Error::InvalidName(s.to_vec(), 0));
     }
 
     let mut valid = true;
@@ -446,15 +441,18 @@ mod tests {
         }
     }
 
-    /// This is the store path rejected when `nix-store --add`'ing an
+    /// This is the store path *accepted* when `nix-store --add`'ing an
     /// empty `.gitignore` file.
     ///
-    /// Nix 2.4 accidentally dropped this behaviour, but this is considered a bug.
-    /// See https://github.com/NixOS/nix/pull/9095.
+    /// Nix 2.4 accidentally permitted this behaviour, but the revert came
+    /// too late to beat Hyrum's law. It is now considered permissible.
+    ///
+    /// https://github.com/NixOS/nix/pull/9095 (revert)
+    /// https://github.com/NixOS/nix/pull/9867 (revert-of-revert)
     #[test]
     fn starts_with_dot() {
         StorePath::from_bytes(b"fli4bwscgna7lpm7v5xgnjxrxh0yc7ra-.gitignore")
-            .expect_err("must fail");
+            .expect("must succeed");
     }
 
     #[test]
