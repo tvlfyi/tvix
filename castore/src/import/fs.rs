@@ -130,7 +130,7 @@ where
             digest,
         })
     } else {
-        Ok(IngestionEntry::Unknown { path, file_type })
+        return Err(Error::UnsupportedFileType(path, file_type));
     }
 }
 

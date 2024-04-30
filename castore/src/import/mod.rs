@@ -13,7 +13,6 @@ use crate::proto::FileNode;
 use crate::proto::SymlinkNode;
 use crate::B3Digest;
 use futures::{Stream, StreamExt};
-use std::fs::FileType;
 
 use tracing::Level;
 
@@ -126,9 +125,6 @@ where
                 size: *size,
                 executable: *executable,
             }),
-            IngestionEntry::Unknown { path, file_type } => {
-                return Err(Error::UnsupportedFileType(path.clone(), *file_type));
-            }
         };
 
         if entry.path().components().count() == 1 {
@@ -188,10 +184,6 @@ pub enum IngestionEntry {
     Dir {
         path: PathBuf,
     },
-    Unknown {
-        path: PathBuf,
-        file_type: FileType,
-    },
 }
 
 impl IngestionEntry {
@@ -200,7 +192,6 @@ impl IngestionEntry {
             IngestionEntry::Regular { path, .. } => path,
             IngestionEntry::Symlink { path, .. } => path,
             IngestionEntry::Dir { path } => path,
-            IngestionEntry::Unknown { path, .. } => path,
         }
     }
 
