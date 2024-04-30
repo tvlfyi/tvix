@@ -4,7 +4,7 @@ use std::{
 };
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-mod reader;
+pub(crate) mod reader;
 pub use reader::BytesReader;
 mod writer;
 pub use writer::BytesWriter;

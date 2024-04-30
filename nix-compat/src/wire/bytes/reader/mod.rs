@@ -8,6 +8,10 @@ use std::{
 use tokio::io::{AsyncRead, AsyncReadExt, ReadBuf};
 
 use trailer::{read_trailer, ReadTrailer, Trailer};
+
+#[doc(hidden)]
+pub use self::trailer::Pad;
+pub(crate) use self::trailer::Tag;
 mod trailer;
 
 /// Reads a "bytes wire packet" from the underlying reader.
@@ -24,12 +28,13 @@ mod trailer;
 /// If the data is not read all the way to the end, or an error is encountered,
 /// the underlying reader is no longer usable and might return garbage.
 #[derive(Debug)]
-pub struct BytesReader<R> {
-    state: State<R>,
+#[allow(private_bounds)]
+pub struct BytesReader<R, T: Tag = Pad> {
+    state: State<R, T>,
 }
 
 #[derive(Debug)]
-enum State<R> {
+enum State<R, T: Tag> {
     /// Full 8-byte blocks are being read and released to the caller.
     Body {
         reader: Option<R>,
@@ -38,7 +43,7 @@ enum State<R> {
         user_len: u64,
     },
     /// The trailer is in the process of being read.
-    ReadTrailer(ReadTrailer<R>),
+    ReadTrailer(ReadTrailer<R, T>),
     /// The trailer has been fully read and validated,
     /// and data can now be released to the caller.
     ReleaseTrailer { consumed: u8, data: Trailer },
@@ -49,7 +54,21 @@ where
     R: AsyncRead + Unpin,
 {
     /// Constructs a new BytesReader, using the underlying passed reader.
-    pub async fn new<S: RangeBounds<u64>>(mut reader: R, allowed_size: S) -> io::Result<Self> {
+    pub async fn new<S: RangeBounds<u64>>(reader: R, allowed_size: S) -> io::Result<Self> {
+        BytesReader::new_internal(reader, allowed_size).await
+    }
+}
+
+#[allow(private_bounds)]
+impl<R, T: Tag> BytesReader<R, T>
+where
+    R: AsyncRead + Unpin,
+{
+    /// Constructs a new BytesReader, using the underlying passed reader.
+    pub(crate) async fn new_internal<S: RangeBounds<u64>>(
+        mut reader: R,
+        allowed_size: S,
+    ) -> io::Result<Self> {
         let size = reader.read_u64_le().await?;
 
         if !allowed_size.contains(&size) {
@@ -84,7 +103,8 @@ where
     }
 }
 
-impl<R: AsyncRead + Unpin> AsyncRead for BytesReader<R> {
+#[allow(private_bounds)]
+impl<R: AsyncRead + Unpin, T: Tag> AsyncRead for BytesReader<R, T> {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut task::Context,

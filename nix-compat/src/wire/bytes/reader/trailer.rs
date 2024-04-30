@@ -1,4 +1,5 @@
 use std::{
+    fmt::Debug,
     future::Future,
     marker::PhantomData,
     ops::Deref,
@@ -33,14 +34,14 @@ pub(crate) trait Tag {
     /// Suitably sized buffer for reading [Self::PATTERN]
     ///
     /// HACK: This is a workaround for const generics limitations.
-    type Buf: AsRef<[u8]> + AsMut<[u8]> + Unpin;
+    type Buf: AsRef<[u8]> + AsMut<[u8]> + Debug + Unpin;
 
     /// Make an instance of [Self::Buf]
     fn make_buf() -> Self::Buf;
 }
 
 #[derive(Debug)]
-pub(crate) enum Pad {}
+pub enum Pad {}
 
 impl Tag for Pad {
     const PATTERN: &'static [u8] = &[0; 8];
@@ -53,7 +54,7 @@ impl Tag for Pad {
 }
 
 #[derive(Debug)]
-pub(crate) struct ReadTrailer<R, T: Tag = Pad> {
+pub(crate) struct ReadTrailer<R, T: Tag> {
     reader: R,
     data_len: u8,
     filled: u8,
