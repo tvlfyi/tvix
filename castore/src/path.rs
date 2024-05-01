@@ -1,24 +1,51 @@
 //! Contains data structures to deal with Paths in the tvix-castore model.
 
-use std::str::FromStr;
+use std::{borrow::Borrow, mem, ops::Deref, str::FromStr};
 
 use bstr::ByteSlice;
 
 /// Represents a Path in the castore model.
 /// These are always relative, and platform-independent, which distinguishes
 /// them from the ones provided in the standard library.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Path<'a> {
+#[derive(Debug, Eq, Hash, PartialEq)]
+#[repr(transparent)] // SAFETY: Representation has to match [u8]
+pub struct Path {
     // As node names in the castore model cannot contain slashes,
     // we use them as component separators here.
-    inner: &'a [u8],
+    inner: [u8],
 }
 
 #[allow(dead_code)]
-impl Path<'_> {
-    pub fn parent(&self) -> Option<Path<'_>> {
+impl Path {
+    // SAFETY: The empty path is valid.
+    pub const ROOT: &'static Path = unsafe { Path::from_bytes_unchecked(&[]) };
+
+    /// Convert a byte slice to a path, without checking validity.
+    const unsafe fn from_bytes_unchecked(bytes: &[u8]) -> &Path {
+        // SAFETY: &[u8] and &Path have the same representation.
+        unsafe { mem::transmute(bytes) }
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Option<&Path> {
+        if !bytes.is_empty() {
+            // Ensure there's no empty components (aka, double forward slashes),
+            // and all components individually validate.
+            for component in bytes.split_str(b"/") {
+                if component.is_empty() {
+                    return None;
+                }
+            }
+        }
+
+        // SAFETY: We have verified that the path contains no empty components.
+        Some(unsafe { Path::from_bytes_unchecked(bytes) })
+    }
+
+    pub fn parent(&self) -> Option<&Path> {
         let (parent, _file_name) = self.inner.rsplit_once_str(b"/")?;
-        Some(Self { inner: parent })
+
+        // SAFETY: The parent of a valid Path is a valid Path.
+        Some(unsafe { Path::from_bytes_unchecked(parent) })
     }
 
     pub fn join(&self, name: &[u8]) -> Result<PathBuf, std::io::Error> {
@@ -55,7 +82,7 @@ impl Path<'_> {
     }
 
     pub fn as_slice(&self) -> &[u8] {
-        self.inner
+        &self.inner
     }
 }
 
@@ -67,43 +94,34 @@ pub struct PathBuf {
     inner: Vec<u8>,
 }
 
-#[allow(dead_code)]
-impl PathBuf {
-    pub fn as_ref(&self) -> Path<'_> {
-        Path { inner: &self.inner }
+impl Deref for PathBuf {
+    type Target = Path;
+
+    fn deref(&self) -> &Self::Target {
+        // SAFETY: PathBuf always contains a valid Path.
+        unsafe { Path::from_bytes_unchecked(&self.inner) }
     }
+}
 
-    pub fn parent(&self) -> Option<Path<'_>> {
-        let (parent, _file_name) = self.inner.rsplit_once_str(b"/")?;
-        Some(Path { inner: parent })
+impl AsRef<Path> for PathBuf {
+    fn as_ref(&self) -> &Path {
+        self
     }
+}
 
-    pub fn join(&self, name: &[u8]) -> Result<Self, std::io::Error> {
-        self.as_ref().join(name)
-    }
+impl ToOwned for Path {
+    type Owned = PathBuf;
 
-    /// Produces an iterator over the components of the path, which are
-    /// individual byte slices.
-    pub fn components(&self) -> impl Iterator<Item = &[u8]> {
-        // TODO(edef): get rid of the duplication
-        let mut iter = self.inner.split_str(&b"/");
-
-        // We don't want to return an empty element, consume it if it's the only one.
-        if self.inner.is_empty() {
-            let _ = iter.next();
+    fn to_owned(&self) -> Self::Owned {
+        PathBuf {
+            inner: self.inner.to_owned(),
         }
-
-        iter
     }
+}
 
-    /// Returns the final component of the Path, if there is one.
-    pub fn file_name(&self) -> Option<&[u8]> {
-        self.components().last()
-    }
-
-    pub fn as_slice(&self) -> &[u8] {
-        // TODO(edef): get rid of the duplication
-        self.inner.as_slice()
+impl Borrow<Path> for PathBuf {
+    fn borrow(&self) -> &Path {
+        self
     }
 }
 
@@ -111,21 +129,9 @@ impl FromStr for PathBuf {
     type Err = std::io::Error;
 
     fn from_str(s: &str) -> Result<PathBuf, Self::Err> {
-        // Ensure there's no empty components (aka, double forward slashes),
-        // and all components individually validate.
-        let p = Path {
-            inner: s.as_bytes(),
-        };
-
-        for component in p.components() {
-            if component.is_empty() {
-                return Err(std::io::ErrorKind::InvalidData.into());
-            }
-        }
-
-        Ok(PathBuf {
-            inner: s.to_string().into(),
-        })
+        Ok(Path::from_bytes(s.as_bytes())
+            .ok_or(std::io::ErrorKind::InvalidData)?
+            .to_owned())
     }
 }
 
