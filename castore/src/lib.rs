@@ -9,6 +9,9 @@ pub mod fixtures;
 #[cfg(feature = "fs")]
 pub mod fs;
 
+mod path;
+pub use path::Path;
+
 pub mod import;
 pub mod proto;
 pub mod tonic;
