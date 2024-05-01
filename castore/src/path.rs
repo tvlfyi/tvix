@@ -208,6 +208,7 @@ mod test {
     #[case::dotdot_middle("a/../b")]
     #[case::dot_end("a/b/.")]
     #[case::dotdot_end("a/b/..")]
+    #[case::null("fo\0o")]
     pub fn from_str_fail(#[case] s: &str) {
         s.parse::<PathBuf>().expect_err("must fail");
     }
