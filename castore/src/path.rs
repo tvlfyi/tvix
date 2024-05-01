@@ -73,10 +73,10 @@ impl Path {
     }
 
     /// Creates a PathBuf with `name` adjoined to self.
-    pub fn join(&self, name: &[u8]) -> Result<PathBuf, std::io::Error> {
+    pub fn try_join(&self, name: &[u8]) -> Result<PathBuf, std::io::Error> {
         let mut v = PathBuf::with_capacity(self.inner.len() + name.len() + 1);
         v.inner.extend_from_slice(&self.inner);
-        v.push(name)?;
+        v.try_push(name)?;
 
         Ok(v)
     }
@@ -204,7 +204,7 @@ impl PathBuf {
     }
 
     /// Adjoins `name` to self.
-    pub fn push(&mut self, name: &[u8]) -> Result<(), std::io::Error> {
+    pub fn try_push(&mut self, name: &[u8]) -> Result<(), std::io::Error> {
         validate_node_name(name).map_err(|_| std::io::ErrorKind::InvalidData)?;
 
         if !self.inner.is_empty() {
@@ -299,8 +299,8 @@ mod test {
     #[case("a", "b", "a/b")]
     #[case("a", "b", "a/b")]
     pub fn join_push(#[case] mut p: PathBuf, #[case] name: &str, #[case] exp_p: PathBuf) {
-        assert_eq!(exp_p, p.join(name.as_bytes()).expect("join failed"));
-        p.push(name.as_bytes()).expect("push failed");
+        assert_eq!(exp_p, p.try_join(name.as_bytes()).expect("join failed"));
+        p.try_push(name.as_bytes()).expect("push failed");
         assert_eq!(exp_p, p);
     }
 
@@ -314,9 +314,9 @@ mod test {
     #[case("", ".")]
     #[case("", "..")]
     pub fn join_push_fail(#[case] mut p: PathBuf, #[case] name: &str) {
-        p.join(name.as_bytes())
+        p.try_join(name.as_bytes())
             .expect_err("join succeeded unexpectedly");
-        p.push(name.as_bytes())
+        p.try_push(name.as_bytes())
             .expect_err("push succeeded unexpectedly");
     }
 
