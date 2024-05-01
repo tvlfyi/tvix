@@ -305,6 +305,9 @@ impl TvixStoreIO {
         };
 
         // now with the root_node and sub_path, descend to the node requested.
+        // We convert sub_path to the castore model here.
+        let sub_path = tvix_castore::PathBuf::from_host_path(sub_path, true)?;
+
         directoryservice::descend_to(&self.directory_service, root_node, sub_path)
             .await
             .map_err(|e| std::io::Error::new(io::ErrorKind::Other, e))

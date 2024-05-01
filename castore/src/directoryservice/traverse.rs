@@ -1,30 +1,20 @@
 use super::DirectoryService;
-use crate::{proto::NamedNode, B3Digest, Error};
-use std::os::unix::ffi::OsStrExt;
+use crate::{proto::NamedNode, B3Digest, Error, Path};
 use tracing::{instrument, warn};
 
 /// This descends from a (root) node to the given (sub)path, returning the Node
 /// at that path, or none, if there's nothing at that path.
-#[instrument(skip(directory_service))]
+#[instrument(skip(directory_service, path), fields(%path))]
 pub async fn descend_to<DS>(
     directory_service: DS,
     root_node: crate::proto::node::Node,
-    path: &std::path::Path,
+    path: impl AsRef<Path> + std::fmt::Display,
 ) -> Result<Option<crate::proto::node::Node>, Error>
 where
     DS: AsRef<dyn DirectoryService>,
 {
-    // strip a possible `/` prefix from the path.
-    let path = {
-        if path.starts_with("/") {
-            path.strip_prefix("/").unwrap()
-        } else {
-            path
-        }
-    };
-
     let mut cur_node = root_node;
-    let mut it = path.components();
+    let mut it = path.as_ref().components();
 
     loop {
         match it.next() {
@@ -59,9 +49,8 @@ where
                                 // look for first_component in the [Directory].
                                 // FUTUREWORK: as the nodes() iterator returns in a sorted fashion, we
                                 // could stop as soon as e.name is larger than the search string.
-                                let child_node = directory.nodes().find(|n| {
-                                    n.get_name() == first_component.as_os_str().as_bytes()
-                                });
+                                let child_node =
+                                    directory.nodes().find(|n| n.get_name() == first_component);
 
                                 match child_node {
                                     // child node not found means there's no such element inside the directory.
@@ -85,11 +74,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
     use crate::{
         directoryservice,
         fixtures::{DIRECTORY_COMPLICATED, DIRECTORY_WITH_KEEP},
+        PathBuf,
     };
 
     use super::descend_to;
@@ -132,7 +120,7 @@ mod tests {
             let resp = descend_to(
                 &directory_service,
                 node_directory_complicated.clone(),
-                &PathBuf::from(""),
+                "".parse::<PathBuf>().unwrap(),
             )
             .await
             .expect("must succeed");
@@ -145,7 +133,7 @@ mod tests {
             let resp = descend_to(
                 &directory_service,
                 node_directory_complicated.clone(),
-                &PathBuf::from("keep"),
+                "keep".parse::<PathBuf>().unwrap(),
             )
             .await
             .expect("must succeed");
@@ -158,7 +146,7 @@ mod tests {
             let resp = descend_to(
                 &directory_service,
                 node_directory_complicated.clone(),
-                &PathBuf::from("keep/.keep"),
+                "keep/.keep".parse::<PathBuf>().unwrap(),
             )
             .await
             .expect("must succeed");
@@ -166,25 +154,12 @@ mod tests {
             assert_eq!(Some(node_file_keep.clone()), resp);
         }
 
-        // traversal to `keep/.keep` should return the node for the .keep file
-        {
-            let resp = descend_to(
-                &directory_service,
-                node_directory_complicated.clone(),
-                &PathBuf::from("/keep/.keep"),
-            )
-            .await
-            .expect("must succeed");
-
-            assert_eq!(Some(node_file_keep), resp);
-        }
-
         // traversal to `void` should return None (doesn't exist)
         {
             let resp = descend_to(
                 &directory_service,
                 node_directory_complicated.clone(),
-                &PathBuf::from("void"),
+                "void".parse::<PathBuf>().unwrap(),
             )
             .await
             .expect("must succeed");
@@ -192,12 +167,12 @@ mod tests {
             assert_eq!(None, resp);
         }
 
-        // traversal to `void` should return None (doesn't exist)
+        // traversal to `v/oid` should return None (doesn't exist)
         {
             let resp = descend_to(
                 &directory_service,
                 node_directory_complicated.clone(),
-                &PathBuf::from("//v/oid"),
+                "v/oid".parse::<PathBuf>().unwrap(),
             )
             .await
             .expect("must succeed");
@@ -211,25 +186,12 @@ mod tests {
             let resp = descend_to(
                 &directory_service,
                 node_directory_complicated.clone(),
-                &PathBuf::from("keep/.keep/foo"),
+                "keep/.keep/foo".parse::<PathBuf>().unwrap(),
             )
             .await
             .expect("must succeed");
 
             assert_eq!(None, resp);
-        }
-
-        // traversal to a subpath of '/' should return the root node.
-        {
-            let resp = descend_to(
-                &directory_service,
-                node_directory_complicated.clone(),
-                &PathBuf::from("/"),
-            )
-            .await
-            .expect("must succeed");
-
-            assert_eq!(Some(node_directory_complicated), resp);
         }
     }
 }
