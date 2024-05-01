@@ -72,18 +72,13 @@ impl Path {
         )
     }
 
+    /// Creates a PathBuf with `name` adjoined to self.
     pub fn join(&self, name: &[u8]) -> Result<PathBuf, std::io::Error> {
-        if name.contains(&b'/') || name.is_empty() {
-            return Err(std::io::ErrorKind::InvalidData.into());
-        }
+        let mut v = PathBuf::with_capacity(self.inner.len() + name.len() + 1);
+        v.inner.extend_from_slice(&self.inner);
+        v.push(name)?;
 
-        let mut v = self.inner.to_vec();
-        if !v.is_empty() {
-            v.extend_from_slice(b"/");
-        }
-        v.extend_from_slice(name);
-
-        Ok(PathBuf { inner: v })
+        Ok(v)
     }
 
     /// Produces an iterator over the components of the path, which are
@@ -197,6 +192,30 @@ impl Display for PathBuf {
 }
 
 impl PathBuf {
+    pub fn new() -> PathBuf {
+        Self::default()
+    }
+
+    pub fn with_capacity(capacity: usize) -> PathBuf {
+        // SAFETY: The empty path is a valid path.
+        Self {
+            inner: Vec::with_capacity(capacity),
+        }
+    }
+
+    /// Adjoins `name` to self.
+    pub fn push(&mut self, name: &[u8]) -> Result<(), std::io::Error> {
+        validate_node_name(name).map_err(|_| std::io::ErrorKind::InvalidData)?;
+
+        if !self.inner.is_empty() {
+            self.inner.push(b'/');
+        }
+
+        self.inner.extend_from_slice(name);
+
+        Ok(())
+    }
+
     /// Convert a byte vector to a PathBuf, without checking validity.
     unsafe fn from_bytes_unchecked(bytes: Vec<u8>) -> PathBuf {
         PathBuf { inner: bytes }
@@ -279,8 +298,10 @@ mod test {
     #[rstest]
     #[case("a", "b", "a/b")]
     #[case("a", "b", "a/b")]
-    pub fn join(#[case] p: PathBuf, #[case] name: &str, #[case] exp_p: PathBuf) {
+    pub fn join_push(#[case] mut p: PathBuf, #[case] name: &str, #[case] exp_p: PathBuf) {
         assert_eq!(exp_p, p.join(name.as_bytes()).expect("join failed"));
+        p.push(name.as_bytes()).expect("push failed");
+        assert_eq!(exp_p, p);
     }
 
     #[rstest]
@@ -290,9 +311,13 @@ mod test {
     #[case("", "/")]
     #[case("", "")]
     #[case("", "b/c")]
-    pub fn join_fail(#[case] p: PathBuf, #[case] name: &str) {
+    #[case("", ".")]
+    #[case("", "..")]
+    pub fn join_push_fail(#[case] mut p: PathBuf, #[case] name: &str) {
         p.join(name.as_bytes())
             .expect_err("join succeeded unexpectedly");
+        p.push(name.as_bytes())
+            .expect_err("push succeeded unexpectedly");
     }
 
     #[rstest]
