@@ -210,11 +210,7 @@ mod test {
     #[case("foo2/bar2", "foo2")]
     #[case("foo/bar/baz", "foo/bar")]
     pub fn parent(#[case] p: PathBuf, #[case] exp_parent: PathBuf) {
-        assert_eq!(Some(exp_parent.as_ref()), p.parent());
-
-        // same for Path
-        let p = p.as_ref();
-        assert_eq!(Some(exp_parent.as_ref()), p.parent());
+        assert_eq!(Some(&*exp_parent), p.parent());
     }
 
     #[rstest]
@@ -232,11 +228,6 @@ mod test {
     #[case("a", "b", "a/b")]
     pub fn join(#[case] p: PathBuf, #[case] name: &str, #[case] exp_p: PathBuf) {
         assert_eq!(exp_p, p.join(name.as_bytes()).expect("join failed"));
-        // same for Path
-        assert_eq!(
-            exp_p,
-            p.as_ref().join(name.as_bytes()).expect("join failed")
-        );
     }
 
     #[rstest]
@@ -249,11 +240,6 @@ mod test {
     pub fn join_fail(#[case] p: PathBuf, #[case] name: &str) {
         p.join(name.as_bytes())
             .expect_err("join succeeded unexpectedly");
-
-        // same for Path
-        p.as_ref()
-            .join(name.as_bytes())
-            .expect_err("join succeeded unexpectedly");
     }
 
     #[rstest]
@@ -262,15 +248,6 @@ mod test {
     #[case("a/b", vec!["a", "b"])]
     #[case("a/b/c", vec!["a","b", "c"])]
     pub fn components(#[case] p: PathBuf, #[case] exp_components: Vec<&str>) {
-        assert_eq!(
-            exp_components,
-            p.components()
-                .map(|x| x.to_str().unwrap())
-                .collect::<Vec<_>>()
-        );
-
-        // same for Path
-        let p = p.as_ref();
         assert_eq!(
             exp_components,
             p.components()
