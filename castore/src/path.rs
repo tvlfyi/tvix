@@ -10,6 +10,8 @@ use std::{
 
 use bstr::ByteSlice;
 
+use crate::proto::validate_node_name;
+
 /// Represents a Path in the castore model.
 /// These are always relative, and platform-independent, which distinguishes
 /// them from the ones provided in the standard library.
@@ -34,12 +36,9 @@ impl Path {
 
     fn from_bytes(bytes: &[u8]) -> Option<&Path> {
         if !bytes.is_empty() {
-            // Ensure there's no empty components (aka, double forward slashes),
-            // and all components individually validate.
+            // Ensure all components are valid castore node names.
             for component in bytes.split_str(b"/") {
-                if component.is_empty() {
-                    return None;
-                }
+                validate_node_name(component).ok()?;
             }
         }
 
@@ -201,6 +200,14 @@ mod test {
     #[case::two_forward_slashes_start("//a/b")]
     #[case::two_forward_slashes_middle("a/b//c/d")]
     #[case::trailing_slash("a/b/")]
+    #[case::dot(".")]
+    #[case::dotdot("..")]
+    #[case::dot_start("./a")]
+    #[case::dotdot_start("../a")]
+    #[case::dot_middle("a/./b")]
+    #[case::dotdot_middle("a/../b")]
+    #[case::dot_end("a/b/.")]
+    #[case::dotdot_end("a/b/..")]
     pub fn from_str_fail(#[case] s: &str) {
         s.parse::<PathBuf>().expect_err("must fail");
     }

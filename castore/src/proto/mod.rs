@@ -66,7 +66,7 @@ pub enum ValidateStatBlobResponseError {
 
 /// Checks a Node name for validity as an intermediate node.
 /// We disallow slashes, null bytes, '.', '..' and the empty string.
-fn validate_node_name(name: &[u8]) -> Result<(), ValidateNodeError> {
+pub(crate) fn validate_node_name(name: &[u8]) -> Result<(), ValidateNodeError> {
     if name.is_empty()
         || name == b".."
         || name == b"."
