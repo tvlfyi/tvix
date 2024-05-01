@@ -1,13 +1,19 @@
 //! Contains data structures to deal with Paths in the tvix-castore model.
 
-use std::{borrow::Borrow, mem, ops::Deref, str::FromStr};
+use std::{
+    borrow::Borrow,
+    fmt::{self, Debug, Display},
+    mem,
+    ops::Deref,
+    str::FromStr,
+};
 
 use bstr::ByteSlice;
 
 /// Represents a Path in the castore model.
 /// These are always relative, and platform-independent, which distinguishes
 /// them from the ones provided in the standard library.
-#[derive(Debug, Eq, Hash, PartialEq)]
+#[derive(Eq, Hash, PartialEq)]
 #[repr(transparent)] // SAFETY: Representation has to match [u8]
 pub struct Path {
     // As node names in the castore model cannot contain slashes,
@@ -86,10 +92,22 @@ impl Path {
     }
 }
 
+impl Debug for Path {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Debug::fmt(self.inner.as_bstr(), f)
+    }
+}
+
+impl Display for Path {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Display::fmt(self.inner.as_bstr(), f)
+    }
+}
+
 /// Represents a owned PathBuf in the castore model.
 /// These are always relative, and platform-independent, which distinguishes
 /// them from the ones provided in the standard library.
-#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
+#[derive(Clone, Default, Eq, Hash, PartialEq)]
 pub struct PathBuf {
     inner: Vec<u8>,
 }
@@ -132,6 +150,18 @@ impl FromStr for PathBuf {
         Ok(Path::from_bytes(s.as_bytes())
             .ok_or(std::io::ErrorKind::InvalidData)?
             .to_owned())
+    }
+}
+
+impl Debug for PathBuf {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Debug::fmt(&**self, f)
+    }
+}
+
+impl Display for PathBuf {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Display::fmt(&**self, f)
     }
 }
 
