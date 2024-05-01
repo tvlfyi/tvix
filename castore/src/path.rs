@@ -46,6 +46,11 @@ impl Path {
         Some(unsafe { Path::from_bytes_unchecked(bytes) })
     }
 
+    pub fn into_boxed_bytes(self: Box<Path>) -> Box<[u8]> {
+        // SAFETY: Box<Path> and Box<[u8]> have the same representation.
+        unsafe { mem::transmute(self) }
+    }
+
     /// Returns the path without its final component, if there is one.
     ///
     /// Note that the parent of a bare file name is [Path::ROOT].
@@ -100,7 +105,7 @@ impl Path {
         self.components().last()
     }
 
-    pub fn as_slice(&self) -> &[u8] {
+    pub fn as_bytes(&self) -> &[u8] {
         &self.inner
     }
 }
@@ -156,6 +161,19 @@ impl Borrow<Path> for PathBuf {
     }
 }
 
+impl From<Box<Path>> for PathBuf {
+    fn from(value: Box<Path>) -> Self {
+        // SAFETY: Box<Path> is always a valid path.
+        unsafe { PathBuf::from_bytes_unchecked(value.into_boxed_bytes().into_vec()) }
+    }
+}
+
+impl From<&Path> for PathBuf {
+    fn from(value: &Path) -> Self {
+        value.to_owned()
+    }
+}
+
 impl FromStr for PathBuf {
     type Err = std::io::Error;
 
@@ -175,6 +193,23 @@ impl Debug for PathBuf {
 impl Display for PathBuf {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         Display::fmt(&**self, f)
+    }
+}
+
+impl PathBuf {
+    /// Convert a byte vector to a PathBuf, without checking validity.
+    unsafe fn from_bytes_unchecked(bytes: Vec<u8>) -> PathBuf {
+        PathBuf { inner: bytes }
+    }
+
+    pub fn into_boxed_path(self) -> Box<Path> {
+        // SAFETY: Box<[u8]> and Box<Path> have the same representation,
+        // and PathBuf always contains a valid Path.
+        unsafe { mem::transmute(self.inner.into_boxed_slice()) }
+    }
+
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.inner
     }
 }
 
@@ -201,7 +236,7 @@ mod test {
     pub fn from_str(#[case] s: &str, #[case] num_components: usize) {
         let p: PathBuf = s.parse().expect("must parse");
 
-        assert_eq!(s.as_bytes(), p.as_slice(), "inner bytes mismatch");
+        assert_eq!(s.as_bytes(), p.as_bytes(), "inner bytes mismatch");
         assert_eq!(
             num_components,
             p.components().count(),
