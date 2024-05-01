@@ -10,7 +10,7 @@ pub mod fixtures;
 pub mod fs;
 
 mod path;
-pub use path::Path;
+pub use path::{Path, PathBuf};
 
 pub mod import;
 pub mod proto;
