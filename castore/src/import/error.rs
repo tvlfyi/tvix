@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use super::PathBuf;
 
 use crate::Error as CastoreError;
 

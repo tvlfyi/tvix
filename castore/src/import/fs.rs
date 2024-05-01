@@ -6,8 +6,6 @@ use std::fs::FileType;
 use std::os::unix::ffi::OsStringExt;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::PermissionsExt;
-use std::path::Path;
-use std::path::PathBuf;
 use tracing::instrument;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
@@ -35,7 +33,7 @@ pub async fn ingest_path<BS, DS, P>(
     path: P,
 ) -> Result<Node, IngestionError<Error>>
 where
-    P: AsRef<Path> + std::fmt::Debug,
+    P: AsRef<std::path::Path> + std::fmt::Debug,
     BS: BlobService + Clone,
     DS: AsRef<dyn DirectoryService>,
 {
@@ -58,13 +56,13 @@ where
 pub fn dir_entries_to_ingestion_stream<'a, BS, I>(
     blob_service: BS,
     iter: I,
-    root: &'a Path,
+    root: &'a std::path::Path,
 ) -> BoxStream<'a, Result<IngestionEntry, Error>>
 where
     BS: BlobService + Clone + 'a,
     I: Iterator<Item = Result<DirEntry, walkdir::Error>> + Send + 'a,
 {
-    let prefix = root.parent().unwrap_or_else(|| Path::new(""));
+    let prefix = root.parent().unwrap_or_else(|| std::path::Path::new(""));
 
     Box::pin(
         futures::stream::iter(iter)
@@ -94,18 +92,21 @@ where
 pub async fn dir_entry_to_ingestion_entry<BS>(
     blob_service: BS,
     entry: &DirEntry,
-    prefix: &Path,
+    prefix: &std::path::Path,
 ) -> Result<IngestionEntry, Error>
 where
     BS: BlobService,
 {
     let file_type = entry.file_type();
 
-    let path = entry
+    let fs_path = entry
         .path()
         .strip_prefix(prefix)
-        .expect("Tvix bug: failed to strip root path prefix")
-        .to_path_buf();
+        .expect("Tvix bug: failed to strip root path prefix");
+
+    // convert to castore PathBuf
+    let path = crate::path::PathBuf::from_host_path(fs_path, false)
+        .unwrap_or_else(|e| panic!("Tvix bug: walkdir direntry cannot be parsed: {}", e));
 
     if file_type.is_dir() {
         Ok(IngestionEntry::Dir { path })
@@ -132,13 +133,16 @@ where
             digest,
         })
     } else {
-        return Err(Error::FileType(path, file_type));
+        return Err(Error::FileType(fs_path.to_path_buf(), file_type));
     }
 }
 
 /// Uploads the file at the provided [Path] the the [BlobService].
 #[instrument(skip(blob_service), fields(path), err)]
-async fn upload_blob<BS>(blob_service: BS, path: impl AsRef<Path>) -> Result<B3Digest, Error>
+async fn upload_blob<BS>(
+    blob_service: BS,
+    path: impl AsRef<std::path::Path>,
+) -> Result<B3Digest, Error>
 where
     BS: BlobService,
 {
@@ -164,18 +168,18 @@ where
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("unsupported file type at {0}: {1:?}")]
-    FileType(PathBuf, FileType),
+    FileType(std::path::PathBuf, FileType),
 
     #[error("unable to stat {0}: {1}")]
-    Stat(PathBuf, std::io::Error),
+    Stat(std::path::PathBuf, std::io::Error),
 
     #[error("unable to open {0}: {1}")]
-    Open(PathBuf, std::io::Error),
+    Open(std::path::PathBuf, std::io::Error),
 
     #[error("unable to read {0}: {1}")]
-    BlobRead(PathBuf, std::io::Error),
+    BlobRead(std::path::PathBuf, std::io::Error),
 
     // TODO: proper error for blob finalize
     #[error("unable to finalize blob {0}: {1}")]
-    BlobFinalize(PathBuf, std::io::Error),
+    BlobFinalize(std::path::PathBuf, std::io::Error),
 }

@@ -6,6 +6,7 @@
 
 use crate::directoryservice::DirectoryPutter;
 use crate::directoryservice::DirectoryService;
+use crate::path::PathBuf;
 use crate::proto::node::Node;
 use crate::proto::Directory;
 use crate::proto::DirectoryNode;
@@ -16,13 +17,7 @@ use futures::{Stream, StreamExt};
 
 use tracing::Level;
 
-#[cfg(target_family = "unix")]
-use std::os::unix::ffi::OsStrExt;
-
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::collections::HashMap;
 use tracing::instrument;
 
 mod error;
@@ -70,20 +65,11 @@ where
             // we break the loop manually.
             .expect("Tvix bug: unexpected end of stream")?;
 
-        debug_assert!(
-            entry
-                .path()
-                .components()
-                .all(|x| matches!(x, std::path::Component::Normal(_))),
-            "path may only contain normal components"
-        );
-
         let name = entry
             .path()
             .file_name()
             // If this is the root node, it will have an empty name.
             .unwrap_or_default()
-            .as_bytes()
             .to_owned()
             .into();
 
@@ -108,7 +94,7 @@ where
                     .put(directory)
                     .await
                     .map_err(|e| {
-                        IngestionError::UploadDirectoryError(entry.path().to_path_buf(), e)
+                        IngestionError::UploadDirectoryError(entry.path().to_owned(), e)
                     })?;
 
                 Node::Directory(DirectoryNode {
@@ -140,7 +126,7 @@ where
 
         // record node in parent directory, creating a new [Directory] if not there yet.
         directories
-            .entry(entry.path().parent().unwrap().to_path_buf())
+            .entry(entry.path().parent().unwrap().to_owned())
             .or_default()
             .add(node);
     };
@@ -197,7 +183,7 @@ pub enum IngestionEntry {
 }
 
 impl IngestionEntry {
-    fn path(&self) -> &Path {
+    fn path(&self) -> &PathBuf {
         match self {
             IngestionEntry::Regular { path, .. } => path,
             IngestionEntry::Symlink { path, .. } => path,
