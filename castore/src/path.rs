@@ -46,11 +46,25 @@ impl Path {
         Some(unsafe { Path::from_bytes_unchecked(bytes) })
     }
 
+    /// Returns the path without its final component, if there is one.
+    ///
+    /// Note that the parent of a bare file name is [Path::ROOT].
+    /// [Path::ROOT] is the only path without a parent.
     pub fn parent(&self) -> Option<&Path> {
-        let (parent, _file_name) = self.inner.rsplit_once_str(b"/")?;
+        // The root does not have a parent.
+        if self.inner.is_empty() {
+            return None;
+        }
 
-        // SAFETY: The parent of a valid Path is a valid Path.
-        Some(unsafe { Path::from_bytes_unchecked(parent) })
+        Some(
+            if let Some((parent, _file_name)) = self.inner.rsplit_once_str(b"/") {
+                // SAFETY: The parent of a valid Path is a valid Path.
+                unsafe { Path::from_bytes_unchecked(parent) }
+            } else {
+                // The parent of a bare file name is the root.
+                Path::ROOT
+            },
+        )
     }
 
     pub fn join(&self, name: &[u8]) -> Result<PathBuf, std::io::Error> {
@@ -166,7 +180,7 @@ impl Display for PathBuf {
 
 #[cfg(test)]
 mod test {
-    use super::PathBuf;
+    use super::{Path, PathBuf};
     use bstr::ByteSlice;
     use rstest::rstest;
 
@@ -214,6 +228,7 @@ mod test {
     }
 
     #[rstest]
+    #[case("foo", "")]
     #[case("foo/bar", "foo")]
     #[case("foo2/bar2", "foo2")]
     #[case("foo/bar/baz", "foo/bar")]
@@ -222,13 +237,8 @@ mod test {
     }
 
     #[rstest]
-    #[case::empty("")]
-    #[case::single("foo")]
-    pub fn no_parent(#[case] p: PathBuf) {
-        assert!(p.parent().is_none());
-
-        // same for Path
-        assert!(p.as_ref().parent().is_none());
+    pub fn no_parent() {
+        assert!(Path::ROOT.parent().is_none());
     }
 
     #[rstest]
