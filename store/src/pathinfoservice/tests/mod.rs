@@ -51,7 +51,7 @@ pub async fn make_path_info_service(uri: &str) -> BSDSPS {
 #[case::memory(make_path_info_service("memory://").await)]
 #[case::grpc(make_grpc_path_info_service_client().await)]
 #[case::sled(make_path_info_service("sled://").await)]
-#[cfg_attr(feature = "cloud", case::bigtable(make_path_info_service("bigtable://instance-1?project_id=project-1&table_name=table-1&family_name=cf1").await))]
+#[cfg_attr(all(feature = "cloud",feature="integration"), case::bigtable(make_path_info_service("bigtable://instance-1?project_id=project-1&table_name=table-1&family_name=cf1").await))]
 pub fn path_info_services(
     #[case] services: (
         impl BlobService,

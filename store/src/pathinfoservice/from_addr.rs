@@ -208,7 +208,7 @@ mod tests {
     #[case::grpc_invalid_host_and_path("grpc+http://localhost/some-path", false)]
     /// A valid example for Bigtable.
     #[cfg_attr(
-        feature = "cloud",
+        all(feature = "cloud", feature = "integration"),
         case::bigtable_valid(
             "bigtable://instance-1?project_id=project-1&table_name=table-1&family_name=cf1",
             true
@@ -216,7 +216,7 @@ mod tests {
     )]
     /// An invalid example for Bigtable, missing fields
     #[cfg_attr(
-        feature = "cloud",
+        all(feature = "cloud", feature = "integration"),
         case::bigtable_invalid_missing_fields("bigtable://instance-1", false)
     )]
     #[tokio::test]

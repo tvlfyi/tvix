@@ -74,3 +74,7 @@ fuse = ["tvix-castore/fuse"]
 otlp = ["dep:opentelemetry", "dep:opentelemetry-otlp", "dep:opentelemetry_sdk"]
 tonic-reflection = ["dep:tonic-reflection", "tvix-castore/tonic-reflection"]
 virtiofs = ["tvix-castore/virtiofs"]
+# Whether to run the integration tests.
+# Requires the following packages in $PATH:
+# cbtemulator, google-cloud-bigtable-tool
+integration = []
