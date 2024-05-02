@@ -188,11 +188,12 @@ impl Derivation {
     ///    `fixed:out:${algo}:${digest}:${fodPath}` string is hashed instead of
     ///    the A-Term.
     ///
-    /// If the derivation is not a fixed derivation, it's up to the caller of
-    /// this function to provide a lookup function to lookup these calculation
-    /// results of parent derivations at `fn_get_derivation_or_fod_hash` (by
-    /// drv path).
-    pub fn derivation_or_fod_hash<F>(&self, fn_get_derivation_or_fod_hash: F) -> [u8; 32]
+    /// It's up to the caller of this function to provide a (infallible) lookup
+    /// function to query [hash_derivation_modulo] of direct input derivations,
+    /// by their [StorePathRef].
+    /// It will only be called in case the derivation is not a fixed-output
+    /// derivation.
+    pub fn hash_derivation_modulo<F>(&self, fn_lookup_hash_derivation_modulo: F) -> [u8; 32]
     where
         F: Fn(&StorePathRef) -> [u8; 32],
     {
@@ -200,16 +201,16 @@ impl Derivation {
         // Non-Fixed-output derivations return the sha256 digest of the ATerm
         // notation, but with all input_derivation paths replaced by a recursive
         // call to this function.
-        // We use fn_get_derivation_or_fod_hash here, so callers can precompute this.
+        // We call [fn_lookup_hash_derivation_modulo] rather than recursing
+        // ourselves, so callers can precompute this.
         self.fod_digest().unwrap_or({
-            // For each input_derivation, look up the
-            // derivation_or_fod_hash, and replace the derivation path with
-            // it's HEXLOWER digest.
+            // For each input_derivation, look up the hash derivation modulo,
+            // and replace the derivation path in the aterm with it's HEXLOWER digest.
             let aterm_bytes = self.to_aterm_bytes_with_replacements(&BTreeMap::from_iter(
                 self.input_derivations
                     .iter()
                     .map(|(drv_path, output_names)| {
-                        let hash = fn_get_derivation_or_fod_hash(&drv_path.into());
+                        let hash = fn_lookup_hash_derivation_modulo(&drv_path.into());
 
                         (hash, output_names.to_owned())
                     }),
@@ -226,20 +227,22 @@ impl Derivation {
     /// and self.environment[$outputName] needs to be an empty string.
     ///
     /// Output path calculation requires knowledge of the
-    /// derivation_or_fod_hash [NixHash], which (in case of non-fixed-output
-    /// derivations) also requires knowledge of other hash_derivation_modulo
-    /// [NixHash]es.
+    /// [hash_derivation_modulo], which (in case of non-fixed-output
+    /// derivations) also requires knowledge of the [hash_derivation_modulo] of
+    /// input derivations (recursively).
     ///
-    /// We solve this by asking the caller of this function to provide the
-    /// hash_derivation_modulo of the current Derivation.
+    /// To avoid recursing and doing unnecessary calculation, we simply
+    /// ask the caller of this function to provide the result of the
+    /// [hash_derivation_modulo] call of the current [Derivation],
+    /// and leave it up to them to calculate it when needed.
     ///
-    /// On completion, self.environment[$outputName] and
-    /// self.outputs[$outputName].path are set to the calculated output path for all
+    /// On completion, `self.environment[$outputName]` and
+    /// `self.outputs[$outputName].path` are set to the calculated output path for all
     /// outputs.
     pub fn calculate_output_paths(
         &mut self,
         name: &str,
-        derivation_or_fod_hash: &[u8; 32],
+        hash_derivation_modulo: &[u8; 32],
     ) -> Result<(), DerivationError> {
         // The fingerprint and hash differs per output
         for (output_name, output) in self.outputs.iter_mut() {
@@ -250,14 +253,14 @@ impl Derivation {
 
             let path_name = output_path_name(name, output_name);
 
-            // For fixed output derivation we use the per-output info, otherwise we use the
-            // derivation hash.
+            // For fixed output derivation we use [build_ca_path], otherwise we
+            // use [build_output_path] with [hash_derivation_modulo].
             let abs_store_path = if let Some(ref hwm) = output.ca_hash {
                 build_ca_path(&path_name, hwm, Vec::<String>::new(), false).map_err(|e| {
                     DerivationError::InvalidOutputDerivationPath(output_name.to_string(), e)
                 })?
             } else {
-                build_output_path(derivation_or_fod_hash, output_name, &path_name).map_err(|e| {
+                build_output_path(hash_derivation_modulo, output_name, &path_name).map_err(|e| {
                     DerivationError::InvalidOutputDerivationPath(
                         output_name.to_string(),
                         store_path::BuildStorePathError::InvalidStorePath(e),

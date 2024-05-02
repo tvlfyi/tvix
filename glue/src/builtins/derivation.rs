@@ -457,18 +457,24 @@ pub(crate) mod derivation_builtins {
         drv.validate(false)
             .map_err(DerivationError::InvalidDerivation)?;
 
-        // Calculate the derivation_or_fod_hash for the current derivation.
-        // This one is still intermediate (so not added to known_paths)
-        let derivation_or_fod_hash_tmp = drv.derivation_or_fod_hash(|drv_path| {
-            known_paths
-                .get_hash_derivation_modulo(&drv_path.to_owned())
-                .unwrap_or_else(|| panic!("{} not found", drv_path))
-                .to_owned()
-        });
+        // Calculate the hash_derivation_modulo for the current derivation..
+        debug_assert!(
+            drv.outputs.values().all(|output| { output.path.is_none() }),
+            "outputs should still be unset"
+        );
 
         // Mutate the Derivation struct and set output paths
-        drv.calculate_output_paths(name, &derivation_or_fod_hash_tmp)
-            .map_err(DerivationError::InvalidDerivation)?;
+        drv.calculate_output_paths(
+            name,
+            // This one is still intermediate (so not added to known_paths),
+            // as the outputs are still unset.
+            &drv.hash_derivation_modulo(|drv_path| {
+                *known_paths
+                    .get_hash_derivation_modulo(&drv_path.to_owned())
+                    .unwrap_or_else(|| panic!("{} not found", drv_path))
+            }),
+        )
+        .map_err(DerivationError::InvalidDerivation)?;
 
         let drv_path = drv
             .calculate_derivation_path(name)

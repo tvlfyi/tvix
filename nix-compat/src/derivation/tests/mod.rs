@@ -164,7 +164,7 @@ fn derivation_path(#[case] name: &str, #[case] expected_path: &str) {
 
 /// This trims all output paths from a Derivation struct,
 /// by setting outputs[$outputName].path and environment[$outputName] to the empty string.
-fn derivation_with_trimmed_output_paths(derivation: &Derivation) -> Derivation {
+fn derivation_without_output_paths(derivation: &Derivation) -> Derivation {
     let mut trimmed_env = derivation.environment.clone();
     let mut trimmed_outputs = derivation.outputs.clone();
 
@@ -191,13 +191,13 @@ fn derivation_with_trimmed_output_paths(derivation: &Derivation) -> Derivation {
 #[rstest]
 #[case::fixed_sha256("0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv", hex!("724f3e3634fce4cbbbd3483287b8798588e80280660b9a63fd13a1bc90485b33"))]
 #[case::fixed_sha1("ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv", hex!("c79aebd0ce3269393d4a1fde2cbd1d975d879b40f0bf40a48f550edc107fd5df"))]
-fn derivation_or_fod_hash(#[case] drv_path: &str, #[case] expected_digest: [u8; 32]) {
+fn hash_derivation_modulo_fixed(#[case] drv_path: &str, #[case] expected_digest: [u8; 32]) {
     // read in the fixture
     let json_bytes =
         fs::read(format!("{}/ok/{}.json", RESOURCES_PATHS, drv_path)).expect("unable to read JSON");
     let drv: Derivation = serde_json::from_slice(&json_bytes).expect("must deserialize");
 
-    let actual = drv.derivation_or_fod_hash(|_| panic!("must not be called"));
+    let actual = drv.hash_derivation_modulo(|_| panic!("must not be called"));
     assert_eq!(expected_digest, actual);
 }
 
@@ -224,13 +224,13 @@ fn output_paths(#[case] name: &str, #[case] drv_path_str: &str) {
     )
     .expect("must succeed");
 
-    // create a version with trimmed output paths, simulating we constructed
-    // the struct.
-    let mut derivation = derivation_with_trimmed_output_paths(&expected_derivation);
+    // create a version without output paths, simulating we constructed the
+    // struct.
+    let mut derivation = derivation_without_output_paths(&expected_derivation);
 
-    // calculate the derivation_or_fod_hash of derivation
+    // calculate the hash_derivation_modulo of Derivation
     // We don't expect the lookup function to be called for most derivations.
-    let calculated_derivation_or_fod_hash = derivation.derivation_or_fod_hash(|parent_drv_path| {
+    let actual_hash_derivation_modulo = derivation.hash_derivation_modulo(|parent_drv_path| {
         // 4wvvbi4jwn0prsdxb7vs673qa5h9gr7x-foo.drv may lookup /nix/store/0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv
         // ch49594n9avinrf8ip0aslidkc4lxkqv-foo.drv may lookup /nix/store/ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv
         if name == "foo"
@@ -255,9 +255,9 @@ fn output_paths(#[case] name: &str, #[case] drv_path_str: &str) {
 
             let drv: Derivation = serde_json::from_slice(&json_bytes).expect("must deserialize");
 
-            // calculate derivation_or_fod_hash for each parent.
+            // calculate hash_derivation_modulo for each parent.
             // This may not trigger subsequent requests, as both parents are FOD.
-            drv.derivation_or_fod_hash(|_| panic!("must not lookup"))
+            drv.hash_derivation_modulo(|_| panic!("must not lookup"))
         } else {
             // we only expect this to be called in the "foo" testcase, for the "bar derivations"
             panic!("may only be called for foo testcase on bar derivations");
@@ -265,7 +265,7 @@ fn output_paths(#[case] name: &str, #[case] drv_path_str: &str) {
     });
 
     derivation
-        .calculate_output_paths(name, &calculated_derivation_or_fod_hash)
+        .calculate_output_paths(name, &actual_hash_derivation_modulo)
         .unwrap();
 
     // The derivation should now look like it was before
@@ -343,7 +343,7 @@ fn output_path_construction() {
     // calculate bar output paths
     let bar_calc_result = bar_drv.calculate_output_paths(
         "bar",
-        &bar_drv.derivation_or_fod_hash(|_| panic!("is FOD, should not lookup")),
+        &bar_drv.hash_derivation_modulo(|_| panic!("is FOD, should not lookup")),
     );
     assert!(bar_calc_result.is_ok());
 
@@ -360,8 +360,8 @@ fn output_path_construction() {
     // now construct foo, which requires bar_drv
     // Note how we refer to the output path, drv name and replacement_str (with calculated output paths) of bar.
     let bar_output_path = &bar_drv.outputs.get("out").expect("must exist").path;
-    let bar_drv_derivation_or_fod_hash =
-        bar_drv.derivation_or_fod_hash(|_| panic!("is FOD, should not lookup"));
+    let bar_drv_hash_derivation_modulo =
+        bar_drv.hash_derivation_modulo(|_| panic!("is FOD, should not lookup"));
 
     let bar_drv_path = bar_drv
         .calculate_derivation_path("bar")
@@ -408,11 +408,11 @@ fn output_path_construction() {
     // calculate foo output paths
     let foo_calc_result = foo_drv.calculate_output_paths(
         "foo",
-        &foo_drv.derivation_or_fod_hash(|drv_path| {
+        &foo_drv.hash_derivation_modulo(|drv_path| {
             if drv_path.to_string() != "0hm2f1psjpcwg8fijsmr4wwxrx59s092-bar.drv" {
                 panic!("lookup called with unexpected drv_path: {}", drv_path);
             }
-            bar_drv_derivation_or_fod_hash
+            bar_drv_hash_derivation_modulo
         }),
     );
     assert!(foo_calc_result.is_ok());
