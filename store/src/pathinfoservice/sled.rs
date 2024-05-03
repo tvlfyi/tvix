@@ -1,11 +1,13 @@
 use super::PathInfoService;
 use crate::nar::calculate_size_and_sha256;
 use crate::proto::PathInfo;
+use data_encoding::BASE64;
 use futures::stream::iter;
 use futures::stream::BoxStream;
 use prost::Message;
 use std::path::Path;
 use tonic::async_trait;
+use tracing::instrument;
 use tracing::warn;
 use tvix_castore::proto as castorepb;
 use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService, Error};
@@ -57,53 +59,46 @@ where
     BS: AsRef<dyn BlobService> + Send + Sync,
     DS: AsRef<dyn DirectoryService> + Send + Sync,
 {
+    #[instrument(level = "trace", skip_all, fields(path_info.digest = BASE64.encode(&digest)))]
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
-        match self.db.get(digest) {
-            Ok(None) => Ok(None),
-            Ok(Some(data)) => match PathInfo::decode(&*data) {
-                Ok(path_info) => Ok(Some(path_info)),
-                Err(e) => {
+        match self.db.get(digest).map_err(|e| {
+            warn!("failed to retrieve PathInfo: {}", e);
+            Error::StorageError(format!("failed to retrieve PathInfo: {}", e))
+        })? {
+            None => Ok(None),
+            Some(data) => {
+                let path_info = PathInfo::decode(&*data).map_err(|e| {
                     warn!("failed to decode stored PathInfo: {}", e);
-                    Err(Error::StorageError(format!(
-                        "failed to decode stored PathInfo: {}",
-                        e
-                    )))
-                }
-            },
-            Err(e) => {
-                warn!("failed to retrieve PathInfo: {}", e);
-                Err(Error::StorageError(format!(
-                    "failed to retrieve PathInfo: {}",
-                    e
-                )))
+                    Error::StorageError(format!("failed to decode stored PathInfo: {}", e))
+                })?;
+                Ok(Some(path_info))
             }
         }
     }
 
+    #[instrument(level = "trace", skip_all, fields(path_info.root_node = ?path_info.node))]
     async fn put(&self, path_info: PathInfo) -> Result<PathInfo, Error> {
         // Call validate on the received PathInfo message.
-        match path_info.validate() {
-            Err(e) => Err(Error::InvalidRequest(format!(
-                "failed to validate PathInfo: {}",
-                e
-            ))),
-            // In case the PathInfo is valid, and we were able to extract a NixPath, store it in the database.
-            // This overwrites existing PathInfo objects.
-            Ok(nix_path) => match self
-                .db
-                .insert(*nix_path.digest(), path_info.encode_to_vec())
-            {
-                Ok(_) => Ok(path_info),
-                Err(e) => {
-                    warn!("failed to insert PathInfo: {}", e);
-                    Err(Error::StorageError(format! {
-                        "failed to insert PathInfo: {}", e
-                    }))
-                }
-            },
-        }
+        let store_path = path_info
+            .validate()
+            .map_err(|e| Error::InvalidRequest(format!("failed to validate PathInfo: {}", e)))?;
+
+        // In case the PathInfo is valid, we were able to parse a StorePath.
+        // Store it in the database, keyed by its digest.
+        // This overwrites existing PathInfo objects.
+        self.db
+            .insert(store_path.digest(), path_info.encode_to_vec())
+            .map_err(|e| {
+                warn!("failed to insert PathInfo: {}", e);
+                Error::StorageError(format! {
+                    "failed to insert PathInfo: {}", e
+                })
+            })?;
+
+        Ok(path_info)
     }
 
+    #[instrument(level = "trace", skip_all, fields(root_node = ?root_node))]
     async fn calculate_nar(
         &self,
         root_node: &castorepb::node::Node,
@@ -114,27 +109,17 @@ where
     }
 
     fn list(&self) -> BoxStream<'static, Result<PathInfo, Error>> {
-        Box::pin(iter(self.db.iter().values().map(|v| match v {
-            Ok(data) => {
-                // we retrieved some bytes
-                match PathInfo::decode(&*data) {
-                    Ok(path_info) => Ok(path_info),
-                    Err(e) => {
-                        warn!("failed to decode stored PathInfo: {}", e);
-                        Err(Error::StorageError(format!(
-                            "failed to decode stored PathInfo: {}",
-                            e
-                        )))
-                    }
-                }
-            }
-            Err(e) => {
+        Box::pin(iter(self.db.iter().values().map(|v| {
+            let data = v.map_err(|e| {
                 warn!("failed to retrieve PathInfo: {}", e);
-                Err(Error::StorageError(format!(
-                    "failed to retrieve PathInfo: {}",
-                    e
-                )))
-            }
+                Error::StorageError(format!("failed to retrieve PathInfo: {}", e))
+            })?;
+
+            let path_info = PathInfo::decode(&*data).map_err(|e| {
+                warn!("failed to decode stored PathInfo: {}", e);
+                Error::StorageError(format!("failed to decode stored PathInfo: {}", e))
+            })?;
+            Ok(path_info)
         })))
     }
 }
