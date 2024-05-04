@@ -84,7 +84,7 @@ pub async fn ingest_archive<BS, DS, R>(
 ) -> Result<Node, IngestionError<Error>>
 where
     BS: BlobService + Clone + 'static,
-    DS: AsRef<dyn DirectoryService>,
+    DS: DirectoryService,
     R: AsyncRead + Unpin,
 {
     // Since tarballs can have entries in any arbitrary order, we need to

@@ -35,7 +35,7 @@ pub async fn ingest_path<BS, DS, P>(
 where
     P: AsRef<std::path::Path> + std::fmt::Debug,
     BS: BlobService + Clone,
-    DS: AsRef<dyn DirectoryService>,
+    DS: DirectoryService,
 {
     let iter = WalkDir::new(path.as_ref())
         .follow_links(false)

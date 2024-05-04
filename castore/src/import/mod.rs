@@ -49,7 +49,7 @@ pub async fn ingest_entries<DS, S, E>(
     mut entries: S,
 ) -> Result<Node, IngestionError<E>>
 where
-    DS: AsRef<dyn DirectoryService>,
+    DS: DirectoryService,
     S: Stream<Item = Result<IngestionEntry, E>> + Send + std::marker::Unpin,
     E: std::error::Error,
 {
@@ -90,7 +90,7 @@ where
                 // If we don't have one yet (as that's the first one to upload),
                 // initialize the putter.
                 maybe_directory_putter
-                    .get_or_insert_with(|| directory_service.as_ref().put_multiple_start())
+                    .get_or_insert_with(|| directory_service.put_multiple_start())
                     .put(directory)
                     .await
                     .map_err(|e| {

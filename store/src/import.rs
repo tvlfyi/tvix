@@ -114,7 +114,7 @@ pub async fn import_path_as_nar_ca<BS, DS, PS, P>(
 where
     P: AsRef<Path> + std::fmt::Debug,
     BS: BlobService + Clone,
-    DS: AsRef<dyn DirectoryService>,
+    DS: DirectoryService,
     PS: AsRef<dyn PathInfoService>,
 {
     let root_node = ingest_path(blob_service, directory_service, path.as_ref())
