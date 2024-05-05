@@ -6,14 +6,13 @@
 
 use crate::directoryservice::DirectoryPutter;
 use crate::directoryservice::DirectoryService;
-use crate::path::PathBuf;
+use crate::path::{Path, PathBuf};
 use crate::proto::node::Node;
 use crate::proto::Directory;
 use crate::proto::DirectoryNode;
 use crate::proto::FileNode;
 use crate::proto::SymlinkNode;
 use crate::B3Digest;
-use crate::Path;
 use futures::{Stream, StreamExt};
 
 use tracing::Level;
@@ -78,7 +77,8 @@ where
             IngestionEntry::Dir { .. } => {
                 // If the entry is a directory, we traversed all its children (and
                 // populated it in `directories`).
-                // If we don't have it in there, it's an empty directory.
+                // If we don't have it in directories, it's a directory without
+                // children.
                 let directory = directories
                     .remove(entry.path())
                     // In that case, it contained no children
@@ -201,5 +201,140 @@ impl IngestionEntry {
 
     fn is_dir(&self) -> bool {
         matches!(self, IngestionEntry::Dir { .. })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use rstest::rstest;
+
+    use crate::fixtures::{DIRECTORY_COMPLICATED, DIRECTORY_WITH_KEEP, EMPTY_BLOB_DIGEST};
+    use crate::proto::node::Node;
+    use crate::proto::{Directory, DirectoryNode, FileNode, SymlinkNode};
+    use crate::{directoryservice::MemoryDirectoryService, fixtures::DUMMY_DIGEST};
+
+    use super::ingest_entries;
+    use super::IngestionEntry;
+
+    #[rstest]
+    #[case::single_file(vec![IngestionEntry::Regular {
+        path: "foo".parse().unwrap(),
+        size: 42,
+        executable: true,
+        digest: DUMMY_DIGEST.clone(),
+    }],
+        Node::File(FileNode { name: "foo".into(), digest: DUMMY_DIGEST.clone().into(), size: 42, executable: true }
+    ))]
+    #[case::single_symlink(vec![IngestionEntry::Symlink {
+        path: "foo".parse().unwrap(),
+        target: b"blub".into(),
+    }],
+        Node::Symlink(SymlinkNode { name: "foo".into(), target: "blub".into()})
+    )]
+    #[case::single_dir(vec![IngestionEntry::Dir {
+        path: "foo".parse().unwrap(),
+    }],
+        Node::Directory(DirectoryNode { name: "foo".into(), digest: Directory::default().digest().into(), size: Directory::default().size()})
+    )]
+    #[case::dir_with_keep(vec![
+        IngestionEntry::Regular {
+            path: "foo/.keep".parse().unwrap(),
+            size: 0,
+            executable: false,
+            digest: EMPTY_BLOB_DIGEST.clone(),
+        },
+        IngestionEntry::Dir {
+            path: "foo".parse().unwrap(),
+        },
+    ],
+        Node::Directory(DirectoryNode { name: "foo".into(), digest: DIRECTORY_WITH_KEEP.digest().into(), size: DIRECTORY_WITH_KEEP.size() })
+    )]
+    /// This is intentionally a bit unsorted, though it still satisfies all
+    /// requirements we have on the order of elements in the stream.
+    #[case::directory_complicated(vec![
+        IngestionEntry::Regular {
+            path: "blub/.keep".parse().unwrap(),
+            size: 0,
+            executable: false,
+            digest: EMPTY_BLOB_DIGEST.clone(),
+        },
+        IngestionEntry::Regular {
+            path: "blub/keep/.keep".parse().unwrap(),
+            size: 0,
+            executable: false,
+            digest: EMPTY_BLOB_DIGEST.clone(),
+        },
+        IngestionEntry::Dir {
+            path: "blub/keep".parse().unwrap(),
+        },
+        IngestionEntry::Symlink {
+            path: "blub/aa".parse().unwrap(),
+            target: b"/nix/store/somewhereelse".into(),
+        },
+        IngestionEntry::Dir {
+            path: "blub".parse().unwrap(),
+        },
+    ],
+        Node::Directory(DirectoryNode { name: "blub".into(), digest: DIRECTORY_COMPLICATED.digest().into(), size:DIRECTORY_COMPLICATED.size() })
+    )]
+    #[tokio::test]
+    async fn test_ingestion(#[case] entries: Vec<IngestionEntry>, #[case] exp_root_node: Node) {
+        let directory_service = MemoryDirectoryService::default();
+
+        let root_node = ingest_entries(
+            directory_service.clone(),
+            futures::stream::iter(entries.into_iter().map(Ok::<_, std::io::Error>)),
+        )
+        .await
+        .expect("must succeed");
+
+        assert_eq!(exp_root_node, root_node, "root node should match");
+    }
+
+    #[rstest]
+    #[should_panic]
+    #[case::empty_entries(vec![])]
+    #[should_panic]
+    #[case::missing_intermediate_dir(vec![
+        IngestionEntry::Regular {
+            path: "blub/.keep".parse().unwrap(),
+            size: 0,
+            executable: false,
+            digest: EMPTY_BLOB_DIGEST.clone(),
+        },
+    ])]
+    #[should_panic]
+    #[case::leaf_after_parent(vec![
+        IngestionEntry::Dir {
+            path: "blub".parse().unwrap(),
+        },
+        IngestionEntry::Regular {
+            path: "blub/.keep".parse().unwrap(),
+            size: 0,
+            executable: false,
+            digest: EMPTY_BLOB_DIGEST.clone(),
+        },
+    ])]
+    #[should_panic]
+    #[case::root_in_entry(vec![
+        IngestionEntry::Regular {
+            path: ".keep".parse().unwrap(),
+            size: 0,
+            executable: false,
+            digest: EMPTY_BLOB_DIGEST.clone(),
+        },
+        IngestionEntry::Dir {
+            path: "".parse().unwrap(),
+        },
+    ])]
+    #[tokio::test]
+    async fn test_ingestion_fail(#[case] entries: Vec<IngestionEntry>) {
+        let directory_service = MemoryDirectoryService::default();
+
+        let _ = ingest_entries(
+            directory_service.clone(),
+            futures::stream::iter(entries.into_iter().map(Ok::<_, std::io::Error>)),
+        )
+        .await;
     }
 }
