@@ -135,6 +135,11 @@ where
     };
 
     assert!(
+        entries.count().await == 0,
+        "Tvix bug: left over elements in the stream"
+    );
+
+    assert!(
         directories.is_empty(),
         "Tvix bug: left over directories after processing ingestion stream"
     );
