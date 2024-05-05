@@ -288,12 +288,12 @@ impl IngestionEntryGraph {
             None => self.graph.add_node(entry),
         };
 
-        // A path with 1 component is the root node
+        // for archives, a path with 1 component is the root node
         if path.components().count() == 1 {
             // We expect archives to contain a single root node, if there is another root node
             // entry with a different path name, this is unsupported.
             if let Some(root_node) = self.root_node {
-                if self.get_node(root_node).path() != &path {
+                if self.get_node(root_node).path() != path.as_ref() {
                     return Err(Error::UnexpectedNumberOfTopLevelEntries);
                 }
             }

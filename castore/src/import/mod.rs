@@ -13,6 +13,7 @@ use crate::proto::DirectoryNode;
 use crate::proto::FileNode;
 use crate::proto::SymlinkNode;
 use crate::B3Digest;
+use crate::Path;
 use futures::{Stream, StreamExt};
 
 use tracing::Level;
@@ -183,7 +184,7 @@ pub enum IngestionEntry {
 }
 
 impl IngestionEntry {
-    fn path(&self) -> &PathBuf {
+    fn path(&self) -> &Path {
         match self {
             IngestionEntry::Regular { path, .. } => path,
             IngestionEntry::Symlink { path, .. } => path,
