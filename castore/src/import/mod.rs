@@ -121,15 +121,17 @@ where
             }),
         };
 
-        if entry.path().components().count() == 1 {
-            break node;
-        }
+        let parent = entry
+            .path()
+            .parent()
+            .expect("Tvix bug: got entry with root node");
 
-        // record node in parent directory, creating a new [Directory] if not there yet.
-        directories
-            .entry(entry.path().parent().unwrap().to_owned())
-            .or_default()
-            .add(node);
+        if parent == crate::Path::ROOT {
+            break node;
+        } else {
+            // record node in parent directory, creating a new [Directory] if not there yet.
+            directories.entry(parent.to_owned()).or_default().add(node);
+        }
     };
 
     assert!(
