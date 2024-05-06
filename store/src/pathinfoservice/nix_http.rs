@@ -221,7 +221,7 @@ where
             warn!(
                 narinfo.nar_size = narinfo.nar_size,
                 http.nar_size = nar_size,
-                "NARSize mismatch"
+                "NarSize mismatch"
             );
             Err(io::Error::new(
                 io::ErrorKind::InvalidData,
