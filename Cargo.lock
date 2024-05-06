@@ -207,17 +207,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-recursion"
-version = "1.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5fd55a5ba1179988837d24ab4c7cc8ed6efdeff578ede0416b4225a5fca35bd0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.48",
-]
-
-[[package]]
 name = "async-signal"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4387,7 +4376,6 @@ name = "tvix-glue"
 version = "0.1.0"
 dependencies = [
  "async-compression",
- "async-recursion",
  "bstr",
  "bytes",
  "criterion",
@@ -4438,7 +4426,6 @@ dependencies = [
  "anyhow",
  "async-compression",
  "async-process",
- "async-recursion",
  "async-stream",
  "bigtable_rs",
  "blake3",

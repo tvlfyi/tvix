@@ -1,4 +1,3 @@
-use async_recursion::async_recursion;
 use nix_compat::nar::reader::r#async as nar_reader;
 use tokio::{io::AsyncBufRead, sync::mpsc, try_join};
 use tvix_castore::{
@@ -54,10 +53,9 @@ where
     Ok(node.rename("".into()))
 }
 
-#[async_recursion]
-async fn produce_nar_inner<'a: 'async_recursion, 'r: 'async_recursion, BS>(
+async fn produce_nar_inner<BS>(
     blob_service: BS,
-    node: nar_reader::Node<'a, 'r>,
+    node: nar_reader::Node<'_, '_>,
     path: PathBuf,
     tx: mpsc::Sender<Result<IngestionEntry, Error>>,
 ) -> Result<IngestionEntry, Error>
@@ -93,8 +91,13 @@ where
                 path.try_push(&entry.name)
                     .expect("Tvix bug: failed to join name");
 
-                let entry =
-                    produce_nar_inner(blob_service.clone(), entry.node, path, tx.clone()).await?;
+                let entry = Box::pin(produce_nar_inner(
+                    blob_service.clone(),
+                    entry.node,
+                    path,
+                    tx.clone(),
+                ))
+                .await?;
 
                 tx.send(Ok(entry)).await.map_err(|e| {
                     Error::IO(std::io::Error::new(std::io::ErrorKind::BrokenPipe, e))

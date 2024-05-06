@@ -1,7 +1,6 @@
 use crate::utils::AsyncIoBridge;
 
 use super::RenderError;
-use async_recursion::async_recursion;
 use count_write::CountWrite;
 use nix_compat::nar::writer::r#async as nar_writer;
 use sha2::{Digest, Sha256};
@@ -72,9 +71,8 @@ where
 
 /// Process an intermediate node in the structure.
 /// This consumes the node.
-#[async_recursion]
 async fn walk_node<BS, DS>(
-    nar_node: nar_writer::Node<'async_recursion, '_>,
+    nar_node: nar_writer::Node<'_, '_>,
     proto_node: &castorepb::node::Node,
     blob_service: BS,
     directory_service: DS,
@@ -164,9 +162,13 @@ where
                             .await
                             .map_err(RenderError::NARWriterError)?;
 
-                        (blob_service, directory_service) =
-                            walk_node(child_node, &proto_node, blob_service, directory_service)
-                                .await?;
+                        (blob_service, directory_service) = Box::pin(walk_node(
+                            child_node,
+                            &proto_node,
+                            blob_service,
+                            directory_service,
+                        ))
+                        .await?;
                     }
 
                     // close the directory

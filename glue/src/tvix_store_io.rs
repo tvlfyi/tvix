@@ -1,6 +1,5 @@
 //! This module provides an implementation of EvalIO talking to tvix-store.
 
-use async_recursion::async_recursion;
 use bytes::Bytes;
 use futures::{StreamExt, TryStreamExt};
 use nix_compat::nixhash::NixHash;
@@ -92,7 +91,6 @@ impl TvixStoreIO {
     ///
     /// In case there is no PathInfo yet, this means we need to build it
     /// (which currently is stubbed out still).
-    #[async_recursion(?Send)]
     #[instrument(skip(self, store_path), fields(store_path=%store_path), ret(level = Level::TRACE), err)]
     async fn store_path_to_node(
         &self,
