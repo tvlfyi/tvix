@@ -9,11 +9,11 @@ use std::{
 
 use tokio::io::{self, AsyncRead, ReadBuf};
 
-/// Trailer represents up to 7 bytes of data read as part of the trailer block(s)
+/// Trailer represents up to 8 bytes of data read as part of the trailer block(s)
 #[derive(Debug)]
 pub(crate) struct Trailer {
     data_len: u8,
-    buf: [u8; 7],
+    buf: [u8; 8],
 }
 
 impl Deref for Trailer {
@@ -28,7 +28,7 @@ impl Deref for Trailer {
 pub(crate) trait Tag {
     /// The expected suffix
     ///
-    /// The first 7 bytes may be ignored, and it must be an 8-byte aligned size.
+    /// The first 8 bytes may be ignored, and it must be an 8-byte aligned size.
     const PATTERN: &'static [u8];
 
     /// Suitably sized buffer for reading [Self::PATTERN]
@@ -67,7 +67,7 @@ pub(crate) fn read_trailer<R: AsyncRead + Unpin, T: Tag>(
     reader: R,
     data_len: u8,
 ) -> ReadTrailer<R, T> {
-    assert!(data_len < 8, "payload in trailer must be less than 8 bytes");
+    assert!(data_len <= 8, "payload in trailer must be <= 8 bytes");
 
     let buf = T::make_buf();
     assert_eq!(buf.as_ref().len(), T::PATTERN.len());
@@ -108,8 +108,8 @@ impl<R: AsyncRead + Unpin, T: Tag> Future for ReadTrailer<R, T> {
             }
 
             if this.filled as usize == T::PATTERN.len() {
-                let mut buf = [0; 7];
-                buf.copy_from_slice(&this.buf.as_ref()[..7]);
+                let mut buf = [0; 8];
+                buf.copy_from_slice(&this.buf.as_ref()[..8]);
 
                 return Ok(Trailer {
                     data_len: this.data_len,
