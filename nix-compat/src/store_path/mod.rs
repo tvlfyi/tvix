@@ -56,7 +56,7 @@ pub enum Error {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StorePath {
     digest: [u8; DIGEST_SIZE],
-    name: String,
+    name: Box<str>,
 }
 
 impl StorePath {
@@ -65,7 +65,7 @@ impl StorePath {
     }
 
     pub fn name(&self) -> &str {
-        self.name.as_ref()
+        &self.name
     }
 
     pub fn as_ref(&self) -> StorePathRef<'_> {
@@ -176,10 +176,7 @@ pub struct StorePathRef<'a> {
 
 impl<'a> From<&'a StorePath> for StorePathRef<'a> {
     fn from(&StorePath { digest, ref name }: &'a StorePath) -> Self {
-        StorePathRef {
-            digest,
-            name: name.as_ref(),
-        }
+        StorePathRef { digest, name }
     }
 }
 
@@ -209,7 +206,7 @@ impl<'a> StorePathRef<'a> {
     pub fn to_owned(&self) -> StorePath {
         StorePath {
             digest: self.digest,
-            name: self.name.to_owned(),
+            name: self.name.into(),
         }
     }
 
@@ -394,7 +391,7 @@ mod tests {
 
         let expected_digest: [u8; DIGEST_SIZE] = hex!("8a12321522fd91efbd60ebb2481af88580f61600");
 
-        assert_eq!("net-tools-1.60_p20170221182432", nixpath.name);
+        assert_eq!("net-tools-1.60_p20170221182432", nixpath.name());
         assert_eq!(nixpath.digest, expected_digest);
 
         assert_eq!(example_nix_path_str, nixpath.to_string())
