@@ -15,7 +15,6 @@ const EMPTY_BYTES: &[u8; 8] = &[0u8; 8];
 /// The length of the size field, in bytes is always 8.
 const LEN_SIZE: usize = 8;
 
-#[allow(dead_code)]
 /// Read a "bytes wire packet" from the AsyncRead.
 /// Rejects reading more than `allowed_size` bytes of payload.
 ///
