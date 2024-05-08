@@ -124,10 +124,9 @@ impl<R: AsyncRead + Unpin, T: Tag> Future for ReadTrailer<R, T> {
             ready!(Pin::new(&mut this.reader).poll_read(cx, &mut buf))?;
 
             this.filled = {
-                let prev_filled = this.filled;
                 let filled = buf.filled().len() as u8;
 
-                if filled == prev_filled {
+                if filled == this.filled {
                     return Err(io::ErrorKind::UnexpectedEof.into()).into();
                 }
 
