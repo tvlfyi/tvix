@@ -2,7 +2,7 @@ use std::{
     io::{Error, ErrorKind},
     ops::RangeInclusive,
 };
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
 
 pub(crate) mod reader;
 pub use reader::BytesReader;
@@ -35,7 +35,7 @@ const LEN_SIZE: usize = 8;
 pub async fn read_bytes<R: ?Sized>(
     r: &mut R,
     allowed_size: RangeInclusive<usize>,
-) -> std::io::Result<Vec<u8>>
+) -> io::Result<Vec<u8>>
 where
     R: AsyncReadExt + Unpin,
 {
@@ -46,8 +46,8 @@ where
         .ok()
         .filter(|len| allowed_size.contains(len))
         .ok_or_else(|| {
-            std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
+            io::Error::new(
+                io::ErrorKind::InvalidData,
                 "signalled package size not in allowed range",
             )
         })?;
@@ -63,15 +63,15 @@ where
 
     // make sure we got exactly the number of bytes, and not less.
     if s as u64 != padded_len {
-        return Err(std::io::ErrorKind::UnexpectedEof.into());
+        return Err(io::ErrorKind::UnexpectedEof.into());
     }
 
     let (_content, padding) = buf.split_at(len);
 
     // ensure the padding is all zeroes.
-    if !padding.iter().all(|e| *e == b'\0') {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
+    if padding.iter().any(|&b| b != 0) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
             "padding is not all zeroes",
         ));
     }
@@ -84,10 +84,7 @@ where
 /// Read a "bytes wire packet" of from the AsyncRead and tries to parse as string.
 /// Internally uses [read_bytes].
 /// Rejects reading more than `allowed_size` bytes of payload.
-pub async fn read_string<R>(
-    r: &mut R,
-    allowed_size: RangeInclusive<usize>,
-) -> std::io::Result<String>
+pub async fn read_string<R>(r: &mut R, allowed_size: RangeInclusive<usize>) -> io::Result<String>
 where
     R: AsyncReadExt + Unpin,
 {
@@ -107,7 +104,7 @@ where
 pub async fn write_bytes<W: AsyncWriteExt + Unpin, B: AsRef<[u8]>>(
     w: &mut W,
     b: B,
-) -> std::io::Result<()> {
+) -> io::Result<()> {
     // write the size packet.
     w.write_u64_le(b.as_ref().len() as u64).await?;
 
