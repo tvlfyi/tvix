@@ -71,7 +71,7 @@ fn complicated() {
                     .expect("next must be some")
                     .expect("must be some");
 
-                assert_eq!(&b"keep"[..], &entry.name);
+                assert_eq!(b"keep", entry.name);
 
                 match entry.node {
                     nar::reader::Node::Directory(mut subdir_reader) => {
@@ -117,7 +117,7 @@ fn file_read_abandoned() {
                     .expect("next must succeed")
                     .expect("must be some");
 
-                assert_eq!(&b".keep"[..], &entry.name);
+                assert_eq!(b".keep", entry.name);
                 // don't bother to finish reading it.
             };
 
@@ -162,7 +162,7 @@ fn dir_read_abandoned() {
                     .expect("next must be some")
                     .expect("must be some");
 
-                assert_eq!(&b"keep"[..], &entry.name);
+                assert_eq!(b"keep", entry.name);
 
                 match entry.node {
                     nar::reader::Node::Directory(_) => {
@@ -213,7 +213,7 @@ fn dir_read_after_none() {
                     .expect("next must be some")
                     .expect("must be some");
 
-                assert_eq!(&b"keep"[..], &entry.name);
+                assert_eq!(b"keep", entry.name);
 
                 match entry.node {
                     nar::reader::Node::Directory(mut subdir_reader) => {
@@ -248,7 +248,7 @@ fn dir_read_after_none() {
 }
 
 fn must_read_file(name: &'static str, entry: nar::reader::Entry<'_, '_>) {
-    assert_eq!(name.as_bytes(), &entry.name);
+    assert_eq!(name.as_bytes(), entry.name);
 
     match entry.node {
         nar::reader::Node::File {
@@ -267,7 +267,7 @@ fn must_be_symlink(
     exp_target: &'static str,
     entry: nar::reader::Entry<'_, '_>,
 ) {
-    assert_eq!(name.as_bytes(), &entry.name);
+    assert_eq!(name.as_bytes(), entry.name);
 
     match entry.node {
         nar::reader::Node::Symlink { target } => {

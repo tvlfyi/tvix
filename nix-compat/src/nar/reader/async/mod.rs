@@ -1,4 +1,5 @@
 use std::{
+    mem::MaybeUninit,
     pin::Pin,
     task::{self, Poll},
 };
@@ -110,11 +111,11 @@ pub struct DirReader<'a, 'r> {
     reader: &'a mut Reader<'r>,
     /// Previous directory entry name.
     /// We have to hang onto this to enforce name monotonicity.
-    prev_name: Option<Vec<u8>>,
+    prev_name: Vec<u8>,
 }
 
 pub struct Entry<'a, 'r> {
-    pub name: Vec<u8>,
+    pub name: &'a [u8],
     pub node: Node<'a, 'r>,
 }
 
@@ -122,7 +123,7 @@ impl<'a, 'r> DirReader<'a, 'r> {
     fn new(reader: &'a mut Reader<'r>) -> Self {
         Self {
             reader,
-            prev_name: None,
+            prev_name: vec![],
         }
     }
 
@@ -138,7 +139,7 @@ impl<'a, 'r> DirReader<'a, 'r> {
     pub async fn next(&mut self) -> io::Result<Option<Entry<'_, 'r>>> {
         // COME FROM the previous iteration: if we've already read an entry,
         // read its terminating TOK_PAR here.
-        if self.prev_name.is_some() {
+        if !self.prev_name.is_empty() {
             read::token(self.reader, &nar::wire::TOK_PAR).await?;
         }
 
@@ -146,30 +147,26 @@ impl<'a, 'r> DirReader<'a, 'r> {
             return Ok(None);
         }
 
-        let name = wire::read_bytes(self.reader, 1..=nar::wire::MAX_NAME_LEN).await?;
+        let mut name = [MaybeUninit::uninit(); nar::wire::MAX_NAME_LEN + 1];
+        let name =
+            wire::read_bytes_buf(self.reader, &mut name, 1..=nar::wire::MAX_NAME_LEN).await?;
 
         if name.contains(&0) || name.contains(&b'/') || name == b"." || name == b".." {
             return Err(InvalidData.into());
         }
 
         // Enforce strict monotonicity of directory entry names.
-        match &mut self.prev_name {
-            None => {
-                self.prev_name = Some(name.clone());
-            }
-            Some(prev_name) => {
-                if *prev_name >= name {
-                    return Err(InvalidData.into());
-                }
-
-                name[..].clone_into(prev_name);
-            }
+        if &self.prev_name[..] >= name {
+            return Err(InvalidData.into());
         }
+
+        self.prev_name.clear();
+        self.prev_name.extend_from_slice(name);
 
         read::token(self.reader, &nar::wire::TOK_NOD).await?;
 
         Ok(Some(Entry {
-            name,
+            name: &self.prev_name,
             node: Node::new(self.reader).await?,
         }))
     }

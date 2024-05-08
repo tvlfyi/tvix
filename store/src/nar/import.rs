@@ -87,7 +87,7 @@ where
                 let mut path = path.clone();
 
                 // valid NAR names are valid castore names
-                path.try_push(&entry.name)
+                path.try_push(entry.name)
                     .expect("Tvix bug: failed to join name");
 
                 let entry = Box::pin(produce_nar_inner(

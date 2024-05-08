@@ -147,7 +147,7 @@ fn ingest(node: nar::Node, name: Vec<u8>, avg_chunk_size: u32) -> Result<proto::
             let mut symlinks = vec![];
 
             while let Some(node) = reader.next()? {
-                match ingest(node.node, node.name, avg_chunk_size)? {
+                match ingest(node.node, node.name.to_owned(), avg_chunk_size)? {
                     proto::path::Node::Directory(node) => {
                         directories.push(node);
                     }

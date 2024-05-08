@@ -15,6 +15,38 @@ pub fn u64(reader: &mut Reader) -> io::Result<u64> {
     Ok(u64::from_le_bytes(buf))
 }
 
+/// Consume a byte string from the reader into a provided buffer,
+/// returning the data bytes.
+pub fn bytes_buf<'a, const N: usize>(
+    reader: &mut Reader,
+    buf: &'a mut [u8; N],
+    max_len: usize,
+) -> io::Result<&'a [u8]> {
+    assert_eq!(N % 8, 0);
+    assert!(max_len <= N);
+
+    // read the length, and reject excessively large values
+    let len = self::u64(reader)?;
+    if len > max_len as u64 {
+        return Err(InvalidData.into());
+    }
+    // we know the length fits in a usize now
+    let len = len as usize;
+
+    // read the data and padding into a buffer
+    let buf_len = (len + 7) & !7;
+    reader.read_exact(&mut buf[..buf_len])?;
+
+    // verify that the padding is all zeroes
+    for &b in &buf[len..buf_len] {
+        if b != 0 {
+            return Err(InvalidData.into());
+        }
+    }
+
+    Ok(&buf[..len])
+}
+
 /// Consume a byte string of up to `max_len` bytes from the reader.
 pub fn bytes(reader: &mut Reader, max_len: usize) -> io::Result<Vec<u8>> {
     assert!(max_len <= isize::MAX as usize);

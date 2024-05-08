@@ -82,7 +82,6 @@ where
     Ok(buf)
 }
 
-#[allow(dead_code)]
 pub(crate) async fn read_bytes_buf<'a, const N: usize, R: ?Sized>(
     reader: &mut R,
     buf: &'a mut [MaybeUninit<u8>; N],

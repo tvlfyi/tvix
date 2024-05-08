@@ -264,11 +264,11 @@ pub struct DirReader<'a, 'r> {
     reader: ArchiveReader<'a, 'r>,
     /// Previous directory entry name.
     /// We have to hang onto this to enforce name monotonicity.
-    prev_name: Option<Vec<u8>>,
+    prev_name: Vec<u8>,
 }
 
 pub struct Entry<'a, 'r> {
-    pub name: Vec<u8>,
+    pub name: &'a [u8],
     pub node: Node<'a, 'r>,
 }
 
@@ -276,7 +276,7 @@ impl<'a, 'r> DirReader<'a, 'r> {
     fn new(reader: ArchiveReader<'a, 'r>) -> Self {
         Self {
             reader,
-            prev_name: None,
+            prev_name: vec![],
         }
     }
 
@@ -295,7 +295,7 @@ impl<'a, 'r> DirReader<'a, 'r> {
 
         // COME FROM the previous iteration: if we've already read an entry,
         // read its terminating TOK_PAR here.
-        if self.prev_name.is_some() {
+        if !self.prev_name.is_empty() {
             try_or_poison!(self.reader, read::token(self.reader.inner, &wire::TOK_PAR));
         }
 
@@ -306,9 +306,10 @@ impl<'a, 'r> DirReader<'a, 'r> {
             return Ok(None);
         }
 
+        let mut name = [0; wire::MAX_NAME_LEN + 1];
         let name = try_or_poison!(
             self.reader,
-            read::bytes(self.reader.inner, wire::MAX_NAME_LEN)
+            read::bytes_buf(self.reader.inner, &mut name, wire::MAX_NAME_LEN)
         );
 
         if name.is_empty()
@@ -322,24 +323,18 @@ impl<'a, 'r> DirReader<'a, 'r> {
         }
 
         // Enforce strict monotonicity of directory entry names.
-        match &mut self.prev_name {
-            None => {
-                self.prev_name = Some(name.clone());
-            }
-            Some(prev_name) => {
-                if *prev_name >= name {
-                    self.reader.status.poison();
-                    return Err(InvalidData.into());
-                }
-
-                name[..].clone_into(prev_name);
-            }
+        if &self.prev_name[..] >= name {
+            self.reader.status.poison();
+            return Err(InvalidData.into());
         }
+
+        self.prev_name.clear();
+        self.prev_name.extend_from_slice(name);
 
         try_or_poison!(self.reader, read::token(self.reader.inner, &wire::TOK_NOD));
 
         Ok(Some(Entry {
-            name,
+            name: &self.prev_name,
             // Don't need to worry about poisoning here: Node::new will do it for us if needed
             node: Node::new(self.reader.child())?,
         }))
