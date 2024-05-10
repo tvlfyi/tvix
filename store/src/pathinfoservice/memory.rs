@@ -7,33 +7,14 @@ use std::{
 };
 use tonic::async_trait;
 use tvix_castore::Error;
-use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService};
 
-pub struct MemoryPathInfoService<BS, DS> {
+#[derive(Default)]
+pub struct MemoryPathInfoService {
     db: Arc<RwLock<HashMap<[u8; 20], PathInfo>>>,
-
-    #[allow(dead_code)]
-    blob_service: BS,
-    #[allow(dead_code)]
-    directory_service: DS,
-}
-
-impl<BS, DS> MemoryPathInfoService<BS, DS> {
-    pub fn new(blob_service: BS, directory_service: DS) -> Self {
-        Self {
-            db: Default::default(),
-            blob_service,
-            directory_service,
-        }
-    }
 }
 
 #[async_trait]
-impl<BS, DS> PathInfoService for MemoryPathInfoService<BS, DS>
-where
-    BS: AsRef<dyn BlobService> + Send + Sync,
-    DS: AsRef<dyn DirectoryService> + Send + Sync,
-{
+impl PathInfoService for MemoryPathInfoService {
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
         let db = self.db.read().unwrap();
 

@@ -26,9 +26,8 @@ pub async fn make_grpc_path_info_service_client() -> super::BSDSPS {
         let blob_service = blob_service.clone();
         let directory_service = directory_service.clone();
         async move {
-            let path_info_service: Arc<dyn PathInfoService> = Arc::from(
-                MemoryPathInfoService::new(blob_service.clone(), directory_service.clone()),
-            );
+            let path_info_service: Arc<dyn PathInfoService> =
+                Arc::from(MemoryPathInfoService::default());
             let nar_calculation_service =
                 Box::new(SimpleRenderer::new(blob_service, directory_service))
                     as Box<dyn NarCalculationService>;

@@ -47,7 +47,7 @@ pub async fn from_addr(
             if url.has_host() || !url.path().is_empty() {
                 return Err(Error::StorageError("invalid url".to_string()));
             }
-            Box::new(MemoryPathInfoService::new(blob_service, directory_service))
+            Box::<MemoryPathInfoService>::default()
         }
         "sled" => {
             // sled doesn't support host, and a path can be provided (otherwise
