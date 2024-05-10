@@ -1160,7 +1160,7 @@ rec {
           }
           {
             name = "hyper";
-            packageId = "hyper 1.2.0";
+            packageId = "hyper 1.3.1";
             optional = true;
           }
           {
@@ -4349,7 +4349,7 @@ rec {
           }
           {
             name = "rustls";
-            packageId = "rustls 0.21.10";
+            packageId = "rustls 0.21.12";
           }
           {
             name = "rustls-pemfile";
@@ -4527,11 +4527,11 @@ rec {
         ];
 
       };
-      "h2 0.3.24" = rec {
+      "h2 0.3.26" = rec {
         crateName = "h2";
-        version = "0.3.24";
+        version = "0.3.26";
         edition = "2018";
-        sha256 = "1jf9488b66nayxzp3iw3b2rb64y49hdbbywnv9wfwrsv14i48b5v";
+        sha256 = "1s7msnfv7xprzs6xzfj5sg6p8bjcdpcqcmjjbkd345cyi1x55zl1";
         authors = [
           "Carl Lerche <me@carllerche.com>"
           "Sean McArthur <sean@seanmonstar.com>"
@@ -4599,11 +4599,11 @@ rec {
         ];
         features = { };
       };
-      "h2 0.4.3" = rec {
+      "h2 0.4.4" = rec {
         crateName = "h2";
-        version = "0.4.3";
+        version = "0.4.4";
         edition = "2021";
-        sha256 = "1m4rj76zl77jany6p10k4mm1cqwsrlc1dmgmxwp3jy7kwk92vvji";
+        sha256 = "0sc0ymhiqp4hbz39d405cjbga77wnz2pprbgyc498xs58hlwfvl1";
         authors = [
           "Carl Lerche <me@carllerche.com>"
           "Sean McArthur <sean@seanmonstar.com>"
@@ -5021,7 +5021,7 @@ rec {
           }
           {
             name = "h2";
-            packageId = "h2 0.3.24";
+            packageId = "h2 0.3.26";
             optional = true;
           }
           {
@@ -5099,11 +5099,11 @@ rec {
         };
         resolvedDefaultFeatures = [ "client" "default" "full" "h2" "http1" "http2" "runtime" "server" "socket2" "stream" "tcp" ];
       };
-      "hyper 1.2.0" = rec {
+      "hyper 1.3.1" = rec {
         crateName = "hyper";
-        version = "1.2.0";
+        version = "1.3.1";
         edition = "2021";
-        sha256 = "0fi6k7hz5fmdph0a5r8hw50d7h2n9zxkizmafcmb65f67bblhr8q";
+        sha256 = "0va9pjqshsr8zc07m9h4j2821hsmd9lw9j416yisjqh8gp8msmzy";
         authors = [
           "Sean McArthur <sean@seanmonstar.com>"
         ];
@@ -5125,7 +5125,7 @@ rec {
           }
           {
             name = "h2";
-            packageId = "h2 0.4.3";
+            packageId = "h2 0.4.4";
             optional = true;
           }
           {
@@ -5178,7 +5178,7 @@ rec {
             name = "futures-util";
             packageId = "futures-util";
             usesDefaultFeatures = false;
-            features = [ "sink" ];
+            features = [ "alloc" "sink" ];
           }
           {
             name = "tokio";
@@ -5188,7 +5188,7 @@ rec {
         ];
         features = {
           "client" = [ "dep:want" "dep:pin-project-lite" "dep:smallvec" ];
-          "ffi" = [ "dep:libc" "dep:http-body-util" ];
+          "ffi" = [ "dep:libc" "dep:http-body-util" "futures-util?/alloc" ];
           "full" = [ "client" "http1" "http2" "server" ];
           "http1" = [ "dep:futures-channel" "dep:futures-util" "dep:httparse" "dep:itoa" ];
           "http2" = [ "dep:futures-channel" "dep:futures-util" "dep:h2" ];
@@ -5220,7 +5220,7 @@ rec {
           }
           {
             name = "rustls";
-            packageId = "rustls 0.21.10";
+            packageId = "rustls 0.21.12";
             usesDefaultFeatures = false;
           }
           {
@@ -5246,7 +5246,7 @@ rec {
           }
           {
             name = "rustls";
-            packageId = "rustls 0.21.10";
+            packageId = "rustls 0.21.12";
             usesDefaultFeatures = false;
             features = [ "tls12" ];
           }
@@ -5341,7 +5341,7 @@ rec {
           }
           {
             name = "hyper";
-            packageId = "hyper 1.2.0";
+            packageId = "hyper 1.3.1";
           }
           {
             name = "pin-project-lite";
@@ -5367,7 +5367,7 @@ rec {
           }
           {
             name = "hyper";
-            packageId = "hyper 1.2.0";
+            packageId = "hyper 1.3.1";
             features = [ "full" ];
           }
           {
@@ -6511,9 +6511,9 @@ rec {
       };
       "mio" = rec {
         crateName = "mio";
-        version = "0.8.10";
+        version = "0.8.11";
         edition = "2018";
-        sha256 = "02gyaxvaia9zzi4drrw59k9s0j6pa5d1y2kv7iplwjipdqlhngcg";
+        sha256 = "034byyl0ardml5yliy1hmvx8arkmn9rv479pid794sm07ia519m4";
         authors = [
           "Carl Lerche <me@carllerche.com>"
           "Thomas de Zeeuw <thomasdezeeuw@gmail.com>"
@@ -9352,7 +9352,7 @@ rec {
           }
           {
             name = "h2";
-            packageId = "h2 0.3.24";
+            packageId = "h2 0.3.26";
             target = { target, features }: (!("wasm32" == target."arch" or null));
           }
           {
@@ -9415,7 +9415,7 @@ rec {
           }
           {
             name = "rustls";
-            packageId = "rustls 0.21.10";
+            packageId = "rustls 0.21.12";
             optional = true;
             target = { target, features }: (!("wasm32" == target."arch" or null));
             features = [ "dangerous_configuration" ];
@@ -9977,11 +9977,11 @@ rec {
         };
         resolvedDefaultFeatures = [ "alloc" "default" "event" "fs" "net" "pipe" "process" "std" "termios" "time" "use-libc-auxv" ];
       };
-      "rustls 0.21.10" = rec {
+      "rustls 0.21.12" = rec {
         crateName = "rustls";
-        version = "0.21.10";
+        version = "0.21.12";
         edition = "2021";
-        sha256 = "1fmpzk3axnhkd99saqkvraifdfms4pkyi56lkihf8n877j0sdmgr";
+        sha256 = "0gjdg2a9r81sdwkyw3n5yfbkrr6p9gyk3xr2kcsr3cs83x6s2miz";
         dependencies = [
           {
             name = "log";
@@ -10018,11 +10018,11 @@ rec {
         };
         resolvedDefaultFeatures = [ "dangerous_configuration" "default" "log" "logging" "tls12" ];
       };
-      "rustls 0.22.2" = rec {
+      "rustls 0.22.4" = rec {
         crateName = "rustls";
-        version = "0.22.2";
+        version = "0.22.4";
         edition = "2021";
-        sha256 = "0hcxyhq6ynvws9v5b2h81s1nwmijmya7a3vyyyhsy1wqpmb9jz78";
+        sha256 = "0cl4q6w0x1cl5ldjsgbbiiqhkz6qg5vxl5dkn9wwsyxc44vzfkmz";
         dependencies = [
           {
             name = "log";
@@ -12203,7 +12203,7 @@ rec {
         dependencies = [
           {
             name = "rustls";
-            packageId = "rustls 0.21.10";
+            packageId = "rustls 0.21.12";
             usesDefaultFeatures = false;
           }
           {
@@ -12235,7 +12235,7 @@ rec {
         dependencies = [
           {
             name = "rustls";
-            packageId = "rustls 0.22.2";
+            packageId = "rustls 0.22.4";
             usesDefaultFeatures = false;
           }
           {
@@ -12614,7 +12614,7 @@ rec {
           }
           {
             name = "h2";
-            packageId = "h2 0.3.24";
+            packageId = "h2 0.3.26";
             optional = true;
           }
           {
@@ -12765,7 +12765,7 @@ rec {
           }
           {
             name = "h2";
-            packageId = "h2 0.3.24";
+            packageId = "h2 0.3.26";
             optional = true;
           }
           {
