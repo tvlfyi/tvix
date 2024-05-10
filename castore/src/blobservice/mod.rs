@@ -11,7 +11,6 @@ mod grpc;
 mod memory;
 mod naive_seeker;
 mod object_store;
-mod sled;
 
 #[cfg(test)]
 pub mod tests;
@@ -22,7 +21,6 @@ pub use self::from_addr::from_addr;
 pub use self::grpc::GRPCBlobService;
 pub use self::memory::MemoryBlobService;
 pub use self::object_store::ObjectStoreBlobService;
-pub use self::sled::SledBlobService;
 
 /// The base trait all BlobService services need to implement.
 /// It provides functions to check whether a given blob exists,

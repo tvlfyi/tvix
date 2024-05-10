@@ -2,15 +2,12 @@ use url::Url;
 
 use crate::{proto::blob_service_client::BlobServiceClient, Error};
 
-use super::{
-    BlobService, GRPCBlobService, MemoryBlobService, ObjectStoreBlobService, SledBlobService,
-};
+use super::{BlobService, GRPCBlobService, MemoryBlobService, ObjectStoreBlobService};
 
 /// Constructs a new instance of a [BlobService] from an URI.
 ///
 /// The following schemes are supported by the following services:
 /// - `memory://` ([MemoryBlobService])
-/// - `sled://` ([SledBlobService])
 /// - `grpc+*://` ([GRPCBlobService])
 /// - `objectstore+*://` ([ObjectStoreBlobService])
 ///
@@ -26,27 +23,6 @@ pub async fn from_addr(uri: &str) -> Result<Box<dyn BlobService>, crate::Error> 
                 return Err(Error::StorageError("invalid url".to_string()));
             }
             Box::<MemoryBlobService>::default()
-        }
-        "sled" => {
-            // sled doesn't support host, and a path can be provided (otherwise
-            // it'll live in memory only).
-            if url.has_host() {
-                return Err(Error::StorageError("no host allowed".to_string()));
-            }
-
-            if url.path() == "/" {
-                return Err(Error::StorageError(
-                    "cowardly refusing to open / with sled".to_string(),
-                ));
-            }
-
-            // TODO: expose other parameters as URL parameters?
-
-            Box::new(if url.path().is_empty() {
-                SledBlobService::new_temporary().map_err(|e| Error::StorageError(e.to_string()))?
-            } else {
-                SledBlobService::new(url.path()).map_err(|e| Error::StorageError(e.to_string()))?
-            })
         }
         scheme if scheme.starts_with("grpc+") => {
             // schemes starting with grpc+ go to the GRPCPathInfoService.
@@ -83,28 +59,11 @@ pub async fn from_addr(uri: &str) -> Result<Box<dyn BlobService>, crate::Error> 
 #[cfg(test)]
 mod tests {
     use super::from_addr;
-    use lazy_static::lazy_static;
     use rstest::rstest;
-    use tempfile::TempDir;
-
-    lazy_static! {
-        static ref TMPDIR_SLED_1: TempDir = TempDir::new().unwrap();
-        static ref TMPDIR_SLED_2: TempDir = TempDir::new().unwrap();
-    }
 
     #[rstest]
     /// This uses an unsupported scheme.
     #[case::unsupported_scheme("http://foo.example/test", false)]
-    /// This configures sled in temporary mode.
-    #[case::sled_temporary("sled://", true)]
-    /// This configures sled with /, which should fail.
-    #[case::sled_invalid_root("sled:///", false)]
-    /// This configures sled with a host, not path, which should fail.
-    #[case::sled_invalid_host("sled://foo.example", false)]
-    /// This configures sled with a valid path path, which should succeed.
-    #[case::sled_valid_path(&format!("sled://{}", &TMPDIR_SLED_1.path().to_str().unwrap()), true)]
-    /// This configures sled with a host, and a valid path path, which should fail.
-    #[case::sled_invalid_host_with_valid_path(&format!("sled://foo.example{}", &TMPDIR_SLED_2.path().to_str().unwrap()), false)]
     /// This correctly sets the scheme, and doesn't set a path.
     #[case::memory_valid("memory://", true)]
     /// This sets a memory url host to `foo`
