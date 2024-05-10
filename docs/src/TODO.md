@@ -10,11 +10,20 @@ Feel free to add new ideas. Before picking something, ask in `#tvix-dev` to make
 sure noone is working on this, or has some specific design in mind already.
 
 ## Cleanups
+### Nix language test suite
+ - Think about how to merge, but "categorize" `tvix_tests` in `glue` and `eval`.
+   We currently only have this split as they need a different feature set /
+   builtins.
  - move some of the rstest cases in `tvix-glue` to the `.nix`/`.exp` mechanism.
-   - Parts requiring test fixtures need some special convention.
-     Some of these also cannot be checked into the repo, like the import tests
-     adding special files to test filtering.
- - add `nix_oracle` mechanism from `tvix-eval` to `tvix-glue`.
+   Some of them need test fixtures, which cannot be represented in git (special
+   file types in the import tests for example). Needs some support from the test
+   suite to create these fixtures on demand.
+ - extend `verify-lang-tests/default.nix` mechanism to validate `tvix-eval` and
+   `tvix-glue` test cases (or the common structure above).
+ - absorb `eval/tests/nix_oracle.rs` into `tvix_tests`, or figure out why it's
+   not possible (and document) it. It looks like it's only as nix is invoked
+   with a different level of `--strict`, but the toplevel doc-comment suggests
+   its generic?
 
 ## Fixes towards correctness
  - `builtins.toXML` is missing string context. See b/398.
