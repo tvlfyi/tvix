@@ -1,4 +1,3 @@
-use std::sync::PoisonError;
 use thiserror::Error;
 use tokio::task::JoinError;
 use tonic::Status;
@@ -11,12 +10,6 @@ pub enum Error {
 
     #[error("internal storage error: {0}")]
     StorageError(String),
-}
-
-impl<T> From<PoisonError<T>> for Error {
-    fn from(value: PoisonError<T>) -> Self {
-        Error::StorageError(value.to_string())
-    }
 }
 
 impl From<JoinError> for Error {
