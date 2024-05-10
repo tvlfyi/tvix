@@ -13,7 +13,7 @@ use crate::proto::PathInfo;
 use crate::tests::fixtures::DUMMY_PATH_DIGEST;
 
 mod utils;
-use self::utils::make_grpc_path_info_service_client;
+pub use self::utils::make_grpc_path_info_service_client;
 
 /// Convenience type alias batching all three servives together.
 #[allow(clippy::upper_case_acronyms)]

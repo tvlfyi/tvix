@@ -128,85 +128,16 @@ impl PathInfoService for GRPCPathInfoService {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-    use std::time::Duration;
-
-    use rstest::*;
-    use tempfile::TempDir;
-    use tokio::net::UnixListener;
-    use tokio_retry::strategy::ExponentialBackoff;
-    use tokio_retry::Retry;
-    use tokio_stream::wrappers::UnixListenerStream;
-    use tvix_castore::blobservice::BlobService;
-    use tvix_castore::directoryservice::DirectoryService;
-
-    use crate::pathinfoservice::MemoryPathInfoService;
-    use crate::proto::path_info_service_client::PathInfoServiceClient;
-    use crate::proto::GRPCPathInfoServiceWrapper;
-    use crate::tests::fixtures::{self, blob_service, directory_service};
-
-    use super::GRPCPathInfoService;
-    use super::PathInfoService;
+    use crate::pathinfoservice::tests::make_grpc_path_info_service_client;
+    use crate::tests::fixtures;
 
     /// This ensures connecting via gRPC works as expected.
-    #[rstest]
     #[tokio::test]
-    async fn test_valid_unix_path_ping_pong(
-        blob_service: Arc<dyn BlobService>,
-        directory_service: Arc<dyn DirectoryService>,
-    ) {
-        let tmpdir = TempDir::new().unwrap();
-        let socket_path = tmpdir.path().join("daemon");
+    async fn test_valid_unix_path_ping_pong() {
+        let (_blob_service, _directory_service, path_info_service) =
+            make_grpc_path_info_service_client().await;
 
-        let path_clone = socket_path.clone();
-
-        // Spin up a server
-        tokio::spawn(async {
-            let uds = UnixListener::bind(path_clone).unwrap();
-            let uds_stream = UnixListenerStream::new(uds);
-
-            // spin up a new server
-            let mut server = tonic::transport::Server::builder();
-            let router = server.add_service(
-                crate::proto::path_info_service_server::PathInfoServiceServer::new(
-                    GRPCPathInfoServiceWrapper::new(Box::new(MemoryPathInfoService::new(
-                        blob_service,
-                        directory_service,
-                    ))
-                        as Box<dyn PathInfoService>),
-                ),
-            );
-            router.serve_with_incoming(uds_stream).await
-        });
-
-        // wait for the socket to be created
-        Retry::spawn(
-            ExponentialBackoff::from_millis(20).max_delay(Duration::from_secs(10)),
-            || async {
-                if socket_path.exists() {
-                    Ok(())
-                } else {
-                    Err(())
-                }
-            },
-        )
-        .await
-        .expect("failed to wait for socket");
-
-        // prepare a client
-        let grpc_client = {
-            let url = url::Url::parse(&format!("grpc+unix://{}", socket_path.display()))
-                .expect("must parse");
-            let client = PathInfoServiceClient::new(
-                tvix_castore::tonic::channel_from_url(&url)
-                    .await
-                    .expect("must succeed"),
-            );
-
-            GRPCPathInfoService::from_client(client)
-        };
-
-        let path_info = grpc_client
+        let path_info = path_info_service
             .get(fixtures::DUMMY_PATH_DIGEST)
             .await
             .expect("must not be error");
