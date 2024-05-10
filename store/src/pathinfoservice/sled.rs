@@ -1,8 +1,8 @@
 use super::PathInfoService;
 use crate::nar::calculate_size_and_sha256;
 use crate::proto::PathInfo;
+use async_stream::try_stream;
 use data_encoding::BASE64;
-use futures::stream::iter;
 use futures::stream::BoxStream;
 use prost::Message;
 use std::path::Path;
@@ -61,10 +61,16 @@ where
 {
     #[instrument(level = "trace", skip_all, fields(path_info.digest = BASE64.encode(&digest)))]
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
-        match self.db.get(digest).map_err(|e| {
+        let resp = tokio::task::spawn_blocking({
+            let db = self.db.clone();
+            move || db.get(digest.as_slice())
+        })
+        .await?
+        .map_err(|e| {
             warn!("failed to retrieve PathInfo: {}", e);
             Error::StorageError(format!("failed to retrieve PathInfo: {}", e))
-        })? {
+        })?;
+        match resp {
             None => Ok(None),
             Some(data) => {
                 let path_info = PathInfo::decode(&*data).map_err(|e| {
@@ -86,14 +92,19 @@ where
         // In case the PathInfo is valid, we were able to parse a StorePath.
         // Store it in the database, keyed by its digest.
         // This overwrites existing PathInfo objects.
-        self.db
-            .insert(store_path.digest(), path_info.encode_to_vec())
-            .map_err(|e| {
-                warn!("failed to insert PathInfo: {}", e);
-                Error::StorageError(format! {
-                    "failed to insert PathInfo: {}", e
-                })
-            })?;
+        tokio::task::spawn_blocking({
+            let db = self.db.clone();
+            let k = *store_path.digest();
+            let data = path_info.encode_to_vec();
+            move || db.insert(k, data)
+        })
+        .await?
+        .map_err(|e| {
+            warn!("failed to insert PathInfo: {}", e);
+            Error::StorageError(format! {
+                "failed to insert PathInfo: {}", e
+            })
+        })?;
 
         Ok(path_info)
     }
@@ -109,17 +120,29 @@ where
     }
 
     fn list(&self) -> BoxStream<'static, Result<PathInfo, Error>> {
-        Box::pin(iter(self.db.iter().values().map(|v| {
-            let data = v.map_err(|e| {
-                warn!("failed to retrieve PathInfo: {}", e);
-                Error::StorageError(format!("failed to retrieve PathInfo: {}", e))
-            })?;
+        let db = self.db.clone();
+        let mut it = db.iter().values();
 
-            let path_info = PathInfo::decode(&*data).map_err(|e| {
-                warn!("failed to decode stored PathInfo: {}", e);
-                Error::StorageError(format!("failed to decode stored PathInfo: {}", e))
-            })?;
-            Ok(path_info)
-        })))
+        Box::pin(try_stream! {
+            // Don't block the executor while waiting for .next(), so wrap that
+            // in a spawn_blocking call.
+            // We need to pass around it to be able to reuse it.
+            while let (Some(elem), new_it) = tokio::task::spawn_blocking(move || {
+                (it.next(), it)
+            }).await? {
+                it = new_it;
+                let data = elem.map_err(|e| {
+                    warn!("failed to retrieve PathInfo: {}", e);
+                    Error::StorageError(format!("failed to retrieve PathInfo: {}", e))
+                })?;
+
+                let path_info = PathInfo::decode(&*data).map_err(|e| {
+                    warn!("failed to decode stored PathInfo: {}", e);
+                    Error::StorageError(format!("failed to decode stored PathInfo: {}", e))
+                })?;
+
+                yield path_info
+            }
+        })
     }
 }
