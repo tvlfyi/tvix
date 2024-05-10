@@ -1,7 +1,8 @@
 use crate::{proto, B3Digest, Error};
 use futures::stream::BoxStream;
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use tonic::async_trait;
 use tracing::{instrument, warn};
 
@@ -17,7 +18,7 @@ pub struct MemoryDirectoryService {
 impl DirectoryService for MemoryDirectoryService {
     #[instrument(skip(self, digest), fields(directory.digest = %digest))]
     async fn get(&self, digest: &B3Digest) -> Result<Option<proto::Directory>, Error> {
-        let db = self.db.read()?;
+        let db = self.db.read().await;
 
         match db.get(digest) {
             // The directory was not found, return
@@ -62,7 +63,7 @@ impl DirectoryService for MemoryDirectoryService {
         }
 
         // store it
-        let mut db = self.db.write()?;
+        let mut db = self.db.write().await;
         db.insert(digest.clone(), directory);
 
         Ok(digest)
