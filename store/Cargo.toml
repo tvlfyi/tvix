@@ -41,6 +41,7 @@ tvix-castore = { path = "../castore" }
 url = "2.4.0"
 walkdir = "2.4.0"
 reqwest = { version = "0.11.22", features = ["rustls-tls-native-roots", "stream"], default-features = false }
+lru = "0.12.3"
 
 [dependencies.tonic-reflection]
 optional = true

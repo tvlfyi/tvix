@@ -1,5 +1,6 @@
 mod from_addr;
 mod grpc;
+mod lru;
 mod memory;
 mod nix_http;
 mod sled;
@@ -18,6 +19,7 @@ use crate::proto::PathInfo;
 
 pub use self::from_addr::from_addr;
 pub use self::grpc::GRPCPathInfoService;
+pub use self::lru::LruPathInfoService;
 pub use self::memory::MemoryPathInfoService;
 pub use self::nix_http::NixHTTPPathInfoService;
 pub use self::sled::SledPathInfoService;
