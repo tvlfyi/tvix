@@ -25,6 +25,13 @@ sure noone is working on this, or has some specific design in mind already.
    with a different level of `--strict`, but the toplevel doc-comment suggests
    its generic?
 
+### Error cleanup
+ - Currently, all services use tvix_castore::Error, which only has two kinds
+   (invalid request, storage error), containing an (owned) string.
+   This is quite primitive. We should have individual error types for BS, DS, PS.
+   Maybe these should have some generics to still be able to carry errors from
+   the underlying backend, similar to `IngestionError`.
+
 ## Fixes towards correctness
  - `builtins.toXML` is missing string context. See b/398.
  - `builtins.toXML` self-closing tags need to be configurable in a more granular
