@@ -1,15 +1,50 @@
 use crate::utils::AsyncIoBridge;
 
-use super::RenderError;
+use super::{NarCalculationService, RenderError};
 use count_write::CountWrite;
 use nix_compat::nar::writer::r#async as nar_writer;
 use sha2::{Digest, Sha256};
 use tokio::io::{self, AsyncWrite, BufReader};
+use tonic::async_trait;
 use tvix_castore::{
     blobservice::BlobService,
     directoryservice::DirectoryService,
     proto::{self as castorepb, NamedNode},
 };
+
+pub struct SimpleRenderer<BS, DS> {
+    blob_service: BS,
+    directory_service: DS,
+}
+
+impl<BS, DS> SimpleRenderer<BS, DS> {
+    pub fn new(blob_service: BS, directory_service: DS) -> Self {
+        Self {
+            blob_service,
+            directory_service,
+        }
+    }
+}
+
+#[async_trait]
+impl<BS, DS> NarCalculationService for SimpleRenderer<BS, DS>
+where
+    BS: BlobService + Clone,
+    DS: DirectoryService + Clone,
+{
+    async fn calculate_nar(
+        &self,
+        root_node: &castorepb::node::Node,
+    ) -> Result<(u64, [u8; 32]), tvix_castore::Error> {
+        calculate_size_and_sha256(
+            root_node,
+            self.blob_service.clone(),
+            self.directory_service.clone(),
+        )
+        .await
+        .map_err(|e| tvix_castore::Error::StorageError(format!("failed rendering nar: {}", e)))
+    }
+}
 
 /// Invoke [write_nar], and return the size and sha256 digest of the produced
 /// NAR output.

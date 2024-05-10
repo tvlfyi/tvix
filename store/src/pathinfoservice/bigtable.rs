@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 use tonic::async_trait;
 use tracing::trace;
-use tvix_castore::proto as castorepb;
 use tvix_castore::Error;
 
 /// There should not be more than 10 MiB in a single cell.
@@ -328,13 +327,6 @@ impl PathInfoService for BigtablePathInfoService {
         }
 
         Ok(path_info)
-    }
-
-    async fn calculate_nar(
-        &self,
-        _root_node: &castorepb::node::Node,
-    ) -> Result<(u64, [u8; 32]), Error> {
-        return Err(Error::StorageError("unimplemented".into()));
     }
 
     fn list(&self) -> BoxStream<'static, Result<PathInfo, Error>> {

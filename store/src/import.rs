@@ -11,6 +11,7 @@ use nix_compat::{
 };
 
 use crate::{
+    nar::NarCalculationService,
     pathinfoservice::PathInfoService,
     proto::{nar_info, NarInfo, PathInfo},
 };
@@ -104,25 +105,27 @@ pub fn derive_nar_ca_path_info(
 /// Ingest the given path `path` and register the resulting output path in the
 /// [`PathInfoService`] as a recursive fixed output NAR.
 #[instrument(skip_all, fields(store_name=name, path=?path), err)]
-pub async fn import_path_as_nar_ca<BS, DS, PS, P>(
+pub async fn import_path_as_nar_ca<BS, DS, PS, NS, P>(
     path: P,
     name: &str,
     blob_service: BS,
     directory_service: DS,
     path_info_service: PS,
+    nar_calculation_service: NS,
 ) -> Result<StorePath, std::io::Error>
 where
     P: AsRef<Path> + std::fmt::Debug,
     BS: BlobService + Clone,
     DS: DirectoryService,
     PS: AsRef<dyn PathInfoService>,
+    NS: NarCalculationService,
 {
     let root_node = ingest_path(blob_service, directory_service, path.as_ref())
         .await
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
-    // Ask the PathInfoService for the NAR size and sha256
-    let (nar_size, nar_sha256) = path_info_service.as_ref().calculate_nar(&root_node).await?;
+    // Ask for the NAR size and sha256
+    let (nar_size, nar_sha256) = nar_calculation_service.calculate_nar(&root_node).await?;
 
     // Calculate the output path. This might still fail, as some names are illegal.
     // FUTUREWORK: express the `name` at the type level to be valid and move the conversion

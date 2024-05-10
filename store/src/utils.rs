@@ -10,9 +10,10 @@ use tvix_castore::{
     directoryservice::{self, DirectoryService},
 };
 
+use crate::nar::{NarCalculationService, SimpleRenderer};
 use crate::pathinfoservice::{self, PathInfoService};
 
-/// Construct the three store handles from their addrs.
+/// Construct the store handles from their addrs.
 pub async fn construct_services(
     blob_service_addr: impl AsRef<str>,
     directory_service_addr: impl AsRef<str>,
@@ -21,6 +22,7 @@ pub async fn construct_services(
     Arc<dyn BlobService>,
     Arc<dyn DirectoryService>,
     Box<dyn PathInfoService>,
+    Box<dyn NarCalculationService>,
 )> {
     let blob_service: Arc<dyn BlobService> = blobservice::from_addr(blob_service_addr.as_ref())
         .await?
@@ -36,7 +38,18 @@ pub async fn construct_services(
     )
     .await?;
 
-    Ok((blob_service, directory_service, path_info_service))
+    // TODO: grpc client also implements NarCalculationService
+    let nar_calculation_service = Box::new(SimpleRenderer::new(
+        blob_service.clone(),
+        directory_service.clone(),
+    )) as Box<dyn NarCalculationService>;
+
+    Ok((
+        blob_service,
+        directory_service,
+        path_info_service,
+        nar_calculation_service,
+    ))
 }
 
 /// The inverse of [tokio_util::io::SyncIoBridge].

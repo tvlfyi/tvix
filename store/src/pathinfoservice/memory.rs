@@ -1,19 +1,20 @@
 use super::PathInfoService;
-use crate::{nar::calculate_size_and_sha256, proto::PathInfo};
+use crate::proto::PathInfo;
 use futures::stream::{iter, BoxStream};
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
 };
 use tonic::async_trait;
-use tvix_castore::proto as castorepb;
 use tvix_castore::Error;
 use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService};
 
 pub struct MemoryPathInfoService<BS, DS> {
     db: Arc<RwLock<HashMap<[u8; 20], PathInfo>>>,
 
+    #[allow(dead_code)]
     blob_service: BS,
+    #[allow(dead_code)]
     directory_service: DS,
 }
 
@@ -59,15 +60,6 @@ where
                 Ok(path_info)
             }
         }
-    }
-
-    async fn calculate_nar(
-        &self,
-        root_node: &castorepb::node::Node,
-    ) -> Result<(u64, [u8; 32]), Error> {
-        calculate_size_and_sha256(root_node, &self.blob_service, &self.directory_service)
-            .await
-            .map_err(|e| Error::StorageError(e.to_string()))
     }
 
     fn list(&self) -> BoxStream<'static, Result<PathInfo, Error>> {

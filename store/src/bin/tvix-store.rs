@@ -19,6 +19,7 @@ use tracing_subscriber::EnvFilter;
 use tracing_subscriber::Layer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use tvix_castore::import::fs::ingest_path;
+use tvix_store::nar::NarCalculationService;
 use tvix_store::proto::NarInfo;
 use tvix_store::proto::PathInfo;
 
@@ -286,7 +287,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             path_info_service_addr,
         } => {
             // initialize stores
-            let (blob_service, directory_service, path_info_service) =
+            let (blob_service, directory_service, path_info_service, nar_calculation_service) =
                 tvix_store::utils::construct_services(
                     blob_service_addr,
                     directory_service_addr,
@@ -311,6 +312,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ))
                 .add_service(PathInfoServiceServer::new(GRPCPathInfoServiceWrapper::new(
                     Arc::from(path_info_service),
+                    nar_calculation_service,
                 )));
 
             #[cfg(feature = "tonic-reflection")]
@@ -340,7 +342,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             path_info_service_addr,
         } => {
             // FUTUREWORK: allow flat for single files?
-            let (blob_service, directory_service, path_info_service) =
+            let (blob_service, directory_service, path_info_service, nar_calculation_service) =
                 tvix_store::utils::construct_services(
                     blob_service_addr,
                     directory_service_addr,
@@ -348,8 +350,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 )
                 .await?;
 
-            // Arc the PathInfoService, as we clone it .
+            // Arc PathInfoService and NarCalculationService, as we clone it .
             let path_info_service: Arc<dyn PathInfoService> = path_info_service.into();
+            let nar_calculation_service: Arc<dyn NarCalculationService> =
+                nar_calculation_service.into();
 
             let tasks = paths
                 .into_iter()
@@ -358,6 +362,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let blob_service = blob_service.clone();
                         let directory_service = directory_service.clone();
                         let path_info_service = path_info_service.clone();
+                        let nar_calculation_service = nar_calculation_service.clone();
 
                         async move {
                             if let Ok(name) = tvix_store::import::path_to_name(&path) {
@@ -367,6 +372,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     blob_service,
                                     directory_service,
                                     path_info_service,
+                                    nar_calculation_service,
                                 )
                                 .await;
                                 if let Ok(output_path) = resp {
@@ -387,7 +393,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             path_info_service_addr,
             reference_graph_path,
         } => {
-            let (blob_service, directory_service, path_info_service) =
+            let (blob_service, directory_service, path_info_service, _nar_calculation_service) =
                 tvix_store::utils::construct_services(
                     blob_service_addr,
                     directory_service_addr,
@@ -494,7 +500,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             allow_other,
             show_xattr,
         } => {
-            let (blob_service, directory_service, path_info_service) =
+            let (blob_service, directory_service, path_info_service, _nar_calculation_service) =
                 tvix_store::utils::construct_services(
                     blob_service_addr,
                     directory_service_addr,
@@ -536,7 +542,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             list_root,
             show_xattr,
         } => {
-            let (blob_service, directory_service, path_info_service) =
+            let (blob_service, directory_service, path_info_service, _nar_calculation_service) =
                 tvix_store::utils::construct_services(
                     blob_service_addr,
                     directory_service_addr,

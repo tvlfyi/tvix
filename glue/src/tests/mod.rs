@@ -3,12 +3,8 @@ use std::{rc::Rc, sync::Arc};
 use pretty_assertions::assert_eq;
 use std::path::PathBuf;
 use tvix_build::buildservice::DummyBuildService;
-use tvix_castore::{
-    blobservice::{BlobService, MemoryBlobService},
-    directoryservice::{DirectoryService, MemoryDirectoryService},
-};
 use tvix_eval::{EvalIO, Value};
-use tvix_store::pathinfoservice::{MemoryPathInfoService, PathInfoService};
+use tvix_store::utils::construct_services;
 
 use rstest::rstest;
 
@@ -36,19 +32,17 @@ fn eval_test(code_path: PathBuf, expect_success: bool) {
         return;
     }
 
-    let blob_service = Arc::new(MemoryBlobService::default()) as Arc<dyn BlobService>;
-    let directory_service =
-        Arc::new(MemoryDirectoryService::default()) as Arc<dyn DirectoryService>;
-    let path_info_service = Box::new(MemoryPathInfoService::new(
-        blob_service.clone(),
-        directory_service.clone(),
-    )) as Box<dyn PathInfoService>;
     let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
+    let (blob_service, directory_service, path_info_service, nar_calculation_service) =
+        tokio_runtime
+            .block_on(async { construct_services("memory://", "memory://", "memory://").await })
+            .unwrap();
 
     let tvix_store_io = Rc::new(TvixStoreIO::new(
         blob_service,
         directory_service,
         path_info_service.into(),
+        nar_calculation_service.into(),
         Arc::new(DummyBuildService::default()),
         tokio_runtime.handle().clone(),
     ));

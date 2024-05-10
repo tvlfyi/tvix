@@ -12,7 +12,6 @@ mod tests;
 
 use futures::stream::BoxStream;
 use tonic::async_trait;
-use tvix_castore::proto as castorepb;
 use tvix_castore::Error;
 
 use crate::proto::PathInfo;
@@ -41,14 +40,6 @@ pub trait PathInfoService: Send + Sync {
     /// invalid messages.
     async fn put(&self, path_info: PathInfo) -> Result<PathInfo, Error>;
 
-    /// Return the nar size and nar sha256 digest for a given root node.
-    /// This can be used to calculate NAR-based output paths,
-    /// and implementations are encouraged to cache it.
-    async fn calculate_nar(
-        &self,
-        root_node: &castorepb::node::Node,
-    ) -> Result<(u64, [u8; 32]), Error>;
-
     /// Iterate over all PathInfo objects in the store.
     /// Implementations can decide to disallow listing.
     ///
@@ -70,13 +61,6 @@ where
 
     async fn put(&self, path_info: PathInfo) -> Result<PathInfo, Error> {
         self.as_ref().put(path_info).await
-    }
-
-    async fn calculate_nar(
-        &self,
-        root_node: &castorepb::node::Node,
-    ) -> Result<(u64, [u8; 32]), Error> {
-        self.as_ref().calculate_nar(root_node).await
     }
 
     fn list(&self) -> BoxStream<'static, Result<PathInfo, Error>> {

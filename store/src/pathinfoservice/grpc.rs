@@ -1,5 +1,8 @@
 use super::PathInfoService;
-use crate::proto::{self, ListPathInfoRequest, PathInfo};
+use crate::{
+    nar::NarCalculationService,
+    proto::{self, ListPathInfoRequest, PathInfo},
+};
 use async_stream::try_stream;
 use data_encoding::BASE64;
 use futures::stream::BoxStream;
@@ -67,30 +70,6 @@ impl PathInfoService for GRPCPathInfoService {
         Ok(path_info)
     }
 
-    #[instrument(level = "trace", skip_all, fields(root_node = ?root_node))]
-    async fn calculate_nar(
-        &self,
-        root_node: &castorepb::node::Node,
-    ) -> Result<(u64, [u8; 32]), Error> {
-        let path_info = self
-            .grpc_client
-            .clone()
-            .calculate_nar(castorepb::Node {
-                node: Some(root_node.clone()),
-            })
-            .await
-            .map_err(|e| Error::StorageError(e.to_string()))?
-            .into_inner();
-
-        let nar_sha256: [u8; 32] = path_info
-            .nar_sha256
-            .to_vec()
-            .try_into()
-            .map_err(|_e| Error::StorageError("invalid digest length".to_string()))?;
-
-        Ok((path_info.nar_size, nar_sha256))
-    }
-
     #[instrument(level = "trace", skip_all)]
     fn list(&self) -> BoxStream<'static, Result<PathInfo, Error>> {
         let mut grpc_client = self.grpc_client.clone();
@@ -123,6 +102,33 @@ impl PathInfoService for GRPCPathInfoService {
         };
 
         Box::pin(stream)
+    }
+}
+
+#[async_trait]
+impl NarCalculationService for GRPCPathInfoService {
+    #[instrument(level = "trace", skip_all, fields(root_node = ?root_node))]
+    async fn calculate_nar(
+        &self,
+        root_node: &castorepb::node::Node,
+    ) -> Result<(u64, [u8; 32]), Error> {
+        let path_info = self
+            .grpc_client
+            .clone()
+            .calculate_nar(castorepb::Node {
+                node: Some(root_node.clone()),
+            })
+            .await
+            .map_err(|e| Error::StorageError(e.to_string()))?
+            .into_inner();
+
+        let nar_sha256: [u8; 32] = path_info
+            .nar_sha256
+            .to_vec()
+            .try_into()
+            .map_err(|_e| Error::StorageError("invalid digest length".to_string()))?;
+
+        Ok((path_info.nar_size, nar_sha256))
     }
 }
 

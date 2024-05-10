@@ -178,7 +178,7 @@ mod import_builtins {
             CAHash::Nar(NixHash::Sha256(state.tokio_handle.block_on(async {
                 Ok::<_, tvix_eval::ErrorKind>(
                     state
-                        .path_info_service
+                        .nar_calculation_service
                         .as_ref()
                         .calculate_nar(&root_node)
                         .await
@@ -255,7 +255,7 @@ mod import_builtins {
             .tokio_handle
             .block_on(async {
                 let (_, nar_sha256) = state
-                    .path_info_service
+                    .nar_calculation_service
                     .as_ref()
                     .calculate_nar(&root_node)
                     .await?;

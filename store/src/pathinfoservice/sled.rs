@@ -1,5 +1,4 @@
 use super::PathInfoService;
-use crate::nar::calculate_size_and_sha256;
 use crate::proto::PathInfo;
 use async_stream::try_stream;
 use data_encoding::BASE64;
@@ -9,7 +8,6 @@ use std::path::Path;
 use tonic::async_trait;
 use tracing::instrument;
 use tracing::warn;
-use tvix_castore::proto as castorepb;
 use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService, Error};
 
 /// SledPathInfoService stores PathInfo in a [sled](https://github.com/spacejam/sled).
@@ -19,7 +17,9 @@ use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService,
 pub struct SledPathInfoService<BS, DS> {
     db: sled::Db,
 
+    #[allow(dead_code)]
     blob_service: BS,
+    #[allow(dead_code)]
     directory_service: DS,
 }
 
@@ -107,16 +107,6 @@ where
         })?;
 
         Ok(path_info)
-    }
-
-    #[instrument(level = "trace", skip_all, fields(root_node = ?root_node))]
-    async fn calculate_nar(
-        &self,
-        root_node: &castorepb::node::Node,
-    ) -> Result<(u64, [u8; 32]), Error> {
-        calculate_size_and_sha256(root_node, &self.blob_service, &self.directory_service)
-            .await
-            .map_err(|e| Error::StorageError(e.to_string()))
     }
 
     fn list(&self) -> BoxStream<'static, Result<PathInfo, Error>> {

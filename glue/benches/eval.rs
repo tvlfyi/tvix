@@ -2,10 +2,6 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lazy_static::lazy_static;
 use std::{env, rc::Rc, sync::Arc, time::Duration};
 use tvix_build::buildservice::DummyBuildService;
-use tvix_castore::{
-    blobservice::{BlobService, MemoryBlobService},
-    directoryservice::{DirectoryService, MemoryDirectoryService},
-};
 use tvix_eval::{builtins::impure_builtins, EvalIO};
 use tvix_glue::{
     builtins::{add_derivation_builtins, add_fetcher_builtins, add_import_builtins},
@@ -13,16 +9,9 @@ use tvix_glue::{
     tvix_io::TvixIO,
     tvix_store_io::TvixStoreIO,
 };
-use tvix_store::pathinfoservice::{MemoryPathInfoService, PathInfoService};
+use tvix_store::utils::construct_services;
 
 lazy_static! {
-    static ref BLOB_SERVICE: Arc<dyn BlobService> = Arc::new(MemoryBlobService::default());
-    static ref DIRECTORY_SERVICE: Arc<dyn DirectoryService> =
-        Arc::new(MemoryDirectoryService::default());
-    static ref PATH_INFO_SERVICE: Arc<dyn PathInfoService> = Arc::new(MemoryPathInfoService::new(
-        BLOB_SERVICE.clone(),
-        DIRECTORY_SERVICE.clone(),
-    ));
     static ref TOKIO_RUNTIME: tokio::runtime::Runtime = tokio::runtime::Runtime::new().unwrap();
 }
 
@@ -30,12 +19,17 @@ fn interpret(code: &str) {
     // TODO: this is a bit annoying.
     // It'd be nice if we could set this up once and then run evaluate() with a
     // piece of code. b/262
+    let (blob_service, directory_service, path_info_service, nar_calculation_service) =
+        TOKIO_RUNTIME
+            .block_on(async { construct_services("memory://", "memory://", "memory://").await })
+            .unwrap();
 
     // We assemble a complete store in memory.
     let tvix_store_io = Rc::new(TvixStoreIO::new(
-        BLOB_SERVICE.clone(),
-        DIRECTORY_SERVICE.clone(),
-        PATH_INFO_SERVICE.clone(),
+        blob_service,
+        directory_service,
+        path_info_service.into(),
+        nar_calculation_service.into(),
         Arc::<DummyBuildService>::default(),
         TOKIO_RUNTIME.handle().clone(),
     ));

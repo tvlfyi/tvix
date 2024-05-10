@@ -18,6 +18,7 @@ use tracing::{error, info, instrument, warn, Level};
 use tvix_build::buildservice::BuildService;
 use tvix_castore::proto::node::Node;
 use tvix_eval::{EvalIO, FileType, StdIO};
+use tvix_store::nar::NarCalculationService;
 use tvix_store::utils::AsyncIoBridge;
 
 use tvix_castore::{
@@ -52,13 +53,20 @@ pub struct TvixStoreIO {
     pub(crate) blob_service: Arc<dyn BlobService>,
     pub(crate) directory_service: Arc<dyn DirectoryService>,
     pub(crate) path_info_service: Arc<dyn PathInfoService>,
+    pub(crate) nar_calculation_service: Arc<dyn NarCalculationService>,
+
     std_io: StdIO,
     #[allow(dead_code)]
     build_service: Arc<dyn BuildService>,
     pub(crate) tokio_handle: tokio::runtime::Handle,
 
-    pub(crate) fetcher:
-        Fetcher<Arc<dyn BlobService>, Arc<dyn DirectoryService>, Arc<dyn PathInfoService>>,
+    #[allow(clippy::type_complexity)]
+    pub(crate) fetcher: Fetcher<
+        Arc<dyn BlobService>,
+        Arc<dyn DirectoryService>,
+        Arc<dyn PathInfoService>,
+        Arc<dyn NarCalculationService>,
+    >,
 
     // Paths known how to produce, by building or fetching.
     pub(crate) known_paths: RefCell<KnownPaths>,
@@ -69,6 +77,7 @@ impl TvixStoreIO {
         blob_service: Arc<dyn BlobService>,
         directory_service: Arc<dyn DirectoryService>,
         path_info_service: Arc<dyn PathInfoService>,
+        nar_calculation_service: Arc<dyn NarCalculationService>,
         build_service: Arc<dyn BuildService>,
         tokio_handle: tokio::runtime::Handle,
     ) -> Self {
@@ -76,10 +85,16 @@ impl TvixStoreIO {
             blob_service: blob_service.clone(),
             directory_service: directory_service.clone(),
             path_info_service: path_info_service.clone(),
+            nar_calculation_service: nar_calculation_service.clone(),
             std_io: StdIO {},
             build_service,
             tokio_handle,
-            fetcher: Fetcher::new(blob_service, directory_service, path_info_service),
+            fetcher: Fetcher::new(
+                blob_service,
+                directory_service,
+                path_info_service,
+                nar_calculation_service,
+            ),
             known_paths: Default::default(),
         }
     }
@@ -247,8 +262,10 @@ impl TvixStoreIO {
                             let root_node = output.node.as_ref().expect("invalid root node");
 
                             // calculate the nar representation
-                            let (nar_size, nar_sha256) =
-                                self.path_info_service.calculate_nar(root_node).await?;
+                            let (nar_size, nar_sha256) = self
+                                .nar_calculation_service
+                                .calculate_nar(root_node)
+                                .await?;
 
                             // assemble the PathInfo to persist
                             let path_info = PathInfo {
@@ -323,7 +340,7 @@ impl TvixStoreIO {
         // because the path info construct a narinfo which *always*
         // require a SHA256 of the NAR representation and the NAR size.
         let (nar_size, nar_sha256) = self
-            .path_info_service
+            .nar_calculation_service
             .as_ref()
             .calculate_nar(&root_node)
             .await?;
@@ -564,6 +581,7 @@ impl EvalIO for TvixStoreIO {
                 &self.blob_service,
                 &self.directory_service,
                 &self.path_info_service,
+                &self.nar_calculation_service,
             )
             .await
         })?;
@@ -584,12 +602,8 @@ mod tests {
     use bstr::ByteSlice;
     use tempfile::TempDir;
     use tvix_build::buildservice::DummyBuildService;
-    use tvix_castore::{
-        blobservice::{BlobService, MemoryBlobService},
-        directoryservice::{DirectoryService, MemoryDirectoryService},
-    };
     use tvix_eval::{EvalIO, EvaluationResult};
-    use tvix_store::pathinfoservice::MemoryPathInfoService;
+    use tvix_store::utils::construct_services;
 
     use super::TvixStoreIO;
     use crate::builtins::{add_derivation_builtins, add_fetcher_builtins, add_import_builtins};
@@ -598,22 +612,19 @@ mod tests {
     /// Takes care of setting up the evaluator so it knows about the
     // `derivation` builtin.
     fn eval(str: &str) -> EvaluationResult {
-        let blob_service = Arc::new(MemoryBlobService::default()) as Arc<dyn BlobService>;
-        let directory_service =
-            Arc::new(MemoryDirectoryService::default()) as Arc<dyn DirectoryService>;
-        let path_info_service = Arc::new(MemoryPathInfoService::new(
-            blob_service.clone(),
-            directory_service.clone(),
-        ));
-
-        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
+        let (blob_service, directory_service, path_info_service, nar_calculation_service) =
+            tokio_runtime
+                .block_on(async { construct_services("memory://", "memory://", "memory://").await })
+                .unwrap();
 
         let io = Rc::new(TvixStoreIO::new(
-            blob_service.clone(),
-            directory_service.clone(),
-            path_info_service,
+            blob_service,
+            directory_service,
+            path_info_service.into(),
+            nar_calculation_service.into(),
             Arc::<DummyBuildService>::default(),
-            runtime.handle().clone(),
+            tokio_runtime.handle().clone(),
         ));
         let mut eval = tvix_eval::Evaluation::new(io.clone() as Rc<dyn EvalIO>, true);
 

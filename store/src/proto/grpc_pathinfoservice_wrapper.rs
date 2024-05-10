@@ -1,4 +1,4 @@
-use crate::nar::RenderError;
+use crate::nar::{NarCalculationService, RenderError};
 use crate::pathinfoservice::PathInfoService;
 use crate::proto;
 use futures::{stream::BoxStream, TryStreamExt};
@@ -7,23 +7,26 @@ use tonic::{async_trait, Request, Response, Result, Status};
 use tracing::{instrument, warn};
 use tvix_castore::proto as castorepb;
 
-pub struct GRPCPathInfoServiceWrapper<PS> {
-    inner: PS,
+pub struct GRPCPathInfoServiceWrapper<PS, NS> {
+    path_info_service: PS,
     // FUTUREWORK: allow exposing without allowing listing
+    nar_calculation_service: NS,
 }
 
-impl<PS> GRPCPathInfoServiceWrapper<PS> {
-    pub fn new(path_info_service: PS) -> Self {
+impl<PS, NS> GRPCPathInfoServiceWrapper<PS, NS> {
+    pub fn new(path_info_service: PS, nar_calculation_service: NS) -> Self {
         Self {
-            inner: path_info_service,
+            path_info_service,
+            nar_calculation_service,
         }
     }
 }
 
 #[async_trait]
-impl<PS> proto::path_info_service_server::PathInfoService for GRPCPathInfoServiceWrapper<PS>
+impl<PS, NS> proto::path_info_service_server::PathInfoService for GRPCPathInfoServiceWrapper<PS, NS>
 where
     PS: Deref<Target = dyn PathInfoService> + Send + Sync + 'static,
+    NS: NarCalculationService + Send + Sync + 'static,
 {
     type ListStream = BoxStream<'static, tonic::Result<proto::PathInfo, Status>>;
 
@@ -39,7 +42,7 @@ where
                     .to_vec()
                     .try_into()
                     .map_err(|_e| Status::invalid_argument("invalid output digest length"))?;
-                match self.inner.get(digest).await {
+                match self.path_info_service.get(digest).await {
                     Ok(None) => Err(Status::not_found("PathInfo not found")),
                     Ok(Some(path_info)) => Ok(Response::new(path_info)),
                     Err(e) => {
@@ -57,7 +60,7 @@ where
 
         // Store the PathInfo in the client. Clients MUST validate the data
         // they receive, so we don't validate additionally here.
-        match self.inner.put(path_info).await {
+        match self.path_info_service.put(path_info).await {
             Ok(path_info_new) => Ok(Response::new(path_info_new)),
             Err(e) => {
                 warn!(err = %e, "failed to put PathInfo");
@@ -79,7 +82,7 @@ where
                     Err(Status::invalid_argument("invalid root node"))?
                 }
 
-                match self.inner.calculate_nar(&root_node).await {
+                match self.nar_calculation_service.calculate_nar(&root_node).await {
                     Ok((nar_size, nar_sha256)) => Ok(Response::new(proto::CalculateNarResponse {
                         nar_size,
                         nar_sha256: nar_sha256.to_vec().into(),
@@ -99,7 +102,7 @@ where
         _request: Request<proto::ListPathInfoRequest>,
     ) -> Result<Response<Self::ListStream>, Status> {
         let stream = Box::pin(
-            self.inner
+            self.path_info_service
                 .list()
                 .map_err(|e| Status::internal(e.to_string())),
         );

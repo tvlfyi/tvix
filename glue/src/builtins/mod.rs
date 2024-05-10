@@ -68,7 +68,7 @@ mod tests {
     fn eval(str: &str) -> EvaluationResult {
         // We assemble a complete store in memory.
         let runtime = tokio::runtime::Runtime::new().expect("Failed to build a Tokio runtime");
-        let (blob_service, directory_service, path_info_service) = runtime
+        let (blob_service, directory_service, path_info_service, nar_calculation_service) = runtime
             .block_on(async { construct_services("memory://", "memory://", "memory://").await })
             .expect("Failed to construct store services in memory");
 
@@ -76,6 +76,7 @@ mod tests {
             blob_service,
             directory_service,
             path_info_service.into(),
+            nar_calculation_service.into(),
             Arc::<DummyBuildService>::default(),
             runtime.handle().clone(),
         ));

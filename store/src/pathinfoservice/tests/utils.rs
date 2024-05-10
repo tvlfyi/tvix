@@ -3,6 +3,7 @@ use std::sync::Arc;
 use tonic::transport::{Endpoint, Server, Uri};
 
 use crate::{
+    nar::{NarCalculationService, SimpleRenderer},
     pathinfoservice::{GRPCPathInfoService, MemoryPathInfoService, PathInfoService},
     proto::{
         path_info_service_client::PathInfoServiceClient,
@@ -25,13 +26,17 @@ pub async fn make_grpc_path_info_service_client() -> super::BSDSPS {
         let blob_service = blob_service.clone();
         let directory_service = directory_service.clone();
         async move {
-            let path_info_service: Arc<dyn PathInfoService> =
-                Arc::from(MemoryPathInfoService::new(blob_service, directory_service));
+            let path_info_service: Arc<dyn PathInfoService> = Arc::from(
+                MemoryPathInfoService::new(blob_service.clone(), directory_service.clone()),
+            );
+            let nar_calculation_service =
+                Box::new(SimpleRenderer::new(blob_service, directory_service))
+                    as Box<dyn NarCalculationService>;
 
-            // spin up a new DirectoryService
+            // spin up a new PathInfoService
             let mut server = Server::builder();
             let router = server.add_service(PathInfoServiceServer::new(
-                GRPCPathInfoServiceWrapper::new(path_info_service),
+                GRPCPathInfoServiceWrapper::new(path_info_service, nar_calculation_service),
             ));
 
             router

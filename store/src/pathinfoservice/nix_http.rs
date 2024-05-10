@@ -33,8 +33,7 @@ use super::PathInfoService;
 ///
 /// The client is expected to be (indirectly) using the same [BlobService] and
 /// [DirectoryService], so able to fetch referred Directories and Blobs.
-/// [PathInfoService::put] and [PathInfoService::calculate_nar] are not
-/// implemented and return an error if called.
+/// [PathInfoService::put] is not implemented and returns an error if called.
 /// TODO: what about reading from nix-cache-info?
 pub struct NixHTTPPathInfoService<BS, DS> {
     base_url: url::Url,
@@ -255,16 +254,6 @@ where
     async fn put(&self, _path_info: PathInfo) -> Result<PathInfo, Error> {
         Err(Error::InvalidRequest(
             "put not supported for this backend".to_string(),
-        ))
-    }
-
-    #[instrument(skip_all, fields(root_node=?root_node))]
-    async fn calculate_nar(
-        &self,
-        root_node: &castorepb::node::Node,
-    ) -> Result<(u64, [u8; 32]), Error> {
-        Err(Error::InvalidRequest(
-            "calculate_nar not supported for this backend".to_string(),
         ))
     }
 

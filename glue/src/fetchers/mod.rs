@@ -14,7 +14,7 @@ use tvix_castore::{
     directoryservice::DirectoryService,
     proto::{node::Node, FileNode},
 };
-use tvix_store::{pathinfoservice::PathInfoService, proto::PathInfo};
+use tvix_store::{nar::NarCalculationService, pathinfoservice::PathInfoService, proto::PathInfo};
 use url::Url;
 
 use crate::builtins::FetcherError;
@@ -106,20 +106,27 @@ impl Fetch {
 }
 
 /// Knows how to fetch a given [Fetch].
-pub struct Fetcher<BS, DS, PS> {
+pub struct Fetcher<BS, DS, PS, NS> {
     http_client: reqwest::Client,
     blob_service: BS,
     directory_service: DS,
     path_info_service: PS,
+    nar_calculation_service: NS,
 }
 
-impl<BS, DS, PS> Fetcher<BS, DS, PS> {
-    pub fn new(blob_service: BS, directory_service: DS, path_info_service: PS) -> Self {
+impl<BS, DS, PS, NS> Fetcher<BS, DS, PS, NS> {
+    pub fn new(
+        blob_service: BS,
+        directory_service: DS,
+        path_info_service: PS,
+        nar_calculation_service: NS,
+    ) -> Self {
         Self {
             http_client: reqwest::Client::new(),
             blob_service,
             directory_service,
             path_info_service,
+            nar_calculation_service,
         }
     }
 
@@ -170,11 +177,12 @@ async fn hash<D: Digest + std::io::Write>(
     Ok((hasher.finalize(), bytes_copied))
 }
 
-impl<BS, DS, PS> Fetcher<BS, DS, PS>
+impl<BS, DS, PS, NS> Fetcher<BS, DS, PS, NS>
 where
     BS: BlobService + Clone + 'static,
     DS: DirectoryService + Clone,
     PS: PathInfoService,
+    NS: NarCalculationService,
 {
     /// Ingest the data from a specified [Fetch].
     /// On success, return the root node, a content digest and length.
@@ -257,7 +265,7 @@ where
                 // Even if no expected NAR sha256 has been provided, we need
                 // the actual one later.
                 let (nar_size, actual_nar_sha256) = self
-                    .path_info_service
+                    .nar_calculation_service
                     .calculate_nar(&node)
                     .await
                     .map_err(|e| {
@@ -309,7 +317,7 @@ where
         // the [PathInfo].
         let (nar_size, nar_sha256) = match &ca_hash {
             CAHash::Flat(_nix_hash) => self
-                .path_info_service
+                .nar_calculation_service
                 .calculate_nar(&node)
                 .await
                 .map_err(|e| FetcherError::Io(e.into()))?,
