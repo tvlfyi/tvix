@@ -65,10 +65,10 @@ pub async fn from_addr(
             // TODO: expose other parameters as URL parameters?
 
             Box::new(if url.path().is_empty() {
-                SledPathInfoService::new_temporary(blob_service, directory_service)
+                SledPathInfoService::new_temporary()
                     .map_err(|e| Error::StorageError(e.to_string()))?
             } else {
-                SledPathInfoService::new(url.path(), blob_service, directory_service)
+                SledPathInfoService::new(url.path())
                     .map_err(|e| Error::StorageError(e.to_string()))?
             })
         }

@@ -8,57 +8,36 @@ use std::path::Path;
 use tonic::async_trait;
 use tracing::instrument;
 use tracing::warn;
-use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService, Error};
+use tvix_castore::Error;
 
 /// SledPathInfoService stores PathInfo in a [sled](https://github.com/spacejam/sled).
 ///
 /// The PathInfo messages are stored as encoded protos, and keyed by their output hash,
 /// as that's currently the only request type available.
-pub struct SledPathInfoService<BS, DS> {
+pub struct SledPathInfoService {
     db: sled::Db,
-
-    #[allow(dead_code)]
-    blob_service: BS,
-    #[allow(dead_code)]
-    directory_service: DS,
 }
 
-impl<BS, DS> SledPathInfoService<BS, DS> {
-    pub fn new<P: AsRef<Path>>(
-        p: P,
-        blob_service: BS,
-        directory_service: DS,
-    ) -> Result<Self, sled::Error> {
+impl SledPathInfoService {
+    pub fn new<P: AsRef<Path>>(p: P) -> Result<Self, sled::Error> {
         let config = sled::Config::default()
             .use_compression(false) // is a required parameter
             .path(p);
         let db = config.open()?;
 
-        Ok(Self {
-            db,
-            blob_service,
-            directory_service,
-        })
+        Ok(Self { db })
     }
 
-    pub fn new_temporary(blob_service: BS, directory_service: DS) -> Result<Self, sled::Error> {
+    pub fn new_temporary() -> Result<Self, sled::Error> {
         let config = sled::Config::default().temporary(true);
         let db = config.open()?;
 
-        Ok(Self {
-            db,
-            blob_service,
-            directory_service,
-        })
+        Ok(Self { db })
     }
 }
 
 #[async_trait]
-impl<BS, DS> PathInfoService for SledPathInfoService<BS, DS>
-where
-    BS: AsRef<dyn BlobService> + Send + Sync,
-    DS: AsRef<dyn DirectoryService> + Send + Sync,
-{
+impl PathInfoService for SledPathInfoService {
     #[instrument(level = "trace", skip_all, fields(path_info.digest = BASE64.encode(&digest)))]
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
         let resp = tokio::task::spawn_blocking({
