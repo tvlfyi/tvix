@@ -7112,7 +7112,7 @@ rec {
           }
           {
             name = "parking_lot";
-            packageId = "parking_lot 0.12.1";
+            packageId = "parking_lot 0.12.2";
           }
           {
             name = "percent-encoding";
@@ -7683,11 +7683,11 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" ];
       };
-      "parking_lot 0.12.1" = rec {
+      "parking_lot 0.12.2" = rec {
         crateName = "parking_lot";
-        version = "0.12.1";
-        edition = "2018";
-        sha256 = "13r2xk7mnxfc5g0g6dkdxqdqad99j7s7z8zhzz4npw5r0g0v4hip";
+        version = "0.12.2";
+        edition = "2021";
+        sha256 = "1ys2dzz6cysjmwyivwxczl1ljpcf5cj4qmhdj07d5bkc9z5g0jky";
         authors = [
           "Amanieu d'Antras <amanieu@gmail.com>"
         ];
@@ -13697,7 +13697,7 @@ rec {
           }
           {
             name = "parking_lot";
-            packageId = "parking_lot 0.12.1";
+            packageId = "parking_lot 0.12.2";
           }
           {
             name = "petgraph";
@@ -14429,6 +14429,10 @@ rec {
             packageId = "opentelemetry_sdk";
             optional = true;
             features = [ "rt-tokio" ];
+          }
+          {
+            name = "parking_lot";
+            packageId = "parking_lot 0.12.2";
           }
           {
             name = "pin-project-lite";
