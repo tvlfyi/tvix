@@ -130,11 +130,8 @@ logs etc, but this is something requiring a lot of designing.
  - [redb](https://www.redb.org/) backend
  - sqlite backend (different schema than the Nix one, we need the root nodes data!)
 
-### Nix-compat
-- Async NAR reader (@edef?)
-
 ### Nix Daemon protocol
-- Some work ongoing on the worker operation parsing. Partially blocked on the async NAR reader.
+- Some work ongoing on the worker operation parsing (griff, picnoir)
 
 ### O11Y
  - gRPC trace propagation (cl/10532)
