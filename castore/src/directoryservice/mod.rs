@@ -64,7 +64,7 @@ pub trait DirectoryService: Send + Sync {
     fn get_recursive(
         &self,
         root_directory_digest: &B3Digest,
-    ) -> BoxStream<Result<proto::Directory, Error>>;
+    ) -> BoxStream<'static, Result<proto::Directory, Error>>;
 
     /// Allows persisting a closure of [proto::Directory], which is a graph of
     /// connected Directory messages.
@@ -87,7 +87,7 @@ where
     fn get_recursive(
         &self,
         root_directory_digest: &B3Digest,
-    ) -> BoxStream<Result<proto::Directory, Error>> {
+    ) -> BoxStream<'static, Result<proto::Directory, Error>> {
         self.as_ref().get_recursive(root_directory_digest)
     }
 

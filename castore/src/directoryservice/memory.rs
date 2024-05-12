@@ -73,7 +73,7 @@ impl DirectoryService for MemoryDirectoryService {
     fn get_recursive(
         &self,
         root_directory_digest: &B3Digest,
-    ) -> BoxStream<Result<proto::Directory, Error>> {
+    ) -> BoxStream<'static, Result<proto::Directory, Error>> {
         traverse_directory(self.clone(), root_directory_digest)
     }
 
