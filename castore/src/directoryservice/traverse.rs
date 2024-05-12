@@ -1,5 +1,8 @@
 use super::DirectoryService;
-use crate::{proto::NamedNode, B3Digest, Error, Path};
+use crate::{
+    proto::{node::Node, NamedNode},
+    B3Digest, Error, Path,
+};
 use tracing::{instrument, warn};
 
 /// This descends from a (root) node to the given (sub)path, returning the Node
@@ -7,69 +10,55 @@ use tracing::{instrument, warn};
 #[instrument(skip(directory_service, path), fields(%path))]
 pub async fn descend_to<DS>(
     directory_service: DS,
-    root_node: crate::proto::node::Node,
+    root_node: Node,
     path: impl AsRef<Path> + std::fmt::Display,
-) -> Result<Option<crate::proto::node::Node>, Error>
+) -> Result<Option<Node>, Error>
 where
     DS: AsRef<dyn DirectoryService>,
 {
-    let mut cur_node = root_node;
-    let mut it = path.as_ref().components();
-
-    loop {
-        match it.next() {
-            None => {
-                // the (remaining) path is empty, return the node we're current at.
-                return Ok(Some(cur_node));
+    let mut parent_node = root_node;
+    for component in path.as_ref().components() {
+        match parent_node {
+            Node::File(_) | Node::Symlink(_) => {
+                // There's still some path left, but the parent node is no directory.
+                // This means the path doesn't exist, as we can't reach it.
+                return Ok(None);
             }
-            Some(first_component) => {
-                match cur_node {
-                    crate::proto::node::Node::File(_) | crate::proto::node::Node::Symlink(_) => {
-                        // There's still some path left, but the current node is no directory.
-                        // This means the path doesn't exist, as we can't reach it.
-                        return Ok(None);
-                    }
-                    crate::proto::node::Node::Directory(directory_node) => {
-                        let digest: B3Digest = directory_node.digest.try_into().map_err(|_e| {
-                            Error::StorageError("invalid digest length".to_string())
+            Node::Directory(directory_node) => {
+                let digest: B3Digest = directory_node
+                    .digest
+                    .try_into()
+                    .map_err(|_e| Error::StorageError("invalid digest length".to_string()))?;
+
+                // fetch the linked node from the directory_service.
+                let directory =
+                    directory_service
+                        .as_ref()
+                        .get(&digest)
+                        .await?
+                        .ok_or_else(|| {
+                            // If we didn't get the directory node that's linked, that's a store inconsistency, bail out!
+                            warn!("directory {} does not exist", digest);
+
+                            Error::StorageError(format!("directory {} does not exist", digest))
                         })?;
 
-                        // fetch the linked node from the directory_service
-                        match directory_service.as_ref().get(&digest).await? {
-                            // If we didn't get the directory node that's linked, that's a store inconsistency, bail out!
-                            None => {
-                                warn!("directory {} does not exist", digest);
-
-                                return Err(Error::StorageError(format!(
-                                    "directory {} does not exist",
-                                    digest
-                                )));
-                            }
-                            Some(directory) => {
-                                // look for first_component in the [Directory].
-                                // FUTUREWORK: as the nodes() iterator returns in a sorted fashion, we
-                                // could stop as soon as e.name is larger than the search string.
-                                let child_node =
-                                    directory.nodes().find(|n| n.get_name() == first_component);
-
-                                match child_node {
-                                    // child node not found means there's no such element inside the directory.
-                                    None => {
-                                        return Ok(None);
-                                    }
-                                    // child node found, return to top-of loop to find the next
-                                    // node in the path.
-                                    Some(child_node) => {
-                                        cur_node = child_node;
-                                    }
-                                }
-                            }
-                        }
-                    }
+                // look for the component in the [Directory].
+                // FUTUREWORK: as the nodes() iterator returns in a sorted fashion, we
+                // could stop as soon as e.name is larger than the search string.
+                if let Some(child_node) = directory.nodes().find(|n| n.get_name() == component) {
+                    // child node found, update prev_node to that and continue.
+                    parent_node = child_node;
+                } else {
+                    // child node not found means there's no such element inside the directory.
+                    return Ok(None);
                 }
             }
         }
     }
+
+    // We traversed the entire path, so this must be the node.
+    Ok(Some(parent_node))
 }
 
 #[cfg(test)]
