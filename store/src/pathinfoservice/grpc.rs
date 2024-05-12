@@ -4,8 +4,8 @@ use crate::{
     proto::{self, ListPathInfoRequest, PathInfo},
 };
 use async_stream::try_stream;
-use data_encoding::BASE64;
 use futures::stream::BoxStream;
+use nix_compat::nixbase32;
 use tonic::{async_trait, transport::Channel, Code};
 use tracing::instrument;
 use tvix_castore::{proto as castorepb, Error};
@@ -30,7 +30,7 @@ impl GRPCPathInfoService {
 
 #[async_trait]
 impl PathInfoService for GRPCPathInfoService {
-    #[instrument(level = "trace", skip_all, fields(path_info.digest = BASE64.encode(&digest)))]
+    #[instrument(level = "trace", skip_all, fields(path_info.digest = nixbase32::encode(&digest)))]
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
         let path_info = self
             .grpc_client

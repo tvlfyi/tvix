@@ -6,11 +6,12 @@ use bigtable_rs::{bigtable, google::bigtable::v2 as bigtable_v2};
 use bytes::Bytes;
 use data_encoding::HEXLOWER;
 use futures::stream::BoxStream;
+use nix_compat::nixbase32;
 use prost::Message;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 use tonic::async_trait;
-use tracing::trace;
+use tracing::{instrument, trace};
 use tvix_castore::Error;
 
 /// There should not be more than 10 MiB in a single cell.
@@ -181,6 +182,7 @@ fn derive_pathinfo_key(digest: &[u8; 20]) -> String {
 
 #[async_trait]
 impl PathInfoService for BigtablePathInfoService {
+    #[instrument(level = "trace", skip_all, fields(path_info.digest = nixbase32::encode(&digest)))]
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
         let mut client = self.client.clone();
         let path_info_key = derive_pathinfo_key(&digest);
@@ -277,6 +279,7 @@ impl PathInfoService for BigtablePathInfoService {
         Ok(Some(path_info))
     }
 
+    #[instrument(level = "trace", skip_all, fields(path_info.root_node = ?path_info.node))]
     async fn put(&self, path_info: PathInfo) -> Result<PathInfo, Error> {
         let store_path = path_info
             .validate()

@@ -1,11 +1,12 @@
-use std::num::NonZeroUsize;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-
 use async_stream::try_stream;
 use futures::stream::BoxStream;
 use lru::LruCache;
+use nix_compat::nixbase32;
+use std::num::NonZeroUsize;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use tonic::async_trait;
+use tracing::instrument;
 
 use crate::proto::PathInfo;
 use tvix_castore::Error;
@@ -26,10 +27,12 @@ impl LruPathInfoService {
 
 #[async_trait]
 impl PathInfoService for LruPathInfoService {
+    #[instrument(level = "trace", skip_all, fields(path_info.digest = nixbase32::encode(&digest)))]
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
         Ok(self.lru.write().await.get(&digest).cloned())
     }
 
+    #[instrument(level = "trace", skip_all, fields(path_info.root_node = ?path_info.node))]
     async fn put(&self, path_info: PathInfo) -> Result<PathInfo, Error> {
         // call validate
         let store_path = path_info

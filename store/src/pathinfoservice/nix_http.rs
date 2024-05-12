@@ -1,4 +1,3 @@
-use data_encoding::BASE64;
 use futures::{stream::BoxStream, TryStreamExt};
 use nix_compat::{
     narinfo::{self, NarInfo},
@@ -71,7 +70,7 @@ where
     BS: AsRef<dyn BlobService> + Send + Sync + Clone + 'static,
     DS: AsRef<dyn DirectoryService> + Send + Sync + Clone + 'static,
 {
-    #[instrument(skip_all, err, fields(path.digest=BASE64.encode(&digest)))]
+    #[instrument(skip_all, err, fields(path.digest=nixbase32::encode(&digest)))]
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
         let narinfo_url = self
             .base_url

@@ -1,8 +1,8 @@
 use super::PathInfoService;
 use crate::proto::PathInfo;
 use async_stream::try_stream;
-use data_encoding::BASE64;
 use futures::stream::BoxStream;
+use nix_compat::nixbase32;
 use prost::Message;
 use std::path::Path;
 use tonic::async_trait;
@@ -38,7 +38,7 @@ impl SledPathInfoService {
 
 #[async_trait]
 impl PathInfoService for SledPathInfoService {
-    #[instrument(level = "trace", skip_all, fields(path_info.digest = BASE64.encode(&digest)))]
+    #[instrument(level = "trace", skip_all, fields(path_info.digest = nixbase32::encode(&digest)))]
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
         let resp = tokio::task::spawn_blocking({
             let db = self.db.clone();
