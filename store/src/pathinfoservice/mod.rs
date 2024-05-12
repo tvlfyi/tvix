@@ -1,3 +1,4 @@
+mod combinators;
 mod from_addr;
 mod grpc;
 mod lru;
@@ -17,6 +18,7 @@ use tvix_castore::Error;
 
 use crate::proto::PathInfo;
 
+pub use self::combinators::Cache as CachePathInfoService;
 pub use self::from_addr::from_addr;
 pub use self::grpc::GRPCPathInfoService;
 pub use self::lru::LruPathInfoService;
