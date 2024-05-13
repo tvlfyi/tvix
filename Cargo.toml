@@ -30,6 +30,11 @@ members = [
   "store",
 ]
 
+[workspace.lints.clippy]
+# Allow blocks_in_conditions due to false positives with #[tracing::instrument(…)]:
+# https://github.com/rust-lang/rust-clippy/issues/12281
+blocks_in_conditions = "allow"
+
 # Add a profile to all targets that enables release optimisations, but
 # retains debug symbols. This is great for use with
 # benchmarking/profiling tools.
