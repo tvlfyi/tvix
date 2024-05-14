@@ -18,9 +18,9 @@ lazy_static = "1.4.0"
 nix-compat = { path = "../nix-compat", features = ["async"] }
 pin-project-lite = "0.2.13"
 prost = "0.12.1"
-opentelemetry = { version = "0.21.0", optional = true}
-opentelemetry-otlp = { version = "0.14.0", optional = true }
-opentelemetry_sdk = { version = "0.21.0", features = ["rt-tokio"], optional = true}
+opentelemetry = { version = "0.22.0", optional = true}
+opentelemetry-otlp = { version = "0.15.0", optional = true }
+opentelemetry_sdk = { version = "0.22.1", features = ["rt-tokio"], optional = true}
 serde = { version = "1.0.197", features = [ "derive" ] }
 serde_json = "1.0"
 serde_with = "3.7.0"
@@ -35,8 +35,8 @@ tokio-util = { version = "0.7.9", features = ["io", "io-util", "compat"] }
 tonic = { version = "0.11.0", features = ["tls", "tls-roots"] }
 tower = "0.4.13"
 tracing = "0.1.37"
-tracing-opentelemetry = "0.22.0"
-tracing-subscriber = { version = "0.3.16", features = ["env-filter", "json"] }
+tracing-opentelemetry = "0.23.0"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json"] }
 tvix-castore = { path = "../castore" }
 url = "2.4.0"
 walkdir = "2.4.0"
