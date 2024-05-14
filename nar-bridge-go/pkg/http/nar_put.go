@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	castorev1pb "code.tvl.fyi/tvix/castore-go"
-	"code.tvl.fyi/tvix/nar-bridge/pkg/importer"
+	"code.tvl.fyi/tvix/nar-bridge-go/pkg/importer"
 	"github.com/go-chi/chi/v5"
 	mh "github.com/multiformats/go-multihash/core"
 	nixhash "github.com/nix-community/go-nix/pkg/hash"

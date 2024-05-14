@@ -1,4 +1,4 @@
-module code.tvl.fyi/tvix/nar-bridge
+module code.tvl.fyi/tvix/nar-bridge-go
 
 require (
 	code.tvl.fyi/tvix/castore-go v0.0.0-20231105151352-990d6ba2175e

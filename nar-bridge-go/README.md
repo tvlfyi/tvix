@@ -1,4 +1,4 @@
-# //tvix/nar-bridge
+# //tvix/nar-bridge-go
 
 This exposes a HTTP Binary cache interface (GET/HEAD/PUT requests) for a `tvix-
 store`.

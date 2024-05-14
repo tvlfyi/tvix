@@ -3,7 +3,7 @@ package http
 import (
 	"net/http"
 
-	"code.tvl.fyi/tvix/nar-bridge/pkg/importer"
+	"code.tvl.fyi/tvix/nar-bridge-go/pkg/importer"
 	"github.com/go-chi/chi/v5"
 	"github.com/nix-community/go-nix/pkg/narinfo"
 	"github.com/nix-community/go-nix/pkg/nixbase32"

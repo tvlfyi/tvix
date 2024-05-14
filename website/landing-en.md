@@ -15,7 +15,7 @@ There are several projects within Tvix, such as:
 * `//tvix/castore` - subtree storage/transfer in a content-addressed fashion
 * `//tvix/cli` - preliminary REPL & CLI implementation for Tvix
 * `//tvix/eval` - an implementation of the Nix programming language
-* `//tvix/nar-bridge` - a HTTP webserver providing a Nix HTTP Binary Cache interface in front of a tvix-store
+* `//tvix/nar-bridge[-go]` - a HTTP webserver providing a Nix HTTP Binary Cache interface in front of a tvix-store
 * `//tvix/nix-compat` - a Rust library for compatibility with C++ Nix, features like encodings and hashing schemes and formats
 * `//tvix/serde` - a Rust library for using the Nix language for app configuration
 * `//tvix/store` - a "filesystem" linking Nix store paths and metadata with the content-addressed layer

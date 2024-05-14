@@ -14,7 +14,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	castorev1pb "code.tvl.fyi/tvix/castore-go"
-	narBridgeHttp "code.tvl.fyi/tvix/nar-bridge/pkg/http"
+	narBridgeHttp "code.tvl.fyi/tvix/nar-bridge-go/pkg/http"
 	storev1pb "code.tvl.fyi/tvix/store-go"
 	log "github.com/sirupsen/logrus"
 )
@@ -47,7 +47,7 @@ func main() {
 			log.Fatal("failed to read build info")
 		}
 
-		shutdown, err := setupOpenTelemetry(ctx, "nar-bridge", buildInfo.Main.Version)
+		shutdown, err := setupOpenTelemetry(ctx, "nar-bridge-http", buildInfo.Main.Version)
 		if err != nil {
 			log.WithError(err).Fatal("failed to setup OpenTelemetry")
 		}

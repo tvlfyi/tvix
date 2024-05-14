@@ -218,7 +218,7 @@ This is useful for people running a Tvix-only system, or running builds on a
 In a system with Nix installed, we can't simply manually "extract" things to
 `/nix/store`, as Nix assumes to own all writes to this location.
 In these use cases, we're probably better off exposing a tvix-store as a local
-binary cache (that's what `//tvix/nar-bridge` does).
+binary cache (that's what `//tvix/nar-bridge-go` does).
 
 Assuming we are in an environment where we control `/nix/store` exclusively, a
 "realize to disk" would either "extract" things from the `tvix-store` to a
