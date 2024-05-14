@@ -25,6 +25,7 @@ members = [
   "eval",
   "eval/builtin-macros",
   "glue",
+  "nar-bridge",
   "nix-compat",
   "serde",
   "store",

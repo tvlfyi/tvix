@@ -1,0 +1,40 @@
+[package]
+name = "nar-bridge"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = { version = "0.7.5", features = ["http2"] }
+bytes = "1.4.0"
+clap = { version = "4.0", features = ["derive", "env"] }
+data-encoding = "2.3.3"
+itertools = "0.12.0"
+prost = "0.12.1"
+nix-compat = { path = "../nix-compat", features = ["async"] }
+thiserror = "1.0.56"
+tokio = { version = "1.32.0" }
+tokio-listener = { version = "0.4.2", features = [ "axum07", "clap", "multi-listener", "sd_listen" ] }
+tokio-util = { version = "0.7.9", features = ["io", "io-util", "compat"] }
+tonic = { version = "0.11.0", features = ["tls", "tls-roots"] }
+tvix-castore = { path = "../castore" }
+tvix-store = { path = "../store" }
+tvix-tracing = { path = "../tracing", features = ["tonic"] }
+tracing = "0.1.37"
+tracing-subscriber = "0.3.16"
+url = "2.4.0"
+serde = { version = "1.0.204", features = ["derive"] }
+
+[build-dependencies]
+prost-build = "0.12.1"
+tonic-build = "0.11.0"
+
+[features]
+default = ["otlp"]
+otlp = ["tvix-tracing/otlp"]
+
+[dev-dependencies]
+hex-literal = "0.4.1"
+rstest = "0.19.0"
+
+[lints]
+workspace = true
