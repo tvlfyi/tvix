@@ -141,20 +141,26 @@ impl ClosureValidator {
     /// In case no elements have been inserted, returns an empty list.
     #[instrument(level = "trace", skip_all, err)]
     pub(crate) fn finalize_root_to_leaves(self) -> Result<Vec<Directory>, Error> {
-        let (mut graph, root) = match self.finalize_raw()? {
+        let (graph, root) = match self.finalize_raw()? {
             None => return Ok(vec![]),
             Some(v) => v,
         };
 
         // do a BFS traversal of the graph, starting with the root node to get
-        // (the count of) all nodes reachable from there.
+        // all nodes reachable from there.
         let traversal = Bfs::new(&graph, root);
 
-        Ok(traversal
-            .iter(&graph)
-            .collect::<Vec<_>>()
-            .into_iter()
-            .filter_map(|i| graph.remove_node(i))
+        let order = traversal.iter(&graph).collect::<Vec<_>>();
+
+        let (nodes, _edges) = graph.into_nodes_edges();
+
+        // Convert to option, so that we can take individual nodes out without messing up the
+        // indices
+        let mut nodes = nodes.into_iter().map(Some).collect::<Vec<_>>();
+
+        Ok(order
+            .iter()
+            .map(|i| nodes[i.index()].take().unwrap().weight)
             .collect())
     }
 
