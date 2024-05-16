@@ -1612,10 +1612,16 @@ pub fn pure_builtins() -> Vec<(&'static str, Value)> {
         crate::systems::llvm_triple_to_nix_double(CURRENT_PLATFORM).into(),
     ));
 
-    // TODO: implement for nixpkgs compatibility
     result.push((
         "__curPos",
-        Value::from(CatchableErrorKind::UnimplementedFeature("__curPos".into())),
+        Value::Thunk(Thunk::new_suspended_native(Box::new(move || {
+            // TODO: implement for nixpkgs compatibility
+            Ok(Value::attrs(NixAttrs::from_iter([
+                ("line", 42.into()),
+                ("column", 42.into()),
+                ("file", Value::String("/deep/thought".into())),
+            ])))
+        }))),
     ));
 
     result
@@ -1709,6 +1715,7 @@ mod placeholder_builtins {
         _name: Value,
         _attrset: Value,
     ) -> Result<Value, ErrorKind> {
+        // TODO: implement for nixpkgs compatibility
         generators::emit_warning_kind(
             &co,
             WarningKind::NotImplemented("builtins.unsafeGetAttrsPos"),
