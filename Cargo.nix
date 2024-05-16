@@ -12545,30 +12545,6 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "metrics" "smallvec" "tracing-log" ];
       };
-      "tracing-serde" = rec {
-        crateName = "tracing-serde";
-        version = "0.1.3";
-        edition = "2018";
-        sha256 = "1qfr0va69djvxqvjrx4vqq7p6myy414lx4w1f6amcn0hfwqj2sxw";
-        authors = [
-          "Tokio Contributors <team@tokio.rs>"
-        ];
-        dependencies = [
-          {
-            name = "serde";
-            packageId = "serde";
-          }
-          {
-            name = "tracing-core";
-            packageId = "tracing-core";
-          }
-        ];
-        features = {
-          "valuable" = [ "valuable_crate" "valuable-serde" "tracing-core/valuable" ];
-          "valuable-serde" = [ "dep:valuable-serde" ];
-          "valuable_crate" = [ "dep:valuable_crate" ];
-        };
-      };
       "tracing-subscriber" = rec {
         crateName = "tracing-subscriber";
         version = "0.3.18";
@@ -12603,16 +12579,6 @@ rec {
             features = [ "std" "unicode-case" "unicode-perl" ];
           }
           {
-            name = "serde";
-            packageId = "serde";
-            optional = true;
-          }
-          {
-            name = "serde_json";
-            packageId = "serde_json";
-            optional = true;
-          }
-          {
             name = "sharded-slab";
             packageId = "sharded-slab";
             optional = true;
@@ -12644,11 +12610,6 @@ rec {
             optional = true;
             usesDefaultFeatures = false;
             features = [ "log-tracer" "std" ];
-          }
-          {
-            name = "tracing-serde";
-            packageId = "tracing-serde";
-            optional = true;
           }
         ];
         devDependencies = [
@@ -12695,7 +12656,7 @@ rec {
           "valuable-serde" = [ "dep:valuable-serde" ];
           "valuable_crate" = [ "dep:valuable_crate" ];
         };
-        resolvedDefaultFeatures = [ "alloc" "ansi" "default" "env-filter" "fmt" "json" "matchers" "nu-ansi-term" "once_cell" "regex" "registry" "serde" "serde_json" "sharded-slab" "smallvec" "std" "thread_local" "tracing" "tracing-log" "tracing-serde" ];
+        resolvedDefaultFeatures = [ "alloc" "ansi" "default" "env-filter" "fmt" "matchers" "nu-ansi-term" "once_cell" "regex" "registry" "sharded-slab" "smallvec" "std" "thread_local" "tracing" "tracing-log" ];
       };
       "try-lock" = rec {
         crateName = "try-lock";
@@ -13101,7 +13062,6 @@ rec {
           {
             name = "tracing-subscriber";
             packageId = "tracing-subscriber";
-            features = [ "json" ];
           }
           {
             name = "tvix-build";
@@ -13708,7 +13668,7 @@ rec {
           {
             name = "tracing-subscriber";
             packageId = "tracing-subscriber";
-            features = [ "env-filter" "json" ];
+            features = [ "env-filter" ];
           }
           {
             name = "tvix-castore";
