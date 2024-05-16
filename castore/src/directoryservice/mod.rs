@@ -6,6 +6,7 @@ mod closure_validator;
 mod from_addr;
 mod grpc;
 mod memory;
+mod object_store;
 mod simple_putter;
 mod sled;
 #[cfg(test)]
@@ -17,6 +18,7 @@ pub use self::closure_validator::ClosureValidator;
 pub use self::from_addr::from_addr;
 pub use self::grpc::GRPCDirectoryService;
 pub use self::memory::MemoryDirectoryService;
+pub use self::object_store::ObjectStoreDirectoryService;
 pub use self::simple_putter::SimplePutter;
 pub use self::sled::SledDirectoryService;
 pub use self::traverse::descend_to;

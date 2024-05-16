@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+async-compression = { version = "0.4.9", features = ["tokio", "zstd"]}
 async-stream = "0.3.5"
 async-tempfile = "0.4.0"
 blake3 = { version = "1.3.1", features = ["rayon", "std", "traits-preview"] }
@@ -21,7 +22,7 @@ prost = "0.12.1"
 sled = { version = "0.34.7" }
 thiserror = "1.0.38"
 tokio-stream = { version = "0.1.14", features = ["fs", "net"] }
-tokio-util = { version = "0.7.9", features = ["io", "io-util"] }
+tokio-util = { version = "0.7.9", features = ["io", "io-util", "codec"] }
 tokio-tar = "0.3.1"
 tokio = { version = "1.32.0", features = ["fs", "macros", "net", "rt", "rt-multi-thread", "signal"] }
 tonic = "0.11.0"

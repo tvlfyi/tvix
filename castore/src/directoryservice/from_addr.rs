@@ -2,7 +2,10 @@ use url::Url;
 
 use crate::{proto::directory_service_client::DirectoryServiceClient, Error};
 
-use super::{DirectoryService, GRPCDirectoryService, MemoryDirectoryService, SledDirectoryService};
+use super::{
+    DirectoryService, GRPCDirectoryService, MemoryDirectoryService, ObjectStoreDirectoryService,
+    SledDirectoryService,
+};
 
 /// Constructs a new instance of a [DirectoryService] from an URI.
 ///
@@ -62,6 +65,18 @@ pub async fn from_addr(uri: &str) -> Result<Box<dyn DirectoryService>, crate::Er
             // Constructing the channel is handled by tvix_castore::channel::from_url.
             let client = DirectoryServiceClient::new(crate::tonic::channel_from_url(&url).await?);
             Box::new(GRPCDirectoryService::from_client(client))
+        }
+        scheme if scheme.starts_with("objectstore+") => {
+            // We need to convert the URL to string, strip the prefix there, and then
+            // parse it back as url, as Url::set_scheme() rejects some of the transitions we want to do.
+            let trimmed_url = {
+                let s = url.to_string();
+                Url::parse(s.strip_prefix("objectstore+").unwrap()).unwrap()
+            };
+            Box::new(
+                ObjectStoreDirectoryService::parse_url(&trimmed_url)
+                    .map_err(|e| Error::StorageError(e.to_string()))?,
+            )
         }
         #[cfg(feature = "cloud")]
         "bigtable" => {
