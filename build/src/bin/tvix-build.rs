@@ -23,10 +23,6 @@ use tvix_castore::proto::FILE_DESCRIPTOR_SET as CASTORE_FILE_DESCRIPTOR_SET;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    /// Whether to log in JSON
-    #[arg(long)]
-    json: bool,
-
     #[arg(long)]
     log_level: Option<Level>,
 
@@ -58,23 +54,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // configure log settings
     let level = cli.log_level.unwrap_or(Level::INFO);
 
-    let subscriber = tracing_subscriber::registry()
+    tracing_subscriber::registry()
         .with(
-            cli.json.then_some(
-                tracing_subscriber::fmt::Layer::new()
-                    .with_writer(std::io::stderr.with_max_level(level))
-                    .json(),
-            ),
+            tracing_subscriber::fmt::Layer::new()
+                .with_writer(std::io::stderr.with_max_level(level))
+                .pretty(),
         )
-        .with(
-            (!cli.json).then_some(
-                tracing_subscriber::fmt::Layer::new()
-                    .with_writer(std::io::stderr.with_max_level(level))
-                    .pretty(),
-            ),
-        );
-
-    tracing::subscriber::set_global_default(subscriber).expect("Unable to set global subscriber");
+        .init();
 
     match cli.command {
         Commands::Daemon {

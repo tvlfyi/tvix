@@ -12772,7 +12772,6 @@ rec {
           {
             name = "tracing-subscriber";
             packageId = "tracing-subscriber";
-            features = [ "json" ];
           }
           {
             name = "tvix-castore";
