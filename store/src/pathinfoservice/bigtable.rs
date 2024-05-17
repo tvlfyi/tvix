@@ -67,6 +67,22 @@ pub struct BigtableParameters {
     app_profile_id: String,
 }
 
+impl BigtableParameters {
+    #[cfg(test)]
+    pub fn default_for_tests() -> Self {
+        Self {
+            project_id: "project-1".into(),
+            instance_name: "instance-1".into(),
+            is_read_only: false,
+            channel_size: default_channel_size(),
+            timeout: default_timeout(),
+            table_name: "table-1".into(),
+            family_name: "cf1".into(),
+            app_profile_id: default_app_profile_id(),
+        }
+    }
+}
+
 fn default_app_profile_id() -> String {
     "default".to_owned()
 }

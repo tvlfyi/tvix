@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use tonic::transport::{Endpoint, Server, Uri};
+use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService};
 
 use crate::{
     nar::{NarCalculationService, SimpleRenderer},
@@ -15,7 +16,8 @@ use crate::{
 /// Constructs and returns a gRPC PathInfoService.
 /// We also return memory-based {Blob,Directory}Service,
 /// as the consumer of this function accepts a 3-tuple.
-pub async fn make_grpc_path_info_service_client() -> super::BSDSPS {
+pub async fn make_grpc_path_info_service_client(
+) -> (impl BlobService, impl DirectoryService, GRPCPathInfoService) {
     let (left, right) = tokio::io::duplex(64);
 
     let blob_service = blob_service();
@@ -47,18 +49,27 @@ pub async fn make_grpc_path_info_service_client() -> super::BSDSPS {
     // Create a client, connecting to the right side. The URI is unused.
     let mut maybe_right = Some(right);
 
-    let path_info_service = Box::new(GRPCPathInfoService::from_client(
-        PathInfoServiceClient::new(
-            Endpoint::try_from("http://[::]:50051")
-                .unwrap()
-                .connect_with_connector(tower::service_fn(move |_: Uri| {
-                    let right = maybe_right.take().unwrap();
-                    async move { Ok::<_, std::io::Error>(right) }
-                }))
-                .await
-                .unwrap(),
-        ),
+    let path_info_service = GRPCPathInfoService::from_client(PathInfoServiceClient::new(
+        Endpoint::try_from("http://[::]:50051")
+            .unwrap()
+            .connect_with_connector(tower::service_fn(move |_: Uri| {
+                let right = maybe_right.take().unwrap();
+                async move { Ok::<_, std::io::Error>(right) }
+            }))
+            .await
+            .unwrap(),
     ));
 
     (blob_service, directory_service, path_info_service)
+}
+
+#[cfg(all(feature = "cloud", feature = "integration"))]
+pub(crate) async fn make_bigtable_path_info_service(
+) -> crate::pathinfoservice::BigtablePathInfoService {
+    use crate::pathinfoservice::bigtable::BigtableParameters;
+    use crate::pathinfoservice::BigtablePathInfoService;
+
+    BigtablePathInfoService::connect(BigtableParameters::default_for_tests())
+        .await
+        .unwrap()
 }

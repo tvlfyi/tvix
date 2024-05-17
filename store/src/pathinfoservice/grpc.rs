@@ -135,6 +135,7 @@ impl NarCalculationService for GRPCPathInfoService {
 #[cfg(test)]
 mod tests {
     use crate::pathinfoservice::tests::make_grpc_path_info_service_client;
+    use crate::pathinfoservice::PathInfoService;
     use crate::tests::fixtures;
 
     /// This ensures connecting via gRPC works as expected.
