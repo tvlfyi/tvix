@@ -24,6 +24,7 @@ mod error;
 pub use error::IngestionError;
 
 pub mod archive;
+pub mod blobs;
 pub mod fs;
 
 /// Ingests [IngestionEntry] from the given stream into a the passed [DirectoryService].
