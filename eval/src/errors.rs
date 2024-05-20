@@ -10,7 +10,6 @@ use std::{fmt::Debug, fmt::Display, num::ParseIntError};
 use codemap::{File, Span};
 use codemap_diagnostic::{ColorConfig, Diagnostic, Emitter, Level, SpanLabel, SpanStyle};
 use smol_str::SmolStr;
-use xml::writer::Error as XmlError;
 
 use crate::spans::ToSpan;
 use crate::value::{CoercionKind, NixString};
@@ -194,9 +193,6 @@ pub enum ErrorKind {
     /// Invalid UTF-8 was encoutered somewhere
     Utf8,
 
-    /// Errors while serialising to XML.
-    Xml(Rc<XmlError>),
-
     /// Variant for errors that bubble up to eval from other Tvix
     /// components.
     TvixError(Rc<dyn error::Error>),
@@ -248,7 +244,6 @@ impl error::Error for Error {
                 errors.first().map(|e| e as &dyn error::Error)
             }
             ErrorKind::IO { error, .. } => Some(error.as_ref()),
-            ErrorKind::Xml(error) => Some(error.as_ref()),
             ErrorKind::TvixError(error) => Some(error.as_ref()),
             _ => None,
         }
@@ -282,12 +277,6 @@ impl From<bstr::Utf8Error> for ErrorKind {
 impl From<bstr::FromUtf8Error> for ErrorKind {
     fn from(_value: bstr::FromUtf8Error) -> Self {
         Self::Utf8
-    }
-}
-
-impl From<XmlError> for ErrorKind {
-    fn from(err: XmlError) -> Self {
-        Self::Xml(Rc::new(err))
     }
 }
 
@@ -505,8 +494,6 @@ to a missing value in the attribute set(s) included via `with`."#,
             ErrorKind::Utf8 => {
                 write!(f, "Invalid UTF-8 in string")
             }
-
-            ErrorKind::Xml(error) => write!(f, "failed to serialise to XML: {error}"),
 
             ErrorKind::TvixError(inner_error) => {
                 write!(f, "{inner_error}")
@@ -823,7 +810,6 @@ impl Error {
             | ErrorKind::JsonError(_)
             | ErrorKind::NotSerialisableToJson(_)
             | ErrorKind::FromTomlError(_)
-            | ErrorKind::Xml(_)
             | ErrorKind::Utf8
             | ErrorKind::TvixError(_)
             | ErrorKind::TvixBug { .. }
@@ -870,7 +856,6 @@ impl Error {
             ErrorKind::UnexpectedArgument { .. } => "E031",
             ErrorKind::RelativePathResolution(_) => "E032",
             ErrorKind::DivisionByZero => "E033",
-            ErrorKind::Xml(_) => "E034",
             ErrorKind::FromTomlError(_) => "E035",
             ErrorKind::NotSerialisableToJson(_) => "E036",
             ErrorKind::UnexpectedContext => "E037",

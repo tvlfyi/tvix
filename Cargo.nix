@@ -13222,10 +13222,6 @@ rec {
             packageId = "tvix-eval-builtin-macros";
             rename = "builtin-macros";
           }
-          {
-            name = "xml-rs";
-            packageId = "xml-rs";
-          }
         ];
         devDependencies = [
           {
@@ -16040,18 +16036,6 @@ rec {
           "default" = [ "unsupported" ];
         };
         resolvedDefaultFeatures = [ "default" "unsupported" ];
-      };
-      "xml-rs" = rec {
-        crateName = "xml-rs";
-        version = "0.8.19";
-        edition = "2021";
-        crateBin = [ ];
-        sha256 = "0nnpvk3fv32hgh7vs9gbg2swmzxx5yz73f4b7rak7q39q2x9rjqg";
-        libName = "xml";
-        authors = [
-          "Vladimir Matveev <vmatveev@citrine.cc>"
-        ];
-
       };
       "xz2" = rec {
         crateName = "xz2";
