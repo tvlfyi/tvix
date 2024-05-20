@@ -104,11 +104,13 @@ async fn filtered_ingest(
 
 #[builtins(state = "Rc<TvixStoreIO>")]
 mod import_builtins {
+    use std::os::unix::ffi::OsStrExt;
     use std::rc::Rc;
 
     use super::*;
 
     use nix_compat::nixhash::{CAHash, NixHash};
+    use nix_compat::store_path::StorePath;
     use tvix_eval::generators::Gen;
     use tvix_eval::{generators::GenCo, ErrorKind, Value};
     use tvix_eval::{NixContextElement, NixString};
@@ -279,6 +281,44 @@ mod import_builtins {
             NixString::new_context_from(NixContextElement::Plain(outpath.clone()).into(), outpath)
                 .into(),
         )
+    }
+
+    #[builtin("storePath")]
+    async fn builtin_store_path(
+        state: Rc<TvixStoreIO>,
+        co: GenCo,
+        path: Value,
+    ) -> Result<Value, ErrorKind> {
+        let p = std::str::from_utf8(match &path {
+            Value::String(s) => s.as_bytes(),
+            Value::Path(p) => p.as_os_str().as_bytes(),
+            _ => {
+                return Err(ErrorKind::TypeError {
+                    expected: "string or path",
+                    actual: path.type_of(),
+                })
+            }
+        })?;
+
+        let path_exists = if let Ok((store_path, sub_path)) = StorePath::from_absolute_path_full(p)
+        {
+            if !sub_path.as_os_str().is_empty() {
+                false
+            } else {
+                state.store_path_exists(store_path.as_ref()).await?
+            }
+        } else {
+            false
+        };
+
+        if !path_exists {
+            return Err(ImportError::PathNotInStore(p.into()).into());
+        }
+
+        Ok(Value::String(NixString::new_context_from(
+            [NixContextElement::Plain(p.into())].into(),
+            p,
+        )))
     }
 }
 

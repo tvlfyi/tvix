@@ -54,6 +54,12 @@ impl From<HashSet<NixContextElement>> for NixContext {
     }
 }
 
+impl<const N: usize> From<[NixContextElement; N]> for NixContext {
+    fn from(value: [NixContextElement; N]) -> Self {
+        Self(HashSet::from(value))
+    }
+}
+
 impl NixContext {
     /// Creates an empty context that can be populated
     /// and passed to form a contextful [NixString], albeit

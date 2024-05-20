@@ -421,7 +421,7 @@ impl EvalIO for TvixStoreIO {
         {
             if self
                 .tokio_handle
-                .block_on(async { self.store_path_to_node(&store_path, &sub_path).await })?
+                .block_on(self.store_path_to_node(&store_path, &sub_path))?
                 .is_some()
             {
                 Ok(true)

@@ -4,7 +4,7 @@ use nix_compat::{
     store_path::BuildStorePathError,
 };
 use reqwest::Url;
-use std::rc::Rc;
+use std::{path::PathBuf, rc::Rc};
 use thiserror::Error;
 use tvix_castore::import;
 
@@ -65,8 +65,12 @@ pub enum FetcherError {
 pub enum ImportError {
     #[error("non-file '{0}' cannot be imported in 'flat' mode")]
     FlatImportOfNonFile(String),
+
     #[error("hash mismatch at ingestion of '{0}', expected: '{1}', got: '{2}'")]
     HashMismatch(String, NixHash, NixHash),
+
+    #[error("path '{}' is not in the Nix store", .0.display())]
+    PathNotInStore(PathBuf),
 }
 
 impl From<ImportError> for tvix_eval::ErrorKind {
