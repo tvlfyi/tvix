@@ -6,11 +6,12 @@ use bstr::ByteSlice;
 use std::borrow::Cow;
 use std::{io::Write, rc::Rc};
 
-use crate::{ErrorKind, Value};
+use crate::{ErrorKind, NixContext, NixContextElement, Value};
 
 /// Recursively serialise a value to XML. The value *must* have been
 /// deep-forced before being passed to this function.
-pub fn value_to_xml<W: Write>(mut writer: W, value: &Value) -> Result<(), ErrorKind> {
+/// On success, returns the NixContext.
+pub fn value_to_xml<W: Write>(mut writer: W, value: &Value) -> Result<NixContext, ErrorKind> {
     // Write a literal document declaration, using C++-Nix-style
     // single quotes.
     writeln!(writer, "<?xml version='1.0' encoding='utf-8'?>")?;
@@ -21,7 +22,7 @@ pub fn value_to_xml<W: Write>(mut writer: W, value: &Value) -> Result<(), ErrorK
     value_variant_to_xml(&mut emitter, value)?;
     emitter.write_closing_tag("expr")?;
 
-    Ok(())
+    Ok(emitter.into_context())
 }
 
 fn write_typed_value<W: Write, V: ToString>(
@@ -45,7 +46,12 @@ fn value_variant_to_xml<W: Write>(w: &mut XmlEmitter<W>, value: &Value) -> Resul
         Value::Bool(b) => return write_typed_value(w, "bool", b),
         Value::Integer(i) => return write_typed_value(w, "int", i),
         Value::Float(f) => return write_typed_value(w, "float", f),
-        Value::String(s) => return write_typed_value(w, "string", s.to_str()?),
+        Value::String(s) => {
+            if let Some(context) = s.context() {
+                w.extend_context(context.iter().cloned());
+            }
+            return write_typed_value(w, "string", s.to_str()?);
+        }
         Value::Path(p) => return write_typed_value(w, "path", p.to_string_lossy()),
 
         Value::List(list) => {
@@ -137,6 +143,7 @@ struct XmlEmitter<W> {
     /// The current indentation
     cur_indent: usize,
     writer: W,
+    context: NixContext,
 }
 
 impl<W: Write> XmlEmitter<W> {
@@ -144,6 +151,7 @@ impl<W: Write> XmlEmitter<W> {
         XmlEmitter {
             cur_indent: 0,
             writer,
+            context: Default::default(),
         }
     }
 
@@ -244,6 +252,19 @@ impl<W: Write> XmlEmitter<W> {
             '\r' => Some("&#xD;"),
             _ => None,
         }
+    }
+
+    /// Extends the existing context with more context elements.
+    fn extend_context<T>(&mut self, iter: T)
+    where
+        T: IntoIterator<Item = NixContextElement>,
+    {
+        self.context.extend(iter)
+    }
+
+    /// Consumes [Self] and returns the [NixContext] collected.
+    fn into_context(self) -> NixContext {
+        self.context
     }
 }
 

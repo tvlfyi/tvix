@@ -1504,8 +1504,19 @@ mod pure_builtins {
         }
 
         let mut buf: Vec<u8> = vec![];
-        to_xml::value_to_xml(&mut buf, &value)?;
-        Ok(buf.into())
+        let context = to_xml::value_to_xml(&mut buf, &value)?;
+
+        Ok((
+            buf,
+            // FUTUREWORK: We have a distinction between an empty context, and
+            // no context at all. Fix this.
+            if !context.is_empty() {
+                Some(Box::new(context))
+            } else {
+                None
+            },
+        )
+            .into())
     }
 
     #[builtin("placeholder")]
