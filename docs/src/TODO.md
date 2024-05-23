@@ -33,9 +33,6 @@ sure noone is working on this, or has some specific design in mind already.
    the underlying backend, similar to `IngestionError`.
 
 ## Fixes towards correctness
- - `builtins.toXML` is missing string context. See b/398.
- - `builtins.toXML` self-closing tags need to be configurable in a more granular
-   fashion, requires third-party crate support. See b/399.
  - `rnix` only supports string source files, but `NixString` uses bytes (and Nix
    source code might be no valid UTF-8).
 
