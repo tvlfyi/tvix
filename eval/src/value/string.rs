@@ -87,11 +87,19 @@ impl NixContext {
         Self(set)
     }
 
+    /// Extends the existing context with more context elements.
+    pub fn extend<T>(&mut self, iter: T)
+    where
+        T: IntoIterator<Item = NixContextElement>,
+    {
+        self.0.extend(iter)
+    }
+
     /// Copies from another [NixString] its context strings
     /// in this context.
     pub fn mimic(&mut self, other: &NixString) {
         if let Some(context) = other.context() {
-            self.0.extend(context.iter().cloned());
+            self.extend(context.iter().cloned());
         }
     }
 
