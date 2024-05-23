@@ -338,8 +338,8 @@ impl Value {
             let coerced: Result<BString, _> = match (value, kind) {
                 // coercions that are always done
                 (Value::String(mut s), _) => {
-                    if let Some(ctx) = s.context_mut() {
-                        context = context.join(ctx);
+                    if let Some(ctx) = s.take_context() {
+                        context.extend(ctx.into_iter());
                     }
                     Ok((*s).into())
                 }

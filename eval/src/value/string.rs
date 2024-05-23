@@ -78,15 +78,6 @@ impl NixContext {
         self
     }
 
-    /// Consumes both ends of the join into a new NixContent
-    /// containing the union of elements of both ends.
-    pub fn join(mut self, other: &mut NixContext) -> Self {
-        let other_set = std::mem::take(&mut other.0);
-        let mut set: HashSet<NixContextElement> = std::mem::take(&mut self.0);
-        set.extend(other_set);
-        Self(set)
-    }
-
     /// Extends the existing context with more context elements.
     pub fn extend<T>(&mut self, iter: T)
     where
@@ -159,6 +150,16 @@ impl NixContext {
                 NixContextElement::Single { derivation, .. } => derivation,
             })
             .collect()
+    }
+}
+
+impl IntoIterator for NixContext {
+    type Item = NixContextElement;
+
+    type IntoIter = std::collections::hash_set::IntoIter<NixContextElement>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
@@ -715,8 +716,10 @@ impl NixString {
         let context = [self.context(), other.context()]
             .into_iter()
             .flatten()
-            .fold(NixContext::new(), |acc_ctx, new_ctx| {
-                acc_ctx.join(&mut new_ctx.clone())
+            .fold(NixContext::new(), |mut acc_ctx, new_ctx| {
+                // TODO: consume new_ctx?
+                acc_ctx.extend(new_ctx.iter().cloned());
+                acc_ctx
             });
         Self::new_context_from(context, s)
     }
@@ -730,13 +733,13 @@ impl NixString {
         unsafe { NixStringInner::context_ref(self.0).as_deref() }
     }
 
-    pub(crate) fn context_mut(&mut self) -> Option<&mut NixContext> {
+    pub(crate) fn context_mut(&mut self) -> &mut Option<Box<NixContext>> {
         // SAFETY: There's no way to construct an uninitialized or invalid NixString (see the SAFETY
         // comment in `new`).
         //
         // Also, we're using the same lifetime and mutability as self, to fit the
         // pointer-to-reference conversion rules
-        unsafe { NixStringInner::context_mut(self.0).as_deref_mut() }
+        unsafe { NixStringInner::context_mut(self.0) }
     }
 
     pub fn iter_context(&self) -> impl Iterator<Item = &NixContext> {
@@ -764,12 +767,16 @@ impl NixString {
         self.context().is_some()
     }
 
+    /// This clears the context of the string, returning
+    /// the removed dependency tracking information.
+    pub fn take_context(&mut self) -> Option<Box<NixContext>> {
+        self.context_mut().take()
+    }
+
     /// This clears the context of that string, losing
     /// all dependency tracking information.
     pub fn clear_context(&mut self) {
-        // SAFETY: There's no way to construct an uninitialized or invalid NixString (see the SAFETY
-        // comment in `new`).
-        *unsafe { NixStringInner::context_mut(self.0) } = None;
+        let _ = self.take_context();
     }
 
     pub fn chars(&self) -> Chars<'_> {

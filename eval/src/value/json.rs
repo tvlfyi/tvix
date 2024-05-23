@@ -47,8 +47,8 @@ impl Value {
 
                 for val in l.into_iter() {
                     match generators::request_to_json(co, val).await {
-                        Ok((v, mut ctx)) => {
-                            context = context.join(&mut ctx);
+                        Ok((v, ctx)) => {
+                            context.extend(ctx.into_iter());
                             out.push(v)
                         }
                         Err(cek) => return Ok(Err(cek)),
@@ -100,8 +100,8 @@ impl Value {
                     out.insert(
                         name.to_str()?.to_owned(),
                         match generators::request_to_json(co, value).await {
-                            Ok((v, mut ctx)) => {
-                                context = context.join(&mut ctx);
+                            Ok((v, ctx)) => {
+                                context.extend(ctx.into_iter());
                                 v
                             }
                             Err(cek) => return Ok(Err(cek)),

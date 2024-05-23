@@ -372,12 +372,12 @@ pub(crate) mod derivation_builtins {
                             return Ok(val);
                         }
 
-                        let (val_json, mut context) = match val.into_contextful_json(&co).await? {
+                        let (val_json, context) = match val.into_contextful_json(&co).await? {
                             Ok(v) => v,
                             Err(cek) => return Ok(Value::from(cek)),
                         };
 
-                        input_context = input_context.join(&mut context);
+                        input_context.extend(context.into_iter());
 
                         // No need to check for dups, we only iterate over every attribute name once
                         structured_attrs.insert(arg_name.to_owned(), val_json);

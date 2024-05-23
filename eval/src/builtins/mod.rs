@@ -274,9 +274,10 @@ mod pure_builtins {
         list: Value,
     ) -> Result<Value, ErrorKind> {
         let mut separator = separator.to_contextful_str()?;
+
         let mut context = NixContext::new();
-        if let Some(sep_context) = separator.context_mut() {
-            context = context.join(sep_context);
+        if let Some(sep_context) = separator.take_context() {
+            context.extend(sep_context.into_iter())
         }
         let list = list.to_list()?;
         let mut res = BString::default();
@@ -296,13 +297,8 @@ mod pure_builtins {
             {
                 Ok(mut s) => {
                     res.push_str(&s);
-                    if let Some(ref mut other_context) = s.context_mut() {
-                        // It is safe to consume the other context here
-                        // because the `list` and `separator` are originally
-                        // moved, here.
-                        // We are not going to use them again
-                        // because the result here is a string.
-                        context = context.join(other_context);
+                    if let Some(other_context) = s.take_context() {
+                        context.extend(other_context.into_iter());
                     }
                 }
                 Err(c) => return Ok(Value::Catchable(Box::new(c))),
@@ -764,9 +760,8 @@ mod pure_builtins {
         }
 
         if let Some(origin_ctx) = origin.context_mut() {
-            // FUTUREWORK(performance): avoid this clone
-            // and extend in-place.
-            *origin_ctx = origin_ctx.clone().join(&mut ctx_elements.into());
+            origin_ctx.extend(ctx_elements)
+            // TODO: didn't we forget cases where origin had no context?
         }
 
         Ok(origin.into())
@@ -1169,8 +1164,8 @@ mod pure_builtins {
         let mut empty_string_replace = false;
         let mut context = NixContext::new();
 
-        if let Some(string_context) = string.context_mut() {
-            context = context.join(string_context);
+        if let Some(string_context) = string.take_context() {
+            context.extend(string_context.into_iter());
         }
 
         // This can't be implemented using Rust's string.replace() as
@@ -1200,8 +1195,8 @@ mod pure_builtins {
                 if string[i..i + from.len()] == *from {
                     res.push_str(&to);
                     i += from.len();
-                    if let Some(to_ctx) = to.context_mut() {
-                        context = context.join(to_ctx);
+                    if let Some(to_ctx) = to.take_context() {
+                        context.extend(to_ctx.into_iter());
                     }
 
                     // remember if we applied the empty from->to
@@ -1232,8 +1227,8 @@ mod pure_builtins {
 
             if from.is_empty() {
                 res.push_str(&to);
-                if let Some(to_ctx) = to.context_mut() {
-                    context = context.join(to_ctx);
+                if let Some(to_ctx) = to.take_context() {
+                    context.extend(to_ctx.into_iter());
                 }
                 break;
             }
@@ -1640,6 +1635,8 @@ pub fn pure_builtins() -> Vec<(&'static str, Value)> {
 
 #[builtins]
 mod placeholder_builtins {
+    use crate::NixContext;
+
     use super::*;
 
     #[builtin("unsafeDiscardStringContext")]
@@ -1688,24 +1685,17 @@ mod placeholder_builtins {
             .to_contextful_str()?;
 
         // If there's any context, we will swap any ... by a path one.
-        if let Some(ctx) = v.context_mut() {
-            let new_context: tvix_eval::NixContext = ctx
-                .iter()
-                .map(|elem| match elem {
-                    // FUTUREWORK(performance): ideally, we should either:
-                    // (a) do interior mutation of the existing context.
-                    // (b) let the structural sharing make those clones cheap.
-                    crate::NixContextElement::Derivation(drv_path) => {
-                        crate::NixContextElement::Plain(drv_path.to_string())
-                    }
-                    elem => elem.clone(),
-                })
-                .collect::<HashSet<_>>()
-                .into();
+        if let Some(c) = v.take_context() {
+            let mut context = NixContext::new();
+            context.extend(c.into_iter().map(|elem| match elem {
+                crate::NixContextElement::Derivation(drv_path) => {
+                    crate::NixContextElement::Plain(drv_path.to_string())
+                }
+                elem => elem.clone(),
+            }));
 
-            *ctx = new_context;
+            return Ok(Value::String(NixString::new_context_from(context, v)));
         }
-
         Ok(Value::from(v))
     }
 
