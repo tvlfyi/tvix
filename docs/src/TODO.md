@@ -25,6 +25,15 @@ sure noone is working on this, or has some specific design in mind already.
    with a different level of `--strict`, but the toplevel doc-comment suggests
    its generic?
 
+## Perf
+ - String Contexts currently do a lot of indirections (edef)
+   (NixString -> NixStringInner -> HashSet[element] -> NixContextElement -> String -> data)
+   to get to the actual data. We should improve this. There's various ideas, one
+   of it is globally interning all Nix context elements, and only keeping
+   indices into that. We might need to have different representations for small
+   amount of context elements or larger ones, and need tooling to reason about
+   the amount of contexts we have.
+
 ### Error cleanup
  - Currently, all services use tvix_castore::Error, which only has two kinds
    (invalid request, storage error), containing an (owned) string.
