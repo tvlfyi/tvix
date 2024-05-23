@@ -1505,7 +1505,7 @@ mod pure_builtins {
 
         let mut buf: Vec<u8> = vec![];
         to_xml::value_to_xml(&mut buf, &value)?;
-        Ok(String::from_utf8(buf)?.into())
+        Ok(buf.into())
     }
 
     #[builtin("placeholder")]
