@@ -52,7 +52,13 @@ let
   # Overlay for packages that should come from the stable channel
   # instead (e.g. because something is broken in unstable).
   # Use `stableNixpkgs` from above.
-  stableOverlay = _unstableSelf: unstableSuper: { };
+  stableOverlay = _unstableSelf: unstableSuper: {
+    # newer trunk fails somewhere within reqwest, trying to read a mystery file
+    trunk = stableNixpkgs.trunk;
+
+    # the big lis package change breaks everything in //3p/lisp, undo it for now.
+    lispPackages = stableNixpkgs.lispPackages;
+  };
 
   # Overlay to expose the nixpkgs commits we are using to other Nix code.
   commitsOverlay = _: _: {
