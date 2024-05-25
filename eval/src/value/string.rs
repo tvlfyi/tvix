@@ -625,6 +625,11 @@ mod arbitrary {
 
 impl NixString {
     fn new(contents: &[u8], context: Option<Box<NixContext>>) -> Self {
+        debug_assert!(
+            !context.as_deref().is_some_and(NixContext::is_empty),
+            "BUG: initialized with empty context"
+        );
+
         // SAFETY: We're always fully initializing a NixString here:
         //
         // 1. NixStringInner::alloc sets up the len for us
@@ -649,7 +654,10 @@ impl NixString {
     {
         Self::new(
             Self::from(new_contents).as_ref(),
-            other.context().map(|c| Box::new(c.clone())),
+            other
+                .context()
+                .filter(|ctx| !ctx.is_empty())
+                .map(|c| Box::new(c.clone())),
         )
     }
 
@@ -730,7 +738,14 @@ impl NixString {
         //
         // Also, we're using the same lifetime and mutability as self, to fit the
         // pointer-to-reference conversion rules
-        unsafe { NixStringInner::context_ref(self.0).as_deref() }
+        let context = unsafe { NixStringInner::context_ref(self.0).as_deref() };
+
+        debug_assert!(
+            !context.is_some_and(NixContext::is_empty),
+            "BUG: empty context"
+        );
+
+        context
     }
 
     pub(crate) fn context_mut(&mut self) -> &mut Option<Box<NixContext>> {
@@ -739,7 +754,14 @@ impl NixString {
         //
         // Also, we're using the same lifetime and mutability as self, to fit the
         // pointer-to-reference conversion rules
-        unsafe { NixStringInner::context_mut(self.0) }
+        let context = unsafe { NixStringInner::context_mut(self.0) };
+
+        debug_assert!(
+            !context.as_deref().is_some_and(NixContext::is_empty),
+            "BUG: empty context"
+        );
+
+        context
     }
 
     pub fn iter_context(&self) -> impl Iterator<Item = &NixContext> {
