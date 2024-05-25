@@ -34,7 +34,7 @@ So this means that any version of Nix 2.x can't talk to Nix 0.x.
 | --------------- | -- | -------------- | -------- | ----------- | ----- |
 | *Quit           | 0  | [a711689368][a711689368] || 0.11 | Became dead code in [7951c3c54][7951c3c54] (Nix 0.11) and removed in [d3c61d83b][d3c61d83b] (Nix 1.8) |
 | IsValidPath     | 1  | [a711689368][a711689368] || 0.11 ||
-| HasSubstitutes  | 3  | [0565b5f2b3][0565b5f2b3] || 0.11 ||
+| HasSubstitutes  | 3  | [0565b5f2b3][0565b5f2b3] || 0.11 | Obsolete [09a6321aeb][09a6321aeb]<br>Nix 1.2 Protocol 1.12 |
 | QueryPathHash   | 4  | [0565b5f2b3][0565b5f2b3] || 0.11 | Obsolete [e0204f8d46][e0204f8d46]<br>Nix 2.0 Protocol 1.16 |
 | QueryReferences | 5  | [0565b5f2b3][0565b5f2b3] || 0.11 | Obsolete [e0204f8d46][e0204f8d46]<br>Nix 2.0 Protocol 1.16 |
 | QueryReferrers  | 6  | [0565b5f2b3][0565b5f2b3] || 0.11 ||

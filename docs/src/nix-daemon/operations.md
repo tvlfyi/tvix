@@ -14,11 +14,9 @@
 | [FindRoots](#findroots)                                     | 14 |
 | [SetOptions](#setoptions)                                   | 19 |
 | [CollectGarbage](#collectgarbage)                           | 20 |
-| [QuerySubstitutablePathInfo](#querysubstitutablepathinfo)   | 21 |
 | [QueryAllValidPaths](#queryallvalidpaths)                   | 23 |
 | [QueryPathInfo](#querypathinfo)                             | 26 |
 | [QueryPathFromHashPart](#querypathfromhashpart)             | 29 |
-| [QuerySubstitutablePathInfos](#querysubstitutablepathinfos) | 30 |
 | [QueryValidPaths](#queryvalidpaths)                         | 31 |
 | [QuerySubstitutablePaths](#querysubstitutablepaths)         | 32 |
 | [QueryValidDerivers](#queryvalidderivers)                   | 33 |
@@ -40,17 +38,19 @@
 
 ## Obsolete operations
 
-| Operation                                                 | Id |
-| --------------------------------------------------------- | -- |
-| [QueryPathHash](#querypathhash)                           | 4  |
-| [QueryReferences](#queryreferences)                       | 5  |
-| [AddTextToStore](#addtexttostore)                         | 8  |
-| [SyncWithGC](#syncwithgc)                                 | 13 |
-| [ExportPath](#exportpath)                                 | 16 |
-| [QueryDeriver](#queryderiver)                             | 18 |
-| [QueryDerivationOutputs](#queryderivationoutputs)         | 22 |
-| [ImportPaths](#importpaths)                               | 27 |
-| [QueryDerivationOutputNames](#queryderivationoutputnames) | 28 |
+| Operation                                                   | Id |
+| ----------------------------------------------------------- | -- |
+| [QueryPathHash](#querypathhash)                             | 4  |
+| [QueryReferences](#queryreferences)                         | 5  |
+| [AddTextToStore](#addtexttostore)                           | 8  |
+| [SyncWithGC](#syncwithgc)                                   | 13 |
+| [ExportPath](#exportpath)                                   | 16 |
+| [QueryDeriver](#queryderiver)                               | 18 |
+| [QuerySubstitutablePathInfo](#querysubstitutablepathinfo)   | 21 |
+| [QueryDerivationOutputs](#queryderivationoutputs)           | 22 |
+| [ImportPaths](#importpaths)                                 | 27 |
+| [QueryDerivationOutputNames](#queryderivationoutputnames)   | 28 |
+| [QuerySubstitutablePathInfos](#querysubstitutablepathinfos) | 30 |
 
 
 ## Removed operations
@@ -81,6 +81,7 @@ As the name says checks that a store path is valid i.e. in the store.
 
 This is a pretty core operation used everywhere.
 
+
 ### Inputs
 path :: [StorePath][se-StorePath]
 
@@ -92,6 +93,9 @@ isValid :: [Bool][se-Bool]
 
 **Id:** 3<br>
 **Introduced:** Nix 0.11<br>
+**Obsolete** Protocol 1.12, Nix 1.2<br>
+
+Replaced by QuerySubstitutablePaths.
 
 Checks if we can substitute the input path from a substituter. Uses
 QuerySubstitutablePaths under the hood :/
@@ -115,7 +119,7 @@ Retrieves the base16 NAR hash of a given store path.
 path :: [StorePath][se-StorePath]
 
 ### Outputs
-hash :: [String][se-String] (base16-encoded NAR hash without algorithm prefix)
+hash :: [NARHash][se-NARHash]
 
 
 ## QueryReferences
@@ -130,7 +134,7 @@ Retrieves the references of a given path
 path :: [StorePath][se-StorePath]
 
 ### Outputs
-references :: [List][se-List] of [StorePath][se-StorePath]
+references :: [Set][se-Set] of [StorePath][se-StorePath]
 
 
 ## QueryReferrers
@@ -144,7 +148,7 @@ Retrieves the referrers of a given path.
 path :: [StorePath][se-StorePath]
 
 ### Outputs
-referrers :: [List][se-List] of [StorePath][se-StorePath]
+referrers :: [Set][se-Set] of [StorePath][se-StorePath]
 
 
 ## AddToStore
@@ -156,16 +160,16 @@ Add a new path to the store.
 
 ### Before protocol version 1.25
 #### Inputs
-- baseName :: [String][se-String]
+- baseName :: [StorePathName][se-StorePathName]
 - fixed :: [Bool64][se-Bool64]
 - recursive :: [FileIngestionMethod][se-FileIngestionMethod]
-- hashAlgo :: [String][se-String]
+- hashAlgo :: [HashAlgorithm][se-HashAlgorithm]
 - NAR dump
 
 If fixed is `true`, hashAlgo is forced to `sha256` and recursive is forced to
-`Recursive`.
+`NixArchive`.
 
-Only `Flat` and `Recursive` values are supported for the recursive input
+Only `Flat` and `NixArchive` values are supported for the recursive input
 parameter.
 
 #### Outputs
@@ -173,9 +177,9 @@ path :: [StorePath][se-StorePath]
 
 ### Protocol version 1.25 or newer
 #### Inputs
-- name :: [String][se-String]
+- name :: [StorePathName][se-StorePathName]
 - camStr :: [ContentAddressMethodWithAlgo][se-ContentAddressMethodWithAlgo]
-- refs :: [List][se-List] of [StorePath][se-StorePath]
+- refs :: [Set][se-Set] of [StorePath][se-StorePath]
 - repairBool :: [Bool64][se-Bool64]
 - [Framed][se-Framed] NAR dump
 
@@ -197,9 +201,9 @@ to [AddToStore](#addtostore). And so this corresponds to calling
 wrapped as a NAR.
 
 ### Inputs
-- suffix :: [String][se-String]
+- suffix :: [StorePathName][se-StorePathName]
 - text :: [Bytes][se-Bytes]
-- refs :: [List][se-List] of [StorePath][se-StorePath]
+- refs :: [Set][se-Set] of [StorePath][se-StorePath]
 
 ### Outpus
 path :: [StorePath][se-StorePath]
@@ -213,15 +217,15 @@ path :: [StorePath][se-StorePath]
 Build (or substitute) a list of derivations.
 
 ### Inputs
-paths :: [List][se-List] of [DerivedPath][se-DerivedPath]
+paths :: [Set][se-Set] of [DerivedPath][se-DerivedPath]
 
 #### Protocol 1.15 or newer
-mode :: [BuildMode][se-BuildMode]
+mode :: [BuildMode][se-BuildMode] (defaults to Normal)
 
 Check that connection is trusted before allowing Repair mode.
 
 ### Outputs
-1 :: [Int][se-Int] (hardcoded)
+1 :: [Int][se-Int] (hardcoded and ignored by client)
 
 
 ## EnsurePath
@@ -235,7 +239,7 @@ Checks if a path is valid. Note: it may be made valid by running a substitute.
 path :: [StorePath][se-StorePath]
 
 ### Outputs
-1 :: [Int][se-Int] (hardcoded)
+1 :: [Int][se-Int] (hardcoded and ignored by client)
 
 
 ## AddTempRoot
@@ -253,7 +257,7 @@ deleting store paths that the client is actively doing something with.
 path :: [StorePath][se-StorePath]
 
 ### Outputs
-1 :: [Int][se-Int] (hardcoded)
+1 :: [Int][se-Int] (hardcoded and ignored by client)
 
 
 ## AddIndirectRoot
@@ -267,10 +271,10 @@ created by [AddPermRoot](#addpermroot).
 Only ever sent on the local unix socket nix daemon.
 
 ### Inputs
-path :: [String][se-String]
+path :: [Path][se-Path]
 
 ### Outputs
-1 :: [Int][se-Int] (hardcoded)
+1 :: [Int][se-Int] (hardcoded and ignored by client)
 
 
 ## SyncWithGC
@@ -308,7 +312,7 @@ thing.
 Find the GC roots.
 
 ### Outputs
-roots :: [Map][se-Map] of [String][se-String] to [StorePath][se-StorePath]
+roots :: [Map][se-Map] of [Path][se-Path] to [StorePath][se-StorePath]
 
 The key is the link pointing to the given store path.
 
@@ -333,7 +337,8 @@ Export a store path in the binary format nix-store --import expects. See impleme
 - sign :: [Int][se-Int] (ignored and hardcoded to 0 in client)
 
 ### Outputs
-Uses `STDERR_WRITE` to send dump in export format
+Uses [`STDERR_WRITE`](./logging.md#stderr_write) to send dump in
+[export format][se-ExportFormat]
 
 After dump it outputs.
 
@@ -373,18 +378,18 @@ Only ever used right after the handshake.
 
 ### Inputs
 
-- keepFailed :: [Int][se-Int]
-- keepGoing :: [Int][se-Int]
-- tryFallback :: [Int][se-Int]
+- keepFailed :: [Bool][se-Bool]
+- keepGoing :: [Bool][se-Bool]
+- tryFallback :: [Bool][se-Bool]
 - verbosity :: [Verbosity][se-Verbosity]
-- maxbuildJobs :: [Int][se-Int]
-- maxSilentTime :: [Int][se-Int]
+- maxBuildJobs :: [Int][se-Int]
+- maxSilentTime :: [Time][se-Time]
 - useBuildHook :: [Bool][se-Bool] (ignored and hardcoded to true in client)
 - verboseBuild :: [Verbosity][se-Verbosity]
 - logType :: [Int][se-Int] (ignored and hardcoded to 0 in client)
 - printBuildTrace :: [Int][se-Int] (ignored and hardcoded to 0 in client)
 - buildCores :: [Int][se-Int]
-- useSubstitutes :: [Int][se-Int]
+- useSubstitutes :: [Bool][se-Bool]
 
 ### Protocol 1.12 or newer
 otherSettings :: [Map][se-Map] of [String][se-String] to [String][se-String]
@@ -399,7 +404,7 @@ Find the GC roots.
 
 ### Inputs
 - action :: [GCAction][se-GCAction]
-- pathsToDelete :: [List][se-List] of [StorePath][se-StorePath]
+- pathsToDelete :: [Set][se-Set] of [StorePath][se-StorePath]
 - ignoreLiveness :: [Bool64][se-Bool64]
 - maxFreed :: [UInt64][se-UInt64]
 - removed :: [Int][se-Int] (ignored and hardcoded to 0 in client)
@@ -407,18 +412,19 @@ Find the GC roots.
 - removed :: [Int][se-Int] (ignored and hardcoded to 0 in client)
 
 ### Outputs
-- pathsDeleted :: [List][se-List] of [String][se-String]
+- pathsDeleted :: [Set][se-Set] of [Path][se-Path]
 - bytesFreed :: [UInt64][se-UInt64]
-- 0 :: [UInt64][se-UInt64] (hardcoded)
+- 0 :: [UInt64][se-UInt64] (hardcoded, obsolete and ignored by client)
 
-Depending on the action pathsDeleted is, the GC roots, or the paths that would
-be or have been deleted.
+Depending on the value of the action input the value of output pathsDeleted
+is either, the GC roots, or the paths that would be or have been deleted.
 
 
 ## QuerySubstitutablePathInfo
 
 **Id:** 21<br>
 **Introduced:** Protocol 1.02, Nix 0.12<br>
+**Obsolete:** Protocol 1.12, Nix 1.2<br>
 
 Retrieves the various substitutable paths infos for a given path.
 
@@ -429,10 +435,7 @@ path :: [StorePath][se-StorePath]
 found :: [Bool][se-Bool]
 
 #### If found is true
-- deriver :: [OptStorePath][se-OptStorePath]
-- references :: [List][se-List] of [StorePath][se-StorePath]
-- downloadSize :: [UInt64][se-UInt64]
-- narSize :: [UInt64][se-UInt64]
+- info :: [SubstitutablePathInfo][se-SubstitutablePathInfo]
 
 
 ## QueryDerivationOutputs
@@ -447,7 +450,7 @@ Retrieves all the outputs paths of a given derivation.
 path :: [StorePath][se-StorePath] (must point to a derivation)
 
 ### Outputs
-derivationOutputs :: [List][se-List] of [StorePath][se-StorePath]
+derivationOutputs :: [Set][se-Set] of [StorePath][se-StorePath]
 
 
 ## QueryAllValidPaths
@@ -458,7 +461,7 @@ derivationOutputs :: [List][se-List] of [StorePath][se-StorePath]
 Retrieves all the valid paths contained in the store.
 
 ### Outputs
-paths :: [List][se-List] of [StorePath][se-StorePath]
+paths :: [Set][se-Set] of [StorePath][se-StorePath]
 
 
 ## QueryFailedPaths (removed)
@@ -498,7 +501,7 @@ success :: [Bool64][se-Bool64]
 pathInfo :: [UnkeyedValidPathInfo][se-UnkeyedValidPathInfo]
 
 #### If protocol version is older than 1.17
-If info not found return error with `STDERR_ERROR`
+If info not found return error with [`STDERR_ERROR`](./logging.md#stderr_error)
 
 pathInfo :: [UnkeyedValidPathInfo][se-UnkeyedValidPathInfo]
 
@@ -516,7 +519,7 @@ before the metadata about the store path and so you would typically have
 to store the NAR in memory or temporarily on disk before processing it.
 
 ### Inputs
-List of NAR dumps coming from the ExportPaths operations.
+[List of NAR dumps][se-ImportPaths] coming from one or more ExportPath operations.
 
 ### Outputs
 importedPaths :: [List][se-List] of [StorePath][se-StorePath]
@@ -534,7 +537,7 @@ Retrieves the name of the outputs of a given derivation. EG. out, dev, etc.
 path :: [StorePath][se-StorePath] (must be a derivation path)
 
 ### Outputs
-names :: [List][se-List] of [String][se-String]
+names :: [Set][se-Set] of [OutputName][se-OutputName]
 
 
 ## QueryPathFromHashPart
@@ -542,11 +545,10 @@ names :: [List][se-List] of [String][se-String]
 **Id:** 29<br>
 **Introduced:** Protocol 1.11, Nix 1.1<br>
 
-Retrieves a store path from a base16 (input) hash. Returns "" if no path was
-found.
+Retrieves a store path from a nixbase32 (input) hash.
 
 ### Inputs
-hashPart :: [String][se-String]  (must be a base-16 hash)
+hashPart :: [StorePathHash][se-StorePathHash]
 
 ### Outputs
 path :: [OptStorePath][se-OptStorePath]
@@ -556,18 +558,22 @@ path :: [OptStorePath][se-OptStorePath]
 
 **Id:** 30<br>
 **Introduced:** Protocol 1.12*, Nix 1.2<br>
+**Obsolete:** Protocol 1.19*, Nix 2.0<br>
 
 Retrieves the various substitutable paths infos for set of store paths.
+
+Only ever used in the fallback for QueryMissing which means that if protocol is 1.19 or later
+it is never sent and is therefore obsolete after that.
 
 ### Inputs
 #### If protocol version is 1.22 or newer
 paths :: [Map][se-Map] of [StorePath][se-StorePath] to [OptContentAddress][se-OptContentAddress] 
 
 #### If protocol version older than 1.22
-paths :: [List][se-List] of [StorePath][se-StorePath]
+paths :: [Set][se-Set] of [StorePath][se-StorePath]
 
 ### Outputs
-infos :: [List][se-List] of [SubstitutablePathInfo][se-SubstitutablePathInfo]
+infos :: [Map][se-Map] of [StorePath][se-StorePath] to [SubstitutablePathInfo][se-SubstitutablePathInfo]
 
 
 ## QueryValidPaths
@@ -578,13 +584,13 @@ infos :: [List][se-List] of [SubstitutablePathInfo][se-SubstitutablePathInfo]
 Takes a list of store paths and returns a new list only containing the valid store paths
 
 ## Inputs
-paths :: [List][se-List] of [StorePath][se-StorePath]
+paths :: [Set][se-Set] of [StorePath][se-StorePath]
 
 ### If protocol version is 1.27 or newer
 substitute :: [Bool][se-Bool] (defaults to false if not sent)
 
 ## Outputs
-paths :: [List][se-List] of [StorePath][se-StorePath]
+paths :: [Set][se-Set] of [StorePath][se-StorePath]
 
 
 ## QuerySubstitutablePaths
@@ -599,10 +605,10 @@ In versions of the protocol prior to 1.12 [HasSubstitutes](#hassubstitutes)
 is used to implement the functionality that this operation provides.
 
 ### Inputs
-paths :: [List][se-List] of [StorePath][se-StorePath]
+paths :: [Set][se-Set] of [StorePath][se-StorePath]
 
 ### Outputs
-paths :: [List][se-List] of [StorePath][se-StorePath]
+paths :: [Set][se-Set] of [StorePath][se-StorePath]
 
 
 ## QueryValidDerivers
@@ -616,7 +622,7 @@ Retrieves the derivers of a given path.
 path :: [StorePath][se-StorePath]
 
 ### Outputs
-derivers :: [List][se-List] of [StorePath][se-StorePath]
+derivers :: [Set][se-Set] of [StorePath][se-StorePath]
 
 
 ## OptimiseStore
@@ -627,7 +633,7 @@ derivers :: [List][se-List] of [StorePath][se-StorePath]
 Optimise store by hardlinking files with the same content.
 
 ### Outputs
-1 :: [Int][se-Int] (hardcoded)
+1 :: [Int][se-Int] (hardcoded and ignored by client)
 
 
 ## VerifyStore
@@ -677,14 +683,14 @@ buildResult :: [BuildResult][se-BuildResult]
 **Id:** 37<br>
 **Introduced:** Protocol 1.16, Nix 2.0<br>
 
-Add the signatures associated to a given path.
+Add the signatures associated to a given path. Used by `nix store copy-sigs` and `nix store sign`.
 
 ### Inputs
 - path :: [StorePath][se-StorePath]
-- signatures :: [List][se-List] of [String][se-String]
+- signatures :: [Set][se-Set] of [Signature][se-Signature]
 
 ### Outputs
-1 :: [Int][se-Int] (hardcoded)
+1 :: [Int][se-Int] (hardcoded and ignored by client)
 
 
 ## NarFromPath
@@ -717,12 +723,12 @@ Dumps a path as a NAR
 ### Inputs
 - path :: [StorePath][se-StorePath]
 - deriver :: [OptStorePath][se-OptStorePath]
-- narHash :: [String][se-String] SHA256 NAR hash base 16
-- references :: [List][se-List] of [StorePath][se-StorePath]
+- narHash :: [NARHash][se-NARHash]
+- references :: [Set][se-Set] of [StorePath][se-StorePath]
 - registrationTime :: [Time][se-Time]
 - narSize :: [UInt64][se-UInt64]
 - ultimate :: [Bool64][se-Bool64]
-- signatures :: [List][se-List] of [String][se-String]
+- signatures :: [Set][se-Set] of [Signature][se-Signature]
 - ca :: [OptContentAddress][se-OptContentAddress]
 - repair :: [Bool64][se-Bool64]
 - dontCheckSigs :: [Bool64][se-Bool64]
@@ -731,7 +737,7 @@ Dumps a path as a NAR
 [Framed][se-Framed] NAR dump
 
 #### If protocol version is between 1.21 and 1.23
-NAR dump sent using `STDERR_READ`
+NAR dump sent using [`STDERR_READ`](./logging.md#stderr_read)
 
 #### If protocol version is older than 1.21
 NAR dump sent raw on stream
@@ -746,9 +752,9 @@ NAR dump sent raw on stream
 targets :: [List][se-List] of [DerivedPath][se-DerivedPath]
 
 ### Outputs
-- willBuild :: [List][se-List] of [StorePath][se-StorePath]
-- willSubstitute :: [List][se-List] of [StorePath][se-StorePath]
-- unknown :: [List][se-List] of [StorePath][se-StorePath]
+- willBuild :: [Set][se-Set] of [StorePath][se-StorePath]
+- willSubstitute :: [Set][se-Set] of [StorePath][se-StorePath]
+- unknown :: [Set][se-Set] of [StorePath][se-StorePath]
 - downloadSize :: [UInt64][se-UInt64]
 - narSize :: [UInt64][se-UInt64]
 
@@ -764,7 +770,7 @@ Retrieves an associative map outputName -> storePath for a given derivation.
 path :: [StorePath][se-StorePath]  (must be a derivation path)
 
 ### Outputs
-outputs :: [Map][se-Map] of [String][se-String] to [OptStorePath][se-OptStorePath]
+outputs :: [Map][se-Map] of [OutputName][se-OutputName] to [OptStorePath][se-OptStorePath]
 
 
 ## RegisterDrvOutput
@@ -795,10 +801,10 @@ outputId :: [DrvOutput][se-DrvOutput]
 
 ### Outputs
 #### If protocol is 1.31 or newer
-realisations :: [List][se-List] of [Realisation][se-Realisation]
+realisations :: [Set][se-Set] of [Realisation][se-Realisation]
 
 #### If protocol is older than 1.31
-outPaths :: [List][se-List] of [BaseStorePath][se-BaseStorePath]
+outPaths :: [Set][se-Set] of [StorePath][se-StorePath]
 
 
 ## AddMultipleToStore
@@ -816,7 +822,7 @@ for each small NAR was costly.
 ### Inputs
 - repair :: [Bool64][se-Bool64]
 - dontCheckSigs :: [Bool64][se-Bool64]
-- [Framed][se-Framed] stream of add multiple NAR dump
+- [Framed][se-Framed] stream of [add multiple NAR dump][se-AddMultipleToStore]
 
 
 ## AddBuildLog
@@ -827,11 +833,11 @@ for each small NAR was costly.
 Attach some build logs to a given build.
 
 ### Inputs
-- path :: [String][se-String] (might be [BaseStorePath][se-BaseStorePath])
+- path :: [BaseStorePath][se-BaseStorePath]
 - [Framed][se-Framed] stream of log lines
 
 ### Outputs
-1 :: [Int][se-Int] (hardcoded)
+1 :: [Int][se-Int] (hardcoded and ignored by client)
 
 
 ## BuildPathsWithResults
@@ -856,10 +862,10 @@ results :: [List][se-List] of [KeyedBuildResult][se-KeyedBuildResult]
 
 ### Inputs
 - storePath :: [StorePath][se-StorePath]
-- gcRoot :: [String][se-String]
+- gcRoot :: [Path][se-Path]
 
 ### Outputs
-gcRoot :: [String][se-String]
+gcRoot :: [Path][se-Path]
 
 
 
@@ -884,6 +890,7 @@ gcRoot :: [String][se-String]
 [se-DrvOutput]: ./serialization.md#drvoutput
 [se-Realisation]: ./serialization.md#realisation
 [se-List]: ./serialization.md#list-of-x
+[se-Set]: ./serialization.md#set-of-x
 [se-Map]: ./serialization.md#map-of-x-to-y
 [se-SubstitutablePathInfo]: ./serialization.md#substitutablepathinfo
 [se-ValidPathInfo]: ./serialization.md#validpathinfo
@@ -892,3 +899,6 @@ gcRoot :: [String][se-String]
 [se-KeyedBuildResult]: ./serialization.md#keyedbuildresult
 [se-BasicDerivation]: ./serialization.md#basicderivation
 [se-Framed]: ./serialization.md#framed
+[se-AddMultipleToStore]: ./serialization.md#addmultipletostore-format
+[se-ExportFormat]: ./serialization.md#export-path-format
+[se-ImportPaths]: ./serialization.md#import-paths-format

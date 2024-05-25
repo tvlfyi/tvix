@@ -6,7 +6,7 @@ Little endian byte order
 
 - len :: [UInt64](#uint64)
 - len bytes of content
-- padding with zeros to ensure 64 bit alignment of content with padding
+- padding with zeros to ensure 64 bit alignment of content + padding
 
 
 ## Int serializers
@@ -16,6 +16,9 @@ Little endian byte order
 
 ### Int64
 [UInt64](#uint64) cast to C `int64_t` with upper bounds checking.
+This means that negative numbers can be written but not read.
+Since this is only used for cpuSystem and cpuUser it is fine that
+negative numbers aren't supported.
 
 ### UInt8
 [UInt64](#uint64) cast to C `uint8_t` with upper bounds checking.
@@ -25,7 +28,8 @@ Little endian byte order
 
 ### Time
 [UInt64](#uint64) cast to C `time_t` with upper bounds checking.
-s
+This means that negative numbers can be written but not read.
+
 ### Bool
 Sent as an [Int](#int) where 0 is false and everything else is true.
 
@@ -35,10 +39,10 @@ Sent as an [UInt64](#uint64) where 0 is false and everything else is true.
 ### FileIngestionMethod
 An [UInt8](#uint8) enum with the following possible values:
 
-| Name      | Int |
-| --------- | --- |
-| Flat      |  0  |
-| Recursive |  1  |
+| Name       | Int |
+| ---------- | --- |
+| Flat       |  0  |
+| NixArchive |  1  |
 
 ### BuildMode
 An [Int](#int) enum with the following possible values:
@@ -137,6 +141,15 @@ An [Int](#int) enum with the following possible values:
 | Int    |  0  |
 | String |  1  |
 
+### OptTrusted
+An [UInt8](#uint8) optional enum with the following possible values:
+
+| Name             | Int |
+| ---------------- | --- |
+| None             |  0  |
+| Some(Trusted)    |  1  |
+| Some(NotTrusted) |  2  |
+
 
 ## Bytes serializers
 
@@ -144,11 +157,35 @@ An [Int](#int) enum with the following possible values:
 Simply a [Bytes](#bytes) that has some UTF-8 string like semantics sometimes.
 
 ### StorePath
-String representation of a full store path.
+[String](#string) representation of a full store path including the store directory.
 
 ### BaseStorePath
-String representation of the basename of a store path. That is the store path
+[String](#string) representation of the basename of a store path. That is the store path
 without the /nix/store prefix.
+
+### StorePathName
+[String](#string) representation of the name part of a base store path. This is the part
+of the store path after the nixbase32 hash and '-'
+
+It must have the following format:
+- Deny ".", "..", or those strings followed by '-'
+- Otherwise check that each character is 0-9, a-z, A-Z or one of +-._?=
+
+### StorePathHash
+[String](#string) representation of the hash part of a base store path. This is the part
+of the store path at the beginning and before the '-' and is in nixbase32 format.
+
+
+### OutputName
+[String](#string) representation of the name of a derivation output.
+This is usually combined with the name in the derivation to form the store path name for the
+store path with this output.
+
+Since output name is usually combined to form a store path name its format must follow the
+same rules as [StorePathName](#storepathname):
+- Deny ".", "..", or those strings followed by '-'
+- Otherwise check that each character is 0-9, a-z, A-Z or one of +-._?=
+
 
 ### OptStorePath
 Optional store path.
@@ -156,39 +193,71 @@ Optional store path.
 If no store path this is serialized as the empty string otherwise it is the same as
 [StorePath](#storepath).
 
-### ContentAddressMethodWithAlgo
-One of the following strings:
-- text:`hash algorithm`
-- fixed:r:`hash algorithm`
-- fixed:`hash algorithm`
+### Path
+[String](#string) representation of an absolute path.
 
-### DerivedPath
-#### If protocol is 1.30 or newer
-        return DerivedPath::parseLegacy(store, s);
-#### If protocol is older than 1.30
-        return parsePathWithOutputs(store, s).toDerivedPath();
+### NARHash
+[String](#string) base16-encoded NAR SHA256 hash without algorithm prefix.
+
+### Signature
+[String](#string) with a signature for the given store path or realisation. This should be
+in the format `name`:`base 64 encoded signature` but this is not enforced in the protocol.
+
+### HashAlgorithm
+[String](#string) with one of the following values:
+- md5
+- sha1
+- sha256
+- sha512
+
+### HashDigest
+[String](#string) with a hash digest in any encoding
+
+### OptHashDigest
+Optional version of [HashDigest](#hashdigest) where empty string means
+no value.
+
+
+### ContentAddressMethodWithAlgo
+[String](#string) with one of the following formats:
+- text:[HashAlgorithm](#hashalgorithm)
+- fixed:r:[HashAlgorithm](#hashalgorithm)
+- fixed:[HashAlgorithm](#hashalgorithm)
+
+### OptContentAddressMethodWithAlgo
+Optional version of [ContentAddressMethodWithAlgo](#contentaddressmethodwithalgo)
+where empty string means no value.
 
 ### ContentAddress
-String with the format:
-- [ContentAddressMethodWithAlgo](#contentaddressmethodwithalgo):`hash`
+[String](#string) with the format:
+- [ContentAddressMethodWithAlgo](#contentaddressmethodwithalgo):[HashDigest](#hashdigest)
 
 ### OptContentAddress
 Optional version of [ContentAddress](#contentaddress) where empty string means
 no content address.
 
+### DerivedPath
+#### If protocol is 1.30 or newer
+output-names = [OutputName](#outputname), { "," [OutputName](#outputname) }<br>
+output-spec = "*" | output-names<br>
+derived-path = [StorePath](#storepath), [ "!", output-spec ]<br>
+
+#### If protocol is older than 1.30
+[StorePath](#storepath), [ "!", [OutputName](#outputname), { "," [OutputName](#outputname) } ]
+
 ### DrvOutput
-String with format:
-- `hash with any prefix`!`output name`
+[String](#string) with format:
+- `hash with any prefix` "!" [OutputName](#outputname)
 
 ### Realisation
-A JSON object sent as a string.
+A JSON object sent as a [String](#string).
 
 The JSON object has the following keys:
-| Key                   | Value                   |
-| --------------------- | ----------------------- |
-| id                    | [DrvOutput](#drvoutput) |
-| outPath               | [StorePath](#storepath) |
-| signatures            | Array of String         |
+| Key                   | Value                            |
+| --------------------- | -------------------------------- |
+| id                    | [DrvOutput](#drvoutput)          |
+| outPath               | [StorePath](#storepath)          |
+| signatures            | Array of [Signature](#signature) |
 | dependentRealisations | Object where key is [DrvOutput](#drvoutput) and value is [StorePath](#storepath) |
 
 
@@ -200,20 +269,22 @@ A list is encoded as a [Size](#size) length n followed by n encodings of x
 ### Map of x to y
 A map is encoded as a [Size](#size) length n followed by n encodings of pairs of x and y
 
+### Set of x
+A set is encoded as a [Size](#size) length n followed by n encodings of x
 
 ### BuildResult
 - status :: [BuildStatus](#buildstatus)
 - errorMsg :: [String](#string)
 
 #### Protocol 1.29 or newer
-- timesBuilt :: [Int](#int)
-- isNonDeterministic :: [Bool64](#bool64)
-- startTime :: [Time](#time)
-- stopTime :: [Time](#time)
+- timesBuilt :: [Int](#int) (defaults to 0)
+- isNonDeterministic :: [Bool64](#bool64) (defaults to false)
+- startTime :: [Time](#time) (defaults to 0)
+- stopTime :: [Time](#time) (defaults to 0)
 
 #### Protocol 1.37 or newer
-- cpuUser :: [OptMicroseconds](#optmicroseconds)
-- cpuSystem :: [OptMicroseconds](#optmicroseconds)
+- cpuUser :: [OptMicroseconds](#optmicroseconds) (defaults to none)
+- cpuSystem :: [OptMicroseconds](#optmicroseconds) (defaults to none)
 
 #### Protocol 1.28 or newer
 builtOutputs ::  [Map](#map-of-x-to-y) of [DrvOutput](#drvoutput) to [Realisation](#realisations)
@@ -232,23 +303,22 @@ Optional microseconds.
 
 
 ### SubstitutablePathInfo
-- storePath :: [StorePath](#storepath)
 - deriver :: [OptStorePath](#optstorepath)
-- references :: [List](#list-of-x) of [StorePath](#storepath)
+- references :: [Set][#set-of-x] of [StorePath](#storepath)
 - downloadSize :: [UInt64](#uint64)
 - narSize :: [UInt64](#uint64)
 
 
 ### UnkeyedValidPathInfo
 - deriver :: [OptStorePath](#optstorepath)
-- narHash :: [String](#string) SHA256 NAR hash base16 encoded
-- references :: [List](#list-of-x) of [StorePath](#storepath)
+- narHash :: [NARHash](#narhash)
+- references :: [Set](#set-of-x) of [StorePath](#storepath)
 - registrationTime :: [Time](#time)
 - narSize :: [UInt64](#uint64)
 
 #### If protocol version is 1.16 or above
-- ultimate :: [Bool64](#bool64)
-- signatures :: [List](#list-of-x) of [String](#string)
+- ultimate :: [Bool64](#bool64) (defaults to false)
+- signatures :: [Set](#set-of-x) of [Signature](#signature)
 - ca :: [OptContentAddress](#optcontentaddress)
 
 
@@ -257,13 +327,13 @@ Optional microseconds.
 - info :: [UnkeyedValidPathInfo](#unkeyedvalidpathinfo)
 
 ### DerivationOutput
-- path :: [String](#string)
-- hashAlgo :: [String](#string)
-- hash :: [String](#string)
+- path :: [OptStorePath](#optstorepath)
+- hashAlgo :: [OptContentAddressMethodWithAlgo](#optcontentaddressmethodwithalgo)
+- hash :: [OptHashDigest](#opthashdigest)
 
 ### BasicDerivation
-- outputs :: [Map](#map-of-x-to-y) of [String](#string) to [DerivationOutput](#derivationoutput)
-- inputSrcs :: [List](#list-of-x) of [StorePath](#storepath)
+- outputs :: [Map](#map-of-x-to-y) of [OutputName](#outputname) to [DerivationOutput](#derivationoutput)
+- inputSrcs :: [Set](#set-of-x) of [StorePath](#storepath)
 - platform :: [String](#string)
 - builder :: [String](#string)
 - args :: [List](#list-of-x) of [String](#string)
@@ -271,13 +341,13 @@ Optional microseconds.
 
 ### TraceLine
 - havePos :: [Size](#size) (hardcoded to 0)
-- hint :: [String](#string)
+- hint :: [String](#string) (If logger is JSON, invalid UTF-8 is replaced with U+FFFD)
 
 ### Error
 - type :: [String](#string) (hardcoded to `Error`)
 - level :: [Verbosity](#verbosity)
 - name :: [String](#string) (removed and hardcoded to `Error`)
-- msg :: [String](#string)
+- msg :: [String](#string) (If logger is JSON, invalid UTF-8 is replaced with U+FFFD)
 - havePos :: [Size](#size) (hardcoded to 0)
 - traces :: [List](#list-of-x) of [TraceLine](#traceline)
 
@@ -297,9 +367,43 @@ At protocol 1.23 [AddToStoreNar](./operations.md#addtostorenar) introduced a
 framed streaming for sending the NAR dump and later versions of the protocol
 also used this framing for other operations.
 
-At its core the framed streaming is just a series of [Bytes](#bytes) of
-varying length and terminated by an empty [Bytes](#bytes).
+At its core the framed streaming is just a series of [UInt64](#uint64) `size`
+followed by `size` bytes. The stream is terminated when `size` is zero.
+
+Unlike [Bytes](#bytes), frames are *NOT* padded.
 
 This method of sending data has the advantage of not having to parse the data
 to find where it ends. Older versions of the protocol would potentially parse
 the NAR twice.
+
+
+## AddMultipleToStore format
+
+Paths must be topologically sorted.
+
+- expected :: [UInt64](#uint64)
+
+### Repeated expected times
+- info :: [ValidPathInfo](#validpathinfo)
+- NAR dump
+
+
+## Export path format
+- NAR dump
+- 0x4558494es :: [Int](#int) (hardcoded, 'EXIN' in ASCII)
+- path :: [StorePath](#storepath)
+- references :: [Set](#set-of-x) of [StorePath](#storepath)
+- deriver :: [OptStorePath](#optstorepath)
+- hasSignature :: [Int](#int) (hardcoded to 0 in newer versions)
+
+#### If hasSignature is 1
+- signature :: [String](#string) (ignored)
+
+
+## Import paths format
+
+- hasNext :: [UInt64](#uint64)
+
+### While hasNext is 1
+- [Export path format](#export-path-format)
+- hasNext :: [UInt64](#uint64)
