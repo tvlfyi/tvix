@@ -654,10 +654,7 @@ impl NixString {
     {
         Self::new(
             Self::from(new_contents).as_ref(),
-            other
-                .context()
-                .filter(|ctx| !ctx.is_empty())
-                .map(|c| Box::new(c.clone())),
+            other.context().map(|c| Box::new(c.clone())),
         )
     }
 
