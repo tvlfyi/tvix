@@ -16,13 +16,15 @@
 //! how store paths are opened and so on.
 
 use std::{
-    fs::File,
     io,
     path::{Path, PathBuf},
 };
 
-#[cfg(target_family = "unix")]
+#[cfg(all(target_family = "unix", feature = "impure"))]
 use std::os::unix::ffi::OsStringExt;
+
+#[cfg(feature = "impure")]
+use std::fs::File;
 
 /// Types of files as represented by `builtins.readDir` in Nix.
 #[derive(Debug)]
