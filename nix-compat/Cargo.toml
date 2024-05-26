@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-# async NAR writer
+# async NAR writer. Also needs the `wire` feature.
 async = ["tokio"]
 # code emitting low-level packets used in the daemon protocol.
 wire = ["tokio", "pin-project-lite"]
