@@ -56,6 +56,7 @@ fn nix_eval(expr: &str, strictness: Strictness) -> String {
 /// `NIX_INSTANTIATE_BINARY_PATH` env var to resolve the `nix-instantiate` binary) and tvix, and
 /// assert that the result is identical
 #[track_caller]
+#[cfg(feature = "impure")]
 fn compare_eval(expr: &str, strictness: Strictness) {
     let nix_result = nix_eval(expr, strictness);
     let mut eval = tvix_eval::Evaluation::new_pure();
@@ -76,6 +77,7 @@ fn compare_eval(expr: &str, strictness: Strictness) {
 macro_rules! compare_eval_tests {
     ($strictness:expr, {}) => {};
     ($strictness:expr, {$(#[$meta:meta])* $test_name: ident($expr: expr); $($rest:tt)*}) => {
+        #[cfg(feature = "impure")]
         #[test]
         $(#[$meta])*
         fn $test_name() {
