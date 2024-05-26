@@ -3,6 +3,9 @@ use std::{io, path::Path, sync::Arc, thread};
 use fuse_backend_rs::{api::filesystem::FileSystem, transport::FuseSession};
 use tracing::{error, instrument};
 
+#[cfg(test)]
+mod tests;
+
 struct FuseServer<FS>
 where
     FS: FileSystem + Sync + Send,

@@ -11,7 +11,8 @@ use std::{
 use tempfile::TempDir;
 use tokio_stream::{wrappers::ReadDirStream, StreamExt};
 
-use super::{fuse::FuseDaemon, TvixStoreFs};
+use super::FuseDaemon;
+use crate::fs::{TvixStoreFs, XATTR_NAME_BLOB_DIGEST, XATTR_NAME_DIRECTORY_DIGEST};
 use crate::proto as castorepb;
 use crate::proto::node::Node;
 use crate::{
@@ -614,12 +615,12 @@ async fn xattr() {
         // There should be 1 key, XATTR_NAME_DIRECTORY_DIGEST.
         assert_eq!(1, xattr_names.len(), "there should be 1 xattr name");
         assert_eq!(
-            super::XATTR_NAME_DIRECTORY_DIGEST,
+            XATTR_NAME_DIRECTORY_DIGEST,
             xattr_names.first().unwrap().as_encoded_bytes()
         );
 
         // The key should equal to the string-formatted b3 digest.
-        let val = xattr::get(&p, OsStr::from_bytes(super::XATTR_NAME_DIRECTORY_DIGEST))
+        let val = xattr::get(&p, OsStr::from_bytes(XATTR_NAME_DIRECTORY_DIGEST))
             .expect("must succeed")
             .expect("must be some");
         assert_eq!(
@@ -643,12 +644,12 @@ async fn xattr() {
         // There should be 1 key, XATTR_NAME_BLOB_DIGEST.
         assert_eq!(1, xattr_names.len(), "there should be 1 xattr name");
         assert_eq!(
-            super::XATTR_NAME_BLOB_DIGEST,
+            XATTR_NAME_BLOB_DIGEST,
             xattr_names.first().unwrap().as_encoded_bytes()
         );
 
         // The key should equal to the string-formatted b3 digest.
-        let val = xattr::get(&p, OsStr::from_bytes(super::XATTR_NAME_BLOB_DIGEST))
+        let val = xattr::get(&p, OsStr::from_bytes(XATTR_NAME_BLOB_DIGEST))
             .expect("must succeed")
             .expect("must be some");
         assert_eq!(

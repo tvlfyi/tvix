@@ -9,9 +9,6 @@ pub mod fuse;
 #[cfg(feature = "virtiofs")]
 pub mod virtiofs;
 
-#[cfg(test)]
-mod tests;
-
 pub use self::root_nodes::RootNodes;
 use self::{
     file_attr::ROOT_FILE_ATTR,
