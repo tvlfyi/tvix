@@ -29,7 +29,7 @@ mod vm;
 mod warnings;
 
 mod nix_search_path;
-#[cfg(test)]
+#[cfg(all(test, feature = "arbitrary"))]
 mod properties;
 #[cfg(test)]
 mod test_utils;

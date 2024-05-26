@@ -883,7 +883,7 @@ impl Display for NixString {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "arbitrary"))]
 mod tests {
     use test_strategy::proptest;
 
