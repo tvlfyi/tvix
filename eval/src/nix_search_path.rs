@@ -197,6 +197,8 @@ mod tests {
         }
     }
 
+    // this uses StdIO, which is only available with the impure feature.
+    #[cfg(feature = "impure")]
     mod resolve {
         use crate::StdIO;
         use path_clean::PathClean;
