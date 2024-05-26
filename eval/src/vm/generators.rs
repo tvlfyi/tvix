@@ -745,6 +745,7 @@ pub async fn request_open_file(co: &GenCo, path: PathBuf) -> Box<dyn std::io::Re
     }
 }
 
+#[cfg_attr(not(feature = "impure"), allow(unused))]
 pub(crate) async fn request_path_exists(co: &GenCo, path: PathBuf) -> Value {
     match co.yield_(VMRequest::PathExists(path)).await {
         VMResponse::Value(value) => value,
@@ -755,6 +756,7 @@ pub(crate) async fn request_path_exists(co: &GenCo, path: PathBuf) -> Value {
     }
 }
 
+#[cfg_attr(not(feature = "impure"), allow(unused))]
 pub(crate) async fn request_read_dir(co: &GenCo, path: PathBuf) -> Vec<(bytes::Bytes, FileType)> {
     match co.yield_(VMRequest::ReadDir(path)).await {
         VMResponse::Directory(dir) => dir,
