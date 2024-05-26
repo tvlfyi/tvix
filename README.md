@@ -104,6 +104,11 @@ Rust projects under `//tvix`, be sure to run
 `mg run //tools:crate2nix-generate` in `//tvix` itself and commit the changes
 to the generated `Cargo.nix` file. This only applies to the full TVL checkout.
 
+When adding/removing a Cargo feature for a crate, you will want to add it to the
+features power set that gets tested in CI. For each crate there's a default.nix with a
+`mkFeaturePowerset` invocation, modify the list to include/remove the feature.
+Note that you don't want to add "collection" features, such as `fs` for tvix-[ca]store or `default`.
+
 ## License structure
 
 All code implemented for Tvix is licensed under the GPL-3.0, with the
