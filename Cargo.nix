@@ -12760,7 +12760,7 @@ rec {
           }
         ];
         features = {
-          "tonic-reflection" = [ "dep:tonic-reflection" ];
+          "tonic-reflection" = [ "dep:tonic-reflection" "tvix-castore/tonic-reflection" ];
         };
         resolvedDefaultFeatures = [ "default" "tonic-reflection" ];
       };
