@@ -5,7 +5,7 @@ fn test_source_builtin() {
     // Test an evaluation with a source-only builtin. The test ensures
     // that the artificially constructed thunking is correct.
 
-    let mut eval = Evaluation::new_impure();
+    let mut eval = Evaluation::new_pure();
     eval.src_builtins.push(("testSourceBuiltin", "42"));
 
     let result = eval.evaluate("builtins.testSourceBuiltin", None);
