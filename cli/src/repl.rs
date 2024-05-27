@@ -19,17 +19,36 @@ pub enum ReplCommand<'a> {
     Expr(&'a str),
     Explain(&'a str),
     Quit,
+    Help,
 }
 
 impl<'a> ReplCommand<'a> {
+    const HELP: &'static str = "
+Welcome to the Tvix REPL!
+
+The following commands are supported:
+
+  <expr>    Evaluate a Nix language expression and print the result, along with its inferred type
+  :d <expr> Evaluate a Nix language expression and print a detailed description of the result
+  :q        Exit the REPL
+  :?, :h    Display this help text
+";
+
     pub fn parse(input: &'a str) -> Self {
-        if let Some(without_prefix) = input.strip_prefix(":d ") {
-            Self::Explain(without_prefix)
-        } else if input.trim_end() == ":q" {
-            Self::Quit
-        } else {
-            Self::Expr(input)
+        if input.starts_with(':') {
+            if let Some(without_prefix) = input.strip_prefix(":d ") {
+                return Self::Explain(without_prefix);
+            }
+
+            let input = input.trim_end();
+            match input {
+                ":q" => return Self::Quit,
+                ":h" | ":?" => return Self::Help,
+                _ => {}
+            }
         }
+
+        Self::Expr(input)
     }
 }
 
@@ -91,6 +110,10 @@ impl Repl {
 
                     let res = match ReplCommand::parse(input) {
                         ReplCommand::Quit => break,
+                        ReplCommand::Help => {
+                            println!("{}", ReplCommand::HELP);
+                            Ok(false)
+                        }
                         ReplCommand::Expr(input) => interpret(
                             Rc::clone(&io_handle),
                             input,
