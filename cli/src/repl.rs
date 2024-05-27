@@ -18,12 +18,15 @@ fn state_dir() -> Option<PathBuf> {
 pub enum ReplCommand<'a> {
     Expr(&'a str),
     Explain(&'a str),
+    Quit,
 }
 
 impl<'a> ReplCommand<'a> {
     pub fn parse(input: &'a str) -> Self {
         if let Some(without_prefix) = input.strip_prefix(":d ") {
             Self::Explain(without_prefix)
+        } else if input.trim_end() == ":q" {
+            Self::Quit
         } else {
             Self::Expr(input)
         }
@@ -87,6 +90,7 @@ impl Repl {
                     };
 
                     let res = match ReplCommand::parse(input) {
+                        ReplCommand::Quit => break,
                         ReplCommand::Expr(input) => interpret(
                             Rc::clone(&io_handle),
                             input,
