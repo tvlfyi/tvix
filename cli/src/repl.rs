@@ -1,4 +1,5 @@
-use std::{path::PathBuf, rc::Rc};
+use std::path::PathBuf;
+use std::rc::Rc;
 
 use rustyline::{error::ReadlineError, Editor};
 use tvix_glue::tvix_store_io::TvixStoreIO;
@@ -11,6 +12,22 @@ fn state_dir() -> Option<PathBuf> {
         p.push("tvix")
     }
     path
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ReplCommand<'a> {
+    Expr(&'a str),
+    Explain(&'a str),
+}
+
+impl<'a> ReplCommand<'a> {
+    pub fn parse(input: &'a str) -> Self {
+        if let Some(without_prefix) = input.strip_prefix(":d ") {
+            Self::Explain(without_prefix)
+        } else {
+            Self::Expr(input)
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -69,24 +86,23 @@ impl Repl {
                         &line
                     };
 
-                    let res = if let Some(without_prefix) = input.strip_prefix(":d ") {
-                        interpret(
-                            Rc::clone(&io_handle),
-                            without_prefix,
-                            None,
-                            args,
-                            true,
-                            AllowIncomplete::Allow,
-                        )
-                    } else {
-                        interpret(
+                    let res = match ReplCommand::parse(input) {
+                        ReplCommand::Expr(input) => interpret(
                             Rc::clone(&io_handle),
                             input,
                             None,
                             args,
                             false,
                             AllowIncomplete::Allow,
-                        )
+                        ),
+                        ReplCommand::Explain(input) => interpret(
+                            Rc::clone(&io_handle),
+                            input,
+                            None,
+                            args,
+                            true,
+                            AllowIncomplete::Allow,
+                        ),
                     };
 
                     match res {
