@@ -1,5 +1,7 @@
+mod repl;
+
 use clap::Parser;
-use rustyline::{error::ReadlineError, Editor};
+use repl::Repl;
 use std::rc::Rc;
 use std::{fs, path::PathBuf};
 use tracing::Level;
@@ -299,7 +301,8 @@ fn main() {
             std::process::exit(1);
         }
     } else {
-        run_prompt(io_handle, &args)
+        let mut repl = Repl::new();
+        repl.run(io_handle, &args)
     }
 }
 
@@ -333,102 +336,5 @@ fn println_result(result: &Value, raw: bool) {
         println!("{}", result.to_contextful_str().unwrap())
     } else {
         println!("=> {} :: {}", result, result.type_of())
-    }
-}
-
-fn state_dir() -> Option<PathBuf> {
-    let mut path = dirs::data_dir();
-    if let Some(p) = path.as_mut() {
-        p.push("tvix")
-    }
-    path
-}
-
-fn run_prompt(io_handle: Rc<TvixStoreIO>, args: &Args) {
-    let mut rl = Editor::<()>::new().expect("should be able to launch rustyline");
-
-    if args.compile_only {
-        eprintln!("warning: `--compile-only` has no effect on REPL usage!");
-    }
-
-    let history_path = match state_dir() {
-        // Attempt to set up these paths, but do not hard fail if it
-        // doesn't work.
-        Some(mut path) => {
-            let _ = std::fs::create_dir_all(&path);
-            path.push("history.txt");
-            let _ = rl.load_history(&path);
-            Some(path)
-        }
-
-        None => None,
-    };
-
-    let mut multiline_input: Option<String> = None;
-    loop {
-        let prompt = if multiline_input.is_some() {
-            "         > "
-        } else {
-            "tvix-repl> "
-        };
-
-        let readline = rl.readline(prompt);
-        match readline {
-            Ok(line) => {
-                if line.is_empty() {
-                    continue;
-                }
-
-                let input = if let Some(mi) = &mut multiline_input {
-                    mi.push('\n');
-                    mi.push_str(&line);
-                    mi
-                } else {
-                    &line
-                };
-
-                let res = if let Some(without_prefix) = input.strip_prefix(":d ") {
-                    interpret(
-                        Rc::clone(&io_handle),
-                        without_prefix,
-                        None,
-                        args,
-                        true,
-                        AllowIncomplete::Allow,
-                    )
-                } else {
-                    interpret(
-                        Rc::clone(&io_handle),
-                        input,
-                        None,
-                        args,
-                        false,
-                        AllowIncomplete::Allow,
-                    )
-                };
-
-                match res {
-                    Ok(_) => {
-                        rl.add_history_entry(input);
-                        multiline_input = None;
-                    }
-                    Err(IncompleteInput) => {
-                        if multiline_input.is_none() {
-                            multiline_input = Some(line);
-                        }
-                    }
-                }
-            }
-            Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => break,
-
-            Err(err) => {
-                eprintln!("error: {}", err);
-                break;
-            }
-        }
-    }
-
-    if let Some(path) = history_path {
-        rl.save_history(&path).unwrap();
     }
 }
