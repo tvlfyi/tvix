@@ -18,7 +18,7 @@ use tvix_glue::tvix_io::TvixIO;
 use tvix_glue::tvix_store_io::TvixStoreIO;
 use tvix_glue::{builtins::add_derivation_builtins, configure_nix_path};
 
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 struct Args {
     #[arg(long)]
     log_level: Option<Level>,

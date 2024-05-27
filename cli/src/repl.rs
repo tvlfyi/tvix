@@ -18,6 +18,7 @@ fn state_dir() -> Option<PathBuf> {
 pub enum ReplCommand<'a> {
     Expr(&'a str),
     Explain(&'a str),
+    Print(&'a str),
     Quit,
     Help,
 }
@@ -30,6 +31,7 @@ The following commands are supported:
 
   <expr>    Evaluate a Nix language expression and print the result, along with its inferred type
   :d <expr> Evaluate a Nix language expression and print a detailed description of the result
+  :p <expr> Evaluate a Nix language expression and print the result recursively
   :q        Exit the REPL
   :?, :h    Display this help text
 ";
@@ -38,6 +40,8 @@ The following commands are supported:
         if input.starts_with(':') {
             if let Some(without_prefix) = input.strip_prefix(":d ") {
                 return Self::Explain(without_prefix);
+            } else if let Some(without_prefix) = input.strip_prefix(":p ") {
+                return Self::Print(without_prefix);
             }
 
             let input = input.trim_end();
@@ -128,6 +132,17 @@ impl Repl {
                             None,
                             args,
                             true,
+                            AllowIncomplete::Allow,
+                        ),
+                        ReplCommand::Print(input) => interpret(
+                            Rc::clone(&io_handle),
+                            input,
+                            None,
+                            &Args {
+                                strict: true,
+                                ..(args.clone())
+                            },
+                            false,
                             AllowIncomplete::Allow,
                         ),
                     };
