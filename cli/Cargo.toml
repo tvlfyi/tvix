@@ -18,6 +18,7 @@ bytes = "1.4.0"
 clap = { version = "4.0", features = ["derive", "env"] }
 dirs = "4.0.0"
 rustyline = "10.0.0"
+rnix = "0.11.0"
 thiserror = "1.0.38"
 tokio = "1.28.0"
 tracing = { version = "0.1.37", features = ["max_level_trace", "release_max_level_info"] }

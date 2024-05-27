@@ -9,7 +9,7 @@ use tracing_subscriber::{EnvFilter, Layer};
 use tvix_build::buildservice;
 use tvix_eval::builtins::impure_builtins;
 use tvix_eval::observer::{DisassemblingObserver, TracingObserver};
-use tvix_eval::{EvalIO, Value};
+use tvix_eval::{ErrorKind, EvalIO, Value};
 use tvix_glue::builtins::add_fetcher_builtins;
 use tvix_glue::builtins::add_import_builtins;
 use tvix_glue::tvix_io::TvixIO;
@@ -123,6 +123,22 @@ fn init_io_handle(tokio_runtime: &tokio::runtime::Runtime, args: &Args) -> Rc<Tv
     ))
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum AllowIncomplete {
+    Allow,
+    #[default]
+    RequireComplete,
+}
+
+impl AllowIncomplete {
+    fn allow(&self) -> bool {
+        matches!(self, Self::Allow)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct IncompleteInput;
+
 /// Interprets the given code snippet, printing out warnings, errors
 /// and the result itself. The return value indicates whether
 /// evaluation succeeded.
@@ -132,7 +148,8 @@ fn interpret(
     path: Option<PathBuf>,
     args: &Args,
     explain: bool,
-) -> bool {
+    allow_incomplete: AllowIncomplete,
+) -> Result<bool, IncompleteInput> {
     let mut eval = tvix_eval::Evaluation::new(
         Box::new(TvixIO::new(tvix_store_io.clone() as Rc<dyn EvalIO>)) as Box<dyn EvalIO>,
         true,
@@ -163,6 +180,18 @@ fn interpret(
         eval.evaluate(code, path)
     };
 
+    if allow_incomplete.allow()
+        && result.errors.iter().any(|err| {
+            matches!(
+                &err.kind,
+                ErrorKind::ParseErrors(pes)
+                    if pes.iter().any(|pe| matches!(pe, rnix::parser::ParseError::UnexpectedEOF))
+            )
+        })
+    {
+        return Err(IncompleteInput);
+    }
+
     if args.display_ast {
         if let Some(ref expr) = result.expr {
             eprintln!("AST: {}", tvix_eval::pretty_print_expr(expr));
@@ -188,7 +217,7 @@ fn interpret(
     }
 
     // inform the caller about any errors
-    result.errors.is_empty()
+    Ok(result.errors.is_empty())
 }
 
 /// Interpret the given code snippet, but only run the Tvix compiler
@@ -257,7 +286,16 @@ fn main() {
     if let Some(file) = &args.script {
         run_file(io_handle, file.clone(), &args)
     } else if let Some(expr) = &args.expr {
-        if !interpret(io_handle, expr, None, &args, false) {
+        if !interpret(
+            io_handle,
+            expr,
+            None,
+            &args,
+            false,
+            AllowIncomplete::RequireComplete,
+        )
+        .unwrap()
+        {
             std::process::exit(1);
         }
     } else {
@@ -274,7 +312,15 @@ fn run_file(io_handle: Rc<TvixStoreIO>, mut path: PathBuf, args: &Args) {
     let success = if args.compile_only {
         lint(&contents, Some(path), args)
     } else {
-        interpret(io_handle, &contents, Some(path), args, false)
+        interpret(
+            io_handle,
+            &contents,
+            Some(path),
+            args,
+            false,
+            AllowIncomplete::RequireComplete,
+        )
+        .unwrap()
     };
 
     if !success {
@@ -318,20 +364,59 @@ fn run_prompt(io_handle: Rc<TvixStoreIO>, args: &Args) {
         None => None,
     };
 
+    let mut multiline_input: Option<String> = None;
     loop {
-        let readline = rl.readline("tvix-repl> ");
+        let prompt = if multiline_input.is_some() {
+            "         > "
+        } else {
+            "tvix-repl> "
+        };
+
+        let readline = rl.readline(prompt);
         match readline {
             Ok(line) => {
                 if line.is_empty() {
                     continue;
                 }
 
-                rl.add_history_entry(&line);
-
-                if let Some(without_prefix) = line.strip_prefix(":d ") {
-                    interpret(Rc::clone(&io_handle), without_prefix, None, args, true);
+                let input = if let Some(mi) = &mut multiline_input {
+                    mi.push('\n');
+                    mi.push_str(&line);
+                    mi
                 } else {
-                    interpret(Rc::clone(&io_handle), &line, None, args, false);
+                    &line
+                };
+
+                let res = if let Some(without_prefix) = input.strip_prefix(":d ") {
+                    interpret(
+                        Rc::clone(&io_handle),
+                        without_prefix,
+                        None,
+                        args,
+                        true,
+                        AllowIncomplete::Allow,
+                    )
+                } else {
+                    interpret(
+                        Rc::clone(&io_handle),
+                        input,
+                        None,
+                        args,
+                        false,
+                        AllowIncomplete::Allow,
+                    )
+                };
+
+                match res {
+                    Ok(_) => {
+                        rl.add_history_entry(input);
+                        multiline_input = None;
+                    }
+                    Err(IncompleteInput) => {
+                        if multiline_input.is_none() {
+                            multiline_input = Some(line);
+                        }
+                    }
                 }
             }
             Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => break,

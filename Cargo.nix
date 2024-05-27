@@ -13043,6 +13043,10 @@ rec {
             packageId = "nix-compat";
           }
           {
+            name = "rnix";
+            packageId = "rnix";
+          }
+          {
             name = "rustyline";
             packageId = "rustyline";
           }

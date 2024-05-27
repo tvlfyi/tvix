@@ -4119,6 +4119,7 @@ dependencies = [
  "clap",
  "dirs",
  "nix-compat",
+ "rnix",
  "rustyline",
  "thiserror",
  "tokio",
