@@ -414,6 +414,7 @@ mod tests {
     }
 
     /// Read the trailer immediately if there is no payload.
+    #[cfg(feature = "async")]
     #[tokio::test]
     async fn read_trailer_immediately() {
         use crate::nar::wire::PadPar;
@@ -431,6 +432,7 @@ mod tests {
     }
 
     /// Read the trailer even if we only read the exact payload size.
+    #[cfg(feature = "async")]
     #[tokio::test]
     async fn read_exact_trailer() {
         use crate::nar::wire::PadPar;

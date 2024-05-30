@@ -97,7 +97,7 @@ const TOK_PAD_PAR: [u8; 24] = *b"\0\0\0\0\0\0\0\0\x01\0\0\0\0\0\0\0)\0\0\0\0\0\0
 #[derive(Debug)]
 pub(crate) enum PadPar {}
 
-#[cfg(feature = "async")]
+#[cfg(all(feature = "async", feature = "wire"))]
 impl crate::wire::reader::Tag for PadPar {
     const PATTERN: &'static [u8] = &TOK_PAD_PAR;
 
