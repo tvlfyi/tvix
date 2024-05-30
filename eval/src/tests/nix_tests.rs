@@ -35,6 +35,7 @@ mod mock_builtins {
     }
 }
 
+#[cfg(feature = "impure")]
 fn eval_test(code_path: PathBuf, expect_success: bool) {
     std::env::set_var("TEST_VAR", "foo"); // for eval-okay-getenv.nix
 
