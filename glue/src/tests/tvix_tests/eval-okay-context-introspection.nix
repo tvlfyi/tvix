@@ -71,7 +71,7 @@ in
   (builtins.hasAttr "allOutputs" (builtins.getContext drv.drvPath)."${builtins.unsafeDiscardStringContext drv.drvPath}")
   (legit-context == desired-context) # FIXME(raitobezarius): this should not use `builtins.seq`, this is a consequence of excessive laziness of Tvix, I believe.
   (reconstructed-path == combo-path)
-  # Those are too slow?
+  # These still fail with an internal error
   # (etaRule' "foo")
   # (etaRule' combo-path)
   (etaRule "foo")

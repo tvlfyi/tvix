@@ -1286,6 +1286,9 @@ mod pure_builtins {
                 })
                 .collect();
             ret.push_back(Value::List(NixList::from(v)));
+            if pos == text.len() {
+                break;
+            }
             pos = thematch.end();
         }
 
