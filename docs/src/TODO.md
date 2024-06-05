@@ -140,9 +140,36 @@ logs etc, but this is something requiring a lot of designing.
 - Some work ongoing on the worker operation parsing (griff, picnoir)
 
 ### O11Y
- - gRPC trace propagation (cl/10532)
- - `tracing-tracy` (cl/10952)
- - `[tracing-]indicatif` for progress/log reporting (floklis stash)
- - unification into `tvix-tracing` crate, currently a lot of boilerplate
-   in `tvix-store` CLI entrypoint, and half of the boilerplate copied over to
-   `tvix-cli`.
+ - `[tracing-]indicatif` for progress/log reporting (cl/11747)
+ - Currently there's a lot of boilerplate in the `tvix-store` CLI entrypoint,
+   and half of the boilerplate copied over to `tvix-cli`.
+   Setup of the tracing things should be unified into the `tvix-tracing` crate,
+   maybe including some of the CLI parameters (@simon).
+   Or maybe drop `--log-level` entirely, and only use `RUST_LOG` env
+   exclusively? `debug`,`trace` level across all crates is a bit useless, and
+   `RUST_LOG` can be much more granular…
+ - The OTLP stack is quite spammy if there's no OTLP collector running on
+   localhost.
+   https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/
+   mentions a `OTEL_SDK_DISABLED` env var, but it defaults to false, so they
+   suggest enabling OTLP by default.
+   We currently have a `--otlp` cmdline arg which explicitly needs to be set to
+   false to stop it, in line with that "enabled by default" philosophy
+   Do some research if we can be less spammy. While OTLP support is
+   feature-flagged, it should not get in the way too much, so we can actually
+   have it compiled in most of the time.
+ - gRPC trace propagation (cl/10532 + @simon)
+   We need to wire trace propagation into our gRPC clients, so if we collect
+   traces both for the client and server they will be connected.
+ - Fix OTLP sending batches on shutdown.
+   It seems for short-lived CLI invocations we don't end up receiving all spans.
+   Ensure we flush these on ctrl-c, and regular process termination.
+   See https://github.com/open-telemetry/opentelemetry-rust/issues/1395#issuecomment-2045567608
+   for some context.
+
+Later:
+ - Trace propagation for HTTP clients too, using
+   https://www.w3.org/TR/trace-context/ or https://www.w3.org/TR/baggage/,
+   whichever makes more sense.
+   Candidates: nix+http(s) protocol, object_store crates.
+ - (`tracing-tracy` (cl/10952))
