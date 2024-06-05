@@ -66,6 +66,14 @@ which are supposed to be skipped.
    This is quite primitive. We should have individual error types for BS, DS, PS.
    Maybe these should have some generics to still be able to carry errors from
    the underlying backend, similar to `IngestionError`.
+   There was an attempt to give PS separate error types (cl/11695), but this
+   ended up very verbose.
+   Every error had to be boxed, and a possible additional message be added. Some
+   errors that didn't wrap another underlying errors were hard to construct, too
+   (requiring the addition of errors). All of this without even having added
+   proper backtrace support, which would be quite helpful in store hierarchies.
+   `anyhow`'s `.context()` gives us most of this out of the box. Maybe we can
+   use that, using enums rather than `&'static str` as context in some cases?
 
 ## Fixes towards correctness
  - `rnix` only supports string source files, but `NixString` uses bytes (and Nix
