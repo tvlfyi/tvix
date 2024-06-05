@@ -13000,6 +13000,7 @@ rec {
         ];
         features = {
           "cloud" = [ "dep:bigtable_rs" "object_store/aws" "object_store/azure" "object_store/gcp" ];
+          "default" = [ "cloud" ];
           "fs" = [ "dep:libc" "dep:fuse-backend-rs" ];
           "fuse" = [ "fs" ];
           "tonic-reflection" = [ "dep:tonic-reflection" ];
