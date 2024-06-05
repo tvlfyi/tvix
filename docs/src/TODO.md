@@ -178,7 +178,22 @@ logs etc, but this is something requiring a lot of designing.
 ### BlobService
  - On the trait side, currently there's no way to distinguish reading a
    known-chunk vs blob, so we might be calling `.chunks()` unnecessarily often.
-   At least for the `object_store` backend, this might be a problem.
+   At least for the `object_store` backend, this might be a problem, causing a
+   lot of round-trips. It also doesn't compose well - every implementation of
+   `BlobService` needs to both solve the "holding metadata about chunking info"
+   as well as "storing chunks" questions.
+   Design idea (@flokli): split these two concerns into two separate traits:
+    - a `ChunkService` dealing with retrieving individual chunks, by their
+      content digests. Chunks are small enough to keep around in contiguous
+      memory.
+    - a `BlobService` storing metadata about blobs.
+
+   Individual stores would not need to implement `BlobReader` anymore, but that
+   could be a global thing with access to the whole store composition layer,
+   which should make it easier to reuse chunks from other backends. Unclear
+   if the write path should be structured the same way. At least for some
+   backends, we want the remote end to be able to decide about chunking.
+
  - While `object_store` recently got support for `Content-Type`
    (https://github.com/apache/arrow-rs/pull/5650), there's no support on the
    local filesystem yet. We'd need to add support to this (through xattrs).
