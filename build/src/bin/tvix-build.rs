@@ -7,7 +7,6 @@ use tokio_listener::SystemOptions;
 use tokio_listener::UserOptions;
 use tonic::{self, transport::Server};
 use tracing::{info, Level};
-use tracing_subscriber::prelude::*;
 use tvix_build::{
     buildservice,
     proto::{build_service_server::BuildServiceServer, GRPCBuildServiceWrapper},
@@ -23,8 +22,12 @@ use tvix_castore::proto::FILE_DESCRIPTOR_SET as CASTORE_FILE_DESCRIPTOR_SET;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    #[arg(long)]
-    log_level: Option<Level>,
+    /// A global log level to use when printing logs.
+    /// It's also possible to set `RUST_LOG` according to
+    /// `tracing_subscriber::filter::EnvFilter`, which will always have
+    /// priority.
+    #[arg(long, default_value_t=Level::INFO)]
+    log_level: Level,
 
     #[command(subcommand)]
     command: Commands,
@@ -51,16 +54,7 @@ enum Commands {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
-    // configure log settings
-    let level = cli.log_level.unwrap_or(Level::INFO);
-
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::fmt::Layer::new()
-                .with_writer(std::io::stderr.with_max_level(level))
-                .pretty(),
-        )
-        .init();
+    tvix_tracing::init(cli.log_level)?;
 
     match cli.command {
         Commands::Daemon {

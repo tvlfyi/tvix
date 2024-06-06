@@ -18,9 +18,6 @@ lazy_static = "1.4.0"
 nix-compat = { path = "../nix-compat", features = ["async"] }
 pin-project-lite = "0.2.13"
 prost = "0.12.1"
-opentelemetry = { version = "0.22.0", optional = true}
-opentelemetry-otlp = { version = "0.15.0", optional = true }
-opentelemetry_sdk = { version = "0.22.1", features = ["rt-tokio"], optional = true}
 serde = { version = "1.0.197", features = [ "derive" ] }
 serde_json = "1.0"
 serde_with = "3.7.0"
@@ -34,16 +31,14 @@ tokio-stream = { version = "0.1.14", features = ["fs"] }
 tokio-util = { version = "0.7.9", features = ["io", "io-util", "compat"] }
 tonic = { version = "0.11.0", features = ["tls", "tls-roots"] }
 tower = "0.4.13"
-tracing = "0.1.37"
-tracing-opentelemetry = "0.23.0"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tvix-castore = { path = "../castore" }
 url = "2.4.0"
 walkdir = "2.4.0"
 reqwest = { version = "0.11.22", features = ["rustls-tls-native-roots", "stream"], default-features = false }
 lru = "0.12.3"
 parking_lot = "0.12.2"
-indicatif = "0.17.8"
+tvix-tracing = { path = "../tracing" }
+tracing = "0.1.40"
 tracing-indicatif = "0.3.6"
 
 [dependencies.tonic-reflection]
@@ -74,7 +69,7 @@ cloud = [
   "tvix-castore/cloud"
 ]
 fuse = ["tvix-castore/fuse"]
-otlp = ["dep:opentelemetry", "dep:opentelemetry-otlp", "dep:opentelemetry_sdk"]
+otlp = ["tvix-tracing/otlp"]
 tonic-reflection = ["dep:tonic-reflection", "tvix-castore/tonic-reflection"]
 virtiofs = ["tvix-castore/virtiofs"]
 # Whether to run the integration tests.

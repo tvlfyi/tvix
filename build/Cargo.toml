@@ -13,8 +13,8 @@ tokio = { version = "1.32.0" }
 tokio-listener = { version = "0.4.1", features = [ "tonic011" ] }
 tonic = { version = "0.11.0", features = ["tls", "tls-roots"] }
 tvix-castore = { path = "../castore" }
-tracing = "0.1.37"
-tracing-subscriber = "0.3.16"
+tvix-tracing = { path = "../tracing" }
+tracing = "0.1.40"
 url = "2.4.0"
 
 [dependencies.tonic-reflection]

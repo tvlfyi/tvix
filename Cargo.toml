@@ -28,6 +28,7 @@ members = [
   "nix-compat",
   "serde",
   "store",
+  "tracing",
 ]
 
 [workspace.lints.clippy]

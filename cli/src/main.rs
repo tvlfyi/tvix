@@ -5,9 +5,6 @@ use repl::Repl;
 use std::rc::Rc;
 use std::{fs, path::PathBuf};
 use tracing::Level;
-use tracing_subscriber::fmt::writer::MakeWriterExt;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use tracing_subscriber::{EnvFilter, Layer};
 use tvix_build::buildservice;
 use tvix_eval::builtins::impure_builtins;
 use tvix_eval::observer::{DisassemblingObserver, TracingObserver};
@@ -27,8 +24,12 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 #[derive(Parser, Clone)]
 struct Args {
-    #[arg(long)]
-    log_level: Option<Level>,
+    /// A global log level to use when printing logs.
+    /// It's also possible to set `RUST_LOG` according to
+    /// `tracing_subscriber::filter::EnvFilter`, which will always have
+    /// priority.
+    #[arg(long, default_value_t=Level::INFO)]
+    log_level: Level,
 
     /// Path to a script to evaluate
     script: Option<PathBuf>,
@@ -270,24 +271,7 @@ fn lint(code: &str, path: Option<PathBuf>, args: &Args) -> bool {
 fn main() {
     let args = Args::parse();
 
-    // configure log settings
-    let level = args.log_level.unwrap_or(Level::INFO);
-
-    let subscriber = tracing_subscriber::registry().with(
-        tracing_subscriber::fmt::Layer::new()
-            .with_writer(std::io::stderr.with_max_level(level))
-            .compact()
-            .with_filter(
-                EnvFilter::builder()
-                    .with_default_directive(level.into())
-                    .from_env()
-                    .expect("invalid RUST_LOG"),
-            ),
-    );
-    subscriber
-        .try_init()
-        .expect("unable to set up tracing subscriber");
-
+    tvix_tracing::init(args.log_level).expect("unable to set up tracing subscriber");
     let tokio_runtime = tokio::runtime::Runtime::new().expect("failed to setup tokio runtime");
 
     let io_handle = init_io_handle(&tokio_runtime, &args);

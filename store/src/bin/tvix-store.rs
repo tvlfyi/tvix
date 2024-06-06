@@ -4,7 +4,6 @@ use clap::Subcommand;
 use futures::future::try_join_all;
 use futures::StreamExt;
 use futures::TryStreamExt;
-use indicatif::ProgressStyle;
 use nix_compat::path_info::ExportedPathInfo;
 use serde::Deserialize;
 use serde::Serialize;
@@ -14,14 +13,8 @@ use tokio_listener::Listener;
 use tokio_listener::SystemOptions;
 use tokio_listener::UserOptions;
 use tonic::transport::Server;
-use tracing::info;
-use tracing::info_span;
-use tracing::instrument;
-use tracing::Level;
-use tracing::Span;
-use tracing_indicatif::filter::IndicatifFilter;
-use tracing_indicatif::{span_ext::IndicatifSpanExt, IndicatifLayer};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
+use tracing::{info, info_span, instrument, Level, Span};
+use tracing_indicatif::span_ext::IndicatifSpanExt as _;
 use tvix_castore::import::fs::ingest_path;
 use tvix_store::nar::NarCalculationService;
 use tvix_store::proto::NarInfo;
@@ -35,34 +28,11 @@ use tvix_store::pathinfoservice::PathInfoService;
 use tvix_store::proto::path_info_service_server::PathInfoServiceServer;
 use tvix_store::proto::GRPCPathInfoServiceWrapper;
 
-use lazy_static::lazy_static;
-
-// FUTUREWORK: move this to tracing crate
-lazy_static! {
-    pub static ref PB_PROGRESS_STYLE: ProgressStyle = ProgressStyle::with_template(
-        "{span_child_prefix}{bar:30} {wide_msg} [{elapsed_precise}]  {pos:>7}/{len:7}"
-    )
-    .expect("invalid progress template");
-    pub static ref PB_SPINNER_STYLE: ProgressStyle = ProgressStyle::with_template(
-        "{span_child_prefix}{spinner} {wide_msg} [{elapsed_precise}]  {pos:>7}/{len:7}"
-    )
-    .expect("invalid progress template");
-}
-
 #[cfg(any(feature = "fuse", feature = "virtiofs"))]
 use tvix_store::pathinfoservice::make_fs;
 
 #[cfg(feature = "fuse")]
 use tvix_castore::fs::fuse::FuseDaemon;
-
-#[cfg(feature = "otlp")]
-use opentelemetry::KeyValue;
-#[cfg(feature = "otlp")]
-use opentelemetry_sdk::{
-    resource::{ResourceDetector, SdkProvidedResourceDetector},
-    trace::BatchConfig,
-    Resource,
-};
 
 #[cfg(feature = "virtiofs")]
 use tvix_castore::fs::virtiofs::start_virtiofs_daemon;
@@ -83,8 +53,8 @@ struct Cli {
     /// It's also possible to set `RUST_LOG` according to
     /// `tracing_subscriber::filter::EnvFilter`, which will always have
     /// priority.
-    #[arg(long)]
-    log_level: Option<Level>,
+    #[arg(long, default_value_t=Level::INFO)]
+    log_level: Level,
 
     #[command(subcommand)]
     command: Commands,
@@ -234,75 +204,18 @@ fn default_threads() -> usize {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
-    // configure log settings
-    let level = cli.log_level.unwrap_or(Level::INFO);
-
-    let indicatif_layer = IndicatifLayer::new().with_progress_style(PB_SPINNER_STYLE.clone());
-
-    // Set up the tracing subscriber.
-    let subscriber = tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::fmt::Layer::new()
-                .with_writer(indicatif_layer.get_stderr_writer())
-                .compact()
-                .with_filter(
-                    EnvFilter::builder()
-                        .with_default_directive(level.into())
-                        .from_env()
-                        .expect("invalid RUST_LOG"),
-                ),
-        )
-        .with(indicatif_layer.with_filter(
-            // only show progress for spans with indicatif.pb_show field being set
-            IndicatifFilter::new(false),
-        ));
-
-    // Add the otlp layer (when otlp is enabled, and it's not disabled in the CLI)
-    // then init the registry.
-    // If the feature is feature-flagged out, just init without adding the layer.
-    // It's necessary to do this separately, as every with() call chains the
-    // layer into the type of the registry.
     #[cfg(feature = "otlp")]
     {
-        let subscriber = if cli.otlp {
-            let tracer = opentelemetry_otlp::new_pipeline()
-                .tracing()
-                .with_exporter(opentelemetry_otlp::new_exporter().tonic())
-                .with_batch_config(BatchConfig::default())
-                .with_trace_config(opentelemetry_sdk::trace::config().with_resource({
-                    // use SdkProvidedResourceDetector.detect to detect resources,
-                    // but replace the default service name with our default.
-                    // https://github.com/open-telemetry/opentelemetry-rust/issues/1298
-                    let resources =
-                        SdkProvidedResourceDetector.detect(std::time::Duration::from_secs(0));
-                    // SdkProvidedResourceDetector currently always sets
-                    // `service.name`, but we don't like its default.
-                    if resources.get("service.name".into()).unwrap() == "unknown_service".into() {
-                        resources.merge(&Resource::new([KeyValue::new(
-                            "service.name",
-                            "tvix.store",
-                        )]))
-                    } else {
-                        resources
-                    }
-                }))
-                .install_batch(opentelemetry_sdk::runtime::Tokio)?;
-
-            // Create a tracing layer with the configured tracer
-            let layer = tracing_opentelemetry::layer().with_tracer(tracer);
-
-            subscriber.with(Some(layer))
+        if cli.otlp {
+            tvix_tracing::init_with_otlp(cli.log_level, "tvix.store")?;
         } else {
-            subscriber.with(None)
-        };
-
-        subscriber.try_init()?;
+            tvix_tracing::init(cli.log_level)?;
+        }
     }
 
-    // Init the registry (when otlp is not enabled)
     #[cfg(not(feature = "otlp"))]
     {
-        subscriber.try_init()?;
+        tvix_tracing::init(cli.log_level)?;
     }
 
     match cli.command {
@@ -383,7 +296,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let root_span = {
                 let s = Span::current();
-                s.pb_set_style(&PB_PROGRESS_STYLE);
+                s.pb_set_style(&tvix_tracing::PB_PROGRESS_STYLE);
                 s.pb_set_message("Importing paths");
                 s.pb_set_length(paths.len() as u64);
                 s.pb_start();
@@ -458,7 +371,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "indicatif.pb_show" = tracing::field::Empty
             );
             lookups_span.pb_set_length(reference_graph.closure.len() as u64);
-            lookups_span.pb_set_style(&PB_PROGRESS_STYLE);
+            lookups_span.pb_set_style(&tvix_tracing::PB_PROGRESS_STYLE);
             lookups_span.pb_start();
 
             // From our reference graph, lookup all pathinfos that might exist.

@@ -198,14 +198,9 @@ logs etc, but this is something requiring a lot of designing.
 - Some work ongoing on the worker operation parsing (griff, picnoir)
 
 ### O11Y
- - `[tracing-]indicatif` for progress/log reporting (cl/11747)
- - Currently there's a lot of boilerplate in the `tvix-store` CLI entrypoint,
-   and half of the boilerplate copied over to `tvix-cli`.
-   Setup of the tracing things should be unified into the `tvix-tracing` crate,
-   maybe including some of the CLI parameters (@simon).
-   Or maybe drop `--log-level` entirely, and only use `RUST_LOG` env
-   exclusively? `debug`,`trace` level across all crates is a bit useless, and
-   `RUST_LOG` can be much more granular…
+ - Maybe drop `--log-level` entirely, and only use `RUST_LOG` env exclusively?
+   `debug`,`trace` level across all crates is a bit useless, and `RUST_LOG` can
+   be much more granular…
  - The OTLP stack is quite spammy if there's no OTLP collector running on
    localhost.
    https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/
