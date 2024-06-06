@@ -4269,7 +4269,6 @@ dependencies = [
  "tokio-tar",
  "tokio-util",
  "tracing",
- "tracing-indicatif",
  "tvix-build",
  "tvix-castore",
  "tvix-eval",
