@@ -62,7 +62,7 @@ This is done by compiling bindings in several phases:
 
    At the end of this phase, we know the stack slots of all namespaces for
    inheriting from, all values inherited from them, and all values (and
-   optionall keys) of bindings at the current level.
+   optionally keys) of bindings at the current level.
 
    Only statically known keys are actually merged, so any dynamic keys that
    conflict will lead to a "key already defined" error at runtime.

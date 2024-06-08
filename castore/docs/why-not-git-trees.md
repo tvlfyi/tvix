@@ -48,7 +48,7 @@ The git tree object format uses sha1 both for references to other trees and
 hashes of blobs, which isn't really a hash function to fundamentally base
 everything on in 2023.
 The [migration to sha256][git-sha256] also has been dead for some years now,
-and it's unclear how a "blake3" version of this would even look like.
+and it's unclear what a "blake3" version of this would even look like.
 
 [bao]: https://github.com/oconnor663/bao
 [blake3]: https://github.com/BLAKE3-team/BLAKE3

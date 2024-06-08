@@ -15,8 +15,8 @@ a directory.
 
 All three message types have a `name` field, specifying the (base)name of the
 element (which MUST not contain slashes or null bytes, and MUST not be '.' or '..').
-For reproducibility reasons, the lists MUST be sorted by that name and also
-MUST be unique across all three lists.
+For reproducibility reasons, the lists MUST be sorted by that name and the
+name MUST be unique across all three lists.
 
 In addition to the `name` field, the various *Node messages have the following
 fields:
@@ -27,7 +27,7 @@ A `DirectoryNode` message represents a child directory.
 It has a `digest` field, which points to the identifier of another `Directory`
 message, making a `Directory` a merkle tree (or strictly speaking, a graph, as
 two elements pointing to a child directory with the same contents would point
-to the same `Directory` message.
+to the same `Directory` message).
 
 There's also a `size` field, containing the (total) number of all child
 elements in the referenced `Directory`, which helps for inode calculation.

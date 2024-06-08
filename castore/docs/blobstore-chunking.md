@@ -73,10 +73,10 @@ This means one only needs to the root digest to validate a constructions, and th
 constructions can be sent [separately][bao-spec].
 
 This relieves us from the need of having to encode more granular chunking into
-our data model / identifier upfront, but can make this a mostly a transport/
+our data model / identifier upfront, but can make this mostly a transport/
 storage concern.
 
-For the some more description on the (remote) protocol, check
+For some more description on the (remote) protocol, check
 `./blobstore-protocol.md`.
 
 #### Logical vs. physical chunking
