@@ -14008,6 +14008,15 @@ rec {
             features = [ "rt-tokio" ];
           }
           {
+            name = "thiserror";
+            packageId = "thiserror";
+          }
+          {
+            name = "tokio";
+            packageId = "tokio";
+            features = [ "sync" "rt" ];
+          }
+          {
             name = "tracing";
             packageId = "tracing";
             features = [ "max_level_trace" "release_max_level_debug" ];

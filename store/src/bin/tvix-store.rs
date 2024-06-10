@@ -199,25 +199,8 @@ fn default_threads() -> usize {
     1
 }
 
-#[tokio::main]
-#[instrument(fields(indicatif.pb_show=1))]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let cli = Cli::parse();
-
-    #[cfg(feature = "otlp")]
-    {
-        if cli.otlp {
-            tvix_tracing::init_with_otlp(cli.log_level, "tvix.store")?;
-        } else {
-            tvix_tracing::init(cli.log_level)?;
-        }
-    }
-
-    #[cfg(not(feature = "otlp"))]
-    {
-        tvix_tracing::init(cli.log_level)?;
-    }
-
+#[instrument(fields(indicatif.pb_show=1), skip(cli))]
+async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     match cli.command {
         Commands::Daemon {
             listen_address,
@@ -527,4 +510,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
     Ok(())
+}
+
+#[tokio::main]
+#[instrument(fields(indicatif.pb_show=1))]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let cli = Cli::parse();
+
+    let tracing_handle = {
+        let mut builder = tvix_tracing::TracingBuilder::default();
+        builder = builder.level(cli.log_level);
+        #[cfg(feature = "otlp")]
+        {
+            if cli.otlp {
+                builder = builder.enable_otlp("tvix.store");
+            }
+        }
+        builder.build()?
+    };
+
+    tokio::select! {
+        res = tokio::signal::ctrl_c() => {
+            res?;
+            if let Err(e) = tracing_handle.force_shutdown().await {
+                eprintln!("failed to shutdown tracing: {e}");
+            }
+            Ok(())
+        },
+        res = run_cli(cli) => {
+            if let Err(e) = tracing_handle.shutdown().await {
+                eprintln!("failed to shutdown tracing: {e}");
+            }
+            res
+        }
+    }
 }

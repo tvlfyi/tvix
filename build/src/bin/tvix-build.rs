@@ -54,7 +54,7 @@ enum Commands {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
-    tvix_tracing::init(cli.log_level)?;
+    let _ = tvix_tracing::TracingBuilder::default().level(cli.log_level);
 
     match cli.command {
         Commands::Daemon {

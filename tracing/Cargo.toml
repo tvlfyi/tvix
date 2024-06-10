@@ -9,6 +9,8 @@ tracing = { version = "0.1.40", features = ["max_level_trace", "release_max_leve
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 indicatif = "0.17.8"
 tracing-indicatif = "0.3.6"
+tokio = { version = "1.32.0" , features = ["sync", "rt"] }
+thiserror = "1.0.38"
 
 tracing-opentelemetry = { version = "0.23.0", optional = true }
 opentelemetry = { version = "0.22.0", optional = true }
