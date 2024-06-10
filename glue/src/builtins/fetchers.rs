@@ -6,7 +6,6 @@ use crate::{
     tvix_store_io::TvixStoreIO,
 };
 use nix_compat::nixhash;
-use nix_compat::nixhash::NixHash;
 use std::rc::Rc;
 use tracing::info;
 use tvix_eval::builtin_macros::builtins;
@@ -80,6 +79,7 @@ async fn extract_fetch_args(
 #[builtins(state = "Rc<TvixStoreIO>")]
 pub(crate) mod fetcher_builtins {
     use crate::builtins::FetcherError;
+    use nix_compat::nixhash::NixHash;
     use url::Url;
 
     use super::*;
@@ -147,7 +147,10 @@ pub(crate) mod fetcher_builtins {
         fetch_lazy(
             state,
             name,
-            Fetch::URL(url, args.sha256.map(NixHash::Sha256)),
+            Fetch::URL {
+                url,
+                exp_hash: args.sha256.map(NixHash::Sha256),
+            },
         )
     }
 
@@ -172,7 +175,14 @@ pub(crate) mod fetcher_builtins {
         let url = Url::parse(&args.url_str)
             .map_err(|e| ErrorKind::TvixError(Rc::new(FetcherError::InvalidUrl(e))))?;
 
-        fetch_lazy(state, name, Fetch::Tarball(url, args.sha256))
+        fetch_lazy(
+            state,
+            name,
+            Fetch::Tarball {
+                url,
+                exp_nar_sha256: args.sha256,
+            },
+        )
     }
 
     #[builtin("fetchGit")]

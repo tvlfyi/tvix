@@ -25,10 +25,14 @@ use decompression::DecompressedReader;
 /// Representing options for doing a fetch.
 #[derive(Clone, Eq, PartialEq)]
 pub enum Fetch {
-    /// Fetch a literal file from the given URL, with an optional expected
-    /// NixHash of it.
-    /// TODO: check if this is *always* sha256, and if so, make it [u8; 32].
-    URL(Url, Option<NixHash>),
+    /// Fetch a literal file from the given URL,
+    /// with an optional expected hash.
+    URL {
+        /// The URL to fetch from.
+        url: Url,
+        /// The expected hash of the file.
+        exp_hash: Option<NixHash>,
+    },
 
     /// Fetch a tarball from the given URL and unpack.
     /// The file must be a tape archive (.tar), optionally compressed with gzip,
@@ -37,7 +41,12 @@ pub enum Fetch {
     /// so it is best if the tarball contains a single directory at top level.
     /// Optionally, a sha256 digest can be provided to verify the unpacked
     /// contents against.
-    Tarball(Url, Option<[u8; 32]>),
+    Tarball {
+        /// The URL to fetch from.
+        url: Url,
+        /// The expected hash of the contents, as NAR.
+        exp_nar_sha256: Option<[u8; 32]>,
+    },
 
     /// TODO
     Git(),
@@ -60,7 +69,7 @@ fn redact_url(url: &Url) -> Url {
 impl std::fmt::Debug for Fetch {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Fetch::URL(url, exp_hash) => {
+            Fetch::URL { url, exp_hash } => {
                 let url = redact_url(url);
                 if let Some(exp_hash) = exp_hash {
                     write!(f, "URL [url: {}, exp_hash: Some({})]", &url, exp_hash)
@@ -68,14 +77,17 @@ impl std::fmt::Debug for Fetch {
                     write!(f, "URL [url: {}, exp_hash: None]", &url)
                 }
             }
-            Fetch::Tarball(url, exp_digest) => {
+            Fetch::Tarball {
+                url,
+                exp_nar_sha256,
+            } => {
                 let url = redact_url(url);
-                if let Some(exp_digest) = exp_digest {
+                if let Some(exp_nar_sha256) = exp_nar_sha256 {
                     write!(
                         f,
-                        "Tarball [url: {}, exp_hash: Some({})]",
+                        "Tarball [url: {}, exp_nar_sha256: Some({})]",
                         url,
-                        NixHash::Sha256(*exp_digest)
+                        NixHash::Sha256(*exp_nar_sha256)
                     )
                 } else {
                     write!(f, "Tarball [url: {}, exp_hash: None]", url)
@@ -95,9 +107,24 @@ impl Fetch {
         name: &'a str,
     ) -> Result<Option<StorePathRef<'a>>, BuildStorePathError> {
         let ca_hash = match self {
-            Fetch::URL(_, Some(nixhash)) => CAHash::Flat(nixhash.clone()),
-            Fetch::Tarball(_, Some(nar_sha256)) => CAHash::Nar(NixHash::Sha256(*nar_sha256)),
-            _ => return Ok(None),
+            Fetch::URL {
+                exp_hash: Some(exp_hash),
+                ..
+            } => CAHash::Flat(exp_hash.clone()),
+
+            Fetch::Tarball {
+                exp_nar_sha256: Some(exp_nar_sha256),
+                ..
+            } => CAHash::Nar(NixHash::Sha256(*exp_nar_sha256)),
+
+            Fetch::Git() => todo!(),
+
+            // everything else
+            Fetch::URL { exp_hash: None, .. }
+            | Fetch::Tarball {
+                exp_nar_sha256: None,
+                ..
+            } => return Ok(None),
         };
 
         // calculate the store path of this fetch
@@ -190,7 +217,7 @@ where
     /// didn't match the previously communicated hash contained inside the FetchArgs.
     pub async fn ingest(&self, fetch: Fetch) -> Result<(Node, CAHash, u64), FetcherError> {
         match fetch {
-            Fetch::URL(url, exp_hash) => {
+            Fetch::URL { url, exp_hash } => {
                 // Construct a AsyncRead reading from the data as its downloaded.
                 let mut r = self.download(url.clone()).await?;
 
@@ -199,7 +226,7 @@ where
 
                 // Copy the contents from the download reader to the blob writer.
                 // Calculate the digest of the file received, depending on the
-                // communicated expected hash (or sha256 if none provided).
+                // communicated expected hash algo (or sha256 if none provided).
                 let (actual_hash, blob_size) = match exp_hash
                     .as_ref()
                     .map(NixHash::algo)
@@ -243,7 +270,10 @@ where
                     blob_size,
                 ))
             }
-            Fetch::Tarball(url, exp_nar_sha256) => {
+            Fetch::Tarball {
+                url,
+                exp_nar_sha256,
+            } => {
                 // Construct a AsyncRead reading from the data as its downloaded.
                 let r = self.download(url.clone()).await?;
 
@@ -396,7 +426,10 @@ mod tests {
                     .unwrap(),
             );
 
-            let fetch = Fetch::URL(url, Some(exp_hash));
+            let fetch = Fetch::URL {
+                url,
+                exp_hash: Some(exp_hash),
+            };
             assert_eq!(
                 "06qi00hylriyfm0nl827crgjvbax84mz-notmuch-extract-patch",
                 &fetch
@@ -410,10 +443,13 @@ mod tests {
         #[test]
         fn fetch_tarball_store_path() {
             let url = Url::parse("https://github.com/NixOS/nixpkgs/archive/91050ea1e57e50388fa87a3302ba12d188ef723a.tar.gz").unwrap();
-            let exp_nixbase32 =
+            let exp_sha256 =
                 nixbase32::decode_fixed("1hf6cgaci1n186kkkjq106ryf8mmlq9vnwgfwh625wa8hfgdn4dm")
                     .unwrap();
-            let fetch = Fetch::Tarball(url, Some(exp_nixbase32));
+            let fetch = Fetch::Tarball {
+                url,
+                exp_nar_sha256: Some(exp_sha256),
+            };
 
             assert_eq!(
                 "7adgvk5zdfq4pwrhsm3n9lzypb12gw0g-source",

@@ -160,16 +160,16 @@ mod tests {
         static ref FOO_OUT_PATH: StorePath =
             StorePath::from_bytes(b"fhaj6gmwns62s6ypkcldbaj2ybvkhx3p-foo").expect("must parse");
 
-        static ref FETCH_URL : Fetch = Fetch::URL(
-            Url::parse("https://raw.githubusercontent.com/aaptel/notmuch-extract-patch/f732a53e12a7c91a06755ebfab2007adc9b3063b/notmuch-extract-patch").unwrap(),
-            Some(NixHash::Sha256(nixbase32::decode_fixed("0nawkl04sj7psw6ikzay7kydj3dhd0fkwghcsf5rzaw4bmp4kbax").unwrap()))
-        );
+        static ref FETCH_URL : Fetch = Fetch::URL{
+            url: Url::parse("https://raw.githubusercontent.com/aaptel/notmuch-extract-patch/f732a53e12a7c91a06755ebfab2007adc9b3063b/notmuch-extract-patch").unwrap(),
+            exp_hash: Some(NixHash::Sha256(nixbase32::decode_fixed("0nawkl04sj7psw6ikzay7kydj3dhd0fkwghcsf5rzaw4bmp4kbax").unwrap()))
+        };
         static ref FETCH_URL_OUT_PATH: StorePath = StorePath::from_bytes(b"06qi00hylriyfm0nl827crgjvbax84mz-notmuch-extract-patch").unwrap();
 
-        static ref FETCH_TARBALL : Fetch = Fetch::Tarball(
-            Url::parse("https://github.com/NixOS/nixpkgs/archive/91050ea1e57e50388fa87a3302ba12d188ef723a.tar.gz").unwrap(),
-            Some(nixbase32::decode_fixed("1hf6cgaci1n186kkkjq106ryf8mmlq9vnwgfwh625wa8hfgdn4dm").unwrap())
-        );
+        static ref FETCH_TARBALL : Fetch = Fetch::Tarball{
+            url: Url::parse("https://github.com/NixOS/nixpkgs/archive/91050ea1e57e50388fa87a3302ba12d188ef723a.tar.gz").unwrap(),
+            exp_nar_sha256: Some(nixbase32::decode_fixed("1hf6cgaci1n186kkkjq106ryf8mmlq9vnwgfwh625wa8hfgdn4dm").unwrap())
+        };
         static ref FETCH_TARBALL_OUT_PATH: StorePath = StorePath::from_bytes(b"7adgvk5zdfq4pwrhsm3n9lzypb12gw0g-source").unwrap();
     }
 
