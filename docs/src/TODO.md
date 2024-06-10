@@ -25,6 +25,32 @@ sure noone is working on this, or has some specific design in mind already.
    with a different level of `--strict`, but the toplevel doc-comment suggests
    its generic?
 
+### crate2nix for WASM
+Most of Tvix is living inside a `//tvix` cargo workspace, and we use `crate2nix`
+as a build system, to get crate-level build granularity (and caching), keeping
+compile times somewhat manageable.
+
+In the future, for Store/Build, we want to build some more web frontends,
+exposing some data by calling to the API. Being able to write this in Rust,
+and reusing most of our existing code dealing with the data structures would
+be preferred.
+
+However, using the crate2nix tooling in combination with compiling for WASM is
+a bumpy ride (and `//web.tvixbolt` works around this by using
+`rustPlatform.buildRustPackage` instead, which invokes cargo inside a FOD):
+
+`buildRustCrate` in nixpkgs (which is used by `crate2nix` under the hood)
+doesn't allow specifying another `--target` explicitly, but relies on the cross
+machinery in nixpkgs exclusively.
+
+`doc/languages-frameworks/rust.section.md` suggests it should be a matter of
+re-instantiating nixpkgs for `wasm32-unknown-unknown`, but that's no recognized
+as a valid architecture.
+The suggested alternative, setting only `rustc.config` to it seems to get us
+further, but the `Crate.nix` logic for detecting arch-conditional crates doesn't
+seem to cover that case, and tries to build crates (`cpufeatures` for `sha{1,2}`)
+which are supposed to be skipped.
+
 ## Perf
  - String Contexts currently do a lot of indirections (edef)
    (NixString -> NixStringInner -> HashSet[element] -> NixContextElement -> String -> data)
