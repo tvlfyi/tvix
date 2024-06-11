@@ -216,16 +216,6 @@ logs etc, but this is something requiring a lot of designing.
  - Maybe drop `--log-level` entirely, and only use `RUST_LOG` env exclusively?
    `debug`,`trace` level across all crates is a bit useless, and `RUST_LOG` can
    be much more granular…
- - The OTLP stack is quite spammy if there's no OTLP collector running on
-   localhost.
-   https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/
-   mentions a `OTEL_SDK_DISABLED` env var, but it defaults to false, so they
-   suggest enabling OTLP by default.
-   We currently have a `--otlp` cmdline arg which explicitly needs to be set to
-   false to stop it, in line with that "enabled by default" philosophy
-   Do some research if we can be less spammy. While OTLP support is
-   feature-flagged, it should not get in the way too much, so we can actually
-   have it compiled in most of the time.
  - gRPC trace propagation (cl/10532 + @simon)
    We need to wire trace propagation into our gRPC clients, so if we collect
    traces both for the client and server they will be connected.

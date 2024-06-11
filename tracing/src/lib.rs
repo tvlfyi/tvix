@@ -10,7 +10,7 @@ use opentelemetry::KeyValue;
 #[cfg(feature = "otlp")]
 use opentelemetry_sdk::{
     resource::{ResourceDetector, SdkProvidedResourceDetector},
-    trace::BatchConfig,
+    trace::BatchConfigBuilder,
     Resource,
 };
 
@@ -173,7 +173,20 @@ impl TracingBuilder {
                 let tracer = opentelemetry_otlp::new_pipeline()
                     .tracing()
                     .with_exporter(opentelemetry_otlp::new_exporter().tonic())
-                    .with_batch_config(BatchConfig::default())
+                    .with_batch_config(
+                        BatchConfigBuilder::default()
+                            // the default values for `max_export_batch_size` is set to 512, which we will fill
+                            // pretty quickly, which will then result in an export. We want to make sure that
+                            // the export is only done once the schedule is met and not as soon as 512 spans
+                            // are collected.
+                            .with_max_export_batch_size(4096)
+                            // analog to default config `max_export_batch_size * 4`
+                            .with_max_queue_size(4096 * 4)
+                            // only force an export to the otlp collector every 10 seconds to reduce the amount
+                            // of error messages if an otlp collector is not available
+                            .with_scheduled_delay(std::time::Duration::from_secs(10))
+                            .build(),
+                    )
                     .with_trace_config(opentelemetry_sdk::trace::config().with_resource({
                         // use SdkProvidedResourceDetector.detect to detect resources,
                         // but replace the default service name with our default.
