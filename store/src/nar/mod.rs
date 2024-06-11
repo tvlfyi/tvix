@@ -4,6 +4,7 @@ use tvix_castore::B3Digest;
 mod import;
 mod renderer;
 pub use import::ingest_nar;
+pub use import::ingest_nar_and_hash;
 pub use renderer::calculate_size_and_sha256;
 pub use renderer::write_nar;
 pub use renderer::SimpleRenderer;

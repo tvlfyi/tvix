@@ -1,3 +1,5 @@
+use super::PathInfoService;
+use crate::{nar::ingest_nar_and_hash, proto::PathInfo};
 use futures::{stream::BoxStream, TryStreamExt};
 use nix_compat::{
     narinfo::{self, NarInfo},
@@ -5,19 +7,12 @@ use nix_compat::{
     nixhash::NixHash,
 };
 use reqwest::StatusCode;
-use sha2::Digest;
-use std::io::{self, Write};
-use tokio::io::{AsyncRead, BufReader};
-use tokio_util::io::InspectReader;
+use tokio::io::{self, AsyncRead};
 use tonic::async_trait;
 use tracing::{debug, instrument, warn};
 use tvix_castore::{
     blobservice::BlobService, directoryservice::DirectoryService, proto as castorepb, Error,
 };
-
-use crate::proto::PathInfo;
-
-use super::PathInfoService;
 
 /// NixHTTPPathInfoService acts as a bridge in between the Nix HTTP Binary cache
 /// protocol provided by Nix binary caches such as cache.nixos.org, and the Tvix
@@ -178,7 +173,7 @@ where
         }));
 
         // handle decompression, depending on the compression field.
-        let r: Box<dyn AsyncRead + Send + Unpin> = match narinfo.compression {
+        let mut r: Box<dyn AsyncRead + Send + Unpin> = match narinfo.compression {
             Some("none") => Box::new(r) as Box<dyn AsyncRead + Send + Unpin>,
             Some("bzip2") | None => Box::new(async_compression::tokio::bufread::BzDecoder::new(r))
                 as Box<dyn AsyncRead + Send + Unpin>,
@@ -194,19 +189,8 @@ where
                 )));
             }
         };
-        let mut nar_hash = sha2::Sha256::new();
-        let mut nar_size = 0;
 
-        // Assemble NarHash and NarSize as we read bytes.
-        let r = InspectReader::new(r, |b| {
-            nar_size += b.len() as u64;
-            nar_hash.write_all(b).unwrap();
-        });
-
-        // HACK: InspectReader doesn't implement AsyncBufRead, but neither do our decompressors.
-        let mut r = BufReader::new(r);
-
-        let root_node = crate::nar::ingest_nar(
+        let (root_node, nar_hash, nar_size) = ingest_nar_and_hash(
             self.blob_service.clone(),
             self.directory_service.clone(),
             &mut r,
@@ -226,7 +210,6 @@ where
                 "NarSize mismatch".to_string(),
             ))?;
         }
-        let nar_hash: [u8; 32] = nar_hash.finalize().into();
         if narinfo.nar_hash != nar_hash {
             warn!(
                 narinfo.nar_hash = %NixHash::Sha256(narinfo.nar_hash),
