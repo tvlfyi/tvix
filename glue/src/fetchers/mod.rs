@@ -412,32 +412,46 @@ pub(crate) fn url_basename(s: &str) -> &str {
 #[cfg(test)]
 mod tests {
     mod fetch {
-        use nix_compat::nixbase32;
-
-        use crate::fetchers::Fetch;
-
         use super::super::*;
+        use crate::fetchers::Fetch;
+        use nix_compat::{nixbase32, nixhash};
+        use rstest::rstest;
 
-        #[test]
-        fn fetchurl_store_path() {
-            let url = Url::parse("https://raw.githubusercontent.com/aaptel/notmuch-extract-patch/f732a53e12a7c91a06755ebfab2007adc9b3063b/notmuch-extract-patch").unwrap();
-            let exp_hash = NixHash::Sha256(
-                nixbase32::decode_fixed("0nawkl04sj7psw6ikzay7kydj3dhd0fkwghcsf5rzaw4bmp4kbax")
-                    .unwrap(),
-            );
-
-            let fetch = Fetch::URL {
-                url,
-                exp_hash: Some(exp_hash),
-            };
+        #[rstest]
+        #[case::url_no_hash(
+            Fetch::URL{
+                url: Url::parse("https://raw.githubusercontent.com/aaptel/notmuch-extract-patch/f732a53e12a7c91a06755ebfab2007adc9b3063b/notmuch-extract-patch").unwrap(),
+                exp_hash: None,
+            },
+            None,
+            "notmuch-extract-patch"
+        )]
+        #[case::url_sha256(
+            Fetch::URL{
+                url: Url::parse("https://raw.githubusercontent.com/aaptel/notmuch-extract-patch/f732a53e12a7c91a06755ebfab2007adc9b3063b/notmuch-extract-patch").unwrap(),
+                exp_hash: Some(nixhash::from_sri_str("sha256-Xa1Jbl2Eq5+L0ww+Ph1osA3Z/Dxe/RkN1/dITQCdXFk=").unwrap()),
+            },
+            Some(StorePathRef::from_bytes(b"06qi00hylriyfm0nl827crgjvbax84mz-notmuch-extract-patch").unwrap()),
+            "notmuch-extract-patch"
+        )]
+        #[case::url_custom_name(
+            Fetch::URL{
+                url: Url::parse("https://test.example/owo").unwrap(),
+                exp_hash: Some(nixhash::from_sri_str("sha256-Xa1Jbl2Eq5+L0ww+Ph1osA3Z/Dxe/RkN1/dITQCdXFk=").unwrap()),
+            },
+            Some(StorePathRef::from_bytes(b"06qi00hylriyfm0nl827crgjvbax84mz-notmuch-extract-patch").unwrap()),
+            "notmuch-extract-patch"
+        )]
+        fn fetchurl_store_path(
+            #[case] fetch: Fetch,
+            #[case] exp_path: Option<StorePathRef>,
+            #[case] name: &str,
+        ) {
             assert_eq!(
-                "06qi00hylriyfm0nl827crgjvbax84mz-notmuch-extract-patch",
-                &fetch
-                    .store_path("notmuch-extract-patch")
-                    .unwrap()
-                    .unwrap()
-                    .to_string(),
-            )
+                exp_path,
+                fetch.store_path(name).expect("invalid name"),
+                "unexpected calculated store path"
+            );
         }
 
         #[test]

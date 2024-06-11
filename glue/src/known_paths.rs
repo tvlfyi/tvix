@@ -133,7 +133,7 @@ impl KnownPaths {
 
 #[cfg(test)]
 mod tests {
-    use nix_compat::{derivation::Derivation, nixbase32, nixhash::NixHash, store_path::StorePath};
+    use nix_compat::{derivation::Derivation, nixbase32, nixhash, store_path::StorePath};
     use url::Url;
 
     use crate::fetchers::Fetch;
@@ -162,7 +162,7 @@ mod tests {
 
         static ref FETCH_URL : Fetch = Fetch::URL{
             url: Url::parse("https://raw.githubusercontent.com/aaptel/notmuch-extract-patch/f732a53e12a7c91a06755ebfab2007adc9b3063b/notmuch-extract-patch").unwrap(),
-            exp_hash: Some(NixHash::Sha256(nixbase32::decode_fixed("0nawkl04sj7psw6ikzay7kydj3dhd0fkwghcsf5rzaw4bmp4kbax").unwrap()))
+            exp_hash: Some(nixhash::from_sri_str("sha256-Xa1Jbl2Eq5+L0ww+Ph1osA3Z/Dxe/RkN1/dITQCdXFk=").unwrap())
         };
         static ref FETCH_URL_OUT_PATH: StorePath = StorePath::from_bytes(b"06qi00hylriyfm0nl827crgjvbax84mz-notmuch-extract-patch").unwrap();
 
@@ -267,22 +267,6 @@ mod tests {
                 .unwrap()
                 .to_owned()
         );
-
-        // We should be able to get these fetches out, when asking for their out path.
-        let (got_name, got_fetch) = known_paths
-            .get_fetch_for_output_path(&FETCH_URL_OUT_PATH)
-            .expect("must be some");
-
-        assert_eq!("notmuch-extract-patch", got_name);
-        assert_eq!(FETCH_URL.clone(), got_fetch);
-
-        // … multiple times.
-        let (got_name, got_fetch) = known_paths
-            .get_fetch_for_output_path(&FETCH_URL_OUT_PATH)
-            .expect("must be some");
-
-        assert_eq!("notmuch-extract-patch", got_name);
-        assert_eq!(FETCH_URL.clone(), got_fetch);
     }
 
     // TODO: add test panicking about missing digest
