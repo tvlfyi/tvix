@@ -13,7 +13,8 @@ use std::{
     sync::Arc,
 };
 use tokio_util::io::SyncIoBridge;
-use tracing::{error, info, instrument, warn, Level};
+use tracing::{error, instrument, warn, Level, Span};
+use tracing_indicatif::span_ext::IndicatifSpanExt;
 use tvix_build::buildservice::BuildService;
 use tvix_castore::proto::node::Node;
 use tvix_eval::{EvalIO, FileType, StdIO};
@@ -105,7 +106,7 @@ impl TvixStoreIO {
     ///
     /// In case there is no PathInfo yet, this means we need to build it
     /// (which currently is stubbed out still).
-    #[instrument(skip(self, store_path), fields(store_path=%store_path), ret(level = Level::TRACE), err)]
+    #[instrument(skip(self, store_path), fields(store_path=%store_path, indicatif.pb_show=1), ret(level = Level::TRACE), err)]
     async fn store_path_to_node(
         &self,
         store_path: &StorePath,
@@ -134,6 +135,9 @@ impl TvixStoreIO {
             // it for things like <nixpkgs> pointing to a store path.
             // In the future, these things will (need to) have PathInfo.
             None => {
+                let span = Span::current();
+                span.pb_start();
+                span.pb_set_style(&tvix_tracing::PB_SPINNER_STYLE);
                 // The store path doesn't exist yet, so we need to fetch or build it.
                 // We check for fetches first, as we might have both native
                 // fetchers and FODs in KnownPaths, and prefer the former.
@@ -146,7 +150,7 @@ impl TvixStoreIO {
 
                 match maybe_fetch {
                     Some((name, fetch)) => {
-                        info!(?fetch, "triggering lazy fetch");
+                        span.pb_set_message(&format!("⏳Fetching {}", &store_path));
                         let (sp, root_node) = self
                             .fetcher
                             .ingest_and_persist(&name, fetch)
@@ -179,8 +183,7 @@ impl TvixStoreIO {
                                 }
                             }
                         };
-
-                        warn!("triggering build");
+                        span.pb_set_message(&format!("🔨building {}", &store_path));
 
                         // derivation_to_build_request needs castore nodes for all inputs.
                         // Provide them, which means, here is where we recursively build

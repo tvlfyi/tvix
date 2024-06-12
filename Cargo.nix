@@ -13642,6 +13642,10 @@ rec {
             packageId = "tracing";
           }
           {
+            name = "tracing-indicatif";
+            packageId = "tracing-indicatif";
+          }
+          {
             name = "tvix-build";
             packageId = "tvix-build";
             usesDefaultFeatures = false;
@@ -13658,6 +13662,10 @@ rec {
             name = "tvix-store";
             packageId = "tvix-store";
             usesDefaultFeatures = false;
+          }
+          {
+            name = "tvix-tracing";
+            packageId = "tvix-tracing";
           }
           {
             name = "url";
