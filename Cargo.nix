@@ -13062,10 +13062,6 @@ rec {
             packageId = "futures";
           }
           {
-            name = "indicatif";
-            packageId = "indicatif";
-          }
-          {
             name = "lazy_static";
             packageId = "lazy_static";
           }

@@ -4150,7 +4150,6 @@ dependencies = [
  "fuse-backend-rs",
  "futures",
  "hex-literal",
- "indicatif",
  "lazy_static",
  "libc",
  "object_store",
