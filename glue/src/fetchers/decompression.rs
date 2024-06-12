@@ -153,9 +153,7 @@ where
         };
 
         let mut our_buf = ReadBuf::new(buffer);
-        if let Err(e) = ready!(inner.as_pin_mut().unwrap().poll_read(cx, &mut our_buf)) {
-            return Poll::Ready(Err(e));
-        }
+        ready!(inner.as_pin_mut().unwrap().poll_read(cx, &mut our_buf))?;
 
         let data = our_buf.filled();
         if data.len() >= BYTES_NEEDED {
