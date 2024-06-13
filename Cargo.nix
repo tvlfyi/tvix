@@ -13306,6 +13306,10 @@ rec {
             packageId = "tracing";
           }
           {
+            name = "tracing-indicatif";
+            packageId = "tracing-indicatif";
+          }
+          {
             name = "tvix-build";
             packageId = "tvix-build";
           }

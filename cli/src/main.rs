@@ -4,7 +4,8 @@ use clap::Parser;
 use repl::Repl;
 use std::rc::Rc;
 use std::{fs, path::PathBuf};
-use tracing::Level;
+use tracing::{instrument, Level, Span};
+use tracing_indicatif::span_ext::IndicatifSpanExt;
 use tvix_build::buildservice;
 use tvix_eval::builtins::impure_builtins;
 use tvix_eval::observer::{DisassemblingObserver, TracingObserver};
@@ -152,6 +153,7 @@ struct IncompleteInput;
 /// Interprets the given code snippet, printing out warnings, errors
 /// and the result itself. The return value indicates whether
 /// evaluation succeeded.
+#[instrument(skip_all, fields(indicatif.pb_show=1))]
 fn interpret(
     tvix_store_io: Rc<TvixStoreIO>,
     code: &str,
@@ -160,6 +162,11 @@ fn interpret(
     explain: bool,
     allow_incomplete: AllowIncomplete,
 ) -> Result<bool, IncompleteInput> {
+    let span = Span::current();
+    span.pb_start();
+    span.pb_set_style(&tvix_tracing::PB_SPINNER_STYLE);
+    span.pb_set_message("Setting up evaluator…");
+
     let mut eval = tvix_eval::Evaluation::new(
         Box::new(TvixIO::new(tvix_store_io.clone() as Rc<dyn EvalIO>)) as Box<dyn EvalIO>,
         true,
@@ -187,6 +194,7 @@ fn interpret(
             eval.runtime_observer = Some(&mut runtime_observer);
         }
 
+        span.pb_set_message("Evaluating…");
         eval.evaluate(code, path)
     };
 

@@ -4203,6 +4203,7 @@ dependencies = [
  "tikv-jemallocator",
  "tokio",
  "tracing",
+ "tracing-indicatif",
  "tvix-build",
  "tvix-castore",
  "tvix-eval",

@@ -23,6 +23,7 @@ rnix = "0.11.0"
 thiserror = "1.0.38"
 tokio = "1.28.0"
 tracing = "0.1.40"
+tracing-indicatif = "0.3.6"
 
 [dependencies.wu-manber]
 git = "https://github.com/tvlfyi/wu-manber.git"
