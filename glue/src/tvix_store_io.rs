@@ -182,7 +182,7 @@ impl TvixStoreIO {
                         let span = Span::current();
                         span.pb_start();
                         span.pb_set_style(&tvix_tracing::PB_SPINNER_STYLE);
-                        span.pb_set_message(&format!("🔨Building {}", &store_path));
+                        span.pb_set_message(&format!("⏳Waiting for inputs {}", &store_path));
 
                         // derivation_to_build_request needs castore nodes for all inputs.
                         // Provide them, which means, here is where we recursively build
@@ -241,6 +241,8 @@ impl TvixStoreIO {
                                 .buffer_unordered(10) // TODO: make configurable
                                 .try_collect()
                                 .await?;
+
+                        span.pb_set_message(&format!("🔨Building {}", &store_path));
 
                         // TODO: check if input sources are sufficiently dealth with,
                         // I think yes, they must be imported into the store by other
