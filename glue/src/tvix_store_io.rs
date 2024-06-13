@@ -183,7 +183,7 @@ impl TvixStoreIO {
                                 }
                             }
                         };
-                        span.pb_set_message(&format!("🔨building {}", &store_path));
+                        span.pb_set_message(&format!("🔨Building {}", &store_path));
 
                         // derivation_to_build_request needs castore nodes for all inputs.
                         // Provide them, which means, here is where we recursively build
