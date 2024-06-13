@@ -135,9 +135,6 @@ impl TvixStoreIO {
             // it for things like <nixpkgs> pointing to a store path.
             // In the future, these things will (need to) have PathInfo.
             None => {
-                let span = Span::current();
-                span.pb_start();
-                span.pb_set_style(&tvix_tracing::PB_SPINNER_STYLE);
                 // The store path doesn't exist yet, so we need to fetch or build it.
                 // We check for fetches first, as we might have both native
                 // fetchers and FODs in KnownPaths, and prefer the former.
@@ -150,7 +147,6 @@ impl TvixStoreIO {
 
                 match maybe_fetch {
                     Some((name, fetch)) => {
-                        span.pb_set_message(&format!("⏳Fetching {}", &store_path));
                         let (sp, root_node) = self
                             .fetcher
                             .ingest_and_persist(&name, fetch)
@@ -183,6 +179,9 @@ impl TvixStoreIO {
                                 }
                             }
                         };
+                        let span = Span::current();
+                        span.pb_start();
+                        span.pb_set_style(&tvix_tracing::PB_SPINNER_STYLE);
                         span.pb_set_message(&format!("🔨Building {}", &store_path));
 
                         // derivation_to_build_request needs castore nodes for all inputs.

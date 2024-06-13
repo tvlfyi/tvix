@@ -7,7 +7,6 @@ use crate::{
 };
 use nix_compat::nixhash;
 use std::rc::Rc;
-use tracing::info;
 use tvix_eval::builtin_macros::builtins;
 use tvix_eval::generators::Gen;
 use tvix_eval::generators::GenCo;
@@ -112,8 +111,6 @@ pub(crate) mod fetcher_builtins {
             }
             None => {
                 // If we don't have enough info, do the fetch now.
-                info!(?fetch, "triggering required fetch");
-
                 let (store_path, _root_node) = state
                     .tokio_handle
                     .block_on(async { state.fetcher.ingest_and_persist(&name, fetch).await })
