@@ -30,6 +30,7 @@ pkgs.mkShell {
     pkgs.cargo-machete
     pkgs.cargo-expand
     pkgs.clippy
+    pkgs.d2
     pkgs.evans
     pkgs.fuse
     pkgs.go
@@ -37,6 +38,7 @@ pkgs.mkShell {
     pkgs.hyperfine
     pkgs.mdbook
     pkgs.mdbook-admonish
+    pkgs.mdbook-d2
     pkgs.mdbook-plantuml
     pkgs.nix_2_3 # b/313
     pkgs.pkg-config
