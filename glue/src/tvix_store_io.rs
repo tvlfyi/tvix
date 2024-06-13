@@ -188,7 +188,7 @@ impl TvixStoreIO {
                         // Provide them, which means, here is where we recursively build
                         // all dependencies.
                         #[allow(clippy::mutable_key_type)]
-                        let input_nodes: BTreeSet<Node> =
+                        let mut input_nodes: BTreeSet<Node> =
                             futures::stream::iter(drv.input_derivations.iter())
                                 .map(|(input_drv_path, output_names)| {
                                     // look up the derivation object
@@ -244,6 +244,27 @@ impl TvixStoreIO {
                                 .try_collect()
                                 .await?;
 
+                        // add input sources
+                        // FUTUREWORK: merge these who things together
+                        #[allow(clippy::mutable_key_type)]
+                        let input_nodes_input_sources: BTreeSet<Node> =
+                            futures::stream::iter(drv.input_sources.iter())
+                                .then(|input_source| {
+                                    Box::pin(async {
+                                        let node = self
+                                            .store_path_to_node(input_source, Path::new(""))
+                                            .await?;
+                                        if let Some(node) = node {
+                                            Ok(node)
+                                        } else {
+                                            Err(io::Error::other("no node produced"))
+                                        }
+                                    })
+                                })
+                                .try_collect()
+                                .await?;
+                        input_nodes.extend(input_nodes_input_sources);
+
                         span.pb_set_message(&format!("🔨Building {}", &store_path));
 
                         // TODO: check if input sources are sufficiently dealth with,
@@ -261,7 +282,7 @@ impl TvixStoreIO {
                             .await
                             .map_err(|e| std::io::Error::new(io::ErrorKind::Other, e))?;
 
-                        // TODO: refscan?
+                        // TODO: refscan
 
                         // For each output, insert a PathInfo.
                         for output in &build_result.outputs {
