@@ -238,7 +238,9 @@ impl TvixStoreIO {
                                     )
                                 })
                                 .flatten()
-                                .buffer_unordered(10) // TODO: make configurable
+                                .buffer_unordered(
+                                    1, /* TODO: increase again once we prevent redundant fetches */
+                                ) // TODO: make configurable
                                 .try_collect()
                                 .await?;
 
