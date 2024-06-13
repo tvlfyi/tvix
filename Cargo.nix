@@ -12523,7 +12523,7 @@ rec {
           "tracing-attributes" = [ "dep:tracing-attributes" ];
           "valuable" = [ "tracing-core/valuable" ];
         };
-        resolvedDefaultFeatures = [ "attributes" "default" "log" "max_level_trace" "release_max_level_info" "std" "tracing-attributes" ];
+        resolvedDefaultFeatures = [ "attributes" "default" "log" "max_level_trace" "release_max_level_debug" "std" "tracing-attributes" ];
       };
       "tracing-attributes" = rec {
         crateName = "tracing-attributes";
@@ -14010,7 +14010,7 @@ rec {
           {
             name = "tracing";
             packageId = "tracing";
-            features = [ "max_level_trace" "release_max_level_info" ];
+            features = [ "max_level_trace" "release_max_level_debug" ];
           }
           {
             name = "tracing-indicatif";
