@@ -4,6 +4,13 @@
 - [Architecture & data flow](./architecture.md)
 - [TODOs](./TODO.md)
 
+# Store
+- [Store API](./store/api.md)
+- [BlobStore Chunking](./castore/blobstore-chunking.md)
+- [BlobStore Protocol](./castore/blobstore-protocol.md)
+- [Data Model](./castore/data-model.md)
+- [Why not git trees?](./castore/why-not-git-trees.md)
+
 # Nix
 - [Specification of the Nix Language](./language-spec.md)
 - [Nix language version history](./lang-version.md)
