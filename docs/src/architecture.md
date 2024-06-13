@@ -21,6 +21,15 @@ gRPC. The rest of this document outlines the components.
 
 ### Coordinator
 
+```admonish warning
+Currently there's no separate coordinator. Most of the interaction between
+store, builder and evaluator is done by library code living in the `tvix-glue`
+crate (and `tvix-cli` is a user of it).
+
+Keep in mind some of the statements below are outdated and neither reflect
+reality nor desired design anymore.
+```
+
 *Purpose:* The coordinator (in the simplest case, the Tvix CLI tool)
 oversees the flow of a build process and delegates tasks to the right
 subcomponents. For example, if a user runs the equivalent of

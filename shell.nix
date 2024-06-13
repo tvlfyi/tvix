@@ -36,6 +36,7 @@ pkgs.mkShell {
     pkgs.grpcurl
     pkgs.hyperfine
     pkgs.mdbook
+    pkgs.mdbook-admonish
     pkgs.mdbook-plantuml
     pkgs.nix_2_3 # b/313
     pkgs.pkg-config
