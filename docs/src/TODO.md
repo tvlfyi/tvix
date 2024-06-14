@@ -25,7 +25,7 @@ sure noone is working on this, or has some specific design in mind already.
    with a different level of `--strict`, but the toplevel doc-comment suggests
    its generic?
 
-### crate2nix for WASM
+### crate2nix for WASM (@kranzes)
 Most of Tvix is living inside a `//tvix` cargo workspace, and we use `crate2nix`
 as a build system, to get crate-level build granularity (and caching), keeping
 compile times somewhat manageable.
