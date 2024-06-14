@@ -115,10 +115,6 @@ Some more fetcher-related builtins need work:
  - `fetchTree` (hairy, seems there's no proper spec and the URL syntax seems
    subject to change/underdocumented)
 
-### Convert builtins:fetchurl to Fetches
-We need to convert `builtins:fetchurl`-style calls to `builtins.derivation` to
-fetches, not Derivations (tracked in `KnownPaths`).
-
 ### Derivation -> Build
 While we have some support for `structuredAttrs` and `fetchClosure` (at least
 enough to calculate output hashes, aka produce identical ATerm), the code
