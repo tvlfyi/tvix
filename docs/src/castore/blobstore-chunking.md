@@ -77,7 +77,7 @@ our data model / identifier upfront, but can make this mostly a transport/
 storage concern.
 
 For some more description on the (remote) protocol, check
-`./blobstore-protocol.md`.
+[BlobStore Protocol](./blobstore-protocol.md).
 
 #### Logical vs. physical chunking
 

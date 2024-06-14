@@ -5,7 +5,7 @@ This document outlines the design of the API exposed by tvix-castore and tvix-
 store, as well as other implementations of this store protocol.
 
 This document is meant to be read side-by-side with
-[castore.md](../../castore/docs/data-model.md) which describes the data model
+[Data Model](../castore/data-model.md) which describes the data model
 in more detail.
 
 The store API has four main consumers:

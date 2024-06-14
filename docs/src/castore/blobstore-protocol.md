@@ -41,7 +41,7 @@ It also puts very little requirements on someone implementing a new
 The gRPC protocol is documented in `../protos/rpc_blobstore.proto`.
 Contrary to the `BlobService` trait, it does not have any options for seeking/
 ranging, as it's more desirable to provide this through chunking (see also
-`./blobstore-chunking.md`).
+[BlobStore Chunking](./blobstore-chunking.md).
 
 ## Composition
 Different `BlobStore` are supposed to be "composed"/"layered" to express
@@ -76,7 +76,7 @@ an additional additional field in the response, which would allow clients to
 populate their local chunk store in a single roundtrip.
 
 ## Verified Streaming
-As already described in `./docs/blobstore-chunking.md`, the physical chunk
+As already described in [BlobStore Chunking](./blobstore-chunking.md), the physical chunk
 information sent in a `BlobService.Stat()` response is still sufficient to fetch
 in an authenticated fashion.
 

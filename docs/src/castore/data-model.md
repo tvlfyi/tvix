@@ -2,7 +2,7 @@
 
 This provides some more notes on the fields used in castore.proto.
 
-See `//tvix/store/docs/api.md` for the full context.
+See [Store API](../store/api.md) for the full context.
 
 ## Directory message
 `Directory` messages use the blake3 hash of their canonical protobuf
