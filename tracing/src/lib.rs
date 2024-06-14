@@ -13,6 +13,8 @@ use opentelemetry_sdk::{
     trace::BatchConfigBuilder,
     Resource,
 };
+#[cfg(feature = "tracy")]
+use tracing_tracy::TracyLayer;
 
 lazy_static! {
     pub static ref PB_PROGRESS_STYLE: ProgressStyle = ProgressStyle::with_template(
@@ -173,12 +175,31 @@ impl TracingBuilder {
                 let (tracer, tx) = gen_otlp_tracer(service_name.to_string());
                 // Create a tracing layer with the configured tracer
                 let layer = tracing_opentelemetry::layer().with_tracer(tracer);
-                subscriber.with(Some(layer)).try_init()?;
+
+                #[cfg(feature = "tracy")]
+                {
+                    subscriber
+                        .with(TracyLayer::default())
+                        .with(Some(layer))
+                        .try_init()?;
+                }
+
+                #[cfg(not(feature = "tracy"))]
+                {
+                    subscriber.with(Some(layer)).try_init()?;
+                }
                 return Ok(TracingHandle { tx: Some(tx) });
             }
         }
+        #[cfg(feature = "tracy")]
+        {
+            subscriber.with(TracyLayer::default()).try_init()?;
+        }
+        #[cfg(not(feature = "tracy"))]
+        {
+            subscriber.try_init()?;
+        }
 
-        subscriber.try_init()?;
         Ok(TracingHandle { tx: None })
     }
 }
