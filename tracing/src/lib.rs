@@ -125,7 +125,8 @@ impl Default for TracingBuilder {
 }
 
 impl TracingBuilder {
-    /// Set the log level of the stderr writer, RUST_LOG still has a higher priority over this
+    /// Set the log level for all layers: stderr und otlp if configured. RUST_LOG still has a
+    /// higher priority over this value.
     pub fn level(mut self, level: Level) -> TracingBuilder {
         self.level = level;
         self
@@ -139,8 +140,9 @@ impl TracingBuilder {
     }
 
     /// This will setup tracing based on the configuration passed in.
-    /// It will setup a stderr writer with the provided log level as filter (RUST_LOG still has a
-    /// higher priority over the configured value)
+    /// It will setup a stderr writer output layer and a EnvFilter based on the provided log
+    /// level (RUST_LOG still has a higher priority over the configured value).
+    /// The EnvFilter will be applied to all configured layers, also otlp.
     ///
     /// It will also configure otlp if the feature is enabled and a service_name was provided. It
     /// will then correctly setup a channel which is later used for flushing the provider.
@@ -149,15 +151,15 @@ impl TracingBuilder {
         let indicatif_layer = IndicatifLayer::new().with_progress_style(PB_SPINNER_STYLE.clone());
         let subscriber = tracing_subscriber::registry()
             .with(
+                EnvFilter::builder()
+                    .with_default_directive(self.level.into())
+                    .from_env()
+                    .expect("invalid RUST_LOG"),
+            )
+            .with(
                 tracing_subscriber::fmt::Layer::new()
                     .with_writer(indicatif_layer.get_stderr_writer())
-                    .compact()
-                    .with_filter(
-                        EnvFilter::builder()
-                            .with_default_directive(self.level.into())
-                            .from_env()
-                            .expect("invalid RUST_LOG"),
-                    ),
+                    .compact(),
             )
             .with(indicatif_layer.with_filter(
                 // only show progress for spans with indicatif.pb_show field being set
