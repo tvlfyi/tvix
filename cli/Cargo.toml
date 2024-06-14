@@ -30,3 +30,7 @@ git = "https://github.com/tvlfyi/wu-manber.git"
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = "0.5"
+
+[features]
+default = []
+tracy = ["tvix-tracing/tracy"]

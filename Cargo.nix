@@ -13546,7 +13546,10 @@ rec {
             packageId = "wu-manber";
           }
         ];
-
+        features = {
+          "tracy" = [ "tvix-tracing/tracy" ];
+        };
+        resolvedDefaultFeatures = [ "default" "tracy" ];
       };
       "tvix-eval" = rec {
         crateName = "tvix-eval";
@@ -14175,9 +14178,10 @@ rec {
           "fuse" = [ "tvix-castore/fuse" ];
           "otlp" = [ "tvix-tracing/otlp" ];
           "tonic-reflection" = [ "dep:tonic-reflection" "tvix-castore/tonic-reflection" ];
+          "tracy" = [ "tvix-tracing/tracy" ];
           "virtiofs" = [ "tvix-castore/virtiofs" ];
         };
-        resolvedDefaultFeatures = [ "cloud" "default" "fuse" "integration" "otlp" "tonic-reflection" "virtiofs" ];
+        resolvedDefaultFeatures = [ "cloud" "default" "fuse" "integration" "otlp" "tonic-reflection" "tracy" "virtiofs" ];
       };
       "tvix-tracing" = rec {
         crateName = "tvix-tracing";
