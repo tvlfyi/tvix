@@ -2,6 +2,7 @@ use crate::{proto, B3Digest, Error};
 use futures::stream::BoxStream;
 use tonic::async_trait;
 
+mod combinators;
 mod directory_graph;
 mod from_addr;
 mod grpc;
@@ -15,6 +16,7 @@ pub mod tests;
 mod traverse;
 mod utils;
 
+pub use self::combinators::Cache;
 pub use self::directory_graph::DirectoryGraph;
 pub use self::from_addr::from_addr;
 pub use self::grpc::GRPCDirectoryService;
