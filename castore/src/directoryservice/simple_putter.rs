@@ -1,6 +1,6 @@
-use super::ClosureValidator;
 use super::DirectoryPutter;
 use super::DirectoryService;
+use super::{DirectoryGraph, LeavesToRootValidator};
 use crate::proto;
 use crate::B3Digest;
 use crate::Error;
@@ -14,7 +14,7 @@ use tracing::warn;
 pub struct SimplePutter<DS: DirectoryService> {
     directory_service: DS,
 
-    directory_validator: Option<ClosureValidator>,
+    directory_validator: Option<DirectoryGraph<LeavesToRootValidator>>,
 }
 
 impl<DS: DirectoryService> SimplePutter<DS> {
@@ -33,7 +33,9 @@ impl<DS: DirectoryService + 'static> DirectoryPutter for SimplePutter<DS> {
         match self.directory_validator {
             None => return Err(Error::StorageError("already closed".to_string())),
             Some(ref mut validator) => {
-                validator.add(directory)?;
+                validator
+                    .add(directory)
+                    .map_err(|e| Error::StorageError(e.to_string()))?;
             }
         }
 
@@ -46,7 +48,11 @@ impl<DS: DirectoryService + 'static> DirectoryPutter for SimplePutter<DS> {
             None => Err(Error::InvalidRequest("already closed".to_string())),
             Some(validator) => {
                 // retrieve the validated directories.
-                let directories = validator.finalize()?;
+                let directories = validator
+                    .validate()
+                    .map_err(|e| Error::StorageError(e.to_string()))?
+                    .drain_leaves_to_root()
+                    .collect::<Vec<_>>();
 
                 // Get the root digest, which is at the end (cf. insertion order)
                 let root_digest = directories

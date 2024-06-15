@@ -16,7 +16,7 @@ use tonic::async_trait;
 use tracing::{instrument, trace, warn, Level};
 use url::Url;
 
-use super::{ClosureValidator, DirectoryPutter, DirectoryService};
+use super::{DirectoryGraph, DirectoryPutter, DirectoryService, LeavesToRootValidator};
 use crate::{proto, B3Digest, Error};
 
 /// Stores directory closures in an object store.
@@ -177,7 +177,7 @@ struct ObjectStoreDirectoryPutter {
     object_store: Arc<dyn ObjectStore>,
     base_path: Path,
 
-    directory_validator: Option<ClosureValidator>,
+    directory_validator: Option<DirectoryGraph<LeavesToRootValidator>>,
 }
 
 impl ObjectStoreDirectoryPutter {
@@ -197,7 +197,9 @@ impl DirectoryPutter for ObjectStoreDirectoryPutter {
         match self.directory_validator {
             None => return Err(Error::StorageError("already closed".to_string())),
             Some(ref mut validator) => {
-                validator.add(directory)?;
+                validator
+                    .add(directory)
+                    .map_err(|e| Error::StorageError(e.to_string()))?;
             }
         }
 
@@ -214,7 +216,11 @@ impl DirectoryPutter for ObjectStoreDirectoryPutter {
         // retrieve the validated directories.
         // It is important that they are in topological order (root first),
         // since that's how we want to retrieve them from the object store in the end.
-        let directories = validator.finalize_root_to_leaves()?;
+        let directories = validator
+            .validate()
+            .map_err(|e| Error::StorageError(e.to_string()))?
+            .drain_root_to_leaves()
+            .collect::<Vec<_>>();
 
         // Get the root digest
         let root_digest = directories

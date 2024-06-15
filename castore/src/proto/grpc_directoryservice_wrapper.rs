@@ -1,4 +1,5 @@
-use crate::directoryservice::ClosureValidator;
+use crate::directoryservice::DirectoryGraph;
+use crate::directoryservice::LeavesToRootValidator;
 use crate::proto;
 use crate::{directoryservice::DirectoryService, B3Digest};
 use futures::stream::BoxStream;
@@ -78,14 +79,20 @@ where
     ) -> Result<Response<proto::PutDirectoryResponse>, Status> {
         let mut req_inner = request.into_inner();
 
-        // We put all Directory messages we receive into ClosureValidator first.
-        let mut validator = ClosureValidator::default();
+        // We put all Directory messages we receive into DirectoryGraph.
+        let mut validator = DirectoryGraph::<LeavesToRootValidator>::default();
         while let Some(directory) = req_inner.message().await? {
-            validator.add(directory)?;
+            validator
+                .add(directory)
+                .map_err(|e| tonic::Status::new(tonic::Code::Internal, e.to_string()))?;
         }
 
         // drain, which validates connectivity too.
-        let directories = validator.finalize()?;
+        let directories = validator
+            .validate()
+            .map_err(|e| tonic::Status::new(tonic::Code::Internal, e.to_string()))?
+            .drain_leaves_to_root()
+            .collect::<Vec<_>>();
 
         let mut directory_putter = self.directory_service.put_multiple_start();
         for directory in directories {

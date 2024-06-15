@@ -8,7 +8,7 @@ use tonic::async_trait;
 use tracing::{instrument, warn};
 
 use super::utils::traverse_directory;
-use super::{ClosureValidator, DirectoryPutter, DirectoryService};
+use super::{DirectoryGraph, DirectoryPutter, DirectoryService, LeavesToRootValidator};
 
 #[derive(Clone)]
 pub struct SledDirectoryService {
@@ -135,7 +135,7 @@ pub struct SledDirectoryPutter {
 
     /// The directories (inside the directory validator) that we insert later,
     /// or None, if they were already inserted.
-    directory_validator: Option<ClosureValidator>,
+    directory_validator: Option<DirectoryGraph<LeavesToRootValidator>>,
 }
 
 #[async_trait]
@@ -145,7 +145,9 @@ impl DirectoryPutter for SledDirectoryPutter {
         match self.directory_validator {
             None => return Err(Error::StorageError("already closed".to_string())),
             Some(ref mut validator) => {
-                validator.add(directory)?;
+                validator
+                    .add(directory)
+                    .map_err(|e| Error::StorageError(e.to_string()))?;
             }
         }
 
@@ -162,7 +164,11 @@ impl DirectoryPutter for SledDirectoryPutter {
                     let tree = self.tree.clone();
                     move || {
                         // retrieve the validated directories.
-                        let directories = validator.finalize()?;
+                        let directories = validator
+                            .validate()
+                            .map_err(|e| Error::StorageError(e.to_string()))?
+                            .drain_leaves_to_root()
+                            .collect::<Vec<_>>();
 
                         // Get the root digest, which is at the end (cf. insertion order)
                         let root_digest = directories
