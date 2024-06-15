@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::sync::Arc;
 
 use data_encoding::HEXLOWER;
@@ -16,7 +15,9 @@ use tonic::async_trait;
 use tracing::{instrument, trace, warn, Level};
 use url::Url;
 
-use super::{DirectoryGraph, DirectoryPutter, DirectoryService, LeavesToRootValidator};
+use super::{
+    DirectoryGraph, DirectoryPutter, DirectoryService, LeavesToRootValidator, RootToLeavesValidator,
+};
 use crate::{proto, B3Digest, Error};
 
 /// Stores directory closures in an object store.
@@ -97,9 +98,10 @@ impl DirectoryService for ObjectStoreDirectoryService {
         &self,
         root_directory_digest: &B3Digest,
     ) -> BoxStream<'static, Result<proto::Directory, Error>> {
-        // The Directory digests we're expecting to receive.
-        let mut expected_directory_digests: HashSet<B3Digest> =
-            HashSet::from([root_directory_digest.clone()]);
+        // Check that we are not passing on bogus from the object store to the client, and that the
+        // trust chain from the root digest to the leaves is intact
+        let mut order_validator =
+            RootToLeavesValidator::new_with_root_digest(root_directory_digest.clone());
 
         let dir_path = derive_dirs_path(&self.base_path, root_directory_digest);
         let object_store = self.object_store.clone();
@@ -130,8 +132,7 @@ impl DirectoryService for ObjectStoreDirectoryService {
                         let digest: B3Digest = hasher.update(&buf).finalize().as_bytes().into();
 
                         // Ensure to only decode the directory objects whose digests we trust
-                        let was_expected = expected_directory_digests.remove(&digest);
-                        if !was_expected {
+                        if !order_validator.digest_allowed(&digest) {
                             return Err(crate::Error::StorageError(format!(
                                 "received unexpected directory {}",
                                 digest
@@ -143,13 +144,8 @@ impl DirectoryService for ObjectStoreDirectoryService {
                             Error::StorageError(e.to_string())
                         })?;
 
-                        for directory in &directory.directories {
-                            // Allow the children to appear next
-                            expected_directory_digests.insert(
-                                B3Digest::try_from(directory.digest.clone())
-                                    .map_err(|e| Error::StorageError(e.to_string()))?,
-                            );
-                        }
+                        // Allow the children to appear next
+                        order_validator.add_directory_unchecked(&directory);
 
                         Ok(directory)
                     })())
