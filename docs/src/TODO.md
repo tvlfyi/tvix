@@ -59,6 +59,18 @@ which are supposed to be skipped.
    indices into that. We might need to have different representations for small
    amount of context elements or larger ones, and need tooling to reason about
    the amount of contexts we have.
+ - To calculate NAR size and digest (used for output path calculation of FODs),
+   our current `SimpleRenderer` `NarCalculationService` sequentially asks for
+   one blob after another (and internally these might consists out of multiple
+   chunks too).
+   That's a lot of roundtrips, adding up to a lot of useless waiting.
+   While we cannot avoid having to feed all bytes sequentially through sha256,
+   we already know what blobs to fetch and in which order.
+   There should be a way to buffer some "amount of upcoming bytes" in memory,
+   and not requesting these seqentially.
+   This is somewhat the "spiritual counterpart" to our sequential ingestion
+   code (`ConcurrentBlobUploader`, used by `ingest_nar`), which keeps
+   "some amount of outgoing bytes" in memory.
 
 ### Error cleanup
  - Currently, all services use tvix_castore::Error, which only has two kinds
