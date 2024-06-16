@@ -248,7 +248,7 @@ async fn mount() {
 
     let (blob_service, directory_service) = gen_svcs();
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         BTreeMap::default(),
@@ -271,7 +271,7 @@ async fn root() {
     let tmpdir = TempDir::new().unwrap();
 
     let (blob_service, directory_service) = gen_svcs();
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         BTreeMap::default(),
@@ -305,7 +305,7 @@ async fn root_with_listing() {
 
     populate_blob_a(&blob_service, &mut root_nodes).await;
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         root_nodes,
@@ -349,7 +349,7 @@ async fn stat_file_at_root() {
 
     populate_blob_a(&blob_service, &mut root_nodes).await;
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         root_nodes,
@@ -386,7 +386,7 @@ async fn read_file_at_root() {
 
     populate_blob_a(&blob_service, &mut root_nodes).await;
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         root_nodes,
@@ -423,7 +423,7 @@ async fn read_large_file_at_root() {
 
     populate_blob_b(&blob_service, &mut root_nodes).await;
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         root_nodes,
@@ -468,7 +468,7 @@ async fn symlink_readlink() {
 
     populate_symlink(&mut root_nodes).await;
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         root_nodes,
@@ -515,7 +515,7 @@ async fn read_stat_through_symlink() {
     populate_blob_a(&blob_service, &mut root_nodes).await;
     populate_symlink(&mut root_nodes).await;
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         root_nodes,
@@ -560,7 +560,7 @@ async fn read_stat_directory() {
 
     populate_directory_with_keep(&blob_service, &directory_service, &mut root_nodes).await;
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         root_nodes,
@@ -597,7 +597,7 @@ async fn xattr() {
     populate_directory_with_keep(&blob_service, &directory_service, &mut root_nodes).await;
     populate_blob_a(&blob_service, &mut root_nodes).await;
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         root_nodes,
@@ -680,7 +680,7 @@ async fn read_blob_inside_dir() {
 
     populate_directory_with_keep(&blob_service, &directory_service, &mut root_nodes).await;
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         root_nodes,
@@ -720,7 +720,7 @@ async fn read_blob_deep_inside_dir() {
 
     populate_directory_complicated(&blob_service, &directory_service, &mut root_nodes).await;
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         root_nodes,
@@ -763,7 +763,7 @@ async fn readdir() {
 
     populate_directory_complicated(&blob_service, &directory_service, &mut root_nodes).await;
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         root_nodes,
@@ -823,7 +823,7 @@ async fn readdir_deep() {
 
     populate_directory_complicated(&blob_service, &directory_service, &mut root_nodes).await;
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         root_nodes,
@@ -873,7 +873,7 @@ async fn check_attributes() {
     populate_symlink(&mut root_nodes).await;
     populate_blob_helloworld(&blob_service, &mut root_nodes).await;
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         root_nodes,
@@ -948,7 +948,7 @@ async fn compare_inodes_directories() {
     populate_directory_with_keep(&blob_service, &directory_service, &mut root_nodes).await;
     populate_directory_complicated(&blob_service, &directory_service, &mut root_nodes).await;
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         root_nodes,
@@ -992,7 +992,7 @@ async fn compare_inodes_files() {
 
     populate_directory_complicated(&blob_service, &directory_service, &mut root_nodes).await;
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         root_nodes,
@@ -1041,7 +1041,7 @@ async fn compare_inodes_symlinks() {
     populate_directory_complicated(&blob_service, &directory_service, &mut root_nodes).await;
     populate_symlink2(&mut root_nodes).await;
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         root_nodes,
@@ -1084,7 +1084,7 @@ async fn read_wrong_paths_in_root() {
 
     populate_blob_a(&blob_service, &mut root_nodes).await;
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         root_nodes,
@@ -1139,7 +1139,7 @@ async fn disallow_writes() {
     let (blob_service, directory_service) = gen_svcs();
     let root_nodes = BTreeMap::default();
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         root_nodes,
@@ -1171,7 +1171,7 @@ async fn missing_directory() {
 
     populate_directorynode_without_directory(&mut root_nodes).await;
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         root_nodes,
@@ -1219,7 +1219,7 @@ async fn missing_blob() {
 
     populate_filenode_without_blob(&mut root_nodes).await;
 
-    let mut fuse_daemon = do_mount(
+    let fuse_daemon = do_mount(
         blob_service,
         directory_service,
         root_nodes,

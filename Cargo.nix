@@ -11293,6 +11293,24 @@ rec {
         ];
         features = { };
       };
+      "threadpool" = rec {
+        crateName = "threadpool";
+        version = "1.8.1";
+        edition = "2015";
+        sha256 = "1amgfyzvynbm8pacniivzq9r0fh3chhs7kijic81j76l6c5ycl6h";
+        authors = [
+          "The Rust Project Developers"
+          "Corey Farwell <coreyf@rwell.org>"
+          "Stefan Schindler <dns2utf8@estada.ch>"
+        ];
+        dependencies = [
+          {
+            name = "num_cpus";
+            packageId = "num_cpus";
+          }
+        ];
+
+      };
       "tikv-jemalloc-sys" = rec {
         crateName = "tikv-jemalloc-sys";
         version = "0.5.4+5.3.0-patched";
@@ -13320,6 +13338,11 @@ rec {
             packageId = "thiserror";
           }
           {
+            name = "threadpool";
+            packageId = "threadpool";
+            optional = true;
+          }
+          {
             name = "tokio";
             packageId = "tokio";
             features = [ "fs" "macros" "net" "rt" "rt-multi-thread" "signal" ];
@@ -13445,7 +13468,7 @@ rec {
         features = {
           "cloud" = [ "dep:bigtable_rs" "object_store/aws" "object_store/azure" "object_store/gcp" ];
           "default" = [ "cloud" ];
-          "fs" = [ "dep:libc" "dep:fuse-backend-rs" ];
+          "fs" = [ "dep:fuse-backend-rs" "dep:threadpool" "dep:libc" ];
           "fuse" = [ "fs" ];
           "tonic-reflection" = [ "dep:tonic-reflection" ];
           "virtiofs" = [ "fs" "dep:vhost" "dep:vhost-user-backend" "dep:virtio-queue" "dep:vm-memory" "dep:vmm-sys-util" "dep:virtio-bindings" "fuse-backend-rs?/vhost-user-fs" "fuse-backend-rs?/virtiofs" ];

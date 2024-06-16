@@ -452,7 +452,7 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 )
                 .await?;
 
-            let mut fuse_daemon = tokio::task::spawn_blocking(move || {
+            let fuse_daemon = tokio::task::spawn_blocking(move || {
                 let fs = make_fs(
                     blob_service,
                     directory_service,
@@ -466,16 +466,22 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             })
             .await??;
 
-            // grab a handle to unmount the file system, and register a signal
-            // handler.
-            tokio::spawn(async move {
-                tokio::signal::ctrl_c().await.unwrap();
-                info!("interrupt received, unmounting…");
-                tokio::task::spawn_blocking(move || fuse_daemon.unmount()).await??;
-                info!("unmount occured, terminating…");
-                Ok::<_, std::io::Error>(())
-            })
-            .await??;
+            // Wait for a ctrl_c and then call fuse_daemon.unmount().
+            tokio::spawn({
+                let fuse_daemon = fuse_daemon.clone();
+                async move {
+                    tokio::signal::ctrl_c().await.unwrap();
+                    info!("interrupt received, unmounting…");
+                    tokio::task::spawn_blocking(move || fuse_daemon.unmount()).await??;
+                    info!("unmount occured, terminating…");
+                    Ok::<_, std::io::Error>(())
+                }
+            });
+
+            // Wait for the server to finish, which can either happen through it
+            // being unmounted externally, or receiving a signal invoking the
+            // handler above.
+            tokio::task::spawn_blocking(move || fuse_daemon.wait()).await?
         }
         #[cfg(feature = "virtiofs")]
         Commands::VirtioFs {
