@@ -18,11 +18,15 @@ use tracing_tracy::TracyLayer;
 
 lazy_static! {
     pub static ref PB_PROGRESS_STYLE: ProgressStyle = ProgressStyle::with_template(
-        "{span_child_prefix}{bar:30} {wide_msg} [{elapsed_precise}]  {pos:>7}/{len:7}"
+        "{span_child_prefix} {wide_msg} {bar:10} ({elapsed}) {pos:>7}/{len:7}"
+    )
+    .expect("invalid progress template");
+    pub static ref PB_TRANSFER_STYLE: ProgressStyle = ProgressStyle::with_template(
+        "{span_child_prefix} {wide_msg} {binary_bytes:>7}/{binary_total_bytes:7}@{decimal_bytes_per_sec} ({elapsed}) {bar:10} "
     )
     .expect("invalid progress template");
     pub static ref PB_SPINNER_STYLE: ProgressStyle = ProgressStyle::with_template(
-        "{span_child_prefix}{spinner} {wide_msg} [{elapsed_precise}]  {pos:>7}/{len:7}"
+        "{span_child_prefix}{spinner} {wide_msg} ({elapsed}) {pos:>7}/{len:7}"
     )
     .expect("invalid progress template");
 }

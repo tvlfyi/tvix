@@ -6,6 +6,8 @@ use std::fs::FileType;
 use std::os::unix::ffi::OsStringExt;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::PermissionsExt;
+use tokio::io::BufReader;
+use tokio_util::io::InspectReader;
 use tracing::instrument;
 use tracing::Span;
 use tracing_indicatif::span_ext::IndicatifSpanExt;
@@ -28,7 +30,7 @@ use super::IngestionError;
 ///
 /// This function will walk the filesystem using `walkdir` and will consume
 /// `O(#number of entries)` space.
-#[instrument(skip(blob_service, directory_service), fields(path), err)]
+#[instrument(skip(blob_service, directory_service), fields(path, indicatif.pb_show=1), err)]
 pub async fn ingest_path<BS, DS, P>(
     blob_service: BS,
     directory_service: DS,
@@ -39,7 +41,10 @@ where
     BS: BlobService + Clone,
     DS: DirectoryService,
 {
-    Span::current().pb_start();
+    let span = Span::current();
+    span.pb_set_message(&format!("Ingesting {:?}", path));
+    span.pb_start();
+
     let iter = WalkDir::new(path.as_ref())
         .follow_links(false)
         .follow_root_links(false)
@@ -49,11 +54,12 @@ where
     let entries = dir_entries_to_ingestion_stream(blob_service, iter, path.as_ref());
     ingest_entries(
         directory_service,
-        entries.inspect(|e| {
-            if let Ok(e) = e {
-                let s = Span::current();
-                s.pb_inc(1);
-                s.pb_set_message(&format!("Ingesting {}", e.path()));
+        entries.inspect({
+            let span = span.clone();
+            move |e| {
+                if e.is_ok() {
+                    span.pb_inc(1)
+                }
             }
         }),
     )
@@ -151,7 +157,7 @@ where
 }
 
 /// Uploads the file at the provided [Path] the the [BlobService].
-#[instrument(skip(blob_service), fields(path), err)]
+#[instrument(skip(blob_service), fields(path, indicatif.pb_show=1), err)]
 async fn upload_blob<BS>(
     blob_service: BS,
     path: impl AsRef<std::path::Path>,
@@ -159,16 +165,29 @@ async fn upload_blob<BS>(
 where
     BS: BlobService,
 {
-    let mut file = match tokio::fs::File::open(path.as_ref()).await {
-        Ok(file) => file,
-        Err(e) => return Err(Error::BlobRead(path.as_ref().to_path_buf(), e)),
-    };
+    let span = Span::current();
+    span.pb_set_style(&tvix_tracing::PB_TRANSFER_STYLE);
+    span.pb_set_message(&format!("Uploading blob for {:?}", path.as_ref()));
+    span.pb_start();
+
+    let file = tokio::fs::File::open(path.as_ref())
+        .await
+        .map_err(|e| Error::BlobRead(path.as_ref().to_path_buf(), e))?;
+
+    let metadata = file
+        .metadata()
+        .await
+        .map_err(|e| Error::Stat(path.as_ref().to_path_buf(), e))?;
+
+    span.pb_set_length(metadata.len());
+    let reader = InspectReader::new(file, |d| {
+        span.pb_inc(d.len() as u64);
+    });
 
     let mut writer = blob_service.open_write().await;
-
-    if let Err(e) = tokio::io::copy(&mut file, &mut writer).await {
-        return Err(Error::BlobRead(path.as_ref().to_path_buf(), e));
-    };
+    tokio::io::copy(&mut BufReader::new(reader), &mut writer)
+        .await
+        .map_err(|e| Error::BlobRead(path.as_ref().to_path_buf(), e))?;
 
     let digest = writer
         .close()

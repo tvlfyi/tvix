@@ -4251,6 +4251,7 @@ dependencies = [
  "tower",
  "tracing",
  "tracing-indicatif",
+ "tvix-tracing",
  "url",
  "vhost",
  "vhost-user-backend",

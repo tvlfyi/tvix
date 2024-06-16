@@ -13383,6 +13383,10 @@ rec {
             packageId = "tracing-indicatif";
           }
           {
+            name = "tvix-tracing";
+            packageId = "tvix-tracing";
+          }
+          {
             name = "url";
             packageId = "url";
           }

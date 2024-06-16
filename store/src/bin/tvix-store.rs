@@ -192,7 +192,7 @@ fn default_threads() -> usize {
         .unwrap_or(4)
 }
 
-#[instrument(fields(indicatif.pb_show=1), skip(cli))]
+#[instrument(skip_all)]
 async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     match cli.command {
         Commands::Daemon {
@@ -270,19 +270,9 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             let nar_calculation_service: Arc<dyn NarCalculationService> =
                 nar_calculation_service.into();
 
-            let root_span = {
-                let s = Span::current();
-                s.pb_set_style(&tvix_tracing::PB_PROGRESS_STYLE);
-                s.pb_set_message("Importing paths");
-                s.pb_set_length(paths.len() as u64);
-                s.pb_start();
-                s
-            };
-
             let tasks = paths
                 .into_iter()
                 .map(|path| {
-                    let paths_span = root_span.clone();
                     tokio::task::spawn({
                         let blob_service = blob_service.clone();
                         let directory_service = directory_service.clone();
@@ -305,7 +295,6 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                                     println!("{}", output_path.to_absolute_path());
                                 }
                             }
-                            paths_span.pb_inc(1);
                         }
                     })
                 })
@@ -512,7 +501,6 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[tokio::main]
-#[instrument(fields(indicatif.pb_show=1))]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 

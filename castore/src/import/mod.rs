@@ -14,9 +14,6 @@ use crate::proto::FileNode;
 use crate::proto::SymlinkNode;
 use crate::B3Digest;
 use futures::{Stream, StreamExt};
-use tracing::Span;
-use tracing_indicatif::span_ext::IndicatifSpanExt;
-
 use tracing::Level;
 
 use std::collections::HashMap;
@@ -46,7 +43,7 @@ pub mod fs;
 /// map and upload it to the [DirectoryService] through a lazily created [DirectoryPutter].
 ///
 /// On success, returns the root node.
-#[instrument(skip_all, fields(indicatif.pb_show=1), ret(level = Level::TRACE), err)]
+#[instrument(skip_all, ret(level = Level::TRACE), err)]
 pub async fn ingest_entries<DS, S, E>(
     directory_service: DS,
     mut entries: S,
@@ -59,8 +56,6 @@ where
     // For a given path, this holds the [Directory] structs as they are populated.
     let mut directories: HashMap<PathBuf, Directory> = HashMap::default();
     let mut maybe_directory_putter: Option<Box<dyn DirectoryPutter>> = None;
-
-    Span::current().pb_start();
 
     let root_node = loop {
         let mut entry = entries
