@@ -7,7 +7,8 @@ use async_stream::try_stream;
 use futures::stream::BoxStream;
 use nix_compat::nixbase32;
 use tonic::{async_trait, transport::Channel, Code};
-use tracing::instrument;
+use tracing::{instrument, Span};
+use tracing_indicatif::span_ext::IndicatifSpanExt;
 use tvix_castore::{proto as castorepb, Error};
 
 /// Connects to a (remote) tvix-store PathInfoService over gRPC.
@@ -107,11 +108,15 @@ impl PathInfoService for GRPCPathInfoService {
 
 #[async_trait]
 impl NarCalculationService for GRPCPathInfoService {
-    #[instrument(level = "trace", skip_all, fields(root_node = ?root_node))]
+    #[instrument(level = "trace", skip_all, fields(root_node = ?root_node, indicatif.pb_show=1))]
     async fn calculate_nar(
         &self,
         root_node: &castorepb::node::Node,
     ) -> Result<(u64, [u8; 32]), Error> {
+        let span = Span::current();
+        span.pb_set_message("Waiting for NAR calculation");
+        span.pb_start();
+
         let path_info = self
             .grpc_client
             .clone()
