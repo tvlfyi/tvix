@@ -102,8 +102,9 @@ pub fn derive_nar_ca_path_info(
     }
 }
 
-/// Ingest the given path `path` and register the resulting output path in the
-/// [`PathInfoService`] as a recursive fixed output NAR.
+/// Ingest the contents at the given path `path` into castore, and registers the
+/// resulting root node in the passed PathInfoService, using the "NAR sha256
+/// digest" and the passed name for output path calculation.
 #[instrument(skip_all, fields(store_name=name, path=?path), err)]
 pub async fn import_path_as_nar_ca<BS, DS, PS, NS, P>(
     path: P,
@@ -137,7 +138,7 @@ where
         )
     })?;
 
-    // assemble a new root_node with a name that is derived from the nar hash.
+    // rename the root node to match the calculated output path.
     let root_node = root_node.rename(output_path.to_string().into_bytes().into());
     log_node(&root_node, path.as_ref());
 
@@ -150,7 +151,7 @@ where
 
     // This new [`PathInfo`] that we get back from there might contain additional signatures or
     // information set by the service itself. In this function, we silently swallow it because
-    // callers doesn't really need it.
+    // callers don't really need it.
     let _path_info = path_info_service.as_ref().put(path_info).await?;
 
     Ok(output_path.to_owned())
