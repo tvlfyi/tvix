@@ -8,6 +8,7 @@ use tracing::{instrument, warn};
 
 use super::utils::traverse_directory;
 use super::{DirectoryPutter, DirectoryService, SimplePutter};
+use crate::composition::{CompositionContext, ServiceBuilder};
 
 #[derive(Clone, Default)]
 pub struct MemoryDirectoryService {
@@ -83,5 +84,21 @@ impl DirectoryService for MemoryDirectoryService {
         Self: Clone,
     {
         Box::new(SimplePutter::new(self.clone()))
+    }
+}
+
+#[derive(serde::Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct MemoryDirectoryServiceConfig {}
+
+#[async_trait]
+impl ServiceBuilder for MemoryDirectoryServiceConfig {
+    type Output = dyn DirectoryService;
+    async fn build<'a>(
+        &'a self,
+        _instance_name: &str,
+        _context: &CompositionContext<dyn DirectoryService>,
+    ) -> Result<Arc<dyn DirectoryService>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+        Ok(Arc::new(MemoryDirectoryService::default()))
     }
 }

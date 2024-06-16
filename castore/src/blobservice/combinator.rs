@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use futures::{StreamExt, TryStreamExt};
 use tokio_util::io::{ReaderStream, StreamReader};
 use tonic::async_trait;
 use tracing::{instrument, warn};
 
+use crate::composition::{CompositionContext, ServiceBuilder};
 use crate::B3Digest;
 
 use super::{naive_seeker::NaiveSeeker, BlobReader, BlobService, BlobWriter};
@@ -90,6 +93,32 @@ where
     async fn open_write(&self) -> Box<dyn BlobWriter> {
         // direct writes to the local one.
         self.local.as_ref().open_write().await
+    }
+}
+
+#[derive(serde::Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct CombinedBlobServiceConfig {
+    local: String,
+    remote: String,
+}
+
+#[async_trait]
+impl ServiceBuilder for CombinedBlobServiceConfig {
+    type Output = dyn BlobService;
+    async fn build<'a>(
+        &'a self,
+        _instance_name: &str,
+        context: &CompositionContext<dyn BlobService>,
+    ) -> Result<Arc<dyn BlobService>, Box<dyn std::error::Error + Send + Sync>> {
+        let (local, remote) = futures::join!(
+            context.resolve(self.local.clone()),
+            context.resolve(self.remote.clone())
+        );
+        Ok(Arc::new(CombinedBlobService {
+            local: local?,
+            remote: remote?,
+        }))
     }
 }
 

@@ -1,7 +1,8 @@
+use crate::composition::{Registry, ServiceBuilder};
 use crate::{proto, B3Digest, Error};
+
 use futures::stream::BoxStream;
 use tonic::async_trait;
-
 mod combinators;
 mod directory_graph;
 mod from_addr;
@@ -16,12 +17,12 @@ pub mod tests;
 mod traverse;
 mod utils;
 
-pub use self::combinators::Cache;
+pub use self::combinators::{Cache, CacheConfig};
 pub use self::directory_graph::DirectoryGraph;
 pub use self::from_addr::from_addr;
-pub use self::grpc::GRPCDirectoryService;
-pub use self::memory::MemoryDirectoryService;
-pub use self::object_store::ObjectStoreDirectoryService;
+pub use self::grpc::{GRPCDirectoryService, GRPCDirectoryServiceConfig};
+pub use self::memory::{MemoryDirectoryService, MemoryDirectoryServiceConfig};
+pub use self::object_store::{ObjectStoreDirectoryService, ObjectStoreDirectoryServiceConfig};
 pub use self::order_validator::{LeavesToRootValidator, OrderValidator, RootToLeavesValidator};
 pub use self::simple_putter::SimplePutter;
 pub use self::sled::SledDirectoryService;
@@ -32,7 +33,7 @@ pub use self::utils::traverse_directory;
 mod bigtable;
 
 #[cfg(feature = "cloud")]
-pub use self::bigtable::BigtableDirectoryService;
+pub use self::bigtable::{BigtableDirectoryService, BigtableParameters};
 
 /// The base trait all Directory services need to implement.
 /// This is a simple get and put of [crate::proto::Directory], returning their
@@ -125,4 +126,16 @@ pub trait DirectoryPutter: Send {
     /// If there's been any invalid Directory message uploaded, and error *must*
     /// be returned.
     async fn close(&mut self) -> Result<B3Digest, Error>;
+}
+
+/// Registers the builtin DirectoryService implementations with the registry
+pub(crate) fn register_directory_services(reg: &mut Registry) {
+    reg.register::<Box<dyn ServiceBuilder<Output = dyn DirectoryService>>, super::directoryservice::ObjectStoreDirectoryServiceConfig>("objectstore");
+    reg.register::<Box<dyn ServiceBuilder<Output = dyn DirectoryService>>, super::directoryservice::MemoryDirectoryServiceConfig>("memory");
+    reg.register::<Box<dyn ServiceBuilder<Output = dyn DirectoryService>>, super::directoryservice::CacheConfig>("cache");
+    reg.register::<Box<dyn ServiceBuilder<Output = dyn DirectoryService>>, super::directoryservice::GRPCDirectoryServiceConfig>("grpc");
+    #[cfg(feature = "cloud")]
+    {
+        reg.register::<Box<dyn ServiceBuilder<Output = dyn DirectoryService>>, super::directoryservice::BigtableParameters>("bigtable");
+    }
 }

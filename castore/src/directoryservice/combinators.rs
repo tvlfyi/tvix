@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use futures::stream::BoxStream;
 use futures::StreamExt;
 use futures::TryFutureExt;
@@ -6,6 +8,7 @@ use tonic::async_trait;
 use tracing::{instrument, trace};
 
 use super::{DirectoryGraph, DirectoryService, RootToLeavesValidator, SimplePutter};
+use crate::composition::{CompositionContext, ServiceBuilder};
 use crate::directoryservice::DirectoryPutter;
 use crate::proto;
 use crate::B3Digest;
@@ -138,5 +141,31 @@ where
     #[instrument(skip_all)]
     fn put_multiple_start(&self) -> Box<(dyn DirectoryPutter + 'static)> {
         Box::new(SimplePutter::new((*self).clone()))
+    }
+}
+
+#[derive(serde::Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct CacheConfig {
+    near: String,
+    far: String,
+}
+
+#[async_trait]
+impl ServiceBuilder for CacheConfig {
+    type Output = dyn DirectoryService;
+    async fn build<'a>(
+        &'a self,
+        _instance_name: &str,
+        context: &CompositionContext<dyn DirectoryService>,
+    ) -> Result<Arc<dyn DirectoryService>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+        let (near, far) = futures::join!(
+            context.resolve(self.near.clone()),
+            context.resolve(self.far.clone())
+        );
+        Ok(Arc::new(Cache {
+            near: near?,
+            far: far?,
+        }))
     }
 }

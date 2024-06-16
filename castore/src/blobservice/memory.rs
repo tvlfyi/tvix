@@ -6,6 +6,7 @@ use tonic::async_trait;
 use tracing::instrument;
 
 use super::{BlobReader, BlobService, BlobWriter};
+use crate::composition::{CompositionContext, ServiceBuilder};
 use crate::B3Digest;
 
 #[derive(Clone, Default)]
@@ -34,6 +35,22 @@ impl BlobService for MemoryBlobService {
     #[instrument(skip_all)]
     async fn open_write(&self) -> Box<dyn BlobWriter> {
         Box::new(MemoryBlobWriter::new(self.db.clone()))
+    }
+}
+
+#[derive(serde::Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct MemoryBlobServiceConfig {}
+
+#[async_trait]
+impl ServiceBuilder for MemoryBlobServiceConfig {
+    type Output = dyn BlobService;
+    async fn build<'a>(
+        &'a self,
+        _instance_name: &str,
+        _context: &CompositionContext<dyn BlobService>,
+    ) -> Result<Arc<dyn BlobService>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+        Ok(Arc::new(MemoryBlobService::default()))
     }
 }
 

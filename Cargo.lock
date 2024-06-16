@@ -1067,11 +1067,12 @@ checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 
 [[package]]
 name = "erased-serde"
-version = "0.4.4"
+version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b73807008a3c7f171cc40312f37d95ef0396e048b5848d775f54b1a4dd4a0d3"
+checksum = "24e2389d65ab4fab27dc2a5de7b191e1f6617d1f1c8855c0dc569c94a4cbb18d"
 dependencies = [
  "serde",
+ "typeid",
 ]
 
 [[package]]
@@ -3421,6 +3422,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_tagged"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76cd248df2ce32924bfc2273e1af035ff3092b73253fe0567230b5c4154a99e9"
+dependencies = [
+ "erased-serde",
+ "serde",
+]
+
+[[package]]
 name = "serde_urlencoded"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4329,6 +4340,7 @@ dependencies = [
  "bytes",
  "data-encoding",
  "digest",
+ "erased-serde",
  "fastcdc",
  "fuse-backend-rs",
  "futures",
@@ -4344,7 +4356,9 @@ dependencies = [
  "rstest",
  "rstest_reuse",
  "serde",
+ "serde_json",
  "serde_qs",
+ "serde_tagged",
  "serde_with",
  "sled",
  "tempfile",
@@ -4574,6 +4588,12 @@ dependencies = [
  "tracing-subscriber",
  "tracing-tracy",
 ]
+
+[[package]]
+name = "typeid"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "059d83cc991e7a42fc37bd50941885db0888e34209f8cfd9aab07ddec03bc9cf"
 
 [[package]]
 name = "typenum"

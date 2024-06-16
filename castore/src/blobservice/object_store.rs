@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     io::{self, Cursor},
     pin::pin,
     sync::Arc,
@@ -18,6 +19,7 @@ use tracing::{debug, instrument, trace, Level};
 use url::Url;
 
 use crate::{
+    composition::{CompositionContext, ServiceBuilder},
     proto::{stat_blob_response::ChunkMeta, StatBlobResponse},
     B3Digest, B3HashingReader,
 };
@@ -266,6 +268,40 @@ impl BlobService for ObjectStoreBlobService {
             // error checking for blob
             Err(err) => Err(err.into()),
         }
+    }
+}
+
+fn default_avg_chunk_size() -> u32 {
+    256 * 1024
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ObjectStoreBlobServiceConfig {
+    object_store_url: String,
+    #[serde(default = "default_avg_chunk_size")]
+    avg_chunk_size: u32,
+    #[serde(default)]
+    object_store_options: HashMap<String, String>,
+}
+
+#[async_trait]
+impl ServiceBuilder for ObjectStoreBlobServiceConfig {
+    type Output = dyn BlobService;
+    async fn build<'a>(
+        &'a self,
+        _instance_name: &str,
+        _context: &CompositionContext<dyn BlobService>,
+    ) -> Result<Arc<dyn BlobService>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+        let (object_store, path) = object_store::parse_url_opts(
+            &self.object_store_url.parse()?,
+            &self.object_store_options,
+        )?;
+        Ok(Arc::new(ObjectStoreBlobService {
+            object_store: Arc::new(object_store),
+            base_path: path,
+            avg_chunk_size: self.avg_chunk_size,
+        }))
     }
 }
 

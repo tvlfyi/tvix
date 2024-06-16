@@ -37,6 +37,8 @@ serde = { version = "1.0.197", features = [ "derive" ] }
 serde_with = "3.7.0"
 serde_qs = "0.12.0"
 petgraph = "0.6.4"
+erased-serde = "0.4.5"
+serde_tagged = "0.3.0"
 
 [dependencies.bigtable_rs]
 optional = true
@@ -94,6 +96,7 @@ tokio-retry = "0.3.0"
 hex-literal = "0.4.1"
 rstest_reuse = "0.6.0"
 xattr = "1.3.1"
+serde_json = "*"
 
 [features]
 default = ["cloud"]

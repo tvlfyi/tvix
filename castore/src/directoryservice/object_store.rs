@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use data_encoding::HEXLOWER;
@@ -18,6 +19,7 @@ use url::Url;
 use super::{
     DirectoryGraph, DirectoryPutter, DirectoryService, LeavesToRootValidator, RootToLeavesValidator,
 };
+use crate::composition::{CompositionContext, ServiceBuilder};
 use crate::{proto, B3Digest, Error};
 
 /// Stores directory closures in an object store.
@@ -46,7 +48,7 @@ fn derive_dirs_path(base_path: &Path, digest: &B3Digest) -> Path {
 const MAX_FRAME_LENGTH: usize = 1 * 1024 * 1024 * 1000; // 1 MiB
                                                         //
 impl ObjectStoreDirectoryService {
-    /// Constructs a new [ObjectStoreBlobService] from a [Url] supported by
+    /// Constructs a new [ObjectStoreDirectoryService] from a [Url] supported by
     /// [object_store].
     /// Any path suffix becomes the base path of the object store.
     /// additional options, the same as in [object_store::parse_url_opts] can
@@ -166,6 +168,33 @@ impl DirectoryService for ObjectStoreDirectoryService {
             self.object_store.clone(),
             self.base_path.clone(),
         ))
+    }
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ObjectStoreDirectoryServiceConfig {
+    object_store_url: String,
+    #[serde(default)]
+    object_store_options: HashMap<String, String>,
+}
+
+#[async_trait]
+impl ServiceBuilder for ObjectStoreDirectoryServiceConfig {
+    type Output = dyn DirectoryService;
+    async fn build<'a>(
+        &'a self,
+        _instance_name: &str,
+        _context: &CompositionContext<dyn DirectoryService>,
+    ) -> Result<Arc<dyn DirectoryService>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+        let (object_store, path) = object_store::parse_url_opts(
+            &self.object_store_url.parse()?,
+            &self.object_store_options,
+        )?;
+        Ok(Arc::new(ObjectStoreDirectoryService {
+            object_store: Arc::new(object_store),
+            base_path: path,
+        }))
     }
 }
 
