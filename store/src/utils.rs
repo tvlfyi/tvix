@@ -9,6 +9,7 @@ use tvix_castore::{
     blobservice::{self, BlobService},
     directoryservice::{self, DirectoryService},
 };
+use url::Url;
 
 use crate::nar::{NarCalculationService, SimpleRenderer};
 use crate::pathinfoservice::{self, PathInfoService};
@@ -31,6 +32,7 @@ pub async fn construct_services(
         directoryservice::from_addr(directory_service_addr.as_ref())
             .await?
             .into();
+
     let path_info_service = pathinfoservice::from_addr(
         path_info_service_addr.as_ref(),
         blob_service.clone(),
@@ -38,11 +40,30 @@ pub async fn construct_services(
     )
     .await?;
 
-    // TODO: grpc client also implements NarCalculationService
-    let nar_calculation_service = Box::new(SimpleRenderer::new(
-        blob_service.clone(),
-        directory_service.clone(),
-    )) as Box<dyn NarCalculationService>;
+    // HACK: The grpc client also implements NarCalculationService, and we
+    // really want to use it (otherwise we'd need to fetch everything again for hashing).
+    // Until we revamped store composition and config, detect this special case here.
+    let nar_calculation_service: Box<dyn NarCalculationService> = {
+        use crate::pathinfoservice::GRPCPathInfoService;
+        use crate::proto::path_info_service_client::PathInfoServiceClient;
+
+        let url = Url::parse(path_info_service_addr.as_ref())
+            .map_err(|e| io::Error::other(e.to_string()))?;
+
+        if url.scheme().starts_with("grpc+") {
+            let client = PathInfoServiceClient::new(
+                tvix_castore::tonic::channel_from_url(&url)
+                    .await
+                    .map_err(|e| io::Error::other(e.to_string()))?,
+            );
+            Box::new(GRPCPathInfoService::from_client(client))
+        } else {
+            Box::new(SimpleRenderer::new(
+                blob_service.clone(),
+                directory_service.clone(),
+            )) as Box<dyn NarCalculationService>
+        }
+    };
 
     Ok((
         blob_service,
