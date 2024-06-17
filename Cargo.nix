@@ -18000,8 +18000,6 @@ rec {
             buildRustCrateForPkgsFunc pkgs
               (
                 crateConfig // {
-                  # https://github.com/NixOS/nixpkgs/issues/218712
-                  dontStrip = stdenv.hostPlatform.isDarwin;
                   src = crateConfig.src or (
                     pkgs.fetchurl rec {
                       name = "${crateConfig.crateName}-${crateConfig.version}.tar.gz";
