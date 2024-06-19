@@ -2,7 +2,7 @@ use indicatif::ProgressStyle;
 use lazy_static::lazy_static;
 use tokio::sync::{mpsc, oneshot};
 use tracing::Level;
-use tracing_indicatif::{filter::IndicatifFilter, IndicatifLayer};
+use tracing_indicatif::{filter::IndicatifFilter, writer, IndicatifLayer, IndicatifWriter};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 
 #[cfg(feature = "otlp")]
@@ -50,9 +50,30 @@ pub enum Error {
 #[derive(Clone)]
 pub struct TracingHandle {
     tx: Option<mpsc::Sender<Option<oneshot::Sender<()>>>>,
+
+    stdout_writer: IndicatifWriter<writer::Stdout>,
+    stderr_writer: IndicatifWriter<writer::Stderr>,
 }
 
 impl TracingHandle {
+    /// Returns a writer for [std::io::Stdout] that ensures its output will not be clobbered by
+    /// active progress bars.
+    ///
+    /// Instead of `println!(...)` prefer `writeln!(handle.get_stdout_writer(), ...)`
+    pub fn get_stdout_writer(&self) -> IndicatifWriter<writer::Stdout> {
+        // clone is fine here because its only a wrapper over an `Arc`
+        self.stdout_writer.clone()
+    }
+
+    /// Returns a writer for [std::io::Stderr] that ensures its output will not be clobbered by
+    /// active progress bars.
+    ///
+    /// Instead of `println!(...)` prefer `writeln!(handle.get_stderr_writer(), ...)`.
+    pub fn get_stderr_writer(&self) -> IndicatifWriter<writer::Stderr> {
+        // clone is fine here because its only a wrapper over an `Arc`
+        self.stderr_writer.clone()
+    }
+
     /// This will flush possible attached tracing providers, e.g. otlp exported, if enabled.
     /// If there is none enabled this will result in a noop.
     ///
@@ -167,6 +188,8 @@ impl TracingBuilder {
     pub fn build(self) -> Result<TracingHandle, Error> {
         // Set up the tracing subscriber.
         let indicatif_layer = IndicatifLayer::new().with_progress_style(PB_SPINNER_STYLE.clone());
+        let stdout_writer = indicatif_layer.get_stdout_writer();
+        let stderr_writer = indicatif_layer.get_stderr_writer();
         let subscriber = tracing_subscriber::registry()
             .with(
                 EnvFilter::builder()
@@ -209,7 +232,11 @@ impl TracingBuilder {
                 {
                     subscriber.with(Some(layer)).try_init()?;
                 }
-                return Ok(TracingHandle { tx: Some(tx) });
+                return Ok(TracingHandle {
+                    tx: Some(tx),
+                    stdout_writer,
+                    stderr_writer,
+                });
             }
         }
         #[cfg(feature = "tracy")]
@@ -221,7 +248,11 @@ impl TracingBuilder {
             subscriber.try_init()?;
         }
 
-        Ok(TracingHandle { tx: None })
+        Ok(TracingHandle {
+            tx: None,
+            stdout_writer,
+            stderr_writer,
+        })
     }
 }
 
