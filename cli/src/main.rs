@@ -281,6 +281,7 @@ fn main() {
 
     let _ = tvix_tracing::TracingBuilder::default()
         .level(args.log_level)
+        .enable_progressbar()
         .build()
         .expect("unable to set up tracing subscriber");
     let tokio_runtime = tokio::runtime::Runtime::new().expect("failed to setup tokio runtime");

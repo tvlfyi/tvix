@@ -506,7 +506,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let tracing_handle = {
         let mut builder = tvix_tracing::TracingBuilder::default();
-        builder = builder.level(cli.log_level);
+        builder = builder.level(cli.log_level).enable_progressbar();
         #[cfg(feature = "otlp")]
         {
             if cli.otlp {

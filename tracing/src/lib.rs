@@ -114,6 +114,7 @@ impl TracingHandle {
 
 pub struct TracingBuilder {
     level: Level,
+    progess_bar: bool,
 
     #[cfg(feature = "otlp")]
     service_name: Option<&'static str>,
@@ -123,6 +124,7 @@ impl Default for TracingBuilder {
     fn default() -> Self {
         TracingBuilder {
             level: Level::INFO,
+            progess_bar: false,
 
             #[cfg(feature = "otlp")]
             service_name: None,
@@ -142,6 +144,12 @@ impl TracingBuilder {
     /// Enable otlp by setting a custom service_name
     pub fn enable_otlp(mut self, service_name: &'static str) -> TracingBuilder {
         self.service_name = Some(service_name);
+        self
+    }
+
+    /// Enable progress bar layer, default is disabled
+    pub fn enable_progressbar(mut self) -> TracingBuilder {
+        self.progess_bar = true;
         self
     }
 
@@ -167,10 +175,12 @@ impl TracingBuilder {
                     .with_writer(indicatif_layer.get_stderr_writer())
                     .compact(),
             )
-            .with(indicatif_layer.with_filter(
-                // only show progress for spans with indicatif.pb_show field being set
-                IndicatifFilter::new(false),
-            ));
+            .with((self.progess_bar).then(|| {
+                indicatif_layer.with_filter(
+                    // only show progress for spans with indicatif.pb_show field being set
+                    IndicatifFilter::new(false),
+                )
+            }));
 
         // Setup otlp if a service_name is configured
         #[cfg(feature = "otlp")]
