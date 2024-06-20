@@ -23,8 +23,10 @@ formats:
    This format is used for a special case where a derivation attribute directly
    refers to a derivation path (e.g. by accessing `.drvPath` on a derivation).
 
-   Note: In C++ Nix this case is quite special and actually requires a
-   store-database query during evaluation.
+   ```admonish note
+   In C++ Nix this case is quite special and actually requires a store-database
+   query during evaluation.
+   ```
 
 3. `<path>` - a non-descript store path input, usually a plain source file (e.g.
    from something like `src = ./.` or `src = ./foo.txt`).
@@ -90,8 +92,10 @@ C++ Nix has several builtins that interface directly with string contexts:
 * `unsafeDiscardOutputDependency`: drops dependencies on the *outputs* of a
   `.drv` in the context, passing only the literal `.drv` itself
 
-  Note: This is only used for special test-cases in nixpkgs, and deprecated Nix
+  ```admonish note
+  This is only used for special test-cases in nixpkgs, and deprecated Nix
   commands like `nix-push`.
+  ```
 * `getContext`: returns the string context in serialised form as a Nix attribute
   set
 * `appendContext`: adds a given string context to the string in the same format
@@ -159,8 +163,10 @@ one evaluation should be created in Nix. This metadata needs to be available in
 These queries will need to be asked of the metadata when populating the
 derivation fields.
 
-Note: Depending on how we implement `builtins.placeholder`, it might be useful
+```admonish note
+Depending on how we implement `builtins.placeholder`, it might be useful
 to track created placeholders in this metadata, too.
+```
 
 ### Context builtins
 

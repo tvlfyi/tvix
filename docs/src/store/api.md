@@ -205,7 +205,7 @@ and potentially a chain of `Directory` objects requested from
 When the desired file is reached, the *BlobService* can be used to read the
 contents of this file, and return it back to the evaluator.
 
-FUTUREWORK: define how importing from symlinks should/does work.
+FUTUREWORK: Define how importing from symlinks should/does work.
 
 Contrary to Nix, this has the advantage of not having to copy all of the
 contents of a store path to the evaluating machine, but really only fetching

@@ -47,8 +47,10 @@ works in C++ Nix, the only production ready Nix implementation currently availab
 
 ## Nix (Pointer) Equality in C++ Nix
 
-TIP: The summary presented here is up-to-date as of 2023-06-27 and was tested
-with Nix 2.3, 2.11 and 2.15.
+```admonish info
+The summary presented here is up-to-date as of 2023-06-27 and was tested with
+Nix 2.3, 2.11 and 2.15.
+```
 
 ### `EvalState::eqValues` and `ExprOpEq::eval`
 

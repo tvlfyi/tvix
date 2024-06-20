@@ -1,8 +1,10 @@
 # Specification of the Nix Language
 
-WARNING: This document is a work in progress. Please keep an eye on
+```admonish attention
+This document is a work in progress. Please keep an eye on
 [`topic:nix-spec`](https://cl.tvl.fyi/q/topic:nix-spec) for ongoing
 CLs.
+```
 
 Nix is a general-purpose, functional programming language which this
 document aims to describe.

@@ -82,8 +82,10 @@ stack when the scope ends.
 
 ## Moving parts
 
-WARNING: This documents the *current* implementation. If you only care about the
+```admonish caution
+This documents the *current* implementation. If you only care about the
 conceptual aspects, see above.
+```
 
 There's a few types involved:
 
