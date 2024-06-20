@@ -9,31 +9,41 @@ use tokio::spawn;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
-use tonic::async_trait;
-use tonic::Code;
-use tonic::{transport::Channel, Status};
+use tonic::{async_trait, Code, Status};
 use tracing::{instrument, warn, Instrument as _};
 
 /// Connects to a (remote) tvix-store DirectoryService over gRPC.
 #[derive(Clone)]
-pub struct GRPCDirectoryService {
+pub struct GRPCDirectoryService<T>
+where
+    T: Clone,
+{
     /// The internal reference to a gRPC client.
     /// Cloning it is cheap, and it internally handles concurrent requests.
-    grpc_client: proto::directory_service_client::DirectoryServiceClient<Channel>,
+    grpc_client: proto::directory_service_client::DirectoryServiceClient<T>,
 }
 
-impl GRPCDirectoryService {
+impl<T> GRPCDirectoryService<T>
+where
+    T: tonic::client::GrpcService<tonic::body::BoxBody> + Clone,
+{
     /// construct a [GRPCDirectoryService] from a [proto::directory_service_client::DirectoryServiceClient].
     /// panics if called outside the context of a tokio runtime.
     pub fn from_client(
-        grpc_client: proto::directory_service_client::DirectoryServiceClient<Channel>,
+        grpc_client: proto::directory_service_client::DirectoryServiceClient<T>,
     ) -> Self {
         Self { grpc_client }
     }
 }
 
 #[async_trait]
-impl DirectoryService for GRPCDirectoryService {
+impl<T> DirectoryService for GRPCDirectoryService<T>
+where
+    T: tonic::client::GrpcService<tonic::body::BoxBody> + Send + Sync + Clone + 'static,
+    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
+    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
+    T::Future: Send,
+{
     #[instrument(level = "trace", skip_all, fields(directory.digest = %digest))]
     async fn get(
         &self,

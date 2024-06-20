@@ -13,6 +13,8 @@ use tokio_listener::Listener;
 use tokio_listener::SystemOptions;
 use tokio_listener::UserOptions;
 use tonic::transport::Server;
+use tower::ServiceBuilder;
+use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{info, info_span, instrument, Level, Span};
 use tracing_indicatif::span_ext::IndicatifSpanExt as _;
 use tvix_castore::import::fs::ingest_path;
@@ -215,7 +217,17 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 .parse()
                 .unwrap();
 
-            let mut server = Server::builder();
+            let mut server = Server::builder().layer(
+                ServiceBuilder::new()
+                    .layer(
+                        TraceLayer::new_for_grpc().make_span_with(
+                            DefaultMakeSpan::new()
+                                .level(Level::INFO)
+                                .include_headers(true),
+                        ),
+                    )
+                    .map_request(tvix_tracing::propagate::tonic::accept_trace),
+            );
 
             #[allow(unused_mut)]
             let mut router = server

@@ -6,31 +6,43 @@ use crate::{
 use async_stream::try_stream;
 use futures::stream::BoxStream;
 use nix_compat::nixbase32;
-use tonic::{async_trait, transport::Channel, Code};
+use tonic::{async_trait, Code};
 use tracing::{instrument, Span};
 use tracing_indicatif::span_ext::IndicatifSpanExt;
 use tvix_castore::{proto as castorepb, Error};
 
 /// Connects to a (remote) tvix-store PathInfoService over gRPC.
 #[derive(Clone)]
-pub struct GRPCPathInfoService {
+pub struct GRPCPathInfoService<T>
+where
+    T: Clone,
+{
     /// The internal reference to a gRPC client.
     /// Cloning it is cheap, and it internally handles concurrent requests.
-    grpc_client: proto::path_info_service_client::PathInfoServiceClient<Channel>,
+    grpc_client: proto::path_info_service_client::PathInfoServiceClient<T>,
 }
 
-impl GRPCPathInfoService {
+impl<T> GRPCPathInfoService<T>
+where
+    T: tonic::client::GrpcService<tonic::body::BoxBody> + Clone,
+{
     /// construct a [GRPCPathInfoService] from a [proto::path_info_service_client::PathInfoServiceClient].
     /// panics if called outside the context of a tokio runtime.
     pub fn from_client(
-        grpc_client: proto::path_info_service_client::PathInfoServiceClient<Channel>,
+        grpc_client: proto::path_info_service_client::PathInfoServiceClient<T>,
     ) -> Self {
         Self { grpc_client }
     }
 }
 
 #[async_trait]
-impl PathInfoService for GRPCPathInfoService {
+impl<T> PathInfoService for GRPCPathInfoService<T>
+where
+    T: tonic::client::GrpcService<tonic::body::BoxBody> + Send + Sync + Clone + 'static,
+    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
+    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
+    T::Future: Send,
+{
     #[instrument(level = "trace", skip_all, fields(path_info.digest = nixbase32::encode(&digest)))]
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
         let path_info = self
@@ -107,7 +119,13 @@ impl PathInfoService for GRPCPathInfoService {
 }
 
 #[async_trait]
-impl NarCalculationService for GRPCPathInfoService {
+impl<T> NarCalculationService for GRPCPathInfoService<T>
+where
+    T: tonic::client::GrpcService<tonic::body::BoxBody> + Send + Sync + Clone + 'static,
+    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
+    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
+    T::Future: Send,
+{
     #[instrument(level = "trace", skip_all, fields(root_node = ?root_node, indicatif.pb_show=1))]
     async fn calculate_nar(
         &self,

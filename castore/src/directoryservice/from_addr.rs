@@ -63,8 +63,12 @@ pub async fn from_addr(uri: &str) -> Result<Box<dyn DirectoryService>, crate::Er
             // - In the case of unix sockets, there must be a path, but may not be a host.
             // - In the case of non-unix sockets, there must be a host, but no path.
             // Constructing the channel is handled by tvix_castore::channel::from_url.
-            let client = DirectoryServiceClient::new(crate::tonic::channel_from_url(&url).await?);
-            Box::new(GRPCDirectoryService::from_client(client))
+            Box::new(GRPCDirectoryService::from_client(
+                DirectoryServiceClient::with_interceptor(
+                    crate::tonic::channel_from_url(&url).await?,
+                    tvix_tracing::propagate::tonic::send_trace,
+                ),
+            ))
         }
         scheme if scheme.starts_with("objectstore+") => {
             // We need to convert the URL to string, strip the prefix there, and then

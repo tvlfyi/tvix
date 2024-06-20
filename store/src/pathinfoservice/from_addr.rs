@@ -105,9 +105,12 @@ pub async fn from_addr(
             // - In the case of unix sockets, there must be a path, but may not be a host.
             // - In the case of non-unix sockets, there must be a host, but no path.
             // Constructing the channel is handled by tvix_castore::channel::from_url.
-            let client =
-                PathInfoServiceClient::new(tvix_castore::tonic::channel_from_url(&url).await?);
-            Box::new(GRPCPathInfoService::from_client(client))
+            Box::new(GRPCPathInfoService::from_client(
+                PathInfoServiceClient::with_interceptor(
+                    tvix_castore::tonic::channel_from_url(&url).await?,
+                    tvix_tracing::propagate::tonic::send_trace,
+                ),
+            ))
         }
         #[cfg(feature = "cloud")]
         "bigtable" => {

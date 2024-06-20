@@ -4653,6 +4653,13 @@ rec {
         ];
 
       };
+      "http-range-header" = rec {
+        crateName = "http-range-header";
+        version = "0.3.1";
+        edition = "2018";
+        sha256 = "13vm511vq3bhschkw2xi9nhxzkw53m55gn9vxg7qigfxc29spl5d";
+        features = { };
+      };
       "httparse" = rec {
         crateName = "httparse";
         version = "1.8.0";
@@ -6927,6 +6934,39 @@ rec {
           "trace" = [ "pin-project-lite" ];
         };
         resolvedDefaultFeatures = [ "default" "metrics" "pin-project-lite" "trace" ];
+      };
+      "opentelemetry-http" = rec {
+        crateName = "opentelemetry-http";
+        version = "0.11.1";
+        edition = "2021";
+        sha256 = "151xfhlakkmi9v6sqarkmxz02sbl2l0nbajgij216rvppxvxr43n";
+        dependencies = [
+          {
+            name = "async-trait";
+            packageId = "async-trait";
+          }
+          {
+            name = "bytes";
+            packageId = "bytes";
+          }
+          {
+            name = "http";
+            packageId = "http";
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "opentelemetry";
+            packageId = "opentelemetry";
+            features = [ "trace" ];
+          }
+        ];
+        features = {
+          "hyper" = [ "dep:hyper" ];
+          "isahc" = [ "dep:isahc" ];
+          "reqwest" = [ "dep:reqwest" ];
+          "reqwest-rustls" = [ "reqwest" "reqwest/rustls-tls-native-roots" ];
+          "tokio" = [ "dep:tokio" ];
+        };
       };
       "opentelemetry-otlp" = rec {
         crateName = "opentelemetry-otlp";
@@ -12569,6 +12609,106 @@ rec {
         };
         resolvedDefaultFeatures = [ "__common" "balance" "buffer" "default" "discover" "futures-core" "futures-util" "indexmap" "limit" "load" "log" "make" "pin-project" "pin-project-lite" "rand" "ready-cache" "slab" "timeout" "tokio" "tokio-util" "tracing" "util" ];
       };
+      "tower-http" = rec {
+        crateName = "tower-http";
+        version = "0.4.4";
+        edition = "2018";
+        sha256 = "0h0i2flrw25zwxv72sifq4v5mwcb030spksy7r2a4xl2d4fvpib1";
+        authors = [
+          "Tower Maintainers <team@tower-rs.com>"
+        ];
+        dependencies = [
+          {
+            name = "bitflags";
+            packageId = "bitflags 2.4.2";
+          }
+          {
+            name = "bytes";
+            packageId = "bytes";
+          }
+          {
+            name = "futures-core";
+            packageId = "futures-core";
+          }
+          {
+            name = "futures-util";
+            packageId = "futures-util";
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "http";
+            packageId = "http";
+          }
+          {
+            name = "http-body";
+            packageId = "http-body";
+          }
+          {
+            name = "http-range-header";
+            packageId = "http-range-header";
+          }
+          {
+            name = "pin-project-lite";
+            packageId = "pin-project-lite";
+          }
+          {
+            name = "tower-layer";
+            packageId = "tower-layer";
+          }
+          {
+            name = "tower-service";
+            packageId = "tower-service";
+          }
+          {
+            name = "tracing";
+            packageId = "tracing";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
+        ];
+        devDependencies = [
+          {
+            name = "bytes";
+            packageId = "bytes";
+          }
+        ];
+        features = {
+          "async-compression" = [ "dep:async-compression" ];
+          "auth" = [ "base64" "validate-request" ];
+          "base64" = [ "dep:base64" ];
+          "catch-panic" = [ "tracing" "futures-util/std" ];
+          "compression-br" = [ "async-compression/brotli" "tokio-util" "tokio" ];
+          "compression-deflate" = [ "async-compression/zlib" "tokio-util" "tokio" ];
+          "compression-full" = [ "compression-br" "compression-deflate" "compression-gzip" "compression-zstd" ];
+          "compression-gzip" = [ "async-compression/gzip" "tokio-util" "tokio" ];
+          "compression-zstd" = [ "async-compression/zstd" "tokio-util" "tokio" ];
+          "decompression-br" = [ "async-compression/brotli" "tokio-util" "tokio" ];
+          "decompression-deflate" = [ "async-compression/zlib" "tokio-util" "tokio" ];
+          "decompression-full" = [ "decompression-br" "decompression-deflate" "decompression-gzip" "decompression-zstd" ];
+          "decompression-gzip" = [ "async-compression/gzip" "tokio-util" "tokio" ];
+          "decompression-zstd" = [ "async-compression/zstd" "tokio-util" "tokio" ];
+          "follow-redirect" = [ "iri-string" "tower/util" ];
+          "fs" = [ "tokio/fs" "tokio-util/io" "tokio/io-util" "mime_guess" "mime" "percent-encoding" "httpdate" "set-status" "futures-util/alloc" "tracing" ];
+          "full" = [ "add-extension" "auth" "catch-panic" "compression-full" "cors" "decompression-full" "follow-redirect" "fs" "limit" "map-request-body" "map-response-body" "metrics" "normalize-path" "propagate-header" "redirect" "request-id" "sensitive-headers" "set-header" "set-status" "timeout" "trace" "util" "validate-request" ];
+          "httpdate" = [ "dep:httpdate" ];
+          "iri-string" = [ "dep:iri-string" ];
+          "metrics" = [ "tokio/time" ];
+          "mime" = [ "dep:mime" ];
+          "mime_guess" = [ "dep:mime_guess" ];
+          "percent-encoding" = [ "dep:percent-encoding" ];
+          "request-id" = [ "uuid" ];
+          "timeout" = [ "tokio/time" ];
+          "tokio" = [ "dep:tokio" ];
+          "tokio-util" = [ "dep:tokio-util" ];
+          "tower" = [ "dep:tower" ];
+          "trace" = [ "tracing" ];
+          "tracing" = [ "dep:tracing" ];
+          "util" = [ "tower" ];
+          "uuid" = [ "dep:uuid" ];
+          "validate-request" = [ "mime" ];
+        };
+        resolvedDefaultFeatures = [ "default" "trace" "tracing" ];
+      };
       "tower-layer" = rec {
         crateName = "tower-layer";
         version = "0.3.2";
@@ -13385,6 +13525,7 @@ rec {
           {
             name = "tvix-tracing";
             packageId = "tvix-tracing";
+            features = [ "tonic" ];
           }
           {
             name = "url";
@@ -14143,6 +14284,11 @@ rec {
             packageId = "tower";
           }
           {
+            name = "tower-http";
+            packageId = "tower-http";
+            features = [ "trace" ];
+          }
+          {
             name = "tracing";
             packageId = "tracing";
           }
@@ -14157,6 +14303,7 @@ rec {
           {
             name = "tvix-tracing";
             packageId = "tvix-tracing";
+            features = [ "tonic" ];
           }
           {
             name = "url";
@@ -14222,6 +14369,11 @@ rec {
           else ./tracing;
         dependencies = [
           {
+            name = "http";
+            packageId = "http";
+            optional = true;
+          }
+          {
             name = "indicatif";
             packageId = "indicatif";
           }
@@ -14232,6 +14384,11 @@ rec {
           {
             name = "opentelemetry";
             packageId = "opentelemetry";
+            optional = true;
+          }
+          {
+            name = "opentelemetry-http";
+            packageId = "opentelemetry-http";
             optional = true;
           }
           {
@@ -14253,6 +14410,11 @@ rec {
             name = "tokio";
             packageId = "tokio";
             features = [ "sync" "rt" ];
+          }
+          {
+            name = "tonic";
+            packageId = "tonic";
+            optional = true;
           }
           {
             name = "tracing";
@@ -14281,10 +14443,11 @@ rec {
           }
         ];
         features = {
-          "otlp" = [ "dep:tracing-opentelemetry" "dep:opentelemetry" "dep:opentelemetry-otlp" "dep:opentelemetry_sdk" ];
+          "otlp" = [ "dep:tracing-opentelemetry" "dep:opentelemetry" "dep:opentelemetry-otlp" "dep:opentelemetry_sdk" "dep:opentelemetry-http" ];
+          "tonic" = [ "dep:tonic" "dep:http" ];
           "tracy" = [ "dep:tracing-tracy" ];
         };
-        resolvedDefaultFeatures = [ "default" "otlp" "tracy" ];
+        resolvedDefaultFeatures = [ "default" "otlp" "tonic" "tracy" ];
       };
       "typenum" = rec {
         crateName = "typenum";

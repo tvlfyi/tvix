@@ -1544,6 +1544,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "http-range-header"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "add0ab9360ddbd88cfeb3bd9574a1d85cfdfa14db10b3e21d3700dbc4328758f"
+
+[[package]]
 name = "httparse"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2274,6 +2280,18 @@ dependencies = [
  "pin-project-lite",
  "thiserror",
  "urlencoding",
+]
+
+[[package]]
+name = "opentelemetry-http"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7690dc77bf776713848c4faa6501157469017eaf332baccd4eb1cea928743d94"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "http",
+ "opentelemetry",
 ]
 
 [[package]]
@@ -4033,6 +4051,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "tower-http"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61c5bb1d698276a2443e5ecfabc1008bf15a36c12e6a7176e7bf089ea9131140"
+dependencies = [
+ "bitflags 2.4.2",
+ "bytes",
+ "futures-core",
+ "futures-util",
+ "http",
+ "http-body",
+ "http-range-header",
+ "pin-project-lite",
+ "tower-layer",
+ "tower-service",
+ "tracing",
+]
+
+[[package]]
 name = "tower-layer"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4430,6 +4467,7 @@ dependencies = [
  "tonic-build",
  "tonic-reflection",
  "tower",
+ "tower-http",
  "tracing",
  "tracing-indicatif",
  "tvix-castore",
@@ -4442,13 +4480,16 @@ dependencies = [
 name = "tvix-tracing"
 version = "0.1.0"
 dependencies = [
+ "http",
  "indicatif",
  "lazy_static",
  "opentelemetry",
+ "opentelemetry-http",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
  "thiserror",
  "tokio",
+ "tonic",
  "tracing",
  "tracing-indicatif",
  "tracing-opentelemetry",

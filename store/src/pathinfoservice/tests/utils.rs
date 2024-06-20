@@ -16,8 +16,11 @@ use crate::{
 /// Constructs and returns a gRPC PathInfoService.
 /// We also return memory-based {Blob,Directory}Service,
 /// as the consumer of this function accepts a 3-tuple.
-pub async fn make_grpc_path_info_service_client(
-) -> (impl BlobService, impl DirectoryService, GRPCPathInfoService) {
+pub async fn make_grpc_path_info_service_client() -> (
+    impl BlobService,
+    impl DirectoryService,
+    GRPCPathInfoService<tonic::transport::Channel>,
+) {
     let (left, right) = tokio::io::duplex(64);
 
     let blob_service = blob_service();

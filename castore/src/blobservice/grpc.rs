@@ -17,29 +17,39 @@ use tokio_util::{
     io::{CopyToBytes, SinkWriter},
     sync::PollSender,
 };
-use tonic::{async_trait, transport::Channel, Code, Status};
+use tonic::{async_trait, Code, Status};
 use tracing::{instrument, Instrument as _};
 
 /// Connects to a (remote) tvix-store BlobService over gRPC.
 #[derive(Clone)]
-pub struct GRPCBlobService {
+pub struct GRPCBlobService<T>
+where
+    T: Clone,
+{
     /// The internal reference to a gRPC client.
     /// Cloning it is cheap, and it internally handles concurrent requests.
-    grpc_client: proto::blob_service_client::BlobServiceClient<Channel>,
+    grpc_client: proto::blob_service_client::BlobServiceClient<T>,
 }
 
-impl GRPCBlobService {
+impl<T> GRPCBlobService<T>
+where
+    T: tonic::client::GrpcService<tonic::body::BoxBody> + Clone,
+{
     /// construct a [GRPCBlobService] from a [proto::blob_service_client::BlobServiceClient].
     /// panics if called outside the context of a tokio runtime.
-    pub fn from_client(
-        grpc_client: proto::blob_service_client::BlobServiceClient<Channel>,
-    ) -> Self {
+    pub fn from_client(grpc_client: proto::blob_service_client::BlobServiceClient<T>) -> Self {
         Self { grpc_client }
     }
 }
 
 #[async_trait]
-impl BlobService for GRPCBlobService {
+impl<T> BlobService for GRPCBlobService<T>
+where
+    T: tonic::client::GrpcService<tonic::body::BoxBody> + Send + Sync + Clone + 'static,
+    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
+    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
+    T::Future: Send,
+{
     #[instrument(skip(self, digest), fields(blob.digest=%digest))]
     async fn has(&self, digest: &B3Digest) -> io::Result<bool> {
         let mut grpc_client = self.grpc_client.clone();
@@ -337,7 +347,6 @@ mod tests {
                     .await
                     .expect("must succeed"),
             );
-
             GRPCBlobService::from_client(client)
         };
 

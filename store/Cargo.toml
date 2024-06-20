@@ -31,13 +31,14 @@ tokio-stream = { version = "0.1.14", features = ["fs"] }
 tokio-util = { version = "0.7.9", features = ["io", "io-util", "compat"] }
 tonic = { version = "0.11.0", features = ["tls", "tls-roots"] }
 tower = "0.4.13"
+tower-http = { version = "0.4.4", features = ["trace"] }
 tvix-castore = { path = "../castore" }
 url = "2.4.0"
 walkdir = "2.4.0"
 reqwest = { version = "0.11.22", features = ["rustls-tls-native-roots", "stream"], default-features = false }
 lru = "0.12.3"
 parking_lot = "0.12.2"
-tvix-tracing = { path = "../tracing" }
+tvix-tracing = { path = "../tracing", features = ["tonic"] }
 tracing = "0.1.40"
 tracing-indicatif = "0.3.6"
 

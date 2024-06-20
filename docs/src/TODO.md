@@ -233,9 +233,6 @@ logs etc, but this is something requiring a lot of designing.
  - Maybe drop `--log-level` entirely, and only use `RUST_LOG` env exclusively?
    `debug`,`trace` level across all crates is a bit useless, and `RUST_LOG` can
    be much more granular…
- - gRPC trace propagation (cl/10532 + @simon)
-   We need to wire trace propagation into our gRPC clients, so if we collect
-   traces both for the client and server they will be connected.
  - Fix OTLP sending batches on shutdown.
    It seems for short-lived CLI invocations we don't end up receiving all spans.
    Ensure we flush these on ctrl-c, and regular process termination.

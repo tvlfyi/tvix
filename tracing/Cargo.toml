@@ -17,6 +17,10 @@ opentelemetry = { version = "0.22.0", optional = true }
 opentelemetry-otlp = { version = "0.15.0", optional = true }
 opentelemetry_sdk = { version = "0.22.1", features = ["rt-tokio"], optional = true }
 tracing-tracy = { version = "0.11.0", features = ["flush-on-exit"], optional = true }
+opentelemetry-http = { version = "0.11.0", optional = true }
+
+tonic = { version = "0.11.0", optional = true }
+http  = { version = "0.2.11", optional = true }
 
 [features]
 default = []
@@ -24,10 +28,15 @@ otlp = [
   "dep:tracing-opentelemetry",
   "dep:opentelemetry",
   "dep:opentelemetry-otlp",
-  "dep:opentelemetry_sdk"
+  "dep:opentelemetry_sdk",
+  "dep:opentelemetry-http"
 ]
 tracy = [
   "dep:tracing-tracy"
+]
+tonic = [
+  "dep:tonic",
+  "dep:http",
 ]
 
 [lints]

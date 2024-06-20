@@ -51,12 +51,14 @@ pub async fn construct_services(
             .map_err(|e| io::Error::other(e.to_string()))?;
 
         if url.scheme().starts_with("grpc+") {
-            let client = PathInfoServiceClient::new(
-                tvix_castore::tonic::channel_from_url(&url)
-                    .await
-                    .map_err(|e| io::Error::other(e.to_string()))?,
-            );
-            Box::new(GRPCPathInfoService::from_client(client))
+            Box::new(GRPCPathInfoService::from_client(
+                PathInfoServiceClient::with_interceptor(
+                    tvix_castore::tonic::channel_from_url(&url)
+                        .await
+                        .map_err(|e| io::Error::other(e.to_string()))?,
+                    tvix_tracing::propagate::tonic::send_trace,
+                ),
+            ))
         } else {
             Box::new(SimpleRenderer::new(
                 blob_service.clone(),
