@@ -13,19 +13,13 @@ use tvix_castore::{proto as castorepb, Error};
 
 /// Connects to a (remote) tvix-store PathInfoService over gRPC.
 #[derive(Clone)]
-pub struct GRPCPathInfoService<T>
-where
-    T: Clone,
-{
+pub struct GRPCPathInfoService<T> {
     /// The internal reference to a gRPC client.
     /// Cloning it is cheap, and it internally handles concurrent requests.
     grpc_client: proto::path_info_service_client::PathInfoServiceClient<T>,
 }
 
-impl<T> GRPCPathInfoService<T>
-where
-    T: tonic::client::GrpcService<tonic::body::BoxBody> + Clone,
-{
+impl<T> GRPCPathInfoService<T> {
     /// construct a [GRPCPathInfoService] from a [proto::path_info_service_client::PathInfoServiceClient].
     /// panics if called outside the context of a tokio runtime.
     pub fn from_client(

@@ -14,19 +14,13 @@ use tracing::{instrument, warn, Instrument as _};
 
 /// Connects to a (remote) tvix-store DirectoryService over gRPC.
 #[derive(Clone)]
-pub struct GRPCDirectoryService<T>
-where
-    T: Clone,
-{
+pub struct GRPCDirectoryService<T> {
     /// The internal reference to a gRPC client.
     /// Cloning it is cheap, and it internally handles concurrent requests.
     grpc_client: proto::directory_service_client::DirectoryServiceClient<T>,
 }
 
-impl<T> GRPCDirectoryService<T>
-where
-    T: tonic::client::GrpcService<tonic::body::BoxBody> + Clone,
-{
+impl<T> GRPCDirectoryService<T> {
     /// construct a [GRPCDirectoryService] from a [proto::directory_service_client::DirectoryServiceClient].
     /// panics if called outside the context of a tokio runtime.
     pub fn from_client(

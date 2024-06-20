@@ -22,19 +22,13 @@ use tracing::{instrument, Instrument as _};
 
 /// Connects to a (remote) tvix-store BlobService over gRPC.
 #[derive(Clone)]
-pub struct GRPCBlobService<T>
-where
-    T: Clone,
-{
+pub struct GRPCBlobService<T> {
     /// The internal reference to a gRPC client.
     /// Cloning it is cheap, and it internally handles concurrent requests.
     grpc_client: proto::blob_service_client::BlobServiceClient<T>,
 }
 
-impl<T> GRPCBlobService<T>
-where
-    T: tonic::client::GrpcService<tonic::body::BoxBody> + Clone,
-{
+impl<T> GRPCBlobService<T> {
     /// construct a [GRPCBlobService] from a [proto::blob_service_client::BlobServiceClient].
     /// panics if called outside the context of a tokio runtime.
     pub fn from_client(grpc_client: proto::blob_service_client::BlobServiceClient<T>) -> Self {
