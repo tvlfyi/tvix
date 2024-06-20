@@ -233,15 +233,7 @@ logs etc, but this is something requiring a lot of designing.
  - Maybe drop `--log-level` entirely, and only use `RUST_LOG` env exclusively?
    `debug`,`trace` level across all crates is a bit useless, and `RUST_LOG` can
    be much more granular…
- - Fix OTLP sending batches on shutdown.
-   It seems for short-lived CLI invocations we don't end up receiving all spans.
-   Ensure we flush these on ctrl-c, and regular process termination.
-   See https://github.com/open-telemetry/opentelemetry-rust/issues/1395#issuecomment-2045567608
-   for some context.
-
-Later:
  - Trace propagation for HTTP clients too, using
    https://www.w3.org/TR/trace-context/ or https://www.w3.org/TR/baggage/,
    whichever makes more sense.
    Candidates: nix+http(s) protocol, object_store crates.
- - (`tracing-tracy` (cl/10952))
