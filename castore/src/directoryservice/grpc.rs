@@ -12,7 +12,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use tonic::async_trait;
 use tonic::Code;
 use tonic::{transport::Channel, Status};
-use tracing::{instrument, warn};
+use tracing::{instrument, warn, Instrument as _};
 
 /// Connects to a (remote) tvix-store DirectoryService over gRPC.
 #[derive(Clone)]
@@ -194,14 +194,17 @@ impl DirectoryService for GRPCDirectoryService {
 
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
 
-        let task: JoinHandle<Result<proto::PutDirectoryResponse, Status>> = spawn(async move {
-            let s = grpc_client
-                .put(UnboundedReceiverStream::new(rx))
-                .await?
-                .into_inner();
+        let task: JoinHandle<Result<proto::PutDirectoryResponse, Status>> = spawn(
+            async move {
+                let s = grpc_client
+                    .put(UnboundedReceiverStream::new(rx))
+                    .await?
+                    .into_inner();
 
-            Ok(s)
-        });
+                Ok(s)
+            } // instrument the task with the current span, this is not done by default
+            .in_current_span(),
+        );
 
         Box::new(GRPCPutter {
             rq: Some((task, tx)),

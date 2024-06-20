@@ -43,7 +43,7 @@ use tokio::{
     io::{AsyncReadExt, AsyncSeekExt},
     sync::mpsc,
 };
-use tracing::{debug, error, instrument, warn, Span};
+use tracing::{debug, error, instrument, warn, Instrument as _, Span};
 
 /// This implements a read-only FUSE filesystem for a tvix-store
 /// with the passed [BlobService], [DirectoryService] and [RootNodes].
@@ -397,16 +397,20 @@ where
 
             // This task will run in the background immediately and will exit
             // after the stream ends or if we no longer want any more entries.
-            self.tokio_handle.spawn(async move {
-                let mut stream = root_nodes_provider.list().enumerate();
-                while let Some(node) = stream.next().await {
-                    if tx.send(node).await.is_err() {
-                        // If we get a send error, it means the sync code
-                        // doesn't want any more entries.
-                        break;
+            self.tokio_handle.spawn(
+                async move {
+                    let mut stream = root_nodes_provider.list().enumerate();
+                    while let Some(node) = stream.next().await {
+                        if tx.send(node).await.is_err() {
+                            // If we get a send error, it means the sync code
+                            // doesn't want any more entries.
+                            break;
+                        }
                     }
                 }
-            });
+                // instrument the task with the current span, this is not done by default
+                .in_current_span(),
+            );
 
             // Put the rx part into [self.dir_handles].
             // TODO: this will overflow after 2**64 operations,

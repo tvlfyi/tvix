@@ -18,7 +18,7 @@ use tokio_util::{
     sync::PollSender,
 };
 use tonic::{async_trait, transport::Channel, Code, Status};
-use tracing::instrument;
+use tracing::{instrument, Instrument as _};
 
 /// Connects to a (remote) tvix-store BlobService over gRPC.
 #[derive(Clone)]
@@ -133,6 +133,8 @@ impl BlobService for GRPCBlobService {
         let task = tokio::spawn({
             let mut grpc_client = self.grpc_client.clone();
             async move { Ok::<_, Status>(grpc_client.put(blobchunk_stream).await?.into_inner()) }
+                // instrument the task with the current span, this is not done by default
+                .in_current_span()
         });
 
         // The tx part of the channel is converted to a sink of byte chunks.
