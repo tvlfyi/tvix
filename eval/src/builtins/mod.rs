@@ -465,15 +465,6 @@ mod pure_builtins {
         toml::from_str(toml_str.to_str()?).map_err(|err| err.into())
     }
 
-    #[builtin("filterSource")]
-    #[allow(non_snake_case)]
-    async fn builtin_filterSource(_co: GenCo, #[lazy] _e: Value) -> Result<Value, ErrorKind> {
-        // TODO: implement for nixpkgs compatibility
-        Ok(Value::from(CatchableErrorKind::UnimplementedFeature(
-            "filterSource".into(),
-        )))
-    }
-
     #[builtin("genericClosure")]
     async fn builtin_generic_closure(co: GenCo, input: Value) -> Result<Value, ErrorKind> {
         let attrs = input.to_attrs()?;
@@ -1515,13 +1506,6 @@ mod pure_builtins {
             },
         )
             .into())
-    }
-
-    #[builtin("placeholder")]
-    async fn builtin_placeholder(co: GenCo, #[lazy] _x: Value) -> Result<Value, ErrorKind> {
-        generators::emit_warning_kind(&co, WarningKind::NotImplemented("builtins.placeholder"))
-            .await;
-        Ok("<builtins.placeholder-is-not-implemented-in-tvix-yet>".into())
     }
 
     #[builtin("trace")]
