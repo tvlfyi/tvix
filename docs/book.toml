@@ -22,4 +22,4 @@ after = ["links"] # ensure `{{#include}}` also gets processed
 [output]
 
 [output.html]
-additional-css = ["./mdbook-admonish.css"]
+additional-css = ["./mdbook-admonish.css", "./mdbook-extra.css"]
