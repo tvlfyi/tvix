@@ -357,7 +357,7 @@ impl TvixStoreIO {
         &self,
         name: &str,
         path: &Path,
-        ca: CAHash,
+        ca: &CAHash,
         root_node: Node,
     ) -> io::Result<(PathInfo, NixHash, StorePath)> {
         // Ask the PathInfoService for the NAR size and sha256
@@ -372,7 +372,7 @@ impl TvixStoreIO {
 
         // Calculate the output path. This might still fail, as some names are illegal.
         let output_path =
-            nix_compat::store_path::build_ca_path(name, &ca, Vec::<String>::new(), false).map_err(
+            nix_compat::store_path::build_ca_path(name, ca, Vec::<String>::new(), false).map_err(
                 |_| {
                     std::io::Error::new(
                         std::io::ErrorKind::InvalidData,
@@ -399,7 +399,7 @@ impl TvixStoreIO {
         &self,
         name: &str,
         path: &Path,
-        ca: CAHash,
+        ca: &CAHash,
         root_node: Node,
     ) -> io::Result<StorePath> {
         let (path_info, _, output_path) = self.node_to_path_info(name, path, ca, root_node).await?;

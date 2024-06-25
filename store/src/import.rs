@@ -81,7 +81,7 @@ pub fn path_to_name(path: &Path) -> std::io::Result<&str> {
 pub fn derive_nar_ca_path_info(
     nar_size: u64,
     nar_sha256: [u8; 32],
-    ca: Option<CAHash>,
+    ca: Option<&CAHash>,
     root_node: Node,
 ) -> PathInfo {
     // assemble the [crate::proto::PathInfo] object.
@@ -145,7 +145,7 @@ where
     let path_info = derive_nar_ca_path_info(
         nar_size,
         nar_sha256,
-        Some(CAHash::Nar(NixHash::Sha256(nar_sha256))),
+        Some(&CAHash::Nar(NixHash::Sha256(nar_sha256))),
         root_node,
     );
 

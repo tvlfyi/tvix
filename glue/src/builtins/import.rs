@@ -284,27 +284,29 @@ mod import_builtins {
             }
         };
 
-        let obtained_hash = ca_hash.hash().clone().into_owned();
         let (path_info, _hash, output_path) = state.tokio_handle.block_on(async {
             state
-                .node_to_path_info(name.as_ref(), path.as_ref(), ca_hash, root_node)
+                .node_to_path_info(name.as_ref(), path.as_ref(), &ca_hash, root_node)
                 .await
         })?;
 
         if let Some(expected_sha256) = expected_sha256 {
-            if obtained_hash != expected_sha256 {
+            if *ca_hash.hash() != expected_sha256 {
                 Err(ImportError::HashMismatch(
                     path.to_string_lossy().to_string(),
                     expected_sha256,
-                    obtained_hash,
+                    ca_hash.hash().into_owned(),
                 ))?;
             }
         }
 
-        let _: tvix_store::proto::PathInfo = state.tokio_handle.block_on(async {
-            // This is necessary to cause the coercion of the error type.
-            Ok::<_, std::io::Error>(state.path_info_service.as_ref().put(path_info).await?)
-        })?;
+        state
+            .tokio_handle
+            .block_on(async { state.path_info_service.as_ref().put(path_info).await })
+            .map_err(|e| tvix_eval::ErrorKind::IO {
+                path: Some(path.to_path_buf()),
+                error: Rc::new(e.into()),
+            })?;
 
         // We need to attach context to the final output path.
         let outpath = output_path.to_absolute_path();
@@ -339,7 +341,7 @@ mod import_builtins {
                     .register_node_in_path_info_service(
                         name,
                         &p,
-                        CAHash::Nar(NixHash::Sha256(nar_sha256)),
+                        &CAHash::Nar(NixHash::Sha256(nar_sha256)),
                         root_node,
                     )
                     .await
