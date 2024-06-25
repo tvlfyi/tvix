@@ -60,7 +60,14 @@ async fn extract_fetch_args(
         Err(cek) => return Ok(Err(cek)),
     };
 
-    // TODO: disallow other attrset keys, to match Nix' behaviour.
+    // Disallow other attrset keys, to match Nix' behaviour.
+    // We complain about the first unexpected key we find in the list.
+    const VALID_KEYS: [&[u8]; 3] = [b"url", b"name", b"sha256"];
+    if let Some(first_invalid_key) = attrs.keys().find(|k| !&VALID_KEYS.contains(&k.as_bytes())) {
+        return Err(ErrorKind::UnexpectedArgumentBuiltin(
+            first_invalid_key.clone(),
+        ));
+    }
 
     // parse the sha256 string into a digest.
     let sha256 = match sha256_str {
