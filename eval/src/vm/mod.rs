@@ -797,7 +797,7 @@ where
                         if !formals.contains(arg) {
                             return frame.error(
                                 self,
-                                ErrorKind::UnexpectedArgument {
+                                ErrorKind::UnexpectedArgumentFormals {
                                     arg: arg.clone(),
                                     formals_span: formals.span,
                                 },

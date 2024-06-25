@@ -185,7 +185,7 @@ pub enum ErrorKind {
     FromTomlError(String),
 
     /// An unexpected argument was supplied to a function that takes formal parameters
-    UnexpectedArgument {
+    UnexpectedArgumentFormals {
         arg: NixString,
         formals_span: Span,
     },
@@ -487,7 +487,7 @@ to a missing value in the attribute set(s) included via `with`."#,
                 write!(f, "Error converting TOML to a Nix value: {msg}")
             }
 
-            ErrorKind::UnexpectedArgument { arg, .. } => {
+            ErrorKind::UnexpectedArgumentFormals { arg, .. } => {
                 write!(f, "Unexpected argument `{arg}` supplied to function",)
             }
 
@@ -778,7 +778,7 @@ impl Error {
             ErrorKind::DuplicateAttrsKey { .. } => "in this attribute set",
             ErrorKind::InvalidAttributeName(_) => "in this attribute set",
             ErrorKind::RelativePathResolution(_) => "in this path literal",
-            ErrorKind::UnexpectedArgument { .. } => "in this function call",
+            ErrorKind::UnexpectedArgumentFormals { .. } => "in this function call",
             ErrorKind::UnexpectedContext => "in this string",
 
             // The spans for some errors don't have any more descriptive stuff
@@ -853,7 +853,7 @@ impl Error {
             ErrorKind::ImportCompilerError { .. } => "E028",
             ErrorKind::IO { .. } => "E029",
             ErrorKind::JsonError { .. } => "E030",
-            ErrorKind::UnexpectedArgument { .. } => "E031",
+            ErrorKind::UnexpectedArgumentFormals { .. } => "E031",
             ErrorKind::RelativePathResolution(_) => "E032",
             ErrorKind::DivisionByZero => "E033",
             ErrorKind::FromTomlError(_) => "E035",
@@ -898,7 +898,7 @@ impl Error {
                 spans_for_parse_errors(&file, errors)
             }
 
-            ErrorKind::UnexpectedArgument { formals_span, .. } => {
+            ErrorKind::UnexpectedArgumentFormals { formals_span, .. } => {
                 vec![
                     SpanLabel {
                         label: self.span_label(),
