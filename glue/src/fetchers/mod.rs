@@ -603,7 +603,8 @@ where
 }
 
 /// Attempts to mimic `nix::libutil::baseNameOf`
-pub(crate) fn url_basename(s: &str) -> &str {
+pub(crate) fn url_basename(url: &Url) -> &str {
+    let s = url.path();
     if s.is_empty() {
         return "";
     }
@@ -720,30 +721,18 @@ mod tests {
 
     mod url_basename {
         use super::super::*;
+        use rstest::rstest;
 
-        #[test]
-        fn empty_path() {
-            assert_eq!(url_basename(""), "");
-        }
-
-        #[test]
-        fn path_on_root() {
-            assert_eq!(url_basename("/dir"), "dir");
-        }
-
-        #[test]
-        fn relative_path() {
-            assert_eq!(url_basename("dir/foo"), "foo");
-        }
-
-        #[test]
-        fn root_with_trailing_slash() {
-            assert_eq!(url_basename("/"), "");
-        }
-
-        #[test]
-        fn trailing_slash() {
-            assert_eq!(url_basename("/dir/"), "dir");
+        #[rstest]
+        #[case::empty_path("", "")]
+        #[case::path_on_root("/dir", "dir")]
+        #[case::relative_path("dir/foo", "foo")]
+        #[case::root_with_trailing_slash("/", "")]
+        #[case::trailing_slash("/dir/", "dir")]
+        fn test_url_basename(#[case] url_path: &str, #[case] exp_basename: &str) {
+            let mut url = Url::parse("http://localhost").expect("invalid url");
+            url.set_path(url_path);
+            assert_eq!(url_basename(&url), exp_basename);
         }
     }
 }

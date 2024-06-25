@@ -11,9 +11,12 @@ use tvix_eval::builtin_macros::builtins;
 use tvix_eval::generators::Gen;
 use tvix_eval::generators::GenCo;
 use tvix_eval::{CatchableErrorKind, ErrorKind, Value};
+use url::Url;
 
+// Used as a return type for extract_fetch_args, which is sharing some
+// parsing code between the fetchurl and fetchTarball builtins.
 struct NixFetchArgs {
-    url_str: String,
+    url: Url,
     name: Option<String>,
     sha256: Option<[u8; 32]>,
 }
@@ -28,8 +31,12 @@ async fn extract_fetch_args(
         // Get the raw bytes, not the ToString repr.
         let url_str =
             String::from_utf8(url_str.as_bytes().to_vec()).map_err(|_| ErrorKind::Utf8)?;
+
+        // Parse the URL.
+        let url = Url::parse(&url_str).map_err(|e| ErrorKind::TvixError(Rc::new(e)))?;
+
         return Ok(Ok(NixFetchArgs {
-            url_str,
+            url,
             name: None,
             sha256: None,
         }));
@@ -67,19 +74,16 @@ async fn extract_fetch_args(
         None => None,
     };
 
-    Ok(Ok(NixFetchArgs {
-        url_str,
-        name,
-        sha256,
-    }))
+    // Parse the URL.
+    let url = Url::parse(&url_str).map_err(|e| ErrorKind::TvixError(Rc::new(e)))?;
+
+    Ok(Ok(NixFetchArgs { url, name, sha256 }))
 }
 
 #[allow(unused_variables)] // for the `state` arg, for now
 #[builtins(state = "Rc<TvixStoreIO>")]
 pub(crate) mod fetcher_builtins {
-    use crate::builtins::FetcherError;
     use nix_compat::nixhash::NixHash;
-    use url::Url;
 
     use super::*;
 
@@ -135,17 +139,13 @@ pub(crate) mod fetcher_builtins {
         // Derive the name from the URL basename if not set explicitly.
         let name = args
             .name
-            .unwrap_or_else(|| url_basename(&args.url_str).to_owned());
-
-        // Parse the URL.
-        let url = Url::parse(&args.url_str)
-            .map_err(|e| ErrorKind::TvixError(Rc::new(FetcherError::InvalidUrl(e))))?;
+            .unwrap_or_else(|| url_basename(&args.url).to_owned());
 
         fetch_lazy(
             state,
             name,
             Fetch::URL {
-                url,
+                url: args.url,
                 exp_hash: args.sha256.map(NixHash::Sha256),
             },
         )
@@ -168,15 +168,11 @@ pub(crate) mod fetcher_builtins {
             .name
             .unwrap_or_else(|| DEFAULT_NAME_FETCH_TARBALL.to_owned());
 
-        // Parse the URL.
-        let url = Url::parse(&args.url_str)
-            .map_err(|e| ErrorKind::TvixError(Rc::new(FetcherError::InvalidUrl(e))))?;
-
         fetch_lazy(
             state,
             name,
             Fetch::Tarball {
-                url,
+                url: args.url,
                 exp_nar_sha256: args.sha256,
             },
         )
