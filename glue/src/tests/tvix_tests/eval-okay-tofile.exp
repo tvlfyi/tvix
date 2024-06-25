@@ -1,0 +1,1 @@
+[ "/nix/store/vxjiwkjkn7x4079qvh1jkl5pn05j2aw0-foo" "/nix/store/i7liwr52956m86kxp7dgbcwsk56r27v6-foo" "/nix/store/yw8k7ixk1zvb113p4y0bl3ahjxd5h9sr-foo" { "/nix/store/yw8k7ixk1zvb113p4y0bl3ahjxd5h9sr-foo" = { path = true; }; } ]

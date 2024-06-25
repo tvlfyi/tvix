@@ -168,15 +168,23 @@ fn handle_fixed_output(
 #[builtins(state = "Rc<TvixStoreIO>")]
 pub(crate) mod derivation_builtins {
     use std::collections::BTreeMap;
+    use std::io::Cursor;
 
     use crate::builtins::utils::{select_string, strong_importing_coerce_to_string};
     use crate::fetchurl::fetchurl_derivation_to_fetch;
 
     use super::*;
     use bstr::ByteSlice;
-    use nix_compat::store_path::hash_placeholder;
+    use md5::Digest;
+    use nix_compat::nixhash::CAHash;
+    use nix_compat::store_path::{build_ca_path, hash_placeholder};
+    use sha2::Sha256;
+    use tvix_castore::proto as castorepb;
+    use tvix_castore::proto::node::Node;
+    use tvix_castore::proto::FileNode;
     use tvix_eval::generators::Gen;
     use tvix_eval::{NixContext, NixContextElement, NixString};
+    use tvix_store::proto::{NarInfo, PathInfo};
 
     #[builtin("placeholder")]
     async fn builtin_placeholder(co: GenCo, input: Value) -> Result<Value, ErrorKind> {
@@ -525,7 +533,12 @@ pub(crate) mod derivation_builtins {
     }
 
     #[builtin("toFile")]
-    async fn builtin_to_file(co: GenCo, name: Value, content: Value) -> Result<Value, ErrorKind> {
+    async fn builtin_to_file(
+        state: Rc<TvixStoreIO>,
+        co: GenCo,
+        name: Value,
+        content: Value,
+    ) -> Result<Value, ErrorKind> {
         if name.is_catchable() {
             return Ok(name);
         }
@@ -545,20 +558,77 @@ pub(crate) mod derivation_builtins {
             return Err(ErrorKind::UnexpectedContext);
         }
 
-        let path =
-            nix_compat::store_path::build_text_path(name.to_str()?, &content, content.iter_plain())
+        let store_path = state.tokio_handle.block_on(async {
+            // upload contents to the blobservice and create a root node
+            let mut blob_writer = state.blob_service.open_write().await;
+
+            let mut r = Cursor::new(&content);
+
+            let blob_size = tokio::io::copy(&mut r, &mut blob_writer).await?;
+            let blob_digest = blob_writer.close().await?;
+            let ca_hash = CAHash::Text(Sha256::digest(&content).into());
+
+            let store_path = build_ca_path(name.to_str()?, &ca_hash, content.iter_plain(), false)
                 .map_err(|_e| {
                     nix_compat::derivation::DerivationError::InvalidOutputName(
                         name.to_str_lossy().into_owned(),
                     )
                 })
-                .map_err(DerivationError::InvalidDerivation)?
-                .to_absolute_path();
+                .map_err(DerivationError::InvalidDerivation)?;
 
-        let context: NixContext = NixContextElement::Plain(path.clone()).into();
+            let root_node = Node::File(FileNode {
+                name: store_path.to_string().into(),
+                digest: blob_digest.into(),
+                size: blob_size,
+                executable: false,
+            });
 
-        // TODO: actually persist the file in the store at that path ...
+            // calculate the nar hash
+            let (nar_size, nar_sha256) = state
+                .nar_calculation_service
+                .calculate_nar(&root_node)
+                .await
+                .map_err(|e| ErrorKind::TvixError(Rc::new(e)))?;
 
-        Ok(Value::from(NixString::new_context_from(context, path)))
+            // assemble references from plain context.
+            let reference_paths: Vec<StorePathRef> = content
+                .iter_plain()
+                .map(|elem| StorePathRef::from_absolute_path(elem.as_bytes()))
+                .collect::<Result<_, _>>()
+                .map_err(|e| ErrorKind::TvixError(Rc::new(e)))?;
+
+            // persist via pathinfo service.
+            state
+                .path_info_service
+                .put(PathInfo {
+                    node: Some(castorepb::Node {
+                        node: Some(root_node),
+                    }),
+                    references: reference_paths
+                        .iter()
+                        .map(|x| bytes::Bytes::copy_from_slice(x.digest()))
+                        .collect(),
+                    narinfo: Some(NarInfo {
+                        nar_size,
+                        nar_sha256: nar_sha256.to_vec().into(),
+                        signatures: vec![],
+                        reference_names: reference_paths
+                            .into_iter()
+                            .map(|x| x.to_string())
+                            .collect(),
+                        deriver: None,
+                        ca: Some(ca_hash.into()),
+                    }),
+                })
+                .await
+                .map_err(|e| ErrorKind::TvixError(Rc::new(e)))?;
+
+            Ok::<_, ErrorKind>(store_path)
+        })?;
+
+        let abs_path = store_path.to_absolute_path();
+        let context: NixContext = NixContextElement::Plain(abs_path.clone()).into();
+
+        Ok(Value::from(NixString::new_context_from(context, abs_path)))
     }
 }
