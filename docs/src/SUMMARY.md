@@ -1,5 +1,13 @@
 # Summary
 
+# Welcome
+* [Getting Started](./getting-started.md)
+
+# Contributing
+* [Gerrit](./contributing/gerrit.md)
+* [Email](./contributing/email.md)
+* [Code & Commits](./contributing/code-&-commits.md)
+
 # Tvix
 - [Architecture & data flow](./architecture.md)
 - [TODOs](./TODO.md)
