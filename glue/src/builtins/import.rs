@@ -109,15 +109,16 @@ mod import_builtins {
 
     use super::*;
 
+    use crate::tvix_store_io::TvixStoreIO;
     use nix_compat::nixhash::{CAHash, NixHash};
     use nix_compat::store_path::StorePath;
+    use sha2::Digest;
+    use tokio::io::AsyncWriteExt;
+    use tvix_castore::proto::node::Node;
+    use tvix_castore::proto::FileNode;
     use tvix_eval::generators::Gen;
     use tvix_eval::{generators::GenCo, ErrorKind, Value};
-    use tvix_eval::{NixContextElement, NixString};
-
-    use tvix_castore::B3Digest;
-
-    use crate::tvix_store_io::TvixStoreIO;
+    use tvix_eval::{FileType, NixContextElement, NixString};
 
     #[builtin("path")]
     async fn builtin_path(
@@ -167,54 +168,126 @@ mod import_builtins {
             })
             .transpose()?;
 
-        // FUTUREWORK(performance): this opens the file instead of using a stat-like
-        // system call to the file.
-        if !recursive_ingestion && state.open(path.as_ref()).is_err() {
-            Err(ImportError::FlatImportOfNonFile(
-                path.to_string_lossy().to_string(),
-            ))?;
-        }
+        // Check if the path points to a regular file.
+        // If it does, the filter function is never executed.
+        // TODO: follow symlinks and check their type instead
+        let (root_node, ca_hash) = match state.file_type(path.as_ref())? {
+            FileType::Regular => {
+                let mut file = state.open(path.as_ref())?;
+                // This is a single file, copy it to the blobservice directly.
+                let mut hash = sha2::Sha256::new();
+                let mut blob_size = 0;
+                let mut blob_writer = state
+                    .tokio_handle
+                    .block_on(async { state.blob_service.open_write().await });
 
-        let root_node = filtered_ingest(state.clone(), co, path.as_ref(), filter).await?;
-        let ca: CAHash = if recursive_ingestion {
-            CAHash::Nar(NixHash::Sha256(state.tokio_handle.block_on(async {
-                Ok::<_, tvix_eval::ErrorKind>(
+                let mut buf = [0u8; 4096];
+
+                loop {
+                    // read bytes into buffer, break out if EOF
+                    let len = file.read(&mut buf)?;
+                    if len == 0 {
+                        break;
+                    }
+                    blob_size += len as u64;
+
+                    let data = &buf[0..len];
+
+                    // add to blobwriter
                     state
-                        .nar_calculation_service
-                        .as_ref()
-                        .calculate_nar(&root_node)
-                        .await
-                        .map_err(|e| ErrorKind::TvixError(Rc::new(e)))?
-                        .1,
-                )
-            })?))
-        } else {
-            let digest: B3Digest = match root_node {
-                tvix_castore::proto::node::Node::File(ref fnode) => {
-                    // It's already validated.
-                    fnode.digest.clone().try_into().unwrap()
+                        .tokio_handle
+                        .block_on(async { blob_writer.write_all(data).await })?;
+
+                    // update the sha256 hash function. We can skip that if we're not using it.
+                    if !recursive_ingestion {
+                        hash.update(data);
+                    }
                 }
-                // We cannot hash anything else than file in flat import mode.
-                _ => {
+
+                // close the blob writer, get back the b3 digest.
+                let blob_digest = state
+                    .tokio_handle
+                    .block_on(async { blob_writer.close().await })?;
+
+                let root_node = Node::File(FileNode {
+                    // The name gets set further down, while constructing the PathInfo.
+                    name: "".into(),
+                    digest: blob_digest.into(),
+                    size: blob_size,
+                    executable: false,
+                });
+
+                let ca_hash = if recursive_ingestion {
+                    let (_nar_size, nar_sha256) = state
+                        .tokio_handle
+                        .block_on(async {
+                            state
+                                .nar_calculation_service
+                                .as_ref()
+                                .calculate_nar(&root_node)
+                                .await
+                        })
+                        .map_err(|e| tvix_eval::ErrorKind::TvixError(Rc::new(e)))?;
+                    CAHash::Nar(NixHash::Sha256(nar_sha256))
+                } else {
+                    CAHash::Flat(NixHash::Sha256(hash.finalize().into()))
+                };
+
+                (root_node, ca_hash)
+            }
+
+            FileType::Directory => {
+                if !recursive_ingestion {
                     return Err(ImportError::FlatImportOfNonFile(
                         path.to_string_lossy().to_string(),
-                    )
-                    .into())
+                    ))?;
                 }
-            };
 
-            // FUTUREWORK: avoid hashing again.
-            CAHash::Flat(NixHash::Sha256(
-                state
+                // do the filtered ingest
+                let root_node = filtered_ingest(state.clone(), co, path.as_ref(), filter).await?;
+
+                // calculate the NAR sha256
+                let (_nar_size, nar_sha256) = state
                     .tokio_handle
-                    .block_on(async { state.blob_to_sha256_hash(digest).await })?,
-            ))
+                    .block_on(async {
+                        state
+                            .nar_calculation_service
+                            .as_ref()
+                            .calculate_nar(&root_node)
+                            .await
+                    })
+                    .map_err(|e| tvix_eval::ErrorKind::TvixError(Rc::new(e)))?;
+
+                let ca_hash = CAHash::Nar(NixHash::Sha256(nar_sha256));
+
+                (root_node, ca_hash)
+            }
+            FileType::Symlink => {
+                // FUTUREWORK: Nix follows a symlink if it's at the root,
+                // except if it's not resolve-able (NixOS/nix#7761).i
+                return Err(tvix_eval::ErrorKind::IO {
+                    path: Some(path.to_path_buf()),
+                    error: Rc::new(std::io::Error::new(
+                        std::io::ErrorKind::Unsupported,
+                        "builtins.path pointing to a symlink is ill-defined.",
+                    )),
+                });
+            }
+            FileType::Unknown => {
+                return Err(tvix_eval::ErrorKind::IO {
+                    path: Some(path.to_path_buf()),
+                    error: Rc::new(std::io::Error::new(
+                        std::io::ErrorKind::Unsupported,
+                        "unsupported file type",
+                    )),
+                })
+            }
         };
 
-        let obtained_hash = ca.hash().clone().into_owned();
+        let obtained_hash = ca_hash.hash().clone().into_owned();
         let (path_info, _hash, output_path) = state.tokio_handle.block_on(async {
             state
-                .node_to_path_info(name.as_ref(), path.as_ref(), ca, root_node)
+                .node_to_path_info(name.as_ref(), path.as_ref(), ca_hash, root_node)
                 .await
         })?;
 

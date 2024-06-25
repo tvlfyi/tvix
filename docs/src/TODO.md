@@ -127,15 +127,6 @@ Some more fetcher-related builtins need work:
  - `fetchTree` (hairy, seems there's no proper spec and the URL syntax seems
    subject to change/underdocumented)
 
-### `builtins.path` roundtrip for flat
-`builtins.path` currently uses `filtered_ingest` also for the non-recursive
-case, then reads through the blob contents again to get the sha256.
-
-We should take care of assembling the root node on our own, and pipe the data
-through sha256 too (via `InspectReader`, see `glue/fetcher` for an example).
-
-This avoids some roundtrips, and is probably faster.
-
 ### Derivation -> Build
 While we have some support for `structuredAttrs` and `fetchClosure` (at least
 enough to calculate output hashes, aka produce identical ATerm), the code
