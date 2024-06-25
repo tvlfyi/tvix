@@ -184,6 +184,9 @@ pub enum ErrorKind {
     /// Errors converting TOML to a value
     FromTomlError(String),
 
+    /// An unexpected argument was supplied to a builtin
+    UnexpectedArgumentBuiltin(NixString),
+
     /// An unexpected argument was supplied to a function that takes formal parameters
     UnexpectedArgumentFormals {
         arg: NixString,
@@ -487,6 +490,10 @@ to a missing value in the attribute set(s) included via `with`."#,
                 write!(f, "Error converting TOML to a Nix value: {msg}")
             }
 
+            ErrorKind::UnexpectedArgumentBuiltin(arg) => {
+                write!(f, "Unexpected agrument `{arg}` passed to builtin",)
+            }
+
             ErrorKind::UnexpectedArgumentFormals { arg, .. } => {
                 write!(f, "Unexpected argument `{arg}` supplied to function",)
             }
@@ -778,6 +785,7 @@ impl Error {
             ErrorKind::DuplicateAttrsKey { .. } => "in this attribute set",
             ErrorKind::InvalidAttributeName(_) => "in this attribute set",
             ErrorKind::RelativePathResolution(_) => "in this path literal",
+            ErrorKind::UnexpectedArgumentBuiltin { .. } => "while calling this builtin",
             ErrorKind::UnexpectedArgumentFormals { .. } => "in this function call",
             ErrorKind::UnexpectedContext => "in this string",
 
@@ -861,6 +869,7 @@ impl Error {
             ErrorKind::UnexpectedContext => "E037",
             ErrorKind::Utf8 => "E038",
             ErrorKind::UnknownHashType(_) => "E039",
+            ErrorKind::UnexpectedArgumentBuiltin { .. } => "E040",
 
             // Special error code for errors from other Tvix
             // components. We may want to introduce a code namespacing
