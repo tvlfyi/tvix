@@ -1,9 +1,3 @@
-use tonic::{
-    metadata::{MetadataKey, MetadataMap, MetadataValue},
-    Status,
-};
-use tracing::{warn, Span};
-
 #[cfg(feature = "otlp")]
 use opentelemetry::{global, propagation::Injector};
 #[cfg(feature = "otlp")]
@@ -22,17 +16,20 @@ pub fn accept_trace<B>(request: http::Request<B>) -> http::Request<B> {
         let parent_context = global::get_text_map_propagator(|propagator| {
             propagator.extract(&HeaderExtractor(request.headers()))
         });
-        Span::current().set_parent(parent_context);
+        tracing::Span::current().set_parent(parent_context);
     }
     request
 }
 
 #[cfg(feature = "otlp")]
-struct MetadataInjector<'a>(&'a mut MetadataMap);
+struct MetadataInjector<'a>(&'a mut tonic::metadata::MetadataMap);
 
 #[cfg(feature = "otlp")]
 impl Injector for MetadataInjector<'_> {
     fn set(&mut self, key: &str, value: String) {
+        use tonic::metadata::{MetadataKey, MetadataValue};
+        use tracing::warn;
+
         match MetadataKey::from_bytes(key.as_bytes()) {
             Ok(key) => match MetadataValue::try_from(&value) {
                 Ok(value) => {
@@ -47,11 +44,12 @@ impl Injector for MetadataInjector<'_> {
 
 /// Trace context propagation: send the trace context by injecting it into the metadata of the given
 /// request. This only injects the current span if the otlp feature is also enabled.
-pub fn send_trace<T>(mut request: tonic::Request<T>) -> Result<tonic::Request<T>, Status> {
+#[allow(unused_mut)]
+pub fn send_trace<T>(mut request: tonic::Request<T>) -> Result<tonic::Request<T>, tonic::Status> {
     #[cfg(feature = "otlp")]
     {
         global::get_text_map_propagator(|propagator| {
-            let context = Span::current().context();
+            let context = tracing::Span::current().context();
             propagator.inject_context(&context, &mut MetadataInjector(request.metadata_mut()))
         });
     }
