@@ -532,6 +532,28 @@ impl EvalIO for TvixStoreIO {
     }
 
     #[instrument(skip(self), ret(level = Level::TRACE), err)]
+    fn file_type(&self, path: &Path) -> io::Result<FileType> {
+        if let Ok((store_path, sub_path)) =
+            StorePath::from_absolute_path_full(&path.to_string_lossy())
+        {
+            if let Some(node) = self
+                .tokio_handle
+                .block_on(async { self.store_path_to_node(&store_path, &sub_path).await })?
+            {
+                match node {
+                    Node::Directory(_) => Ok(FileType::Directory),
+                    Node::File(_) => Ok(FileType::Regular),
+                    Node::Symlink(_) => Ok(FileType::Symlink),
+                }
+            } else {
+                self.std_io.file_type(path)
+            }
+        } else {
+            self.std_io.file_type(path)
+        }
+    }
+
+    #[instrument(skip(self), ret(level = Level::TRACE), err)]
     fn read_dir(&self, path: &Path) -> io::Result<Vec<(bytes::Bytes, FileType)>> {
         if let Ok((store_path, sub_path)) =
             StorePath::from_absolute_path_full(&path.to_string_lossy())

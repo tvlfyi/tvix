@@ -60,6 +60,10 @@ where
         self.actual.as_ref().open(path)
     }
 
+    fn file_type(&self, path: &Path) -> io::Result<FileType> {
+        self.actual.as_ref().file_type(path)
+    }
+
     fn read_dir(&self, path: &Path) -> io::Result<Vec<(bytes::Bytes, FileType)>> {
         self.actual.as_ref().read_dir(path)
     }

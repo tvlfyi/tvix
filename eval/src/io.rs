@@ -54,6 +54,10 @@ pub trait EvalIO {
     /// Open the file at the specified path to a `io::Read`.
     fn open(&self, path: &Path) -> io::Result<Box<dyn io::Read>>;
 
+    /// Return the [FileType] of the given path, or an error if it doesn't
+    /// exist.
+    fn file_type(&self, path: &Path) -> io::Result<FileType>;
+
     /// Read the directory at the specified path and return the names
     /// of its entries associated with their [`FileType`].
     ///
@@ -101,6 +105,20 @@ impl EvalIO for StdIO {
         Ok(Box::new(File::open(path)?))
     }
 
+    fn file_type(&self, path: &Path) -> io::Result<FileType> {
+        let file_type = File::open(path)?.metadata()?.file_type();
+
+        Ok(if file_type.is_dir() {
+            FileType::Directory
+        } else if file_type.is_file() {
+            FileType::Regular
+        } else if file_type.is_symlink() {
+            FileType::Symlink
+        } else {
+            FileType::Unknown
+        })
+    }
+
     fn read_dir(&self, path: &Path) -> io::Result<Vec<(bytes::Bytes, FileType)>> {
         let mut result = vec![];
 
@@ -144,6 +162,13 @@ impl EvalIO for DummyIO {
     }
 
     fn open(&self, _: &Path) -> io::Result<Box<dyn io::Read>> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "I/O methods are not implemented in DummyIO",
+        ))
+    }
+
+    fn file_type(&self, _: &Path) -> io::Result<FileType> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
             "I/O methods are not implemented in DummyIO",
