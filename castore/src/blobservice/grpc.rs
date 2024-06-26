@@ -30,7 +30,6 @@ pub struct GRPCBlobService<T> {
 
 impl<T> GRPCBlobService<T> {
     /// construct a [GRPCBlobService] from a [proto::blob_service_client::BlobServiceClient].
-    /// panics if called outside the context of a tokio runtime.
     pub fn from_client(grpc_client: proto::blob_service_client::BlobServiceClient<T>) -> Self {
         Self { grpc_client }
     }
