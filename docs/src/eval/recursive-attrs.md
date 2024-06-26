@@ -1,5 +1,4 @@
-Recursive attribute sets
-========================
+# Recursive attribute sets
 
 The construction behaviour of recursive attribute sets is very
 specific, and a bit peculiar.

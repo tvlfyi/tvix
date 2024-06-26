@@ -1,5 +1,4 @@
-tvix-eval VM loop
-=================
+# tvix-eval VM loop
 
 This document describes the new tvix-eval VM execution loop implemented in the
 chain focusing around cl/8104.

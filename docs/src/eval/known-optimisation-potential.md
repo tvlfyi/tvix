@@ -1,5 +1,4 @@
-Known Optimisation Potential
-============================
+# Known Optimisation Potential
 
 There are several areas of the Tvix evaluator code base where
 potentially large performance gains can be achieved through

@@ -1,5 +1,4 @@
-Nix builtins
-============
+# Nix builtins
 
 Nix has a lot of built-in functions, some of which are accessible in
 the global scope, and some of which are only accessible through the

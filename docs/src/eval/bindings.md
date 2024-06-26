@@ -1,5 +1,4 @@
-Compilation of bindings
-=======================
+# Compilation of bindings
 
 Compilation of Nix bindings is one of the most mind-bending parts of Nix
 evaluation. The implementation of just the compilation is currently almost 1000

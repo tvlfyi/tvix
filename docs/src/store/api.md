@@ -1,5 +1,4 @@
-tvix-[ca]store API
-==============
+# tvix-[ca]store API
 
 This document outlines the design of the API exposed by tvix-castore and tvix-
 store, as well as other implementations of this store protocol.

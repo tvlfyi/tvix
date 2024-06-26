@@ -1,5 +1,4 @@
-Build references in derivations
-===============================
+# Build references in derivations
 
 This document describes how build references are calculated in Tvix. Build
 references are used to determine which store paths should be available to a
