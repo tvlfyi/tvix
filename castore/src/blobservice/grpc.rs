@@ -45,15 +45,15 @@ where
 {
     #[instrument(skip(self, digest), fields(blob.digest=%digest))]
     async fn has(&self, digest: &B3Digest) -> io::Result<bool> {
-        let mut grpc_client = self.grpc_client.clone();
-        let resp = grpc_client
+        match self
+            .grpc_client
+            .clone()
             .stat(proto::StatBlobRequest {
                 digest: digest.clone().into(),
                 ..Default::default()
             })
-            .await;
-
-        match resp {
+            .await
+        {
             Ok(_blob_meta) => Ok(true),
             Err(e) if e.code() == Code::NotFound => Ok(false),
             Err(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
