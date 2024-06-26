@@ -554,7 +554,9 @@ pub(crate) mod derivation_builtins {
             .to_contextful_str()
             .context("evaluating the `content` parameter of builtins.toFile")?;
 
-        if content.iter_derivation().count() > 0 || content.iter_single_outputs().count() > 0 {
+        if content.iter_ctx_derivation().count() > 0
+            || content.iter_ctx_single_outputs().count() > 0
+        {
             return Err(ErrorKind::UnexpectedContext);
         }
 
@@ -568,13 +570,14 @@ pub(crate) mod derivation_builtins {
             let blob_digest = blob_writer.close().await?;
             let ca_hash = CAHash::Text(Sha256::digest(&content).into());
 
-            let store_path = build_ca_path(name.to_str()?, &ca_hash, content.iter_plain(), false)
-                .map_err(|_e| {
-                    nix_compat::derivation::DerivationError::InvalidOutputName(
-                        name.to_str_lossy().into_owned(),
-                    )
-                })
-                .map_err(DerivationError::InvalidDerivation)?;
+            let store_path =
+                build_ca_path(name.to_str()?, &ca_hash, content.iter_ctx_plain(), false)
+                    .map_err(|_e| {
+                        nix_compat::derivation::DerivationError::InvalidOutputName(
+                            name.to_str_lossy().into_owned(),
+                        )
+                    })
+                    .map_err(DerivationError::InvalidDerivation)?;
 
             let root_node = Node::File(FileNode {
                 name: store_path.to_string().into(),
@@ -592,7 +595,7 @@ pub(crate) mod derivation_builtins {
 
             // assemble references from plain context.
             let reference_paths: Vec<StorePathRef> = content
-                .iter_plain()
+                .iter_ctx_plain()
                 .map(|elem| StorePathRef::from_absolute_path(elem.as_bytes()))
                 .collect::<Result<_, _>>()
                 .map_err(|e| ErrorKind::TvixError(Rc::new(e)))?;

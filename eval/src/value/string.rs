@@ -767,21 +767,33 @@ impl NixString {
         context
     }
 
+    /// Iterates over all context elements.
+    /// See [iter_plain], [iter_derivation], [iter_single_outputs].
     pub fn iter_context(&self) -> impl Iterator<Item = &NixContext> {
         self.context().into_iter()
     }
 
-    pub fn iter_plain(&self) -> impl Iterator<Item = &str> {
+    /// Iterates over "plain" context elements, e.g. sources imported
+    /// in the store without more information, i.e. `toFile` or coerced imported paths.
+    /// It yields paths to the store.
+    pub fn iter_ctx_plain(&self) -> impl Iterator<Item = &str> {
         self.iter_context().flat_map(|context| context.iter_plain())
     }
 
-    pub fn iter_derivation(&self) -> impl Iterator<Item = &str> {
+    /// Iterates over "full derivations" context elements, e.g. something
+    /// referring to their `drvPath`, i.e. their full sources and binary closure.
+    /// It yields derivation paths.
+    pub fn iter_ctx_derivation(&self) -> impl Iterator<Item = &str> {
         return self
             .iter_context()
             .flat_map(|context| context.iter_derivation());
     }
 
-    pub fn iter_single_outputs(&self) -> impl Iterator<Item = (&str, &str)> {
+    /// Iterates over "single" context elements, e.g. single derived paths,
+    /// or also known as the single output of a given derivation.
+    /// The first element of the tuple is the output name
+    /// and the second element is the derivation path.
+    pub fn iter_ctx_single_outputs(&self) -> impl Iterator<Item = (&str, &str)> {
         return self
             .iter_context()
             .flat_map(|context| context.iter_single_outputs());
