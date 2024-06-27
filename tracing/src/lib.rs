@@ -17,7 +17,6 @@ use opentelemetry_sdk::{
 #[cfg(feature = "tracy")]
 use tracing_tracy::TracyLayer;
 
-#[cfg(feature = "tonic")] // TODO or http
 pub mod propagate;
 
 lazy_static! {

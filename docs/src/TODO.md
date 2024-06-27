@@ -224,7 +224,6 @@ logs etc, but this is something requiring a lot of designing.
  - Maybe drop `--log-level` entirely, and only use `RUST_LOG` env exclusively?
    `debug`,`trace` level across all crates is a bit useless, and `RUST_LOG` can
    be much more granular…
- - Trace propagation for HTTP clients too, using
-   https://www.w3.org/TR/trace-context/ or https://www.w3.org/TR/baggage/,
-   whichever makes more sense.
-   Candidates: nix+http(s) protocol, object_store crates.
+ - Trace propagation for object_store once they support a way to register a
+   middleware, so we can use that to register a tracing middleware.
+   https://github.com/apache/arrow-rs/issues/5990

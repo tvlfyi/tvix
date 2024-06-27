@@ -4326,6 +4326,12 @@ rec {
             packageId = "cfg-if";
           }
           {
+            name = "js-sys";
+            packageId = "js-sys";
+            optional = true;
+            target = { target, features }: ((("wasm32" == target."arch" or null) || ("wasm64" == target."arch" or null)) && ("unknown" == target."os" or null));
+          }
+          {
             name = "libc";
             packageId = "libc";
             usesDefaultFeatures = false;
@@ -4337,6 +4343,13 @@ rec {
             usesDefaultFeatures = false;
             target = { target, features }: ("wasi" == target."os" or null);
           }
+          {
+            name = "wasm-bindgen";
+            packageId = "wasm-bindgen";
+            optional = true;
+            usesDefaultFeatures = false;
+            target = { target, features }: ((("wasm32" == target."arch" or null) || ("wasm64" == target."arch" or null)) && ("unknown" == target."os" or null));
+          }
         ];
         features = {
           "compiler_builtins" = [ "dep:compiler_builtins" ];
@@ -4346,7 +4359,7 @@ rec {
           "rustc-dep-of-std" = [ "compiler_builtins" "core" "libc/rustc-dep-of-std" "wasi/rustc-dep-of-std" ];
           "wasm-bindgen" = [ "dep:wasm-bindgen" ];
         };
-        resolvedDefaultFeatures = [ "std" ];
+        resolvedDefaultFeatures = [ "js" "js-sys" "std" "wasm-bindgen" ];
       };
       "gimli" = rec {
         crateName = "gimli";
@@ -6083,6 +6096,34 @@ rec {
           "Sean McArthur <sean@seanmonstar.com>"
         ];
 
+      };
+      "mime_guess" = rec {
+        crateName = "mime_guess";
+        version = "2.0.4";
+        edition = "2015";
+        sha256 = "1vs28rxnbfwil6f48hh58lfcx90klcvg68gxdc60spwa4cy2d4j1";
+        authors = [
+          "Austin Bonander <austin.bonander@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "mime";
+            packageId = "mime";
+          }
+          {
+            name = "unicase";
+            packageId = "unicase";
+          }
+        ];
+        buildDependencies = [
+          {
+            name = "unicase";
+            packageId = "unicase";
+          }
+        ];
+        features = {
+          "default" = [ "rev-mappings" ];
+        };
       };
       "minimal-lexical" = rec {
         crateName = "minimal-lexical";
@@ -8992,6 +9033,12 @@ rec {
             target = { target, features }: (!("wasm32" == target."arch" or null));
           }
           {
+            name = "mime_guess";
+            packageId = "mime_guess";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
+          {
             name = "once_cell";
             packageId = "once_cell";
             target = { target, features }: (!("wasm32" == target."arch" or null));
@@ -9178,7 +9225,140 @@ rec {
           "wasm-streams" = [ "dep:wasm-streams" ];
           "webpki-roots" = [ "dep:webpki-roots" ];
         };
-        resolvedDefaultFeatures = [ "__rustls" "__tls" "hyper-rustls" "json" "rustls" "rustls-native-certs" "rustls-pemfile" "rustls-tls-native-roots" "serde_json" "stream" "tokio-rustls" "tokio-util" "wasm-streams" ];
+        resolvedDefaultFeatures = [ "__rustls" "__tls" "hyper-rustls" "json" "mime_guess" "multipart" "rustls" "rustls-native-certs" "rustls-pemfile" "rustls-tls-native-roots" "serde_json" "stream" "tokio-rustls" "tokio-util" "wasm-streams" ];
+      };
+      "reqwest-middleware" = rec {
+        crateName = "reqwest-middleware";
+        version = "0.2.5";
+        edition = "2018";
+        sha256 = "05j2k29mrdc23cqpyiqirj61i74r3cspwv19y25j73ka4f3mjwss";
+        authors = [
+          "Rodrigo Gryzinski <rodrigo.gryzinski@truelayer.com>"
+        ];
+        dependencies = [
+          {
+            name = "anyhow";
+            packageId = "anyhow";
+          }
+          {
+            name = "async-trait";
+            packageId = "async-trait";
+          }
+          {
+            name = "http";
+            packageId = "http";
+          }
+          {
+            name = "reqwest";
+            packageId = "reqwest";
+            usesDefaultFeatures = false;
+            features = [ "json" "multipart" ];
+          }
+          {
+            name = "serde";
+            packageId = "serde";
+          }
+          {
+            name = "task-local-extensions";
+            packageId = "task-local-extensions";
+          }
+          {
+            name = "thiserror";
+            packageId = "thiserror";
+          }
+        ];
+
+      };
+      "reqwest-tracing" = rec {
+        crateName = "reqwest-tracing";
+        version = "0.4.8";
+        edition = "2018";
+        sha256 = "10zn6vka710vn0r4vi8lpzmdm4nfnc2171cqxbiagmsk87jkh20r";
+        authors = [
+          "Rodrigo Gryzinski <rodrigo.gryzinski@truelayer.com>"
+        ];
+        dependencies = [
+          {
+            name = "anyhow";
+            packageId = "anyhow";
+          }
+          {
+            name = "async-trait";
+            packageId = "async-trait";
+          }
+          {
+            name = "getrandom";
+            packageId = "getrandom";
+            target = { target, features }: ("wasm32" == target."arch" or null);
+            features = [ "js" ];
+          }
+          {
+            name = "matchit";
+            packageId = "matchit";
+          }
+          {
+            name = "opentelemetry";
+            packageId = "opentelemetry";
+            rename = "opentelemetry_0_22_pkg";
+            optional = true;
+          }
+          {
+            name = "reqwest";
+            packageId = "reqwest";
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "reqwest-middleware";
+            packageId = "reqwest-middleware";
+          }
+          {
+            name = "task-local-extensions";
+            packageId = "task-local-extensions";
+          }
+          {
+            name = "tracing";
+            packageId = "tracing";
+          }
+          {
+            name = "tracing-opentelemetry";
+            packageId = "tracing-opentelemetry";
+            rename = "tracing-opentelemetry_0_23_pkg";
+            optional = true;
+          }
+        ];
+        features = {
+          "opentelemetry_0_13" = [ "opentelemetry_0_13_pkg" "tracing-opentelemetry_0_12_pkg" ];
+          "opentelemetry_0_13_pkg" = [ "dep:opentelemetry_0_13_pkg" ];
+          "opentelemetry_0_14" = [ "opentelemetry_0_14_pkg" "tracing-opentelemetry_0_13_pkg" ];
+          "opentelemetry_0_14_pkg" = [ "dep:opentelemetry_0_14_pkg" ];
+          "opentelemetry_0_15" = [ "opentelemetry_0_15_pkg" "tracing-opentelemetry_0_14_pkg" ];
+          "opentelemetry_0_15_pkg" = [ "dep:opentelemetry_0_15_pkg" ];
+          "opentelemetry_0_16" = [ "opentelemetry_0_16_pkg" "tracing-opentelemetry_0_16_pkg" ];
+          "opentelemetry_0_16_pkg" = [ "dep:opentelemetry_0_16_pkg" ];
+          "opentelemetry_0_17" = [ "opentelemetry_0_17_pkg" "tracing-opentelemetry_0_17_pkg" ];
+          "opentelemetry_0_17_pkg" = [ "dep:opentelemetry_0_17_pkg" ];
+          "opentelemetry_0_18" = [ "opentelemetry_0_18_pkg" "tracing-opentelemetry_0_18_pkg" ];
+          "opentelemetry_0_18_pkg" = [ "dep:opentelemetry_0_18_pkg" ];
+          "opentelemetry_0_19" = [ "opentelemetry_0_19_pkg" "tracing-opentelemetry_0_19_pkg" ];
+          "opentelemetry_0_19_pkg" = [ "dep:opentelemetry_0_19_pkg" ];
+          "opentelemetry_0_20" = [ "opentelemetry_0_20_pkg" "tracing-opentelemetry_0_20_pkg" ];
+          "opentelemetry_0_20_pkg" = [ "dep:opentelemetry_0_20_pkg" ];
+          "opentelemetry_0_21" = [ "opentelemetry_0_21_pkg" "tracing-opentelemetry_0_22_pkg" ];
+          "opentelemetry_0_21_pkg" = [ "dep:opentelemetry_0_21_pkg" ];
+          "opentelemetry_0_22" = [ "opentelemetry_0_22_pkg" "tracing-opentelemetry_0_23_pkg" ];
+          "opentelemetry_0_22_pkg" = [ "dep:opentelemetry_0_22_pkg" ];
+          "tracing-opentelemetry_0_12_pkg" = [ "dep:tracing-opentelemetry_0_12_pkg" ];
+          "tracing-opentelemetry_0_13_pkg" = [ "dep:tracing-opentelemetry_0_13_pkg" ];
+          "tracing-opentelemetry_0_14_pkg" = [ "dep:tracing-opentelemetry_0_14_pkg" ];
+          "tracing-opentelemetry_0_16_pkg" = [ "dep:tracing-opentelemetry_0_16_pkg" ];
+          "tracing-opentelemetry_0_17_pkg" = [ "dep:tracing-opentelemetry_0_17_pkg" ];
+          "tracing-opentelemetry_0_18_pkg" = [ "dep:tracing-opentelemetry_0_18_pkg" ];
+          "tracing-opentelemetry_0_19_pkg" = [ "dep:tracing-opentelemetry_0_19_pkg" ];
+          "tracing-opentelemetry_0_20_pkg" = [ "dep:tracing-opentelemetry_0_20_pkg" ];
+          "tracing-opentelemetry_0_22_pkg" = [ "dep:tracing-opentelemetry_0_22_pkg" ];
+          "tracing-opentelemetry_0_23_pkg" = [ "dep:tracing-opentelemetry_0_23_pkg" ];
+        };
+        resolvedDefaultFeatures = [ "opentelemetry_0_22" "opentelemetry_0_22_pkg" "tracing-opentelemetry_0_23_pkg" ];
       };
       "ring" = rec {
         crateName = "ring";
@@ -11163,6 +11343,23 @@ rec {
         ];
         features = { };
         resolvedDefaultFeatures = [ "default" ];
+      };
+      "task-local-extensions" = rec {
+        crateName = "task-local-extensions";
+        version = "0.1.4";
+        edition = "2018";
+        sha256 = "1s1l0i4qzgxpjxmy3ng4fik2ki5jgngypzj06a782cyhwmk3hcms";
+        authors = [
+          "Conrad Ludgate <conrad.ludgate@truelayer.com>"
+          "Rodrigo Gryzinski <rodrigo.gryzinski@truelayer.com>"
+        ];
+        dependencies = [
+          {
+            name = "pin-utils";
+            packageId = "pin-utils";
+          }
+        ];
+
       };
       "tempfile" = rec {
         crateName = "tempfile";
@@ -14185,6 +14382,10 @@ rec {
             features = [ "rustls-tls-native-roots" "stream" ];
           }
           {
+            name = "reqwest-middleware";
+            packageId = "reqwest-middleware";
+          }
+          {
             name = "serde";
             packageId = "serde";
             features = [ "derive" ];
@@ -14267,7 +14468,7 @@ rec {
           {
             name = "tvix-tracing";
             packageId = "tvix-tracing";
-            features = [ "tonic" ];
+            features = [ "tonic" "reqwest" ];
           }
           {
             name = "url";
@@ -14362,6 +14563,12 @@ rec {
             features = [ "rt-tokio" ];
           }
           {
+            name = "reqwest-tracing";
+            packageId = "reqwest-tracing";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
+          {
             name = "thiserror";
             packageId = "thiserror";
           }
@@ -14402,11 +14609,12 @@ rec {
           }
         ];
         features = {
-          "otlp" = [ "dep:tracing-opentelemetry" "dep:opentelemetry" "dep:opentelemetry-otlp" "dep:opentelemetry_sdk" "dep:opentelemetry-http" ];
+          "otlp" = [ "dep:tracing-opentelemetry" "dep:opentelemetry" "dep:opentelemetry-otlp" "dep:opentelemetry_sdk" "dep:opentelemetry-http" "reqwest-tracing?/opentelemetry_0_22" ];
+          "reqwest" = [ "dep:reqwest-tracing" ];
           "tonic" = [ "dep:tonic" "dep:http" ];
           "tracy" = [ "dep:tracing-tracy" ];
         };
-        resolvedDefaultFeatures = [ "default" "otlp" "tonic" "tracy" ];
+        resolvedDefaultFeatures = [ "default" "otlp" "reqwest" "tonic" "tracy" ];
       };
       "typenum" = rec {
         crateName = "typenum";

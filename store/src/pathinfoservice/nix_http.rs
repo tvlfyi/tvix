@@ -31,7 +31,7 @@ use tvix_castore::{
 /// TODO: what about reading from nix-cache-info?
 pub struct NixHTTPPathInfoService<BS, DS> {
     base_url: url::Url,
-    http_client: reqwest::Client,
+    http_client: reqwest_middleware::ClientWithMiddleware,
 
     blob_service: BS,
     directory_service: DS,
@@ -45,7 +45,9 @@ impl<BS, DS> NixHTTPPathInfoService<BS, DS> {
     pub fn new(base_url: url::Url, blob_service: BS, directory_service: DS) -> Self {
         Self {
             base_url,
-            http_client: reqwest::Client::new(),
+            http_client: reqwest_middleware::ClientBuilder::new(reqwest::Client::new())
+                .with(tvix_tracing::propagate::reqwest::tracing_middleware())
+                .build(),
             blob_service,
             directory_service,
 
