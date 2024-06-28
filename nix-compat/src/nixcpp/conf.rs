@@ -4,22 +4,22 @@ use std::{fmt::Display, str::FromStr};
 /// This list is not exhaustive, feel free to add more.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct NixConfig<'a> {
-    allowed_users: Option<Vec<&'a str>>,
-    auto_optimise_store: Option<bool>,
-    cores: Option<u64>,
-    max_jobs: Option<u64>,
-    require_sigs: Option<bool>,
-    sandbox: Option<SandboxSetting>,
-    sandbox_fallback: Option<bool>,
-    substituters: Option<Vec<&'a str>>,
-    system_features: Option<Vec<&'a str>>,
-    trusted_public_keys: Option<Vec<crate::narinfo::PubKey>>,
-    trusted_substituters: Option<Vec<&'a str>>,
-    trusted_users: Option<Vec<&'a str>>,
-    extra_platforms: Option<Vec<&'a str>>,
-    extra_sandbox_paths: Option<Vec<&'a str>>,
-    experimental_features: Option<Vec<&'a str>>,
-    builders_use_substitutes: Option<bool>,
+    pub allowed_users: Option<Vec<&'a str>>,
+    pub auto_optimise_store: Option<bool>,
+    pub cores: Option<u64>,
+    pub max_jobs: Option<u64>,
+    pub require_sigs: Option<bool>,
+    pub sandbox: Option<SandboxSetting>,
+    pub sandbox_fallback: Option<bool>,
+    pub substituters: Option<Vec<&'a str>>,
+    pub system_features: Option<Vec<&'a str>>,
+    pub trusted_public_keys: Option<Vec<crate::narinfo::PubKey>>,
+    pub trusted_substituters: Option<Vec<&'a str>>,
+    pub trusted_users: Option<Vec<&'a str>>,
+    pub extra_platforms: Option<Vec<&'a str>>,
+    pub extra_sandbox_paths: Option<Vec<&'a str>>,
+    pub experimental_features: Option<Vec<&'a str>>,
+    pub builders_use_substitutes: Option<bool>,
 }
 
 impl<'a> NixConfig<'a> {
