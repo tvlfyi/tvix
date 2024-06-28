@@ -11,7 +11,7 @@ use super::Signature;
 /// This represents a ed25519 public key and "name".
 /// These are normally passed in the `trusted-public-keys` Nix config option,
 /// and consist of a name and base64-encoded ed25519 pubkey, separated by a `:`.
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PubKey {
     name: String,
     verifying_key: VerifyingKey,
