@@ -75,10 +75,13 @@ pub async fn from_addr(uri: &str) -> Result<Box<dyn DirectoryService>, crate::Er
             // parse it back as url, as Url::set_scheme() rejects some of the transitions we want to do.
             let trimmed_url = {
                 let s = url.to_string();
-                Url::parse(s.strip_prefix("objectstore+").unwrap()).unwrap()
+                let mut url = Url::parse(s.strip_prefix("objectstore+").unwrap()).unwrap();
+                // trim the query pairs, they might contain credentials or local settings we don't want to send as-is.
+                url.set_query(None);
+                url
             };
             Box::new(
-                ObjectStoreDirectoryService::parse_url(&trimmed_url)
+                ObjectStoreDirectoryService::parse_url_opts(&trimmed_url, url.query_pairs())
                     .map_err(|e| Error::StorageError(e.to_string()))?,
             )
         }
