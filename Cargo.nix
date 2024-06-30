@@ -2745,9 +2745,9 @@ rec {
       };
       "data-encoding" = rec {
         crateName = "data-encoding";
-        version = "2.5.0";
+        version = "2.6.0";
         edition = "2018";
-        sha256 = "1rcbnwfmfxhlshzbn3r7srm3azqha3mn33yxyqxkzz2wpqcjm5ky";
+        sha256 = "1qnn68n4vragxaxlkqcb1r28d3hhj43wch67lm4rpxlw89wnjmp8";
         authors = [
           "Julien Cretin <git@ia0.eu>"
         ];

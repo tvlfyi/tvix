@@ -12,7 +12,7 @@ bstr = "1.6.0"
 bytes = "1.4.0"
 clap = { version = "4.0", features = ["derive", "env"] }
 count-write = "0.1.0"
-data-encoding = "2.3.3"
+data-encoding = "2.6.0"
 futures = "0.3.30"
 lazy_static = "1.4.0"
 nix-compat = { path = "../nix-compat", features = ["async"] }

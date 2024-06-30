@@ -10,7 +10,7 @@ members = ["."]
 [dependencies]
 aws_lambda_events = { version = "0.11.1", default-features = false, features = ["lambda_function_urls"] }
 bytes = "1.5.0"
-data-encoding = "2.4.0"
+data-encoding = "2.6.0"
 futures = { version = "0.3.30", default-features = false, features = ["std"] }
 httparse = "1.8.0"
 hyper = { version = "0.14.27", default-features = false }
