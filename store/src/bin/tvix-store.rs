@@ -16,6 +16,7 @@ use tracing::{info, info_span, instrument, Level, Span};
 use tracing_indicatif::span_ext::IndicatifSpanExt as _;
 use tvix_castore::import::fs::ingest_path;
 use tvix_store::nar::NarCalculationService;
+use tvix_store::pathinfoservice::CachePathInfoService;
 use tvix_store::proto::NarInfo;
 use tvix_store::proto::PathInfo;
 
@@ -83,6 +84,12 @@ enum Commands {
 
         #[arg(long, env, default_value = "sled:///var/lib/tvix-store/pathinfo.sled")]
         path_info_service_addr: String,
+
+        /// URL to a PathInfoService that's considered "remote".
+        /// If set, the other one is considered "local", and a "cache" for the
+        /// "remote" one.
+        #[arg(long, env)]
+        remote_path_info_service_addr: Option<String>,
     },
     /// Imports a list of paths into the store, print the store path for each of them.
     Import {
@@ -200,6 +207,7 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             blob_service_addr,
             directory_service_addr,
             path_info_service_addr,
+            remote_path_info_service_addr,
         } => {
             // initialize stores
             let (blob_service, directory_service, path_info_service, nar_calculation_service) =
@@ -209,6 +217,24 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                     path_info_service_addr,
                 )
                 .await?;
+
+            // if remote_path_info_service_addr has been specified,
+            // update path_info_service to point to a cache combining the two.
+            let path_info_service = if let Some(addr) = remote_path_info_service_addr {
+                let remote_path_info_service = tvix_store::pathinfoservice::from_addr(
+                    &addr,
+                    blob_service.clone(),
+                    directory_service.clone(),
+                )
+                .await?;
+
+                let path_info_service =
+                    CachePathInfoService::new(path_info_service, remote_path_info_service);
+
+                Box::new(path_info_service) as Box<dyn PathInfoService>
+            } else {
+                path_info_service
+            };
 
             let mut server = Server::builder().layer(
                 ServiceBuilder::new()
