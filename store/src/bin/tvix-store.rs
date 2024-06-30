@@ -9,9 +9,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio_listener::Listener;
-use tokio_listener::SystemOptions;
-use tokio_listener::UserOptions;
 use tonic::transport::Server;
 use tower::ServiceBuilder;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
@@ -66,8 +63,9 @@ struct Cli {
 enum Commands {
     /// Runs the tvix-store daemon.
     Daemon {
-        #[arg(long, short = 'l')]
-        listen_address: Option<String>,
+        /// The address to listen on.
+        #[clap(flatten)]
+        listen_args: tokio_listener::ListenerAddressLFlag,
 
         #[arg(
             long,
@@ -198,7 +196,7 @@ fn default_threads() -> usize {
 async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     match cli.command {
         Commands::Daemon {
-            listen_address,
+            listen_args,
             blob_service_addr,
             directory_service_addr,
             path_info_service_addr,
@@ -211,11 +209,6 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                     path_info_service_addr,
                 )
                 .await?;
-
-            let listen_address = listen_address
-                .unwrap_or_else(|| "[::]:8000".to_string())
-                .parse()
-                .unwrap();
 
             let mut server = Server::builder().layer(
                 ServiceBuilder::new()
@@ -251,14 +244,20 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 router = router.add_service(reflection_svc);
             }
 
-            info!(listen_address=%listen_address, "starting daemon");
+            let listen_address = &listen_args.listen_address.unwrap_or_else(|| {
+                "[::]:8000"
+                    .parse()
+                    .expect("invalid fallback listen address")
+            });
 
-            let listener = Listener::bind(
-                &listen_address,
-                &SystemOptions::default(),
-                &UserOptions::default(),
+            let listener = tokio_listener::Listener::bind(
+                listen_address,
+                &Default::default(),
+                &listen_args.listener_options,
             )
             .await?;
+
+            info!(listen_address=%listen_address, "starting daemon");
 
             router.serve_with_incoming(listener).await?;
         }

@@ -3831,6 +3831,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4134661e12ec11c6276be73544a43144a357b08dfab5c41fd226e15b5bc9a6b2"
 dependencies = [
+ "clap",
  "document-features",
  "futures-core",
  "futures-util",
