@@ -40,9 +40,7 @@ petgraph = "0.6.4"
 
 [dependencies.bigtable_rs]
 optional = true
-# https://github.com/liufuyang/bigtable_rs/pull/72
-git = "https://github.com/flokli/bigtable_rs"
-rev = "0af404741dfc40eb9fa99cf4d4140a09c5c20df7"
+version = "0.2.10"
 
 [dependencies.fuse-backend-rs]
 optional = true

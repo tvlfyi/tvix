@@ -1283,14 +1283,9 @@ rec {
       };
       "bigtable_rs" = rec {
         crateName = "bigtable_rs";
-        version = "0.2.9";
+        version = "0.2.10";
         edition = "2021";
-        workspace_member = null;
-        src = pkgs.fetchgit {
-          url = "https://github.com/flokli/bigtable_rs";
-          rev = "0af404741dfc40eb9fa99cf4d4140a09c5c20df7";
-          sha256 = "1njjam1lx2xlnm7a41lga8601vmjgqz0fvc77x24gd04pc7avxll";
-        };
+        sha256 = "0wzcx254qlzy64306mg3ynp1izvn0wdii2gyn6raz0harl5bmk0j";
         authors = [
           "Fuyang Liu <liufuyang@users.noreply.github.com>"
         ];

@@ -377,8 +377,9 @@ checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 
 [[package]]
 name = "bigtable_rs"
-version = "0.2.9"
-source = "git+https://github.com/flokli/bigtable_rs?rev=0af404741dfc40eb9fa99cf4d4140a09c5c20df7#0af404741dfc40eb9fa99cf4d4140a09c5c20df7"
+version = "0.2.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12ccba0acd0a82afb2b1fe89181b0776ff18aef5e355030631fe534c8ae8ec73"
 dependencies = [
  "gcp_auth",
  "http",
