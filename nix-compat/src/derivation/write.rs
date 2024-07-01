@@ -32,13 +32,6 @@ pub const QUOTE: char = '"';
 /// the context a lot.
 pub(crate) trait AtermWriteable {
     fn aterm_write(&self, writer: &mut impl Write) -> std::io::Result<()>;
-
-    fn aterm_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::new();
-        self.aterm_write(&mut bytes)
-            .expect("unexpected write errors to Vec");
-        bytes
-    }
 }
 
 impl AtermWriteable for StorePathRef<'_> {

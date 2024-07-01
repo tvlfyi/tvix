@@ -347,9 +347,9 @@ pub(crate) mod derivation_builtins {
                             input_context.mimic(&val_str);
 
                             if arg_name == "builder" {
-                                drv.builder = val_str.to_str()?.to_owned();
+                                val_str.to_str()?.clone_into(&mut drv.builder);
                             } else {
-                                drv.system = val_str.to_str()?.to_owned();
+                                val_str.to_str()?.clone_into(&mut drv.system);
                             }
 
                             // Either populate drv.environment or structured_attrs.

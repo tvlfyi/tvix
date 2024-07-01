@@ -33,12 +33,9 @@ const LEN_SIZE: usize = 8;
 ///
 /// This buffers the entire payload into memory,
 /// a streaming version is available at [crate::wire::bytes::BytesReader].
-pub async fn read_bytes<R: ?Sized>(
-    r: &mut R,
-    allowed_size: RangeInclusive<usize>,
-) -> io::Result<Vec<u8>>
+pub async fn read_bytes<R>(r: &mut R, allowed_size: RangeInclusive<usize>) -> io::Result<Vec<u8>>
 where
-    R: AsyncReadExt + Unpin,
+    R: AsyncReadExt + Unpin + ?Sized,
 {
     // read the length field
     let len = r.read_u64_le().await?;
@@ -82,13 +79,13 @@ where
     Ok(buf)
 }
 
-pub(crate) async fn read_bytes_buf<'a, const N: usize, R: ?Sized>(
+pub(crate) async fn read_bytes_buf<'a, const N: usize, R>(
     reader: &mut R,
     buf: &'a mut [MaybeUninit<u8>; N],
     allowed_size: RangeInclusive<usize>,
 ) -> io::Result<&'a [u8]>
 where
-    R: AsyncReadExt + Unpin,
+    R: AsyncReadExt + Unpin + ?Sized,
 {
     assert_eq!(N % 8, 0);
     assert!(*allowed_size.end() <= N);
