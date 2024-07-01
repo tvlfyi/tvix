@@ -23,3 +23,4 @@ after = ["links"] # ensure `{{#include}}` also gets processed
 
 [output.html]
 additional-css = ["./mdbook-admonish.css", "./mdbook-extra.css"]
+additional-js = ["./mdbook-extra.js"]

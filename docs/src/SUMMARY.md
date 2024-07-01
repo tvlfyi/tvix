@@ -1,6 +1,8 @@
 # Summary
 
 # Welcome
+* [Introduction](./introduction.md)
+* [Community](./community.md)
 * [Getting Started](./getting-started.md)
 
 # Contributing
