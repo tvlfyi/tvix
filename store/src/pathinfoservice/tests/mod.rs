@@ -2,6 +2,7 @@
 //! We use [rstest] and [rstest_reuse] to provide all services we want to test
 //! against, and then apply this template to all test functions.
 
+use futures::TryStreamExt;
 use rstest::*;
 use rstest_reuse::{self, *};
 
@@ -68,5 +69,12 @@ async fn put_get(svc: impl PathInfoService) {
     // get it back
     let resp = svc.get(DUMMY_PATH_DIGEST).await.expect("must succeed");
 
-    assert_eq!(Some(path_info), resp);
+    assert_eq!(Some(path_info.clone()), resp);
+
+    // Ensure the listing endpoint works, and returns the same path_info.
+    // FUTUREWORK: split this, some impls might (rightfully) not support listing
+    let pathinfos: Vec<PathInfo> = svc.list().try_collect().await.expect("must succeed");
+
+    // We should get a single pathinfo back, the one we inserted.
+    assert_eq!(vec![path_info], pathinfos);
 }
