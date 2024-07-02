@@ -398,7 +398,9 @@ impl PathInfoService for BigtablePathInfoService {
                     .validate()
                     .map_err(|e| Error::StorageError(format!("invalid PathInfo: {}", e)))?;
 
-                if store_path.digest().as_slice() != row_key.as_slice() {
+                let exp_path_info_key = derive_pathinfo_key(store_path.digest());
+
+                if exp_path_info_key.as_bytes() != row_key.as_slice() {
                     Err(Error::StorageError("PathInfo has unexpected digest".into()))?
                 }
 
