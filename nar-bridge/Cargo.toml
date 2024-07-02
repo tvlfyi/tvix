@@ -5,6 +5,8 @@ edition = "2021"
 
 [dependencies]
 axum = { version = "0.7.5", features = ["http2"] }
+tower = "0.4.13"
+tower-http = { version = "0.5", features = ["trace"] }
 bytes = "1.4.0"
 clap = { version = "4.0", features = ["derive", "env"] }
 data-encoding = "2.3.3"
@@ -19,7 +21,7 @@ tokio-util = { version = "0.7.9", features = ["io", "io-util", "compat"] }
 tonic = { version = "0.11.0", features = ["tls", "tls-roots"] }
 tvix-castore = { path = "../castore" }
 tvix-store = { path = "../store" }
-tvix-tracing = { path = "../tracing", features = ["tonic"] }
+tvix-tracing = { path = "../tracing", features = ["tonic", "axum"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
 url = "2.4.0"
