@@ -25,18 +25,6 @@ sure noone is working on this, or has some specific design in mind already.
    with a different level of `--strict`, but the toplevel doc-comment suggests
    its generic?
 
-### crate2nix for WASM (@kranzes)
-Most of Tvix is living inside a `//tvix` cargo workspace, and we use `crate2nix`
-as a build system, to get crate-level build granularity (and caching), keeping
-compile times somewhat manageable.
-
-Thanks to the recent crate2nix fixes, we can now use it to build WASM.
-We should migrate `//web/tvixbolt` from `rustPlatform.buildRustPackage` to
-`crate2nix`.
-An initial cl/11821 to move it to the `//tvix` workspace got some pushback, we
-should see if it's possible to keep it in a separate directory and still refer
-to the (cleaned) sources described in `tvix/default.nix`.
-
 ## Perf
  - String Contexts currently do a lot of indirections (edef)
    (NixString -> NixStringInner -> HashSet[element] -> NixContextElement -> String -> data)
