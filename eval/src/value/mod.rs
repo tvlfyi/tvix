@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use bstr::{BString, ByteVec};
+use codemap::Span;
 use lexical_core::format::CXX_LITERAL;
 use serde::Deserialize;
 
@@ -23,7 +24,6 @@ mod thunk;
 
 use crate::errors::{CatchableErrorKind, ErrorKind};
 use crate::opcode::StackIdx;
-use crate::spans::LightSpan;
 use crate::vm::generators::{self, GenCo};
 use crate::AddContext;
 pub use attrs::NixAttrs;
@@ -224,7 +224,7 @@ impl Value {
     /// their contents, too.
     ///
     /// This is a generator function.
-    pub(super) async fn deep_force(self, co: GenCo, span: LightSpan) -> Result<Value, ErrorKind> {
+    pub(super) async fn deep_force(self, co: GenCo, span: Span) -> Result<Value, ErrorKind> {
         if let Some(v) = Self::deep_force_(self.clone(), co, span).await? {
             Ok(v)
         } else {
@@ -233,11 +233,7 @@ impl Value {
     }
 
     /// Returns Some(v) or None to indicate the returned value is myself
-    async fn deep_force_(
-        myself: Value,
-        co: GenCo,
-        span: LightSpan,
-    ) -> Result<Option<Value>, ErrorKind> {
+    async fn deep_force_(myself: Value, co: GenCo, span: Span) -> Result<Option<Value>, ErrorKind> {
         // This is a stack of values which still remain to be forced.
         let mut vals = vec![myself];
 
@@ -256,7 +252,7 @@ impl Value {
                 if !thunk_set.insert(t) {
                     continue;
                 }
-                Thunk::force_(t.clone(), &co, span.clone()).await?
+                Thunk::force_(t.clone(), &co, span).await?
             } else {
                 v
             };
@@ -307,7 +303,7 @@ impl Value {
         self,
         co: GenCo,
         kind: CoercionKind,
-        span: LightSpan,
+        span: Span,
     ) -> Result<Value, ErrorKind> {
         self.coerce_to_string_(&co, kind, span).await
     }
@@ -318,7 +314,7 @@ impl Value {
         self,
         co: &GenCo,
         kind: CoercionKind,
-        span: LightSpan,
+        span: Span,
     ) -> Result<Value, ErrorKind> {
         let mut result = BString::default();
         let mut vals = vec![self];
@@ -331,7 +327,7 @@ impl Value {
 
         loop {
             let value = if let Some(v) = vals.pop() {
-                v.force(co, span.clone()).await?
+                v.force(co, span).await?
             } else {
                 return Ok(Value::String(NixString::new_context_from(context, result)));
             };
@@ -377,7 +373,7 @@ impl Value {
                 // `__toString` is preferred.
                 (Value::Attrs(attrs), kind) => {
                     if let Some(to_string) = attrs.select("__toString") {
-                        let callable = to_string.clone().force(co, span.clone()).await?;
+                        let callable = to_string.clone().force(co, span).await?;
 
                         // Leave the attribute set on the stack as an argument
                         // to the function call.
@@ -467,7 +463,7 @@ impl Value {
         other: Value,
         co: GenCo,
         ptr_eq: PointerEquality,
-        span: LightSpan,
+        span: Span,
     ) -> Result<Value, ErrorKind> {
         self.nix_eq(other, &co, ptr_eq, span).await
     }
@@ -487,7 +483,7 @@ impl Value {
         other: Value,
         co: &GenCo,
         ptr_eq: PointerEquality,
-        span: LightSpan,
+        span: Span,
     ) -> Result<Value, ErrorKind> {
         // this is a stack of ((v1,v2),peq) triples to be compared;
         // after each triple is popped off of the stack, v1 is
@@ -513,13 +509,13 @@ impl Value {
                         }
                     };
 
-                    Thunk::force_(thunk, co, span.clone()).await?
+                    Thunk::force_(thunk, co, span).await?
                 }
 
                 _ => a,
             };
 
-            let b = b.force(co, span.clone()).await?;
+            let b = b.force(co, span).await?;
 
             debug_assert!(!matches!(a, Value::Thunk(_)));
             debug_assert!(!matches!(b, Value::Thunk(_)));
@@ -568,11 +564,11 @@ impl Value {
                     #[allow(clippy::single_match)] // might need more match arms later
                     match (a1.select("type"), a2.select("type")) {
                         (Some(v1), Some(v2)) => {
-                            let s1 = v1.clone().force(co, span.clone()).await?;
+                            let s1 = v1.clone().force(co, span).await?;
                             if s1.is_catchable() {
                                 return Ok(s1);
                             }
-                            let s2 = v2.clone().force(co, span.clone()).await?;
+                            let s2 = v2.clone().force(co, span).await?;
                             if s2.is_catchable() {
                                 return Ok(s2);
                             }
@@ -593,8 +589,8 @@ impl Value {
                                         .context("comparing derivations")?
                                         .clone();
 
-                                    let out1 = out1.clone().force(co, span.clone()).await?;
-                                    let out2 = out2.clone().force(co, span.clone()).await?;
+                                    let out1 = out1.clone().force(co, span).await?;
+                                    let out2 = out2.clone().force(co, span).await?;
 
                                     if out1.is_catchable() {
                                         return Ok(out1);
@@ -745,7 +741,7 @@ impl Value {
         self,
         other: Self,
         co: GenCo,
-        span: LightSpan,
+        span: Span,
     ) -> Result<Result<Ordering, CatchableErrorKind>, ErrorKind> {
         Self::nix_cmp_ordering_(self, other, co, span).await
     }
@@ -754,7 +750,7 @@ impl Value {
         myself: Self,
         other: Self,
         co: GenCo,
-        span: LightSpan,
+        span: Span,
     ) -> Result<Result<Ordering, CatchableErrorKind>, ErrorKind> {
         // this is a stack of ((v1,v2),peq) triples to be compared;
         // after each triple is popped off of the stack, v1 is
@@ -770,14 +766,14 @@ impl Value {
             };
             if ptr_eq == PointerEquality::AllowAll {
                 if a.clone()
-                    .nix_eq(b.clone(), &co, PointerEquality::AllowAll, span.clone())
+                    .nix_eq(b.clone(), &co, PointerEquality::AllowAll, span)
                     .await?
                     .as_bool()?
                 {
                     continue;
                 }
-                a = a.force(&co, span.clone()).await?;
-                b = b.force(&co, span.clone()).await?;
+                a = a.force(&co, span).await?;
+                b = b.force(&co, span).await?;
             }
             let result = match (a, b) {
                 (Value::Catchable(c), _) => return Ok(Err(*c)),
@@ -820,7 +816,7 @@ impl Value {
     }
 
     // TODO(amjoseph): de-asyncify this (when called directly by the VM)
-    pub async fn force(self, co: &GenCo, span: LightSpan) -> Result<Value, ErrorKind> {
+    pub async fn force(self, co: &GenCo, span: Span) -> Result<Value, ErrorKind> {
         if let Value::Thunk(thunk) = self {
             // TODO(amjoseph): use #[tailcall::mutual]
             return Thunk::force_(thunk, co, span).await;
@@ -829,7 +825,7 @@ impl Value {
     }
 
     // need two flavors, because async
-    pub async fn force_owned_genco(self, co: GenCo, span: LightSpan) -> Result<Value, ErrorKind> {
+    pub async fn force_owned_genco(self, co: GenCo, span: Span) -> Result<Value, ErrorKind> {
         if let Value::Thunk(thunk) = self {
             // TODO(amjoseph): use #[tailcall::mutual]
             return Thunk::force_(thunk, &co, span).await;

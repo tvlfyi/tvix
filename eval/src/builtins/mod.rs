@@ -525,11 +525,7 @@ mod pure_builtins {
         let span = generators::request_span(&co).await;
 
         for i in 0..len {
-            let val = Value::Thunk(Thunk::new_suspended_call(
-                generator.clone(),
-                i.into(),
-                span.clone(),
-            ));
+            let val = Value::Thunk(Thunk::new_suspended_call(generator.clone(), i.into(), span));
             out.push_back(val);
         }
 
@@ -983,7 +979,7 @@ mod pure_builtins {
         let span = generators::request_span(&co).await;
 
         for val in list.to_list()? {
-            let result = Value::Thunk(Thunk::new_suspended_call(f.clone(), val, span.clone()));
+            let result = Value::Thunk(Thunk::new_suspended_call(f.clone(), val, span));
             out.push_back(result)
         }
 
@@ -1006,9 +1002,9 @@ mod pure_builtins {
             let result = Value::Thunk(Thunk::new_suspended_call(
                 f.clone(),
                 key.clone().into(),
-                span.clone(),
+                span,
             ));
-            let result = Value::Thunk(Thunk::new_suspended_call(result, value, span.clone()));
+            let result = Value::Thunk(Thunk::new_suspended_call(result, value, span));
 
             out.insert(key, result);
         }

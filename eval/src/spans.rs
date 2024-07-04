@@ -5,37 +5,6 @@ use codemap::{File, Span};
 use rnix::ast;
 use rowan::ast::AstNode;
 
-/// Helper struct to carry information required for making a span, but
-/// without actually performing the (expensive) span lookup.
-///
-/// This is used for tracking spans across thunk boundaries, as they
-/// are frequently instantiated but spans are only used in error or
-/// warning cases.
-#[derive(Clone, Debug)]
-pub enum LightSpan {
-    /// The span has already been computed and can just be used right
-    /// away.
-    Actual { span: Span },
-}
-
-impl LightSpan {
-    pub fn new_actual(span: Span) -> Self {
-        Self::Actual { span }
-    }
-
-    pub fn span(&self) -> Span {
-        match self {
-            LightSpan::Actual { span } => *span,
-        }
-    }
-}
-
-impl From<Span> for LightSpan {
-    fn from(span: Span) -> Self {
-        LightSpan::Actual { span }
-    }
-}
-
 /// Trait implemented by all types from which we can retrieve a span.
 pub trait ToSpan {
     fn span_for(&self, file: &File) -> Span;

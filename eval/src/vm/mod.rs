@@ -28,7 +28,6 @@ use crate::{
     nix_search_path::NixSearchPath,
     observer::RuntimeObserver,
     opcode::{CodeIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
-    spans::LightSpan,
     upvalues::Upvalues,
     value::{
         Builtin, BuiltinResult, Closure, CoercionKind, Lambda, NixAttrs, NixContext, NixList,
@@ -51,7 +50,7 @@ trait GetSpan {
 
 impl<'o, IO> GetSpan for &VM<'o, IO> {
     fn get_span(self) -> Span {
-        self.reasonable_span.span()
+        self.reasonable_span
     }
 }
 
@@ -61,9 +60,9 @@ impl GetSpan for &CallFrame {
     }
 }
 
-impl GetSpan for &LightSpan {
+impl GetSpan for &Span {
     fn get_span(self) -> Span {
-        self.span()
+        *self
     }
 }
 
@@ -94,7 +93,7 @@ impl<T, S: GetSpan, IO> WithSpan<T, S, IO> for Result<T, ErrorKind> {
                         Frame::CallFrame { span, .. } => {
                             error = Error::new(
                                 ErrorKind::BytecodeError(Box::new(error)),
-                                span.span(),
+                                *span,
                                 vm.source.clone(),
                             );
                         }
@@ -104,7 +103,7 @@ impl<T, S: GetSpan, IO> WithSpan<T, S, IO> for Result<T, ErrorKind> {
                                     err: Box::new(error),
                                     gen_type: name,
                                 },
-                                span.span(),
+                                *span,
                                 vm.source.clone(),
                             );
                         }
@@ -163,13 +162,6 @@ impl CallFrame {
     pub fn current_span(&self) -> Span {
         self.chunk().get_span(self.ip - 1)
     }
-
-    /// Returns the information needed to calculate the current span,
-    /// but without performing that calculation.
-    // TODO: why pub?
-    pub(crate) fn current_light_span(&self) -> LightSpan {
-        LightSpan::new_actual(self.current_span())
-    }
 }
 
 /// A frame represents an execution state of the VM. The VM has a stack of
@@ -187,7 +179,7 @@ enum Frame {
         call_frame: CallFrame,
 
         /// Span from which the call frame was launched.
-        span: LightSpan,
+        span: Span,
     },
 
     /// Generator represents a frame that can yield further
@@ -201,7 +193,7 @@ enum Frame {
         name: &'static str,
 
         /// Span from which the generator was launched.
-        span: LightSpan,
+        span: Span,
 
         state: GeneratorState,
 
@@ -211,9 +203,9 @@ enum Frame {
 }
 
 impl Frame {
-    pub fn span(&self) -> LightSpan {
+    pub fn span(&self) -> Span {
         match self {
-            Frame::CallFrame { span, .. } | Frame::Generator { span, .. } => span.clone(),
+            Frame::CallFrame { span, .. } | Frame::Generator { span, .. } => *span,
         }
     }
 }
@@ -309,7 +301,7 @@ struct VM<'o, IO> {
     ///
     /// The VM should update this whenever control flow changes take place (i.e.
     /// entering or exiting a frame to yield control somewhere).
-    reasonable_span: LightSpan,
+    reasonable_span: Span,
 
     /// This field is responsible for handling `builtins.tryEval`. When that
     /// builtin is encountered, it sends a special message to the VM which
@@ -343,7 +335,7 @@ where
         observer: &'o mut dyn RuntimeObserver,
         source: SourceCode,
         globals: Rc<GlobalsMap>,
-        reasonable_span: LightSpan,
+        reasonable_span: Span,
     ) -> Self {
         Self {
             nix_search_path,
@@ -362,7 +354,7 @@ where
     }
 
     /// Push a call frame onto the frame stack.
-    fn push_call_frame(&mut self, span: LightSpan, call_frame: CallFrame) {
+    fn push_call_frame(&mut self, span: Span, call_frame: CallFrame) {
         self.frames.push(Frame::CallFrame { span, call_frame })
     }
 
@@ -444,7 +436,7 @@ where
     ///
     /// The return value indicates whether the bytecode has been executed to
     /// completion, or whether it has been suspended in favour of a generator.
-    fn execute_bytecode(&mut self, span: LightSpan, mut frame: CallFrame) -> EvalResult<bool> {
+    fn execute_bytecode(&mut self, span: Span, mut frame: CallFrame) -> EvalResult<bool> {
         loop {
             let op = frame.inc_ip();
             self.observer.observe_execute_op(frame.ip, &op, &self.stack);
@@ -464,7 +456,7 @@ where
                         );
                         Thunk::new_closure(blueprint)
                     } else {
-                        Thunk::new_suspended(blueprint, frame.current_light_span())
+                        Thunk::new_suspended(blueprint, frame.current_span())
                     };
                     let upvalues = thunk.upvalues_mut();
                     self.stack.push(Value::Thunk(thunk.clone()));
@@ -484,10 +476,10 @@ where
                             _ => unreachable!(),
                         };
 
-                        let gen_span = frame.current_light_span();
+                        let gen_span = frame.current_span();
 
                         self.push_call_frame(span, frame);
-                        self.enqueue_generator("force", gen_span.clone(), |co| {
+                        self.enqueue_generator("force", gen_span, |co| {
                             Thunk::force(thunk, co, gen_span)
                         });
 
@@ -515,7 +507,7 @@ where
 
                 OpCode::OpCall => {
                     let callable = self.stack_pop();
-                    self.call_value(frame.current_light_span(), Some((span, frame)), callable)?;
+                    self.call_value(frame.current_span(), Some((span, frame)), callable)?;
 
                     // exit this loop and let the outer loop enter the new call
                     return Ok(true);
@@ -640,9 +632,9 @@ where
 
                 OpCode::OpEqual => lifted_pop! {
                     self(b, a) => {
-                        let gen_span = frame.current_light_span();
+                        let gen_span = frame.current_span();
                         self.push_call_frame(span, frame);
-                        self.enqueue_generator("nix_eq", gen_span.clone(), |co| {
+                        self.enqueue_generator("nix_eq", gen_span, |co| {
                             a.nix_eq_owned_genco(b, co, PointerEquality::ForbidAll, gen_span)
                         });
                         return Ok(false);
@@ -739,7 +731,7 @@ where
                     let ident = self.stack_pop().to_str().with_span(&frame, self)?;
 
                     // Re-enqueue this frame.
-                    let op_span = frame.current_light_span();
+                    let op_span = frame.current_span();
                     self.push_call_frame(span, frame);
 
                     // Construct a generator frame doing the lookup in constant
@@ -770,10 +762,10 @@ where
 
                 OpCode::OpCoerceToString(kind) => {
                     let value = self.stack_pop();
-                    let gen_span = frame.current_light_span();
+                    let gen_span = frame.current_span();
                     self.push_call_frame(span, frame);
 
-                    self.enqueue_generator("coerce_to_string", gen_span.clone(), |co| {
+                    self.enqueue_generator("coerce_to_string", gen_span, |co| {
                         value.coerce_to_string(co, kind, gen_span)
                     });
 
@@ -808,7 +800,7 @@ where
 
                 OpCode::OpAdd => lifted_pop! {
                     self(b, a) => {
-                        let gen_span = frame.current_light_span();
+                        let gen_span = frame.current_span();
                         self.push_call_frame(span, frame);
 
                         // OpAdd can add not just numbers, but also string-like
@@ -1004,12 +996,6 @@ where
         Ok(())
     }
 
-    /// Returns a reasonable light span for the current situation that the VM is
-    /// in.
-    pub fn reasonable_light_span(&self) -> LightSpan {
-        self.reasonable_span.clone()
-    }
-
     /// Apply an argument from the stack to a builtin, and attempt to call it.
     ///
     /// All calls are tail-calls in Tvix, as every function application is a
@@ -1017,7 +1003,7 @@ where
     ///
     /// Due to this, once control flow exits this function, the generator will
     /// automatically be run by the VM.
-    fn call_builtin(&mut self, span: LightSpan, mut builtin: Builtin) -> EvalResult<()> {
+    fn call_builtin(&mut self, span: Span, mut builtin: Builtin) -> EvalResult<()> {
         let builtin_name = builtin.name();
         self.observer.observe_enter_builtin(builtin_name);
 
@@ -1041,8 +1027,8 @@ where
 
     fn call_value(
         &mut self,
-        span: LightSpan,
-        parent: Option<(LightSpan, CallFrame)>,
+        span: Span,
+        parent: Option<(Span, CallFrame)>,
         callable: Value,
     ) -> EvalResult<()> {
         match callable {
@@ -1098,7 +1084,7 @@ where
                 Ok(())
             }
 
-            v => Err(ErrorKind::NotCallable(v.type_of())).with_span(&span, self),
+            v => Err(ErrorKind::NotCallable(v.type_of())).with_span(span, self),
         }
     }
 
@@ -1345,17 +1331,17 @@ where
         observer,
         source,
         globals,
-        root_span.into(),
+        root_span,
     );
 
     // When evaluating strictly, synthesise a frame that will instruct
     // the VM to deep-force the final value before returning it.
     if strict {
-        vm.enqueue_generator("final_deep_force", root_span.into(), final_deep_force);
+        vm.enqueue_generator("final_deep_force", root_span, final_deep_force);
     }
 
     vm.frames.push(Frame::CallFrame {
-        span: root_span.into(),
+        span: root_span,
         call_frame: CallFrame {
             lambda,
             upvalues: Rc::new(Upvalues::with_capacity(0)),

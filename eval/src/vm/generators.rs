@@ -81,7 +81,7 @@ pub enum VMRequest {
     EnterLambda {
         lambda: Rc<Lambda>,
         upvalues: Rc<Upvalues>,
-        light_span: LightSpan,
+        span: Span,
     },
 
     /// Emit a runtime warning (already containing a span) through the VM.
@@ -198,7 +198,7 @@ pub enum VMResponse {
     Directory(Vec<(bytes::Bytes, FileType)>),
 
     /// VM response with a span to use at the current point.
-    Span(LightSpan),
+    Span(Span),
 
     /// [std::io::Reader] produced by the VM in response to some IO operation.
     Reader(Box<dyn std::io::Read>),
@@ -234,7 +234,7 @@ where
 {
     /// Helper function to re-enqueue the current generator while it
     /// is awaiting a value.
-    fn reenqueue_generator(&mut self, name: &'static str, span: LightSpan, generator: Generator) {
+    fn reenqueue_generator(&mut self, name: &'static str, span: Span, generator: Generator) {
         self.frames.push(Frame::Generator {
             name,
             generator,
@@ -244,7 +244,7 @@ where
     }
 
     /// Helper function to enqueue a new generator.
-    pub(super) fn enqueue_generator<F, G>(&mut self, name: &'static str, span: LightSpan, gen: G)
+    pub(super) fn enqueue_generator<F, G>(&mut self, name: &'static str, span: Span, gen: G)
     where
         F: Future<Output = Result<Value, ErrorKind>> + 'static,
         G: FnOnce(GenCo) -> F,
@@ -265,7 +265,7 @@ where
     pub(crate) fn run_generator(
         &mut self,
         name: &'static str,
-        span: LightSpan,
+        span: Span,
         frame_id: usize,
         state: GeneratorState,
         mut generator: Generator,
@@ -302,8 +302,8 @@ where
                         // this function prepares the frame stack and yields
                         // back to the outer VM loop.
                         VMRequest::ForceValue(value) => {
-                            self.reenqueue_generator(name, span.clone(), generator);
-                            self.enqueue_generator("force", span.clone(), |co| {
+                            self.reenqueue_generator(name, span, generator);
+                            self.enqueue_generator("force", span, |co| {
                                 value.force_owned_genco(co, span)
                             });
                             return Ok(false);
@@ -311,8 +311,8 @@ where
 
                         // Generator has requested a deep-force.
                         VMRequest::DeepForceValue(value) => {
-                            self.reenqueue_generator(name, span.clone(), generator);
-                            self.enqueue_generator("deep_force", span.clone(), |co| {
+                            self.reenqueue_generator(name, span, generator);
+                            self.enqueue_generator("deep_force", span, |co| {
                                 value.deep_force(co, span)
                             });
                             return Ok(false);
@@ -322,10 +322,10 @@ where
                         // Logic is similar to `ForceValue`, except with the
                         // value being taken from that stack.
                         VMRequest::WithValue(idx) => {
-                            self.reenqueue_generator(name, span.clone(), generator);
+                            self.reenqueue_generator(name, span, generator);
 
                             let value = self.stack[self.with_stack[idx]].clone();
-                            self.enqueue_generator("force", span.clone(), |co| {
+                            self.enqueue_generator("force", span, |co| {
                                 value.force_owned_genco(co, span)
                             });
 
@@ -336,13 +336,13 @@ where
                         // with-stack. Logic is same as above, except for the
                         // value being from that stack.
                         VMRequest::CapturedWithValue(idx) => {
-                            self.reenqueue_generator(name, span.clone(), generator);
+                            self.reenqueue_generator(name, span, generator);
 
                             let call_frame = self.last_call_frame()
                                 .expect("Tvix bug: generator requested captured with-value, but there is no call frame");
 
                             let value = call_frame.upvalues.with_stack().unwrap()[idx].clone();
-                            self.enqueue_generator("force", span.clone(), |co| {
+                            self.enqueue_generator("force", span, |co| {
                                 value.force_owned_genco(co, span)
                             });
 
@@ -351,23 +351,23 @@ where
 
                         VMRequest::NixEquality(values, ptr_eq) => {
                             let values = *values;
-                            self.reenqueue_generator(name, span.clone(), generator);
-                            self.enqueue_generator("nix_eq", span.clone(), |co| {
+                            self.reenqueue_generator(name, span, generator);
+                            self.enqueue_generator("nix_eq", span, |co| {
                                 values.0.nix_eq_owned_genco(values.1, co, ptr_eq, span)
                             });
                             return Ok(false);
                         }
 
                         VMRequest::StringCoerce(val, kind) => {
-                            self.reenqueue_generator(name, span.clone(), generator);
-                            self.enqueue_generator("coerce_to_string", span.clone(), |co| {
+                            self.reenqueue_generator(name, span, generator);
+                            self.enqueue_generator("coerce_to_string", span, |co| {
                                 val.coerce_to_string(co, kind, span)
                             });
                             return Ok(false);
                         }
 
                         VMRequest::Call(callable) => {
-                            self.reenqueue_generator(name, span.clone(), generator);
+                            self.reenqueue_generator(name, span, generator);
                             self.call_value(span, None, callable)?;
                             return Ok(false);
                         }
@@ -375,12 +375,12 @@ where
                         VMRequest::EnterLambda {
                             lambda,
                             upvalues,
-                            light_span,
+                            span,
                         } => {
                             self.reenqueue_generator(name, span, generator);
 
                             self.frames.push(Frame::CallFrame {
-                                span: light_span,
+                                span,
                                 call_frame: CallFrame {
                                     lambda,
                                     upvalues,
@@ -424,7 +424,7 @@ where
                                     path: Some(path),
                                     error: e.into(),
                                 })
-                                .with_span(&span, self)?;
+                                .with_span(span, self)?;
 
                             message = VMResponse::Path(imported);
                         }
@@ -438,7 +438,7 @@ where
                                     path: Some(path),
                                     error: e.into(),
                                 })
-                                .with_span(&span, self)?;
+                                .with_span(span, self)?;
 
                             message = VMResponse::Reader(reader)
                         }
@@ -453,7 +453,7 @@ where
                                     error: e.into(),
                                 })
                                 .map(Value::Bool)
-                                .with_span(&span, self)?;
+                                .with_span(span, self)?;
 
                             message = VMResponse::Value(exists);
                         }
@@ -467,31 +467,31 @@ where
                                     path: Some(path),
                                     error: e.into(),
                                 })
-                                .with_span(&span, self)?;
+                                .with_span(span, self)?;
                             message = VMResponse::Directory(dir);
                         }
 
                         VMRequest::Span => {
-                            message = VMResponse::Span(self.reasonable_light_span());
+                            message = VMResponse::Span(self.reasonable_span);
                         }
 
                         VMRequest::TryForce(value) => {
                             self.try_eval_frames.push(frame_id);
-                            self.reenqueue_generator(name, span.clone(), generator);
+                            self.reenqueue_generator(name, span, generator);
 
                             debug_assert!(
                                 self.frames.len() == frame_id + 1,
                                 "generator should be reenqueued with the same frame ID"
                             );
 
-                            self.enqueue_generator("force", span.clone(), |co| {
+                            self.enqueue_generator("force", span, |co| {
                                 value.force_owned_genco(co, span)
                             });
                             return Ok(false);
                         }
 
                         VMRequest::ToJson(value) => {
-                            self.reenqueue_generator(name, span.clone(), generator);
+                            self.reenqueue_generator(name, span, generator);
                             self.enqueue_generator("to_json", span, |co| {
                                 value.into_contextful_json_generator(co)
                             });
@@ -503,7 +503,7 @@ where
                 // Generator has completed, and its result value should
                 // be left on the stack.
                 genawaiter::GeneratorState::Complete(result) => {
-                    let value = result.with_span(&span, self)?;
+                    let value = result.with_span(span, self)?;
                     self.stack.push(value);
                     return Ok(true);
                 }
@@ -683,12 +683,12 @@ pub(crate) async fn request_enter_lambda(
     co: &GenCo,
     lambda: Rc<Lambda>,
     upvalues: Rc<Upvalues>,
-    light_span: LightSpan,
+    span: Span,
 ) -> Value {
     let msg = VMRequest::EnterLambda {
         lambda,
         upvalues,
-        light_span,
+        span,
     };
 
     match co.yield_(msg).await {
@@ -767,7 +767,7 @@ pub(crate) async fn request_read_dir(co: &GenCo, path: PathBuf) -> Vec<(bytes::B
     }
 }
 
-pub(crate) async fn request_span(co: &GenCo) -> LightSpan {
+pub(crate) async fn request_span(co: &GenCo) -> Span {
     match co.yield_(VMRequest::Span).await {
         VMResponse::Span(span) => span,
         msg => panic!(

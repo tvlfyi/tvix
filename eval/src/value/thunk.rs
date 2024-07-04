@@ -28,7 +28,6 @@ use std::{
 use crate::{
     errors::ErrorKind,
     opcode::OpCode,
-    spans::LightSpan,
     upvalues::Upvalues,
     value::Closure,
     vm::generators::{self, GenCo},
@@ -59,7 +58,7 @@ enum ThunkRepr {
     Suspended {
         lambda: Rc<Lambda>,
         upvalues: Rc<Upvalues>,
-        light_span: LightSpan,
+        span: Span,
     },
 
     /// Thunk is a suspended native computation.
@@ -69,10 +68,10 @@ enum ThunkRepr {
     /// value means that infinite recursion has occured.
     Blackhole {
         /// Span at which the thunk was first forced.
-        forced_at: LightSpan,
+        forced_at: Span,
 
         /// Span at which the thunk was originally suspended.
-        suspended_at: Option<LightSpan>,
+        suspended_at: Option<Span>,
 
         /// Span of the first instruction of the actual code inside
         /// the thunk.
@@ -143,11 +142,11 @@ impl Thunk {
         )))))
     }
 
-    pub fn new_suspended(lambda: Rc<Lambda>, light_span: LightSpan) -> Self {
+    pub fn new_suspended(lambda: Rc<Lambda>, span: Span) -> Self {
         Thunk(Rc::new(RefCell::new(ThunkRepr::Suspended {
             upvalues: Rc::new(Upvalues::with_capacity(lambda.upvalue_count)),
             lambda: lambda.clone(),
-            light_span,
+            span,
         })))
     }
 
@@ -162,9 +161,8 @@ impl Thunk {
     /// particularly useful in builtin implementations if the result of calling
     /// a function does not need to be forced immediately, because e.g. it is
     /// stored in an attribute set.
-    pub fn new_suspended_call(callee: Value, arg: Value, light_span: LightSpan) -> Self {
+    pub fn new_suspended_call(callee: Value, arg: Value, span: Span) -> Self {
         let mut lambda = Lambda::default();
-        let span = light_span.span();
 
         let arg_idx = lambda.chunk().push_constant(arg);
         let f_idx = lambda.chunk().push_constant(callee);
@@ -183,17 +181,15 @@ impl Thunk {
         Thunk(Rc::new(RefCell::new(ThunkRepr::Suspended {
             upvalues: Rc::new(Upvalues::with_capacity(0)),
             lambda: Rc::new(lambda),
-            light_span,
+            span,
         })))
     }
 
-    fn prepare_blackhole(&self, forced_at: LightSpan) -> ThunkRepr {
+    fn prepare_blackhole(&self, forced_at: Span) -> ThunkRepr {
         match &*self.0.borrow() {
-            ThunkRepr::Suspended {
-                light_span, lambda, ..
-            } => ThunkRepr::Blackhole {
+            ThunkRepr::Suspended { span, lambda, .. } => ThunkRepr::Blackhole {
                 forced_at,
-                suspended_at: Some(light_span.clone()),
+                suspended_at: Some(*span),
                 content_span: Some(lambda.chunk.first_span()),
             },
 
@@ -205,14 +201,10 @@ impl Thunk {
         }
     }
 
-    pub async fn force(myself: Thunk, co: GenCo, span: LightSpan) -> Result<Value, ErrorKind> {
+    pub async fn force(myself: Thunk, co: GenCo, span: Span) -> Result<Value, ErrorKind> {
         Self::force_(myself, &co, span).await
     }
-    pub async fn force_(
-        mut myself: Thunk,
-        co: &GenCo,
-        span: LightSpan,
-    ) -> Result<Value, ErrorKind> {
+    pub async fn force_(mut myself: Thunk, co: &GenCo, span: Span) -> Result<Value, ErrorKind> {
         // This vector of "thunks which point to the thunk-being-forced", to
         // be updated along with it, is necessary in order to write this
         // function in iterative (and later, mutual-tail-call) form.
@@ -232,7 +224,7 @@ impl Thunk {
             // Begin evaluation of this thunk by marking it as a blackhole, meaning
             // that any other forcing frame encountering this thunk before its
             // evaluation is completed detected an evaluation cycle.
-            let inner = myself.0.replace(myself.prepare_blackhole(span.clone()));
+            let inner = myself.0.replace(myself.prepare_blackhole(span));
 
             match inner {
                 // If there was already a blackhole in the thunk, this is an
@@ -243,8 +235,8 @@ impl Thunk {
                     content_span,
                 } => {
                     return Err(ErrorKind::InfiniteRecursion {
-                        first_force: forced_at.span(),
-                        suspended_at: suspended_at.map(|s| s.span()),
+                        first_force: forced_at,
+                        suspended_at,
                         content_span,
                     })
                 }
@@ -262,13 +254,12 @@ impl Thunk {
                 ThunkRepr::Suspended {
                     lambda,
                     upvalues,
-                    light_span,
+                    span,
                 } => {
                     // TODO(amjoseph): use #[tailcall::mutual] here.  This can
                     // be turned into a tailcall to vm::execute_bytecode() by
                     // passing `also_update` to it.
-                    let value =
-                        generators::request_enter_lambda(co, lambda, upvalues, light_span).await;
+                    let value = generators::request_enter_lambda(co, lambda, upvalues, span).await;
                     myself.0.replace(ThunkRepr::Evaluated(value));
                     continue;
                 }

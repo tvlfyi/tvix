@@ -29,7 +29,6 @@ use crate::chunk::Chunk;
 use crate::errors::{CatchableErrorKind, Error, ErrorKind, EvalResult};
 use crate::observer::CompilerObserver;
 use crate::opcode::{CodeIdx, ConstantIdx, Count, JumpOffset, OpCode, UpvalueIdx};
-use crate::spans::LightSpan;
 use crate::spans::ToSpan;
 use crate::value::{Closure, Formals, Lambda, NixAttrs, Thunk, Value};
 use crate::warnings::{EvalWarning, WarningKind};
@@ -1257,7 +1256,7 @@ impl Compiler<'_, '_> {
         if lambda.upvalue_count == 0 {
             self.emit_constant(
                 if is_suspended_thunk {
-                    Value::Thunk(Thunk::new_suspended(lambda, LightSpan::new_actual(span)))
+                    Value::Thunk(Thunk::new_suspended(lambda, span))
                 } else {
                     Value::Closure(Rc::new(Closure::new(lambda)))
                 },
@@ -1565,10 +1564,7 @@ fn compile_src_builtin(
             });
         }
 
-        Ok(Value::Thunk(Thunk::new_suspended(
-            result.lambda,
-            LightSpan::Actual { span: file.span },
-        )))
+        Ok(Value::Thunk(Thunk::new_suspended(result.lambda, file.span)))
     })))
 }
 

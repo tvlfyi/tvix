@@ -49,7 +49,7 @@ macro_rules! cmp_op {
                     }
                 }
 
-                let gen_span = $frame.current_light_span();
+                let gen_span = $frame.current_span();
                 $vm.push_call_frame($span, $frame);
                 $vm.enqueue_generator("compare", gen_span, |co| compare(a, b, co));
                 return Ok(false);
