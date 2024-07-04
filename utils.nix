@@ -41,4 +41,81 @@
           (lib.fileset.maybeMissing (root + "/Cargo.lock"))
         ] ++ lib.optional (extraFileset != null) extraFileset));
     };
+
+  # A function which takes a pkgs instance and returns an overriden defaultCrateOverrides with support for tvix crates.
+  # This can be used throughout the rest of the repo.
+  defaultCrateOverridesForPkgs = pkgs:
+    let
+      commonDarwinDeps = with pkgs.darwin.apple_sdk.frameworks; [
+        Security
+        SystemConfiguration
+      ];
+    in
+    pkgs.defaultCrateOverrides // {
+      nix-compat = prev: {
+        src = depot.tvix.utils.filterRustCrateSrc rec {
+          root = prev.src.origSrc;
+          extraFileset = root + "/testdata";
+        };
+      };
+      tvix-build = prev: {
+        src = depot.tvix.utils.filterRustCrateSrc rec {
+          root = prev.src.origSrc;
+          extraFileset = lib.fileset.fileFilter (f: f.hasExt "proto") root;
+        };
+        PROTO_ROOT = depot.tvix.build.protos.protos;
+        nativeBuildInputs = [ pkgs.protobuf ];
+        buildInputs = lib.optional pkgs.stdenv.isDarwin commonDarwinDeps;
+      };
+
+      tvix-castore = prev: {
+        src = depot.tvix.utils.filterRustCrateSrc rec {
+          root = prev.src.origSrc;
+          extraFileset = lib.fileset.fileFilter (f: f.hasExt "proto") root;
+        };
+        PROTO_ROOT = depot.tvix.castore.protos.protos;
+        nativeBuildInputs = [ pkgs.protobuf ];
+      };
+
+      tvix-cli = prev: {
+        src = depot.tvix.utils.filterRustCrateSrc { root = prev.src.origSrc; };
+        buildInputs = lib.optional pkgs.stdenv.isDarwin commonDarwinDeps;
+      };
+
+      tvix-store = prev: {
+        src = depot.tvix.utils.filterRustCrateSrc rec {
+          root = prev.src.origSrc;
+          extraFileset = lib.fileset.fileFilter (f: f.hasExt "proto") root;
+        };
+        PROTO_ROOT = depot.tvix.store.protos.protos;
+        nativeBuildInputs = [ pkgs.protobuf ];
+        # fuse-backend-rs uses DiskArbitration framework to handle mount/unmount on Darwin
+        buildInputs = lib.optional pkgs.stdenv.isDarwin (commonDarwinDeps ++ pkgs.darwin.apple_sdk.frameworks.DiskArbitration);
+      };
+
+      tvix-eval-builtin-macros = prev: {
+        src = depot.tvix.utils.filterRustCrateSrc { root = prev.src.origSrc; };
+      };
+
+      tvix-eval = prev: {
+        src = depot.tvix.utils.filterRustCrateSrc rec {
+          root = prev.src.origSrc;
+          extraFileset = root + "/proptest-regressions";
+        };
+      };
+
+      tvix-glue = prev: {
+        src = depot.tvix.utils.filterRustCrateSrc {
+          root = prev.src.origSrc;
+        };
+      };
+
+      tvix-serde = prev: {
+        src = depot.tvix.utils.filterRustCrateSrc { root = prev.src.origSrc; };
+      };
+
+      tvix-tracing = prev: {
+        src = depot.tvix.utils.filterRustCrateSrc { root = prev.src.origSrc; };
+      };
+    };
 }
