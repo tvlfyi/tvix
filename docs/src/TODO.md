@@ -89,12 +89,6 @@ Extend the other pages in here. Some ideas on what should be tackled:
 
 ## Features
 
-### CLI
- - `nix repl` can set variables and effectively mutates a global scope. We
-  should update the existing / add another repl that allows the same. We don't
-  want to mutate the evaluator, but should construct a new one, passing in the
-  root scope returned from the previous evaluation.
-
 ### Fetchers
 Some more fetcher-related builtins need work:
  - `fetchGit`
