@@ -36,6 +36,7 @@ mod test_utils;
 #[cfg(test)]
 mod tests;
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::str::FromStr;
@@ -56,6 +57,7 @@ pub use crate::value::{NixContext, NixContextElement};
 pub use crate::vm::generators;
 pub use crate::warnings::{EvalWarning, WarningKind};
 pub use builtin_macros;
+use smol_str::SmolStr;
 
 pub use crate::value::{Builtin, CoercionKind, NixAttrs, NixList, NixString, Value};
 
@@ -68,7 +70,7 @@ pub use crate::io::StdIO;
 ///
 /// Public fields are intended to be set by the caller. Setting all
 /// fields is optional.
-pub struct Evaluation<'co, 'ro, IO> {
+pub struct Evaluation<'co, 'ro, 'env, IO> {
     /// Source code map used for error reporting.
     source_map: SourceCode,
 
@@ -82,6 +84,9 @@ pub struct Evaluation<'co, 'ro, IO> {
     /// Set of builtins that are implemented in Nix itself and should
     /// be compiled and inserted in the builtins set.
     pub src_builtins: Vec<(&'static str, &'static str)>,
+
+    /// Top-level variables to define in the evaluation
+    pub env: Option<&'env HashMap<SmolStr, Value>>,
 
     /// Implementation of file-IO to use during evaluation, e.g. for
     /// impure builtins.
@@ -131,7 +136,7 @@ pub struct EvaluationResult {
     pub expr: Option<rnix::ast::Expr>,
 }
 
-impl<'co, 'ro, IO> Evaluation<'co, 'ro, IO>
+impl<'co, 'ro, 'env, IO> Evaluation<'co, 'ro, 'env, IO>
 where
     IO: AsRef<dyn EvalIO> + 'static,
 {
@@ -146,6 +151,7 @@ where
             io_handle,
             builtins,
             src_builtins: vec![],
+            env: None,
             strict: false,
             nix_path: None,
             compiler_observer: None,
@@ -154,7 +160,7 @@ where
     }
 }
 
-impl<'co, 'ro> Evaluation<'co, 'ro, Box<dyn EvalIO>> {
+impl<'co, 'ro, 'env> Evaluation<'co, 'ro, 'env, Box<dyn EvalIO>> {
     /// Initialize an `Evaluation`, without the import statement available, and
     /// all IO operations stubbed out.
     pub fn new_pure() -> Self {
@@ -188,7 +194,7 @@ impl<'co, 'ro> Evaluation<'co, 'ro, Box<dyn EvalIO>> {
     }
 }
 
-impl<'co, 'ro, IO> Evaluation<'co, 'ro, IO>
+impl<'co, 'ro, 'env, IO> Evaluation<'co, 'ro, 'env, IO>
 where
     IO: AsRef<dyn EvalIO> + 'static,
 {
@@ -229,6 +235,7 @@ where
             source,
             self.builtins,
             self.src_builtins,
+            self.env,
             self.enable_import,
             compiler_observer,
         );
@@ -270,6 +277,7 @@ where
             source.clone(),
             self.builtins,
             self.src_builtins,
+            self.env,
             self.enable_import,
             compiler_observer,
         ) {
@@ -341,6 +349,7 @@ fn parse_compile_internal(
     source: SourceCode,
     builtins: Vec<(&'static str, Value)>,
     src_builtins: Vec<(&'static str, &'static str)>,
+    env: Option<&HashMap<SmolStr, Value>>,
     enable_import: bool,
     compiler_observer: &mut dyn CompilerObserver,
 ) -> Option<(Rc<Lambda>, Rc<GlobalsMap>)> {
@@ -368,6 +377,7 @@ fn parse_compile_internal(
         result.expr.as_ref().unwrap(),
         location,
         builtins,
+        env,
         &source,
         &file,
         compiler_observer,

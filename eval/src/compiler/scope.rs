@@ -38,7 +38,7 @@ pub struct Local {
     name: LocalName,
 
     /// Source span at which this local was declared.
-    pub span: codemap::Span,
+    pub span: Option<codemap::Span>,
 
     /// Scope depth of this local.
     pub depth: usize,
@@ -72,6 +72,10 @@ impl Local {
             LocalName::Ident(name) => name.starts_with('_'),
             LocalName::Phantom => false,
         }
+    }
+
+    pub fn is_used(&self) -> bool {
+        self.depth == 0 || self.used || self.is_ignored()
     }
 }
 
@@ -240,7 +244,7 @@ impl Scope {
         let idx = self.locals.len();
         self.locals.push(Local {
             initialised,
-            span,
+            span: Some(span),
             name: LocalName::Phantom,
             depth: self.scope_depth,
             needs_finaliser: false,
@@ -263,7 +267,7 @@ impl Scope {
         let idx = LocalIdx(self.locals.len());
         self.locals.push(Local {
             name: LocalName::Ident(name.clone()),
-            span,
+            span: Some(span),
             depth: self.scope_depth,
             initialised: false,
             needs_finaliser: false,
@@ -284,6 +288,23 @@ impl Scope {
         }
 
         (idx, shadowed)
+    }
+
+    pub fn declare_constant(&mut self, name: String) -> LocalIdx {
+        let idx = LocalIdx(self.locals.len());
+        self.locals.push(Local {
+            name: LocalName::Ident(name.clone()),
+            span: None,
+            depth: 0,
+            initialised: true,
+            used: false,
+            needs_finaliser: false,
+            must_thunk: false,
+        });
+        // We don't need to worry about shadowing for constants; they're defined at the toplevel
+        // always
+        self.by_name.insert(name, ByName::Single(idx));
+        idx
     }
 
     /// Mark local as initialised after compiling its expression.
@@ -348,8 +369,8 @@ impl Scope {
                 // lifetime, and emit a warning otherwise (unless the
                 // user explicitly chose to ignore it by prefixing the
                 // identifier with `_`)
-                if !local.used && !local.is_ignored() {
-                    unused_spans.push(local.span);
+                if local.is_used() {
+                    unused_spans.extend(local.span);
                 }
 
                 // remove the by-name index if this was a named local

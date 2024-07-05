@@ -192,6 +192,7 @@ impl<'source, 'observer> Compiler<'source, 'observer> {
     pub(crate) fn new(
         location: Option<PathBuf>,
         globals: Rc<GlobalsMap>,
+        env: Option<&HashMap<SmolStr, Value>>,
         source: &'source SourceCode,
         file: &'source codemap::File,
         observer: &'observer mut dyn CompilerObserver,
@@ -227,7 +228,7 @@ impl<'source, 'observer> Compiler<'source, 'observer> {
         #[cfg(not(target_arch = "wasm32"))]
         debug_assert!(root_dir.is_absolute());
 
-        Ok(Self {
+        let mut compiler = Self {
             root_dir,
             source,
             file,
@@ -237,7 +238,13 @@ impl<'source, 'observer> Compiler<'source, 'observer> {
             warnings: vec![],
             errors: vec![],
             dead_scope: 0,
-        })
+        };
+
+        if let Some(env) = env {
+            compiler.compile_env(env);
+        }
+
+        Ok(compiler)
     }
 }
 
@@ -1548,6 +1555,7 @@ fn compile_src_builtin(
             &parsed.tree().expr().unwrap(),
             None,
             weak.upgrade().unwrap(),
+            None,
             &source,
             &file,
             &mut crate::observer::NoOpObserver {},
@@ -1651,11 +1659,12 @@ pub fn compile(
     expr: &ast::Expr,
     location: Option<PathBuf>,
     globals: Rc<GlobalsMap>,
+    env: Option<&HashMap<SmolStr, Value>>,
     source: &SourceCode,
     file: &codemap::File,
     observer: &mut dyn CompilerObserver,
 ) -> EvalResult<CompilationOutput> {
-    let mut c = Compiler::new(location, globals.clone(), source, file, observer)?;
+    let mut c = Compiler::new(location, globals.clone(), env, source, file, observer)?;
 
     let root_span = c.span_for(expr);
     let root_slot = c.scope_mut().declare_phantom(root_span, false);
@@ -1666,6 +1675,11 @@ pub fn compile(
     // unevaluated state (though in practice, a value *containing* a
     // thunk might be returned).
     c.emit_force(expr);
+    if let Some(env) = env {
+        if !env.is_empty() {
+            c.push_op(OpCode::OpCloseScope(Count(env.len())), &root_span);
+        }
+    }
     c.push_op(OpCode::OpReturn, &root_span);
 
     let lambda = Rc::new(c.contexts.pop().unwrap().lambda);

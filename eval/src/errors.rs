@@ -109,7 +109,7 @@ pub enum ErrorKind {
     UnknownDynamicVariable(String),
 
     /// User is defining the same variable twice at the same depth.
-    VariableAlreadyDefined(Span),
+    VariableAlreadyDefined(Option<Span>),
 
     /// Attempt to call something that is not callable.
     NotCallable(&'static str),

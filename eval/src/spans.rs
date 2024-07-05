@@ -35,6 +35,33 @@ impl ToSpan for rnix::SyntaxNode {
     }
 }
 
+/// A placeholder [`ToSpan`] implementation covering the entire source file.
+#[derive(Debug, Clone, Copy)]
+pub struct EntireFile;
+
+impl ToSpan for EntireFile {
+    fn span_for(&self, file: &File) -> Span {
+        file.span
+    }
+}
+
+/// A placeholder [`ToSpan`] implementation which falls back to the entire file if its wrapped value
+/// is [`None`]
+#[derive(Debug, Clone, Copy)]
+pub struct OrEntireFile<T>(pub Option<T>);
+
+impl<T> ToSpan for OrEntireFile<T>
+where
+    T: ToSpan,
+{
+    fn span_for(&self, file: &File) -> Span {
+        match &self.0 {
+            Some(t) => t.span_for(file),
+            None => EntireFile.span_for(file),
+        }
+    }
+}
+
 /// Generates a `ToSpan` implementation for a type implementing
 /// `rowan::AstNode`. This is impossible to do as a blanket
 /// implementation because `rustc` forbids these implementations for

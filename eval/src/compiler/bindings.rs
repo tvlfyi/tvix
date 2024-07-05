@@ -9,6 +9,8 @@ use std::iter::Peekable;
 use rnix::ast::HasEntry;
 use rowan::ast::AstChildren;
 
+use crate::spans::{EntireFile, OrEntireFile};
+
 use super::*;
 
 type PeekableAttrs = Peekable<AstChildren<ast::Attr>>;
@@ -556,6 +558,15 @@ impl Compiler<'_, '_> {
         self.scope_mut().end_scope();
     }
 
+    /// Emit definitions for all variables in the top-level global env passed to the evaluation (eg
+    /// local variables in the REPL)
+    pub(super) fn compile_env(&mut self, env: &HashMap<SmolStr, Value>) {
+        for (name, value) in env {
+            self.scope_mut().declare_constant(name.to_string());
+            self.emit_constant(value.clone(), &EntireFile);
+        }
+    }
+
     /// Actually binds all tracked bindings by emitting the bytecode that places
     /// them in their stack slots.
     fn bind_values(&mut self, bindings: TrackedBindings) {
@@ -569,7 +580,7 @@ impl Compiler<'_, '_> {
 
                 KeySlot::Static { slot, name } => {
                     let span = self.scope()[slot].span;
-                    self.emit_constant(name.as_str().into(), &span);
+                    self.emit_constant(name.as_str().into(), &OrEntireFile(span));
                     self.scope_mut().mark_initialised(slot);
                 }
 
@@ -621,7 +632,7 @@ impl Compiler<'_, '_> {
             if self.scope()[idx].needs_finaliser {
                 let stack_idx = self.scope().stack_index(idx);
                 let span = self.scope()[idx].span;
-                self.push_op(OpCode::OpFinalise(stack_idx), &span);
+                self.push_op(OpCode::OpFinalise(stack_idx), &OrEntireFile(span));
             }
         }
     }

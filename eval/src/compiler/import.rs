@@ -65,6 +65,7 @@ async fn import_impl(
         globals
             .upgrade()
             .expect("globals dropped while still in use"),
+        None,
         &source,
         &file,
         &mut NoOpObserver::default(),
