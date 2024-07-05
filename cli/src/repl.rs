@@ -1,10 +1,13 @@
-use std::path::PathBuf;
 use std::rc::Rc;
+use std::{collections::HashMap, path::PathBuf};
 
 use rustyline::{error::ReadlineError, Editor};
+use smol_str::SmolStr;
+use tvix_eval::Value;
 use tvix_glue::tvix_store_io::TvixStoreIO;
 
-use crate::{interpret, AllowIncomplete, Args, IncompleteInput};
+use crate::evaluate;
+use crate::{assignment::Assignment, interpret, AllowIncomplete, Args, IncompleteInput};
 
 fn state_dir() -> Option<PathBuf> {
     let mut path = dirs::data_dir();
@@ -17,6 +20,7 @@ fn state_dir() -> Option<PathBuf> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReplCommand<'a> {
     Expr(&'a str),
+    Assign(Assignment<'a>),
     Explain(&'a str),
     Print(&'a str),
     Quit,
@@ -29,11 +33,12 @@ Welcome to the Tvix REPL!
 
 The following commands are supported:
 
-  <expr>    Evaluate a Nix language expression and print the result, along with its inferred type
-  :d <expr> Evaluate a Nix language expression and print a detailed description of the result
-  :p <expr> Evaluate a Nix language expression and print the result recursively
-  :q        Exit the REPL
-  :?, :h    Display this help text
+  <expr>       Evaluate a Nix language expression and print the result, along with its inferred type
+  <x> = <expr> Bind the result of an expression to a variable
+  :d <expr>    Evaluate a Nix language expression and print a detailed description of the result
+  :p <expr>    Evaluate a Nix language expression and print the result recursively
+  :q           Exit the REPL
+  :?, :h       Display this help text
 ";
 
     pub fn parse(input: &'a str) -> Self {
@@ -52,6 +57,10 @@ The following commands are supported:
             }
         }
 
+        if let Some(assignment) = Assignment::parse(input) {
+            return Self::Assign(assignment);
+        }
+
         Self::Expr(input)
     }
 }
@@ -61,6 +70,8 @@ pub struct Repl {
     /// In-progress multiline input, when the input so far doesn't parse as a complete expression
     multiline_input: Option<String>,
     rl: Editor<()>,
+    /// Local variables defined at the top-level in the repl
+    env: HashMap<SmolStr, Value>,
 }
 
 impl Repl {
@@ -69,6 +80,7 @@ impl Repl {
         Self {
             multiline_input: None,
             rl,
+            env: HashMap::new(),
         }
     }
 
@@ -125,7 +137,25 @@ impl Repl {
                             args,
                             false,
                             AllowIncomplete::Allow,
+                            Some(&self.env),
                         ),
+                        ReplCommand::Assign(Assignment { ident, value }) => {
+                            match evaluate(
+                                Rc::clone(&io_handle),
+                                &value.to_string(), /* FIXME: don't re-parse */
+                                None,
+                                args,
+                                AllowIncomplete::Allow,
+                                Some(&self.env),
+                            ) {
+                                Ok(Some(value)) => {
+                                    self.env.insert(ident.into(), value);
+                                    Ok(true)
+                                }
+                                Ok(None) => Ok(true),
+                                Err(incomplete) => Err(incomplete),
+                            }
+                        }
                         ReplCommand::Explain(input) => interpret(
                             Rc::clone(&io_handle),
                             input,
@@ -133,6 +163,7 @@ impl Repl {
                             args,
                             true,
                             AllowIncomplete::Allow,
+                            Some(&self.env),
                         ),
                         ReplCommand::Print(input) => interpret(
                             Rc::clone(&io_handle),
@@ -144,6 +175,7 @@ impl Repl {
                             },
                             false,
                             AllowIncomplete::Allow,
+                            Some(&self.env),
                         ),
                     };
 

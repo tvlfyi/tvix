@@ -1,7 +1,10 @@
+mod assignment;
 mod repl;
 
 use clap::Parser;
 use repl::Repl;
+use smol_str::SmolStr;
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::{fs, path::PathBuf};
 use tracing::{instrument, Level, Span};
@@ -150,18 +153,15 @@ impl AllowIncomplete {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct IncompleteInput;
 
-/// Interprets the given code snippet, printing out warnings, errors
-/// and the result itself. The return value indicates whether
-/// evaluation succeeded.
-#[instrument(skip_all, fields(indicatif.pb_show=1))]
-fn interpret(
+/// Interprets the given code snippet, printing out warnings and errors and returning the result
+fn evaluate(
     tvix_store_io: Rc<TvixStoreIO>,
     code: &str,
     path: Option<PathBuf>,
     args: &Args,
-    explain: bool,
     allow_incomplete: AllowIncomplete,
-) -> Result<bool, IncompleteInput> {
+    env: Option<&HashMap<SmolStr, Value>>,
+) -> Result<Option<Value>, IncompleteInput> {
     let span = Span::current();
     span.pb_start();
     span.pb_set_style(&tvix_tracing::PB_SPINNER_STYLE);
@@ -173,6 +173,9 @@ fn interpret(
     );
     eval.strict = args.strict;
     eval.builtins.extend(impure_builtins());
+    if let Some(env) = env {
+        eval.env = Some(env);
+    }
     add_derivation_builtins(&mut eval, Rc::clone(&tvix_store_io));
     add_fetcher_builtins(&mut eval, Rc::clone(&tvix_store_io));
     add_import_builtins(&mut eval, tvix_store_io);
@@ -226,7 +229,25 @@ fn interpret(
         }
     }
 
-    if let Some(value) = result.value.as_ref() {
+    Ok(result.value)
+}
+
+/// Interprets the given code snippet, printing out warnings, errors
+/// and the result itself. The return value indicates whether
+/// evaluation succeeded.
+#[instrument(skip_all, fields(indicatif.pb_show=1))]
+fn interpret(
+    tvix_store_io: Rc<TvixStoreIO>,
+    code: &str,
+    path: Option<PathBuf>,
+    args: &Args,
+    explain: bool,
+    allow_incomplete: AllowIncomplete,
+    env: Option<&HashMap<SmolStr, Value>>,
+) -> Result<bool, IncompleteInput> {
+    let result = evaluate(tvix_store_io, code, path, args, allow_incomplete, env)?;
+
+    if let Some(value) = result.as_ref() {
         if explain {
             println!("=> {}", value.explain());
         } else {
@@ -235,7 +256,7 @@ fn interpret(
     }
 
     // inform the caller about any errors
-    Ok(result.errors.is_empty())
+    Ok(result.is_some())
 }
 
 /// Interpret the given code snippet, but only run the Tvix compiler
@@ -298,6 +319,7 @@ fn main() {
             &args,
             false,
             AllowIncomplete::RequireComplete,
+            None, // TODO(aspen): Pass in --arg/--argstr here
         )
         .unwrap()
         {
@@ -325,6 +347,7 @@ fn run_file(io_handle: Rc<TvixStoreIO>, mut path: PathBuf, args: &Args) {
             args,
             false,
             AllowIncomplete::RequireComplete,
+            None,
         )
         .unwrap()
     };

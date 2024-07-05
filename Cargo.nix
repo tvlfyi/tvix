@@ -13846,8 +13846,16 @@ rec {
             packageId = "rnix";
           }
           {
+            name = "rowan";
+            packageId = "rowan";
+          }
+          {
             name = "rustyline";
             packageId = "rustyline";
+          }
+          {
+            name = "smol_str";
+            packageId = "smol_str";
           }
           {
             name = "thiserror";
