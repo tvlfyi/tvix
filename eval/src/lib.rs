@@ -64,6 +64,192 @@ pub use crate::value::{Builtin, CoercionKind, NixAttrs, NixList, NixString, Valu
 #[cfg(feature = "impure")]
 pub use crate::io::StdIO;
 
+/// Builder for building an [`Evaluation`].
+///
+/// Construct an [`EvaluationBuilder`] by calling one of:
+///
+/// - [`Evaluation::builder`] / [`EvaluationBuilder::new`]
+/// - [`Evaluation::builder_impure`] [`EvaluationBuilder::new_impure`]
+/// - [`Evaluation::builder_pure`] [`EvaluationBuilder::new_pure`]
+///
+/// Then configure the fields by calling the various methods on [`EvaluationBuilder`], and finally
+/// call [`build`](Self::build) to construct an [`Evaluation`]
+pub struct EvaluationBuilder<'co, 'ro, 'env, IO> {
+    source_map: SourceCode,
+    builtins: Vec<(&'static str, Value)>,
+    src_builtins: Vec<(&'static str, &'static str)>,
+    env: Option<&'env HashMap<SmolStr, Value>>,
+    io_handle: IO,
+    enable_import: bool,
+    strict: bool,
+    nix_path: Option<String>,
+    compiler_observer: Option<&'co mut dyn CompilerObserver>,
+    runtime_observer: Option<&'ro mut dyn RuntimeObserver>,
+}
+
+// NOTE(aspen): The methods here are intentionally incomplete; feel free to add new ones (ideally
+// with similar naming conventions to the ones already present) but don't expose fields publically!
+impl<'co, 'ro, 'env, IO> EvaluationBuilder<'co, 'ro, 'env, IO> {
+    pub fn new(io_handle: IO) -> Self {
+        let mut builtins = builtins::pure_builtins();
+        builtins.extend(builtins::placeholders()); // these are temporary
+
+        Self {
+            source_map: SourceCode::default(),
+            enable_import: false,
+            io_handle,
+            builtins,
+            src_builtins: vec![],
+            env: None,
+            strict: false,
+            nix_path: None,
+            compiler_observer: None,
+            runtime_observer: None,
+        }
+    }
+
+    pub fn build(self) -> Evaluation<'co, 'ro, 'env, IO> {
+        Evaluation {
+            source_map: self.source_map,
+            builtins: self.builtins,
+            src_builtins: self.src_builtins,
+            env: self.env,
+            io_handle: self.io_handle,
+            enable_import: self.enable_import,
+            strict: self.strict,
+            nix_path: self.nix_path,
+            compiler_observer: self.compiler_observer,
+            runtime_observer: self.runtime_observer,
+        }
+    }
+
+    pub fn io_handle<IO2>(self, io_handle: IO2) -> EvaluationBuilder<'co, 'ro, 'env, IO2> {
+        EvaluationBuilder {
+            io_handle,
+            source_map: self.source_map,
+            builtins: self.builtins,
+            src_builtins: self.src_builtins,
+            env: self.env,
+            enable_import: self.enable_import,
+            strict: self.strict,
+            nix_path: self.nix_path,
+            compiler_observer: self.compiler_observer,
+            runtime_observer: self.runtime_observer,
+        }
+    }
+
+    pub fn with_enable_import(self, enable_import: bool) -> Self {
+        Self {
+            enable_import,
+            ..self
+        }
+    }
+
+    pub fn disable_import(self) -> Self {
+        self.with_enable_import(false)
+    }
+
+    pub fn enable_import(self) -> Self {
+        self.with_enable_import(true)
+    }
+
+    pub fn add_builtins<I>(mut self, builtins: I) -> Self
+    where
+        I: IntoIterator<Item = (&'static str, Value)>,
+    {
+        self.builtins.extend(builtins);
+        self
+    }
+
+    pub fn with_strict(self, strict: bool) -> Self {
+        Self { strict, ..self }
+    }
+
+    pub fn strict(self) -> Self {
+        self.with_strict(true)
+    }
+
+    pub fn add_src_builtin(mut self, name: &'static str, src: &'static str) -> Self {
+        self.src_builtins.push((name, src));
+        self
+    }
+
+    pub fn nix_path(self, nix_path: Option<String>) -> Self {
+        Self { nix_path, ..self }
+    }
+
+    pub fn env(self, env: Option<&'env HashMap<SmolStr, Value>>) -> Self {
+        Self { env, ..self }
+    }
+
+    pub fn compiler_observer(
+        self,
+        compiler_observer: Option<&'co mut dyn CompilerObserver>,
+    ) -> Self {
+        Self {
+            compiler_observer,
+            ..self
+        }
+    }
+
+    pub fn set_compiler_observer(
+        &mut self,
+        compiler_observer: Option<&'co mut dyn CompilerObserver>,
+    ) {
+        self.compiler_observer = compiler_observer;
+    }
+
+    pub fn runtime_observer(self, runtime_observer: Option<&'ro mut dyn RuntimeObserver>) -> Self {
+        Self {
+            runtime_observer,
+            ..self
+        }
+    }
+
+    pub fn set_runtime_observer(&mut self, runtime_observer: Option<&'ro mut dyn RuntimeObserver>) {
+        self.runtime_observer = runtime_observer;
+    }
+}
+
+impl<'co, 'ro, 'env, IO> EvaluationBuilder<'co, 'ro, 'env, IO> {
+    pub fn source_map(&self) -> &SourceCode {
+        &self.source_map
+    }
+}
+
+impl<'co, 'ro, 'env> EvaluationBuilder<'co, 'ro, 'env, Box<dyn EvalIO>> {
+    /// Initialize an `Evaluation`, without the import statement available, and
+    /// all IO operations stubbed out.
+    pub fn new_pure() -> Self {
+        Self::new(Box::new(DummyIO) as Box<dyn EvalIO>).with_enable_import(false)
+    }
+
+    #[cfg(feature = "impure")]
+    /// Configure an `Evaluation` to have impure features available
+    /// with the given I/O implementation.
+    ///
+    /// If no I/O implementation is supplied, [`StdIO`] is used by
+    /// default.
+    pub fn enable_impure(mut self, io: Option<Box<dyn EvalIO>>) -> Self {
+        self.io_handle = io.unwrap_or_else(|| Box::new(StdIO) as Box<dyn EvalIO>);
+        self.enable_import = true;
+        self.builtins.extend(builtins::impure_builtins());
+
+        // Make `NIX_PATH` resolutions work by default, unless the
+        // user already overrode this with something else.
+        if self.nix_path.is_none() {
+            self.nix_path = std::env::var("NIX_PATH").ok();
+        }
+        self
+    }
+
+    #[cfg(feature = "impure")]
+    /// Initialise an `Evaluation`, with all impure features turned on by default.
+    pub fn new_impure() -> Self {
+        Self::new_pure().enable_impure(None)
+    }
+}
+
 /// An `Evaluation` represents how a piece of Nix code is evaluated. It can be
 /// instantiated and configured directly, or it can be accessed through the
 /// various simplified helper methods available below.
@@ -79,42 +265,42 @@ pub struct Evaluation<'co, 'ro, 'env, IO> {
     ///
     /// This defaults to all pure builtins. Users might want to add
     /// the set of impure builtins, or other custom builtins.
-    pub builtins: Vec<(&'static str, Value)>,
+    builtins: Vec<(&'static str, Value)>,
 
     /// Set of builtins that are implemented in Nix itself and should
     /// be compiled and inserted in the builtins set.
-    pub src_builtins: Vec<(&'static str, &'static str)>,
+    src_builtins: Vec<(&'static str, &'static str)>,
 
     /// Top-level variables to define in the evaluation
-    pub env: Option<&'env HashMap<SmolStr, Value>>,
+    env: Option<&'env HashMap<SmolStr, Value>>,
 
     /// Implementation of file-IO to use during evaluation, e.g. for
     /// impure builtins.
     ///
     /// Defaults to [`DummyIO`] if not set explicitly.
-    pub io_handle: IO,
+    io_handle: IO,
 
     /// Determines whether the `import` builtin should be made
     /// available. Note that this depends on the `io_handle` being
     /// able to read the files specified as arguments to `import`.
-    pub enable_import: bool,
+    enable_import: bool,
 
     /// Determines whether the returned value should be strictly
     /// evaluated, that is whether its list and attribute set elements
     /// should be forced recursively.
-    pub strict: bool,
+    strict: bool,
 
     /// (optional) Nix search path, e.g. the value of `NIX_PATH` used
     /// for resolving items on the search path (such as `<nixpkgs>`).
-    pub nix_path: Option<String>,
+    nix_path: Option<String>,
 
     /// (optional) compiler observer for reporting on compilation
     /// details, like the emitted bytecode.
-    pub compiler_observer: Option<&'co mut dyn CompilerObserver>,
+    compiler_observer: Option<&'co mut dyn CompilerObserver>,
 
     /// (optional) runtime observer, for reporting on execution steps
     /// of Nix code.
-    pub runtime_observer: Option<&'ro mut dyn RuntimeObserver>,
+    runtime_observer: Option<&'ro mut dyn RuntimeObserver>,
 }
 
 /// Result of evaluating a piece of Nix code. If evaluation succeeded, a value
@@ -136,61 +322,20 @@ pub struct EvaluationResult {
     pub expr: Option<rnix::ast::Expr>,
 }
 
-impl<'co, 'ro, 'env, IO> Evaluation<'co, 'ro, 'env, IO>
-where
-    IO: AsRef<dyn EvalIO> + 'static,
-{
-    /// Initialize an `Evaluation`.
-    pub fn new(io_handle: IO, enable_import: bool) -> Self {
-        let mut builtins = builtins::pure_builtins();
-        builtins.extend(builtins::placeholders()); // these are temporary
-
-        Self {
-            source_map: SourceCode::default(),
-            enable_import,
-            io_handle,
-            builtins,
-            src_builtins: vec![],
-            env: None,
-            strict: false,
-            nix_path: None,
-            compiler_observer: None,
-            runtime_observer: None,
-        }
+impl<'co, 'ro, 'env, IO> Evaluation<'co, 'ro, 'env, IO> {
+    pub fn builder(io_handle: IO) -> EvaluationBuilder<'co, 'ro, 'env, IO> {
+        EvaluationBuilder::new(io_handle)
     }
 }
 
 impl<'co, 'ro, 'env> Evaluation<'co, 'ro, 'env, Box<dyn EvalIO>> {
-    /// Initialize an `Evaluation`, without the import statement available, and
-    /// all IO operations stubbed out.
-    pub fn new_pure() -> Self {
-        Self::new(Box::new(DummyIO) as Box<dyn EvalIO>, false)
+    #[cfg(feature = "impure")]
+    pub fn builder_impure() -> EvaluationBuilder<'co, 'ro, 'env, Box<dyn EvalIO>> {
+        EvaluationBuilder::new_impure()
     }
 
-    #[cfg(feature = "impure")]
-    /// Configure an `Evaluation` to have impure features available
-    /// with the given I/O implementation.
-    ///
-    /// If no I/O implementation is supplied, [`StdIO`] is used by
-    /// default.
-    pub fn enable_impure(&mut self, io: Option<Box<dyn EvalIO>>) {
-        self.io_handle = io.unwrap_or_else(|| Box::new(StdIO) as Box<dyn EvalIO>);
-        self.enable_import = true;
-        self.builtins.extend(builtins::impure_builtins());
-
-        // Make `NIX_PATH` resolutions work by default, unless the
-        // user already overrode this with something else.
-        if self.nix_path.is_none() {
-            self.nix_path = std::env::var("NIX_PATH").ok();
-        }
-    }
-
-    #[cfg(feature = "impure")]
-    /// Initialise an `Evaluation`, with all impure features turned on by default.
-    pub fn new_impure() -> Self {
-        let mut eval = Self::new_pure();
-        eval.enable_impure(None);
-        eval
+    pub fn builder_pure() -> EvaluationBuilder<'co, 'ro, 'env, Box<dyn EvalIO>> {
+        EvaluationBuilder::new_pure()
     }
 }
 

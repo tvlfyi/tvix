@@ -47,16 +47,18 @@ fn eval_test(code_path: PathBuf, expect_success: bool) {
         tokio_runtime.handle().clone(),
     ));
     // Wrap with TvixIO, so <nix/fetchurl.nix can be imported.
-    let mut eval = tvix_eval::Evaluation::new(
-        Box::new(TvixIO::new(tvix_store_io.clone() as Rc<dyn EvalIO>)) as Box<dyn EvalIO>,
-        true,
-    );
+    let mut eval_builder = tvix_eval::Evaluation::builder(Box::new(TvixIO::new(
+        tvix_store_io.clone() as Rc<dyn EvalIO>,
+    )) as Box<dyn EvalIO>)
+    .enable_import()
+    .strict();
 
-    eval.strict = true;
-    add_derivation_builtins(&mut eval, tvix_store_io.clone());
-    add_fetcher_builtins(&mut eval, tvix_store_io.clone());
-    add_import_builtins(&mut eval, tvix_store_io.clone());
-    configure_nix_path(&mut eval, &None);
+    eval_builder = add_derivation_builtins(eval_builder, Rc::clone(&tvix_store_io));
+    eval_builder = add_fetcher_builtins(eval_builder, Rc::clone(&tvix_store_io));
+    eval_builder = add_import_builtins(eval_builder, tvix_store_io);
+    eval_builder = configure_nix_path(eval_builder, &None);
+
+    let eval = eval_builder.build();
 
     let result = eval.evaluate(code, Some(code_path.clone()));
     let failed = match result.value {

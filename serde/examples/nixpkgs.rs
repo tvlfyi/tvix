@@ -23,8 +23,8 @@ fn main() {
     }
     "#;
 
-    let result = tvix_serde::from_str_with_config::<Config, _>(code, |eval| {
-        eval.enable_impure(None);
+    let result = tvix_serde::from_str_with_config::<Config, _>(code, |eval_builder| {
+        eval_builder.enable_impure(None)
     });
 
     match result {

@@ -40,22 +40,23 @@ fn interpret(code: &str) {
         TOKIO_RUNTIME.handle().clone(),
     ));
 
-    let mut eval = tvix_eval::Evaluation::new(
-        Box::new(TvixIO::new(tvix_store_io.clone() as Rc<dyn EvalIO>)) as Box<dyn EvalIO>,
-        true,
-    );
+    let mut eval_builder = tvix_eval::Evaluation::builder(Box::new(TvixIO::new(
+        tvix_store_io.clone() as Rc<dyn EvalIO>,
+    )) as Box<dyn EvalIO>)
+    .enable_import()
+    .add_builtins(impure_builtins());
 
-    eval.builtins.extend(impure_builtins());
-    add_derivation_builtins(&mut eval, Rc::clone(&tvix_store_io));
-    add_fetcher_builtins(&mut eval, Rc::clone(&tvix_store_io));
-    add_import_builtins(&mut eval, tvix_store_io);
-    configure_nix_path(
-        &mut eval,
+    eval_builder = add_derivation_builtins(eval_builder, Rc::clone(&tvix_store_io));
+    eval_builder = add_fetcher_builtins(eval_builder, Rc::clone(&tvix_store_io));
+    eval_builder = add_import_builtins(eval_builder, tvix_store_io);
+    eval_builder = configure_nix_path(
+        eval_builder,
         // The benchmark requires TVIX_BENCH_NIX_PATH to be set, so barf out
         // early, rather than benchmarking tvix returning an error.
         &Some(env::var("TVIX_BENCH_NIX_PATH").expect("TVIX_BENCH_NIX_PATH must be set")),
     );
 
+    let eval = eval_builder.build();
     let result = eval.evaluate(code, None);
 
     assert!(result.errors.is_empty());

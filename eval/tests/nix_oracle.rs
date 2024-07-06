@@ -58,10 +58,16 @@ fn nix_eval(expr: &str, strictness: Strictness) -> String {
 #[track_caller]
 #[cfg(feature = "impure")]
 fn compare_eval(expr: &str, strictness: Strictness) {
+    use tvix_eval::EvalIO;
+
     let nix_result = nix_eval(expr, strictness);
-    let mut eval = tvix_eval::Evaluation::new_pure();
-    eval.strict = matches!(strictness, Strictness::Strict);
-    eval.io_handle = Box::new(tvix_eval::StdIO);
+    let mut eval_builder = tvix_eval::Evaluation::builder_pure();
+    if matches!(strictness, Strictness::Strict) {
+        eval_builder = eval_builder.strict();
+    }
+    let eval = eval_builder
+        .io_handle(Box::new(tvix_eval::StdIO) as Box<dyn EvalIO>)
+        .build();
 
     let tvix_result = eval
         .evaluate(expr, None)

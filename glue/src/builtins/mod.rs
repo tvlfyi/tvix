@@ -18,13 +18,14 @@ pub use errors::{DerivationError, FetcherError, ImportError};
 ///
 /// As they need to interact with `known_paths`, we also need to pass in
 /// `known_paths`.
-pub fn add_derivation_builtins<IO>(eval: &mut tvix_eval::Evaluation<IO>, io: Rc<TvixStoreIO>) {
-    eval.builtins
-        .extend(derivation::derivation_builtins::builtins(Rc::clone(&io)));
-
-    // Add the actual `builtins.derivation` from compiled Nix code
-    eval.src_builtins
-        .push(("derivation", include_str!("derivation.nix")));
+pub fn add_derivation_builtins<'co, 'ro, 'env, IO>(
+    eval_builder: tvix_eval::EvaluationBuilder<'co, 'ro, 'env, IO>,
+    io: Rc<TvixStoreIO>,
+) -> tvix_eval::EvaluationBuilder<'co, 'ro, 'env, IO> {
+    eval_builder
+        .add_builtins(derivation::derivation_builtins::builtins(Rc::clone(&io)))
+        // Add the actual `builtins.derivation` from compiled Nix code
+        .add_src_builtin("derivation", include_str!("derivation.nix"))
 }
 
 /// Adds fetcher builtins to the passed [tvix_eval::Evaluation]:
@@ -32,9 +33,11 @@ pub fn add_derivation_builtins<IO>(eval: &mut tvix_eval::Evaluation<IO>, io: Rc<
 /// * `fetchurl`
 /// * `fetchTarball`
 /// * `fetchGit`
-pub fn add_fetcher_builtins<IO>(eval: &mut tvix_eval::Evaluation<IO>, io: Rc<TvixStoreIO>) {
-    eval.builtins
-        .extend(fetchers::fetcher_builtins::builtins(Rc::clone(&io)));
+pub fn add_fetcher_builtins<'co, 'ro, 'env, IO>(
+    eval_builder: tvix_eval::EvaluationBuilder<'co, 'ro, 'env, IO>,
+    io: Rc<TvixStoreIO>,
+) -> tvix_eval::EvaluationBuilder<'co, 'ro, 'env, IO> {
+    eval_builder.add_builtins(fetchers::fetcher_builtins::builtins(Rc::clone(&io)))
 }
 
 /// Adds import-related builtins to the passed [tvix_eval::Evaluation].
@@ -42,10 +45,12 @@ pub fn add_fetcher_builtins<IO>(eval: &mut tvix_eval::Evaluation<IO>, io: Rc<Tvi
 /// These are `filterSource` and `path`
 ///
 /// As they need to interact with the store implementation, we pass [`TvixStoreIO`].
-pub fn add_import_builtins<IO>(eval: &mut tvix_eval::Evaluation<IO>, io: Rc<TvixStoreIO>) {
-    eval.builtins.extend(import::import_builtins(io));
-
+pub fn add_import_builtins<'co, 'ro, 'env, IO>(
+    eval_builder: tvix_eval::EvaluationBuilder<'co, 'ro, 'env, IO>,
+    io: Rc<TvixStoreIO>,
+) -> tvix_eval::EvaluationBuilder<'co, 'ro, 'env, IO> {
     // TODO(raitobezarius): evaluate expressing filterSource as Nix code using path (b/372)
+    eval_builder.add_builtins(import::import_builtins(io))
 }
 
 #[cfg(test)]
@@ -81,11 +86,11 @@ mod tests {
             runtime.handle().clone(),
         ));
 
-        let mut eval = tvix_eval::Evaluation::new(io.clone() as Rc<dyn EvalIO>, false);
-
-        add_derivation_builtins(&mut eval, Rc::clone(&io));
-        add_fetcher_builtins(&mut eval, Rc::clone(&io));
-        add_import_builtins(&mut eval, io);
+        let mut eval_builder = tvix_eval::Evaluation::builder(io.clone() as Rc<dyn EvalIO>);
+        eval_builder = add_derivation_builtins(eval_builder, Rc::clone(&io));
+        eval_builder = add_fetcher_builtins(eval_builder, Rc::clone(&io));
+        eval_builder = add_import_builtins(eval_builder, io);
+        let eval = eval_builder.build();
 
         // run the evaluation itself.
         eval.evaluate(str, None)

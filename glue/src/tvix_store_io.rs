@@ -653,11 +653,13 @@ mod tests {
             Arc::<DummyBuildService>::default(),
             tokio_runtime.handle().clone(),
         ));
-        let mut eval = tvix_eval::Evaluation::new(io.clone() as Rc<dyn EvalIO>, true);
 
-        add_derivation_builtins(&mut eval, io.clone());
-        add_fetcher_builtins(&mut eval, io.clone());
-        add_import_builtins(&mut eval, io);
+        let mut eval_builder =
+            tvix_eval::Evaluation::builder(io.clone() as Rc<dyn EvalIO>).enable_import();
+        eval_builder = add_derivation_builtins(eval_builder, Rc::clone(&io));
+        eval_builder = add_fetcher_builtins(eval_builder, Rc::clone(&io));
+        eval_builder = add_import_builtins(eval_builder, io);
+        let eval = eval_builder.build();
 
         // run the evaluation itself.
         eval.evaluate(str, None)

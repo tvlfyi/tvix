@@ -204,7 +204,7 @@ fn deserialize_enum_all() {
 fn deserialize_with_config() {
     let result: String = from_str_with_config("builtins.testWithConfig", |eval| {
         // Add a literal string builtin that just returns `"ok"`.
-        eval.src_builtins.push(("testWithConfig", "\"ok\""));
+        eval.add_src_builtin("testWithConfig", "\"ok\"")
     })
     .expect("should deserialize");
 
@@ -237,7 +237,7 @@ fn deserialize_with_extra_builtin() {
     let code = "builtins.prependHello \"world\"";
 
     let result: String = from_str_with_config(code, |eval| {
-        eval.builtins.append(&mut test_builtins::builtins());
+        eval.add_builtins(test_builtins::builtins())
     })
     .expect("should deserialize");
 

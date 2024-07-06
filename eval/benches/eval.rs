@@ -8,7 +8,9 @@ use tikv_jemallocator::Jemalloc;
 static GLOBAL: Jemalloc = Jemalloc;
 
 fn interpret(code: &str) {
-    tvix_eval::Evaluation::new_pure().evaluate(code, None);
+    tvix_eval::Evaluation::builder_pure()
+        .build()
+        .evaluate(code, None);
 }
 
 fn eval_literals(c: &mut Criterion) {

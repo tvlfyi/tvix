@@ -167,26 +167,25 @@ fn evaluate(
     span.pb_set_style(&tvix_tracing::PB_SPINNER_STYLE);
     span.pb_set_message("Setting up evaluator…");
 
-    let mut eval = tvix_eval::Evaluation::new(
-        Box::new(TvixIO::new(tvix_store_io.clone() as Rc<dyn EvalIO>)) as Box<dyn EvalIO>,
-        true,
-    );
-    eval.strict = args.strict;
-    eval.builtins.extend(impure_builtins());
-    if let Some(env) = env {
-        eval.env = Some(env);
-    }
-    add_derivation_builtins(&mut eval, Rc::clone(&tvix_store_io));
-    add_fetcher_builtins(&mut eval, Rc::clone(&tvix_store_io));
-    add_import_builtins(&mut eval, tvix_store_io);
-    configure_nix_path(&mut eval, &args.nix_search_path);
+    let mut eval_builder = tvix_eval::Evaluation::builder(Box::new(TvixIO::new(
+        tvix_store_io.clone() as Rc<dyn EvalIO>,
+    )) as Box<dyn EvalIO>)
+    .enable_import()
+    .with_strict(args.strict)
+    .add_builtins(impure_builtins())
+    .env(env);
 
-    let source_map = eval.source_map();
+    eval_builder = add_derivation_builtins(eval_builder, Rc::clone(&tvix_store_io));
+    eval_builder = add_fetcher_builtins(eval_builder, Rc::clone(&tvix_store_io));
+    eval_builder = add_import_builtins(eval_builder, tvix_store_io);
+    eval_builder = configure_nix_path(eval_builder, &args.nix_search_path);
+
+    let source_map = eval_builder.source_map().clone();
     let result = {
         let mut compiler_observer =
             DisassemblingObserver::new(source_map.clone(), std::io::stderr());
         if args.dump_bytecode {
-            eval.compiler_observer = Some(&mut compiler_observer);
+            eval_builder.set_compiler_observer(Some(&mut compiler_observer));
         }
 
         let mut runtime_observer = TracingObserver::new(std::io::stderr());
@@ -194,10 +193,12 @@ fn evaluate(
             if args.trace_runtime_timing {
                 runtime_observer.enable_timing()
             }
-            eval.runtime_observer = Some(&mut runtime_observer);
+            eval_builder.set_runtime_observer(Some(&mut runtime_observer));
         }
 
         span.pb_set_message("Evaluating…");
+
+        let eval = eval_builder.build();
         eval.evaluate(code, path)
     };
 
@@ -262,21 +263,21 @@ fn interpret(
 /// Interpret the given code snippet, but only run the Tvix compiler
 /// on it and return errors and warnings.
 fn lint(code: &str, path: Option<PathBuf>, args: &Args) -> bool {
-    let mut eval = tvix_eval::Evaluation::new_impure();
-    eval.strict = args.strict;
+    let mut eval_builder = tvix_eval::Evaluation::builder_impure().with_strict(args.strict);
 
-    let source_map = eval.source_map();
+    let source_map = eval_builder.source_map().clone();
 
     let mut compiler_observer = DisassemblingObserver::new(source_map.clone(), std::io::stderr());
 
     if args.dump_bytecode {
-        eval.compiler_observer = Some(&mut compiler_observer);
+        eval_builder.set_compiler_observer(Some(&mut compiler_observer));
     }
 
     if args.trace_runtime {
         eprintln!("warning: --trace-runtime has no effect with --compile-only!");
     }
 
+    let eval = eval_builder.build();
     let result = eval.compile_only(code, path);
 
     if args.display_ast {

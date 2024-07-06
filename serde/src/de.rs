@@ -3,8 +3,7 @@
 use bstr::ByteSlice;
 use serde::de::value::{MapDeserializer, SeqDeserializer};
 use serde::de::{self, EnumAccess, VariantAccess};
-pub use tvix_eval::Evaluation;
-use tvix_eval::{EvalIO, Value};
+use tvix_eval::{EvalIO, EvaluationBuilder, Value};
 
 use crate::error::Error;
 
@@ -36,7 +35,7 @@ pub fn from_str<'code, T>(src: &'code str) -> Result<T, Error>
 where
     T: serde::Deserialize<'code>,
 {
-    from_str_with_config(src, |_| /* no extra config */ ())
+    from_str_with_config(src, |b| /* no extra config */ b)
 }
 
 /// Evaluate the Nix code in `src`, with extra configuration for the
@@ -44,13 +43,12 @@ where
 pub fn from_str_with_config<'code, T, F>(src: &'code str, config: F) -> Result<T, Error>
 where
     T: serde::Deserialize<'code>,
-    F: FnOnce(&mut Evaluation<Box<dyn EvalIO>>),
+    F: for<'co, 'ro, 'env> FnOnce(
+        EvaluationBuilder<'co, 'ro, 'env, Box<dyn EvalIO>>,
+    ) -> EvaluationBuilder<'co, 'ro, 'env, Box<dyn EvalIO>>,
 {
     // First step is to evaluate the Nix code ...
-    let mut eval = Evaluation::new_pure();
-    config(&mut eval);
-
-    eval.strict = true;
+    let eval = config(EvaluationBuilder::new_pure().strict()).build();
     let result = eval.evaluate(src, None);
 
     if !result.errors.is_empty() {
