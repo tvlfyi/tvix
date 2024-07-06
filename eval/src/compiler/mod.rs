@@ -44,11 +44,6 @@ pub struct CompilationOutput {
     pub lambda: Rc<Lambda>,
     pub warnings: Vec<EvalWarning>,
     pub errors: Vec<Error>,
-
-    // This field must outlive the rc::Weak reference which breaks the
-    // builtins -> import -> builtins reference cycle. For this
-    // reason, it must be passed to the VM.
-    pub globals: Rc<GlobalsMap>,
 }
 
 /// Represents the lambda currently being compiled.
@@ -1689,6 +1684,5 @@ pub fn compile(
         lambda,
         warnings: c.warnings,
         errors: c.errors,
-        globals,
     })
 }

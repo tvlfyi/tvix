@@ -87,6 +87,43 @@ pub struct EvaluationBuilder<'co, 'ro, 'env, IO> {
     runtime_observer: Option<&'ro mut dyn RuntimeObserver>,
 }
 
+impl<'co, 'ro, 'env, IO> EvaluationBuilder<'co, 'ro, 'env, IO>
+where
+    IO: AsRef<dyn EvalIO> + 'static,
+{
+    /// Build an [`Evaluation`] based on the configuration in this builder.
+    ///
+    /// This:
+    ///
+    /// - Adds a `"storeDir"` builtin containing the store directory of the configured IO handle
+    /// - Sets up globals based on the configured builtins
+    /// - Copies all other configured fields to the [`Evaluation`]
+    pub fn build(mut self) -> Evaluation<'co, 'ro, 'env, IO> {
+        // Insert a storeDir builtin *iff* a store directory is present.
+        if let Some(store_dir) = self.io_handle.as_ref().store_dir() {
+            self.builtins.push(("storeDir", store_dir.into()));
+        }
+
+        let globals = crate::compiler::prepare_globals(
+            self.builtins,
+            self.src_builtins,
+            self.source_map.clone(),
+            self.enable_import,
+        );
+
+        Evaluation {
+            source_map: self.source_map,
+            globals,
+            env: self.env,
+            io_handle: self.io_handle,
+            strict: self.strict,
+            nix_path: self.nix_path,
+            compiler_observer: self.compiler_observer,
+            runtime_observer: self.runtime_observer,
+        }
+    }
+}
+
 // NOTE(aspen): The methods here are intentionally incomplete; feel free to add new ones (ideally
 // with similar naming conventions to the ones already present) but don't expose fields publically!
 impl<'co, 'ro, 'env, IO> EvaluationBuilder<'co, 'ro, 'env, IO> {
@@ -105,21 +142,6 @@ impl<'co, 'ro, 'env, IO> EvaluationBuilder<'co, 'ro, 'env, IO> {
             nix_path: None,
             compiler_observer: None,
             runtime_observer: None,
-        }
-    }
-
-    pub fn build(self) -> Evaluation<'co, 'ro, 'env, IO> {
-        Evaluation {
-            source_map: self.source_map,
-            builtins: self.builtins,
-            src_builtins: self.src_builtins,
-            env: self.env,
-            io_handle: self.io_handle,
-            enable_import: self.enable_import,
-            strict: self.strict,
-            nix_path: self.nix_path,
-            compiler_observer: self.compiler_observer,
-            runtime_observer: self.runtime_observer,
         }
     }
 
@@ -260,16 +282,8 @@ pub struct Evaluation<'co, 'ro, 'env, IO> {
     /// Source code map used for error reporting.
     source_map: SourceCode,
 
-    /// Set of all builtins that should be available during the
-    /// evaluation.
-    ///
-    /// This defaults to all pure builtins. Users might want to add
-    /// the set of impure builtins, or other custom builtins.
-    builtins: Vec<(&'static str, Value)>,
-
-    /// Set of builtins that are implemented in Nix itself and should
-    /// be compiled and inserted in the builtins set.
-    src_builtins: Vec<(&'static str, &'static str)>,
+    /// Set of all global values available at the top-level scope
+    globals: Rc<GlobalsMap>,
 
     /// Top-level variables to define in the evaluation
     env: Option<&'env HashMap<SmolStr, Value>>,
@@ -279,11 +293,6 @@ pub struct Evaluation<'co, 'ro, 'env, IO> {
     ///
     /// Defaults to [`DummyIO`] if not set explicitly.
     io_handle: IO,
-
-    /// Determines whether the `import` builtin should be made
-    /// available. Note that this depends on the `io_handle` being
-    /// able to read the files specified as arguments to `import`.
-    enable_import: bool,
 
     /// Determines whether the returned value should be strictly
     /// evaluated, that is whether its list and attribute set elements
@@ -378,10 +387,8 @@ where
             file,
             location,
             source,
-            self.builtins,
-            self.src_builtins,
+            self.globals,
             self.env,
-            self.enable_import,
             compiler_observer,
         );
 
@@ -409,21 +416,14 @@ where
         let mut noop_observer = observer::NoOpObserver::default();
         let compiler_observer = self.compiler_observer.take().unwrap_or(&mut noop_observer);
 
-        // Insert a storeDir builtin *iff* a store directory is present.
-        if let Some(store_dir) = self.io_handle.as_ref().store_dir() {
-            self.builtins.push(("storeDir", store_dir.into()));
-        }
-
-        let (lambda, globals) = match parse_compile_internal(
+        let lambda = match parse_compile_internal(
             &mut result,
             code.as_ref(),
             file.clone(),
             location,
             source.clone(),
-            self.builtins,
-            self.src_builtins,
+            self.globals.clone(),
             self.env,
-            self.enable_import,
             compiler_observer,
         ) {
             None => return result,
@@ -455,7 +455,7 @@ where
             self.io_handle,
             runtime_observer,
             source.clone(),
-            globals,
+            self.globals,
             lambda,
             self.strict,
         );
@@ -492,12 +492,10 @@ fn parse_compile_internal(
     file: Arc<codemap::File>,
     location: Option<PathBuf>,
     source: SourceCode,
-    builtins: Vec<(&'static str, Value)>,
-    src_builtins: Vec<(&'static str, &'static str)>,
+    globals: Rc<GlobalsMap>,
     env: Option<&HashMap<SmolStr, Value>>,
-    enable_import: bool,
     compiler_observer: &mut dyn CompilerObserver,
-) -> Option<(Rc<Lambda>, Rc<GlobalsMap>)> {
+) -> Option<Rc<Lambda>> {
     let parsed = rnix::ast::Root::parse(code);
     let parse_errors = parsed.errors();
 
@@ -515,13 +513,10 @@ fn parse_compile_internal(
     // the result, in case the caller needs it for something.
     result.expr = parsed.tree().expr();
 
-    let builtins =
-        crate::compiler::prepare_globals(builtins, src_builtins, source.clone(), enable_import);
-
     let compiler_result = match compiler::compile(
         result.expr.as_ref().unwrap(),
         location,
-        builtins,
+        globals,
         env,
         &source,
         &file,
@@ -545,5 +540,5 @@ fn parse_compile_internal(
 
     // Return the lambda (for execution) and the globals map (to
     // ensure the invariant that the globals outlive the runtime).
-    Some((compiler_result.lambda, compiler_result.globals))
+    Some(compiler_result.lambda)
 }
