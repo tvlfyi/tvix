@@ -2966,6 +2966,16 @@ rec {
         ];
 
       };
+      "dissimilar" = rec {
+        crateName = "dissimilar";
+        version = "1.0.9";
+        edition = "2018";
+        sha256 = "0bcn4s99ghigd3yadpd7i3gljv5z2hkr07ijvvxvsxmz3yfygy2r";
+        authors = [
+          "David Tolnay <dtolnay@gmail.com>"
+        ];
+
+      };
       "doc-comment" = rec {
         crateName = "doc-comment";
         version = "0.3.3";
@@ -3413,6 +3423,26 @@ rec {
           "std" = [ "event-listener/std" ];
         };
         resolvedDefaultFeatures = [ "std" ];
+      };
+      "expect-test" = rec {
+        crateName = "expect-test";
+        version = "1.5.0";
+        edition = "2018";
+        sha256 = "1q55nrkgzg345905aqbsdrwlq4sk0gjn4z5bdph1an1kc6jy02wy";
+        authors = [
+          "rust-analyzer developers"
+        ];
+        dependencies = [
+          {
+            name = "dissimilar";
+            packageId = "dissimilar";
+          }
+          {
+            name = "once_cell";
+            packageId = "once_cell";
+          }
+        ];
+
       };
       "fastcdc" = rec {
         crateName = "fastcdc";
@@ -13906,6 +13936,12 @@ rec {
           {
             name = "wu-manber";
             packageId = "wu-manber";
+          }
+        ];
+        devDependencies = [
+          {
+            name = "expect-test";
+            packageId = "expect-test";
           }
         ];
         features = {

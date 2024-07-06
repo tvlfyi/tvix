@@ -6,8 +6,10 @@ use smol_str::SmolStr;
 use tvix_eval::Value;
 use tvix_glue::tvix_store_io::TvixStoreIO;
 
-use crate::evaluate;
-use crate::{assignment::Assignment, interpret, AllowIncomplete, Args, IncompleteInput};
+use crate::{
+    assignment::Assignment, evaluate, interpret, AllowIncomplete, Args, IncompleteInput,
+    InterpretResult,
+};
 
 fn state_dir() -> Option<PathBuf> {
     let mut path = dirs::data_dir();
@@ -18,7 +20,7 @@ fn state_dir() -> Option<PathBuf> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ReplCommand<'a> {
+pub(crate) enum ReplCommand<'a> {
     Expr(&'a str),
     Assign(Assignment<'a>),
     Explain(&'a str),
@@ -65,27 +67,47 @@ The following commands are supported:
     }
 }
 
-#[derive(Debug)]
-pub struct Repl {
+pub struct CommandResult {
+    output: String,
+    continue_: bool,
+}
+
+impl CommandResult {
+    pub fn finalize(self) -> bool {
+        print!("{}", self.output);
+        self.continue_
+    }
+
+    pub fn output(&self) -> &str {
+        &self.output
+    }
+}
+
+pub struct Repl<'a> {
     /// In-progress multiline input, when the input so far doesn't parse as a complete expression
     multiline_input: Option<String>,
     rl: Editor<()>,
     /// Local variables defined at the top-level in the repl
     env: HashMap<SmolStr, Value>,
+
+    io_handle: Rc<TvixStoreIO>,
+    args: &'a Args,
 }
 
-impl Repl {
-    pub fn new() -> Self {
+impl<'a> Repl<'a> {
+    pub fn new(io_handle: Rc<TvixStoreIO>, args: &'a Args) -> Self {
         let rl = Editor::<()>::new().expect("should be able to launch rustyline");
         Self {
             multiline_input: None,
             rl,
             env: HashMap::new(),
+            io_handle,
+            args,
         }
     }
 
-    pub fn run(&mut self, io_handle: Rc<TvixStoreIO>, args: &Args) {
-        if args.compile_only {
+    pub fn run(&mut self) {
+        if self.args.compile_only {
             eprintln!("warning: `--compile-only` has no effect on REPL usage!");
         }
 
@@ -112,83 +134,8 @@ impl Repl {
             let readline = self.rl.readline(prompt);
             match readline {
                 Ok(line) => {
-                    if line.is_empty() {
-                        continue;
-                    }
-
-                    let input = if let Some(mi) = &mut self.multiline_input {
-                        mi.push('\n');
-                        mi.push_str(&line);
-                        mi
-                    } else {
-                        &line
-                    };
-
-                    let res = match ReplCommand::parse(input) {
-                        ReplCommand::Quit => break,
-                        ReplCommand::Help => {
-                            println!("{}", ReplCommand::HELP);
-                            Ok(false)
-                        }
-                        ReplCommand::Expr(input) => interpret(
-                            Rc::clone(&io_handle),
-                            input,
-                            None,
-                            args,
-                            false,
-                            AllowIncomplete::Allow,
-                            Some(&self.env),
-                        ),
-                        ReplCommand::Assign(Assignment { ident, value }) => {
-                            match evaluate(
-                                Rc::clone(&io_handle),
-                                &value.to_string(), /* FIXME: don't re-parse */
-                                None,
-                                args,
-                                AllowIncomplete::Allow,
-                                Some(&self.env),
-                            ) {
-                                Ok(Some(value)) => {
-                                    self.env.insert(ident.into(), value);
-                                    Ok(true)
-                                }
-                                Ok(None) => Ok(true),
-                                Err(incomplete) => Err(incomplete),
-                            }
-                        }
-                        ReplCommand::Explain(input) => interpret(
-                            Rc::clone(&io_handle),
-                            input,
-                            None,
-                            args,
-                            true,
-                            AllowIncomplete::Allow,
-                            Some(&self.env),
-                        ),
-                        ReplCommand::Print(input) => interpret(
-                            Rc::clone(&io_handle),
-                            input,
-                            None,
-                            &Args {
-                                strict: true,
-                                ..(args.clone())
-                            },
-                            false,
-                            AllowIncomplete::Allow,
-                            Some(&self.env),
-                        ),
-                    };
-
-                    match res {
-                        Ok(_) => {
-                            self.rl.add_history_entry(input);
-                            self.multiline_input = None;
-                        }
-                        Err(IncompleteInput) => {
-                            if self.multiline_input.is_none() {
-                                self.multiline_input = Some(line);
-                            }
-                        }
+                    if !self.send(line).finalize() {
+                        break;
                     }
                 }
                 Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => break,
@@ -202,6 +149,105 @@ impl Repl {
 
         if let Some(path) = history_path {
             self.rl.save_history(&path).unwrap();
+        }
+    }
+
+    /// Send a line of user input to the REPL. Returns a result indicating the output to show to the
+    /// user, and whether or not to continue
+    pub fn send(&mut self, line: String) -> CommandResult {
+        if line.is_empty() {
+            return CommandResult {
+                output: String::new(),
+                continue_: true,
+            };
+        }
+
+        let input = if let Some(mi) = &mut self.multiline_input {
+            mi.push('\n');
+            mi.push_str(&line);
+            mi
+        } else {
+            &line
+        };
+
+        let res = match ReplCommand::parse(input) {
+            ReplCommand::Quit => {
+                return CommandResult {
+                    output: String::new(),
+                    continue_: true,
+                };
+            }
+            ReplCommand::Help => {
+                println!("{}", ReplCommand::HELP);
+                Ok(InterpretResult::empty_success())
+            }
+            ReplCommand::Expr(input) => interpret(
+                Rc::clone(&self.io_handle),
+                input,
+                None,
+                self.args,
+                false,
+                AllowIncomplete::Allow,
+                Some(&self.env),
+            ),
+            ReplCommand::Assign(Assignment { ident, value }) => {
+                match evaluate(
+                    Rc::clone(&self.io_handle),
+                    &value.to_string(), /* FIXME: don't re-parse */
+                    None,
+                    self.args,
+                    AllowIncomplete::Allow,
+                    Some(&self.env),
+                ) {
+                    Ok(Some(value)) => {
+                        self.env.insert(ident.into(), value);
+                        Ok(InterpretResult::empty_success())
+                    }
+                    Ok(None) => Ok(InterpretResult::empty_success()),
+                    Err(incomplete) => Err(incomplete),
+                }
+            }
+            ReplCommand::Explain(input) => interpret(
+                Rc::clone(&self.io_handle),
+                input,
+                None,
+                self.args,
+                true,
+                AllowIncomplete::Allow,
+                Some(&self.env),
+            ),
+            ReplCommand::Print(input) => interpret(
+                Rc::clone(&self.io_handle),
+                input,
+                None,
+                &Args {
+                    strict: true,
+                    ..(self.args.clone())
+                },
+                false,
+                AllowIncomplete::Allow,
+                Some(&self.env),
+            ),
+        };
+
+        match res {
+            Ok(InterpretResult { output, .. }) => {
+                self.rl.add_history_entry(input);
+                self.multiline_input = None;
+                CommandResult {
+                    output,
+                    continue_: true,
+                }
+            }
+            Err(IncompleteInput) => {
+                if self.multiline_input.is_none() {
+                    self.multiline_input = Some(line);
+                }
+                CommandResult {
+                    output: String::new(),
+                    continue_: true,
+                }
+            }
         }
     }
 }
