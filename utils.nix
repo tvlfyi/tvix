@@ -78,7 +78,10 @@
       };
 
       tvix-cli = prev: {
-        src = depot.tvix.utils.filterRustCrateSrc { root = prev.src.origSrc; };
+        src = depot.tvix.utils.filterRustCrateSrc rec {
+          root = prev.src.origSrc;
+          extraFileset = root + "/tests";
+        };
         buildInputs = lib.optional pkgs.stdenv.isDarwin commonDarwinDeps;
       };
 

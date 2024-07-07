@@ -75,6 +75,8 @@ fn main() {
             false,
             AllowIncomplete::RequireComplete,
             None, // TODO(aspen): Pass in --arg/--argstr here
+            None,
+            None,
         )
         .unwrap()
         .finalize()
@@ -103,6 +105,8 @@ fn run_file(io_handle: Rc<TvixStoreIO>, mut path: PathBuf, args: &Args) {
             args,
             false,
             AllowIncomplete::RequireComplete,
+            None,
+            None,
             None,
         )
         .unwrap()

@@ -3,7 +3,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use rustyline::{error::ReadlineError, Editor};
 use smol_str::SmolStr;
-use tvix_eval::Value;
+use tvix_eval::{GlobalsMap, SourceCode, Value};
 use tvix_glue::tvix_store_io::TvixStoreIO;
 
 use crate::{
@@ -92,6 +92,8 @@ pub struct Repl<'a> {
 
     io_handle: Rc<TvixStoreIO>,
     args: &'a Args,
+    source_map: SourceCode,
+    globals: Option<Rc<GlobalsMap>>,
 }
 
 impl<'a> Repl<'a> {
@@ -103,6 +105,8 @@ impl<'a> Repl<'a> {
             env: HashMap::new(),
             io_handle,
             args,
+            source_map: Default::default(),
+            globals: None,
         }
     }
 
@@ -179,7 +183,7 @@ impl<'a> Repl<'a> {
             }
             ReplCommand::Help => {
                 println!("{}", ReplCommand::HELP);
-                Ok(InterpretResult::empty_success())
+                Ok(InterpretResult::empty_success(None))
             }
             ReplCommand::Expr(input) => interpret(
                 Rc::clone(&self.io_handle),
@@ -189,6 +193,8 @@ impl<'a> Repl<'a> {
                 false,
                 AllowIncomplete::Allow,
                 Some(&self.env),
+                self.globals.clone(),
+                Some(self.source_map.clone()),
             ),
             ReplCommand::Assign(Assignment { ident, value }) => {
                 match evaluate(
@@ -198,12 +204,15 @@ impl<'a> Repl<'a> {
                     self.args,
                     AllowIncomplete::Allow,
                     Some(&self.env),
+                    self.globals.clone(),
+                    Some(self.source_map.clone()),
                 ) {
-                    Ok(Some(value)) => {
-                        self.env.insert(ident.into(), value);
-                        Ok(InterpretResult::empty_success())
+                    Ok(result) => {
+                        if let Some(value) = result.value {
+                            self.env.insert(ident.into(), value);
+                        }
+                        Ok(InterpretResult::empty_success(Some(result.globals)))
                     }
-                    Ok(None) => Ok(InterpretResult::empty_success()),
                     Err(incomplete) => Err(incomplete),
                 }
             }
@@ -215,6 +224,8 @@ impl<'a> Repl<'a> {
                 true,
                 AllowIncomplete::Allow,
                 Some(&self.env),
+                self.globals.clone(),
+                Some(self.source_map.clone()),
             ),
             ReplCommand::Print(input) => interpret(
                 Rc::clone(&self.io_handle),
@@ -227,13 +238,22 @@ impl<'a> Repl<'a> {
                 false,
                 AllowIncomplete::Allow,
                 Some(&self.env),
+                self.globals.clone(),
+                Some(self.source_map.clone()),
             ),
         };
 
         match res {
-            Ok(InterpretResult { output, .. }) => {
+            Ok(InterpretResult {
+                output,
+                globals,
+                success: _,
+            }) => {
                 self.rl.add_history_entry(input);
                 self.multiline_input = None;
+                if globals.is_some() {
+                    self.globals = globals;
+                }
                 CommandResult {
                     output,
                     continue_: true,

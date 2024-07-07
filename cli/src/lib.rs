@@ -8,7 +8,7 @@ use tvix_build::buildservice;
 use tvix_eval::{
     builtins::impure_builtins,
     observer::{DisassemblingObserver, TracingObserver},
-    ErrorKind, EvalIO, Value,
+    ErrorKind, EvalIO, GlobalsMap, SourceCode, Value,
 };
 use tvix_glue::{
     builtins::{add_derivation_builtins, add_fetcher_builtins, add_import_builtins},
@@ -83,7 +83,13 @@ impl AllowIncomplete {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct IncompleteInput;
 
+pub struct EvalResult {
+    value: Option<Value>,
+    globals: Rc<GlobalsMap>,
+}
+
 /// Interprets the given code snippet, printing out warnings and errors and returning the result
+#[allow(clippy::too_many_arguments)]
 pub fn evaluate(
     tvix_store_io: Rc<TvixStoreIO>,
     code: &str,
@@ -91,7 +97,9 @@ pub fn evaluate(
     args: &Args,
     allow_incomplete: AllowIncomplete,
     env: Option<&HashMap<SmolStr, Value>>,
-) -> Result<Option<Value>, IncompleteInput> {
+    globals: Option<Rc<GlobalsMap>>,
+    source_map: Option<SourceCode>,
+) -> Result<EvalResult, IncompleteInput> {
     let span = Span::current();
     span.pb_start();
     span.pb_set_style(&tvix_tracing::PB_SPINNER_STYLE);
@@ -102,16 +110,27 @@ pub fn evaluate(
     )) as Box<dyn EvalIO>)
     .enable_import()
     .with_strict(args.strict)
-    .add_builtins(impure_builtins())
     .env(env);
 
-    eval_builder = add_derivation_builtins(eval_builder, Rc::clone(&tvix_store_io));
-    eval_builder = add_fetcher_builtins(eval_builder, Rc::clone(&tvix_store_io));
-    eval_builder = add_import_builtins(eval_builder, tvix_store_io);
-    eval_builder = configure_nix_path(eval_builder, &args.nix_search_path);
+    match globals {
+        Some(globals) => {
+            eval_builder = eval_builder.with_globals(globals);
+        }
+        None => {
+            eval_builder = eval_builder.add_builtins(impure_builtins());
+            eval_builder = add_derivation_builtins(eval_builder, Rc::clone(&tvix_store_io));
+            eval_builder = add_fetcher_builtins(eval_builder, Rc::clone(&tvix_store_io));
+            eval_builder = add_import_builtins(eval_builder, tvix_store_io);
+            eval_builder = configure_nix_path(eval_builder, &args.nix_search_path);
+        }
+    };
+
+    if let Some(source_map) = source_map {
+        eval_builder = eval_builder.with_source_map(source_map);
+    }
 
     let source_map = eval_builder.source_map().clone();
-    let result = {
+    let (result, globals) = {
         let mut compiler_observer =
             DisassemblingObserver::new(source_map.clone(), std::io::stderr());
         if args.dump_bytecode {
@@ -129,7 +148,9 @@ pub fn evaluate(
         span.pb_set_message("Evaluating…");
 
         let eval = eval_builder.build();
-        eval.evaluate(code, path)
+        let globals = eval.globals();
+        let result = eval.evaluate(code, path);
+        (result, globals)
     };
 
     if allow_incomplete.allow()
@@ -160,19 +181,24 @@ pub fn evaluate(
         }
     }
 
-    Ok(result.value)
+    Ok(EvalResult {
+        globals,
+        value: result.value,
+    })
 }
 
 pub struct InterpretResult {
     output: String,
     success: bool,
+    pub(crate) globals: Option<Rc<GlobalsMap>>,
 }
 
 impl InterpretResult {
-    pub fn empty_success() -> Self {
+    pub fn empty_success(globals: Option<Rc<GlobalsMap>>) -> Self {
         Self {
             output: String::new(),
             success: true,
+            globals,
         }
     }
 
@@ -194,6 +220,7 @@ impl InterpretResult {
 /// and the result itself. The return value indicates whether
 /// evaluation succeeded.
 #[instrument(skip_all, fields(indicatif.pb_show=1))]
+#[allow(clippy::too_many_arguments)]
 pub fn interpret(
     tvix_store_io: Rc<TvixStoreIO>,
     code: &str,
@@ -202,11 +229,22 @@ pub fn interpret(
     explain: bool,
     allow_incomplete: AllowIncomplete,
     env: Option<&HashMap<SmolStr, Value>>,
+    globals: Option<Rc<GlobalsMap>>,
+    source_map: Option<SourceCode>,
 ) -> Result<InterpretResult, IncompleteInput> {
     let mut output = String::new();
-    let result = evaluate(tvix_store_io, code, path, args, allow_incomplete, env)?;
+    let result = evaluate(
+        tvix_store_io,
+        code,
+        path,
+        args,
+        allow_incomplete,
+        env,
+        globals,
+        source_map,
+    )?;
 
-    if let Some(value) = result.as_ref() {
+    if let Some(value) = result.value.as_ref() {
         if explain {
             writeln!(&mut output, "=> {}", value.explain()).unwrap();
         } else if args.raw {
@@ -219,6 +257,7 @@ pub fn interpret(
     // inform the caller about any errors
     Ok(InterpretResult {
         output,
-        success: result.is_some(),
+        success: result.value.is_some(),
+        globals: Some(result.globals),
     })
 }

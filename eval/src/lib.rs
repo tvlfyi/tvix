@@ -42,13 +42,12 @@ use std::rc::Rc;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::compiler::GlobalsMap;
 use crate::observer::{CompilerObserver, RuntimeObserver};
 use crate::value::Lambda;
 use crate::vm::run_lambda;
 
 // Re-export the public interface used by other crates.
-pub use crate::compiler::{compile, prepare_globals, CompilationOutput};
+pub use crate::compiler::{compile, prepare_globals, CompilationOutput, GlobalsMap};
 pub use crate::errors::{AddContext, CatchableErrorKind, Error, ErrorKind, EvalResult};
 pub use crate::io::{DummyIO, EvalIO, FileType};
 pub use crate::pretty_ast::pretty_print_expr;
@@ -64,6 +63,16 @@ pub use crate::value::{Builtin, CoercionKind, NixAttrs, NixList, NixString, Valu
 #[cfg(feature = "impure")]
 pub use crate::io::StdIO;
 
+struct BuilderBuiltins {
+    builtins: Vec<(&'static str, Value)>,
+    src_builtins: Vec<(&'static str, &'static str)>,
+}
+
+enum BuilderGlobals {
+    Builtins(BuilderBuiltins),
+    Globals(Rc<GlobalsMap>),
+}
+
 /// Builder for building an [`Evaluation`].
 ///
 /// Construct an [`EvaluationBuilder`] by calling one of:
@@ -75,9 +84,8 @@ pub use crate::io::StdIO;
 /// Then configure the fields by calling the various methods on [`EvaluationBuilder`], and finally
 /// call [`build`](Self::build) to construct an [`Evaluation`]
 pub struct EvaluationBuilder<'co, 'ro, 'env, IO> {
-    source_map: SourceCode,
-    builtins: Vec<(&'static str, Value)>,
-    src_builtins: Vec<(&'static str, &'static str)>,
+    source_map: Option<SourceCode>,
+    globals: BuilderGlobals,
     env: Option<&'env HashMap<SmolStr, Value>>,
     io_handle: IO,
     enable_import: bool,
@@ -98,21 +106,31 @@ where
     /// - Adds a `"storeDir"` builtin containing the store directory of the configured IO handle
     /// - Sets up globals based on the configured builtins
     /// - Copies all other configured fields to the [`Evaluation`]
-    pub fn build(mut self) -> Evaluation<'co, 'ro, 'env, IO> {
-        // Insert a storeDir builtin *iff* a store directory is present.
-        if let Some(store_dir) = self.io_handle.as_ref().store_dir() {
-            self.builtins.push(("storeDir", store_dir.into()));
-        }
+    pub fn build(self) -> Evaluation<'co, 'ro, 'env, IO> {
+        let source_map = self.source_map.unwrap_or_default();
 
-        let globals = crate::compiler::prepare_globals(
-            self.builtins,
-            self.src_builtins,
-            self.source_map.clone(),
-            self.enable_import,
-        );
+        let globals = match self.globals {
+            BuilderGlobals::Globals(globals) => globals,
+            BuilderGlobals::Builtins(BuilderBuiltins {
+                mut builtins,
+                src_builtins,
+            }) => {
+                // Insert a storeDir builtin *iff* a store directory is present.
+                if let Some(store_dir) = self.io_handle.as_ref().store_dir() {
+                    builtins.push(("storeDir", store_dir.into()));
+                }
+
+                crate::compiler::prepare_globals(
+                    builtins,
+                    src_builtins,
+                    source_map.clone(),
+                    self.enable_import,
+                )
+            }
+        };
 
         Evaluation {
-            source_map: self.source_map,
+            source_map,
             globals,
             env: self.env,
             io_handle: self.io_handle,
@@ -132,11 +150,13 @@ impl<'co, 'ro, 'env, IO> EvaluationBuilder<'co, 'ro, 'env, IO> {
         builtins.extend(builtins::placeholders()); // these are temporary
 
         Self {
-            source_map: SourceCode::default(),
+            source_map: None,
             enable_import: false,
             io_handle,
-            builtins,
-            src_builtins: vec![],
+            globals: BuilderGlobals::Builtins(BuilderBuiltins {
+                builtins,
+                src_builtins: vec![],
+            }),
             env: None,
             strict: false,
             nix_path: None,
@@ -149,8 +169,7 @@ impl<'co, 'ro, 'env, IO> EvaluationBuilder<'co, 'ro, 'env, IO> {
         EvaluationBuilder {
             io_handle,
             source_map: self.source_map,
-            builtins: self.builtins,
-            src_builtins: self.src_builtins,
+            globals: self.globals,
             env: self.env,
             enable_import: self.enable_import,
             strict: self.strict,
@@ -175,12 +194,62 @@ impl<'co, 'ro, 'env, IO> EvaluationBuilder<'co, 'ro, 'env, IO> {
         self.with_enable_import(true)
     }
 
+    fn builtins_mut(&mut self) -> &mut BuilderBuiltins {
+        match &mut self.globals {
+            BuilderGlobals::Builtins(builtins) => builtins,
+            BuilderGlobals::Globals(_) => {
+                panic!("Cannot modify builtins on an EvaluationBuilder with globals configured")
+            }
+        }
+    }
+
+    /// Add additional builtins (represented as tuples of name and [`Value`]) to this evaluation
+    /// builder.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this evaluation builder has had globals set via [`with_globals`]
     pub fn add_builtins<I>(mut self, builtins: I) -> Self
     where
         I: IntoIterator<Item = (&'static str, Value)>,
     {
-        self.builtins.extend(builtins);
+        self.builtins_mut().builtins.extend(builtins);
         self
+    }
+
+    /// Add additional builtins that are implemented in Nix source code (represented as tuples of
+    /// name and nix source) to this evaluation builder.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this evaluation builder has had globals set via [`with_globals`]
+    pub fn add_src_builtin(mut self, name: &'static str, src: &'static str) -> Self {
+        self.builtins_mut().src_builtins.push((name, src));
+        self
+    }
+
+    /// Set the globals for this evaluation builder to a previously-constructed globals map.
+    /// Intended to allow sharing globals across multiple evaluations (eg for the REPL).
+    ///
+    /// Discards any builtins previously configured via [`add_builtins`] and [`add_src_builtins`].
+    /// If either of those methods is called on the evaluation builder after this one, they will
+    /// panic.
+    pub fn with_globals(self, globals: Rc<GlobalsMap>) -> Self {
+        Self {
+            globals: BuilderGlobals::Globals(globals),
+            ..self
+        }
+    }
+
+    pub fn with_source_map(self, source_map: SourceCode) -> Self {
+        debug_assert!(
+            self.source_map.is_none(),
+            "Cannot set the source_map on an EvaluationBuilder twice"
+        );
+        Self {
+            source_map: Some(source_map),
+            ..self
+        }
     }
 
     pub fn with_strict(self, strict: bool) -> Self {
@@ -189,11 +258,6 @@ impl<'co, 'ro, 'env, IO> EvaluationBuilder<'co, 'ro, 'env, IO> {
 
     pub fn strict(self) -> Self {
         self.with_strict(true)
-    }
-
-    pub fn add_src_builtin(mut self, name: &'static str, src: &'static str) -> Self {
-        self.src_builtins.push((name, src));
-        self
     }
 
     pub fn nix_path(self, nix_path: Option<String>) -> Self {
@@ -234,8 +298,8 @@ impl<'co, 'ro, 'env, IO> EvaluationBuilder<'co, 'ro, 'env, IO> {
 }
 
 impl<'co, 'ro, 'env, IO> EvaluationBuilder<'co, 'ro, 'env, IO> {
-    pub fn source_map(&self) -> &SourceCode {
-        &self.source_map
+    pub fn source_map(&mut self) -> &SourceCode {
+        self.source_map.get_or_insert_with(SourceCode::default)
     }
 }
 
@@ -255,7 +319,9 @@ impl<'co, 'ro, 'env> EvaluationBuilder<'co, 'ro, 'env, Box<dyn EvalIO>> {
     pub fn enable_impure(mut self, io: Option<Box<dyn EvalIO>>) -> Self {
         self.io_handle = io.unwrap_or_else(|| Box::new(StdIO) as Box<dyn EvalIO>);
         self.enable_import = true;
-        self.builtins.extend(builtins::impure_builtins());
+        self.builtins_mut()
+            .builtins
+            .extend(builtins::impure_builtins());
 
         // Make `NIX_PATH` resolutions work by default, unless the
         // user already overrode this with something else.
@@ -332,8 +398,25 @@ pub struct EvaluationResult {
 }
 
 impl<'co, 'ro, 'env, IO> Evaluation<'co, 'ro, 'env, IO> {
+    /// Make a new [builder][] for configuring an evaluation
+    ///
+    /// [builder]: EvaluationBuilder
     pub fn builder(io_handle: IO) -> EvaluationBuilder<'co, 'ro, 'env, IO> {
         EvaluationBuilder::new(io_handle)
+    }
+
+    /// Clone the reference to the map of Nix globals for this evaluation. If [`Value`]s are shared
+    /// across subsequent [`Evaluation`]s, it is important that those evaluations all have the same
+    /// underlying globals map.
+    pub fn globals(&self) -> Rc<GlobalsMap> {
+        self.globals.clone()
+    }
+
+    /// Clone the reference to the contained source code map. This is used after an evaluation for
+    /// pretty error printing. Also, if [`Value`]s are shared across subsequent [`Evaluation`]s, it
+    /// is important that those evaluations all have the same underlying source code map.
+    pub fn source_map(&self) -> SourceCode {
+        self.source_map.clone()
     }
 }
 
@@ -352,12 +435,6 @@ impl<'co, 'ro, 'env, IO> Evaluation<'co, 'ro, 'env, IO>
 where
     IO: AsRef<dyn EvalIO> + 'static,
 {
-    /// Clone the reference to the contained source code map. This is used after
-    /// an evaluation for pretty error printing.
-    pub fn source_map(&self) -> SourceCode {
-        self.source_map.clone()
-    }
-
     /// Only compile the provided source code, at an optional location of the
     /// source code (i.e. path to the file it was read from; used for error
     /// reporting, and for resolving relative paths in impure functions)

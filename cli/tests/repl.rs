@@ -53,6 +53,22 @@ test_repl!(bind_lazy() {
     "#]];
 });
 
+test_repl!(bind_lazy_errors() {
+    r#"x = (_: "x" + 1)"# => expect![[""]];
+    "x null" => expect![[""]];
+});
+
+test_repl!(bind_referencing_import() {
+    "six = import ./tests/six.nix {}" => expect![[""]];
+    "six.six" => expect![[r#"
+        => 6 :: int
+    "#]];
+    "imported = import ./tests/import.nix"  => expect![[""]];
+    "(imported {}).six" => expect![[r#"
+        => 6 :: int
+    "#]];
+});
+
 test_repl!(deep_print() {
     "builtins.map (x: x + 1) [ 1 2 3 ]" => expect![[r#"
         => [ <CODE> <CODE> <CODE> ] :: list

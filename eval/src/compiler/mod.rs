@@ -117,7 +117,7 @@ impl TrackedFormal {
 
 /// The map of globally available functions and other values that
 /// should implicitly be resolvable in the global scope.
-pub(crate) type GlobalsMap = HashMap<&'static str, Value>;
+pub type GlobalsMap = HashMap<&'static str, Value>;
 
 /// Set of builtins that (if they exist) should be made available in
 /// the global scope, meaning that they can be accessed not just
