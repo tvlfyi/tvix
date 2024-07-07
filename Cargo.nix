@@ -5056,9 +5056,9 @@ rec {
       };
       "imbl" = rec {
         crateName = "imbl";
-        version = "2.0.3";
+        version = "3.0.0";
         edition = "2018";
-        sha256 = "11bhchs0d1bbbmr8ari4y4d62vqxs7xg4fkhjlhgbv98h0n193cp";
+        sha256 = "1sw1vw8qysyr9cxyxfi3fal9ykf46zw337w4n533mwrnrpcfhfxw";
         authors = [
           "Bodil Stokke <bodil@bodil.org>"
           "Joe Neeman <joeneeman@gmail.com>"
@@ -5114,6 +5114,7 @@ rec {
           "rayon" = [ "dep:rayon" ];
           "refpool" = [ "dep:refpool" ];
           "serde" = [ "dep:serde" ];
+          "triomphe" = [ "dep:triomphe" ];
         };
         resolvedDefaultFeatures = [ "proptest" "serde" ];
       };
