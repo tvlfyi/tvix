@@ -12,17 +12,13 @@ fn main() -> Result<()> {
         builder = builder.file_descriptor_set_path(descriptor_path);
     };
 
-    // https://github.com/hyperium/tonic/issues/908
-    let mut config = prost_build::Config::new();
-    config.bytes(["."]);
-    config.type_attribute(".", "#[derive(Eq, Hash)]");
-
     builder
         .build_server(true)
         .build_client(true)
         .emit_rerun_if_changed(false)
-        .compile_with_config(
-            config,
+        .bytes(["."])
+        .type_attribute(".", "#[derive(Eq, Hash)]")
+        .compile(
             &[
                 "tvix/castore/protos/castore.proto",
                 "tvix/castore/protos/rpc_blobstore.proto",
