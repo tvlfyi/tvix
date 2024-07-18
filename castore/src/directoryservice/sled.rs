@@ -4,11 +4,13 @@ use futures::stream::BoxStream;
 use prost::Message;
 use std::ops::Deref;
 use std::path::Path;
+use std::sync::Arc;
 use tonic::async_trait;
 use tracing::{instrument, warn};
 
 use super::utils::traverse_directory;
 use super::{DirectoryGraph, DirectoryPutter, DirectoryService, LeavesToRootValidator};
+use crate::composition::{CompositionContext, ServiceBuilder};
 
 #[derive(Clone)]
 pub struct SledDirectoryService {
@@ -17,6 +19,12 @@ pub struct SledDirectoryService {
 
 impl SledDirectoryService {
     pub fn new<P: AsRef<Path>>(p: P) -> Result<Self, sled::Error> {
+        if p.as_ref() == Path::new("/") {
+            return Err(sled::Error::Unsupported(
+                "cowardly refusing to open / with sled".to_string(),
+            ));
+        }
+
         let config = sled::Config::default()
             .use_compression(false) // is a required parameter
             .path(p);
@@ -125,6 +133,47 @@ impl DirectoryService for SledDirectoryService {
             tree: self.db.deref().clone(),
             directory_validator: Some(Default::default()),
         })
+    }
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SledDirectoryServiceConfig {
+    is_temporary: bool,
+    #[serde(default)]
+    /// required when is_temporary = false
+    path: Option<String>,
+}
+
+#[async_trait]
+impl ServiceBuilder for SledDirectoryServiceConfig {
+    type Output = dyn DirectoryService;
+    async fn build<'a>(
+        &'a self,
+        _instance_name: &str,
+        _context: &CompositionContext<dyn DirectoryService>,
+    ) -> Result<Arc<dyn DirectoryService>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+        match self {
+            SledDirectoryServiceConfig {
+                is_temporary: true,
+                path: None,
+            } => Ok(Arc::new(SledDirectoryService::new_temporary()?)),
+            SledDirectoryServiceConfig {
+                is_temporary: true,
+                path: Some(_),
+            } => Err(Error::StorageError(
+                "Temporary SledDirectoryService can not have path".into(),
+            )
+            .into()),
+            SledDirectoryServiceConfig {
+                is_temporary: false,
+                path: None,
+            } => Err(Error::StorageError("SledDirectoryService is missing path".into()).into()),
+            SledDirectoryServiceConfig {
+                is_temporary: false,
+                path: Some(path),
+            } => Ok(Arc::new(SledDirectoryService::new(path)?)),
+        }
     }
 }
 

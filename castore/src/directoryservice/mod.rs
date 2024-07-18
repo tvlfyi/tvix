@@ -25,7 +25,7 @@ pub use self::memory::{MemoryDirectoryService, MemoryDirectoryServiceConfig};
 pub use self::object_store::{ObjectStoreDirectoryService, ObjectStoreDirectoryServiceConfig};
 pub use self::order_validator::{LeavesToRootValidator, OrderValidator, RootToLeavesValidator};
 pub use self::simple_putter::SimplePutter;
-pub use self::sled::SledDirectoryService;
+pub use self::sled::{SledDirectoryService, SledDirectoryServiceConfig};
 pub use self::traverse::descend_to;
 pub use self::utils::traverse_directory;
 
@@ -134,6 +134,7 @@ pub(crate) fn register_directory_services(reg: &mut Registry) {
     reg.register::<Box<dyn ServiceBuilder<Output = dyn DirectoryService>>, super::directoryservice::MemoryDirectoryServiceConfig>("memory");
     reg.register::<Box<dyn ServiceBuilder<Output = dyn DirectoryService>>, super::directoryservice::CacheConfig>("cache");
     reg.register::<Box<dyn ServiceBuilder<Output = dyn DirectoryService>>, super::directoryservice::GRPCDirectoryServiceConfig>("grpc");
+    reg.register::<Box<dyn ServiceBuilder<Output = dyn DirectoryService>>, super::directoryservice::SledDirectoryServiceConfig>("sled");
     #[cfg(feature = "cloud")]
     {
         reg.register::<Box<dyn ServiceBuilder<Output = dyn DirectoryService>>, super::directoryservice::BigtableParameters>("bigtable");
