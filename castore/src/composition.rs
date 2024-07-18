@@ -218,10 +218,17 @@ pub fn add_default_services(reg: &mut Registry) {
 
 pub struct CompositionContext<'a, T: ?Sized> {
     stack: Vec<String>,
-    composition: &'a Composition<T>,
+    composition: Option<&'a Composition<T>>,
 }
 
 impl<'a, T: ?Sized + Send + Sync + 'static> CompositionContext<'a, T> {
+    pub fn blank() -> Self {
+        Self {
+            stack: Default::default(),
+            composition: None,
+        }
+    }
+
     pub async fn resolve(
         &self,
         entrypoint: String,
@@ -230,10 +237,10 @@ impl<'a, T: ?Sized + Send + Sync + 'static> CompositionContext<'a, T> {
         if self.stack.contains(&entrypoint) {
             return Err(CompositionError::Recursion(self.stack.clone()).into());
         }
-        Ok(self
-            .composition
-            .build_internal(self.stack.clone(), entrypoint)
-            .await?)
+        match self.composition {
+            Some(comp) => Ok(comp.build_internal(self.stack.clone(), entrypoint).await?),
+            None => Err(CompositionError::NotFound(entrypoint).into()),
+        }
     }
 }
 
@@ -340,7 +347,7 @@ impl<T: ?Sized + Send + Sync + 'static> Composition<T> {
                     (async move {
                         let mut new_context = CompositionContext {
                             stack: stack.clone(),
-                            composition: self,
+                            composition: Some(self),
                         };
                         new_context.stack.push(entrypoint.clone());
                         let res = config
