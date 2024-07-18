@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use clap::Parser;
 use clap::Subcommand;
 use tokio_listener::Listener;
@@ -51,7 +49,7 @@ enum Commands {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let cli = Cli::parse();
 
     let _ = tvix_tracing::TracingBuilder::default()
@@ -69,12 +67,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let blob_service = blobservice::from_addr(&blob_service_addr).await?;
             let directory_service = directoryservice::from_addr(&directory_service_addr).await?;
 
-            let build_service = buildservice::from_addr(
-                &build_service_addr,
-                Arc::from(blob_service),
-                Arc::from(directory_service),
-            )
-            .await?;
+            let build_service =
+                buildservice::from_addr(&build_service_addr, blob_service, directory_service)
+                    .await?;
 
             let listen_address = listen_address
                 .unwrap_or_else(|| "[::]:8000".to_string())

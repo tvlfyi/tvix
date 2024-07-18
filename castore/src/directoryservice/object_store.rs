@@ -179,6 +179,32 @@ pub struct ObjectStoreDirectoryServiceConfig {
     object_store_options: HashMap<String, String>,
 }
 
+impl TryFrom<url::Url> for ObjectStoreDirectoryServiceConfig {
+    type Error = Box<dyn std::error::Error + Send + Sync>;
+    fn try_from(url: url::Url) -> Result<Self, Self::Error> {
+        // We need to convert the URL to string, strip the prefix there, and then
+        // parse it back as url, as Url::set_scheme() rejects some of the transitions we want to do.
+        let trimmed_url = {
+            let s = url.to_string();
+            let mut url = Url::parse(
+                s.strip_prefix("objectstore+")
+                    .ok_or(Error::StorageError("Missing objectstore uri".into()))?,
+            )?;
+            // trim the query pairs, they might contain credentials or local settings we don't want to send as-is.
+            url.set_query(None);
+            url
+        };
+        Ok(ObjectStoreDirectoryServiceConfig {
+            object_store_url: trimmed_url.into(),
+            object_store_options: url
+                .query_pairs()
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+        })
+    }
+}
+
 #[async_trait]
 impl ServiceBuilder for ObjectStoreDirectoryServiceConfig {
     type Output = dyn DirectoryService;

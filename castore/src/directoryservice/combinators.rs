@@ -151,6 +151,16 @@ pub struct CacheConfig {
     far: String,
 }
 
+impl TryFrom<url::Url> for CacheConfig {
+    type Error = Box<dyn std::error::Error + Send + Sync>;
+    fn try_from(_url: url::Url) -> Result<Self, Self::Error> {
+        Err(Error::StorageError(
+            "Instantiating a CombinedDirectoryService from a url is not supported".into(),
+        )
+        .into())
+    }
+}
+
 #[async_trait]
 impl ServiceBuilder for CacheConfig {
     type Output = dyn DirectoryService;

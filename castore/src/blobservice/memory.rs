@@ -7,7 +7,7 @@ use tracing::instrument;
 
 use super::{BlobReader, BlobService, BlobWriter};
 use crate::composition::{CompositionContext, ServiceBuilder};
-use crate::B3Digest;
+use crate::{B3Digest, Error};
 
 #[derive(Clone, Default)]
 pub struct MemoryBlobService {
@@ -41,6 +41,17 @@ impl BlobService for MemoryBlobService {
 #[derive(serde::Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct MemoryBlobServiceConfig {}
+
+impl TryFrom<url::Url> for MemoryBlobServiceConfig {
+    type Error = Box<dyn std::error::Error + Send + Sync>;
+    fn try_from(url: url::Url) -> Result<Self, Self::Error> {
+        // memory doesn't support host or path in the URL.
+        if url.has_host() || !url.path().is_empty() {
+            return Err(Error::StorageError("invalid url".to_string()).into());
+        }
+        Ok(MemoryBlobServiceConfig {})
+    }
+}
 
 #[async_trait]
 impl ServiceBuilder for MemoryBlobServiceConfig {

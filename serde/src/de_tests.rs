@@ -236,10 +236,9 @@ mod test_builtins {
 fn deserialize_with_extra_builtin() {
     let code = "builtins.prependHello \"world\"";
 
-    let result: String = from_str_with_config(code, |eval| {
-        eval.add_builtins(test_builtins::builtins())
-    })
-    .expect("should deserialize");
+    let result: String =
+        from_str_with_config(code, |eval| eval.add_builtins(test_builtins::builtins()))
+            .expect("should deserialize");
 
     assert_eq!(result, "hello world");
 }

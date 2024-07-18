@@ -6,7 +6,7 @@ use tonic::async_trait;
 use tracing::{instrument, warn};
 
 use crate::composition::{CompositionContext, ServiceBuilder};
-use crate::B3Digest;
+use crate::{B3Digest, Error};
 
 use super::{naive_seeker::NaiveSeeker, BlobReader, BlobService, BlobWriter};
 
@@ -101,6 +101,16 @@ where
 pub struct CombinedBlobServiceConfig {
     local: String,
     remote: String,
+}
+
+impl TryFrom<url::Url> for CombinedBlobServiceConfig {
+    type Error = Box<dyn std::error::Error + Send + Sync>;
+    fn try_from(_url: url::Url) -> Result<Self, Self::Error> {
+        Err(Error::StorageError(
+            "Instantiating a CombinedBlobService from a url is not supported".into(),
+        )
+        .into())
+    }
 }
 
 #[async_trait]

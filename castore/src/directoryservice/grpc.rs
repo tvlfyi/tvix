@@ -224,6 +224,19 @@ pub struct GRPCDirectoryServiceConfig {
     url: String,
 }
 
+impl TryFrom<url::Url> for GRPCDirectoryServiceConfig {
+    type Error = Box<dyn std::error::Error + Send + Sync>;
+    fn try_from(url: url::Url) -> Result<Self, Self::Error> {
+        //   This is normally grpc+unix for unix sockets, and grpc+http(s) for the HTTP counterparts.
+        // - In the case of unix sockets, there must be a path, but may not be a host.
+        // - In the case of non-unix sockets, there must be a host, but no path.
+        // Constructing the channel is handled by tvix_castore::channel::from_url.
+        Ok(GRPCDirectoryServiceConfig {
+            url: url.to_string(),
+        })
+    }
+}
+
 #[async_trait]
 impl ServiceBuilder for GRPCDirectoryServiceConfig {
     type Output = dyn DirectoryService;

@@ -1,8 +1,12 @@
+use std::sync::Arc;
+
 use url::Url;
 
-use crate::{proto::blob_service_client::BlobServiceClient, Error};
+use crate::composition::{
+    with_registry, CompositionContext, DeserializeWithRegistry, ServiceBuilder, REG,
+};
 
-use super::{BlobService, GRPCBlobService, MemoryBlobService, ObjectStoreBlobService};
+use super::BlobService;
 
 /// Constructs a new instance of a [BlobService] from an URI.
 ///
@@ -12,53 +16,19 @@ use super::{BlobService, GRPCBlobService, MemoryBlobService, ObjectStoreBlobServ
 /// - `objectstore+*://` ([ObjectStoreBlobService])
 ///
 /// See their `from_url` methods for more details about their syntax.
-pub async fn from_addr(uri: &str) -> Result<Box<dyn BlobService>, crate::Error> {
+pub async fn from_addr(
+    uri: &str,
+) -> Result<Arc<dyn BlobService>, Box<dyn std::error::Error + Send + Sync>> {
     let url = Url::parse(uri)
         .map_err(|e| crate::Error::StorageError(format!("unable to parse url: {}", e)))?;
 
-    let blob_service: Box<dyn BlobService> = match url.scheme() {
-        "memory" => {
-            // memory doesn't support host or path in the URL.
-            if url.has_host() || !url.path().is_empty() {
-                return Err(Error::StorageError("invalid url".to_string()));
-            }
-            Box::<MemoryBlobService>::default()
-        }
-        scheme if scheme.starts_with("grpc+") => {
-            // schemes starting with grpc+ go to the GRPCPathInfoService.
-            //   That's normally grpc+unix for unix sockets, and grpc+http(s) for the HTTP counterparts.
-            // - In the case of unix sockets, there must be a path, but may not be a host.
-            // - In the case of non-unix sockets, there must be a host, but no path.
-            // Constructing the channel is handled by tvix_castore::channel::from_url.
-            Box::new(GRPCBlobService::from_client(
-                BlobServiceClient::with_interceptor(
-                    crate::tonic::channel_from_url(&url).await?,
-                    tvix_tracing::propagate::tonic::send_trace,
-                ),
-            ))
-        }
-        scheme if scheme.starts_with("objectstore+") => {
-            // We need to convert the URL to string, strip the prefix there, and then
-            // parse it back as url, as Url::set_scheme() rejects some of the transitions we want to do.
-            let trimmed_url = {
-                let s = url.to_string();
-                let mut url = Url::parse(s.strip_prefix("objectstore+").unwrap()).unwrap();
-                // trim the query pairs, they might contain credentials or local settings we don't want to send as-is.
-                url.set_query(None);
-                url
-            };
-            Box::new(
-                ObjectStoreBlobService::parse_url_opts(&trimmed_url, url.query_pairs())
-                    .map_err(|e| Error::StorageError(e.to_string()))?,
-            )
-        }
-        scheme => {
-            return Err(crate::Error::StorageError(format!(
-                "unknown scheme: {}",
-                scheme
-            )))
-        }
-    };
+    let blob_service_config = with_registry(&REG, || {
+        <DeserializeWithRegistry<Box<dyn ServiceBuilder<Output = dyn BlobService>>>>::try_from(url)
+    })?
+    .0;
+    let blob_service = blob_service_config
+        .build("anonymous", &CompositionContext::blank())
+        .await?;
 
     Ok(blob_service)
 }

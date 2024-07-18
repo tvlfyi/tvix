@@ -200,7 +200,7 @@ fn default_threads() -> usize {
 }
 
 #[instrument(skip_all)]
-async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
+async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match cli.command {
         Commands::Daemon {
             listen_args,
@@ -538,7 +538,7 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let cli = Cli::parse();
 
     let tracing_handle = {

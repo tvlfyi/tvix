@@ -361,6 +361,26 @@ impl ServiceBuilder for BigtableParameters {
     }
 }
 
+impl TryFrom<url::Url> for BigtableParameters {
+    type Error = Box<dyn std::error::Error + Send + Sync>;
+    fn try_from(mut url: url::Url) -> Result<Self, Self::Error> {
+        // parse the instance name from the hostname.
+        let instance_name = url
+            .host_str()
+            .ok_or_else(|| Error::StorageError("instance name missing".into()))?
+            .to_string();
+
+        // … but add it to the query string now, so we just need to parse that.
+        url.query_pairs_mut()
+            .append_pair("instance_name", &instance_name);
+
+        let params: BigtableParameters = serde_qs::from_str(url.query().unwrap_or_default())
+            .map_err(|e| Error::InvalidRequest(format!("failed to parse parameters: {}", e)))?;
+
+        Ok(params)
+    }
+}
+
 fn default_app_profile_id() -> String {
     "default".to_owned()
 }

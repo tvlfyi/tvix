@@ -4,7 +4,6 @@ use crate::fixtures::*;
 use crate::import::fs::ingest_path;
 use crate::proto;
 
-use std::sync::Arc;
 use tempfile::TempDir;
 
 #[cfg(target_family = "unix")]
@@ -26,7 +25,7 @@ async fn symlink() {
     .unwrap();
 
     let root_node = ingest_path(
-        Arc::from(blob_service),
+        blob_service,
         directory_service,
         tmpdir.path().join("doesntmatter"),
     )
@@ -44,8 +43,7 @@ async fn symlink() {
 
 #[tokio::test]
 async fn single_file() {
-    let blob_service =
-        Arc::from(blobservice::from_addr("memory://").await.unwrap()) as Arc<dyn BlobService>;
+    let blob_service = blobservice::from_addr("memory://").await.unwrap();
     let directory_service = directoryservice::from_addr("memory://").await.unwrap();
 
     let tmpdir = TempDir::new().unwrap();
@@ -77,8 +75,7 @@ async fn single_file() {
 #[cfg(target_family = "unix")]
 #[tokio::test]
 async fn complicated() {
-    let blob_service =
-        Arc::from(blobservice::from_addr("memory://").await.unwrap()) as Arc<dyn BlobService>;
+    let blob_service = blobservice::from_addr("memory://").await.unwrap();
     let directory_service = directoryservice::from_addr("memory://").await.unwrap();
 
     let tmpdir = TempDir::new().unwrap();

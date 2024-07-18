@@ -145,6 +145,31 @@ pub struct SledDirectoryServiceConfig {
     path: Option<String>,
 }
 
+impl TryFrom<url::Url> for SledDirectoryServiceConfig {
+    type Error = Box<dyn std::error::Error + Send + Sync>;
+    fn try_from(url: url::Url) -> Result<Self, Self::Error> {
+        // sled doesn't support host, and a path can be provided (otherwise
+        // it'll live in memory only).
+        if url.has_host() {
+            return Err(Error::StorageError("no host allowed".to_string()).into());
+        }
+
+        // TODO: expose compression and other parameters as URL parameters?
+
+        Ok(if url.path().is_empty() {
+            SledDirectoryServiceConfig {
+                is_temporary: true,
+                path: None,
+            }
+        } else {
+            SledDirectoryServiceConfig {
+                is_temporary: false,
+                path: Some(url.path().to_string()),
+            }
+        })
+    }
+}
+
 #[async_trait]
 impl ServiceBuilder for SledDirectoryServiceConfig {
     type Output = dyn DirectoryService;

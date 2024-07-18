@@ -91,6 +91,17 @@ impl DirectoryService for MemoryDirectoryService {
 #[serde(deny_unknown_fields)]
 pub struct MemoryDirectoryServiceConfig {}
 
+impl TryFrom<url::Url> for MemoryDirectoryServiceConfig {
+    type Error = Box<dyn std::error::Error + Send + Sync>;
+    fn try_from(url: url::Url) -> Result<Self, Self::Error> {
+        // memory doesn't support host or path in the URL.
+        if url.has_host() || !url.path().is_empty() {
+            return Err(Error::StorageError("invalid url".to_string()).into());
+        }
+        Ok(MemoryDirectoryServiceConfig {})
+    }
+}
+
 #[async_trait]
 impl ServiceBuilder for MemoryDirectoryServiceConfig {
     type Output = dyn DirectoryService;

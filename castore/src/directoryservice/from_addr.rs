@@ -1,11 +1,12 @@
+use std::sync::Arc;
+
 use url::Url;
 
-use crate::{proto::directory_service_client::DirectoryServiceClient, Error};
-
-use super::{
-    DirectoryService, GRPCDirectoryService, MemoryDirectoryService, ObjectStoreDirectoryService,
-    SledDirectoryService,
+use crate::composition::{
+    with_registry, CompositionContext, DeserializeWithRegistry, ServiceBuilder, REG,
 };
+
+use super::DirectoryService;
 
 /// Constructs a new instance of a [DirectoryService] from an URI.
 ///
@@ -21,101 +22,23 @@ use super::{
 ///   Connects to a local tvix-store gRPC service via Unix socket.
 /// - `grpc+http://host:port`, `grpc+https://host:port`
 ///    Connects to a (remote) tvix-store gRPC service.
-pub async fn from_addr(uri: &str) -> Result<Box<dyn DirectoryService>, crate::Error> {
+pub async fn from_addr(
+    uri: &str,
+) -> Result<Arc<dyn DirectoryService>, Box<dyn std::error::Error + Send + Sync>> {
     #[allow(unused_mut)]
     let mut url = Url::parse(uri)
         .map_err(|e| crate::Error::StorageError(format!("unable to parse url: {}", e)))?;
 
-    let directory_service: Box<dyn DirectoryService> = match url.scheme() {
-        "memory" => {
-            // memory doesn't support host or path in the URL.
-            if url.has_host() || !url.path().is_empty() {
-                return Err(Error::StorageError("invalid url".to_string()));
-            }
-            Box::<MemoryDirectoryService>::default()
-        }
-        "sled" => {
-            // sled doesn't support host, and a path can be provided (otherwise
-            // it'll live in memory only).
-            if url.has_host() {
-                return Err(Error::StorageError("no host allowed".to_string()));
-            }
+    let directory_service_config = with_registry(&REG, || {
+        <DeserializeWithRegistry<Box<dyn ServiceBuilder<Output = dyn DirectoryService>>>>::try_from(
+            url,
+        )
+    })?
+    .0;
+    let directory_service = directory_service_config
+        .build("anonymous", &CompositionContext::blank())
+        .await?;
 
-            if url.path() == "/" {
-                return Err(Error::StorageError(
-                    "cowardly refusing to open / with sled".to_string(),
-                ));
-            }
-
-            // TODO: expose compression and other parameters as URL parameters?
-
-            Box::new(if url.path().is_empty() {
-                SledDirectoryService::new_temporary()
-                    .map_err(|e| Error::StorageError(e.to_string()))?
-            } else {
-                SledDirectoryService::new(url.path())
-                    .map_err(|e| Error::StorageError(e.to_string()))?
-            })
-        }
-        scheme if scheme.starts_with("grpc+") => {
-            // schemes starting with grpc+ go to the GRPCPathInfoService.
-            //   That's normally grpc+unix for unix sockets, and grpc+http(s) for the HTTP counterparts.
-            // - In the case of unix sockets, there must be a path, but may not be a host.
-            // - In the case of non-unix sockets, there must be a host, but no path.
-            // Constructing the channel is handled by tvix_castore::channel::from_url.
-            Box::new(GRPCDirectoryService::from_client(
-                DirectoryServiceClient::with_interceptor(
-                    crate::tonic::channel_from_url(&url).await?,
-                    tvix_tracing::propagate::tonic::send_trace,
-                ),
-            ))
-        }
-        scheme if scheme.starts_with("objectstore+") => {
-            // We need to convert the URL to string, strip the prefix there, and then
-            // parse it back as url, as Url::set_scheme() rejects some of the transitions we want to do.
-            let trimmed_url = {
-                let s = url.to_string();
-                let mut url = Url::parse(s.strip_prefix("objectstore+").unwrap()).unwrap();
-                // trim the query pairs, they might contain credentials or local settings we don't want to send as-is.
-                url.set_query(None);
-                url
-            };
-            Box::new(
-                ObjectStoreDirectoryService::parse_url_opts(&trimmed_url, url.query_pairs())
-                    .map_err(|e| Error::StorageError(e.to_string()))?,
-            )
-        }
-        #[cfg(feature = "cloud")]
-        "bigtable" => {
-            use super::bigtable::BigtableParameters;
-            use super::BigtableDirectoryService;
-
-            // parse the instance name from the hostname.
-            let instance_name = url
-                .host_str()
-                .ok_or_else(|| Error::StorageError("instance name missing".into()))?
-                .to_string();
-
-            // … but add it to the query string now, so we just need to parse that.
-            url.query_pairs_mut()
-                .append_pair("instance_name", &instance_name);
-
-            let params: BigtableParameters = serde_qs::from_str(url.query().unwrap_or_default())
-                .map_err(|e| Error::InvalidRequest(format!("failed to parse parameters: {}", e)))?;
-
-            Box::new(
-                BigtableDirectoryService::connect(params)
-                    .await
-                    .map_err(|e| Error::StorageError(e.to_string()))?,
-            )
-        }
-        _ => {
-            return Err(crate::Error::StorageError(format!(
-                "unknown scheme: {}",
-                url.scheme()
-            )))
-        }
-    };
     Ok(directory_service)
 }
 

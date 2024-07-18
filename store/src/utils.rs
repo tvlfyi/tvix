@@ -19,19 +19,19 @@ pub async fn construct_services(
     blob_service_addr: impl AsRef<str>,
     directory_service_addr: impl AsRef<str>,
     path_info_service_addr: impl AsRef<str>,
-) -> std::io::Result<(
-    Arc<dyn BlobService>,
-    Arc<dyn DirectoryService>,
-    Box<dyn PathInfoService>,
-    Box<dyn NarCalculationService>,
-)> {
-    let blob_service: Arc<dyn BlobService> = blobservice::from_addr(blob_service_addr.as_ref())
-        .await?
-        .into();
+) -> Result<
+    (
+        Arc<dyn BlobService>,
+        Arc<dyn DirectoryService>,
+        Box<dyn PathInfoService>,
+        Box<dyn NarCalculationService>,
+    ),
+    Box<dyn std::error::Error + Send + Sync>,
+> {
+    let blob_service: Arc<dyn BlobService> =
+        blobservice::from_addr(blob_service_addr.as_ref()).await?;
     let directory_service: Arc<dyn DirectoryService> =
-        directoryservice::from_addr(directory_service_addr.as_ref())
-            .await?
-            .into();
+        directoryservice::from_addr(directory_service_addr.as_ref()).await?;
 
     let path_info_service = pathinfoservice::from_addr(
         path_info_service_addr.as_ref(),

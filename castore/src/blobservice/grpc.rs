@@ -187,6 +187,19 @@ pub struct GRPCBlobServiceConfig {
     url: String,
 }
 
+impl TryFrom<url::Url> for GRPCBlobServiceConfig {
+    type Error = Box<dyn std::error::Error + Send + Sync>;
+    fn try_from(url: url::Url) -> Result<Self, Self::Error> {
+        //   normally grpc+unix for unix sockets, and grpc+http(s) for the HTTP counterparts.
+        // - In the case of unix sockets, there must be a path, but may not be a host.
+        // - In the case of non-unix sockets, there must be a host, but no path.
+        // Constructing the channel is handled by tvix_castore::channel::from_url.
+        Ok(GRPCBlobServiceConfig {
+            url: url.to_string(),
+        })
+    }
+}
+
 #[async_trait]
 impl ServiceBuilder for GRPCBlobServiceConfig {
     type Output = dyn BlobService;
