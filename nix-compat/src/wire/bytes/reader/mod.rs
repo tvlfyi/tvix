@@ -152,7 +152,7 @@ impl<R: AsyncRead + Unpin, T: Tag> AsyncRead for BytesReader<R, T> {
                     let mut bytes_read = 0;
                     ready!(with_limited(buf, remaining, |buf| {
                         let ret = reader.poll_read(cx, buf);
-                        bytes_read = buf.initialized().len();
+                        bytes_read = buf.filled().len();
                         ret
                     }))?;
 
