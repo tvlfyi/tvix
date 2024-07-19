@@ -349,6 +349,15 @@ async fn chunk_and_upload<R: AsyncRead + Unpin>(
         .collect::<io::Result<Vec<ChunkMeta>>>()
         .await?;
 
+    let chunks = if chunks.len() < 2 {
+        // The chunker returned only one chunk, which is the entire blob.
+        // According to the protocol, we must return an empty list of chunks
+        // when the blob is not split up further.
+        vec![]
+    } else {
+        chunks
+    };
+
     let stat_blob_response = StatBlobResponse {
         chunks,
         bao: "".into(), // still todo
