@@ -211,7 +211,7 @@ impl ServiceBuilder for ObjectStoreDirectoryServiceConfig {
     async fn build<'a>(
         &'a self,
         _instance_name: &str,
-        _context: &CompositionContext<dyn DirectoryService>,
+        _context: &CompositionContext,
     ) -> Result<Arc<dyn DirectoryService>, Box<dyn std::error::Error + Send + Sync + 'static>> {
         let (object_store, path) = object_store::parse_url_opts(
             &self.object_store_url.parse()?,

@@ -176,7 +176,7 @@ impl ServiceBuilder for SledDirectoryServiceConfig {
     async fn build<'a>(
         &'a self,
         _instance_name: &str,
-        _context: &CompositionContext<dyn DirectoryService>,
+        _context: &CompositionContext,
     ) -> Result<Arc<dyn DirectoryService>, Box<dyn std::error::Error + Send + Sync + 'static>> {
         match self {
             SledDirectoryServiceConfig {

@@ -119,7 +119,7 @@ impl ServiceBuilder for CombinedBlobServiceConfig {
     async fn build<'a>(
         &'a self,
         _instance_name: &str,
-        context: &CompositionContext<dyn BlobService>,
+        context: &CompositionContext,
     ) -> Result<Arc<dyn BlobService>, Box<dyn std::error::Error + Send + Sync>> {
         let (local, remote) = futures::join!(
             context.resolve(self.local.clone()),
