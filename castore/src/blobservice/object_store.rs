@@ -564,14 +564,20 @@ mod test {
     use super::{chunk_and_upload, default_avg_chunk_size};
     use crate::{
         blobservice::{BlobService, ObjectStoreBlobService},
-        fixtures::{BLOB_A, BLOB_A_DIGEST},
+        fixtures::{BLOB_A, BLOB_A_DIGEST, BLOB_B, BLOB_B_DIGEST},
     };
     use std::{io::Cursor, sync::Arc};
     use url::Url;
 
     /// Tests chunk_and_upload directly, bypassing the BlobWriter at open_write().
+    #[rstest::rstest]
+    #[case::a(&BLOB_A, &BLOB_A_DIGEST)]
+    #[case::b(&BLOB_B, &BLOB_B_DIGEST)]
     #[tokio::test]
-    async fn test_chunk_and_upload() {
+    async fn test_chunk_and_upload(
+        #[case] blob: &bytes::Bytes,
+        #[case] blob_digest: &crate::B3Digest,
+    ) {
         let (object_store, base_path) =
             object_store::parse_url(&Url::parse("memory:///").unwrap()).unwrap();
         let object_store: Arc<dyn object_store::ObjectStore> = Arc::from(object_store);
@@ -581,8 +587,8 @@ mod test {
             base_path,
         });
 
-        let blob_digest = chunk_and_upload(
-            &mut Cursor::new(BLOB_A.to_vec()),
+        let inserted_blob_digest = chunk_and_upload(
+            &mut Cursor::new(blob.to_vec()),
             object_store,
             object_store::path::Path::from("/"),
             1024 / 2,
@@ -592,9 +598,20 @@ mod test {
         .await
         .expect("chunk_and_upload succeeds");
 
-        assert_eq!(BLOB_A_DIGEST.clone(), blob_digest);
+        assert_eq!(blob_digest.clone(), inserted_blob_digest);
 
         // Now we should have the blob
-        assert!(blobsvc.has(&BLOB_A_DIGEST).await.unwrap());
+        assert!(blobsvc.has(blob_digest).await.unwrap());
+
+        // Check if it was chunked correctly
+        let chunks = blobsvc.chunks(blob_digest).await.unwrap().unwrap();
+        if blob.len() < 1024 / 2 {
+            // The blob is smaller than the min chunk size, it should have been inserted as a whole
+            assert!(chunks.is_empty());
+        } else if blob.len() > 1024 * 2 {
+            // The blob is larger than the max chunk size, make sure it was split up into at least
+            // two chunks
+            assert!(chunks.len() >= 2);
+        }
     }
 }
