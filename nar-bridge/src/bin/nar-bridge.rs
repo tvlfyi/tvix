@@ -55,7 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         )
         .await?;
 
-    let state = AppState::new(blob_service, directory_service, path_info_service.into());
+    let state = AppState::new(blob_service, directory_service, path_info_service);
 
     let app = nar_bridge::gen_router(cli.priority).with_state(state);
 

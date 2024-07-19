@@ -9,6 +9,7 @@ use tonic::async_trait;
 use tracing::instrument;
 
 use crate::proto::PathInfo;
+use tvix_castore::composition::{CompositionContext, ServiceBuilder};
 use tvix_castore::Error;
 
 use super::PathInfoService;
@@ -57,6 +58,34 @@ impl PathInfoService for LruPathInfoService {
                 yield v.clone()
             }
         })
+    }
+}
+
+#[derive(serde::Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct LruPathInfoServiceConfig {
+    capacity: NonZeroUsize,
+}
+
+impl TryFrom<url::Url> for LruPathInfoServiceConfig {
+    type Error = Box<dyn std::error::Error + Send + Sync>;
+    fn try_from(_url: url::Url) -> Result<Self, Self::Error> {
+        Err(Error::StorageError(
+            "Instantiating a LruPathInfoService from a url is not supported".into(),
+        )
+        .into())
+    }
+}
+
+#[async_trait]
+impl ServiceBuilder for LruPathInfoServiceConfig {
+    type Output = dyn PathInfoService;
+    async fn build<'a>(
+        &'a self,
+        _instance_name: &str,
+        _context: &CompositionContext,
+    ) -> Result<Arc<dyn PathInfoService>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+        Ok(Arc::new(LruPathInfoService::with_capacity(self.capacity)))
     }
 }
 

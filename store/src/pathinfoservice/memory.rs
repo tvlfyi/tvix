@@ -7,6 +7,7 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 use tonic::async_trait;
 use tracing::instrument;
+use tvix_castore::composition::{CompositionContext, ServiceBuilder};
 use tvix_castore::Error;
 
 #[derive(Default)]
@@ -57,5 +58,32 @@ impl PathInfoService for MemoryPathInfoService {
                 yield v.clone()
             }
         })
+    }
+}
+
+#[derive(serde::Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct MemoryPathInfoServiceConfig {}
+
+impl TryFrom<url::Url> for MemoryPathInfoServiceConfig {
+    type Error = Box<dyn std::error::Error + Send + Sync>;
+    fn try_from(url: url::Url) -> Result<Self, Self::Error> {
+        // memory doesn't support host or path in the URL.
+        if url.has_host() || !url.path().is_empty() {
+            return Err(Error::StorageError("invalid url".to_string()).into());
+        }
+        Ok(MemoryPathInfoServiceConfig {})
+    }
+}
+
+#[async_trait]
+impl ServiceBuilder for MemoryPathInfoServiceConfig {
+    type Output = dyn PathInfoService;
+    async fn build<'a>(
+        &'a self,
+        _instance_name: &str,
+        _context: &CompositionContext,
+    ) -> Result<Arc<dyn PathInfoService>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+        Ok(Arc::new(MemoryPathInfoService::default()))
     }
 }

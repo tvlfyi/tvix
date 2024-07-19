@@ -1,3 +1,4 @@
+pub mod composition;
 pub mod import;
 pub mod nar;
 pub mod pathinfoservice;

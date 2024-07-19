@@ -80,7 +80,7 @@ mod tests {
         let io = Rc::new(TvixStoreIO::new(
             blob_service,
             directory_service,
-            path_info_service.into(),
+            path_info_service,
             nar_calculation_service.into(),
             Arc::<DummyBuildService>::default(),
             runtime.handle().clone(),

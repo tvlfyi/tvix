@@ -7,12 +7,15 @@ use nix_compat::{
     nixhash::NixHash,
 };
 use reqwest::StatusCode;
+use std::sync::Arc;
 use tokio::io::{self, AsyncRead};
 use tonic::async_trait;
 use tracing::{debug, instrument, warn};
+use tvix_castore::composition::{CompositionContext, ServiceBuilder};
 use tvix_castore::{
     blobservice::BlobService, directoryservice::DirectoryService, proto as castorepb, Error,
 };
+use url::Url;
 
 /// NixHTTPPathInfoService acts as a bridge in between the Nix HTTP Binary cache
 /// protocol provided by Nix binary caches such as cache.nixos.org, and the Tvix
@@ -247,5 +250,73 @@ where
                 "list not supported for this backend".to_string(),
             ))
         }))
+    }
+}
+
+#[derive(serde::Deserialize)]
+pub struct NixHTTPPathInfoServiceConfig {
+    base_url: String,
+    blob_service: String,
+    directory_service: String,
+    #[serde(default)]
+    /// An optional list of [narinfo::PubKey].
+    /// If set, the .narinfo files received need to have correct signature by at least one of these.
+    public_keys: Option<Vec<String>>,
+}
+
+impl TryFrom<Url> for NixHTTPPathInfoServiceConfig {
+    type Error = Box<dyn std::error::Error + Send + Sync>;
+    fn try_from(url: Url) -> Result<Self, Self::Error> {
+        let mut public_keys: Option<Vec<String>> = None;
+        for (_, v) in url
+            .query_pairs()
+            .into_iter()
+            .filter(|(k, _)| k == "trusted-public-keys")
+        {
+            public_keys
+                .get_or_insert(Default::default())
+                .extend(v.split_ascii_whitespace().map(ToString::to_string));
+        }
+        Ok(NixHTTPPathInfoServiceConfig {
+            // Stringify the URL and remove the nix+ prefix.
+            // We can't use `url.set_scheme(rest)`, as it disallows
+            // setting something http(s) that previously wasn't.
+            base_url: url.to_string().strip_prefix("nix+").unwrap().to_string(),
+            blob_service: "default".to_string(),
+            directory_service: "default".to_string(),
+            public_keys,
+        })
+    }
+}
+
+#[async_trait]
+impl ServiceBuilder for NixHTTPPathInfoServiceConfig {
+    type Output = dyn PathInfoService;
+    async fn build<'a>(
+        &'a self,
+        _instance_name: &str,
+        context: &CompositionContext,
+    ) -> Result<Arc<dyn PathInfoService>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+        let (blob_service, directory_service) = futures::join!(
+            context.resolve(self.blob_service.clone()),
+            context.resolve(self.directory_service.clone())
+        );
+        let mut svc = NixHTTPPathInfoService::new(
+            Url::parse(&self.base_url)?,
+            blob_service?,
+            directory_service?,
+        );
+        if let Some(public_keys) = &self.public_keys {
+            svc.set_public_keys(
+                public_keys
+                    .iter()
+                    .map(|pubkey_str| {
+                        narinfo::PubKey::parse(pubkey_str)
+                            .map_err(|e| Error::StorageError(format!("invalid public key: {e}")))
+                    })
+                    .collect::<Result<Vec<_>, Error>>()?,
+            );
+        }
+        Ok(Arc::new(svc))
     }
 }

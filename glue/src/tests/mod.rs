@@ -41,7 +41,7 @@ fn eval_test(code_path: PathBuf, expect_success: bool) {
     let tvix_store_io = Rc::new(TvixStoreIO::new(
         blob_service,
         directory_service,
-        path_info_service.into(),
+        path_info_service,
         nar_calculation_service.into(),
         Arc::new(DummyBuildService::default()),
         tokio_runtime.handle().clone(),

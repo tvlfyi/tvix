@@ -454,4 +454,11 @@ impl Composition {
         *entry = Box::new(new_val);
         ret
     }
+
+    pub fn context(&self) -> CompositionContext {
+        CompositionContext {
+            stack: vec![],
+            composition: Some(self),
+        }
+    }
 }

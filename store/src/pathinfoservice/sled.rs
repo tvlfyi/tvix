@@ -5,8 +5,10 @@ use futures::stream::BoxStream;
 use nix_compat::nixbase32;
 use prost::Message;
 use std::path::Path;
+use std::sync::Arc;
 use tonic::async_trait;
 use tracing::{instrument, warn};
+use tvix_castore::composition::{CompositionContext, ServiceBuilder};
 use tvix_castore::Error;
 
 /// SledPathInfoService stores PathInfo in a [sled](https://github.com/spacejam/sled).
@@ -112,5 +114,71 @@ impl PathInfoService for SledPathInfoService {
                 yield path_info
             }
         })
+    }
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SledPathInfoServiceConfig {
+    is_temporary: bool,
+    #[serde(default)]
+    /// required when is_temporary = false
+    path: Option<String>,
+}
+
+impl TryFrom<url::Url> for SledPathInfoServiceConfig {
+    type Error = Box<dyn std::error::Error + Send + Sync>;
+    fn try_from(url: url::Url) -> Result<Self, Self::Error> {
+        // sled doesn't support host, and a path can be provided (otherwise
+        // it'll live in memory only).
+        if url.has_host() {
+            return Err(Error::StorageError("no host allowed".to_string()).into());
+        }
+
+        // TODO: expose compression and other parameters as URL parameters?
+
+        Ok(if url.path().is_empty() {
+            SledPathInfoServiceConfig {
+                is_temporary: true,
+                path: None,
+            }
+        } else {
+            SledPathInfoServiceConfig {
+                is_temporary: false,
+                path: Some(url.path().to_string()),
+            }
+        })
+    }
+}
+
+#[async_trait]
+impl ServiceBuilder for SledPathInfoServiceConfig {
+    type Output = dyn PathInfoService;
+    async fn build<'a>(
+        &'a self,
+        _instance_name: &str,
+        _context: &CompositionContext,
+    ) -> Result<Arc<dyn PathInfoService>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+        match self {
+            SledPathInfoServiceConfig {
+                is_temporary: true,
+                path: None,
+            } => Ok(Arc::new(SledPathInfoService::new_temporary()?)),
+            SledPathInfoServiceConfig {
+                is_temporary: true,
+                path: Some(_),
+            } => Err(
+                Error::StorageError("Temporary SledPathInfoService can not have path".into())
+                    .into(),
+            ),
+            SledPathInfoServiceConfig {
+                is_temporary: false,
+                path: None,
+            } => Err(Error::StorageError("SledPathInfoService is missing path".into()).into()),
+            SledPathInfoServiceConfig {
+                is_temporary: false,
+                path: Some(path),
+            } => Ok(Arc::new(SledPathInfoService::new(path)?)),
+        }
     }
 }

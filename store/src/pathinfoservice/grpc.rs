@@ -6,9 +6,11 @@ use crate::{
 use async_stream::try_stream;
 use futures::stream::BoxStream;
 use nix_compat::nixbase32;
+use std::sync::Arc;
 use tonic::{async_trait, Code};
 use tracing::{instrument, Span};
 use tracing_indicatif::span_ext::IndicatifSpanExt;
+use tvix_castore::composition::{CompositionContext, ServiceBuilder};
 use tvix_castore::{proto as castorepb, Error};
 
 /// Connects to a (remote) tvix-store PathInfoService over gRPC.
@@ -146,6 +148,40 @@ where
             .map_err(|_e| Error::StorageError("invalid digest length".to_string()))?;
 
         Ok((path_info.nar_size, nar_sha256))
+    }
+}
+
+#[derive(serde::Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct GRPCPathInfoServiceConfig {
+    url: String,
+}
+
+impl TryFrom<url::Url> for GRPCPathInfoServiceConfig {
+    type Error = Box<dyn std::error::Error + Send + Sync>;
+    fn try_from(url: url::Url) -> Result<Self, Self::Error> {
+        //   normally grpc+unix for unix sockets, and grpc+http(s) for the HTTP counterparts.
+        // - In the case of unix sockets, there must be a path, but may not be a host.
+        // - In the case of non-unix sockets, there must be a host, but no path.
+        // Constructing the channel is handled by tvix_castore::channel::from_url.
+        Ok(GRPCPathInfoServiceConfig {
+            url: url.to_string(),
+        })
+    }
+}
+
+#[async_trait]
+impl ServiceBuilder for GRPCPathInfoServiceConfig {
+    type Output = dyn PathInfoService;
+    async fn build<'a>(
+        &'a self,
+        _instance_name: &str,
+        _context: &CompositionContext,
+    ) -> Result<Arc<dyn PathInfoService>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+        let client = proto::path_info_service_client::PathInfoServiceClient::new(
+            tvix_castore::tonic::channel_from_url(&self.url.parse()?).await?,
+        );
+        Ok(Arc::new(GRPCPathInfoService::from_client(client)))
     }
 }
 

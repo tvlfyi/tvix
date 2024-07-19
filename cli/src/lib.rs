@@ -60,7 +60,7 @@ pub fn init_io_handle(tokio_runtime: &tokio::runtime::Runtime, args: &Args) -> R
     Rc::new(TvixStoreIO::new(
         blob_service.clone(),
         directory_service.clone(),
-        path_info_service.into(),
+        path_info_service,
         nar_calculation_service.into(),
         build_service.into(),
         tokio_runtime.handle().clone(),

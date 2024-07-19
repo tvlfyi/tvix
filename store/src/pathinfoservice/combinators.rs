@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use crate::proto::PathInfo;
 use futures::stream::BoxStream;
 use nix_compat::nixbase32;
 use tonic::async_trait;
 use tracing::{debug, instrument};
+use tvix_castore::composition::{CompositionContext, ServiceBuilder};
 use tvix_castore::Error;
 
 use super::PathInfoService;
@@ -58,6 +61,41 @@ where
         Box::pin(tokio_stream::once(Err(Error::StorageError(
             "unimplemented".to_string(),
         ))))
+    }
+}
+
+#[derive(serde::Deserialize)]
+pub struct CacheConfig {
+    pub near: String,
+    pub far: String,
+}
+
+impl TryFrom<url::Url> for CacheConfig {
+    type Error = Box<dyn std::error::Error + Send + Sync>;
+    fn try_from(_url: url::Url) -> Result<Self, Self::Error> {
+        Err(Error::StorageError(
+            "Instantiating a CombinedPathInfoService from a url is not supported".into(),
+        )
+        .into())
+    }
+}
+
+#[async_trait]
+impl ServiceBuilder for CacheConfig {
+    type Output = dyn PathInfoService;
+    async fn build<'a>(
+        &'a self,
+        _instance_name: &str,
+        context: &CompositionContext,
+    ) -> Result<Arc<dyn PathInfoService>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+        let (near, far) = futures::join!(
+            context.resolve(self.near.clone()),
+            context.resolve(self.far.clone())
+        );
+        Ok(Arc::new(Cache {
+            near: near?,
+            far: far?,
+        }))
     }
 }
 
