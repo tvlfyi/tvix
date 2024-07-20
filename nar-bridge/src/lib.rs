@@ -1,18 +1,32 @@
-use axum::routing::head;
+use axum::routing::{head, put};
 use axum::{routing::get, Router};
+use lru::LruCache;
+use parking_lot::RwLock;
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 use tvix_castore::blobservice::BlobService;
 use tvix_castore::directoryservice::DirectoryService;
+use tvix_castore::proto::node::Node;
 use tvix_store::pathinfoservice::PathInfoService;
 
 mod nar;
 mod narinfo;
+
+/// The capacity of the lookup table from NarHash to [Node].
+/// Should be bigger than the number of concurrent NAR upload.
+/// Cannot be [NonZeroUsize] here due to rust-analyzer going bananas.
+/// SAFETY: 1000 != 0
+const ROOT_NODES_CACHE_CAPACITY: usize = 1000;
 
 #[derive(Clone)]
 pub struct AppState {
     blob_service: Arc<dyn BlobService>,
     directory_service: Arc<dyn DirectoryService>,
     path_info_service: Arc<dyn PathInfoService>,
+
+    /// Lookup table from NarHash to [Node], necessary to populate the root_node
+    /// field of the PathInfo when processing the narinfo upload.
+    root_nodes: Arc<RwLock<LruCache<[u8; 32], Node>>>,
 }
 
 impl AppState {
@@ -25,6 +39,10 @@ impl AppState {
             blob_service,
             directory_service,
             path_info_service,
+            root_nodes: Arc::new(RwLock::new(LruCache::new({
+                // SAFETY: 1000 != 0
+                unsafe { NonZeroUsize::new_unchecked(ROOT_NODES_CACHE_CAPACITY) }
+            }))),
         }
     }
 }
@@ -32,6 +50,7 @@ impl AppState {
 pub fn gen_router(priority: u64) -> Router<AppState> {
     Router::new()
         .route("/", get(root))
+        .route("/nar/:nar_str", put(nar::put))
         .route("/nar/tvix-castore/:root_node_enc", get(nar::get))
         .route("/:narinfo_str", get(narinfo::get))
         .route("/:narinfo_str", head(narinfo::head))

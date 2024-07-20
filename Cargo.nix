@@ -6889,13 +6889,25 @@ rec {
             packageId = "data-encoding";
           }
           {
+            name = "futures";
+            packageId = "futures";
+          }
+          {
             name = "itertools";
             packageId = "itertools 0.12.0";
+          }
+          {
+            name = "lru";
+            packageId = "lru";
           }
           {
             name = "nix-compat";
             packageId = "nix-compat";
             features = [ "async" ];
+          }
+          {
+            name = "parking_lot";
+            packageId = "parking_lot 0.12.3";
           }
           {
             name = "prost";
@@ -7533,7 +7545,7 @@ rec {
           }
           {
             name = "parking_lot";
-            packageId = "parking_lot 0.12.2";
+            packageId = "parking_lot 0.12.3";
           }
           {
             name = "percent-encoding";
@@ -8128,11 +8140,11 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" ];
       };
-      "parking_lot 0.12.2" = rec {
+      "parking_lot 0.12.3" = rec {
         crateName = "parking_lot";
-        version = "0.12.2";
+        version = "0.12.3";
         edition = "2021";
-        sha256 = "1ys2dzz6cysjmwyivwxczl1ljpcf5cj4qmhdj07d5bkc9z5g0jky";
+        sha256 = "09ws9g6245iiq8z975h8ycf818a66q3c6zv4b5h8skpm7hc1igzi";
         authors = [
           "Amanieu d'Antras <amanieu@gmail.com>"
         ];
@@ -14484,7 +14496,7 @@ rec {
           }
           {
             name = "parking_lot";
-            packageId = "parking_lot 0.12.2";
+            packageId = "parking_lot 0.12.3";
           }
           {
             name = "petgraph";
@@ -15238,7 +15250,7 @@ rec {
           }
           {
             name = "parking_lot";
-            packageId = "parking_lot 0.12.2";
+            packageId = "parking_lot 0.12.3";
           }
           {
             name = "pin-project-lite";
