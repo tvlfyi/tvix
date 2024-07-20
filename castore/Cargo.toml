@@ -40,6 +40,7 @@ petgraph = "0.6.4"
 erased-serde = "0.4.5"
 serde_tagged = "0.3.0"
 hyper-util = "0.1.6"
+redb = "2.1.1"
 
 [dependencies.bigtable_rs]
 optional = true

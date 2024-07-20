@@ -33,6 +33,42 @@ impl From<crate::tonic::Error> for Error {
     }
 }
 
+impl From<redb::Error> for Error {
+    fn from(value: redb::Error) -> Self {
+        Error::StorageError(value.to_string())
+    }
+}
+
+impl From<redb::DatabaseError> for Error {
+    fn from(value: redb::DatabaseError) -> Self {
+        Error::StorageError(value.to_string())
+    }
+}
+
+impl From<redb::TableError> for Error {
+    fn from(value: redb::TableError) -> Self {
+        Error::StorageError(value.to_string())
+    }
+}
+
+impl From<redb::TransactionError> for Error {
+    fn from(value: redb::TransactionError) -> Self {
+        Error::StorageError(value.to_string())
+    }
+}
+
+impl From<redb::StorageError> for Error {
+    fn from(value: redb::StorageError) -> Self {
+        Error::StorageError(value.to_string())
+    }
+}
+
+impl From<redb::CommitError> for Error {
+    fn from(value: redb::CommitError) -> Self {
+        Error::StorageError(value.to_string())
+    }
+}
+
 impl From<std::io::Error> for Error {
     fn from(value: std::io::Error) -> Self {
         if value.kind() == std::io::ErrorKind::InvalidInput {
