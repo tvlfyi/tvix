@@ -1,3 +1,4 @@
+use hyper_util::rt::TokioIo;
 use tokio::net::UnixStream;
 use tonic::transport::{Channel, Endpoint};
 
@@ -25,7 +26,10 @@ pub async fn channel_from_url(url: &url::Url) -> Result<Channel, self::Error> {
 
             let connector = tower::service_fn({
                 let url = url.clone();
-                move |_: tonic::transport::Uri| UnixStream::connect(url.path().to_string().clone())
+                move |_: tonic::transport::Uri| {
+                    let unix = UnixStream::connect(url.path().to_string().clone());
+                    async move { Ok::<_, std::io::Error>(TokioIo::new(unix.await?)) }
+                }
             });
 
             // the URL doesn't matter

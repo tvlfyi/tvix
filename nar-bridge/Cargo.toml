@@ -12,13 +12,13 @@ clap = { version = "4.0", features = ["derive", "env"] }
 data-encoding = "2.3.3"
 futures = "0.3.30"
 itertools = "0.12.0"
-prost = "0.12.1"
+prost = "0.13.1"
 nix-compat = { path = "../nix-compat", features = ["async"] }
 thiserror = "1.0.56"
 tokio = { version = "1.32.0" }
 tokio-listener = { version = "0.4.2", features = [ "axum07", "clap", "multi-listener", "sd_listen" ] }
 tokio-util = { version = "0.7.9", features = ["io", "io-util", "compat"] }
-tonic = { version = "0.11.0", features = ["tls", "tls-roots"] }
+tonic = { version = "0.12.0", features = ["tls", "tls-roots"] }
 tvix-castore = { path = "../castore" }
 tvix-store = { path = "../store" }
 tvix-tracing = { path = "../tracing", features = ["tonic", "axum"] }
@@ -30,8 +30,8 @@ lru = "0.12.3"
 parking_lot = "0.12.3"
 
 [build-dependencies]
-prost-build = "0.12.1"
-tonic-build = "0.11.0"
+prost-build = "0.13.1"
+tonic-build = "0.12.0"
 
 [features]
 default = ["otlp"]

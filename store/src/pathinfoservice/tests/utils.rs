@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use hyper_util::rt::TokioIo;
 use tonic::transport::{Endpoint, Server, Uri};
 use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService};
 
@@ -57,7 +58,7 @@ pub async fn make_grpc_path_info_service_client() -> (
             .unwrap()
             .connect_with_connector(tower::service_fn(move |_: Uri| {
                 let right = maybe_right.take().unwrap();
-                async move { Ok::<_, std::io::Error>(right) }
+                async move { Ok::<_, std::io::Error>(TokioIo::new(right)) }
             }))
             .await
             .unwrap(),

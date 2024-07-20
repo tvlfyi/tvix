@@ -15,17 +15,17 @@ digest = "0.10.7"
 fastcdc = { version = "3.1.0", features = ["tokio"] }
 futures = "0.3.30"
 lazy_static = "1.4.0"
-object_store = { version = "0.9.1", features = ["http"] }
+object_store = { version = "0.10.1", features = ["http"] }
 parking_lot = "0.12.1"
 pin-project-lite = "0.2.13"
-prost = "0.12.1"
+prost = "0.13.1"
 sled = { version = "0.34.7" }
 thiserror = "1.0.38"
 tokio-stream = { version = "0.1.14", features = ["fs", "net"] }
 tokio-util = { version = "0.7.9", features = ["io", "io-util", "codec"] }
 tokio-tar = "0.3.1"
 tokio = { version = "1.32.0", features = ["fs", "macros", "net", "rt", "rt-multi-thread", "signal"] }
-tonic = "0.11.0"
+tonic = "0.12.0"
 tower = "0.4.13"
 tracing = "0.1.37"
 tracing-indicatif = "0.3.6"
@@ -39,6 +39,7 @@ serde_qs = "0.12.0"
 petgraph = "0.6.4"
 erased-serde = "0.4.5"
 serde_tagged = "0.3.0"
+hyper-util = "0.1.6"
 
 [dependencies.bigtable_rs]
 optional = true
@@ -58,7 +59,7 @@ optional = true
 
 [dependencies.tonic-reflection]
 optional = true
-version = "0.11.0"
+version = "0.12.0"
 
 [dependencies.vhost]
 optional = true
@@ -85,8 +86,8 @@ optional = true
 version = "0.2.1"
 
 [build-dependencies]
-prost-build = "0.12.1"
-tonic-build = "0.11.0"
+prost-build = "0.13.1"
+tonic-build = "0.12.0"
 
 [dev-dependencies]
 async-process = "2.1.0"

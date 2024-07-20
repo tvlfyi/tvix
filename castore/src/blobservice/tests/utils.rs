@@ -2,6 +2,7 @@ use crate::blobservice::{BlobService, MemoryBlobService};
 use crate::proto::blob_service_client::BlobServiceClient;
 use crate::proto::GRPCBlobServiceWrapper;
 use crate::{blobservice::GRPCBlobService, proto::blob_service_server::BlobServiceServer};
+use hyper_util::rt::TokioIo;
 use tonic::transport::{Endpoint, Server, Uri};
 
 /// Constructs and returns a gRPC BlobService.
@@ -33,7 +34,7 @@ pub async fn make_grpc_blob_service_client() -> Box<dyn BlobService> {
             .unwrap()
             .connect_with_connector(tower::service_fn(move |_: Uri| {
                 let right = maybe_right.take().unwrap();
-                async move { Ok::<_, std::io::Error>(right) }
+                async move { Ok::<_, std::io::Error>(TokioIo::new(right)) }
             }))
             .await
             .unwrap(),

@@ -6,7 +6,10 @@ use tracing_indicatif::{filter::IndicatifFilter, writer, IndicatifLayer, Indicat
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 
 #[cfg(feature = "otlp")]
-use opentelemetry::{trace::Tracer, KeyValue};
+use opentelemetry::{
+    trace::{Tracer, TracerProvider},
+    KeyValue,
+};
 #[cfg(feature = "otlp")]
 use opentelemetry_sdk::{
     propagation::TraceContextPropagator,
@@ -264,7 +267,7 @@ fn gen_otlp_tracer(
     impl Tracer + tracing_opentelemetry::PreSampledTracer,
     mpsc::Sender<Option<oneshot::Sender<()>>>,
 ) {
-    let tracer = opentelemetry_otlp::new_pipeline()
+    let tracer_provider = opentelemetry_otlp::new_pipeline()
         .tracing()
         .with_exporter(opentelemetry_otlp::new_exporter().tonic())
         .with_batch_config(
@@ -281,7 +284,7 @@ fn gen_otlp_tracer(
                 .with_scheduled_delay(std::time::Duration::from_secs(10))
                 .build(),
         )
-        .with_trace_config(opentelemetry_sdk::trace::config().with_resource({
+        .with_trace_config(opentelemetry_sdk::trace::Config::default().with_resource({
             // use SdkProvidedResourceDetector.detect to detect resources,
             // but replace the default service name with our default.
             // https://github.com/open-telemetry/opentelemetry-rust/issues/1298
@@ -302,9 +305,7 @@ fn gen_otlp_tracer(
 
     // Trace provider is need for later use like flushing the provider.
     // Needs to be kept around for each message to rx we need to handle.
-    let tracer_provider = tracer
-        .provider()
-        .expect("Failed to get the tracer provider");
+    let tracer = tracer_provider.tracer("tvix");
 
     // Set up a channel for flushing trace providers later
     let (tx, mut rx) = mpsc::channel::<Option<oneshot::Sender<()>>>(16);

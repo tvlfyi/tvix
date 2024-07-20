@@ -12,7 +12,7 @@ futures = "0.3.30"
 magic = "0.16.2"
 nix-compat = { path = "../nix-compat" }
 pin-project = "1.1"
-reqwest = { version = "0.11.22", features = ["rustls-tls-native-roots"], default-features = false }
+reqwest = { version = "0.12.0", features = ["rustls-tls-native-roots"], default-features = false }
 tvix-build = { path = "../build", default-features = false, features = []}
 tvix-eval = { path = "../eval" }
 tvix-castore = { path = "../castore" }

@@ -6,6 +6,7 @@ use crate::{
     proto::directory_service_server::DirectoryServiceServer,
 };
 
+use hyper_util::rt::TokioIo;
 use tonic::transport::{Endpoint, Server, Uri};
 
 /// Constructs and returns a gRPC DirectoryService.
@@ -37,7 +38,7 @@ pub async fn make_grpc_directory_service_client() -> Box<dyn DirectoryService> {
                 .unwrap()
                 .connect_with_connector(tower::service_fn(move |_: Uri| {
                     let right = maybe_right.take().unwrap();
-                    async move { Ok::<_, std::io::Error>(right) }
+                    async move { Ok::<_, std::io::Error>(TokioIo::new(right)) }
                 }))
                 .await
                 .unwrap(),

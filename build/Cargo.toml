@@ -7,11 +7,11 @@ edition = "2021"
 bytes = "1.4.0"
 clap = { version = "4.0", features = ["derive", "env"] }
 itertools = "0.12.0"
-prost = "0.12.1"
+prost = "0.13.1"
 thiserror = "1.0.56"
 tokio = { version = "1.32.0" }
-tokio-listener = { version = "0.4.1", features = [ "tonic011" ] }
-tonic = { version = "0.11.0", features = ["tls", "tls-roots"] }
+tokio-listener = { version = "0.4.1", features = [ "tonic012" ] }
+tonic = { version = "0.12.0", features = ["tls", "tls-roots"] }
 tvix-castore = { path = "../castore" }
 tvix-tracing = { path = "../tracing" }
 tracing = "0.1.40"
@@ -19,11 +19,11 @@ url = "2.4.0"
 
 [dependencies.tonic-reflection]
 optional = true
-version = "0.11.0"
+version = "0.12.0"
 
 [build-dependencies]
-prost-build = "0.12.1"
-tonic-build = "0.11.0"
+prost-build = "0.13.1"
+tonic-build = "0.12.0"
 
 [features]
 default = []
