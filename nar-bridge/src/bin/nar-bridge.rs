@@ -74,7 +74,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .with_state(state);
 
     let listen_address = &cli.listen_args.listen_address.unwrap_or_else(|| {
-        "[::]:8000"
+        "[::]:9000"
             .parse()
             .expect("invalid fallback listen address")
     });
