@@ -1,9 +1,14 @@
 use axum::http::StatusCode;
-use nix_compat::nixbase32;
-use tracing::{instrument, warn, Span};
-use tvix_castore::proto::node::Node;
+use bytes::Bytes;
+use nix_compat::{narinfo::NarInfo, nixbase32};
+use tracing::{info, instrument, warn, Span};
+use tvix_castore::proto::{self as castorepb, node::Node};
+use tvix_store::proto::PathInfo;
 
 use crate::AppState;
+
+/// The size limit for NARInfo uploads nar-bridge receives
+const NARINFO_LIMIT: usize = 2 * 1024 * 1024;
 
 #[instrument(skip(path_info_service))]
 pub async fn head(
@@ -82,6 +87,76 @@ pub async fn get(
     narinfo.url = &url;
 
     Ok(narinfo.to_string())
+}
+
+#[instrument(skip(path_info_service, root_nodes, request))]
+pub async fn put(
+    axum::extract::Path(narinfo_str): axum::extract::Path<String>,
+    axum::extract::State(AppState {
+        path_info_service,
+        root_nodes,
+        ..
+    }): axum::extract::State<AppState>,
+    request: axum::extract::Request,
+) -> Result<&'static str, StatusCode> {
+    let _narinfo_digest = parse_narinfo_str(&narinfo_str)?;
+    Span::current().record("path_info.digest", &narinfo_str[0..32]);
+
+    let narinfo_bytes: Bytes = axum::body::to_bytes(request.into_body(), NARINFO_LIMIT)
+        .await
+        .map_err(|e| {
+            warn!(err=%e, "unable to fetch body");
+            StatusCode::BAD_REQUEST
+        })?;
+
+    // Parse the narinfo from the body.
+    let narinfo_str = std::str::from_utf8(narinfo_bytes.as_ref()).map_err(|e| {
+        warn!(err=%e, "unable decode body as string");
+        StatusCode::BAD_REQUEST
+    })?;
+
+    let narinfo = NarInfo::parse(narinfo_str).map_err(|e| {
+        warn!(err=%e, "unable to parse narinfo");
+        StatusCode::BAD_REQUEST
+    })?;
+
+    // Extract the NARHash from the PathInfo.
+    Span::current().record("path_info.nar_info", nixbase32::encode(&narinfo.nar_hash));
+
+    // populate the pathinfo.
+    let mut pathinfo = PathInfo::from(&narinfo);
+
+    // Lookup root node with peek, as we don't want to update the LRU list.
+    // We need to be careful to not hold the RwLock across the await point.
+    let maybe_root_node = root_nodes
+        .read()
+        .peek(&narinfo.nar_hash)
+        .map(|v| v.to_owned());
+
+    match maybe_root_node {
+        Some(root_node) => {
+            info!(narinfo.store_path=%narinfo.store_path, narinfo.store_path=?narinfo.store_path, "NARINFO STORE PATH");
+
+            // Set the root node from the lookup.
+            // We need to rename the node to the narinfo storepath basename, as
+            // that's where it's stored in PathInfo.
+            pathinfo.node = Some(castorepb::Node {
+                node: Some(root_node.rename(narinfo.store_path.to_string().into())),
+            });
+
+            // Persist the PathInfo.
+            path_info_service.put(pathinfo).await.map_err(|e| {
+                warn!(err=%e, "failed to persist the PathInfo");
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+
+            Ok("")
+        }
+        None => {
+            warn!("received narinfo with unknown NARHash");
+            Err(StatusCode::BAD_REQUEST)
+        }
+    }
 }
 
 /// Parses a `3mzh8lvgbynm9daj7c82k2sfsfhrsfsy.narinfo` string and returns the

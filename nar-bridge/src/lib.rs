@@ -59,6 +59,7 @@ pub fn gen_router(priority: u64) -> Router<AppState> {
         .route("/nar/tvix-castore/:root_node_enc", get(nar::get))
         .route("/:narinfo_str", get(narinfo::get))
         .route("/:narinfo_str", head(narinfo::head))
+        .route("/:narinfo_str", put(narinfo::put))
         .route("/nix-cache-info", get(move || nix_cache_info(priority)))
 }
 
