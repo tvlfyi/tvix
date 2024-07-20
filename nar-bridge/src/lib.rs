@@ -1,3 +1,4 @@
+use axum::http::StatusCode;
 use axum::routing::{head, put};
 use axum::{routing::get, Router};
 use lru::LruCache;
@@ -50,6 +51,10 @@ impl AppState {
 pub fn gen_router(priority: u64) -> Router<AppState> {
     Router::new()
         .route("/", get(root))
+        // FUTUREWORK: respond for NARs that we still have in root_nodes (at least HEAD)
+        // This avoids some unnecessary NAR uploading from multiple concurrent clients, and is cheap.
+        .route("/nar/:nar_str", get(four_o_four))
+        .route("/nar/:nar_str", head(four_o_four))
         .route("/nar/:nar_str", put(nar::put))
         .route("/nar/tvix-castore/:root_node_enc", get(nar::get))
         .route("/:narinfo_str", get(narinfo::get))
@@ -59,6 +64,10 @@ pub fn gen_router(priority: u64) -> Router<AppState> {
 
 async fn root() -> &'static str {
     "Hello from nar-bridge"
+}
+
+async fn four_o_four() -> Result<(), StatusCode> {
+    Err(StatusCode::NOT_FOUND)
 }
 
 async fn nix_cache_info(priority: u64) -> String {
