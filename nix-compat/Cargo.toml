@@ -7,7 +7,7 @@ edition = "2021"
 # async NAR writer. Also needs the `wire` feature.
 async = ["tokio"]
 # code emitting low-level packets used in the daemon protocol.
-wire = ["tokio", "pin-project-lite"]
+wire = ["tokio", "pin-project-lite", "bytes"]
 
 # Enable all features by default.
 default = ["async", "wire"]
@@ -28,6 +28,10 @@ serde_json = "1.0"
 sha2 = "0.10.6"
 thiserror = "1.0.38"
 tracing = "0.1.37"
+
+[dependencies.bytes]
+optional = true
+version = "1.6.1"
 
 [dependencies.tokio]
 optional = true

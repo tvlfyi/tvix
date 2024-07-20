@@ -1015,9 +1015,9 @@ rec {
       };
       "bytes" = rec {
         crateName = "bytes";
-        version = "1.5.0";
+        version = "1.6.1";
         edition = "2018";
-        sha256 = "08w2i8ac912l8vlvkv3q51cd4gr09pwlg3sjsjffcizlrb0i5gd2";
+        sha256 = "0lnryqfiymbq5mfflfmbsqvfnw80kkh36nk5kpiscgxb9ac1cad1";
         authors = [
           "Carl Lerche <me@carllerche.com>"
           "Sean McArthur <sean@seanmonstar.com>"
@@ -4096,6 +4096,11 @@ rec {
             features = [ "alloc" "unicode" "serde" ];
           }
           {
+            name = "bytes";
+            packageId = "bytes";
+            optional = true;
+          }
+          {
             name = "data-encoding";
             packageId = "data-encoding";
           }
@@ -4172,12 +4177,13 @@ rec {
         ];
         features = {
           "async" = [ "tokio" ];
+          "bytes" = [ "dep:bytes" ];
           "default" = [ "async" "wire" ];
           "pin-project-lite" = [ "dep:pin-project-lite" ];
           "tokio" = [ "dep:tokio" ];
-          "wire" = [ "tokio" "pin-project-lite" ];
+          "wire" = [ "tokio" "pin-project-lite" "bytes" ];
         };
-        resolvedDefaultFeatures = [ "async" "default" "pin-project-lite" "tokio" "wire" ];
+        resolvedDefaultFeatures = [ "async" "bytes" "default" "pin-project-lite" "tokio" "wire" ];
       };
       "nom" = rec {
         crateName = "nom";

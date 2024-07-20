@@ -11,7 +11,7 @@ mod writer;
 pub use writer::BytesWriter;
 
 /// 8 null bytes, used to write out padding.
-const EMPTY_BYTES: &[u8; 8] = &[0u8; 8];
+pub(crate) const EMPTY_BYTES: &[u8; 8] = &[0u8; 8];
 
 /// The length of the size field, in bytes is always 8.
 const LEN_SIZE: usize = 8;

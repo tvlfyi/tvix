@@ -1,3 +1,6 @@
+/// The latest version that is currently supported by nix-compat.
+static DEFAULT_PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion::from_parts(1, 37);
+
 /// Protocol versions are represented as a u16.
 /// The upper 8 bits are the major version, the lower bits the minor.
 /// This is not aware of any endianness, use [crate::wire::read_u64] to get an
@@ -17,6 +20,12 @@ impl ProtocolVersion {
 
     pub fn minor(&self) -> u8 {
         (self.0 & 0x00ff) as u8
+    }
+}
+
+impl Default for ProtocolVersion {
+    fn default() -> Self {
+        DEFAULT_PROTOCOL_VERSION
     }
 }
 
