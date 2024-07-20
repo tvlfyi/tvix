@@ -116,9 +116,11 @@ impl NamedNode for node::Node {
 impl Node {
     /// Ensures the node has a valid enum kind (is Some), and passes its
     // per-enum validation.
-    pub fn validate(&self) -> Result<(), ValidateNodeError> {
+    // The inner root node is returned for easier consumption.
+    pub fn validate(&self) -> Result<&node::Node, ValidateNodeError> {
         if let Some(node) = self.node.as_ref() {
-            node.validate()
+            node.validate()?;
+            Ok(node)
         } else {
             Err(ValidateNodeError::NoNodeSet)
         }
