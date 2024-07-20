@@ -46,13 +46,18 @@ pub async fn get(
     }
 
     // parse the proto
-    let root_node: tvix_castore::proto::Node = Message::decode(Bytes::from(root_node_enc))
+    let mut root_node: tvix_castore::proto::Node = Message::decode(Bytes::from(root_node_proto))
         .map_err(|e| {
             warn!(err=%e, "unable to decode root node proto");
             StatusCode::NOT_FOUND
         })?;
 
-    // validate it.
+    // validate the node, but add a dummy node name, as we only send unnamed
+    // nodes
+    if let Some(rn) = root_node.node {
+        root_node.node = Some(rn.rename("00000000000000000000000000000000-dummy".into()))
+    }
+
     let root_node = root_node
         .validate()
         .map_err(|e| {
