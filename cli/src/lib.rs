@@ -27,19 +27,9 @@ pub use repl::Repl;
 pub fn init_io_handle(tokio_runtime: &tokio::runtime::Runtime, args: &Args) -> Rc<TvixStoreIO> {
     let (blob_service, directory_service, path_info_service, nar_calculation_service) =
         tokio_runtime
-            .block_on({
-                let blob_service_addr = args.blob_service_addr.clone();
-                let directory_service_addr = args.directory_service_addr.clone();
-                let path_info_service_addr = args.path_info_service_addr.clone();
-                async move {
-                    tvix_store::utils::construct_services(
-                        blob_service_addr,
-                        directory_service_addr,
-                        path_info_service_addr,
-                    )
-                    .await
-                }
-            })
+            .block_on(tvix_store::utils::construct_services(
+                args.service_addrs.clone(),
+            ))
             .expect("unable to setup {blob|directory|pathinfo}service before interpreter setup");
 
     let build_service = tokio_runtime

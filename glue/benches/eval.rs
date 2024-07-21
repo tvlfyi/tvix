@@ -1,3 +1,4 @@
+use clap::Parser;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lazy_static::lazy_static;
 use std::{env, rc::Rc, sync::Arc, time::Duration};
@@ -11,7 +12,7 @@ use tvix_glue::{
     tvix_io::TvixIO,
     tvix_store_io::TvixStoreIO,
 };
-use tvix_store::utils::construct_services;
+use tvix_store::utils::{construct_services, ServiceUrlsMemory};
 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
@@ -27,7 +28,9 @@ fn interpret(code: &str) {
     // piece of code. b/262
     let (blob_service, directory_service, path_info_service, nar_calculation_service) =
         TOKIO_RUNTIME
-            .block_on(async { construct_services("memory://", "memory://", "memory://").await })
+            .block_on(async {
+                construct_services(ServiceUrlsMemory::parse_from(std::iter::empty::<&str>())).await
+            })
             .unwrap();
 
     // We assemble a complete store in memory.

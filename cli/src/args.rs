@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use tracing::Level;
+use tvix_store::utils::ServiceUrlsMemory;
 
 #[derive(Parser, Clone)]
 pub struct Args {
@@ -58,14 +59,8 @@ pub struct Args {
     #[clap(long)]
     pub strict: bool,
 
-    #[arg(long, env, default_value = "memory://")]
-    pub blob_service_addr: String,
-
-    #[arg(long, env, default_value = "memory://")]
-    pub directory_service_addr: String,
-
-    #[arg(long, env, default_value = "memory://")]
-    pub path_info_service_addr: String,
+    #[clap(flatten)]
+    pub service_addrs: ServiceUrlsMemory,
 
     #[arg(long, env, default_value = "dummy://")]
     pub build_service_addr: String,

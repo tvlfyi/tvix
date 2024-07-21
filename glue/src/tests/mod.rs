@@ -1,10 +1,11 @@
 use std::{rc::Rc, sync::Arc};
 
+use clap::Parser;
 use pretty_assertions::assert_eq;
 use std::path::PathBuf;
 use tvix_build::buildservice::DummyBuildService;
 use tvix_eval::{EvalIO, Value};
-use tvix_store::utils::construct_services;
+use tvix_store::utils::{construct_services, ServiceUrlsMemory};
 
 use rstest::rstest;
 
@@ -35,7 +36,9 @@ fn eval_test(code_path: PathBuf, expect_success: bool) {
     let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
     let (blob_service, directory_service, path_info_service, nar_calculation_service) =
         tokio_runtime
-            .block_on(async { construct_services("memory://", "memory://", "memory://").await })
+            .block_on(async {
+                construct_services(ServiceUrlsMemory::parse_from(std::iter::empty::<&str>())).await
+            })
             .unwrap();
 
     let tvix_store_io = Rc::new(TvixStoreIO::new(

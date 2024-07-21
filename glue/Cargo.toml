@@ -31,6 +31,7 @@ sha1 = "0.10.6"
 md-5 = "0.10.6"
 url = "2.4.0"
 walkdir = "2.4.0"
+clap = { version = "4.4.0", default-features = false }
 
 [dependencies.wu-manber]
 git = "https://github.com/tvlfyi/wu-manber.git"

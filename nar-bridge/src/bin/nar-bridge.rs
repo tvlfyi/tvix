@@ -3,19 +3,14 @@ use nar_bridge::AppState;
 use tower::ServiceBuilder;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::info;
+use tvix_store::utils::ServiceUrlsGrpc;
 
 /// Expose the Nix HTTP Binary Cache protocol for a tvix-store.
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    #[arg(long, env, default_value = "grpc+http://[::1]:8000")]
-    blob_service_addr: String,
-
-    #[arg(long, env, default_value = "grpc+http://[::1]:8000")]
-    directory_service_addr: String,
-
-    #[arg(long, env, default_value = "grpc+http://[::1]:8000")]
-    path_info_service_addr: String,
+    #[clap(flatten)]
+    service_addrs: ServiceUrlsGrpc,
 
     /// The priority to announce at the `nix-cache-info` endpoint.
     /// A lower number means it's *more preferred.
@@ -50,12 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // initialize stores
     let (blob_service, directory_service, path_info_service, _nar_calculation_service) =
-        tvix_store::utils::construct_services(
-            cli.blob_service_addr,
-            cli.directory_service_addr,
-            cli.path_info_service_addr,
-        )
-        .await?;
+        tvix_store::utils::construct_services(cli.service_addrs).await?;
 
     let state = AppState::new(blob_service, directory_service, path_info_service);
 

@@ -627,10 +627,11 @@ mod tests {
     use std::{path::Path, rc::Rc, sync::Arc};
 
     use bstr::ByteSlice;
+    use clap::Parser;
     use tempfile::TempDir;
     use tvix_build::buildservice::DummyBuildService;
     use tvix_eval::{EvalIO, EvaluationResult};
-    use tvix_store::utils::construct_services;
+    use tvix_store::utils::{construct_services, ServiceUrlsMemory};
 
     use super::TvixStoreIO;
     use crate::builtins::{add_derivation_builtins, add_fetcher_builtins, add_import_builtins};
@@ -642,7 +643,10 @@ mod tests {
         let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
         let (blob_service, directory_service, path_info_service, nar_calculation_service) =
             tokio_runtime
-                .block_on(async { construct_services("memory://", "memory://", "memory://").await })
+                .block_on(async {
+                    construct_services(ServiceUrlsMemory::parse_from(std::iter::empty::<&str>()))
+                        .await
+                })
                 .unwrap();
 
         let io = Rc::new(TvixStoreIO::new(
