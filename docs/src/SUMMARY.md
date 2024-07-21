@@ -34,6 +34,9 @@
 - [Data Model](./castore/data-model.md)
 - [Why not git trees?](./castore/why-not-git-trees.md)
 
+# Builder
+- [Build API](./build/index.md)
+
 # Nix
 - [Specification of the Nix Language](./language-spec.md)
 - [Nix language version history](./lang-version.md)
