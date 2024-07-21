@@ -1,7 +1,7 @@
 use axum::http::StatusCode;
 use bytes::Bytes;
 use nix_compat::{narinfo::NarInfo, nixbase32};
-use tracing::{info, instrument, warn, Span};
+use tracing::{instrument, warn, Span};
 use tvix_castore::proto::{self as castorepb, node::Node};
 use tvix_store::proto::PathInfo;
 
@@ -135,8 +135,6 @@ pub async fn put(
 
     match maybe_root_node {
         Some(root_node) => {
-            info!(narinfo.store_path=%narinfo.store_path, narinfo.store_path=?narinfo.store_path, "NARINFO STORE PATH");
-
             // Set the root node from the lookup.
             // We need to rename the node to the narinfo storepath basename, as
             // that's where it's stored in PathInfo.
