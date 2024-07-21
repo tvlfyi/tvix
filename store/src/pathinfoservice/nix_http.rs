@@ -179,8 +179,8 @@ where
 
         // handle decompression, depending on the compression field.
         let mut r: Box<dyn AsyncRead + Send + Unpin> = match narinfo.compression {
-            Some("none") => Box::new(r) as Box<dyn AsyncRead + Send + Unpin>,
-            Some("bzip2") | None => Box::new(async_compression::tokio::bufread::BzDecoder::new(r))
+            None => Box::new(r) as Box<dyn AsyncRead + Send + Unpin>,
+            Some("bzip2") => Box::new(async_compression::tokio::bufread::BzDecoder::new(r))
                 as Box<dyn AsyncRead + Send + Unpin>,
             Some("gzip") => Box::new(async_compression::tokio::bufread::GzipDecoder::new(r))
                 as Box<dyn AsyncRead + Send + Unpin>,
