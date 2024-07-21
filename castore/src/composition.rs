@@ -274,6 +274,9 @@ pub fn add_default_services(reg: &mut Registry) {
 }
 
 pub struct CompositionContext<'a> {
+    // The stack used to detect recursive instantiations and prevent deadlocks
+    // The TypeId of the trait object is included to distinguish e.g. the
+    // BlobService "default" and the DirectoryService "default".
     stack: Vec<(TypeId, String)>,
     composition: Option<&'a Composition>,
 }
