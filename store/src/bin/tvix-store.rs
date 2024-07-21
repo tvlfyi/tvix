@@ -70,12 +70,6 @@ enum Commands {
 
         #[clap(flatten)]
         service_addrs: ServiceUrls,
-
-        /// URL to a PathInfoService that's considered "remote".
-        /// If set, the other one is considered "local", and a "cache" for the
-        /// "remote" one.
-        #[arg(long, env)]
-        remote_path_info_service_addr: Option<String>,
     },
     /// Imports a list of paths into the store, print the store path for each of them.
     Import {
@@ -167,37 +161,10 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error + Send + Sync
         Commands::Daemon {
             listen_args,
             service_addrs,
-            remote_path_info_service_addr,
         } => {
             // initialize stores
-            let mut configs = tvix_store::utils::addrs_to_configs(service_addrs)?;
-
-            // if remote_path_info_service_addr has been specified,
-            // update path_info_service to point to a cache combining the two.
-            if let Some(addr) = remote_path_info_service_addr {
-                use tvix_store::composition::{with_registry, DeserializeWithRegistry, REG};
-                use tvix_store::pathinfoservice::CachePathInfoServiceConfig;
-
-                let remote_url = url::Url::parse(&addr)?;
-                let remote_config = with_registry(&REG, || remote_url.try_into())?;
-
-                let local = configs.pathinfoservices.insert(
-                    "default".into(),
-                    DeserializeWithRegistry(Box::new(CachePathInfoServiceConfig {
-                        near: "local".into(),
-                        far: "remote".into(),
-                    })),
-                );
-                configs
-                    .pathinfoservices
-                    .insert("local".into(), local.unwrap());
-                configs
-                    .pathinfoservices
-                    .insert("remote".into(), remote_config);
-            }
-
             let (blob_service, directory_service, path_info_service, nar_calculation_service) =
-                tvix_store::utils::construct_services_from_configs(configs).await?;
+                tvix_store::utils::construct_services(service_addrs).await?;
 
             let mut server = Server::builder().layer(
                 ServiceBuilder::new()

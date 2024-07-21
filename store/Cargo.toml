@@ -43,6 +43,7 @@ tvix-tracing = { path = "../tracing", features = ["tonic", "reqwest"] }
 tracing = "0.1.40"
 tracing-indicatif = "0.3.6"
 hyper-util = "0.1.6"
+toml = { version = "0.8.15", optional = true }
 
 [dependencies.tonic-reflection]
 optional = true
@@ -74,6 +75,7 @@ otlp = ["tvix-tracing/otlp"]
 tonic-reflection = ["dep:tonic-reflection", "tvix-castore/tonic-reflection"]
 tracy = ["tvix-tracing/tracy"]
 virtiofs = ["tvix-castore/virtiofs"]
+xp-store-composition = []
 # Whether to run the integration tests.
 # Requires the following packages in $PATH:
 # cbtemulator, google-cloud-bigtable-tool

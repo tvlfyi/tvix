@@ -11982,9 +11982,9 @@ rec {
       };
       "serde_spanned" = rec {
         crateName = "serde_spanned";
-        version = "0.6.5";
+        version = "0.6.6";
         edition = "2021";
-        sha256 = "1hgh6s3jjwyzhfk3xwb6pnnr1misq9nflwq0f026jafi37s24dpb";
+        sha256 = "1839b6m5p9ijjmcwamiya2r612ks2vg6w2pp95yg76lr3zh79rkr";
         dependencies = [
           {
             name = "serde";
@@ -13889,7 +13889,7 @@ rec {
         };
         resolvedDefaultFeatures = [ "codec" "compat" "default" "futures-io" "io" "io-util" "net" "tracing" ];
       };
-      "toml" = rec {
+      "toml 0.6.0" = rec {
         crateName = "toml";
         version = "0.6.0";
         edition = "2021";
@@ -13909,12 +13909,12 @@ rec {
           }
           {
             name = "toml_datetime";
-            packageId = "toml_datetime";
+            packageId = "toml_datetime 0.5.1";
             features = [ "serde" ];
           }
           {
             name = "toml_edit";
-            packageId = "toml_edit";
+            packageId = "toml_edit 0.18.1";
             optional = true;
             features = [ "serde" ];
           }
@@ -13935,7 +13935,54 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "display" "parse" ];
       };
-      "toml_datetime" = rec {
+      "toml 0.8.15" = rec {
+        crateName = "toml";
+        version = "0.8.15";
+        edition = "2021";
+        sha256 = "0a2wk4xjdqw59w0jjia3b7p3yinv7wlv68xfq338hwvmpyqalb5c";
+        authors = [
+          "Alex Crichton <alex@alexcrichton.com>"
+        ];
+        dependencies = [
+          {
+            name = "serde";
+            packageId = "serde";
+          }
+          {
+            name = "serde_spanned";
+            packageId = "serde_spanned";
+            features = [ "serde" ];
+          }
+          {
+            name = "toml_datetime";
+            packageId = "toml_datetime 0.6.6";
+            features = [ "serde" ];
+          }
+          {
+            name = "toml_edit";
+            packageId = "toml_edit 0.22.16";
+            optional = true;
+            usesDefaultFeatures = false;
+            features = [ "serde" ];
+          }
+        ];
+        devDependencies = [
+          {
+            name = "serde";
+            packageId = "serde";
+            features = [ "derive" ];
+          }
+        ];
+        features = {
+          "default" = [ "parse" "display" ];
+          "display" = [ "dep:toml_edit" "toml_edit?/display" ];
+          "indexmap" = [ "dep:indexmap" ];
+          "parse" = [ "dep:toml_edit" "toml_edit?/parse" ];
+          "preserve_order" = [ "indexmap" ];
+        };
+        resolvedDefaultFeatures = [ "default" "display" "parse" ];
+      };
+      "toml_datetime 0.5.1" = rec {
         crateName = "toml_datetime";
         version = "0.5.1";
         edition = "2021";
@@ -13955,7 +14002,27 @@ rec {
         };
         resolvedDefaultFeatures = [ "serde" ];
       };
-      "toml_edit" = rec {
+      "toml_datetime 0.6.6" = rec {
+        crateName = "toml_datetime";
+        version = "0.6.6";
+        edition = "2021";
+        sha256 = "1grcrr3gh7id3cy3j700kczwwfbn04p5ncrrj369prjaj9bgvbab";
+        authors = [
+          "Alex Crichton <alex@alexcrichton.com>"
+        ];
+        dependencies = [
+          {
+            name = "serde";
+            packageId = "serde";
+            optional = true;
+          }
+        ];
+        features = {
+          "serde" = [ "dep:serde" ];
+        };
+        resolvedDefaultFeatures = [ "serde" ];
+      };
+      "toml_edit 0.18.1" = rec {
         crateName = "toml_edit";
         version = "0.18.1";
         edition = "2021";
@@ -13986,7 +14053,7 @@ rec {
           }
           {
             name = "toml_datetime";
-            packageId = "toml_datetime";
+            packageId = "toml_datetime 0.5.1";
           }
         ];
         features = {
@@ -13995,6 +14062,50 @@ rec {
           "serde" = [ "dep:serde" "toml_datetime/serde" "dep:serde_spanned" ];
         };
         resolvedDefaultFeatures = [ "default" "serde" ];
+      };
+      "toml_edit 0.22.16" = rec {
+        crateName = "toml_edit";
+        version = "0.22.16";
+        edition = "2021";
+        sha256 = "1207pygznx57j9hrkmmfiq8mxjkba5c7g1yfjk4ij8hmir8kv3r7";
+        authors = [
+          "Andronik Ordian <write@reusable.software>"
+          "Ed Page <eopage@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "indexmap";
+            packageId = "indexmap 2.1.0";
+            features = [ "std" ];
+          }
+          {
+            name = "serde";
+            packageId = "serde";
+            optional = true;
+          }
+          {
+            name = "serde_spanned";
+            packageId = "serde_spanned";
+            optional = true;
+            features = [ "serde" ];
+          }
+          {
+            name = "toml_datetime";
+            packageId = "toml_datetime 0.6.6";
+          }
+          {
+            name = "winnow";
+            packageId = "winnow";
+            optional = true;
+          }
+        ];
+        features = {
+          "default" = [ "parse" "display" ];
+          "parse" = [ "dep:winnow" ];
+          "perf" = [ "dep:kstring" ];
+          "serde" = [ "dep:serde" "toml_datetime/serde" "dep:serde_spanned" ];
+        };
+        resolvedDefaultFeatures = [ "display" "parse" "serde" ];
       };
       "tonic 0.11.0" = rec {
         crateName = "tonic";
@@ -15887,7 +15998,7 @@ rec {
           }
           {
             name = "toml";
-            packageId = "toml";
+            packageId = "toml 0.6.0";
           }
           {
             name = "tvix-eval-builtin-macros";
@@ -16307,6 +16418,11 @@ rec {
             features = [ "io" "io-util" "compat" ];
           }
           {
+            name = "toml";
+            packageId = "toml 0.8.15";
+            optional = true;
+          }
+          {
             name = "tonic";
             packageId = "tonic 0.12.1";
             features = [ "tls" "tls-roots" ];
@@ -16388,11 +16504,12 @@ rec {
           "default" = [ "cloud" "fuse" "otlp" "tonic-reflection" ];
           "fuse" = [ "tvix-castore/fuse" ];
           "otlp" = [ "tvix-tracing/otlp" ];
+          "toml" = [ "dep:toml" ];
           "tonic-reflection" = [ "dep:tonic-reflection" "tvix-castore/tonic-reflection" ];
           "tracy" = [ "tvix-tracing/tracy" ];
           "virtiofs" = [ "tvix-castore/virtiofs" ];
         };
-        resolvedDefaultFeatures = [ "cloud" "default" "fuse" "integration" "otlp" "tonic-reflection" "tracy" "virtiofs" ];
+        resolvedDefaultFeatures = [ "cloud" "default" "fuse" "integration" "otlp" "toml" "tonic-reflection" "tracy" "virtiofs" "xp-store-composition" ];
       };
       "tvix-tracing" = rec {
         crateName = "tvix-tracing";
@@ -19595,6 +19712,28 @@ rec {
           "Microsoft"
         ];
 
+      };
+      "winnow" = rec {
+        crateName = "winnow";
+        version = "0.6.14";
+        edition = "2021";
+        sha256 = "0bz2nmp7mqbz7z5z41p9gdimcwsmrmg4gnbj94dkqykn5l5c8kip";
+        dependencies = [
+          {
+            name = "memchr";
+            packageId = "memchr";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
+        ];
+        features = {
+          "debug" = [ "std" "dep:anstream" "dep:anstyle" "dep:is-terminal" "dep:terminal_size" ];
+          "default" = [ "std" ];
+          "simd" = [ "dep:memchr" ];
+          "std" = [ "alloc" "memchr?/std" ];
+          "unstable-doc" = [ "alloc" "std" "simd" "unstable-recover" ];
+        };
+        resolvedDefaultFeatures = [ "alloc" "default" "std" ];
       };
       "winreg" = rec {
         crateName = "winreg";
