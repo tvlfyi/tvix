@@ -431,10 +431,13 @@ impl Composition {
                         new_context
                             .stack
                             .push((TypeId::of::<T>(), entrypoint.clone()));
-                        let res = config
-                            .build(&entrypoint, &new_context)
-                            .await
-                            .map_err(|e| CompositionError::Failed(entrypoint, e.into()));
+                        let res =
+                            config.build(&entrypoint, &new_context).await.map_err(|e| {
+                                match e.downcast() {
+                                    Ok(e) => *e,
+                                    Err(e) => CompositionError::Failed(entrypoint, e.into()),
+                                }
+                            });
                         tx.send(Some(res.clone())).unwrap();
                         res
                     })
