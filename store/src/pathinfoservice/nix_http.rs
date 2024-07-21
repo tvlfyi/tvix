@@ -41,7 +41,7 @@ pub struct NixHTTPPathInfoService<BS, DS> {
 
     /// An optional list of [narinfo::PubKey].
     /// If set, the .narinfo files received need to have correct signature by at least one of these.
-    public_keys: Option<Vec<narinfo::PubKey>>,
+    public_keys: Option<Vec<narinfo::VerifyingKey>>,
 }
 
 impl<BS, DS> NixHTTPPathInfoService<BS, DS> {
@@ -59,7 +59,7 @@ impl<BS, DS> NixHTTPPathInfoService<BS, DS> {
     }
 
     /// Configures [Self] to validate NARInfo fingerprints with the public keys passed.
-    pub fn set_public_keys(&mut self, public_keys: Vec<narinfo::PubKey>) {
+    pub fn set_public_keys(&mut self, public_keys: Vec<narinfo::VerifyingKey>) {
         self.public_keys = Some(public_keys);
     }
 }
@@ -311,7 +311,7 @@ impl ServiceBuilder for NixHTTPPathInfoServiceConfig {
                 public_keys
                     .iter()
                     .map(|pubkey_str| {
-                        narinfo::PubKey::parse(pubkey_str)
+                        narinfo::VerifyingKey::parse(pubkey_str)
                             .map_err(|e| Error::StorageError(format!("invalid public key: {e}")))
                     })
                     .collect::<Result<Vec<_>, Error>>()?,

@@ -27,13 +27,12 @@ use std::{
 use crate::{nixbase32, nixhash::CAHash, store_path::StorePathRef};
 
 mod fingerprint;
-mod public_keys;
 mod signature;
+mod verifying_keys;
 
 pub use fingerprint::fingerprint;
-
-pub use public_keys::{Error as PubKeyError, PubKey};
 pub use signature::{Error as SignatureError, Signature};
+pub use verifying_keys::{Error as VerifyingKeyError, VerifyingKey};
 
 #[derive(Debug)]
 pub struct NarInfo<'a> {

@@ -4,7 +4,7 @@
 use std::fmt::Display;
 
 use data_encoding::BASE64;
-use ed25519_dalek::{VerifyingKey, PUBLIC_KEY_LENGTH};
+use ed25519_dalek::PUBLIC_KEY_LENGTH;
 
 use super::Signature;
 
@@ -12,13 +12,13 @@ use super::Signature;
 /// These are normally passed in the `trusted-public-keys` Nix config option,
 /// and consist of a name and base64-encoded ed25519 pubkey, separated by a `:`.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PubKey {
+pub struct VerifyingKey {
     name: String,
-    verifying_key: VerifyingKey,
+    verifying_key: ed25519_dalek::VerifyingKey,
 }
 
-impl PubKey {
-    pub fn new(name: String, verifying_key: VerifyingKey) -> Self {
+impl VerifyingKey {
+    pub fn new(name: String, verifying_key: ed25519_dalek::VerifyingKey) -> Self {
         Self {
             name,
             verifying_key,
@@ -37,7 +37,7 @@ impl PubKey {
         }
 
         if bytes64.len() != BASE64.encode_len(PUBLIC_KEY_LENGTH) {
-            return Err(Error::InvalidPubKeyLen(bytes64.len()));
+            return Err(Error::InvalidVerifyingKeyLen(bytes64.len()));
         }
 
         let mut buf = [0; PUBLIC_KEY_LENGTH + 1];
@@ -51,7 +51,8 @@ impl PubKey {
             Err(_) => return Err(Error::DecodeError(input.to_string())),
         }
 
-        let verifying_key = VerifyingKey::from_bytes(&bytes).map_err(Error::InvalidVerifyingKey)?;
+        let verifying_key =
+            ed25519_dalek::VerifyingKey::from_bytes(&bytes).map_err(Error::InvalidVerifyingKey)?;
 
         Ok(Self {
             name: name.to_string(),
@@ -84,14 +85,14 @@ pub enum Error {
     #[error("Missing separator")]
     MissingSeparator,
     #[error("Invalid pubkey len: {0}")]
-    InvalidPubKeyLen(usize),
+    InvalidVerifyingKeyLen(usize),
     #[error("VerifyingKey error: {0}")]
     InvalidVerifyingKey(ed25519_dalek::SignatureError),
     #[error("Unable to base64-decode pubkey: {0}")]
     DecodeError(String),
 }
 
-impl Display for PubKey {
+impl Display for VerifyingKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -110,7 +111,7 @@ mod test {
 
     use crate::narinfo::Signature;
 
-    use super::PubKey;
+    use super::VerifyingKey;
     const FINGERPRINT: &str = "1;/nix/store/syd87l2rxw8cbsxmxl853h0r6pdwhwjr-curl-7.82.0-bin;sha256:1b4sb93wp679q4zx9k1ignby1yna3z7c4c2ri3wphylbc2dwsys0;196040;/nix/store/0jqd0rlxzra1rs38rdxl43yh6rxchgc6-curl-7.82.0,/nix/store/6w8g7njm4mck5dmjxws0z1xnrxvl81xa-glibc-2.34-115,/nix/store/j5jxw3iy7bbz4a57fh9g2xm2gxmyal8h-zlib-1.2.12,/nix/store/yxvjs9drzsphm9pcf42a4byzj1kb9m7k-openssl-1.1.1n";
 
     #[rstest]
@@ -122,7 +123,7 @@ mod test {
         #[case] exp_name: &'static str,
         #[case] exp_verifying_key_bytes: &[u8; PUBLIC_KEY_LENGTH],
     ) {
-        let pubkey = PubKey::parse(input).expect("must parse");
+        let pubkey = VerifyingKey::parse(input).expect("must parse");
         assert_eq!(exp_name, pubkey.name());
         assert_eq!(exp_verifying_key_bytes, pubkey.verifying_key.as_bytes());
     }
@@ -132,7 +133,7 @@ mod test {
     #[case::missing_padding("cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY")]
     #[case::wrong_length("cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDS")]
     fn parse_fail(#[case] input: &'static str) {
-        PubKey::parse(input).expect_err("must fail");
+        VerifyingKey::parse(input).expect_err("must fail");
     }
 
     #[rstest]
@@ -144,7 +145,7 @@ mod test {
         #[case] signature_str: &'static str,
         #[case] expected: bool,
     ) {
-        let pubkey = PubKey::parse(pubkey_str).expect("must parse");
+        let pubkey = VerifyingKey::parse(pubkey_str).expect("must parse");
         let signature = Signature::parse(signature_str).expect("must parse");
 
         assert_eq!(expected, pubkey.verify(fingerprint, &signature));

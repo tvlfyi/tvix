@@ -13,7 +13,7 @@ pub struct NixConfig<'a> {
     pub sandbox_fallback: Option<bool>,
     pub substituters: Option<Vec<&'a str>>,
     pub system_features: Option<Vec<&'a str>>,
-    pub trusted_public_keys: Option<Vec<crate::narinfo::PubKey>>,
+    pub trusted_public_keys: Option<Vec<crate::narinfo::VerifyingKey>>,
     pub trusted_substituters: Option<Vec<&'a str>>,
     pub trusted_users: Option<Vec<&'a str>>,
     pub extra_platforms: Option<Vec<&'a str>>,
@@ -78,8 +78,8 @@ impl<'a> NixConfig<'a> {
                     "trusted-public-keys" => {
                         this.trusted_public_keys = Some(
                             val.split_whitespace()
-                                .map(crate::narinfo::PubKey::parse)
-                                .collect::<Result<Vec<crate::narinfo::PubKey>, _>>()
+                                .map(crate::narinfo::VerifyingKey::parse)
+                                .collect::<Result<Vec<crate::narinfo::VerifyingKey>, _>>()
                                 .ok()?,
                         )
                     }
@@ -155,7 +155,7 @@ impl FromStr for SandboxSetting {
 
 #[cfg(test)]
 mod tests {
-    use crate::{narinfo::PubKey, nixcpp::conf::SandboxSetting};
+    use crate::{narinfo::VerifyingKey, nixcpp::conf::SandboxSetting};
 
     use super::NixConfig;
 
@@ -175,9 +175,9 @@ mod tests {
                 substituters: Some(vec!["https://nix-community.cachix.org", "https://cache.nixos.org/"]),
                 system_features: Some(vec!["nixos-test", "benchmark", "big-parallel", "kvm"]),
                 trusted_public_keys: Some(vec![
-                    PubKey::parse("cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=")
+                    VerifyingKey::parse("cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=")
                         .expect("failed to parse pubkey"),
-                    PubKey::parse("nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=")
+                    VerifyingKey::parse("nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=")
                         .expect("failed to parse pubkey")
                 ]),
                 trusted_substituters: Some(vec![]),
