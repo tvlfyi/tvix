@@ -28,10 +28,13 @@ use crate::{nixbase32, nixhash::CAHash, store_path::StorePathRef};
 
 mod fingerprint;
 mod signature;
+mod signing_keys;
 mod verifying_keys;
 
 pub use fingerprint::fingerprint;
 pub use signature::{Error as SignatureError, Signature};
+pub use signing_keys::parse_keypair;
+pub use signing_keys::{Error as SigningKeyError, SigningKey};
 pub use verifying_keys::{Error as VerifyingKeyError, VerifyingKey};
 
 #[derive(Debug)]
@@ -296,6 +299,21 @@ impl<'a> NarInfo<'a> {
             self.references.iter(),
         )
     }
+
+    /// Adds a signature, using the passed signer to sign.
+    /// This is generic over algo implementations / providers,
+    /// so users can bring their own signers.
+    pub fn add_signature<S>(&mut self, signer: &'a SigningKey<S>)
+    where
+        S: ed25519::signature::Signer<ed25519::Signature>,
+    {
+        // calculate the fingerprint to sign
+        let fp = self.fingerprint();
+
+        let sig = signer.sign(fp.as_bytes());
+
+        self.signatures.push(sig);
+    }
 }
 
 impl Display for NarInfo<'_> {
@@ -389,6 +407,12 @@ pub enum Error {
     #[error("unable to parse CA field: {0}")]
     UnableToParseCA(String),
 }
+
+#[cfg(test)]
+const DUMMY_KEYPAIR: &str = "cache.example.com-1:cCta2MEsRNuYCgWYyeRXLyfoFpKhQJKn8gLMeXWAb7vIpRKKo/3JoxJ24OYa3DxT2JVV38KjK/1ywHWuMe2JEw==";
+#[cfg(test)]
+const DUMMY_VERIFYING_KEY: &str =
+    "cache.example.com-1:yKUSiqP9yaMSduDmGtw8U9iVVd/Coyv9csB1rjHtiRM=";
 
 #[cfg(test)]
 mod test {
@@ -521,6 +545,48 @@ Sig: cache.nixos.org-1:HhaiY36Uk3XV1JGe9d9xHnzAapqJXprU1YZZzSzxE97jCuO5RR7vlG2kF
         assert_eq!(
             hex!("60adfd293a4d81ad7cd7e47263cbb3fc846309ef91b154a08ba672b558f94ff3"),
             parsed.nar_hash,
+        );
+    }
+
+    /// Adds a signature to a NARInfo, using key material parsed from DUMMY_KEYPAIR.
+    /// It then ensures signature verification with the parsed
+    /// DUMMY_VERIFYING_KEY succeeds.
+    #[test]
+    fn sign() {
+        let mut narinfo = NarInfo::parse(
+            r#"StorePath: /nix/store/0vpqfxbkx0ffrnhbws6g9qwhmliksz7f-perl-HTTP-Cookies-6.01
+URL: nar/0i5biw0g01514llhfswxy6xfav8lxxdq1xg6ik7hgsqbpw0f06yi.nar.xz
+Compression: xz
+FileHash: sha256:0i5biw0g01514llhfswxy6xfav8lxxdq1xg6ik7hgsqbpw0f06yi
+FileSize: 7120
+NarHash: sha256:0h1bm4sj1cnfkxgyhvgi8df1qavnnv94sd0v09wcrm971602shfg
+NarSize: 22552
+References: 
+CA: fixed:r:sha1:1ak1ymbmsfx7z8kh09jzkr3a4dvkrfjw
+"#,
+        )
+        .expect("should parse");
+
+        let fp = narinfo.fingerprint();
+
+        // load our keypair from the fixtures
+        let (signing_key, _verifying_key) =
+            super::parse_keypair(super::DUMMY_KEYPAIR).expect("must succeed");
+
+        // add signature
+        narinfo.add_signature(&signing_key);
+
+        // ensure the signature is added
+        let new_sig = narinfo.signatures.last().unwrap();
+        assert_eq!(signing_key.name(), new_sig.name());
+
+        // verify the new signature against the verifying key
+        let verifying_key = super::VerifyingKey::parse(super::DUMMY_VERIFYING_KEY)
+            .expect("parsing dummy verifying key");
+
+        assert!(
+            verifying_key.verify(&fp, new_sig),
+            "expect signature to be valid"
         );
     }
 }
