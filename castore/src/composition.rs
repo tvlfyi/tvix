@@ -274,7 +274,7 @@ pub fn add_default_services(reg: &mut Registry) {
 }
 
 pub struct CompositionContext<'a> {
-    stack: Vec<String>,
+    stack: Vec<(TypeId, String)>,
     composition: Option<&'a Composition>,
 }
 
@@ -291,8 +291,14 @@ impl<'a> CompositionContext<'a> {
         entrypoint: String,
     ) -> Result<Arc<T>, Box<dyn std::error::Error + Send + Sync + 'static>> {
         // disallow recursion
-        if self.stack.contains(&entrypoint) {
-            return Err(CompositionError::Recursion(self.stack.clone()).into());
+        if self
+            .stack
+            .contains(&(TypeId::of::<T>(), entrypoint.clone()))
+        {
+            return Err(CompositionError::Recursion(
+                self.stack.iter().map(|(_, n)| n.clone()).collect(),
+            )
+            .into());
         }
         match self.composition {
             Some(comp) => Ok(comp.build_internal(self.stack.clone(), entrypoint).await?),
@@ -390,7 +396,7 @@ impl Composition {
 
     fn build_internal<T: ?Sized + Send + Sync + 'static>(
         &self,
-        stack: Vec<String>,
+        stack: Vec<(TypeId, String)>,
         entrypoint: String,
     ) -> BoxFuture<'_, Result<Arc<T>, CompositionError>> {
         let mut stores = self.stores.lock().unwrap();
@@ -422,7 +428,9 @@ impl Composition {
                             stack: stack.clone(),
                             composition: Some(self),
                         };
-                        new_context.stack.push(entrypoint.clone());
+                        new_context
+                            .stack
+                            .push((TypeId::of::<T>(), entrypoint.clone()));
                         let res = config
                             .build(&entrypoint, &new_context)
                             .await
