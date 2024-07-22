@@ -8,9 +8,10 @@ edition = "2021"
 async = ["tokio"]
 # code emitting low-level packets used in the daemon protocol.
 wire = ["tokio", "pin-project-lite", "bytes"]
+test = []
 
 # Enable all features by default.
-default = ["async", "wire"]
+default = ["async", "wire", "nix-compat-derive"]
 
 [dependencies]
 bitflags = "2.4.1"
@@ -32,6 +33,11 @@ tracing = "0.1.37"
 [dependencies.bytes]
 optional = true
 version = "1.6.1"
+
+[dependencies.nix-compat-derive]
+path = "../nix-compat-derive"
+optional = true
+default-features = false
 
 [dependencies.tokio]
 optional = true

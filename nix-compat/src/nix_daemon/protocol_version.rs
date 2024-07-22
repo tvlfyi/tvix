@@ -54,6 +54,13 @@ impl From<u16> for ProtocolVersion {
     }
 }
 
+#[cfg(any(test, feature = "test"))]
+impl From<(u8, u8)> for ProtocolVersion {
+    fn from((major, minor): (u8, u8)) -> Self {
+        Self::from_parts(major, minor)
+    }
+}
+
 impl TryFrom<u64> for ProtocolVersion {
     type Error = &'static str;
 

@@ -55,6 +55,26 @@ rec {
       # File a bug if you depend on any for non-debug work!
       debug = internal.debugCrate { inherit packageId; };
     };
+    "nix-compat-derive" = rec {
+      packageId = "nix-compat-derive";
+      build = internal.buildRustCrateWithFeatures {
+        packageId = "nix-compat-derive";
+      };
+
+      # Debug support which might change between releases.
+      # File a bug if you depend on any for non-debug work!
+      debug = internal.debugCrate { inherit packageId; };
+    };
+    "nix-compat-derive-tests" = rec {
+      packageId = "nix-compat-derive-tests";
+      build = internal.buildRustCrateWithFeatures {
+        packageId = "nix-compat-derive-tests";
+      };
+
+      # Debug support which might change between releases.
+      # File a bug if you depend on any for non-debug work!
+      debug = internal.debugCrate { inherit packageId; };
+    };
     "tvix-build" = rec {
       packageId = "tvix-build";
       build = internal.buildRustCrateWithFeatures {
@@ -7396,6 +7416,12 @@ rec {
             packageId = "mimalloc";
           }
           {
+            name = "nix-compat-derive";
+            packageId = "nix-compat-derive";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
+          {
             name = "nom";
             packageId = "nom";
           }
@@ -7488,12 +7514,115 @@ rec {
         features = {
           "async" = [ "tokio" ];
           "bytes" = [ "dep:bytes" ];
-          "default" = [ "async" "wire" ];
+          "default" = [ "async" "wire" "nix-compat-derive" ];
+          "nix-compat-derive" = [ "dep:nix-compat-derive" ];
           "pin-project-lite" = [ "dep:pin-project-lite" ];
           "tokio" = [ "dep:tokio" ];
           "wire" = [ "tokio" "pin-project-lite" "bytes" ];
         };
-        resolvedDefaultFeatures = [ "async" "bytes" "default" "pin-project-lite" "tokio" "wire" ];
+        resolvedDefaultFeatures = [ "async" "bytes" "default" "nix-compat-derive" "pin-project-lite" "test" "tokio" "wire" ];
+      };
+      "nix-compat-derive" = rec {
+        crateName = "nix-compat-derive";
+        version = "0.1.0";
+        edition = "2021";
+        src = lib.cleanSourceWith { filter = sourceFilter; src = ./nix-compat-derive; };
+        procMacro = true;
+        libName = "nix_compat_derive";
+        dependencies = [
+          {
+            name = "proc-macro2";
+            packageId = "proc-macro2";
+            features = [ "proc-macro" ];
+          }
+          {
+            name = "quote";
+            packageId = "quote";
+            features = [ "proc-macro" ];
+          }
+          {
+            name = "syn";
+            packageId = "syn 2.0.72";
+            features = [ "full" "extra-traits" ];
+          }
+        ];
+        devDependencies = [
+          {
+            name = "hex-literal";
+            packageId = "hex-literal";
+          }
+          {
+            name = "nix-compat";
+            packageId = "nix-compat";
+            usesDefaultFeatures = false;
+            features = [ "async" "wire" "test" ];
+          }
+          {
+            name = "pretty_assertions";
+            packageId = "pretty_assertions";
+          }
+          {
+            name = "rstest";
+            packageId = "rstest";
+          }
+          {
+            name = "tokio";
+            packageId = "tokio";
+            features = [ "io-util" "macros" ];
+          }
+          {
+            name = "tokio-test";
+            packageId = "tokio-test";
+          }
+        ];
+        features = {
+          "default" = [ "external" ];
+        };
+        resolvedDefaultFeatures = [ "default" "external" ];
+      };
+      "nix-compat-derive-tests" = rec {
+        crateName = "nix-compat-derive-tests";
+        version = "0.1.0";
+        edition = "2021";
+        src = lib.cleanSourceWith { filter = sourceFilter; src = ./nix-compat-derive-tests; };
+        devDependencies = [
+          {
+            name = "hex-literal";
+            packageId = "hex-literal";
+          }
+          {
+            name = "nix-compat";
+            packageId = "nix-compat";
+            features = [ "test" "wire" ];
+          }
+          {
+            name = "nix-compat-derive";
+            packageId = "nix-compat-derive";
+          }
+          {
+            name = "pretty_assertions";
+            packageId = "pretty_assertions";
+          }
+          {
+            name = "rstest";
+            packageId = "rstest";
+          }
+          {
+            name = "tokio";
+            packageId = "tokio";
+            features = [ "io-util" "macros" ];
+          }
+          {
+            name = "tokio-test";
+            packageId = "tokio-test";
+          }
+          {
+            name = "trybuild";
+            packageId = "trybuild";
+          }
+        ];
+        features = { };
+        resolvedDefaultFeatures = [ "compile-tests" ];
       };
       "nohash-hasher" = rec {
         crateName = "nohash-hasher";
@@ -15497,6 +15626,45 @@ rec {
           "Sean McArthur <sean@seanmonstar.com>"
         ];
 
+      };
+      "trybuild" = rec {
+        crateName = "trybuild";
+        version = "1.0.99";
+        edition = "2021";
+        sha256 = "1s4i2hpyb66676xkg6b6fxm2qdsawj5lfad8ds68vgn46q6sayi0";
+        authors = [
+          "David Tolnay <dtolnay@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "glob";
+            packageId = "glob";
+          }
+          {
+            name = "serde";
+            packageId = "serde";
+          }
+          {
+            name = "serde_derive";
+            packageId = "serde_derive";
+          }
+          {
+            name = "serde_json";
+            packageId = "serde_json";
+          }
+          {
+            name = "termcolor";
+            packageId = "termcolor";
+          }
+          {
+            name = "toml";
+            packageId = "toml 0.8.15";
+          }
+        ];
+        features = {
+          "diff" = [ "dissimilar" ];
+          "dissimilar" = [ "dep:dissimilar" ];
+        };
       };
       "tvix-build" = rec {
         crateName = "tvix-build";

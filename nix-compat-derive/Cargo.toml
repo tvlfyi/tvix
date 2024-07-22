@@ -1,0 +1,32 @@
+[package]
+name = "nix-compat-derive"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[features]
+external = []
+default = ["external"]
+
+
+[dependencies]
+proc-macro2 = { version = "1.0.86",  features = ["proc-macro"] }
+quote = { version = "1.0.36", features = ["proc-macro"] }
+syn = { version = "2.0.72", features = ["full", "extra-traits"] }
+
+[dev-dependencies]
+hex-literal = "0.4.1"
+pretty_assertions = "1.4.0"
+rstest = "0.19.0"
+tokio-test = "0.4.3"
+
+[dev-dependencies.tokio]
+version = "^1.38"
+features = ["io-util", "macros"]
+
+[dev-dependencies.nix-compat]
+path = "../nix-compat"
+default-features = false
+features = ["async", "wire", "test"]

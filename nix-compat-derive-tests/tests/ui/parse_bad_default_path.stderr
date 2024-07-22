@@ -1,0 +1,5 @@
+error: expected identifier
+ --> tests/ui/parse_bad_default_path.rs:5:21
+  |
+5 |     #[nix(default = "12")]
+  |                     ^^^^

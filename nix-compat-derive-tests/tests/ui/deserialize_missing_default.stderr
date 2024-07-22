@@ -1,0 +1,12 @@
+error[E0277]: the trait bound `Value: Default` is not satisfied
+ --> tests/ui/deserialize_missing_default.rs:6:10
+  |
+6 | #[derive(NixDeserialize)]
+  |          ^^^^^^^^^^^^^^ the trait `Default` is not implemented for `Value`
+  |
+  = note: this error originates in the derive macro `NixDeserialize` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider annotating `Value` with `#[derive(Default)]`
+  |
+4 + #[derive(Default)]
+5 | pub struct Value(String);
+  |

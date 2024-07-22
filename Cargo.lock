@@ -2342,6 +2342,7 @@ dependencies = [
  "hex-literal",
  "lazy_static",
  "mimalloc",
+ "nix-compat-derive",
  "nom",
  "num-traits",
  "pin-project-lite",
@@ -2356,6 +2357,35 @@ dependencies = [
  "tokio-test",
  "tracing",
  "zstd",
+]
+
+[[package]]
+name = "nix-compat-derive"
+version = "0.1.0"
+dependencies = [
+ "hex-literal",
+ "nix-compat",
+ "pretty_assertions",
+ "proc-macro2",
+ "quote",
+ "rstest",
+ "syn 2.0.72",
+ "tokio",
+ "tokio-test",
+]
+
+[[package]]
+name = "nix-compat-derive-tests"
+version = "0.1.0"
+dependencies = [
+ "hex-literal",
+ "nix-compat",
+ "nix-compat-derive",
+ "pretty_assertions",
+ "rstest",
+ "tokio",
+ "tokio-test",
+ "trybuild",
 ]
 
 [[package]]
@@ -4707,6 +4737,20 @@ name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
+
+[[package]]
+name = "trybuild"
+version = "1.0.99"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "207aa50d36c4be8d8c6ea829478be44a372c6a77669937bb39c698e52f1491e8"
+dependencies = [
+ "glob",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "termcolor",
+ "toml 0.8.15",
+]
 
 [[package]]
 name = "tvix-build"

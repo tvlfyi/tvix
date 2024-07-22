@@ -1,0 +1,8 @@
+error[E0004]: non-exhaustive patterns: `11_u8..=14_u8` and `18_u8..=49_u8` not covered
+ --> tests/ui/deserialize_enum_non_exaustive.rs:3:10
+  |
+3 | #[derive(NixDeserialize)]
+  |          ^^^^^^^^^^^^^^ patterns `11_u8..=14_u8` and `18_u8..=49_u8` not covered
+  |
+  = note: the matched value is of type `u8`
+  = note: this error originates in the derive macro `NixDeserialize` (in Nightly builds, run with -Z macro-backtrace for more info)

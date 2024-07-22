@@ -1,0 +1,5 @@
+error[E0277]: the trait bound `Test: From<u64>` is not satisfied
+ --> tests/ui/deserialize_from_missing.rs:4:14
+  |
+4 | #[nix(from = "u64")]
+  |              ^^^^^ the trait `From<u64>` is not implemented for `Test`

@@ -1,0 +1,16 @@
+error[E0277]: the trait bound `Test: FromStr` is not satisfied
+ --> tests/ui/deserialize_from_str_missing.rs:4:7
+  |
+4 | #[nix(from_str)]
+  |       ^^^^^^^^ the trait `FromStr` is not implemented for `Test`
+  |
+  = help: the following other types implement trait `FromStr`:
+            IpAddr
+            Ipv4Addr
+            Ipv6Addr
+            NonZero<i128>
+            NonZero<i16>
+            NonZero<i32>
+            NonZero<i64>
+            NonZero<i8>
+          and $N others

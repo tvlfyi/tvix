@@ -1,0 +1,8 @@
+error[E0599]: no function or associated item named `make_default` found for struct `Value` in the current scope
+ --> tests/ui/deserialize_missing_default_path.rs:8:39
+  |
+4 | pub struct Value(String);
+  | ---------------- function or associated item `make_default` not found for this struct
+...
+8 |     #[nix(version = "20..", default = "Value::make_default")]
+  |                                       ^^^^^^^^^^^^^^^^^^^^^ function or associated item not found in `Value`
