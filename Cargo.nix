@@ -16508,6 +16508,7 @@ rec {
           "tonic-reflection" = [ "dep:tonic-reflection" "tvix-castore/tonic-reflection" ];
           "tracy" = [ "tvix-tracing/tracy" ];
           "virtiofs" = [ "tvix-castore/virtiofs" ];
+          "xp-store-composition" = [ "toml" ];
         };
         resolvedDefaultFeatures = [ "cloud" "default" "fuse" "integration" "otlp" "toml" "tonic-reflection" "tracy" "virtiofs" "xp-store-composition" ];
       };
