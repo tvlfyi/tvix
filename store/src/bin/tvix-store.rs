@@ -178,8 +178,11 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error + Send + Sync
                     .map_request(tvix_tracing::propagate::tonic::accept_trace),
             );
 
+            let (_health_reporter, health_service) = tonic_health::server::health_reporter();
+
             #[allow(unused_mut)]
             let mut router = server
+                .add_service(health_service)
                 .add_service(BlobServiceServer::new(GRPCBlobServiceWrapper::new(
                     blob_service,
                 )))

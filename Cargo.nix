@@ -14489,6 +14489,54 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "prost" "prost-build" "transport" ];
       };
+      "tonic-health" = rec {
+        crateName = "tonic-health";
+        version = "0.12.1";
+        edition = "2021";
+        sha256 = "0ma93g27szqjh4gniws6wz82ils2hhvd91rl8k7bc27fjrm0xqg1";
+        authors = [
+          "James Nugent <james@jen20.com>"
+        ];
+        dependencies = [
+          {
+            name = "async-stream";
+            packageId = "async-stream";
+          }
+          {
+            name = "prost";
+            packageId = "prost 0.13.1";
+          }
+          {
+            name = "tokio";
+            packageId = "tokio";
+            features = [ "sync" ];
+          }
+          {
+            name = "tokio-stream";
+            packageId = "tokio-stream";
+          }
+          {
+            name = "tonic";
+            packageId = "tonic 0.12.1";
+            usesDefaultFeatures = false;
+            features = [ "codegen" "prost" ];
+          }
+        ];
+        devDependencies = [
+          {
+            name = "tokio";
+            packageId = "tokio";
+            features = [ "rt-multi-thread" "macros" ];
+          }
+          {
+            name = "tokio-stream";
+            packageId = "tokio-stream";
+          }
+        ];
+        features = {
+          "default" = [ "transport" ];
+        };
+      };
       "tonic-reflection" = rec {
         crateName = "tonic-reflection";
         version = "0.12.1";
@@ -16426,6 +16474,11 @@ rec {
             name = "tonic";
             packageId = "tonic 0.12.1";
             features = [ "tls" "tls-roots" ];
+          }
+          {
+            name = "tonic-health";
+            packageId = "tonic-health";
+            usesDefaultFeatures = false;
           }
           {
             name = "tonic-reflection";
