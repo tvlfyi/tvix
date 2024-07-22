@@ -15573,6 +15573,14 @@ rec {
             packageId = "data-encoding";
           }
           {
+            name = "ed25519";
+            packageId = "ed25519";
+          }
+          {
+            name = "ed25519-dalek";
+            packageId = "ed25519-dalek";
+          }
+          {
             name = "futures";
             packageId = "futures";
           }

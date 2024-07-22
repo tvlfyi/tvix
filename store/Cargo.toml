@@ -13,6 +13,8 @@ bytes = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
 count-write = { workspace = true }
 data-encoding = { workspace = true }
+ed25519 = { workspace = true }
+ed25519-dalek = { workspace = true }
 futures = { workspace = true }
 lazy_static = { workspace = true }
 nix-compat = { path = "../nix-compat", features = ["async"] }

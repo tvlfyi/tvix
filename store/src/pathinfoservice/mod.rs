@@ -5,6 +5,7 @@ mod lru;
 mod memory;
 mod nix_http;
 mod redb;
+mod signing_wrapper;
 mod sled;
 
 #[cfg(any(feature = "fuse", feature = "virtiofs"))]
@@ -30,7 +31,11 @@ pub use self::lru::{LruPathInfoService, LruPathInfoServiceConfig};
 pub use self::memory::{MemoryPathInfoService, MemoryPathInfoServiceConfig};
 pub use self::nix_http::{NixHTTPPathInfoService, NixHTTPPathInfoServiceConfig};
 pub use self::redb::{RedbPathInfoService, RedbPathInfoServiceConfig};
+pub use self::signing_wrapper::{KeyFileSigningPathInfoServiceConfig, SigningPathInfoService};
 pub use self::sled::{SledPathInfoService, SledPathInfoServiceConfig};
+
+#[cfg(test)]
+pub(crate) use self::signing_wrapper::test_signing_service;
 
 #[cfg(feature = "cloud")]
 mod bigtable;
@@ -91,6 +96,7 @@ pub(crate) fn register_pathinfo_services(reg: &mut Registry) {
     reg.register::<Box<dyn ServiceBuilder<Output = dyn PathInfoService>>, NixHTTPPathInfoServiceConfig>("nix");
     reg.register::<Box<dyn ServiceBuilder<Output = dyn PathInfoService>>, SledPathInfoServiceConfig>("sled");
     reg.register::<Box<dyn ServiceBuilder<Output = dyn PathInfoService>>, RedbPathInfoServiceConfig>("redb");
+    reg.register::<Box<dyn ServiceBuilder<Output = dyn PathInfoService>>, KeyFileSigningPathInfoServiceConfig>("keyfile-signing");
     #[cfg(feature = "cloud")]
     {
         reg.register::<Box<dyn ServiceBuilder<Output = dyn PathInfoService>>, BigtableParameters>(
