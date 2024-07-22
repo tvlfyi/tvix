@@ -45,6 +45,7 @@ nix = { version = "0.27.1", features = [ "fs" ] }
 pretty_assertions = "1.4.0"
 rstest = "0.19.0"
 tempfile = "3.8.1"
+tokio-test = "0.4.3"
 
 [features]
 default = ["nix_tests"]

@@ -4977,6 +4977,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-tar",
+ "tokio-test",
  "tokio-util",
  "tracing",
  "tracing-indicatif",
