@@ -14969,12 +14969,7 @@ rec {
         crateName = "tracing-opentelemetry";
         version = "0.25.0";
         edition = "2021";
-        workspace_member = null;
-        src = pkgs.fetchgit {
-          url = "https://github.com/tokio-rs/tracing-opentelemetry";
-          rev = "6fb2ba4c8b5b5b00e2566256c3ce80d7ebbe59ec";
-          sha256 = "1b0qw6jv1dws2s8vmk1m0zryhihsd4n1vp0yvbbwx5qjqdsny3i1";
-        };
+        sha256 = "0fzzhpcxngnxra56cxmslr5y6k0f1b4ghqv9vz41p4kxvba4wy59";
         dependencies = [
           {
             name = "js-sys";

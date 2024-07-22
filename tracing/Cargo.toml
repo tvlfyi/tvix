@@ -12,7 +12,7 @@ tracing-indicatif = "0.3.6"
 tokio = { version = "1.32.0" , features = ["sync", "rt"] }
 thiserror = "1.0.38"
 
-tracing-opentelemetry = { git = "https://github.com/tokio-rs/tracing-opentelemetry", branch = "otel-0.24", version = "0.25.0", optional = true }
+tracing-opentelemetry = { version = "0.25.0", optional = true }
 opentelemetry = { version = "0.24.0", optional = true }
 opentelemetry-otlp = { version = "0.17.0", optional = true }
 opentelemetry_sdk = { version = "0.24.1", features = ["rt-tokio"], optional = true }
