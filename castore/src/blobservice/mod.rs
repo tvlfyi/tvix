@@ -11,7 +11,6 @@ mod combinator;
 mod from_addr;
 mod grpc;
 mod memory;
-mod naive_seeker;
 mod object_store;
 
 #[cfg(test)]
