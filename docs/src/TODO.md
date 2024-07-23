@@ -25,6 +25,20 @@ sure noone is working on this, or has some specific design in mind already.
    with a different level of `--strict`, but the toplevel doc-comment suggests
    its generic?
 
+### castore
+  - The `Directory` struct is currently being generated from the protobuf definitions.
+    We should change this, have `Directory` be our own type (holding a `B3Digest`),
+    rather than a `Vec<u8>`, and move impls to there.
+    The protobuf struct can stay in `castore/proto`, but should only be used
+    when converting to/from Protobuf definitons:
+     - gRPC client/server impls
+     - implementations that use protobuf as a internal data format
+     - `digest()` implementation of our stricter `Directory` struct
+
+    The traits should use our stricter type. This would allow removing a lot of
+    the checks we currently have when converting from `Vec<u8>` to `B3Digest` in
+    various places.
+
 ## Perf
  - String Contexts currently do a lot of indirections (edef)
    (NixString -> NixStringInner -> HashSet[element] -> NixContextElement -> String -> data)
