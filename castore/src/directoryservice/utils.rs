@@ -25,23 +25,31 @@ pub fn traverse_directory<'a, DS: DirectoryService + 'static>(
     // We omit sending the same directories multiple times.
     let mut sent_directory_digests: HashSet<B3Digest> = HashSet::new();
 
+    let root_directory_digest = root_directory_digest.clone();
+
     Box::pin(try_stream! {
         while let Some(current_directory_digest) = worklist_directory_digests.pop_front() {
-            let current_directory = directory_service.get(&current_directory_digest).await.map_err(|e| {
+            let current_directory = match directory_service.get(&current_directory_digest).await.map_err(|e| {
                 warn!("failed to look up directory");
                 Error::StorageError(format!(
                     "unable to look up directory {}: {}",
                     current_directory_digest, e
                 ))
-            })?.ok_or_else(|| {
-                // if it's not there, we have an inconsistent store!
-                warn!("directory {} does not exist", current_directory_digest);
-                Error::StorageError(format!(
-                    "directory {} does not exist",
-                    current_directory_digest
-                ))
+            })? {
+                // the root node of the requested closure was not found, return an empty list
+                None if current_directory_digest == root_directory_digest => break,
+                // if a child directory of the closure is not there, we have an inconsistent store!
+                None => {
+                    warn!("directory {} does not exist", current_directory_digest);
+                    Err(Error::StorageError(format!(
+                        "directory {} does not exist",
+                        current_directory_digest
+                    )))?;
+                    break;
+                }
+                Some(dir) => dir,
+            };
 
-            })?;
 
             // validate, we don't want to send invalid directories.
             current_directory.validate().map_err(|e| {

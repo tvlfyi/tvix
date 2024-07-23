@@ -130,7 +130,7 @@ where
             // The Directory digests we received so far
             let mut received_directory_digests: HashSet<B3Digest> = HashSet::new();
             // The Directory digests we're still expecting to get sent.
-            let mut expected_directory_digests: HashSet<B3Digest> = HashSet::from([root_directory_digest]);
+            let mut expected_directory_digests: HashSet<B3Digest> = HashSet::from([root_directory_digest.clone()]);
 
             loop {
                 match stream.message().await {
@@ -170,6 +170,11 @@ where
 
                         yield directory;
                     },
+                    Ok(None) if expected_directory_digests.len() == 1 && expected_directory_digests.contains(&root_directory_digest) => {
+                        // The root directory of the requested closure was not found, return an
+                        // empty stream
+                        return
+                    }
                     Ok(None) => {
                         // If we were still expecting something, that's an error.
                         if !expected_directory_digests.is_empty() {

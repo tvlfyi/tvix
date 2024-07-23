@@ -68,6 +68,8 @@ pub trait DirectoryService: Send + Sync {
     /// Directories are sent in an order from the root to the leaves, so that
     /// the receiving side can validate each message to be a connected to the root
     /// that has initially been requested.
+    ///
+    /// In case the directory can not be found, this should return an empty stream.
     fn get_recursive(
         &self,
         root_directory_digest: &B3Digest,

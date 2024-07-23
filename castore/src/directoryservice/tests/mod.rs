@@ -30,12 +30,25 @@ use self::utils::make_grpc_directory_service_client;
 #[cfg_attr(all(feature = "cloud", feature = "integration"), case::bigtable(directoryservice::from_addr("bigtable://instance-1?project_id=project-1&table_name=table-1&family_name=cf1").await.unwrap()))]
 pub fn directory_services(#[case] directory_service: impl DirectoryService) {}
 
-/// Ensures asking for a directory that doesn't exist returns a Ok(None).
+/// Ensures asking for a directory that doesn't exist returns a Ok(None), and a get_recursive
+/// returns an empty stream.
 #[apply(directory_services)]
 #[tokio::test]
 async fn test_non_exist(directory_service: impl DirectoryService) {
-    let resp = directory_service.get(&DIRECTORY_A.digest()).await;
-    assert!(resp.unwrap().is_none())
+    // single get
+    assert_eq!(
+        Ok(None),
+        directory_service.get(&DIRECTORY_A.digest()).await
+    );
+
+    // recursive get
+    assert_eq!(
+        Vec::<Result<proto::Directory, crate::Error>>::new(),
+        directory_service
+            .get_recursive(&DIRECTORY_A.digest())
+            .collect::<Vec<Result<proto::Directory, crate::Error>>>()
+            .await
+    );
 }
 
 /// Putting a single directory into the store, and then getting it out both via
