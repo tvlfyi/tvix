@@ -9,7 +9,7 @@ use rstest_reuse::{self, *};
 use super::DirectoryService;
 use crate::directoryservice;
 use crate::{
-    fixtures::{DIRECTORY_A, DIRECTORY_B, DIRECTORY_C},
+    fixtures::{DIRECTORY_A, DIRECTORY_B, DIRECTORY_C, DIRECTORY_D},
     proto::{self, Directory},
 };
 
@@ -36,10 +36,7 @@ pub fn directory_services(#[case] directory_service: impl DirectoryService) {}
 #[tokio::test]
 async fn test_non_exist(directory_service: impl DirectoryService) {
     // single get
-    assert_eq!(
-        Ok(None),
-        directory_service.get(&DIRECTORY_A.digest()).await
-    );
+    assert_eq!(Ok(None), directory_service.get(&DIRECTORY_A.digest()).await);
 
     // recursive get
     assert_eq!(
@@ -134,6 +131,38 @@ async fn put_get_multiple_dedup(directory_service: impl DirectoryService) {
             .collect::<Vec<_>>()
             .await
     )
+}
+
+/// This tests the insertion and retrieval of a closure which contains a duplicated directory
+/// (DIRECTORY_A, which is an empty directory), once in the root, and once in a subdir.
+#[apply(directory_services)]
+#[tokio::test]
+async fn put_get_foo(directory_service: impl DirectoryService) {
+    let mut handle = directory_service.put_multiple_start();
+    handle.put(DIRECTORY_A.clone()).await.unwrap();
+    handle.put(DIRECTORY_B.clone()).await.unwrap();
+    handle.put(DIRECTORY_D.clone()).await.unwrap();
+    let root_digest = handle.close().await.unwrap();
+    assert_eq!(
+        DIRECTORY_D.digest(),
+        root_digest,
+        "root digest should match"
+    );
+
+    // Ensure we can get the closure back out of the service, and it is returned in a valid order
+    // (there are multiple valid possibilities)
+    let retrieved_closure = directory_service
+        .get_recursive(&DIRECTORY_D.digest())
+        .collect::<Vec<_>>()
+        .await;
+
+    let valid_closures = [
+        vec![Ok(DIRECTORY_D.clone()), Ok(DIRECTORY_B.clone()), Ok(DIRECTORY_A.clone())],
+        vec![Ok(DIRECTORY_D.clone()), Ok(DIRECTORY_A.clone()), Ok(DIRECTORY_B.clone())]
+    ];
+    if !valid_closures.contains(&retrieved_closure) {
+        panic!("invalid closure returned: {:?}", retrieved_closure);
+    }
 }
 
 /// Uploading A, then C (referring to A twice), then B (itself referring to A) should fail during close,

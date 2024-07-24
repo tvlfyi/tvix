@@ -85,4 +85,19 @@ lazy_static! {
         ],
         ..Default::default()
     };
+    pub static ref DIRECTORY_D: proto::Directory = proto::Directory {
+        directories: vec![
+            DirectoryNode {
+                name: b"a".to_vec().into(),
+                digest: DIRECTORY_A.digest().into(),
+                size: DIRECTORY_A.size(),
+            },
+            DirectoryNode {
+                name: b"b'".to_vec().into(),
+                digest: DIRECTORY_B.digest().into(),
+                size: DIRECTORY_B.size(),
+            }
+        ],
+        ..Default::default()
+    };
 }
