@@ -176,11 +176,17 @@ where
                         return
                     }
                     Ok(None) => {
-                        // If we were still expecting something, that's an error.
-                        if !expected_directory_digests.is_empty() {
+                        // The stream has ended
+                        let diff_len = expected_directory_digests
+                            // Account for directories which have been referenced more than once,
+                            // but only received once since they were deduplicated
+                            .difference(&received_directory_digests)
+                            .count();
+                        // If this is not empty, then the closure is incomplete
+                        if diff_len != 0 {
                             Err(crate::Error::StorageError(format!(
                                 "still expected {} directories, but got premature end of stream",
-                                expected_directory_digests.len(),
+                                diff_len
                             )))?
                         } else {
                             return
