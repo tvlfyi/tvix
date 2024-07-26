@@ -18,6 +18,11 @@ use super::DirectoryService;
 /// - `sled:///absolute/path/to/somewhere`
 ///   Uses sled, using a path on the disk for persistency. Can be only opened
 ///   from one process at the same time.
+/// - `redb:`
+///   Uses a in-memory redb implementation.
+/// - `redb:///absolute/path/to/somewhere`
+///   Uses redb, using a path on the disk for persistency. Can be only opened
+///   from one process at the same time.
 /// - `grpc+unix:///absolute/path/to/somewhere`
 ///   Connects to a local tvix-store gRPC service via Unix socket.
 /// - `grpc+http://host:port`, `grpc+https://host:port`
@@ -52,6 +57,8 @@ mod tests {
     lazy_static! {
         static ref TMPDIR_SLED_1: TempDir = TempDir::new().unwrap();
         static ref TMPDIR_SLED_2: TempDir = TempDir::new().unwrap();
+        static ref TMPDIR_REDB_1: TempDir = TempDir::new().unwrap();
+        static ref TMPDIR_REDB_2: TempDir = TempDir::new().unwrap();
     }
 
     #[rstest]
@@ -75,6 +82,16 @@ mod tests {
     #[case::memory_invalid_root_path("memory:///", false)]
     /// This sets a memory url path to "/foo", which is invalid.
     #[case::memory_invalid_root_path_foo("memory:///foo", false)]
+    /// This configures redb in temporary mode.
+    #[case::redb_valid_temporary("redb://", true)]
+    /// This configures redb with /, which should fail.
+    #[case::redb_invalid_root("redb:///", false)]
+    /// This configures redb with a host, not path, which should fail.
+    #[case::redb_invalid_host("redb://foo.example", false)]
+    /// This configures redb with a valid path, which should succeed.
+    #[case::redb_valid_path(&format!("redb://{}", &TMPDIR_REDB_1.path().join("foo").to_str().unwrap()), true)]
+    /// This configures redb with a host, and a valid path path, which should fail.
+    #[case::redb_invalid_host_with_valid_path(&format!("redb://foo.example{}", &TMPDIR_REDB_2.path().join("bar").to_str().unwrap()), false)]
     /// Correct scheme to connect to a unix socket.
     #[case::grpc_valid_unix_socket("grpc+unix:///path/to/somewhere", true)]
     /// Correct scheme for unix socket, but setting a host too, which is invalid.

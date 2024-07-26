@@ -26,6 +26,11 @@ impl From<B3Digest> for bytes::Bytes {
     }
 }
 
+impl From<blake3::Hash> for B3Digest {
+    fn from(value: blake3::Hash) -> Self {
+        Self(Bytes::copy_from_slice(value.as_bytes()))
+    }
+}
 impl From<digest::Output<blake3::Hasher>> for B3Digest {
     fn from(value: digest::Output<blake3::Hasher>) -> Self {
         let v = Into::<[u8; B3_LEN]>::into(value);
@@ -64,6 +69,12 @@ impl TryFrom<bytes::Bytes> for B3Digest {
 impl From<&[u8; B3_LEN]> for B3Digest {
     fn from(value: &[u8; B3_LEN]) -> Self {
         Self(value.to_vec().into())
+    }
+}
+
+impl From<B3Digest> for [u8; B3_LEN] {
+    fn from(value: B3Digest) -> Self {
+        value.0.to_vec().try_into().unwrap()
     }
 }
 
