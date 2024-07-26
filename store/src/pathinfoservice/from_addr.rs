@@ -96,10 +96,10 @@ mod tests {
     /// This sets a memory url path to "/foo", which is invalid.
     #[case::memory_invalid_root_path_foo("memory:///foo", false)]
     /// redb with a host, and a valid path path, which should fail.
-    #[case::redb_invalid_host_with_valid_path(&format!("redb://foo.example{}", &TMPDIR_REDB_1.path().to_str().unwrap()), false)]
+    #[case::redb_invalid_host_with_valid_path(&format!("redb://foo.example{}", &TMPDIR_REDB_1.path().join("bar").to_str().unwrap()), false)]
     /// redb with / as path, which should fail.
     #[case::redb_invalid_root("redb:///", false)]
-    /// redb with / as path, which should succeed.
+    /// This configures redb with a valid path, which should succeed.
     #[case::redb_valid_path(&format!("redb://{}", &TMPDIR_REDB_2.path().join("foo").to_str().unwrap()), true)]
     /// redb using the in-memory backend, which should succeed.
     #[case::redb_valid_in_memory("redb://", true)]
