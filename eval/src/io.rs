@@ -98,7 +98,8 @@ pub struct StdIO;
 #[cfg(feature = "impure")]
 impl EvalIO for StdIO {
     fn path_exists(&self, path: &Path) -> io::Result<bool> {
-        path.try_exists()
+        // In general, an IO error indicates the path doesn't exist
+        Ok(path.try_exists().unwrap_or(false))
     }
 
     fn open(&self, path: &Path) -> io::Result<Box<dyn io::Read>> {
