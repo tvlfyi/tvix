@@ -47,6 +47,26 @@ impl CAHash {
         }
     }
 
+    /// Returns a colon-separated string consisting of mode, recursiveness and
+    /// hash algo. Used as a prefix in various string representations.
+    pub fn algo_str(&self) -> &'static str {
+        match self.mode() {
+            HashMode::Flat => match self.hash().as_ref() {
+                NixHash::Md5(_) => "fixed:md5",
+                NixHash::Sha1(_) => "fixed:sha1",
+                NixHash::Sha256(_) => "fixed:sha256",
+                NixHash::Sha512(_) => "fixed:sha512",
+            },
+            HashMode::Nar => match self.hash().as_ref() {
+                NixHash::Md5(_) => "fixed:r:md5",
+                NixHash::Sha1(_) => "fixed:r:sha1",
+                NixHash::Sha256(_) => "fixed:r:sha256",
+                NixHash::Sha512(_) => "fixed:r:sha512",
+            },
+            HashMode::Text => "text:sha256",
+        }
+    }
+
     /// Constructs a [CAHash] from the textual representation,
     /// which is one of the three:
     /// - `text:sha256:$nixbase32sha256digest`
@@ -76,13 +96,11 @@ impl CAHash {
     /// Formats a [CAHash] in the Nix default hash format, which is the format
     /// that's used in NARInfos for example.
     pub fn to_nix_nixbase32_string(&self) -> String {
-        match self {
-            CAHash::Flat(nh) => format!("fixed:{}", nh.to_nix_nixbase32_string()),
-            CAHash::Nar(nh) => format!("fixed:r:{}", nh.to_nix_nixbase32_string()),
-            CAHash::Text(digest) => {
-                format!("text:sha256:{}", nixbase32::encode(digest))
-            }
-        }
+        format!(
+            "{}:{}",
+            self.algo_str(),
+            nixbase32::encode(self.hash().digest_as_bytes())
+        )
     }
 
     /// This takes a serde_json::Map and turns it into this structure. This is necessary to do such

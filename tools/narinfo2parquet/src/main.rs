@@ -12,7 +12,6 @@ use jemallocator::Jemalloc;
 use nix_compat::{
     narinfo::{self, NarInfo},
     nixbase32,
-    nixhash::{CAHash, NixHash},
 };
 use polars::{io::parquet::ParquetWriter, prelude::*};
 use std::{
@@ -177,26 +176,8 @@ impl FrameBuilder {
             }));
 
         if let Some(ca) = &entry.ca {
-            // decompose the CAHash into algo and hash parts
-            // TODO(edef): move this into CAHash
-            let (algo, hash) = match ca {
-                CAHash::Flat(h) => match h {
-                    NixHash::Md5(h) => ("fixed:md5", &h[..]),
-                    NixHash::Sha1(h) => ("fixed:sha1", &h[..]),
-                    NixHash::Sha256(h) => ("fixed:sha256", &h[..]),
-                    NixHash::Sha512(h) => ("fixed:sha512", &h[..]),
-                },
-                CAHash::Nar(h) => match h {
-                    NixHash::Md5(h) => ("fixed:r:md5", &h[..]),
-                    NixHash::Sha1(h) => ("fixed:r:sha1", &h[..]),
-                    NixHash::Sha256(h) => ("fixed:r:sha256", &h[..]),
-                    NixHash::Sha512(h) => ("fixed:r:sha512", &h[..]),
-                },
-                CAHash::Text(h) => ("text:sha256", &h[..]),
-            };
-
-            self.ca_algo.append_value(algo);
-            self.ca_hash.append_value(hash);
+            self.ca_algo.append_value(ca.algo_str());
+            self.ca_hash.append_value(ca.hash().digest_as_bytes());
         } else {
             self.ca_algo.append_null();
             self.ca_hash.append_null();
