@@ -178,7 +178,7 @@ impl<'a> Repl<'a> {
             ReplCommand::Quit => {
                 return CommandResult {
                     output: String::new(),
-                    continue_: true,
+                    continue_: false,
                 };
             }
             ReplCommand::Help => {
