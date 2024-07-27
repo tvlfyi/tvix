@@ -155,15 +155,27 @@ impl Chunk {
             write!(writer, "{:4}\t", line)?;
         }
 
+        let a = |idx| {
+            match &self[idx] {
+                Value::Thunk(t) => t.debug_repr(),
+                Value::Closure(c) => format!("closure({:p})", c.lambda),
+                Value::Blueprint(b) => format!("blueprint({:p})", b),
+                val => format!("{}", val),
+            }
+        };
+
         match self[idx] {
             OpCode::OpConstant(idx) => {
-                let val_str = match &self[idx] {
-                    Value::Thunk(t) => t.debug_repr(),
-                    Value::Closure(c) => format!("closure({:p})", c.lambda),
-                    val => format!("{}", val),
-                };
-
-                writeln!(writer, "OpConstant({}@{})", val_str, idx.0)
+                writeln!(writer, "OpConstant({}@{})", a(idx), idx.0)
+            }
+            OpCode::OpClosure(idx) => {
+                writeln!(writer, "OpClosure({}@{})", a(idx), idx.0)
+            }
+            OpCode::OpThunkClosure(idx) => {
+                writeln!(writer, "OpThunkClosure({}@{})", a(idx), idx.0)
+            }
+            OpCode::OpThunkSuspended(idx) => {
+                writeln!(writer, "OpThunkSuspended({}@{})", a(idx), idx.0)
             }
             op => writeln!(writer, "{:?}", op),
         }?;
