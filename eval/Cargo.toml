@@ -58,6 +58,11 @@ impure = []
 # Enables Arbitrary impls for internal types (required to run tests)
 arbitrary = ["proptest", "test-strategy", "imbl/proptest"]
 
+# Don't leak strings (enable this if you care about peak memory usage of eval)
+#
+# This is intended as a stop-gap until we have a garbage collector
+no_leak = []
+
 [[bench]]
 name = "eval"
 harness = false

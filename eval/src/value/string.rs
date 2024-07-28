@@ -409,6 +409,10 @@ unsafe impl Sync for NixString {}
 
 impl Drop for NixString {
     fn drop(&mut self) {
+        if !cfg!(feature = "no_leak") {
+            return;
+        }
+
         // SAFETY: There's no way to construct a NixString that doesn't leave the allocation correct
         // according to the rules of dealloc
         unsafe {
@@ -419,9 +423,17 @@ impl Drop for NixString {
 
 impl Clone for NixString {
     fn clone(&self) -> Self {
-        // SAFETY: There's no way to construct a NixString that doesn't leave the allocation correct
-        // according to the rules of clone
-        unsafe { Self(NixStringInner::clone(self.0)) }
+        if cfg!(feature = "no_leak") || self.context().is_some() {
+            // SAFETY: There's no way to construct a NixString that doesn't leave the allocation correct
+            // according to the rules of clone
+            unsafe { Self(NixStringInner::clone(self.0)) }
+        } else {
+            // SAFETY:
+            //
+            // - NixStrings are never mutated
+            // - NixStrings are never freed
+            Self(self.0)
+        }
     }
 }
 

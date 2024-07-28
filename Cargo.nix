@@ -16122,7 +16122,7 @@ rec {
           "proptest" = [ "dep:proptest" ];
           "test-strategy" = [ "dep:test-strategy" ];
         };
-        resolvedDefaultFeatures = [ "arbitrary" "default" "impure" "nix_tests" "proptest" "test-strategy" ];
+        resolvedDefaultFeatures = [ "arbitrary" "default" "impure" "nix_tests" "no_leak" "proptest" "test-strategy" ];
       };
       "tvix-eval-builtin-macros" = rec {
         crateName = "tvix-eval-builtin-macros";
