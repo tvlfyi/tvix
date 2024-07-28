@@ -7525,6 +7525,19 @@ rec {
         };
         resolvedDefaultFeatures = [ "async" "default" "pin-project-lite" "tokio" "wire" ];
       };
+      "nohash-hasher" = rec {
+        crateName = "nohash-hasher";
+        version = "0.2.0";
+        edition = "2018";
+        sha256 = "0lf4p6k01w4wm7zn4grnihzj8s7zd5qczjmzng7wviwxawih5x9b";
+        authors = [
+          "Parity Technologies <admin@parity.io>"
+        ];
+        features = {
+          "default" = [ "std" ];
+        };
+        resolvedDefaultFeatures = [ "default" "std" ];
+      };
       "nom" = rec {
         crateName = "nom";
         version = "7.1.3";
@@ -16041,6 +16054,10 @@ rec {
           {
             name = "md-5";
             packageId = "md-5";
+          }
+          {
+            name = "nohash-hasher";
+            packageId = "nohash-hasher";
           }
           {
             name = "os_str_bytes";

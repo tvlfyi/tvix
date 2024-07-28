@@ -4,18 +4,20 @@
 //! level, allowing us to shave off some memory overhead and only
 //! paying the cost when creating new strings.
 use bstr::{BStr, BString, ByteSlice, Chars};
+use nohash_hasher::BuildNoHashHasher;
 use rnix::ast;
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashSet;
+use rustc_hash::FxHasher;
 use std::alloc::dealloc;
 use std::alloc::{alloc, handle_alloc_error, Layout};
 use std::borrow::{Borrow, Cow};
 use std::cell::RefCell;
 use std::ffi::c_void;
 use std::fmt::{self, Debug, Display};
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::ptr::{self, NonNull};
-use std::{mem, slice};
+use std::slice;
 
 use serde::de::{Deserializer, Visitor};
 use serde::{Deserialize, Serialize};
@@ -399,22 +401,33 @@ impl NixStringInner {
 
 #[derive(Default)]
 struct InternerInner {
-    map: FxHashMap<&'static [u8], NonNull<c_void>>,
+    #[allow(clippy::disallowed_types)] // Not using the default hasher
+    map: std::collections::HashMap<u64, NonNull<c_void>, BuildNoHashHasher<u64>>,
     #[cfg(feature = "no_leak")]
+    #[allow(clippy::disallowed_types)] // Not using the default hasher
     interned_strings: FxHashSet<NonNull<c_void>>,
 }
 
 unsafe impl Send for InternerInner {}
 
+fn hash<T>(s: T) -> u64
+where
+    T: Hash,
+{
+    let mut hasher = FxHasher::default();
+    s.hash(&mut hasher);
+    hasher.finish()
+}
+
 impl InternerInner {
     pub fn intern(&mut self, s: &[u8]) -> NixString {
-        if let Some(s) = self.map.get(s) {
+        let hash = hash(s);
+        if let Some(s) = self.map.get(&hash) {
             return NixString(*s);
         }
 
         let string = NixString::new_inner(s, None);
-        self.map
-            .insert(unsafe { mem::transmute(string.as_bytes()) }, string.0);
+        self.map.insert(hash, string.0);
         #[cfg(feature = "no_leak")]
         self.interned_strings.insert(string.0);
         string
