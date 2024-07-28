@@ -62,6 +62,12 @@ pub fn decode(input: impl AsRef<[u8]>) -> Result<Vec<u8>, DecodeError> {
     let input = input.as_ref();
 
     let output_len = decode_len(input.len());
+    if input.len() != encode_len(output_len) {
+        return Err(DecodeError {
+            position: input.len().min(encode_len(output_len)),
+            kind: DecodeKind::Length,
+        });
+    }
     let mut output: Vec<u8> = vec![0x00; output_len];
 
     decode_inner(input, &mut output)?;
@@ -163,6 +169,10 @@ mod tests {
     #[case::invalid_encoding_1("zz", None)]
     // this is an even more specific example - it'd decode as 00000000 11
     #[case::invalid_encoding_2("c0", None)]
+    // This has an invalid length
+    #[case::invalid_encoding_3("0", None)]
+    // This has an invalid length
+    #[case::invalid_encoding_4("0zz", None)]
     #[test]
     fn decode(#[case] enc: &str, #[case] dec: Option<&[u8]>) {
         match dec {
@@ -201,6 +211,11 @@ mod tests {
     #[test]
     fn decode_len() {
         assert_eq!(super::decode_len(0), 0);
+        assert_eq!(super::decode_len(1), 0);
+        assert_eq!(super::decode_len(2), 1);
+        assert_eq!(super::decode_len(3), 1);
+        assert_eq!(super::decode_len(4), 2);
+        assert_eq!(super::decode_len(5), 3);
         assert_eq!(super::decode_len(32), 20);
     }
 }
