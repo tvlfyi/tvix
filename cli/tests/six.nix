@@ -1,1 +1,1 @@
-{ }: { six = builtins.foldl' (x: y: x + y) 0 [ 1 2 3 ]; }
+{}: { six = builtins.foldl' (x: y: x + y) 0 [ 1 2 3 ]; }

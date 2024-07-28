@@ -157,8 +157,16 @@ async fn put_get_foo(directory_service: impl DirectoryService) {
         .await;
 
     let valid_closures = [
-        vec![Ok(DIRECTORY_D.clone()), Ok(DIRECTORY_B.clone()), Ok(DIRECTORY_A.clone())],
-        vec![Ok(DIRECTORY_D.clone()), Ok(DIRECTORY_A.clone()), Ok(DIRECTORY_B.clone())]
+        vec![
+            Ok(DIRECTORY_D.clone()),
+            Ok(DIRECTORY_B.clone()),
+            Ok(DIRECTORY_A.clone()),
+        ],
+        vec![
+            Ok(DIRECTORY_D.clone()),
+            Ok(DIRECTORY_A.clone()),
+            Ok(DIRECTORY_B.clone()),
+        ],
     ];
     if !valid_closures.contains(&retrieved_closure) {
         panic!("invalid closure returned: {:?}", retrieved_closure);

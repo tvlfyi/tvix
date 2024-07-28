@@ -155,13 +155,11 @@ impl Chunk {
             write!(writer, "{:4}\t", line)?;
         }
 
-        let a = |idx| {
-            match &self[idx] {
-                Value::Thunk(t) => t.debug_repr(),
-                Value::Closure(c) => format!("closure({:p})", c.lambda),
-                Value::Blueprint(b) => format!("blueprint({:p})", b),
-                val => format!("{}", val),
-            }
+        let a = |idx| match &self[idx] {
+            Value::Thunk(t) => t.debug_repr(),
+            Value::Closure(c) => format!("closure({:p})", c.lambda),
+            Value::Blueprint(b) => format!("blueprint({:p})", b),
+            val => format!("{}", val),
         };
 
         match self[idx] {

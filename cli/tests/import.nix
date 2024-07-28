@@ -1,1 +1,1 @@
-{ }: import ./six.nix { }
+{}: import ./six.nix { }
