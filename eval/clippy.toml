@@ -1,0 +1,3 @@
+# See https://nnethercote.github.io/perf-book/hashing.html. Use FxHashMap and
+# FxHashSet, not HashMap and HashSet
+disallowed-types = ["std::collections::HashMap", "std::collections::HashSet"]

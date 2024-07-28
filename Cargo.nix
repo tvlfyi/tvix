@@ -9701,7 +9701,7 @@ rec {
           }
           {
             name = "rustc-hash";
-            packageId = "rustc-hash";
+            packageId = "rustc-hash 1.1.0";
           }
           {
             name = "rustls";
@@ -9768,7 +9768,7 @@ rec {
           }
           {
             name = "rustc-hash";
-            packageId = "rustc-hash";
+            packageId = "rustc-hash 1.1.0";
           }
           {
             name = "rustls";
@@ -10901,7 +10901,7 @@ rec {
           }
           {
             name = "rustc-hash";
-            packageId = "rustc-hash";
+            packageId = "rustc-hash 1.1.0";
           }
           {
             name = "text-size";
@@ -11051,7 +11051,7 @@ rec {
           "rustc-dep-of-std" = [ "core" "compiler_builtins" ];
         };
       };
-      "rustc-hash" = rec {
+      "rustc-hash 1.1.0" = rec {
         crateName = "rustc-hash";
         version = "1.1.0";
         edition = "2015";
@@ -11061,6 +11061,20 @@ rec {
         ];
         features = {
           "default" = [ "std" ];
+        };
+        resolvedDefaultFeatures = [ "default" "std" ];
+      };
+      "rustc-hash 2.0.0" = rec {
+        crateName = "rustc-hash";
+        version = "2.0.0";
+        edition = "2021";
+        sha256 = "0lni0lf846bzrf3jvci6jaf4142n1mdqxvcpczk5ch9pfgyk8c2q";
+        authors = [
+          "The Rust Project Developers"
+        ];
+        features = {
+          "default" = [ "std" ];
+          "rand" = [ "dep:rand" "std" ];
         };
         resolvedDefaultFeatures = [ "default" "std" ];
       };
@@ -15893,6 +15907,10 @@ rec {
             packageId = "rowan";
           }
           {
+            name = "rustc-hash";
+            packageId = "rustc-hash 2.0.0";
+          }
+          {
             name = "rustyline";
             packageId = "rustyline";
           }
@@ -16048,6 +16066,10 @@ rec {
           {
             name = "rowan";
             packageId = "rowan";
+          }
+          {
+            name = "rustc-hash";
+            packageId = "rustc-hash 2.0.0";
           }
           {
             name = "serde";

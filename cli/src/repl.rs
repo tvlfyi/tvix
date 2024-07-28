@@ -1,6 +1,7 @@
+use std::path::PathBuf;
 use std::rc::Rc;
-use std::{collections::HashMap, path::PathBuf};
 
+use rustc_hash::FxHashMap;
 use rustyline::{error::ReadlineError, Editor};
 use smol_str::SmolStr;
 use tvix_eval::{GlobalsMap, SourceCode, Value};
@@ -88,7 +89,7 @@ pub struct Repl<'a> {
     multiline_input: Option<String>,
     rl: Editor<()>,
     /// Local variables defined at the top-level in the repl
-    env: HashMap<SmolStr, Value>,
+    env: FxHashMap<SmolStr, Value>,
 
     io_handle: Rc<TvixStoreIO>,
     args: &'a Args,
@@ -102,7 +103,7 @@ impl<'a> Repl<'a> {
         Self {
             multiline_input: None,
             rl,
-            env: HashMap::new(),
+            env: FxHashMap::default(),
             io_handle,
             args,
             source_map: Default::default(),

@@ -560,7 +560,7 @@ impl Compiler<'_, '_> {
 
     /// Emit definitions for all variables in the top-level global env passed to the evaluation (eg
     /// local variables in the REPL)
-    pub(super) fn compile_env(&mut self, env: &HashMap<SmolStr, Value>) {
+    pub(super) fn compile_env(&mut self, env: &FxHashMap<SmolStr, Value>) {
         for (name, value) in env {
             self.scope_mut().declare_constant(name.to_string());
             self.emit_constant(value.clone(), &EntireFile);

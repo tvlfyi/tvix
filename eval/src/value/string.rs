@@ -5,9 +5,9 @@
 //! paying the cost when creating new strings.
 use bstr::{BStr, BString, ByteSlice, Chars};
 use rnix::ast;
+use rustc_hash::FxHashSet;
 use std::alloc::{alloc, dealloc, handle_alloc_error, Layout};
 use std::borrow::{Borrow, Cow};
-use std::collections::HashSet;
 use std::ffi::c_void;
 use std::fmt::{self, Debug, Display};
 use std::hash::Hash;
@@ -40,23 +40,29 @@ pub enum NixContextElement {
 /// operations, e.g. concatenation, interpolation and other string operations.
 #[repr(transparent)]
 #[derive(Clone, Debug, Serialize, Default)]
-pub struct NixContext(HashSet<NixContextElement>);
+pub struct NixContext(FxHashSet<NixContextElement>);
 
 impl From<NixContextElement> for NixContext {
     fn from(value: NixContextElement) -> Self {
-        Self([value].into())
+        let mut set = FxHashSet::default();
+        set.insert(value);
+        Self(set)
     }
 }
 
-impl From<HashSet<NixContextElement>> for NixContext {
-    fn from(value: HashSet<NixContextElement>) -> Self {
+impl From<FxHashSet<NixContextElement>> for NixContext {
+    fn from(value: FxHashSet<NixContextElement>) -> Self {
         Self(value)
     }
 }
 
 impl<const N: usize> From<[NixContextElement; N]> for NixContext {
     fn from(value: [NixContextElement; N]) -> Self {
-        Self(HashSet::from(value))
+        let mut set = FxHashSet::default();
+        for elt in value {
+            set.insert(elt);
+        }
+        Self(set)
     }
 }
 

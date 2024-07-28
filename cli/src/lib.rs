@@ -1,5 +1,7 @@
-use std::{collections::HashMap, path::PathBuf, rc::Rc};
+use std::path::PathBuf;
+use std::rc::Rc;
 
+use rustc_hash::FxHashMap;
 use smol_str::SmolStr;
 use std::fmt::Write;
 use tracing::{instrument, Span};
@@ -86,7 +88,7 @@ pub fn evaluate(
     path: Option<PathBuf>,
     args: &Args,
     allow_incomplete: AllowIncomplete,
-    env: Option<&HashMap<SmolStr, Value>>,
+    env: Option<&FxHashMap<SmolStr, Value>>,
     globals: Option<Rc<GlobalsMap>>,
     source_map: Option<SourceCode>,
 ) -> Result<EvalResult, IncompleteInput> {
@@ -218,7 +220,7 @@ pub fn interpret(
     args: &Args,
     explain: bool,
     allow_incomplete: AllowIncomplete,
-    env: Option<&HashMap<SmolStr, Value>>,
+    env: Option<&FxHashMap<SmolStr, Value>>,
     globals: Option<Rc<GlobalsMap>>,
     source_map: Option<SourceCode>,
 ) -> Result<InterpretResult, IncompleteInput> {

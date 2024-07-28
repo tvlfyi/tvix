@@ -18,9 +18,9 @@
 //! object, but when forcing a thunk, the runtime *must* mutate the
 //! memoisable slot.
 
+use rustc_hash::FxHashSet;
 use std::{
     cell::{Ref, RefCell, RefMut},
-    collections::HashSet,
     fmt::Debug,
     rc::Rc,
 };
@@ -413,7 +413,7 @@ impl TotalDisplay for Thunk {
 /// The inner `HashSet` is not available on the outside, as it would be
 /// potentially unsafe to interact with the pointers in the set.
 #[derive(Default)]
-pub struct ThunkSet(HashSet<*const ThunkRepr>);
+pub struct ThunkSet(FxHashSet<*const ThunkRepr>);
 
 impl ThunkSet {
     /// Check whether the given thunk has already been seen. Will mark the thunk

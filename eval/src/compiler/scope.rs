@@ -10,10 +10,8 @@
 //! stack indices. To do this, the compiler simulates where locals
 //! will be at runtime using the data structures implemented here.
 
-use std::{
-    collections::{hash_map, HashMap},
-    ops::Index,
-};
+use rustc_hash::FxHashMap;
+use std::{collections::hash_map, ops::Index};
 
 use smol_str::SmolStr;
 
@@ -168,7 +166,7 @@ pub struct Scope {
     pub upvalues: Vec<Upvalue>,
 
     /// Secondary by-name index over locals.
-    by_name: HashMap<String, ByName>,
+    by_name: FxHashMap<String, ByName>,
 
     /// How many scopes "deep" are these locals?
     scope_depth: usize,

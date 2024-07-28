@@ -36,7 +36,7 @@ mod test_utils;
 #[cfg(test)]
 mod tests;
 
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::str::FromStr;
@@ -86,7 +86,7 @@ enum BuilderGlobals {
 pub struct EvaluationBuilder<'co, 'ro, 'env, IO> {
     source_map: Option<SourceCode>,
     globals: BuilderGlobals,
-    env: Option<&'env HashMap<SmolStr, Value>>,
+    env: Option<&'env FxHashMap<SmolStr, Value>>,
     io_handle: IO,
     enable_import: bool,
     strict: bool,
@@ -264,7 +264,7 @@ impl<'co, 'ro, 'env, IO> EvaluationBuilder<'co, 'ro, 'env, IO> {
         Self { nix_path, ..self }
     }
 
-    pub fn env(self, env: Option<&'env HashMap<SmolStr, Value>>) -> Self {
+    pub fn env(self, env: Option<&'env FxHashMap<SmolStr, Value>>) -> Self {
         Self { env, ..self }
     }
 
@@ -352,7 +352,7 @@ pub struct Evaluation<'co, 'ro, 'env, IO> {
     globals: Rc<GlobalsMap>,
 
     /// Top-level variables to define in the evaluation
-    env: Option<&'env HashMap<SmolStr, Value>>,
+    env: Option<&'env FxHashMap<SmolStr, Value>>,
 
     /// Implementation of file-IO to use during evaluation, e.g. for
     /// impure builtins.
@@ -570,7 +570,7 @@ fn parse_compile_internal(
     location: Option<PathBuf>,
     source: SourceCode,
     globals: Rc<GlobalsMap>,
-    env: Option<&HashMap<SmolStr, Value>>,
+    env: Option<&FxHashMap<SmolStr, Value>>,
     compiler_observer: &mut dyn CompilerObserver,
 ) -> Option<Rc<Lambda>> {
     let parsed = rnix::ast::Root::parse(code);

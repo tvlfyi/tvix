@@ -20,8 +20,9 @@ mod scope;
 
 use codemap::Span;
 use rnix::ast::{self, AstToken};
+use rustc_hash::FxHashMap;
 use smol_str::SmolStr;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 
@@ -117,7 +118,7 @@ impl TrackedFormal {
 
 /// The map of globally available functions and other values that
 /// should implicitly be resolvable in the global scope.
-pub type GlobalsMap = HashMap<&'static str, Value>;
+pub type GlobalsMap = FxHashMap<&'static str, Value>;
 
 /// Set of builtins that (if they exist) should be made available in
 /// the global scope, meaning that they can be accessed not just
@@ -187,7 +188,7 @@ impl<'source, 'observer> Compiler<'source, 'observer> {
     pub(crate) fn new(
         location: Option<PathBuf>,
         globals: Rc<GlobalsMap>,
-        env: Option<&HashMap<SmolStr, Value>>,
+        env: Option<&FxHashMap<SmolStr, Value>>,
         source: &'source SourceCode,
         file: &'source codemap::File,
         observer: &'observer mut dyn CompilerObserver,
@@ -1588,7 +1589,7 @@ pub fn prepare_globals(
     Rc::new_cyclic(Box::new(move |weak: &Weak<GlobalsMap>| {
         // First step is to construct the builtins themselves as
         // `NixAttrs`.
-        let mut builtins: GlobalsMap = HashMap::from_iter(builtins);
+        let mut builtins: GlobalsMap = FxHashMap::from_iter(builtins);
 
         // At this point, optionally insert `import` if enabled. To
         // "tie the knot" of `import` needing the full set of globals
@@ -1601,7 +1602,7 @@ pub fn prepare_globals(
 
         // Next, the actual map of globals which the compiler will use
         // to resolve identifiers is constructed.
-        let mut globals: GlobalsMap = HashMap::new();
+        let mut globals: GlobalsMap = FxHashMap::default();
 
         // builtins contain themselves (`builtins.builtins`), which we
         // can resolve by manually constructing a suspended thunk that
@@ -1654,7 +1655,7 @@ pub fn compile(
     expr: &ast::Expr,
     location: Option<PathBuf>,
     globals: Rc<GlobalsMap>,
-    env: Option<&HashMap<SmolStr, Value>>,
+    env: Option<&FxHashMap<SmolStr, Value>>,
     source: &SourceCode,
     file: &codemap::File,
     observer: &mut dyn CompilerObserver,

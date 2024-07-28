@@ -14,8 +14,9 @@ mod macros;
 
 use bstr::{BString, ByteSlice, ByteVec};
 use codemap::Span;
+use rustc_hash::FxHashMap;
 use serde_json::json;
-use std::{cmp::Ordering, collections::HashMap, ops::DerefMut, path::PathBuf, rc::Rc};
+use std::{cmp::Ordering, ops::DerefMut, path::PathBuf, rc::Rc};
 
 use crate::{
     arithmetic_op,
@@ -211,7 +212,7 @@ impl Frame {
 }
 
 #[derive(Default)]
-struct ImportCache(HashMap<PathBuf, Value>);
+struct ImportCache(FxHashMap<PathBuf, Value>);
 
 /// The `ImportCache` holds the `Value` resulting from `import`ing a certain
 /// file, so that the same file doesn't need to be re-evaluated multiple times.

@@ -9,8 +9,8 @@ use genawaiter::rc::Gen;
 use imbl::OrdMap;
 use regex::Regex;
 use std::cmp::{self, Ordering};
+use std::collections::BTreeMap;
 use std::collections::VecDeque;
-use std::collections::{BTreeMap, HashSet};
 use std::path::PathBuf;
 
 use crate::arithmetic_op;
@@ -88,6 +88,7 @@ mod pure_builtins {
     use imbl::Vector;
     use itertools::Itertools;
     use os_str_bytes::OsStringBytes;
+    use rustc_hash::FxHashSet;
 
     use crate::{value::PointerEquality, AddContext, NixContext, NixContextElement};
 
@@ -700,7 +701,7 @@ mod pure_builtins {
         //
         // In this implementation, we do none of that, no syntax checks, no realization.
         // The next `TODO` are the checks that Nix implements.
-        let mut ctx_elements: HashSet<NixContextElement> = HashSet::new();
+        let mut ctx_elements: FxHashSet<NixContextElement> = FxHashSet::default();
         let span = generators::request_span(&co).await;
         let origin = origin
             .coerce_to_string(
@@ -1115,7 +1116,7 @@ mod pure_builtins {
             .to_list()?
             .into_iter()
             .map(|v| v.to_str())
-            .collect::<Result<HashSet<_>, _>>()?;
+            .collect::<Result<FxHashSet<_>, _>>()?;
         let res = attrs.iter().filter_map(|(k, v)| {
             if !keys.contains(k) {
                 Some((k.clone(), v.clone()))
