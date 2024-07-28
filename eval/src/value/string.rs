@@ -4,18 +4,17 @@
 //! level, allowing us to shave off some memory overhead and only
 //! paying the cost when creating new strings.
 use bstr::{BStr, BString, ByteSlice, Chars};
-use lazy_static::lazy_static;
 use rnix::ast;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::alloc::dealloc;
 use std::alloc::{alloc, handle_alloc_error, Layout};
 use std::borrow::{Borrow, Cow};
+use std::cell::RefCell;
 use std::ffi::c_void;
 use std::fmt::{self, Debug, Display};
 use std::hash::Hash;
 use std::ops::Deref;
 use std::ptr::{self, NonNull};
-use std::sync::Mutex;
 use std::{mem, slice};
 
 use serde::de::{Deserializer, Visitor};
@@ -423,21 +422,21 @@ impl InternerInner {
 }
 
 #[derive(Default)]
-struct Interner(Mutex<InternerInner>);
+struct Interner(RefCell<InternerInner>);
 
 impl Interner {
     pub fn intern(&self, s: &[u8]) -> NixString {
-        self.0.lock().unwrap().intern(s)
+        self.0.borrow_mut().intern(s)
     }
 
     #[cfg(feature = "no_leak")]
     pub fn is_interned_string(&self, string: &NixString) -> bool {
-        self.0.lock().unwrap().interned_strings.contains(&string.0)
+        self.0.borrow().interned_strings.contains(&string.0)
     }
 }
 
-lazy_static! {
-    static ref INTERNER: Interner = Interner::default();
+thread_local! {
+    static INTERNER: Interner = Interner::default();
 }
 
 /// Nix string values
@@ -472,7 +471,7 @@ impl Drop for NixString {
 
     #[cfg(feature = "no_leak")]
     fn drop(&mut self) {
-        if INTERNER.is_interned_string(self) {
+        if INTERNER.with(|i| i.is_interned_string(self)) {
             return;
         }
 
@@ -724,7 +723,7 @@ impl NixString {
             && contents.len() <= INTERN_THRESHOLD
             && context.is_none()
         {
-            return INTERNER.intern(contents);
+            return INTERNER.with(|i| i.intern(contents));
         }
 
         Self::new_inner(contents, context)
