@@ -4,16 +4,19 @@
 //! level, allowing us to shave off some memory overhead and only
 //! paying the cost when creating new strings.
 use bstr::{BStr, BString, ByteSlice, Chars};
+use lazy_static::lazy_static;
 use rnix::ast;
-use rustc_hash::FxHashSet;
-use std::alloc::{alloc, dealloc, handle_alloc_error, Layout};
+use rustc_hash::{FxHashMap, FxHashSet};
+use std::alloc::dealloc;
+use std::alloc::{alloc, handle_alloc_error, Layout};
 use std::borrow::{Borrow, Cow};
 use std::ffi::c_void;
 use std::fmt::{self, Debug, Display};
 use std::hash::Hash;
 use std::ops::Deref;
 use std::ptr::{self, NonNull};
-use std::slice;
+use std::sync::Mutex;
+use std::{mem, slice};
 
 use serde::de::{Deserializer, Visitor};
 use serde::{Deserialize, Serialize};
@@ -395,6 +398,48 @@ impl NixStringInner {
     }
 }
 
+#[derive(Default)]
+struct InternerInner {
+    map: FxHashMap<&'static [u8], NonNull<c_void>>,
+    #[cfg(feature = "no_leak")]
+    interned_strings: FxHashSet<NonNull<c_void>>,
+}
+
+unsafe impl Send for InternerInner {}
+
+impl InternerInner {
+    pub fn intern(&mut self, s: &[u8]) -> NixString {
+        if let Some(s) = self.map.get(s) {
+            return NixString(*s);
+        }
+
+        let string = NixString::new_inner(s, None);
+        self.map
+            .insert(unsafe { mem::transmute(string.as_bytes()) }, string.0);
+        #[cfg(feature = "no_leak")]
+        self.interned_strings.insert(string.0);
+        string
+    }
+}
+
+#[derive(Default)]
+struct Interner(Mutex<InternerInner>);
+
+impl Interner {
+    pub fn intern(&self, s: &[u8]) -> NixString {
+        self.0.lock().unwrap().intern(s)
+    }
+
+    #[cfg(feature = "no_leak")]
+    pub fn is_interned_string(&self, string: &NixString) -> bool {
+        self.0.lock().unwrap().interned_strings.contains(&string.0)
+    }
+}
+
+lazy_static! {
+    static ref INTERNER: Interner = Interner::default();
+}
+
 /// Nix string values
 ///
 /// # Internals
@@ -414,8 +459,20 @@ unsafe impl Send for NixString {}
 unsafe impl Sync for NixString {}
 
 impl Drop for NixString {
+    #[cfg(not(feature = "no_leak"))]
     fn drop(&mut self) {
-        if !cfg!(feature = "no_leak") {
+        if self.context().is_some() {
+            // SAFETY: There's no way to construct a NixString that doesn't leave the allocation correct
+            // according to the rules of dealloc
+            unsafe {
+                NixStringInner::dealloc(self.0);
+            }
+        }
+    }
+
+    #[cfg(feature = "no_leak")]
+    fn drop(&mut self) {
+        if INTERNER.is_interned_string(self) {
             return;
         }
 
@@ -458,7 +515,7 @@ impl Debug for NixString {
 
 impl PartialEq for NixString {
     fn eq(&self, other: &Self) -> bool {
-        self.as_bstr() == other.as_bstr()
+        self.0 == other.0 || self.as_bstr() == other.as_bstr()
     }
 }
 
@@ -484,6 +541,9 @@ impl PartialOrd for NixString {
 
 impl Ord for NixString {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if self.0 == other.0 {
+            return std::cmp::Ordering::Equal;
+        }
         self.as_bstr().cmp(other.as_bstr())
     }
 }
@@ -647,6 +707,9 @@ mod arbitrary {
     }
 }
 
+/// Set non-scientifically. TODO(aspen): think more about what this should be
+const INTERN_THRESHOLD: usize = 32;
+
 impl NixString {
     fn new(contents: &[u8], context: Option<Box<NixContext>>) -> Self {
         debug_assert!(
@@ -654,6 +717,20 @@ impl NixString {
             "BUG: initialized with empty context"
         );
 
+        if !cfg!(feature = "no_leak") /* It's only safe to intern if we leak strings, since there's
+                                       * nothing yet preventing interned strings from getting freed
+                                       * (and then used by other copies) otherwise
+                                       */
+            && contents.len() <= INTERN_THRESHOLD
+            && context.is_none()
+        {
+            return INTERNER.intern(contents);
+        }
+
+        Self::new_inner(contents, context)
+    }
+
+    fn new_inner(contents: &[u8], context: Option<Box<NixContext>>) -> Self {
         // SAFETY: We're always fully initializing a NixString here:
         //
         // 1. NixStringInner::alloc sets up the len for us
