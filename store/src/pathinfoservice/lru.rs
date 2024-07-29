@@ -109,7 +109,10 @@ mod test {
             let root_node = p.node.as_mut().unwrap();
             if let castorepb::Node { node: Some(node) } = root_node {
                 let n = node.to_owned();
-                *node = n.rename("11111111111111111111111111111111-dummy2".into());
+                *node = (&tvix_castore::directoryservice::Node::try_from(&n)
+                    .unwrap()
+                    .rename("11111111111111111111111111111111-dummy2".into()))
+                    .into();
             } else {
                 unreachable!()
             }

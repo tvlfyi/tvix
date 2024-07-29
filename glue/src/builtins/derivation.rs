@@ -179,9 +179,7 @@ pub(crate) mod derivation_builtins {
     use nix_compat::nixhash::CAHash;
     use nix_compat::store_path::{build_ca_path, hash_placeholder};
     use sha2::Sha256;
-    use tvix_castore::proto as castorepb;
-    use tvix_castore::proto::node::Node;
-    use tvix_castore::proto::FileNode;
+    use tvix_castore::directoryservice::{FileNode, Node};
     use tvix_eval::generators::Gen;
     use tvix_eval::{NixContext, NixContextElement, NixString};
     use tvix_store::proto::{NarInfo, PathInfo};
@@ -579,12 +577,10 @@ pub(crate) mod derivation_builtins {
                     })
                     .map_err(DerivationError::InvalidDerivation)?;
 
-            let root_node = Node::File(FileNode {
-                name: store_path.to_string().into(),
-                digest: blob_digest.into(),
-                size: blob_size,
-                executable: false,
-            });
+            let root_node = Node::File(
+                FileNode::new(store_path.to_string().into(), blob_digest, blob_size, false)
+                    .map_err(|e| ErrorKind::TvixError(Rc::new(e)))?,
+            );
 
             // calculate the nar hash
             let (nar_size, nar_sha256) = state
@@ -604,9 +600,7 @@ pub(crate) mod derivation_builtins {
             state
                 .path_info_service
                 .put(PathInfo {
-                    node: Some(castorepb::Node {
-                        node: Some(root_node),
-                    }),
+                    node: Some((&root_node).into()),
                     references: reference_paths
                         .iter()
                         .map(|x| bytes::Bytes::copy_from_slice(x.digest()))

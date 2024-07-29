@@ -10,10 +10,8 @@ use petgraph::{
 use tracing::instrument;
 
 use super::order_validator::{LeavesToRootValidator, OrderValidator, RootToLeavesValidator};
-use crate::{
-    proto::{self, Directory, DirectoryNode},
-    B3Digest,
-};
+use super::{Directory, DirectoryNode};
+use crate::B3Digest;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -88,7 +86,7 @@ fn check_edge(dir: &DirectoryNode, child: &Directory) -> Result<(), Error> {
 impl DirectoryGraph<LeavesToRootValidator> {
     /// Insert a new Directory into the closure
     #[instrument(level = "trace", skip_all, fields(directory.digest=%directory.digest(), directory.size=%directory.size()), err)]
-    pub fn add(&mut self, directory: proto::Directory) -> Result<(), Error> {
+    pub fn add(&mut self, directory: Directory) -> Result<(), Error> {
         if !self.order_validator.add_directory(&directory) {
             return Err(Error::ValidationError(
                 "unknown directory was referenced".into(),
@@ -108,7 +106,7 @@ impl DirectoryGraph<RootToLeavesValidator> {
 
     /// Insert a new Directory into the closure
     #[instrument(level = "trace", skip_all, fields(directory.digest=%directory.digest(), directory.size=%directory.size()), err)]
-    pub fn add(&mut self, directory: proto::Directory) -> Result<(), Error> {
+    pub fn add(&mut self, directory: Directory) -> Result<(), Error> {
         let digest = directory.digest();
         if !self.order_validator.digest_allowed(&digest) {
             return Err(Error::ValidationError("unexpected digest".into()));
@@ -129,12 +127,7 @@ impl<O: OrderValidator> DirectoryGraph<O> {
     }
 
     /// Adds a directory which has already been confirmed to be in-order to the graph
-    pub fn add_order_unchecked(&mut self, directory: proto::Directory) -> Result<(), Error> {
-        // Do some basic validation
-        directory
-            .validate()
-            .map_err(|e| Error::ValidationError(e.to_string()))?;
-
+    pub fn add_order_unchecked(&mut self, directory: Directory) -> Result<(), Error> {
         let digest = directory.digest();
 
         // Teach the graph about the existence of a node with this digest
@@ -149,12 +142,10 @@ impl<O: OrderValidator> DirectoryGraph<O> {
         }
 
         // set up edges to all child directories
-        for subdir in &directory.directories {
-            let subdir_digest: B3Digest = subdir.digest.clone().try_into().unwrap();
-
+        for subdir in directory.directories() {
             let child_ix = *self
                 .digest_to_node_ix
-                .entry(subdir_digest)
+                .entry(subdir.digest.clone())
                 .or_insert_with(|| self.graph.add_node(None));
 
             let pending_edge_check = match &self.graph[child_ix] {
@@ -266,36 +257,35 @@ impl ValidatedDirectoryGraph {
             .filter_map(move |i| nodes[i.index()].weight.take())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::{
-        fixtures::{DIRECTORY_A, DIRECTORY_B, DIRECTORY_C},
-        proto::{self, Directory},
-    };
-    use lazy_static::lazy_static;
-    use rstest::rstest;
-
-    lazy_static! {
+/*
         pub static ref BROKEN_DIRECTORY : Directory = Directory {
-            symlinks: vec![proto::SymlinkNode {
+            symlinks: vec![SymlinkNode {
                 name: "".into(), // invalid name!
                 target: "doesntmatter".into(),
             }],
             ..Default::default()
         };
-
-        pub static ref BROKEN_PARENT_DIRECTORY: Directory = Directory {
-            directories: vec![proto::DirectoryNode {
-                name: "foo".into(),
-                digest: DIRECTORY_A.digest().into(),
-                size: DIRECTORY_A.size() + 42, // wrong!
-            }],
-            ..Default::default()
-        };
-    }
+*/
+#[cfg(test)]
+mod tests {
+    use crate::directoryservice::{Directory, DirectoryNode, Node};
+    use crate::fixtures::{DIRECTORY_A, DIRECTORY_B, DIRECTORY_C};
+    use lazy_static::lazy_static;
+    use rstest::rstest;
 
     use super::{DirectoryGraph, LeavesToRootValidator, RootToLeavesValidator};
+
+    lazy_static! {
+        pub static ref BROKEN_PARENT_DIRECTORY: Directory = {
+            let mut dir = Directory::new();
+            dir.add(Node::Directory(DirectoryNode::new(
+                "foo".into(),
+                DIRECTORY_A.digest(),
+                DIRECTORY_A.size() + 42, // wrong!
+            ).unwrap())).unwrap();
+            dir
+        };
+    }
 
     #[rstest]
     /// Uploading an empty directory should succeed.
@@ -312,8 +302,6 @@ mod tests {
     #[case::unconnected_node(&[&*DIRECTORY_A, &*DIRECTORY_C, &*DIRECTORY_B], false, None)]
     /// Uploading B (referring to A) should fail immediately, because A was never uploaded.
     #[case::dangling_pointer(&[&*DIRECTORY_B], true, None)]
-    /// Uploading a directory failing validation should fail immediately.
-    #[case::failing_validation(&[&*BROKEN_DIRECTORY], true, None)]
     /// Uploading a directory which refers to another Directory with a wrong size should fail.
     #[case::wrong_size_in_parent(&[&*DIRECTORY_A, &*BROKEN_PARENT_DIRECTORY], true, None)]
     fn test_uploads(
@@ -366,8 +354,6 @@ mod tests {
     #[case::unconnected_node(&*DIRECTORY_C, &[&*DIRECTORY_C, &*DIRECTORY_B], true, None)]
     /// Downloading B (specified as the root) but receiving A instead should fail immediately, because A has no connection to B (the root).
     #[case::dangling_pointer(&*DIRECTORY_B, &[&*DIRECTORY_A], true, None)]
-    /// Downloading a directory failing validation should fail immediately.
-    #[case::failing_validation(&*BROKEN_DIRECTORY, &[&*BROKEN_DIRECTORY], true, None)]
     /// Downloading a directory which refers to another Directory with a wrong size should fail.
     #[case::wrong_size_in_parent(&*BROKEN_PARENT_DIRECTORY, &[&*BROKEN_PARENT_DIRECTORY, &*DIRECTORY_A], true, None)]
     fn test_downloads(

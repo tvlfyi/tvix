@@ -230,7 +230,7 @@ where
         Ok(Some(PathInfo {
             node: Some(castorepb::Node {
                 // set the name of the root node to the digest-name of the store path.
-                node: Some(root_node.rename(narinfo.store_path.to_string().to_owned().into())),
+                node: Some((&root_node.rename(narinfo.store_path.to_string().into())).into()),
             }),
             references: pathinfo.references,
             narinfo: pathinfo.narinfo,

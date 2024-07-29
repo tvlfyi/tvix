@@ -6,7 +6,7 @@ use thiserror::Error;
 pub struct B3Digest(Bytes);
 
 // TODO: allow converting these errors to crate::Error
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum Error {
     #[error("invalid digest length: {0}")]
     InvalidDigestLen(usize),

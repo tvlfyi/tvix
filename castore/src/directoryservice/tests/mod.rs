@@ -8,10 +8,8 @@ use rstest_reuse::{self, *};
 
 use super::DirectoryService;
 use crate::directoryservice;
-use crate::{
-    fixtures::{DIRECTORY_A, DIRECTORY_B, DIRECTORY_C, DIRECTORY_D},
-    proto::{self, Directory},
-};
+use crate::directoryservice::{Directory, DirectoryNode, Node};
+use crate::fixtures::{DIRECTORY_A, DIRECTORY_B, DIRECTORY_C, DIRECTORY_D};
 
 mod utils;
 use self::utils::make_grpc_directory_service_client;
@@ -41,10 +39,10 @@ async fn test_non_exist(directory_service: impl DirectoryService) {
 
     // recursive get
     assert_eq!(
-        Vec::<Result<proto::Directory, crate::Error>>::new(),
+        Vec::<Result<Directory, crate::Error>>::new(),
         directory_service
             .get_recursive(&DIRECTORY_A.digest())
-            .collect::<Vec<Result<proto::Directory, crate::Error>>>()
+            .collect::<Vec<Result<Directory, crate::Error>>>()
             .await
     );
 }
@@ -212,58 +210,25 @@ async fn upload_reject_dangling_pointer(directory_service: impl DirectoryService
     }
 }
 
-/// Try uploading a Directory failing its internal validation, ensure it gets
-/// rejected.
-#[apply(directory_services)]
-#[tokio::test]
-async fn upload_reject_failing_validation(directory_service: impl DirectoryService) {
-    let broken_directory = Directory {
-        symlinks: vec![proto::SymlinkNode {
-            name: "".into(), // wrong!
-            target: "doesntmatter".into(),
-        }],
-        ..Default::default()
-    };
-    assert!(broken_directory.validate().is_err());
-
-    // Try to upload via single upload.
-    assert!(
-        directory_service
-            .put(broken_directory.clone())
-            .await
-            .is_err(),
-        "single upload must fail"
-    );
-
-    // Try to upload via put_multiple. We're a bit more permissive here, the
-    // intermediate .put() might succeed, due to client-side bursting (in the
-    // case of gRPC), but then the close MUST fail.
-    let mut handle = directory_service.put_multiple_start();
-    if handle.put(broken_directory).await.is_ok() {
-        assert!(
-            handle.close().await.is_err(),
-            "when succeeding put, close must fail"
-        )
-    }
-}
-
 /// Try uploading a Directory that refers to a previously-uploaded directory.
 /// Both pass their isolated validation, but the size field in the parent is wrong.
 /// This should be rejected.
 #[apply(directory_services)]
 #[tokio::test]
 async fn upload_reject_wrong_size(directory_service: impl DirectoryService) {
-    let wrong_parent_directory = Directory {
-        directories: vec![proto::DirectoryNode {
-            name: "foo".into(),
-            digest: DIRECTORY_A.digest().into(),
-            size: DIRECTORY_A.size() + 42, // wrong!
-        }],
-        ..Default::default()
+    let wrong_parent_directory = {
+        let mut dir = Directory::new();
+        dir.add(Node::Directory(
+            DirectoryNode::new(
+                "foo".into(),
+                DIRECTORY_A.digest(),
+                DIRECTORY_A.size() + 42, // wrong!
+            )
+            .unwrap(),
+        ))
+        .unwrap();
+        dir
     };
-
-    // Make sure isolated validation itself is ok
-    assert!(wrong_parent_directory.validate().is_ok());
 
     // Now upload both. Ensure it either fails during the second put, or during
     // the close.

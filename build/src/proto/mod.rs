@@ -1,7 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use itertools::Itertools;
-use tvix_castore::proto::{NamedNode, ValidateNodeError};
+use tvix_castore::directoryservice::NamedNode;
+use tvix_castore::directoryservice::Node;
+use tvix_castore::ValidateNodeError;
 
 mod grpc_buildservice_wrapper;
 
@@ -123,18 +125,17 @@ impl BuildRequest {
     /// and all restrictions around paths themselves (relative, clean, …) need
     // to be fulfilled.
     pub fn validate(&self) -> Result<(), ValidateBuildRequestError> {
-        // validate all input nodes
-        for (i, n) in self.inputs.iter().enumerate() {
-            // ensure the input node itself is valid
-            n.validate()
-                .map_err(|e| ValidateBuildRequestError::InvalidInputNode(i, e))?;
-        }
-
         // now we can look at the names, and make sure they're sorted.
         if !is_sorted(
             self.inputs
                 .iter()
-                .map(|e| e.node.as_ref().unwrap().get_name()),
+                // TODO(flokli) handle conversion errors and store result somewhere
+                .map(|e| {
+                    Node::try_from(e.node.as_ref().unwrap())
+                        .unwrap()
+                        .get_name()
+                        .clone()
+                }),
         ) {
             Err(ValidateBuildRequestError::InputNodesNotSorted)?
         }

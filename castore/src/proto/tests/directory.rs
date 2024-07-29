@@ -1,7 +1,5 @@
-use crate::proto::{
-    node, Directory, DirectoryNode, FileNode, SymlinkNode, ValidateDirectoryError,
-    ValidateNodeError,
-};
+use crate::proto::{Directory, DirectoryNode, FileNode, SymlinkNode, ValidateDirectoryError};
+use crate::ValidateNodeError;
 
 use hex_literal::hex;
 
@@ -149,7 +147,7 @@ fn digest() {
 #[test]
 fn validate_empty() {
     let d = Directory::default();
-    assert_eq!(d.validate(), Ok(()));
+    assert!(crate::directoryservice::Directory::try_from(d).is_ok());
 }
 
 #[test]
@@ -163,7 +161,7 @@ fn validate_invalid_names() {
             }],
             ..Default::default()
         };
-        match d.validate().expect_err("must fail") {
+        match crate::directoryservice::Directory::try_from(d).expect_err("must fail") {
             ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName(_)) => {
                 assert_eq!(n, b"")
             }
@@ -180,7 +178,7 @@ fn validate_invalid_names() {
             }],
             ..Default::default()
         };
-        match d.validate().expect_err("must fail") {
+        match crate::directoryservice::Directory::try_from(d).expect_err("must fail") {
             ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName(_)) => {
                 assert_eq!(n, b".")
             }
@@ -198,7 +196,7 @@ fn validate_invalid_names() {
             }],
             ..Default::default()
         };
-        match d.validate().expect_err("must fail") {
+        match crate::directoryservice::Directory::try_from(d).expect_err("must fail") {
             ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName(_)) => {
                 assert_eq!(n, b"..")
             }
@@ -214,7 +212,7 @@ fn validate_invalid_names() {
             }],
             ..Default::default()
         };
-        match d.validate().expect_err("must fail") {
+        match crate::directoryservice::Directory::try_from(d).expect_err("must fail") {
             ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName(_)) => {
                 assert_eq!(n, b"\x00")
             }
@@ -230,7 +228,7 @@ fn validate_invalid_names() {
             }],
             ..Default::default()
         };
-        match d.validate().expect_err("must fail") {
+        match crate::directoryservice::Directory::try_from(d).expect_err("must fail") {
             ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName(_)) => {
                 assert_eq!(n, b"foo/bar")
             }
@@ -249,7 +247,7 @@ fn validate_invalid_digest() {
         }],
         ..Default::default()
     };
-    match d.validate().expect_err("must fail") {
+    match crate::directoryservice::Directory::try_from(d).expect_err("must fail") {
         ValidateDirectoryError::InvalidNode(_, ValidateNodeError::InvalidDigestLen(n)) => {
             assert_eq!(n, 2)
         }
@@ -276,7 +274,7 @@ fn validate_sorting() {
             ],
             ..Default::default()
         };
-        match d.validate().expect_err("must fail") {
+        match crate::directoryservice::Directory::try_from(d).expect_err("must fail") {
             ValidateDirectoryError::WrongSorting(s) => {
                 assert_eq!(s, b"a");
             }
@@ -301,7 +299,7 @@ fn validate_sorting() {
             ],
             ..Default::default()
         };
-        match d.validate().expect_err("must fail") {
+        match crate::directoryservice::Directory::try_from(d).expect_err("must fail") {
             ValidateDirectoryError::DuplicateName(s) => {
                 assert_eq!(s, b"a");
             }
@@ -327,7 +325,7 @@ fn validate_sorting() {
             ..Default::default()
         };
 
-        d.validate().expect("validate shouldn't error");
+        crate::directoryservice::Directory::try_from(d).expect("validate shouldn't error");
     }
 
     // [b, c] and [a] are both properly sorted.
@@ -352,101 +350,6 @@ fn validate_sorting() {
             ..Default::default()
         };
 
-        d.validate().expect("validate shouldn't error");
+        crate::directoryservice::Directory::try_from(d).expect("validate shouldn't error");
     }
-}
-
-#[test]
-fn validate_overflow() {
-    let d = Directory {
-        directories: vec![DirectoryNode {
-            name: "foo".into(),
-            digest: DUMMY_DIGEST.to_vec().into(),
-            size: u64::MAX,
-        }],
-        ..Default::default()
-    };
-
-    match d.validate().expect_err("must fail") {
-        ValidateDirectoryError::SizeOverflow => {}
-        _ => panic!("unexpected error"),
-    }
-}
-
-#[test]
-fn add_nodes_to_directory() {
-    let mut d = Directory {
-        ..Default::default()
-    };
-
-    d.add(node::Node::Directory(DirectoryNode {
-        name: "b".into(),
-        digest: DUMMY_DIGEST.to_vec().into(),
-        size: 1,
-    }));
-    d.add(node::Node::Directory(DirectoryNode {
-        name: "a".into(),
-        digest: DUMMY_DIGEST.to_vec().into(),
-        size: 1,
-    }));
-    d.add(node::Node::Directory(DirectoryNode {
-        name: "z".into(),
-        digest: DUMMY_DIGEST.to_vec().into(),
-        size: 1,
-    }));
-
-    d.add(node::Node::File(FileNode {
-        name: "f".into(),
-        digest: DUMMY_DIGEST.to_vec().into(),
-        size: 1,
-        executable: true,
-    }));
-    d.add(node::Node::File(FileNode {
-        name: "c".into(),
-        digest: DUMMY_DIGEST.to_vec().into(),
-        size: 1,
-        executable: true,
-    }));
-    d.add(node::Node::File(FileNode {
-        name: "g".into(),
-        digest: DUMMY_DIGEST.to_vec().into(),
-        size: 1,
-        executable: true,
-    }));
-
-    d.add(node::Node::Symlink(SymlinkNode {
-        name: "t".into(),
-        target: "a".into(),
-    }));
-    d.add(node::Node::Symlink(SymlinkNode {
-        name: "o".into(),
-        target: "a".into(),
-    }));
-    d.add(node::Node::Symlink(SymlinkNode {
-        name: "e".into(),
-        target: "a".into(),
-    }));
-
-    d.validate().expect("directory should be valid");
-}
-
-#[test]
-#[cfg_attr(not(debug_assertions), ignore)]
-#[should_panic = "name already exists in directories"]
-fn add_duplicate_node_to_directory_panics() {
-    let mut d = Directory {
-        ..Default::default()
-    };
-
-    d.add(node::Node::Directory(DirectoryNode {
-        name: "a".into(),
-        digest: DUMMY_DIGEST.to_vec().into(),
-        size: 1,
-    }));
-    d.add(node::Node::File(FileNode {
-        name: "a".into(),
-        digest: DUMMY_DIGEST.to_vec().into(),
-        size: 1,
-        executable: true,
-    }));
 }

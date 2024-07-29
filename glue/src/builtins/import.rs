@@ -2,6 +2,8 @@
 
 use crate::builtins::errors::ImportError;
 use std::path::Path;
+use tvix_castore::directoryservice::FileNode;
+use tvix_castore::directoryservice::Node;
 use tvix_castore::import::ingest_entries;
 use tvix_eval::{
     builtin_macros::builtins,
@@ -16,7 +18,7 @@ async fn filtered_ingest(
     co: GenCo,
     path: &Path,
     filter: Option<&Value>,
-) -> Result<tvix_castore::proto::node::Node, ErrorKind> {
+) -> Result<Node, ErrorKind> {
     let mut entries: Vec<walkdir::DirEntry> = vec![];
     let mut it = walkdir::WalkDir::new(path)
         .follow_links(false)
@@ -114,8 +116,6 @@ mod import_builtins {
     use nix_compat::store_path::StorePath;
     use sha2::Digest;
     use tokio::io::AsyncWriteExt;
-    use tvix_castore::proto::node::Node;
-    use tvix_castore::proto::FileNode;
     use tvix_eval::builtins::coerce_value_to_path;
     use tvix_eval::generators::Gen;
     use tvix_eval::{generators::GenCo, ErrorKind, Value};
@@ -214,13 +214,16 @@ mod import_builtins {
                     .tokio_handle
                     .block_on(async { blob_writer.close().await })?;
 
-                let root_node = Node::File(FileNode {
-                    // The name gets set further down, while constructing the PathInfo.
-                    name: "".into(),
-                    digest: blob_digest.into(),
-                    size: blob_size,
-                    executable: false,
-                });
+                let root_node = Node::File(
+                    FileNode::new(
+                        // The name gets set further down, while constructing the PathInfo.
+                        "".into(),
+                        blob_digest,
+                        blob_size,
+                        false,
+                    )
+                    .map_err(|e| tvix_eval::ErrorKind::TvixError(Rc::new(e)))?,
+                );
 
                 let ca_hash = if recursive_ingestion {
                     let (_nar_size, nar_sha256) = state

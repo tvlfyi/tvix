@@ -61,22 +61,20 @@ pub async fn get(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    let mut narinfo = path_info.to_narinfo(store_path).ok_or_else(|| {
+    let mut narinfo = path_info.to_narinfo(store_path.as_ref()).ok_or_else(|| {
         warn!(path_info=?path_info, "PathInfo contained no NAR data");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
     // encode the (unnamed) root node in the NAR url itself.
-    let root_node = path_info
-        .node
-        .as_ref()
-        .and_then(|n| n.node.as_ref())
-        .expect("root node must not be none")
-        .clone()
-        .rename("".into());
+    let root_node = tvix_castore::directoryservice::Node::try_from(
+        path_info.node.as_ref().expect("root node must not be none"),
+    )
+    .unwrap() // PathInfo is validated
+    .rename("".into());
 
     let mut buf = Vec::new();
-    Node::encode(&root_node, &mut buf);
+    Node::encode(&(&root_node).into(), &mut buf);
 
     let url = format!(
         "nar/tvix-castore/{}?narsize={}",
@@ -128,10 +126,10 @@ pub async fn put(
 
     // Lookup root node with peek, as we don't want to update the LRU list.
     // We need to be careful to not hold the RwLock across the await point.
-    let maybe_root_node = root_nodes
+    let maybe_root_node: Option<tvix_castore::directoryservice::Node> = root_nodes
         .read()
         .peek(&narinfo.nar_hash)
-        .map(|v| v.to_owned());
+        .and_then(|v| v.try_into().ok());
 
     match maybe_root_node {
         Some(root_node) => {
@@ -139,7 +137,7 @@ pub async fn put(
             // We need to rename the node to the narinfo storepath basename, as
             // that's where it's stored in PathInfo.
             pathinfo.node = Some(castorepb::Node {
-                node: Some(root_node.rename(narinfo.store_path.to_string().into())),
+                node: Some((&root_node.rename(narinfo.store_path.to_string().into())).into()),
             });
 
             // Persist the PathInfo.

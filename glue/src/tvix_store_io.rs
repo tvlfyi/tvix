@@ -15,15 +15,12 @@ use tokio_util::io::SyncIoBridge;
 use tracing::{error, instrument, warn, Level, Span};
 use tracing_indicatif::span_ext::IndicatifSpanExt;
 use tvix_build::buildservice::BuildService;
-use tvix_castore::proto::node::Node;
 use tvix_eval::{EvalIO, FileType, StdIO};
 use tvix_store::nar::NarCalculationService;
 
 use tvix_castore::{
     blobservice::BlobService,
-    directoryservice::{self, DirectoryService},
-    proto::NamedNode,
-    B3Digest,
+    directoryservice::{self, DirectoryService, NamedNode, Node},
 };
 use tvix_store::{pathinfoservice::PathInfoService, proto::PathInfo};
 
@@ -122,7 +119,12 @@ impl TvixStoreIO {
             .await?
         {
             // if we have a PathInfo, we know there will be a root_node (due to validation)
-            Some(path_info) => path_info.node.expect("no node").node.expect("no node"),
+            Some(path_info) => path_info
+                .node
+                .as_ref()
+                .expect("no node")
+                .try_into()
+                .expect("invalid node"),
             // If there's no PathInfo found, this normally means we have to
             // trigger the build (and insert into PathInfoService, after
             // reference scanning).
@@ -284,19 +286,17 @@ impl TvixStoreIO {
 
                         // For each output, insert a PathInfo.
                         for output in &build_result.outputs {
-                            let root_node = output.node.as_ref().expect("invalid root node");
+                            let root_node = output.try_into().expect("invalid root node");
 
                             // calculate the nar representation
                             let (nar_size, nar_sha256) = self
                                 .nar_calculation_service
-                                .calculate_nar(root_node)
+                                .calculate_nar(&root_node)
                                 .await?;
 
                             // assemble the PathInfo to persist
                             let path_info = PathInfo {
-                                node: Some(tvix_castore::proto::Node {
-                                    node: Some(root_node.clone()),
-                                }),
+                                node: Some((&root_node).into()),
                                 references: vec![], // TODO: refscan
                                 narinfo: Some(tvix_store::proto::NarInfo {
                                     nar_size,
@@ -332,13 +332,11 @@ impl TvixStoreIO {
                         build_result
                             .outputs
                             .into_iter()
+                            .map(|output_node| Node::try_from(&output_node).expect("invalid node"))
                             .find(|output_node| {
-                                output_node.node.as_ref().expect("invalid node").get_name()
-                                    == store_path.to_string().as_bytes()
+                                output_node.get_name() == store_path.to_string().as_bytes()
                             })
                             .expect("build didn't produce the store path")
-                            .node
-                            .expect("invalid node")
                     }
                 }
             }
@@ -460,20 +458,12 @@ impl EvalIO for TvixStoreIO {
                         ))
                     }
                     Node::File(file_node) => {
-                        let digest: B3Digest =
-                            file_node.digest.clone().try_into().map_err(|_e| {
-                                error!(
-                                    file_node = ?file_node,
-                                    "invalid digest"
-                                );
-                                io::Error::new(
-                                    io::ErrorKind::InvalidData,
-                                    format!("invalid digest length in file node: {:?}", file_node),
-                                )
-                            })?;
-
                         self.tokio_handle.block_on(async {
-                            let resp = self.blob_service.as_ref().open_read(&digest).await?;
+                            let resp = self
+                                .blob_service
+                                .as_ref()
+                                .open_read(file_node.digest())
+                                .await?;
                             match resp {
                                 Some(blob_reader) => {
                                     // The VM Response needs a sync [std::io::Reader].
@@ -482,12 +472,12 @@ impl EvalIO for TvixStoreIO {
                                 }
                                 None => {
                                     error!(
-                                        blob.digest = %digest,
+                                        blob.digest = %file_node.digest(),
                                         "blob not found",
                                     );
                                     Err(io::Error::new(
                                         io::ErrorKind::NotFound,
-                                        format!("blob {} not found", &digest),
+                                        format!("blob {} not found", &file_node.digest()),
                                     ))
                                 }
                             }
@@ -543,16 +533,7 @@ impl EvalIO for TvixStoreIO {
                 match node {
                     Node::Directory(directory_node) => {
                         // fetch the Directory itself.
-                        let digest: B3Digest =
-                            directory_node.digest.clone().try_into().map_err(|_e| {
-                                io::Error::new(
-                                    io::ErrorKind::InvalidData,
-                                    format!(
-                                        "invalid digest length in directory node: {:?}",
-                                        directory_node
-                                    ),
-                                )
-                            })?;
+                        let digest = directory_node.digest().clone();
 
                         if let Some(directory) = self.tokio_handle.block_on(async {
                             self.directory_service.as_ref().get(&digest).await
@@ -560,9 +541,11 @@ impl EvalIO for TvixStoreIO {
                             let mut children: Vec<(bytes::Bytes, FileType)> = Vec::new();
                             for node in directory.nodes() {
                                 children.push(match node {
-                                    Node::Directory(e) => (e.name, FileType::Directory),
-                                    Node::File(e) => (e.name, FileType::Regular),
-                                    Node::Symlink(e) => (e.name, FileType::Symlink),
+                                    Node::Directory(e) => {
+                                        (e.get_name().clone(), FileType::Directory)
+                                    }
+                                    Node::File(e) => (e.get_name().clone(), FileType::Regular),
+                                    Node::Symlink(e) => (e.get_name().clone(), FileType::Symlink),
                                 })
                             }
                             Ok(children)

@@ -1,7 +1,8 @@
 use std::collections::HashSet;
 use tracing::warn;
 
-use crate::{proto::Directory, B3Digest};
+use super::Directory;
+use crate::B3Digest;
 
 pub trait OrderValidator {
     /// Update the order validator's state with the directory
@@ -47,10 +48,9 @@ impl RootToLeavesValidator {
             self.expected_digests.insert(directory.digest());
         }
 
-        for subdir in &directory.directories {
+        for subdir in directory.directories() {
             // Allow the children to appear next
-            let subdir_digest = subdir.digest.clone().try_into().unwrap();
-            self.expected_digests.insert(subdir_digest);
+            self.expected_digests.insert(subdir.digest.clone());
         }
     }
 }
@@ -79,12 +79,11 @@ impl OrderValidator for LeavesToRootValidator {
     fn add_directory(&mut self, directory: &Directory) -> bool {
         let digest = directory.digest();
 
-        for subdir in &directory.directories {
-            let subdir_digest = subdir.digest.clone().try_into().unwrap(); // this has been validated in validate_directory()
-            if !self.allowed_references.contains(&subdir_digest) {
+        for subdir in directory.directories() {
+            if !self.allowed_references.contains(&subdir.digest) {
                 warn!(
                     directory.digest = %digest,
-                    subdirectory.digest = %subdir_digest,
+                    subdirectory.digest = %subdir.digest,
                     "unexpected directory reference"
                 );
                 return false;
@@ -101,8 +100,8 @@ impl OrderValidator for LeavesToRootValidator {
 mod tests {
     use super::{LeavesToRootValidator, RootToLeavesValidator};
     use crate::directoryservice::order_validator::OrderValidator;
+    use crate::directoryservice::Directory;
     use crate::fixtures::{DIRECTORY_A, DIRECTORY_B, DIRECTORY_C};
-    use crate::proto::Directory;
     use rstest::rstest;
 
     #[rstest]

@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use bytes::Bytes;
 
-use crate::proto as castorepb;
+use crate::directoryservice::{NamedNode, Node};
 use crate::B3Digest;
 
 #[derive(Clone, Debug)]
@@ -20,27 +20,24 @@ pub enum InodeData {
 /// lookup and did fetch the data.
 #[derive(Clone, Debug)]
 pub enum DirectoryInodeData {
-    Sparse(B3Digest, u64),                                  // digest, size
-    Populated(B3Digest, Vec<(u64, castorepb::node::Node)>), // [(child_inode, node)]
+    Sparse(B3Digest, u64),                 // digest, size
+    Populated(B3Digest, Vec<(u64, Node)>), // [(child_inode, node)]
 }
 
 impl InodeData {
     /// Constructs a new InodeData by consuming a [Node].
     /// It splits off the orginal name, so it can be used later.
-    pub fn from_node(node: castorepb::node::Node) -> (Self, Bytes) {
+    pub fn from_node(node: &Node) -> (Self, Bytes) {
         match node {
-            castorepb::node::Node::Directory(n) => (
-                Self::Directory(DirectoryInodeData::Sparse(
-                    n.digest.try_into().unwrap(),
-                    n.size,
-                )),
-                n.name,
+            Node::Directory(n) => (
+                Self::Directory(DirectoryInodeData::Sparse(n.digest().clone(), n.size())),
+                n.get_name().clone(),
             ),
-            castorepb::node::Node::File(n) => (
-                Self::Regular(n.digest.try_into().unwrap(), n.size, n.executable),
-                n.name,
+            Node::File(n) => (
+                Self::Regular(n.digest().clone(), n.size(), n.executable()),
+                n.get_name().clone(),
             ),
-            castorepb::node::Node::Symlink(n) => (Self::Symlink(n.target), n.name),
+            Node::Symlink(n) => (Self::Symlink(n.target().clone()), n.get_name().clone()),
         }
     }
 

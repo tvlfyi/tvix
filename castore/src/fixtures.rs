@@ -1,5 +1,5 @@
 use crate::{
-    proto::{self, Directory, DirectoryNode, FileNode, SymlinkNode},
+    directoryservice::{Directory, DirectoryNode, FileNode, Node, SymlinkNode},
     B3Digest,
 };
 use lazy_static::lazy_static;
@@ -34,70 +34,72 @@ lazy_static! {
     pub static ref BLOB_B_DIGEST: B3Digest = blake3::hash(&BLOB_B).as_bytes().into();
 
     // Directories
-    pub static ref DIRECTORY_WITH_KEEP: proto::Directory = proto::Directory {
-        directories: vec![],
-        files: vec![FileNode {
-            name: b".keep".to_vec().into(),
-            digest: EMPTY_BLOB_DIGEST.clone().into(),
-            size: 0,
-            executable: false,
-        }],
-        symlinks: vec![],
+    pub static ref DIRECTORY_WITH_KEEP: Directory = {
+        let mut dir = Directory::new();
+        dir.add(Node::File(FileNode::new(
+            b".keep".to_vec().into(),
+            EMPTY_BLOB_DIGEST.clone(),
+            0,
+            false
+        ).unwrap())).unwrap();
+        dir
     };
-    pub static ref DIRECTORY_COMPLICATED: proto::Directory = proto::Directory {
-        directories: vec![DirectoryNode {
-            name: b"keep".to_vec().into(),
-            digest: DIRECTORY_WITH_KEEP.digest().into(),
-            size: DIRECTORY_WITH_KEEP.size(),
-        }],
-        files: vec![FileNode {
-            name: b".keep".to_vec().into(),
-            digest: EMPTY_BLOB_DIGEST.clone().into(),
-            size: 0,
-            executable: false,
-        }],
-        symlinks: vec![SymlinkNode {
-            name: b"aa".to_vec().into(),
-            target: b"/nix/store/somewhereelse".to_vec().into(),
-        }],
+    pub static ref DIRECTORY_COMPLICATED: Directory = {
+        let mut dir = Directory::new();
+        dir.add(Node::Directory(DirectoryNode::new(
+            b"keep".to_vec().into(),
+            DIRECTORY_WITH_KEEP.digest(),
+            DIRECTORY_WITH_KEEP.size()
+        ).unwrap())).unwrap();
+        dir.add(Node::File(FileNode::new(
+            b".keep".to_vec().into(),
+            EMPTY_BLOB_DIGEST.clone(),
+            0,
+            false
+        ).unwrap())).unwrap();
+        dir.add(Node::Symlink(SymlinkNode::new(
+            b"aa".to_vec().into(),
+            b"/nix/store/somewhereelse".to_vec().into()
+        ).unwrap())).unwrap();
+        dir
     };
-    pub static ref DIRECTORY_A: Directory = Directory::default();
-    pub static ref DIRECTORY_B: Directory = Directory {
-        directories: vec![DirectoryNode {
-            name: b"a".to_vec().into(),
-            digest: DIRECTORY_A.digest().into(),
-            size: DIRECTORY_A.size(),
-        }],
-        ..Default::default()
+    pub static ref DIRECTORY_A: Directory = Directory::new();
+    pub static ref DIRECTORY_B: Directory = {
+        let mut dir = Directory::new();
+        dir.add(Node::Directory(DirectoryNode::new(
+            b"a".to_vec().into(),
+            DIRECTORY_A.digest(),
+            DIRECTORY_A.size(),
+        ).unwrap())).unwrap();
+        dir
     };
-    pub static ref DIRECTORY_C: Directory = Directory {
-        directories: vec![
-            DirectoryNode {
-                name: b"a".to_vec().into(),
-                digest: DIRECTORY_A.digest().into(),
-                size: DIRECTORY_A.size(),
-            },
-            DirectoryNode {
-                name: b"a'".to_vec().into(),
-                digest: DIRECTORY_A.digest().into(),
-                size: DIRECTORY_A.size(),
-            }
-        ],
-        ..Default::default()
+    pub static ref DIRECTORY_C: Directory = {
+        let mut dir = Directory::new();
+        dir.add(Node::Directory(DirectoryNode::new(
+            b"a".to_vec().into(),
+            DIRECTORY_A.digest(),
+            DIRECTORY_A.size(),
+        ).unwrap())).unwrap();
+        dir.add(Node::Directory(DirectoryNode::new(
+                    b"a'".to_vec().into(),
+                    DIRECTORY_A.digest(),
+                    DIRECTORY_A.size(),
+        ).unwrap())).unwrap();
+        dir
     };
-    pub static ref DIRECTORY_D: proto::Directory = proto::Directory {
-        directories: vec![
-            DirectoryNode {
-                name: b"a".to_vec().into(),
-                digest: DIRECTORY_A.digest().into(),
-                size: DIRECTORY_A.size(),
-            },
-            DirectoryNode {
-                name: b"b'".to_vec().into(),
-                digest: DIRECTORY_B.digest().into(),
-                size: DIRECTORY_B.size(),
-            }
-        ],
-        ..Default::default()
+    pub static ref DIRECTORY_D: Directory = {
+        let mut dir = Directory::new();
+        dir.add(Node::Directory(DirectoryNode::new(
+            b"a".to_vec().into(),
+            DIRECTORY_A.digest(),
+            DIRECTORY_A.size(),
+        ).unwrap())).unwrap();
+            dir.add(Node::Directory(DirectoryNode::new(
+            b"b".to_vec().into(),
+            DIRECTORY_B.digest(),
+            DIRECTORY_B.size(),
+        ).unwrap())).unwrap();
+            dir
+
     };
 }

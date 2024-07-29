@@ -15,11 +15,9 @@ use self::{
     inode_tracker::InodeTracker,
     inodes::{DirectoryInodeData, InodeData},
 };
-use crate::proto as castorepb;
 use crate::{
     blobservice::{BlobReader, BlobService},
-    directoryservice::DirectoryService,
-    proto::{node::Node, NamedNode},
+    directoryservice::{DirectoryService, NamedNode, Node},
     B3Digest,
 };
 use bstr::ByteVec;
@@ -198,13 +196,13 @@ where
                 let children = {
                     let mut inode_tracker = self.inode_tracker.write();
 
-                    let children: Vec<(u64, castorepb::node::Node)> = directory
+                    let children: Vec<(u64, Node)> = directory
                         .nodes()
                         .map(|child_node| {
-                            let (inode_data, _) = InodeData::from_node(child_node.clone());
+                            let (inode_data, _) = InodeData::from_node(child_node);
 
                             let child_ino = inode_tracker.put(inode_data);
-                            (child_ino, child_node)
+                            (child_ino, child_node.clone())
                         })
                         .collect();
 
@@ -287,7 +285,7 @@ where
 
                 // insert the (sparse) inode data and register in
                 // self.root_nodes.
-                let (inode_data, name) = InodeData::from_node(root_node);
+                let (inode_data, name) = InodeData::from_node(&root_node);
                 let ino = inode_tracker.put(inode_data.clone());
                 root_nodes.insert(name, ino);
 
@@ -468,7 +466,7 @@ where
                     io::Error::from_raw_os_error(libc::EIO)
                 })?;
 
-                let (inode_data, name) = InodeData::from_node(root_node);
+                let (inode_data, name) = InodeData::from_node(&root_node);
 
                 // obtain the inode, or allocate a new one.
                 let ino = self.get_inode_for_root_name(&name).unwrap_or_else(|| {
@@ -498,7 +496,7 @@ where
         Span::current().record("directory.digest", parent_digest.to_string());
 
         for (i, (ino, child_node)) in children.into_iter().skip(offset as usize).enumerate() {
-            let (inode_data, name) = InodeData::from_node(child_node);
+            let (inode_data, name) = InodeData::from_node(&child_node);
 
             // the second parameter will become the "offset" parameter on the next call.
             let written = add_entry(fuse_backend_rs::api::filesystem::DirEntry {
@@ -555,7 +553,7 @@ where
                     io::Error::from_raw_os_error(libc::EPERM)
                 })?;
 
-                let (inode_data, name) = InodeData::from_node(root_node);
+                let (inode_data, name) = InodeData::from_node(&root_node);
 
                 // obtain the inode, or allocate a new one.
                 let ino = self.get_inode_for_root_name(&name).unwrap_or_else(|| {
@@ -588,7 +586,7 @@ where
         Span::current().record("directory.digest", parent_digest.to_string());
 
         for (i, (ino, child_node)) in children.into_iter().skip(offset as usize).enumerate() {
-            let (inode_data, name) = InodeData::from_node(child_node);
+            let (inode_data, name) = InodeData::from_node(&child_node);
 
             // the second parameter will become the "offset" parameter on the next call.
             let written = add_entry(

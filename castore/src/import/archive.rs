@@ -11,9 +11,8 @@ use tokio_tar::Archive;
 use tracing::{instrument, warn, Level};
 
 use crate::blobservice::BlobService;
-use crate::directoryservice::DirectoryService;
+use crate::directoryservice::{DirectoryService, Node};
 use crate::import::{ingest_entries, IngestionEntry, IngestionError};
-use crate::proto::node::Node;
 
 use super::blobs::{self, ConcurrentBlobUploader};
 

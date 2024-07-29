@@ -1,7 +1,6 @@
 use super::DirectoryPutter;
 use super::DirectoryService;
-use super::{DirectoryGraph, LeavesToRootValidator};
-use crate::proto;
+use super::{Directory, DirectoryGraph, LeavesToRootValidator};
 use crate::B3Digest;
 use crate::Error;
 use tonic::async_trait;
@@ -29,7 +28,7 @@ impl<DS: DirectoryService> SimplePutter<DS> {
 #[async_trait]
 impl<DS: DirectoryService + 'static> DirectoryPutter for SimplePutter<DS> {
     #[instrument(level = "trace", skip_all, fields(directory.digest=%directory.digest()), err)]
-    async fn put(&mut self, directory: proto::Directory) -> Result<(), Error> {
+    async fn put(&mut self, directory: Directory) -> Result<(), Error> {
         match self.directory_validator {
             None => return Err(Error::StorageError("already closed".to_string())),
             Some(ref mut validator) => {

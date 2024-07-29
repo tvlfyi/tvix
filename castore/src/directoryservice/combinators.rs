@@ -7,10 +7,9 @@ use futures::TryStreamExt;
 use tonic::async_trait;
 use tracing::{instrument, trace};
 
-use super::{DirectoryGraph, DirectoryService, RootToLeavesValidator, SimplePutter};
+use super::{Directory, DirectoryGraph, DirectoryService, RootToLeavesValidator, SimplePutter};
 use crate::composition::{CompositionContext, ServiceBuilder};
 use crate::directoryservice::DirectoryPutter;
-use crate::proto;
 use crate::B3Digest;
 use crate::Error;
 
@@ -40,7 +39,7 @@ where
     DS2: DirectoryService + Clone + 'static,
 {
     #[instrument(skip(self, digest), fields(directory.digest = %digest))]
-    async fn get(&self, digest: &B3Digest) -> Result<Option<proto::Directory>, Error> {
+    async fn get(&self, digest: &B3Digest) -> Result<Option<Directory>, Error> {
         match self.near.get(digest).await? {
             Some(directory) => {
                 trace!("serving from cache");
@@ -82,7 +81,7 @@ where
     }
 
     #[instrument(skip_all)]
-    async fn put(&self, _directory: proto::Directory) -> Result<B3Digest, Error> {
+    async fn put(&self, _directory: Directory) -> Result<B3Digest, Error> {
         Err(Error::StorageError("unimplemented".to_string()))
     }
 
@@ -90,7 +89,7 @@ where
     fn get_recursive(
         &self,
         root_directory_digest: &B3Digest,
-    ) -> BoxStream<'static, Result<proto::Directory, Error>> {
+    ) -> BoxStream<'static, Result<Directory, Error>> {
         let near = self.near.clone();
         let far = self.far.clone();
         let digest = root_directory_digest.clone();

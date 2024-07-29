@@ -11,7 +11,8 @@ use tonic::{async_trait, Code};
 use tracing::{instrument, Span};
 use tracing_indicatif::span_ext::IndicatifSpanExt;
 use tvix_castore::composition::{CompositionContext, ServiceBuilder};
-use tvix_castore::{proto as castorepb, Error};
+use tvix_castore::directoryservice::Node;
+use tvix_castore::Error;
 
 /// Connects to a (remote) tvix-store PathInfoService over gRPC.
 #[derive(Clone)]
@@ -123,10 +124,7 @@ where
     T::Future: Send,
 {
     #[instrument(level = "trace", skip_all, fields(root_node = ?root_node, indicatif.pb_show=1))]
-    async fn calculate_nar(
-        &self,
-        root_node: &castorepb::node::Node,
-    ) -> Result<(u64, [u8; 32]), Error> {
+    async fn calculate_nar(&self, root_node: &Node) -> Result<(u64, [u8; 32]), Error> {
         let span = Span::current();
         span.pb_set_message("Waiting for NAR calculation");
         span.pb_start();
@@ -134,8 +132,8 @@ where
         let path_info = self
             .grpc_client
             .clone()
-            .calculate_nar(castorepb::Node {
-                node: Some(root_node.clone()),
+            .calculate_nar(tvix_castore::proto::Node {
+                node: Some(root_node.into()),
             })
             .await
             .map_err(|e| Error::StorageError(e.to_string()))?

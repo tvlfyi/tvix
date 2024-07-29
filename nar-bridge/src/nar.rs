@@ -46,25 +46,20 @@ pub async fn get(
     }
 
     // parse the proto
-    let mut root_node: tvix_castore::proto::Node = Message::decode(Bytes::from(root_node_proto))
+    let root_node: tvix_castore::proto::Node = Message::decode(Bytes::from(root_node_proto))
         .map_err(|e| {
             warn!(err=%e, "unable to decode root node proto");
             StatusCode::NOT_FOUND
         })?;
 
+    let root_node: tvix_castore::directoryservice::Node = (&root_node).try_into().map_err(|e| {
+        warn!(err=%e, "root node validation failed");
+        StatusCode::BAD_REQUEST
+    })?;
+
     // validate the node, but add a dummy node name, as we only send unnamed
     // nodes
-    if let Some(rn) = root_node.node {
-        root_node.node = Some(rn.rename("00000000000000000000000000000000-dummy".into()))
-    }
-
-    let root_node = root_node
-        .validate()
-        .map_err(|e| {
-            warn!(err=%e, "root node validation failed");
-            StatusCode::BAD_REQUEST
-        })?
-        .to_owned();
+    let root_node = root_node.rename("00000000000000000000000000000000-dummy".into());
 
     let (w, r) = tokio::io::duplex(1024 * 8);
 
@@ -130,7 +125,7 @@ pub async fn put(
 
     // store mapping of narhash to root node into root_nodes.
     // we need it later to populate the root node when accepting the PathInfo.
-    root_nodes.write().put(nar_hash_actual, root_node);
+    root_nodes.write().put(nar_hash_actual, (&root_node).into());
 
     Ok("")
 }

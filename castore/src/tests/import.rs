@@ -1,5 +1,6 @@
 use crate::blobservice::{self, BlobService};
 use crate::directoryservice;
+use crate::directoryservice::{DirectoryNode, Node, SymlinkNode};
 use crate::fixtures::*;
 use crate::import::fs::ingest_path;
 use crate::proto;
@@ -33,10 +34,9 @@ async fn symlink() {
     .expect("must succeed");
 
     assert_eq!(
-        proto::node::Node::Symlink(proto::SymlinkNode {
-            name: "doesntmatter".into(),
-            target: "/nix/store/somewhereelse".into(),
-        }),
+        Node::Symlink(
+            SymlinkNode::new("doesntmatter".into(), "/nix/store/somewhereelse".into(),).unwrap()
+        ),
         root_node,
     )
 }
@@ -65,7 +65,7 @@ async fn single_file() {
             size: HELLOWORLD_BLOB_CONTENTS.len() as u64,
             executable: false,
         }),
-        root_node,
+        (&root_node).into(),
     );
 
     // ensure the blob has been uploaded
@@ -95,17 +95,20 @@ async fn complicated() {
 
     // ensure root_node matched expectations
     assert_eq!(
-        proto::node::Node::Directory(proto::DirectoryNode {
-            name: tmpdir
-                .path()
-                .file_name()
-                .unwrap()
-                .as_bytes()
-                .to_owned()
-                .into(),
-            digest: DIRECTORY_COMPLICATED.digest().into(),
-            size: DIRECTORY_COMPLICATED.size(),
-        }),
+        Node::Directory(
+            DirectoryNode::new(
+                tmpdir
+                    .path()
+                    .file_name()
+                    .unwrap()
+                    .as_bytes()
+                    .to_owned()
+                    .into(),
+                DIRECTORY_COMPLICATED.digest().clone(),
+                DIRECTORY_COMPLICATED.size(),
+            )
+            .unwrap()
+        ),
         root_node,
     );
 

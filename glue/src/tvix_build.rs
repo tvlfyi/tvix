@@ -10,7 +10,7 @@ use tvix_build::proto::{
     build_request::{AdditionalFile, BuildConstraints, EnvVar},
     BuildRequest,
 };
-use tvix_castore::proto::{self, node::Node};
+use tvix_castore::directoryservice::Node;
 
 /// These are the environment variables that Nix sets in its sandbox for every
 /// build.
@@ -109,10 +109,7 @@ pub(crate) fn derivation_to_build_request(
             .into_iter()
             .map(|(key, value)| EnvVar { key, value })
             .collect(),
-        inputs: inputs
-            .into_iter()
-            .map(|n| proto::Node { node: Some(n) })
-            .collect(),
+        inputs: inputs.iter().map(Into::into).collect(),
         inputs_dir: nix_compat::store_path::STORE_DIR[1..].into(),
         constraints,
         working_dir: "build".into(),
@@ -200,10 +197,8 @@ mod test {
         build_request::{AdditionalFile, BuildConstraints, EnvVar},
         BuildRequest,
     };
-    use tvix_castore::{
-        fixtures::DUMMY_DIGEST,
-        proto::{self, node::Node, DirectoryNode},
-    };
+    use tvix_castore::directoryservice::{DirectoryNode, Node};
+    use tvix_castore::fixtures::DUMMY_DIGEST;
 
     use crate::tvix_build::NIX_ENVIRONMENT_VARS;
 
@@ -211,11 +206,14 @@ mod test {
     use lazy_static::lazy_static;
 
     lazy_static! {
-        static ref INPUT_NODE_FOO: Node = Node::Directory(DirectoryNode {
-            name: Bytes::from("mp57d33657rf34lzvlbpfa1gjfv5gmpg-bar"),
-            digest: DUMMY_DIGEST.clone().into(),
-            size: 42,
-        });
+        static ref INPUT_NODE_FOO: Node = Node::Directory(
+            DirectoryNode::new(
+                Bytes::from("mp57d33657rf34lzvlbpfa1gjfv5gmpg-bar"),
+                DUMMY_DIGEST.clone(),
+                42,
+            )
+            .unwrap()
+        );
     }
 
     #[test]
@@ -263,9 +261,7 @@ mod test {
                 command_args: vec![":".into()],
                 outputs: vec!["nix/store/fhaj6gmwns62s6ypkcldbaj2ybvkhx3p-foo".into()],
                 environment_vars: expected_environment_vars,
-                inputs: vec![proto::Node {
-                    node: Some(INPUT_NODE_FOO.clone())
-                }],
+                inputs: vec![(&*INPUT_NODE_FOO).into()],
                 inputs_dir: "nix/store".into(),
                 constraints: Some(BuildConstraints {
                     system: derivation.system.clone(),

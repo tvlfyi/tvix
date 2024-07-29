@@ -12,8 +12,8 @@ use tracing::{instrument, warn, Span};
 use tracing_indicatif::span_ext::IndicatifSpanExt;
 use tvix_castore::{
     blobservice::BlobService,
-    directoryservice::DirectoryService,
-    proto::{node::Node, FileNode},
+    directoryservice::{DirectoryService, FileNode, Node},
+    ValidateNodeError,
 };
 use tvix_store::{nar::NarCalculationService, pathinfoservice::PathInfoService, proto::PathInfo};
 use url::Url;
@@ -331,12 +331,10 @@ where
 
                 // Construct and return the FileNode describing the downloaded contents.
                 Ok((
-                    Node::File(FileNode {
-                        name: vec![].into(),
-                        digest: blob_writer.close().await?.into(),
-                        size: blob_size,
-                        executable: false,
-                    }),
+                    Node::File(
+                        FileNode::new(vec![].into(), blob_writer.close().await?, blob_size, false)
+                            .map_err(|e| FetcherError::Io(std::io::Error::other(e.to_string())))?,
+                    ),
                     CAHash::Flat(actual_hash),
                     blob_size,
                 ))
@@ -531,12 +529,13 @@ where
 
                 // Construct and return the FileNode describing the downloaded contents,
                 // make it executable.
-                let root_node = Node::File(FileNode {
-                    name: vec![].into(),
-                    digest: blob_digest.into(),
-                    size: file_size,
-                    executable: true,
-                });
+                let root_node = Node::File(
+                    FileNode::new(vec![].into(), blob_digest, file_size, true).map_err(
+                        |e: ValidateNodeError| {
+                            FetcherError::Io(std::io::Error::other(e.to_string()))
+                        },
+                    )?,
+                );
 
                 Ok((root_node, CAHash::Nar(actual_hash), file_size))
             }
@@ -580,7 +579,7 @@ where
 
         // Construct the PathInfo and persist it.
         let path_info = PathInfo {
-            node: Some(tvix_castore::proto::Node { node: Some(node) }),
+            node: Some((&node).into()),
             references: vec![],
             narinfo: Some(tvix_store::proto::NarInfo {
                 nar_size,
@@ -598,7 +597,14 @@ where
             .await
             .map_err(|e| FetcherError::Io(e.into()))?;
 
-        Ok((store_path, path_info.node.unwrap().node.unwrap()))
+        Ok((
+            store_path,
+            (&path_info.node.unwrap().node.unwrap())
+                .try_into()
+                .map_err(|e: ValidateNodeError| {
+                    FetcherError::Io(std::io::Error::other(e.to_string()))
+                })?,
+        ))
     }
 }
 

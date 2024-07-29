@@ -1,8 +1,9 @@
 use std::path::Path;
 use tracing::{debug, instrument};
 use tvix_castore::{
-    blobservice::BlobService, directoryservice::DirectoryService, import::fs::ingest_path,
-    proto::node::Node, B3Digest,
+    blobservice::BlobService,
+    directoryservice::{DirectoryService, NamedNode, Node},
+    import::fs::ingest_path,
 };
 
 use nix_compat::{
@@ -32,24 +33,24 @@ pub fn log_node(node: &Node, path: &Path) {
         Node::Directory(directory_node) => {
             debug!(
                 path = ?path,
-                name = ?directory_node.name,
-                digest = %B3Digest::try_from(directory_node.digest.clone()).unwrap(),
+                name = ?directory_node.get_name(),
+                digest = %directory_node.digest(),
                 "import successful",
             )
         }
         Node::File(file_node) => {
             debug!(
                 path = ?path,
-                name = ?file_node.name,
-                digest = %B3Digest::try_from(file_node.digest.clone()).unwrap(),
+                name = ?file_node.get_name(),
+                digest = %file_node.digest(),
                 "import successful"
             )
         }
         Node::Symlink(symlink_node) => {
             debug!(
                 path = ?path,
-                name = ?symlink_node.name,
-                target = ?symlink_node.target,
+                name = ?symlink_node.get_name(),
+                target = ?symlink_node.target(),
                 "import successful"
             )
         }
@@ -87,7 +88,7 @@ pub fn derive_nar_ca_path_info(
     // assemble the [crate::proto::PathInfo] object.
     PathInfo {
         node: Some(tvix_castore::proto::Node {
-            node: Some(root_node),
+            node: Some((&root_node).into()),
         }),
         // There's no reference scanning on path contents ingested like this.
         references: vec![],

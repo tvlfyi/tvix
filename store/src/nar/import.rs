@@ -7,12 +7,11 @@ use tokio::{
 };
 use tvix_castore::{
     blobservice::BlobService,
-    directoryservice::DirectoryService,
+    directoryservice::{DirectoryService, NamedNode, Node},
     import::{
         blobs::{self, ConcurrentBlobUploader},
         ingest_entries, IngestionEntry, IngestionError,
     },
-    proto::{node::Node, NamedNode},
     PathBuf,
 };
 
@@ -99,7 +98,7 @@ where
     let (_, node) = try_join!(produce, consume)?;
 
     // remove the fake "root" name again
-    debug_assert_eq!(&node.get_name(), b"root");
+    debug_assert_eq!(&node.get_name()[..], b"root");
     Ok(node.rename("".into()))
 }
 
@@ -172,12 +171,13 @@ mod test {
     use rstest::*;
     use tokio_stream::StreamExt;
     use tvix_castore::blobservice::BlobService;
-    use tvix_castore::directoryservice::DirectoryService;
+    use tvix_castore::directoryservice::{
+        Directory, DirectoryNode, DirectoryService, FileNode, Node, SymlinkNode,
+    };
     use tvix_castore::fixtures::{
         DIRECTORY_COMPLICATED, DIRECTORY_WITH_KEEP, EMPTY_BLOB_DIGEST, HELLOWORLD_BLOB_CONTENTS,
         HELLOWORLD_BLOB_DIGEST,
     };
-    use tvix_castore::proto as castorepb;
 
     use crate::tests::fixtures::{
         blob_service, directory_service, NAR_CONTENTS_COMPLICATED, NAR_CONTENTS_HELLOWORLD,
@@ -199,10 +199,13 @@ mod test {
         .expect("must parse");
 
         assert_eq!(
-            castorepb::node::Node::Symlink(castorepb::SymlinkNode {
-                name: "".into(), // name must be empty
-                target: "/nix/store/somewhereelse".into(),
-            }),
+            Node::Symlink(
+                SymlinkNode::new(
+                    "".into(), // name must be empty
+                    "/nix/store/somewhereelse".into(),
+                )
+                .unwrap()
+            ),
             root_node
         );
     }
@@ -222,12 +225,15 @@ mod test {
         .expect("must parse");
 
         assert_eq!(
-            castorepb::node::Node::File(castorepb::FileNode {
-                name: "".into(), // name must be empty
-                digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
-                size: HELLOWORLD_BLOB_CONTENTS.len() as u64,
-                executable: false,
-            }),
+            Node::File(
+                FileNode::new(
+                    "".into(), // name must be empty
+                    HELLOWORLD_BLOB_DIGEST.clone(),
+                    HELLOWORLD_BLOB_CONTENTS.len() as u64,
+                    false,
+                )
+                .unwrap()
+            ),
             root_node
         );
 
@@ -250,11 +256,14 @@ mod test {
         .expect("must parse");
 
         assert_eq!(
-            castorepb::node::Node::Directory(castorepb::DirectoryNode {
-                name: "".into(), // name must be empty
-                digest: DIRECTORY_COMPLICATED.digest().into(),
-                size: DIRECTORY_COMPLICATED.size(),
-            }),
+            Node::Directory(
+                DirectoryNode::new(
+                    "".into(), // name must be empty
+                    DIRECTORY_COMPLICATED.digest(),
+                    DIRECTORY_COMPLICATED.size(),
+                )
+                .unwrap()
+            ),
             root_node,
         );
 
@@ -262,7 +271,7 @@ mod test {
         assert!(blob_service.has(&EMPTY_BLOB_DIGEST).await.unwrap());
 
         // directoryservice must contain the directories, at least with get_recursive.
-        let resp: Result<Vec<castorepb::Directory>, _> = directory_service
+        let resp: Result<Vec<Directory>, _> = directory_service
             .get_recursive(&DIRECTORY_COMPLICATED.digest())
             .collect()
             .await;

@@ -3,17 +3,18 @@ use crate::tests::fixtures::*;
 use bytes::Bytes;
 use data_encoding::BASE64;
 use nix_compat::nixbase32;
-use nix_compat::store_path::{self, StorePathRef};
+use nix_compat::store_path::{self, StorePath, StorePathRef};
 use rstest::rstest;
 use tvix_castore::proto as castorepb;
+use tvix_castore::ValidateNodeError;
 
 #[rstest]
 #[case::no_node(None, Err(ValidatePathInfoError::NoNodePresent))]
-#[case::no_node_2(Some(castorepb::Node { node: None}), Err(ValidatePathInfoError::NoNodePresent))]
+#[case::no_node_2(Some(castorepb::Node { node: None}), Err(ValidatePathInfoError::InvalidRootNode(ValidateNodeError::NoNodeSet)))]
 
 fn validate_pathinfo(
     #[case] node: Option<castorepb::Node>,
-    #[case] exp_result: Result<StorePathRef, ValidatePathInfoError>,
+    #[case] exp_result: Result<StorePath, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
     let p = PathInfo {
@@ -22,9 +23,6 @@ fn validate_pathinfo(
     };
 
     assert_eq!(exp_result, p.validate());
-
-    let err = p.validate().expect_err("validation should fail");
-    assert!(matches!(err, ValidatePathInfoError::NoNodePresent));
 }
 
 #[rstest]
@@ -32,12 +30,12 @@ fn validate_pathinfo(
         name: DUMMY_PATH.into(),
         digest: DUMMY_DIGEST.clone().into(),
         size: 0,
-}, Ok(StorePathRef::from_bytes(DUMMY_PATH.as_bytes()).unwrap()))]
+}, Ok(StorePath::from_bytes(DUMMY_PATH.as_bytes()).unwrap()))]
 #[case::invalid_digest_length(castorepb::DirectoryNode {
         name: DUMMY_PATH.into(),
         digest: Bytes::new(),
         size: 0,
-}, Err(ValidatePathInfoError::InvalidRootNode(castorepb::ValidateNodeError::InvalidDigestLen(0))))]
+}, Err(ValidatePathInfoError::InvalidRootNode(tvix_castore::ValidateNodeError::InvalidDigestLen(0))))]
 #[case::invalid_node_name_no_storepath(castorepb::DirectoryNode {
         name: "invalid".into(),
         digest: DUMMY_DIGEST.clone().into(),
@@ -48,7 +46,7 @@ fn validate_pathinfo(
 )))]
 fn validate_directory(
     #[case] directory_node: castorepb::DirectoryNode,
-    #[case] exp_result: Result<StorePathRef, ValidatePathInfoError>,
+    #[case] exp_result: Result<StorePath, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
     let p = PathInfo {
@@ -68,7 +66,7 @@ fn validate_directory(
         size: 0,
         executable: false,
     },
-    Ok(StorePathRef::from_bytes(DUMMY_PATH.as_bytes()).unwrap())
+    Ok(StorePath::from_bytes(DUMMY_PATH.as_bytes()).unwrap())
 )]
 #[case::invalid_digest_len(
     castorepb::FileNode {
@@ -76,7 +74,7 @@ fn validate_directory(
         digest: Bytes::new(),
         ..Default::default()
     },
-    Err(ValidatePathInfoError::InvalidRootNode(castorepb::ValidateNodeError::InvalidDigestLen(0)))
+    Err(ValidatePathInfoError::InvalidRootNode(tvix_castore::ValidateNodeError::InvalidDigestLen(0)))
 )]
 #[case::invalid_node_name(
     castorepb::FileNode {
@@ -91,7 +89,7 @@ fn validate_directory(
 )]
 fn validate_file(
     #[case] file_node: castorepb::FileNode,
-    #[case] exp_result: Result<StorePathRef, ValidatePathInfoError>,
+    #[case] exp_result: Result<StorePath, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
     let p = PathInfo {
@@ -109,7 +107,7 @@ fn validate_file(
         name: DUMMY_PATH.into(),
         target: "foo".into(),
     },
-    Ok(StorePathRef::from_bytes(DUMMY_PATH.as_bytes()).unwrap())
+    Ok(StorePath::from_bytes(DUMMY_PATH.as_bytes()).unwrap())
 )]
 #[case::invalid_node_name(
     castorepb::SymlinkNode {
@@ -123,7 +121,7 @@ fn validate_file(
 )]
 fn validate_symlink(
     #[case] symlink_node: castorepb::SymlinkNode,
-    #[case] exp_result: Result<StorePathRef, ValidatePathInfoError>,
+    #[case] exp_result: Result<StorePath, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
     let p = PathInfo {
@@ -233,7 +231,7 @@ fn validate_symlink_empty_target_invalid() {
         target: "".into(),
     });
 
-    node.validate().expect_err("must fail validation");
+    tvix_castore::directoryservice::Node::try_from(&node).expect_err("must fail validation");
 }
 
 /// Create a node with a symlink target including null bytes, and ensure it
@@ -245,7 +243,7 @@ fn validate_symlink_target_null_byte_invalid() {
         target: "foo\0".into(),
     });
 
-    node.validate().expect_err("must fail validation");
+    tvix_castore::directoryservice::Node::try_from(&node).expect_err("must fail validation");
 }
 
 /// Create a PathInfo with a correct deriver field and ensure it succeeds.

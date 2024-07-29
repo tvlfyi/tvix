@@ -9,8 +9,9 @@ use std::io;
 use std::sync::Arc;
 use tokio::io::sink;
 use tvix_castore::blobservice::BlobService;
-use tvix_castore::directoryservice::DirectoryService;
-use tvix_castore::proto as castorepb;
+use tvix_castore::directoryservice::{
+    DirectoryNode, DirectoryService, FileNode, Node, SymlinkNode,
+};
 
 #[rstest]
 #[tokio::test]
@@ -22,10 +23,9 @@ async fn single_symlink(
 
     write_nar(
         &mut buf,
-        &castorepb::node::Node::Symlink(castorepb::SymlinkNode {
-            name: "doesntmatter".into(),
-            target: "/nix/store/somewhereelse".into(),
-        }),
+        &Node::Symlink(
+            SymlinkNode::new("doesntmatter".into(), "/nix/store/somewhereelse".into()).unwrap(),
+        ),
         // don't put anything in the stores, as we don't actually do any requests.
         blob_service,
         directory_service,
@@ -45,12 +45,15 @@ async fn single_file_missing_blob(
 ) {
     let e = write_nar(
         sink(),
-        &castorepb::node::Node::File(castorepb::FileNode {
-            name: "doesntmatter".into(),
-            digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
-            size: HELLOWORLD_BLOB_CONTENTS.len() as u64,
-            executable: false,
-        }),
+        &Node::File(
+            FileNode::new(
+                "doesntmatter".into(),
+                HELLOWORLD_BLOB_DIGEST.clone(),
+                HELLOWORLD_BLOB_CONTENTS.len() as u64,
+                false,
+            )
+            .unwrap(),
+        ),
         // the blobservice is empty intentionally, to provoke the error.
         blob_service,
         directory_service,
@@ -90,12 +93,15 @@ async fn single_file_wrong_blob_size(
     // Test with a root FileNode of a too big size
     let e = write_nar(
         sink(),
-        &castorepb::node::Node::File(castorepb::FileNode {
-            name: "doesntmatter".into(),
-            digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
-            size: 42, // <- note the wrong size here!
-            executable: false,
-        }),
+        &Node::File(
+            FileNode::new(
+                "doesntmatter".into(),
+                HELLOWORLD_BLOB_DIGEST.clone(),
+                42, // <- note the wrong size here!
+                false,
+            )
+            .unwrap(),
+        ),
         blob_service.clone(),
         directory_service.clone(),
     )
@@ -112,12 +118,15 @@ async fn single_file_wrong_blob_size(
     // Test with a root FileNode of a too small size
     let e = write_nar(
         sink(),
-        &castorepb::node::Node::File(castorepb::FileNode {
-            name: "doesntmatter".into(),
-            digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
-            size: 2, // <- note the wrong size here!
-            executable: false,
-        }),
+        &Node::File(
+            FileNode::new(
+                "doesntmatter".into(),
+                HELLOWORLD_BLOB_DIGEST.clone(),
+                2, // <- note the wrong size here!
+                false,
+            )
+            .unwrap(),
+        ),
         blob_service,
         directory_service,
     )
@@ -153,12 +162,15 @@ async fn single_file(
 
     write_nar(
         &mut buf,
-        &castorepb::node::Node::File(castorepb::FileNode {
-            name: "doesntmatter".into(),
-            digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
-            size: HELLOWORLD_BLOB_CONTENTS.len() as u64,
-            executable: false,
-        }),
+        &Node::File(
+            FileNode::new(
+                "doesntmatter".into(),
+                HELLOWORLD_BLOB_DIGEST.clone(),
+                HELLOWORLD_BLOB_CONTENTS.len() as u64,
+                false,
+            )
+            .unwrap(),
+        ),
         blob_service,
         directory_service,
     )
@@ -196,11 +208,14 @@ async fn test_complicated(
 
     write_nar(
         &mut buf,
-        &castorepb::node::Node::Directory(castorepb::DirectoryNode {
-            name: "doesntmatter".into(),
-            digest: DIRECTORY_COMPLICATED.digest().into(),
-            size: DIRECTORY_COMPLICATED.size(),
-        }),
+        &Node::Directory(
+            DirectoryNode::new(
+                "doesntmatter".into(),
+                DIRECTORY_COMPLICATED.digest(),
+                DIRECTORY_COMPLICATED.size(),
+            )
+            .unwrap(),
+        ),
         blob_service.clone(),
         directory_service.clone(),
     )
@@ -211,11 +226,14 @@ async fn test_complicated(
 
     // ensure calculate_nar does return the correct sha256 digest and sum.
     let (nar_size, nar_digest) = calculate_size_and_sha256(
-        &castorepb::node::Node::Directory(castorepb::DirectoryNode {
-            name: "doesntmatter".into(),
-            digest: DIRECTORY_COMPLICATED.digest().into(),
-            size: DIRECTORY_COMPLICATED.size(),
-        }),
+        &Node::Directory(
+            DirectoryNode::new(
+                "doesntmatter".into(),
+                DIRECTORY_COMPLICATED.digest(),
+                DIRECTORY_COMPLICATED.size(),
+            )
+            .unwrap(),
+        ),
         blob_service,
         directory_service,
     )

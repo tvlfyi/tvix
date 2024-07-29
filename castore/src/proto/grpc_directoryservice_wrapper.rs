@@ -1,7 +1,5 @@
-use crate::directoryservice::DirectoryGraph;
-use crate::directoryservice::LeavesToRootValidator;
-use crate::proto;
-use crate::{directoryservice::DirectoryService, B3Digest};
+use crate::directoryservice::{DirectoryGraph, DirectoryService, LeavesToRootValidator};
+use crate::{proto, B3Digest, ValidateDirectoryError};
 use futures::stream::BoxStream;
 use futures::TryStreamExt;
 use std::ops::Deref;
@@ -58,13 +56,16 @@ where
                                 Status::not_found(format!("directory {} not found", digest))
                             })?;
 
-                        Box::pin(once(Ok(directory)))
+                        Box::pin(once(Ok(directory.into())))
                     } else {
                         // If recursive was requested, traverse via get_recursive.
                         Box::pin(
-                            self.directory_service.get_recursive(&digest).map_err(|e| {
-                                tonic::Status::new(tonic::Code::Internal, e.to_string())
-                            }),
+                            self.directory_service
+                                .get_recursive(&digest)
+                                .map_ok(proto::Directory::from)
+                                .map_err(|e| {
+                                    tonic::Status::new(tonic::Code::Internal, e.to_string())
+                                }),
                         )
                     }
                 }))
@@ -83,7 +84,9 @@ where
         let mut validator = DirectoryGraph::<LeavesToRootValidator>::default();
         while let Some(directory) = req_inner.message().await? {
             validator
-                .add(directory)
+                .add(directory.try_into().map_err(|e: ValidateDirectoryError| {
+                    tonic::Status::new(tonic::Code::Internal, e.to_string())
+                })?)
                 .map_err(|e| tonic::Status::new(tonic::Code::Internal, e.to_string()))?;
         }
 

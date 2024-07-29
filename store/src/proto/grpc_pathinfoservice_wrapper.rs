@@ -74,24 +74,19 @@ where
         &self,
         request: Request<castorepb::Node>,
     ) -> Result<Response<proto::CalculateNarResponse>> {
-        match request.into_inner().node {
-            None => Err(Status::invalid_argument("no root node sent")),
-            Some(root_node) => {
-                if let Err(e) = root_node.validate() {
-                    warn!(err = %e, "invalid root node");
-                    Err(Status::invalid_argument("invalid root node"))?
-                }
+        let root_node = (&request.into_inner()).try_into().map_err(|e| {
+            warn!(err = %e, "invalid root node");
+            Status::invalid_argument("invalid root node")
+        })?;
 
-                match self.nar_calculation_service.calculate_nar(&root_node).await {
-                    Ok((nar_size, nar_sha256)) => Ok(Response::new(proto::CalculateNarResponse {
-                        nar_size,
-                        nar_sha256: nar_sha256.to_vec().into(),
-                    })),
-                    Err(e) => {
-                        warn!(err = %e, "error during NAR calculation");
-                        Err(e.into())
-                    }
-                }
+        match self.nar_calculation_service.calculate_nar(&root_node).await {
+            Ok((nar_size, nar_sha256)) => Ok(Response::new(proto::CalculateNarResponse {
+                nar_size,
+                nar_sha256: nar_sha256.to_vec().into(),
+            })),
+            Err(e) => {
+                warn!(err = %e, "error during NAR calculation");
+                Err(e.into())
             }
         }
     }

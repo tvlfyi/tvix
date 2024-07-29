@@ -1,7 +1,4 @@
-#![allow(non_snake_case)]
-// https://github.com/hyperium/tonic/issues/1056
-use bstr::ByteSlice;
-use std::{collections::HashSet, iter::Peekable, str};
+use std::str;
 
 use prost::Message;
 
@@ -11,7 +8,8 @@ mod grpc_directoryservice_wrapper;
 pub use grpc_blobservice_wrapper::GRPCBlobServiceWrapper;
 pub use grpc_directoryservice_wrapper::GRPCDirectoryServiceWrapper;
 
-use crate::{B3Digest, B3_LEN};
+use crate::directoryservice::NamedNode;
+use crate::{B3Digest, ValidateDirectoryError, ValidateNodeError};
 
 tonic::include_proto!("tvix.castore.v1");
 
@@ -24,224 +22,12 @@ pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("tvix
 #[cfg(test)]
 mod tests;
 
-/// Errors that can occur during the validation of [Directory] messages.
-#[derive(Debug, PartialEq, Eq, thiserror::Error)]
-pub enum ValidateDirectoryError {
-    /// Elements are not in sorted order
-    #[error("{:?} is not sorted", .0.as_bstr())]
-    WrongSorting(Vec<u8>),
-    /// Multiple elements with the same name encountered
-    #[error("{:?} is a duplicate name", .0.as_bstr())]
-    DuplicateName(Vec<u8>),
-    /// Invalid node
-    #[error("invalid node with name {:?}: {:?}", .0.as_bstr(), .1.to_string())]
-    InvalidNode(Vec<u8>, ValidateNodeError),
-    #[error("Total size exceeds u32::MAX")]
-    SizeOverflow,
-}
-
-/// Errors that occur during Node validation
-#[derive(Debug, PartialEq, Eq, thiserror::Error)]
-pub enum ValidateNodeError {
-    #[error("No node set")]
-    NoNodeSet,
-    /// Invalid digest length encountered
-    #[error("Invalid Digest length: {0}")]
-    InvalidDigestLen(usize),
-    /// Invalid name encountered
-    #[error("Invalid name: {}", .0.as_bstr())]
-    InvalidName(Vec<u8>),
-    /// Invalid symlink target
-    #[error("Invalid symlink target: {}", .0.as_bstr())]
-    InvalidSymlinkTarget(Vec<u8>),
-}
-
 /// Errors that occur during StatBlobResponse validation
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ValidateStatBlobResponseError {
     /// Invalid digest length encountered
     #[error("Invalid digest length {0} for chunk #{1}")]
     InvalidDigestLen(usize, usize),
-}
-
-/// Checks a Node name for validity as an intermediate node.
-/// We disallow slashes, null bytes, '.', '..' and the empty string.
-pub(crate) fn validate_node_name(name: &[u8]) -> Result<(), ValidateNodeError> {
-    if name.is_empty()
-        || name == b".."
-        || name == b"."
-        || name.contains(&0x00)
-        || name.contains(&b'/')
-    {
-        Err(ValidateNodeError::InvalidName(name.to_owned()))
-    } else {
-        Ok(())
-    }
-}
-
-/// NamedNode is implemented for [FileNode], [DirectoryNode] and [SymlinkNode]
-/// and [node::Node], so we can ask all of them for the name easily.
-pub trait NamedNode {
-    fn get_name(&self) -> &[u8];
-}
-
-impl NamedNode for &FileNode {
-    fn get_name(&self) -> &[u8] {
-        &self.name
-    }
-}
-
-impl NamedNode for &DirectoryNode {
-    fn get_name(&self) -> &[u8] {
-        &self.name
-    }
-}
-
-impl NamedNode for &SymlinkNode {
-    fn get_name(&self) -> &[u8] {
-        &self.name
-    }
-}
-
-impl NamedNode for node::Node {
-    fn get_name(&self) -> &[u8] {
-        match self {
-            node::Node::File(node_file) => &node_file.name,
-            node::Node::Directory(node_directory) => &node_directory.name,
-            node::Node::Symlink(node_symlink) => &node_symlink.name,
-        }
-    }
-}
-
-impl Node {
-    /// Ensures the node has a valid enum kind (is Some), and passes its
-    // per-enum validation.
-    // The inner root node is returned for easier consumption.
-    pub fn validate(&self) -> Result<&node::Node, ValidateNodeError> {
-        if let Some(node) = self.node.as_ref() {
-            node.validate()?;
-            Ok(node)
-        } else {
-            Err(ValidateNodeError::NoNodeSet)
-        }
-    }
-}
-
-impl node::Node {
-    /// Returns the node with a new name.
-    pub fn rename(self, name: bytes::Bytes) -> Self {
-        match self {
-            node::Node::Directory(n) => node::Node::Directory(DirectoryNode { name, ..n }),
-            node::Node::File(n) => node::Node::File(FileNode { name, ..n }),
-            node::Node::Symlink(n) => node::Node::Symlink(SymlinkNode { name, ..n }),
-        }
-    }
-
-    /// Ensures the node has a valid name, and checks the type-specific fields too.
-    pub fn validate(&self) -> Result<(), ValidateNodeError> {
-        match self {
-            // for a directory root node, ensure the digest has the appropriate size.
-            node::Node::Directory(directory_node) => {
-                if directory_node.digest.len() != B3_LEN {
-                    Err(ValidateNodeError::InvalidDigestLen(
-                        directory_node.digest.len(),
-                    ))?;
-                }
-                validate_node_name(&directory_node.name)
-            }
-            // for a file root node, ensure the digest has the appropriate size.
-            node::Node::File(file_node) => {
-                if file_node.digest.len() != B3_LEN {
-                    Err(ValidateNodeError::InvalidDigestLen(file_node.digest.len()))?;
-                }
-                validate_node_name(&file_node.name)
-            }
-            // ensure the symlink target is not empty and doesn't contain null bytes.
-            node::Node::Symlink(symlink_node) => {
-                if symlink_node.target.is_empty() || symlink_node.target.contains(&b'\0') {
-                    Err(ValidateNodeError::InvalidSymlinkTarget(
-                        symlink_node.target.to_vec(),
-                    ))?;
-                }
-                validate_node_name(&symlink_node.name)
-            }
-        }
-    }
-}
-
-impl PartialOrd for node::Node {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for node::Node {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.get_name().cmp(other.get_name())
-    }
-}
-
-impl PartialOrd for FileNode {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for FileNode {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.get_name().cmp(other.get_name())
-    }
-}
-
-impl PartialOrd for SymlinkNode {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for SymlinkNode {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.get_name().cmp(other.get_name())
-    }
-}
-
-impl PartialOrd for DirectoryNode {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for DirectoryNode {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.get_name().cmp(other.get_name())
-    }
-}
-
-/// Accepts a name, and a mutable reference to the previous name.
-/// If the passed name is larger than the previous one, the reference is updated.
-/// If it's not, an error is returned.
-fn update_if_lt_prev<'n>(
-    prev_name: &mut &'n [u8],
-    name: &'n [u8],
-) -> Result<(), ValidateDirectoryError> {
-    if *name < **prev_name {
-        return Err(ValidateDirectoryError::WrongSorting(name.to_vec()));
-    }
-    *prev_name = name;
-    Ok(())
-}
-
-/// Inserts the given name into a HashSet if it's not already in there.
-/// If it is, an error is returned.
-fn insert_once<'n>(
-    seen_names: &mut HashSet<&'n [u8]>,
-    name: &'n [u8],
-) -> Result<(), ValidateDirectoryError> {
-    if seen_names.get(name).is_some() {
-        return Err(ValidateDirectoryError::DuplicateName(name.to_vec()));
-    }
-    seen_names.insert(name);
-    Ok(())
 }
 
 fn checked_sum(iter: impl IntoIterator<Item = u64>) -> Option<u64> {
@@ -280,115 +66,212 @@ impl Directory {
             .as_bytes()
             .into()
     }
+}
 
-    /// validate checks the directory for invalid data, such as:
-    /// - violations of name restrictions
-    /// - invalid digest lengths
-    /// - not properly sorted lists
-    /// - duplicate names in the three lists
-    pub fn validate(&self) -> Result<(), ValidateDirectoryError> {
-        let mut seen_names: HashSet<&[u8]> = HashSet::new();
-
-        let mut last_directory_name: &[u8] = b"";
-        let mut last_file_name: &[u8] = b"";
-        let mut last_symlink_name: &[u8] = b"";
-
-        // check directories
-        for directory_node in &self.directories {
-            node::Node::Directory(directory_node.clone())
-                .validate()
-                .map_err(|e| {
-                    ValidateDirectoryError::InvalidNode(directory_node.name.to_vec(), e)
-                })?;
-
-            update_if_lt_prev(&mut last_directory_name, &directory_node.name)?;
-            insert_once(&mut seen_names, &directory_node.name)?;
-        }
-
-        // check files
-        for file_node in &self.files {
-            node::Node::File(file_node.clone())
-                .validate()
-                .map_err(|e| ValidateDirectoryError::InvalidNode(file_node.name.to_vec(), e))?;
-
-            update_if_lt_prev(&mut last_file_name, &file_node.name)?;
-            insert_once(&mut seen_names, &file_node.name)?;
-        }
-
-        // check symlinks
-        for symlink_node in &self.symlinks {
-            node::Node::Symlink(symlink_node.clone())
-                .validate()
-                .map_err(|e| ValidateDirectoryError::InvalidNode(symlink_node.name.to_vec(), e))?;
-
-            update_if_lt_prev(&mut last_symlink_name, &symlink_node.name)?;
-            insert_once(&mut seen_names, &symlink_node.name)?;
-        }
-
-        self.size_checked()
-            .ok_or(ValidateDirectoryError::SizeOverflow)?;
-
-        Ok(())
+/// Accepts a name, and a mutable reference to the previous name.
+/// If the passed name is larger than the previous one, the reference is updated.
+/// If it's not, an error is returned.
+fn update_if_lt_prev<'n>(
+    prev_name: &mut &'n [u8],
+    name: &'n [u8],
+) -> Result<(), ValidateDirectoryError> {
+    if *name < **prev_name {
+        return Err(ValidateDirectoryError::WrongSorting(name.to_vec()));
     }
+    *prev_name = name;
+    Ok(())
+}
 
-    /// Allows iterating over all three nodes ([DirectoryNode], [FileNode],
-    /// [SymlinkNode]) in an ordered fashion, as long as the individual lists
-    /// are sorted (which can be checked by the [Directory::validate]).
-    pub fn nodes(&self) -> DirectoryNodesIterator {
-        return DirectoryNodesIterator {
-            i_directories: self.directories.iter().peekable(),
-            i_files: self.files.iter().peekable(),
-            i_symlinks: self.symlinks.iter().peekable(),
-        };
+impl TryFrom<&node::Node> for crate::directoryservice::Node {
+    type Error = ValidateNodeError;
+
+    fn try_from(node: &node::Node) -> Result<crate::directoryservice::Node, ValidateNodeError> {
+        Ok(match node {
+            node::Node::Directory(n) => crate::directoryservice::Node::Directory(n.try_into()?),
+            node::Node::File(n) => crate::directoryservice::Node::File(n.try_into()?),
+            node::Node::Symlink(n) => crate::directoryservice::Node::Symlink(n.try_into()?),
+        })
     }
+}
 
-    /// Adds the specified [node::Node] to the [Directory], preserving sorted entries.
-    /// This assumes the [Directory] to be sorted prior to adding the node.
-    ///
-    /// Inserting an element that already exists with the same name in the directory is not
-    /// supported.
-    pub fn add(&mut self, node: node::Node) {
-        debug_assert!(
-            !self.files.iter().any(|x| x.get_name() == node.get_name()),
-            "name already exists in files"
-        );
-        debug_assert!(
-            !self
-                .directories
-                .iter()
-                .any(|x| x.get_name() == node.get_name()),
-            "name already exists in directories"
-        );
-        debug_assert!(
-            !self
-                .symlinks
-                .iter()
-                .any(|x| x.get_name() == node.get_name()),
-            "name already exists in symlinks"
-        );
+impl TryFrom<&Node> for crate::directoryservice::Node {
+    type Error = ValidateNodeError;
 
+    fn try_from(node: &Node) -> Result<crate::directoryservice::Node, ValidateNodeError> {
         match node {
-            node::Node::File(node) => {
-                let pos = self
-                    .files
-                    .binary_search(&node)
-                    .expect_err("Tvix bug: dir entry with name already exists");
-                self.files.insert(pos, node);
+            Node { node: None } => Err(ValidateNodeError::NoNodeSet),
+            Node { node: Some(node) } => node.try_into(),
+        }
+    }
+}
+
+impl TryFrom<&DirectoryNode> for crate::directoryservice::DirectoryNode {
+    type Error = ValidateNodeError;
+
+    fn try_from(
+        node: &DirectoryNode,
+    ) -> Result<crate::directoryservice::DirectoryNode, ValidateNodeError> {
+        crate::directoryservice::DirectoryNode::new(
+            node.name.clone(),
+            node.digest.clone().try_into()?,
+            node.size,
+        )
+    }
+}
+
+impl TryFrom<&SymlinkNode> for crate::directoryservice::SymlinkNode {
+    type Error = ValidateNodeError;
+
+    fn try_from(
+        node: &SymlinkNode,
+    ) -> Result<crate::directoryservice::SymlinkNode, ValidateNodeError> {
+        crate::directoryservice::SymlinkNode::new(node.name.clone(), node.target.clone())
+    }
+}
+
+impl TryFrom<&FileNode> for crate::directoryservice::FileNode {
+    type Error = ValidateNodeError;
+
+    fn try_from(node: &FileNode) -> Result<crate::directoryservice::FileNode, ValidateNodeError> {
+        crate::directoryservice::FileNode::new(
+            node.name.clone(),
+            node.digest.clone().try_into()?,
+            node.size,
+            node.executable,
+        )
+    }
+}
+
+impl TryFrom<Directory> for crate::directoryservice::Directory {
+    type Error = ValidateDirectoryError;
+
+    fn try_from(
+        directory: Directory,
+    ) -> Result<crate::directoryservice::Directory, ValidateDirectoryError> {
+        (&directory).try_into()
+    }
+}
+
+impl TryFrom<&Directory> for crate::directoryservice::Directory {
+    type Error = ValidateDirectoryError;
+
+    fn try_from(
+        directory: &Directory,
+    ) -> Result<crate::directoryservice::Directory, ValidateDirectoryError> {
+        let mut dir = crate::directoryservice::Directory::new();
+        let mut last_file_name: &[u8] = b"";
+        for file in directory.files.iter().map(move |file| {
+            update_if_lt_prev(&mut last_file_name, &file.name).map(|()| file.clone())
+        }) {
+            let file = file?;
+            dir.add(crate::directoryservice::Node::File(
+                (&file)
+                    .try_into()
+                    .map_err(|e| ValidateDirectoryError::InvalidNode(file.name.into(), e))?,
+            ))?;
+        }
+        let mut last_directory_name: &[u8] = b"";
+        for directory in directory.directories.iter().map(move |directory| {
+            update_if_lt_prev(&mut last_directory_name, &directory.name).map(|()| directory.clone())
+        }) {
+            let directory = directory?;
+            dir.add(crate::directoryservice::Node::Directory(
+                (&directory)
+                    .try_into()
+                    .map_err(|e| ValidateDirectoryError::InvalidNode(directory.name.into(), e))?,
+            ))?;
+        }
+        let mut last_symlink_name: &[u8] = b"";
+        for symlink in directory.symlinks.iter().map(move |symlink| {
+            update_if_lt_prev(&mut last_symlink_name, &symlink.name).map(|()| symlink.clone())
+        }) {
+            let symlink = symlink?;
+            dir.add(crate::directoryservice::Node::Symlink(
+                (&symlink)
+                    .try_into()
+                    .map_err(|e| ValidateDirectoryError::InvalidNode(symlink.name.into(), e))?,
+            ))?;
+        }
+        Ok(dir)
+    }
+}
+
+impl From<&crate::directoryservice::Node> for node::Node {
+    fn from(node: &crate::directoryservice::Node) -> node::Node {
+        match node {
+            crate::directoryservice::Node::Directory(n) => node::Node::Directory(n.into()),
+            crate::directoryservice::Node::File(n) => node::Node::File(n.into()),
+            crate::directoryservice::Node::Symlink(n) => node::Node::Symlink(n.into()),
+        }
+    }
+}
+
+impl From<&crate::directoryservice::Node> for Node {
+    fn from(node: &crate::directoryservice::Node) -> Node {
+        Node {
+            node: Some(node.into()),
+        }
+    }
+}
+
+impl From<&crate::directoryservice::DirectoryNode> for DirectoryNode {
+    fn from(node: &crate::directoryservice::DirectoryNode) -> DirectoryNode {
+        DirectoryNode {
+            digest: node.digest().clone().into(),
+            size: node.size(),
+            name: node.get_name().clone(),
+        }
+    }
+}
+
+impl From<&crate::directoryservice::FileNode> for FileNode {
+    fn from(node: &crate::directoryservice::FileNode) -> FileNode {
+        FileNode {
+            digest: node.digest().clone().into(),
+            size: node.size(),
+            name: node.get_name().clone(),
+            executable: node.executable(),
+        }
+    }
+}
+
+impl From<&crate::directoryservice::SymlinkNode> for SymlinkNode {
+    fn from(node: &crate::directoryservice::SymlinkNode) -> SymlinkNode {
+        SymlinkNode {
+            name: node.get_name().clone(),
+            target: node.target().clone(),
+        }
+    }
+}
+
+impl From<crate::directoryservice::Directory> for Directory {
+    fn from(directory: crate::directoryservice::Directory) -> Directory {
+        (&directory).into()
+    }
+}
+
+impl From<&crate::directoryservice::Directory> for Directory {
+    fn from(directory: &crate::directoryservice::Directory) -> Directory {
+        let mut directories = vec![];
+        let mut files = vec![];
+        let mut symlinks = vec![];
+        for node in directory.nodes() {
+            match node {
+                crate::directoryservice::Node::File(n) => {
+                    files.push(n.into());
+                }
+                crate::directoryservice::Node::Directory(n) => {
+                    directories.push(n.into());
+                }
+                crate::directoryservice::Node::Symlink(n) => {
+                    symlinks.push(n.into());
+                }
             }
-            node::Node::Directory(node) => {
-                let pos = self
-                    .directories
-                    .binary_search(&node)
-                    .expect_err("Tvix bug: dir entry with name already exists");
-                self.directories.insert(pos, node);
-            }
-            node::Node::Symlink(node) => {
-                let pos = self
-                    .symlinks
-                    .binary_search(&node)
-                    .expect_err("Tvix bug: dir entry with name already exists");
-                self.symlinks.insert(pos, node);
-            }
+        }
+        Directory {
+            directories,
+            files,
+            symlinks,
         }
     }
 }
@@ -407,67 +290,5 @@ impl StatBlobResponse {
             }
         }
         Ok(())
-    }
-}
-
-/// Struct to hold the state of an iterator over all nodes of a Directory.
-///
-/// Internally, this keeps peekable Iterators over all three lists of a
-/// Directory message.
-pub struct DirectoryNodesIterator<'a> {
-    // directory: &Directory,
-    i_directories: Peekable<std::slice::Iter<'a, DirectoryNode>>,
-    i_files: Peekable<std::slice::Iter<'a, FileNode>>,
-    i_symlinks: Peekable<std::slice::Iter<'a, SymlinkNode>>,
-}
-
-/// looks at two elements implementing NamedNode, and returns true if "left
-/// is smaller / comes first".
-///
-/// Some(_) is preferred over None.
-fn left_name_lt_right<A: NamedNode, B: NamedNode>(left: Option<&A>, right: Option<&B>) -> bool {
-    match left {
-        // if left is None, right always wins
-        None => false,
-        Some(left_inner) => {
-            // left is Some.
-            match right {
-                // left is Some, right is None - left wins.
-                None => true,
-                Some(right_inner) => {
-                    // both are Some - compare the name.
-                    return left_inner.get_name() < right_inner.get_name();
-                }
-            }
-        }
-    }
-}
-
-impl Iterator for DirectoryNodesIterator<'_> {
-    type Item = node::Node;
-
-    // next returns the next node in the Directory.
-    // we peek at all three internal iterators, and pick the one with the
-    // smallest name, to ensure lexicographical ordering.
-    // The individual lists are already known to be sorted.
-    fn next(&mut self) -> Option<Self::Item> {
-        if left_name_lt_right(self.i_directories.peek(), self.i_files.peek()) {
-            // i_directories is still in the game, compare with symlinks
-            if left_name_lt_right(self.i_directories.peek(), self.i_symlinks.peek()) {
-                self.i_directories
-                    .next()
-                    .cloned()
-                    .map(node::Node::Directory)
-            } else {
-                self.i_symlinks.next().cloned().map(node::Node::Symlink)
-            }
-        } else {
-            // i_files is still in the game, compare with symlinks
-            if left_name_lt_right(self.i_files.peek(), self.i_symlinks.peek()) {
-                self.i_files.next().cloned().map(node::Node::File)
-            } else {
-                self.i_symlinks.next().cloned().map(node::Node::Symlink)
-            }
-        }
     }
 }

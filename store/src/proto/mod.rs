@@ -9,7 +9,8 @@ use nix_compat::{
     store_path::{self, StorePathRef},
 };
 use thiserror::Error;
-use tvix_castore::proto::{self as castorepb, NamedNode, ValidateNodeError};
+use tvix_castore::directoryservice::NamedNode;
+use tvix_castore::ValidateNodeError;
 
 mod grpc_pathinfoservice_wrapper;
 
@@ -87,7 +88,7 @@ impl PathInfo {
     /// validate performs some checks on the PathInfo struct,
     /// Returning either a [store_path::StorePath] of the root node, or a
     /// [ValidatePathInfoError].
-    pub fn validate(&self) -> Result<store_path::StorePathRef<'_>, ValidatePathInfoError> {
+    pub fn validate(&self) -> Result<store_path::StorePath, ValidatePathInfoError> {
         // ensure the references have the right number of bytes.
         for (i, reference) in self.references.iter().enumerate() {
             if reference.len() != store_path::DIGEST_SIZE {
@@ -158,14 +159,15 @@ impl PathInfo {
 
         // Ensure there is a (root) node present, and it properly parses to a [store_path::StorePath].
         let root_nix_path = match &self.node {
-            None | Some(castorepb::Node { node: None }) => {
-                Err(ValidatePathInfoError::NoNodePresent)?
-            }
-            Some(castorepb::Node { node: Some(node) }) => {
-                node.validate()
+            None => Err(ValidatePathInfoError::NoNodePresent)?,
+            Some(node) => {
+                // TODO save result somewhere
+                let node: tvix_castore::directoryservice::Node = node
+                    .try_into()
                     .map_err(ValidatePathInfoError::InvalidRootNode)?;
                 // parse the name of the node itself and return
                 parse_node_name_root(node.get_name(), ValidatePathInfoError::InvalidNodeName)?
+                    .to_owned()
             }
         };
 

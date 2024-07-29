@@ -13,11 +13,11 @@ use tokio_stream::{wrappers::ReadDirStream, StreamExt};
 
 use super::FuseDaemon;
 use crate::fs::{TvixStoreFs, XATTR_NAME_BLOB_DIGEST, XATTR_NAME_DIRECTORY_DIGEST};
-use crate::proto as castorepb;
-use crate::proto::node::Node;
 use crate::{
     blobservice::{BlobService, MemoryBlobService},
-    directoryservice::{DirectoryService, MemoryDirectoryService},
+    directoryservice::{
+        DirectoryNode, DirectoryService, FileNode, MemoryDirectoryService, Node, SymlinkNode,
+    },
     fixtures,
 };
 
@@ -70,12 +70,15 @@ async fn populate_blob_a(
 
     root_nodes.insert(
         BLOB_A_NAME.into(),
-        Node::File(castorepb::FileNode {
-            name: BLOB_A_NAME.into(),
-            digest: fixtures::BLOB_A_DIGEST.clone().into(),
-            size: fixtures::BLOB_A.len() as u64,
-            executable: false,
-        }),
+        Node::File(
+            FileNode::new(
+                BLOB_A_NAME.into(),
+                fixtures::BLOB_A_DIGEST.clone(),
+                fixtures::BLOB_A.len() as u64,
+                false,
+            )
+            .unwrap(),
+        ),
     );
 }
 
@@ -91,12 +94,15 @@ async fn populate_blob_b(
 
     root_nodes.insert(
         BLOB_B_NAME.into(),
-        Node::File(castorepb::FileNode {
-            name: BLOB_B_NAME.into(),
-            digest: fixtures::BLOB_B_DIGEST.clone().into(),
-            size: fixtures::BLOB_B.len() as u64,
-            executable: false,
-        }),
+        Node::File(
+            FileNode::new(
+                BLOB_B_NAME.into(),
+                fixtures::BLOB_B_DIGEST.clone(),
+                fixtures::BLOB_B.len() as u64,
+                false,
+            )
+            .unwrap(),
+        ),
     );
 }
 
@@ -116,22 +122,22 @@ async fn populate_blob_helloworld(
 
     root_nodes.insert(
         HELLOWORLD_BLOB_NAME.into(),
-        Node::File(castorepb::FileNode {
-            name: HELLOWORLD_BLOB_NAME.into(),
-            digest: fixtures::HELLOWORLD_BLOB_DIGEST.clone().into(),
-            size: fixtures::HELLOWORLD_BLOB_CONTENTS.len() as u64,
-            executable: true,
-        }),
+        Node::File(
+            FileNode::new(
+                HELLOWORLD_BLOB_NAME.into(),
+                fixtures::HELLOWORLD_BLOB_DIGEST.clone(),
+                fixtures::HELLOWORLD_BLOB_CONTENTS.len() as u64,
+                true,
+            )
+            .unwrap(),
+        ),
     );
 }
 
 async fn populate_symlink(root_nodes: &mut BTreeMap<Bytes, Node>) {
     root_nodes.insert(
         SYMLINK_NAME.into(),
-        Node::Symlink(castorepb::SymlinkNode {
-            name: SYMLINK_NAME.into(),
-            target: BLOB_A_NAME.into(),
-        }),
+        Node::Symlink(SymlinkNode::new(SYMLINK_NAME.into(), BLOB_A_NAME.into()).unwrap()),
     );
 }
 
@@ -140,10 +146,9 @@ async fn populate_symlink(root_nodes: &mut BTreeMap<Bytes, Node>) {
 async fn populate_symlink2(root_nodes: &mut BTreeMap<Bytes, Node>) {
     root_nodes.insert(
         SYMLINK_NAME2.into(),
-        Node::Symlink(castorepb::SymlinkNode {
-            name: SYMLINK_NAME2.into(),
-            target: "/nix/store/somewhereelse".into(),
-        }),
+        Node::Symlink(
+            SymlinkNode::new(SYMLINK_NAME2.into(), "/nix/store/somewhereelse".into()).unwrap(),
+        ),
     );
 }
 
@@ -167,11 +172,14 @@ async fn populate_directory_with_keep(
 
     root_nodes.insert(
         DIRECTORY_WITH_KEEP_NAME.into(),
-        castorepb::node::Node::Directory(castorepb::DirectoryNode {
-            name: DIRECTORY_WITH_KEEP_NAME.into(),
-            digest: fixtures::DIRECTORY_WITH_KEEP.digest().into(),
-            size: fixtures::DIRECTORY_WITH_KEEP.size(),
-        }),
+        Node::Directory(
+            DirectoryNode::new(
+                DIRECTORY_WITH_KEEP_NAME.into(),
+                fixtures::DIRECTORY_WITH_KEEP.digest(),
+                fixtures::DIRECTORY_WITH_KEEP.size(),
+            )
+            .unwrap(),
+        ),
     );
 }
 
@@ -180,11 +188,14 @@ async fn populate_directory_with_keep(
 async fn populate_directorynode_without_directory(root_nodes: &mut BTreeMap<Bytes, Node>) {
     root_nodes.insert(
         DIRECTORY_WITH_KEEP_NAME.into(),
-        castorepb::node::Node::Directory(castorepb::DirectoryNode {
-            name: DIRECTORY_WITH_KEEP_NAME.into(),
-            digest: fixtures::DIRECTORY_WITH_KEEP.digest().into(),
-            size: fixtures::DIRECTORY_WITH_KEEP.size(),
-        }),
+        Node::Directory(
+            DirectoryNode::new(
+                DIRECTORY_WITH_KEEP_NAME.into(),
+                fixtures::DIRECTORY_WITH_KEEP.digest(),
+                fixtures::DIRECTORY_WITH_KEEP.size(),
+            )
+            .unwrap(),
+        ),
     );
 }
 
@@ -192,12 +203,15 @@ async fn populate_directorynode_without_directory(root_nodes: &mut BTreeMap<Byte
 async fn populate_filenode_without_blob(root_nodes: &mut BTreeMap<Bytes, Node>) {
     root_nodes.insert(
         BLOB_A_NAME.into(),
-        Node::File(castorepb::FileNode {
-            name: BLOB_A_NAME.into(),
-            digest: fixtures::BLOB_A_DIGEST.clone().into(),
-            size: fixtures::BLOB_A.len() as u64,
-            executable: false,
-        }),
+        Node::File(
+            FileNode::new(
+                BLOB_A_NAME.into(),
+                fixtures::BLOB_A_DIGEST.clone(),
+                fixtures::BLOB_A.len() as u64,
+                false,
+            )
+            .unwrap(),
+        ),
     );
 }
 
@@ -227,11 +241,14 @@ async fn populate_directory_complicated(
 
     root_nodes.insert(
         DIRECTORY_COMPLICATED_NAME.into(),
-        Node::Directory(castorepb::DirectoryNode {
-            name: DIRECTORY_COMPLICATED_NAME.into(),
-            digest: fixtures::DIRECTORY_COMPLICATED.digest().into(),
-            size: fixtures::DIRECTORY_COMPLICATED.size(),
-        }),
+        Node::Directory(
+            DirectoryNode::new(
+                DIRECTORY_COMPLICATED_NAME.into(),
+                fixtures::DIRECTORY_COMPLICATED.digest(),
+                fixtures::DIRECTORY_COMPLICATED.size(),
+            )
+            .unwrap(),
+        ),
     );
 }
 

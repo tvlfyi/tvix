@@ -1,8 +1,5 @@
-use super::DirectoryService;
-use crate::{
-    proto::{node::Node, NamedNode},
-    B3Digest, Error, Path,
-};
+use super::{DirectoryService, NamedNode, Node};
+use crate::{Error, Path};
 use tracing::{instrument, warn};
 
 /// This descends from a (root) node to the given (sub)path, returning the Node
@@ -25,34 +22,31 @@ where
                 return Ok(None);
             }
             Node::Directory(directory_node) => {
-                let digest: B3Digest = directory_node
-                    .digest
-                    .try_into()
-                    .map_err(|_e| Error::StorageError("invalid digest length".to_string()))?;
-
                 // fetch the linked node from the directory_service.
-                let directory =
-                    directory_service
-                        .as_ref()
-                        .get(&digest)
-                        .await?
-                        .ok_or_else(|| {
-                            // If we didn't get the directory node that's linked, that's a store inconsistency, bail out!
-                            warn!("directory {} does not exist", digest);
+                let directory = directory_service
+                    .as_ref()
+                    .get(&directory_node.digest)
+                    .await?
+                    .ok_or_else(|| {
+                        // If we didn't get the directory node that's linked, that's a store inconsistency, bail out!
+                        warn!("directory {} does not exist", directory_node.digest);
 
-                            Error::StorageError(format!("directory {} does not exist", digest))
-                        })?;
+                        Error::StorageError(format!(
+                            "directory {} does not exist",
+                            directory_node.digest
+                        ))
+                    })?;
 
                 // look for the component in the [Directory].
                 // FUTUREWORK: as the nodes() iterator returns in a sorted fashion, we
                 // could stop as soon as e.name is larger than the search string.
                 if let Some(child_node) = directory.nodes().find(|n| n.get_name() == component) {
                     // child node found, update prev_node to that and continue.
-                    parent_node = child_node;
+                    parent_node = child_node.clone();
                 } else {
                     // child node not found means there's no such element inside the directory.
                     return Ok(None);
-                }
+                };
             }
         }
     }
@@ -65,6 +59,7 @@ where
 mod tests {
     use crate::{
         directoryservice,
+        directoryservice::{DirectoryNode, Node},
         fixtures::{DIRECTORY_COMPLICATED, DIRECTORY_WITH_KEEP},
         PathBuf,
     };
@@ -88,21 +83,21 @@ mod tests {
         handle.close().await.expect("must upload");
 
         // construct the node for DIRECTORY_COMPLICATED
-        let node_directory_complicated =
-            crate::proto::node::Node::Directory(crate::proto::DirectoryNode {
-                name: "doesntmatter".into(),
-                digest: DIRECTORY_COMPLICATED.digest().into(),
-                size: DIRECTORY_COMPLICATED.size(),
-            });
-
-        // construct the node for DIRECTORY_COMPLICATED
-        let node_directory_with_keep = crate::proto::node::Node::Directory(
-            DIRECTORY_COMPLICATED.directories.first().unwrap().clone(),
+        let node_directory_complicated = Node::Directory(
+            DirectoryNode::new(
+                "doesntmatter".into(),
+                DIRECTORY_COMPLICATED.digest(),
+                DIRECTORY_COMPLICATED.size(),
+            )
+            .unwrap(),
         );
 
+        // construct the node for DIRECTORY_COMPLICATED
+        let node_directory_with_keep =
+            Node::Directory(DIRECTORY_COMPLICATED.directories().next().unwrap().clone());
+
         // construct the node for the .keep file
-        let node_file_keep =
-            crate::proto::node::Node::File(DIRECTORY_WITH_KEEP.files.first().unwrap().clone());
+        let node_file_keep = Node::File(DIRECTORY_WITH_KEEP.files().next().unwrap().clone());
 
         // traversal to an empty subpath should return the root node.
         {

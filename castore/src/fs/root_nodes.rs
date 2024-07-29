@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::{proto::node::Node, Error};
+use crate::{directoryservice::Node, Error};
 use bytes::Bytes;
 use futures::stream::BoxStream;
 use tonic::async_trait;

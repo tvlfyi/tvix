@@ -15,8 +15,7 @@ use walkdir::DirEntry;
 use walkdir::WalkDir;
 
 use crate::blobservice::BlobService;
-use crate::directoryservice::DirectoryService;
-use crate::proto::node::Node;
+use crate::directoryservice::{DirectoryService, Node};
 use crate::B3Digest;
 
 use super::ingest_entries;

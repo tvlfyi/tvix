@@ -8,16 +8,14 @@ pub use import::ingest_nar_and_hash;
 pub use renderer::calculate_size_and_sha256;
 pub use renderer::write_nar;
 pub use renderer::SimpleRenderer;
-use tvix_castore::proto as castorepb;
+use tvix_castore::directoryservice::Node;
 
 #[async_trait]
 pub trait NarCalculationService: Send + Sync {
     /// Return the nar size and nar sha256 digest for a given root node.
     /// This can be used to calculate NAR-based output paths.
-    async fn calculate_nar(
-        &self,
-        root_node: &castorepb::node::Node,
-    ) -> Result<(u64, [u8; 32]), tvix_castore::Error>;
+    async fn calculate_nar(&self, root_node: &Node)
+        -> Result<(u64, [u8; 32]), tvix_castore::Error>;
 }
 
 #[async_trait]
@@ -27,7 +25,7 @@ where
 {
     async fn calculate_nar(
         &self,
-        root_node: &castorepb::node::Node,
+        root_node: &Node,
     ) -> Result<(u64, [u8; 32]), tvix_castore::Error> {
         self.as_ref().calculate_nar(root_node).await
     }
