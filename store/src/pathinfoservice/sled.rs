@@ -21,6 +21,12 @@ pub struct SledPathInfoService {
 
 impl SledPathInfoService {
     pub fn new<P: AsRef<Path>>(p: P) -> Result<Self, sled::Error> {
+        if p.as_ref() == Path::new("/") {
+            return Err(sled::Error::Unsupported(
+                "cowardly refusing to open / with sled".to_string(),
+            ));
+        }
+
         let config = sled::Config::default()
             .use_compression(false) // is a required parameter
             .path(p);
