@@ -116,6 +116,7 @@ mod import_builtins {
     use tokio::io::AsyncWriteExt;
     use tvix_castore::proto::node::Node;
     use tvix_castore::proto::FileNode;
+    use tvix_eval::builtins::coerce_value_to_path;
     use tvix_eval::generators::Gen;
     use tvix_eval::{generators::GenCo, ErrorKind, Value};
     use tvix_eval::{FileType, NixContextElement, NixString};
@@ -128,9 +129,13 @@ mod import_builtins {
     ) -> Result<Value, ErrorKind> {
         let args = args.to_attrs()?;
         let path = args.select_required("path")?;
-        let path = generators::request_force(&co, path.clone())
-            .await
-            .to_path()?;
+        let path =
+            match coerce_value_to_path(&co, generators::request_force(&co, path.clone()).await)
+                .await?
+            {
+                Ok(path) => path,
+                Err(cek) => return Ok(cek.into()),
+            };
         let name: String = if let Some(name) = args.select("name") {
             generators::request_force(&co, name.clone())
                 .await
