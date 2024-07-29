@@ -196,7 +196,6 @@ logs etc, but this is something requiring a lot of designing.
  - [redb](https://www.redb.org/) backend
 
 ### PathInfoService
- - [redb](https://www.redb.org/) backend
  - sqlite backend (different schema than the Nix one, we need the root nodes data!)
 
 ### Nix Daemon protocol
