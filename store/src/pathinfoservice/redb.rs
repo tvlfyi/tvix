@@ -56,9 +56,9 @@ impl RedbPathInfoService {
 }
 
 /// Ensures all tables are present.
+/// Opens a write transaction and calls open_table on PATHINFO_TABLE, which will
+/// create it if not present.
 fn create_schema(db: &redb::Database) -> Result<(), redb::Error> {
-    // Opens a write transaction and calls open_table on PATHINFO_TABLE, which will
-    // create it if not present.
     let txn = db.begin_write()?;
     txn.open_table(PATHINFO_TABLE)?;
     txn.commit()?;
@@ -80,7 +80,7 @@ impl PathInfoService for RedbPathInfoService {
                     Some(pathinfo_bytes) => Ok(Some(
                         PathInfo::decode(pathinfo_bytes.value().as_slice()).map_err(|e| {
                             warn!(err=%e, "failed to decode stored PathInfo");
-                            Error::StorageError(format!("failed to decode stored PathInfo: {}", e))
+                            Error::StorageError("failed to decode stored PathInfo".to_string())
                         })?,
                     )),
                     None => Ok(None),
@@ -95,7 +95,10 @@ impl PathInfoService for RedbPathInfoService {
         // Call validate on the received PathInfo message.
         let store_path = path_info
             .validate()
-            .map_err(|e| Error::InvalidRequest(format!("failed to validate PathInfo: {}", e)))?
+            .map_err(|e| {
+                warn!(err=%e, "failed to validate PathInfo");
+                Error::StorageError("failed to validate PathInfo".to_string())
+            })?
             .to_owned();
 
         let path_info_encoded = path_info.encode_to_vec();
@@ -110,7 +113,7 @@ impl PathInfoService for RedbPathInfoService {
                         .insert(store_path.digest(), path_info_encoded)
                         .map_err(|e| {
                             warn!(err=%e, "failed to insert PathInfo");
-                            Error::StorageError(format!("failed to insert PathInfo: {}", e))
+                            Error::StorageError("failed to insert PathInfo".to_string())
                         })?;
                 }
                 Ok(txn.commit()?)
@@ -136,7 +139,8 @@ impl PathInfoService for RedbPathInfoService {
                     tokio::runtime::Handle::current()
                         .block_on(tx.send(Ok(
                             PathInfo::decode(elem.1.value().as_slice()).map_err(|e| {
-                                Error::InvalidRequest(format!("invalid PathInfo: {}", e))
+                                warn!(err=%e, "invalid PathInfo");
+                                Error::StorageError("invalid PathInfo".to_string())
                             })?,
                         )))
                         .map_err(|e| Error::StorageError(e.to_string()))?;
