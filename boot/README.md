@@ -34,7 +34,7 @@ export PATH=$PATH:$PWD/target/release-with-debug
 Secondly, configure tvix to use the local backend:
 
 ```
-export BLOB_SERVICE_ADDR=sled://$PWD/blobs.sled
+export BLOB_SERVICE_ADDR=objectstore+file://$PWD/blobs
 export DIRECTORY_SERVICE_ADDR=sled://$PWD/directories.sled
 export PATH_INFO_SERVICE_ADDR=sled://$PWD/pathinfo.sled
 ```
@@ -43,9 +43,9 @@ Potentially copy some data into tvix-store (via nar-bridge):
 
 ```
 mg run //tvix:store -- daemon &
-$(mg build //tvix:nar-bridge-go)/bin/nar-bridge-http &
+mg run //tvix:nar-bridge -- &
 rm -Rf ~/.cache/nix; nix copy --to http://localhost:9000\?compression\=none $(mg build //third_party/nixpkgs:hello)
-pkill nar-bridge-http; pkill tvix-store
+pkill nar-bridge; pkill tvix-store
 ```
 
 #### Interactive shell
