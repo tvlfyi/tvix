@@ -52,6 +52,10 @@
       ];
     in
     pkgs.defaultCrateOverrides // {
+      nar-bridge = prev: {
+        src = depot.tvix.utils.filterRustCrateSrc { root = prev.src.origSrc; };
+      };
+
       nix-compat = prev: {
         src = depot.tvix.utils.filterRustCrateSrc rec {
           root = prev.src.origSrc;
