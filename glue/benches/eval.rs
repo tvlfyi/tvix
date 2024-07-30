@@ -71,6 +71,12 @@ fn eval_nixpkgs(c: &mut Criterion) {
             interpret(black_box("(import <nixpkgs> {}).hello.outPath"));
         })
     });
+
+    c.bench_function("firefox outpath", |b| {
+        b.iter(|| {
+            interpret(black_box("(import <nixpkgs> {}).firefox.outPath"));
+        })
+    });
 }
 
 criterion_group!(
