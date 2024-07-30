@@ -31,21 +31,35 @@ the `tvix` directory:
 export PATH=$PATH:$PWD/target/release-with-debug
 ```
 
-Secondly, configure tvix to use the local backend:
+Now, spin up tvix-daemon, connecting to some (local) backends:
 
 ```
+tvix-store --otlp=false daemon \
+  --blob-service-addr=objectstore+file://$PWD/blobs \
+  --directory-service-addr=sled://$PWD/directories.sled \
+  --path-info-service-addr=sled://$PWD/pathinfo.sled &
+```
+
+Copy some data into tvix-store (we use `nar-bridge` for this for now):
+
+```
+mg run //tvix:nar-bridge -- --otlp=false &
+rm -Rf ~/.cache/nix; nix copy --to http://localhost:9000\?compression\=none $(mg build //third_party/nixpkgs:hello)
+pkill nar-bridge
+```
+
+By default, the `tvix-store virtiofs` command used in the `runVM` script
+connects to a running `tvix-store daemon` via gRPC - in which case you want to
+keep `tvix-store daemon` running.
+
+In case you want to have `tvix-store virtiofs` open the stores directly, kill
+`tvix-store daemon` too, and export the addresses from above:
+
+```
+pkill tvix-store
 export BLOB_SERVICE_ADDR=objectstore+file://$PWD/blobs
 export DIRECTORY_SERVICE_ADDR=sled://$PWD/directories.sled
 export PATH_INFO_SERVICE_ADDR=sled://$PWD/pathinfo.sled
-```
-
-Potentially copy some data into tvix-store (via nar-bridge):
-
-```
-mg run //tvix:store -- daemon &
-mg run //tvix:nar-bridge -- &
-rm -Rf ~/.cache/nix; nix copy --to http://localhost:9000\?compression\=none $(mg build //third_party/nixpkgs:hello)
-pkill nar-bridge; pkill tvix-store
 ```
 
 #### Interactive shell
@@ -100,9 +114,12 @@ Hello, world!
 [    0.299422] reboot: Power down
 ```
 
-#### Execute a NixOS system closure
-It's also possible to invoke a system closure. To do this, tvix-init honors the
-init= cmdline option, and will switch_root to it.
+#### Boot a NixOS system closure
+It's also possible to boot a system closure. To do this, tvix-init honors the
+init= cmdline option, and will `switch_root` to it.
+
+Make sure to first copy that system closure into tvix-store,
+using a similar `nix copy` comamnd as above.
 
 
 ```
