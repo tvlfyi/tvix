@@ -41,11 +41,11 @@ pub struct ServiceUrls {
     #[arg(
         long,
         env,
-        default_value = "sled:///var/lib/tvix-store/directories.sled"
+        default_value = "redb:///var/lib/tvix-store/directories.redb"
     )]
     directory_service_addr: String,
 
-    #[arg(long, env, default_value = "sled:///var/lib/tvix-store/pathinfo.sled")]
+    #[arg(long, env, default_value = "redb:///var/lib/tvix-store/pathinfo.redb")]
     path_info_service_addr: String,
 
     /// Path to a TOML file describing the way the services should be composed

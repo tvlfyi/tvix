@@ -193,7 +193,6 @@ logs etc, but this is something requiring a lot of designing.
    root `Directory` digest. This won't allow indexing intermediate Directory
    nodes, but once we have `DirectoryService` composition, it shouldn't be an
    issue.
- - [redb](https://www.redb.org/) backend
 
 ### PathInfoService
  - sqlite backend (different schema than the Nix one, we need the root nodes data!)
