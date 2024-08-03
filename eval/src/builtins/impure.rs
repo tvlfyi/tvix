@@ -81,6 +81,18 @@ mod impure_builtins {
             }
         }
     }
+
+    #[builtin("readFileType")]
+    async fn builtin_read_file_type(co: GenCo, path: Value) -> Result<Value, ErrorKind> {
+        match coerce_value_to_path(&co, path).await? {
+            Err(cek) => Ok(Value::from(cek)),
+            Ok(path) => Ok(Value::from(
+                generators::request_read_file_type(&co, path)
+                    .await
+                    .to_string(),
+            )),
+        }
+    }
 }
 
 /// Return all impure builtins, that is all builtins which may perform I/O

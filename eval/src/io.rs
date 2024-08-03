@@ -26,7 +26,7 @@ use std::os::unix::ffi::OsStringExt;
 #[cfg(feature = "impure")]
 use std::fs::File;
 
-/// Types of files as represented by `builtins.readDir` in Nix.
+/// Types of files as represented by `builtins.readFileType` and `builtins.readDir` in Nix.
 #[derive(Debug)]
 pub enum FileType {
     Directory,
@@ -120,7 +120,7 @@ impl EvalIO for StdIO {
     }
 
     fn file_type(&self, path: &Path) -> io::Result<FileType> {
-        let file_type = File::open(path)?.metadata()?.file_type();
+        let file_type = std::fs::symlink_metadata(path)?;
 
         Ok(if file_type.is_dir() {
             FileType::Directory

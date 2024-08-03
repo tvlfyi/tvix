@@ -121,6 +121,9 @@ pub enum VMRequest {
     /// Request serialisation of a value to JSON, according to the
     /// slightly odd Nix evaluation rules.
     ToJson(Value),
+
+    /// Request the VM for the file type of the given path.
+    ReadFileType(PathBuf),
 }
 
 /// Human-readable representation of a generator message, used by observers.
@@ -178,6 +181,7 @@ impl Display for VMRequest {
             VMRequest::Span => write!(f, "span"),
             VMRequest::TryForce(v) => write!(f, "try_force({})", v.type_of()),
             VMRequest::ToJson(v) => write!(f, "to_json({})", v.type_of()),
+            VMRequest::ReadFileType(p) => write!(f, "read_file_type({})", p.to_string_lossy()),
         }
     }
 }
@@ -202,6 +206,8 @@ pub enum VMResponse {
 
     /// [std::io::Reader] produced by the VM in response to some IO operation.
     Reader(Box<dyn std::io::Read>),
+
+    FileType(FileType),
 }
 
 impl Display for VMResponse {
@@ -213,6 +219,7 @@ impl Display for VMResponse {
             VMResponse::Directory(d) => write!(f, "dir(len = {})", d.len()),
             VMResponse::Span(_) => write!(f, "span"),
             VMResponse::Reader(_) => write!(f, "reader"),
+            VMResponse::FileType(t) => write!(f, "file_type({})", t),
         }
     }
 }
@@ -496,6 +503,20 @@ where
                                 value.into_contextful_json_generator(co)
                             });
                             return Ok(false);
+                        }
+
+                        VMRequest::ReadFileType(path) => {
+                            let file_type = self
+                                .io_handle
+                                .as_ref()
+                                .file_type(&path)
+                                .map_err(|e| ErrorKind::IO {
+                                    path: Some(path),
+                                    error: e.into(),
+                                })
+                                .with_span(span, self)?;
+
+                            message = VMResponse::FileType(file_type);
                         }
                     }
                 }
@@ -784,6 +805,17 @@ pub(crate) async fn request_to_json(
     match co.yield_(VMRequest::ToJson(value)).await {
         VMResponse::Value(Value::Json(json_with_ctx)) => Ok(*json_with_ctx),
         VMResponse::Value(Value::Catchable(cek)) => Err(*cek),
+        msg => panic!(
+            "Tvix bug: VM responded with incorrect generator message: {}",
+            msg
+        ),
+    }
+}
+
+#[cfg_attr(not(feature = "impure"), allow(unused))]
+pub(crate) async fn request_read_file_type(co: &GenCo, path: PathBuf) -> FileType {
+    match co.yield_(VMRequest::ReadFileType(path)).await {
+        VMResponse::FileType(file_type) => file_type,
         msg => panic!(
             "Tvix bug: VM responded with incorrect generator message: {}",
             msg
