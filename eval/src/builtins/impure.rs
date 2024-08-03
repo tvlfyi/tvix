@@ -9,7 +9,6 @@ use std::{
 use crate::{
     self as tvix_eval,
     errors::ErrorKind,
-    io::FileType,
     value::NixAttrs,
     vm::generators::{self, GenCo},
     NixString, Value,
@@ -60,12 +59,7 @@ mod impure_builtins {
                         NixString::from(
                             String::from_utf8(name.to_vec()).expect("parsing file name as string"),
                         ),
-                        Value::from(match ftype {
-                            FileType::Directory => "directory",
-                            FileType::Regular => "regular",
-                            FileType::Symlink => "symlink",
-                            FileType::Unknown => "unknown",
-                        }),
+                        Value::from(ftype.to_string()),
                     )
                 });
 

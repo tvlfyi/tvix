@@ -35,6 +35,19 @@ pub enum FileType {
     Unknown,
 }
 
+impl std::fmt::Display for FileType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let type_as_str = match &self {
+            FileType::Directory => "directory",
+            FileType::Regular => "regular",
+            FileType::Symlink => "symlink",
+            FileType::Unknown => "unknown",
+        };
+
+        write!(f, "{}", type_as_str)
+    }
+}
+
 /// Represents all possible filesystem interactions that exist in the Nix
 /// language, and that need to be executed somehow.
 ///
