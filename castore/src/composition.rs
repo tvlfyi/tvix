@@ -70,7 +70,7 @@
 //! });
 //!
 //! let blob_services_configs = with_registry(&REG, || serde_json::from_value(blob_services_configs_json))?;
-//! let mut blob_service_composition = Composition::default();
+//! let mut blob_service_composition = Composition::new(&REG);
 //! blob_service_composition.extend_with_configs::<dyn BlobService>(blob_services_configs);
 //! let blob_service: Arc<dyn BlobService> = blob_service_composition.build("default").await?;
 //! # Ok(())
@@ -88,6 +88,13 @@
 //! ```
 //!
 //! Continue with Example 2, with my_registry instead of REG
+//!
+//! EXPERIMENTAL: If the xp-store-composition feature is enabled,
+//! entrypoints can also be URL strings, which are created as
+//! anonymous stores. Instantiations of the same URL will
+//! result in a new, distinct anonymous store each time, so creating
+//! two `memory://` stores with this method will not share the same view.
+//! This behavior might change in the future.
 
 use erased_serde::deserialize;
 use futures::future::BoxFuture;
@@ -278,12 +285,15 @@ pub struct CompositionContext<'a> {
     // The TypeId of the trait object is included to distinguish e.g. the
     // BlobService "default" and the DirectoryService "default".
     stack: Vec<(TypeId, String)>,
+    registry: &'static Registry,
     composition: Option<&'a Composition>,
 }
 
 impl<'a> CompositionContext<'a> {
-    pub fn blank() -> Self {
+    /// Get a composition context for one-off store creation.
+    pub fn blank(registry: &'static Registry) -> Self {
         Self {
+            registry,
             stack: Default::default(),
             composition: None,
         }
@@ -303,10 +313,104 @@ impl<'a> CompositionContext<'a> {
             )
             .into());
         }
-        match self.composition {
-            Some(comp) => Ok(comp.build_internal(self.stack.clone(), entrypoint).await?),
-            None => Err(CompositionError::NotFound(entrypoint).into()),
+
+        Ok(self.build_internal(entrypoint).await?)
+    }
+
+    #[cfg(feature = "xp-store-composition")]
+    async fn build_anonymous<T: ?Sized + Send + Sync + 'static>(
+        &self,
+        entrypoint: String,
+    ) -> Result<Arc<T>, Box<dyn std::error::Error + Send + Sync>> {
+        let url = url::Url::parse(&entrypoint)?;
+        let config: DeserializeWithRegistry<Box<dyn ServiceBuilder<Output = T>>> =
+            with_registry(self.registry, || url.try_into())?;
+        config.0.build("anonymous", self).await
+    }
+
+    fn build_internal<T: ?Sized + Send + Sync + 'static>(
+        &self,
+        entrypoint: String,
+    ) -> BoxFuture<'_, Result<Arc<T>, CompositionError>> {
+        #[cfg(feature = "xp-store-composition")]
+        if entrypoint.contains("://") {
+            // There is a chance this is a url. we are building an anonymous store
+            return Box::pin(async move {
+                self.build_anonymous(entrypoint.clone())
+                    .await
+                    .map_err(|e| CompositionError::Failed(entrypoint, Arc::from(e)))
+            });
         }
+
+        let mut stores = match self.composition {
+            Some(comp) => comp.stores.lock().unwrap(),
+            None => return Box::pin(futures::future::err(CompositionError::NotFound(entrypoint))),
+        };
+        let entry = match stores.get_mut(&(TypeId::of::<T>(), entrypoint.clone())) {
+            Some(v) => v,
+            None => return Box::pin(futures::future::err(CompositionError::NotFound(entrypoint))),
+        };
+        // for lifetime reasons, we put a placeholder value in the hashmap while we figure out what
+        // the new value should be. the Mutex stays locked the entire time, so nobody will ever see
+        // this temporary value.
+        let prev_val = std::mem::replace(
+            entry,
+            Box::new(InstantiationState::<T>::Done(Err(
+                CompositionError::Poisoned(entrypoint.clone()),
+            ))),
+        );
+        let (new_val, ret) = match *prev_val.downcast::<InstantiationState<T>>().unwrap() {
+            InstantiationState::Done(service) => (
+                InstantiationState::Done(service.clone()),
+                futures::future::ready(service).boxed(),
+            ),
+            // the construction of the store has not started yet.
+            InstantiationState::Config(config) => {
+                let (tx, rx) = tokio::sync::watch::channel(None);
+                (
+                    InstantiationState::InProgress(rx),
+                    (async move {
+                        let mut new_context = CompositionContext {
+                            composition: self.composition,
+                            registry: self.registry,
+                            stack: self.stack.clone(),
+                        };
+                        new_context
+                            .stack
+                            .push((TypeId::of::<T>(), entrypoint.clone()));
+                        let res =
+                            config.build(&entrypoint, &new_context).await.map_err(|e| {
+                                match e.downcast() {
+                                    Ok(e) => *e,
+                                    Err(e) => CompositionError::Failed(entrypoint, e.into()),
+                                }
+                            });
+                        tx.send(Some(res.clone())).unwrap();
+                        res
+                    })
+                    .boxed(),
+                )
+            }
+            // there is already a task driving forward the construction of this store, wait for it
+            // to notify us via the provided channel
+            InstantiationState::InProgress(mut recv) => {
+                (InstantiationState::InProgress(recv.clone()), {
+                    (async move {
+                        loop {
+                            if let Some(v) =
+                                recv.borrow_and_update().as_ref().map(|res| res.clone())
+                            {
+                                break v;
+                            }
+                            recv.changed().await.unwrap();
+                        }
+                    })
+                    .boxed()
+                })
+            }
+        };
+        *entry = Box::new(new_val);
+        ret
     }
 }
 
@@ -336,8 +440,8 @@ enum InstantiationState<T: ?Sized> {
     Done(Result<Arc<T>, CompositionError>),
 }
 
-#[derive(Default)]
 pub struct Composition {
+    registry: &'static Registry,
     stores: std::sync::Mutex<HashMap<(TypeId, String), Box<dyn Any + Send + Sync>>>,
 }
 
@@ -381,6 +485,14 @@ impl<T: ?Sized + Send + Sync + 'static>
 }
 
 impl Composition {
+    /// The given registry will be used for creation of anonymous stores during composition
+    pub fn new(registry: &'static Registry) -> Self {
+        Self {
+            registry,
+            stores: Default::default(),
+        }
+    }
+
     pub fn extend_with_configs<T: ?Sized + Send + Sync + 'static>(
         &mut self,
         // Keep the concrete `HashMap` type here since it allows for type
@@ -390,87 +502,17 @@ impl Composition {
         self.extend(configs);
     }
 
+    /// Looks up the entrypoint name in the composition and returns an instantiated service.
     pub async fn build<T: ?Sized + Send + Sync + 'static>(
         &self,
         entrypoint: &str,
     ) -> Result<Arc<T>, CompositionError> {
-        self.build_internal(vec![], entrypoint.to_string()).await
-    }
-
-    fn build_internal<T: ?Sized + Send + Sync + 'static>(
-        &self,
-        stack: Vec<(TypeId, String)>,
-        entrypoint: String,
-    ) -> BoxFuture<'_, Result<Arc<T>, CompositionError>> {
-        let mut stores = self.stores.lock().unwrap();
-        let entry = match stores.get_mut(&(TypeId::of::<T>(), entrypoint.clone())) {
-            Some(v) => v,
-            None => return Box::pin(futures::future::err(CompositionError::NotFound(entrypoint))),
-        };
-        // for lifetime reasons, we put a placeholder value in the hashmap while we figure out what
-        // the new value should be. the Mutex stays locked the entire time, so nobody will ever see
-        // this temporary value.
-        let prev_val = std::mem::replace(
-            entry,
-            Box::new(InstantiationState::<T>::Done(Err(
-                CompositionError::Poisoned(entrypoint.clone()),
-            ))),
-        );
-        let (new_val, ret) = match *prev_val.downcast::<InstantiationState<T>>().unwrap() {
-            InstantiationState::Done(service) => (
-                InstantiationState::Done(service.clone()),
-                futures::future::ready(service).boxed(),
-            ),
-            // the construction of the store has not started yet.
-            InstantiationState::Config(config) => {
-                let (tx, rx) = tokio::sync::watch::channel(None);
-                (
-                    InstantiationState::InProgress(rx),
-                    (async move {
-                        let mut new_context = CompositionContext {
-                            stack: stack.clone(),
-                            composition: Some(self),
-                        };
-                        new_context
-                            .stack
-                            .push((TypeId::of::<T>(), entrypoint.clone()));
-                        let res =
-                            config.build(&entrypoint, &new_context).await.map_err(|e| {
-                                match e.downcast() {
-                                    Ok(e) => *e,
-                                    Err(e) => CompositionError::Failed(entrypoint, e.into()),
-                                }
-                            });
-                        tx.send(Some(res.clone())).unwrap();
-                        res
-                    })
-                    .boxed(),
-                )
-            }
-            // there is already a task driving forward the construction of this store, wait for it
-            // to notify us via the provided channel
-            InstantiationState::InProgress(mut recv) => {
-                (InstantiationState::InProgress(recv.clone()), {
-                    (async move {
-                        loop {
-                            if let Some(v) =
-                                recv.borrow_and_update().as_ref().map(|res| res.clone())
-                            {
-                                break v;
-                            }
-                            recv.changed().await.unwrap();
-                        }
-                    })
-                    .boxed()
-                })
-            }
-        };
-        *entry = Box::new(new_val);
-        ret
+        self.context().build_internal(entrypoint.to_string()).await
     }
 
     pub fn context(&self) -> CompositionContext {
         CompositionContext {
+            registry: self.registry,
             stack: vec![],
             composition: Some(self),
         }
@@ -496,7 +538,7 @@ mod test {
 
         let blob_services_configs =
             with_registry(&REG, || serde_json::from_value(blob_services_configs_json)).unwrap();
-        let mut blob_service_composition = Composition::default();
+        let mut blob_service_composition = Composition::new(&REG);
         blob_service_composition.extend_with_configs::<dyn BlobService>(blob_services_configs);
         let (blob_service1, blob_service2) = tokio::join!(
             blob_service_composition.build::<dyn BlobService>("default"),
@@ -526,7 +568,7 @@ mod test {
 
         let blob_services_configs =
             with_registry(&REG, || serde_json::from_value(blob_services_configs_json)).unwrap();
-        let mut blob_service_composition = Composition::default();
+        let mut blob_service_composition = Composition::new(&REG);
         blob_service_composition.extend_with_configs::<dyn BlobService>(blob_services_configs);
         match blob_service_composition
             .build::<dyn BlobService>("default")

@@ -73,7 +73,7 @@ otlp = ["tvix-tracing/otlp"]
 tonic-reflection = ["dep:tonic-reflection", "tvix-castore/tonic-reflection"]
 tracy = ["tvix-tracing/tracy"]
 virtiofs = ["tvix-castore/virtiofs"]
-xp-store-composition = ["toml"]
+xp-store-composition = ["toml", "tvix-castore/xp-store-composition"]
 # Whether to run the integration tests.
 # Requires the following packages in $PATH:
 # cbtemulator, google-cloud-bigtable-tool

@@ -91,6 +91,11 @@ virtiofs = [
 ]
 fuse = ["fs"]
 tonic-reflection = ["dep:tonic-reflection"]
+# It's already possible for other crates to build a
+# fully fledged store composition system based on castore composition.
+# However, this feature enables anonymous url syntax which might
+# inherently expose arbitrary composition possibilities to the user.
+xp-store-composition = []
 # Whether to run the integration tests.
 # Requires the following packages in $PATH:
 # cbtemulator, google-cloud-bigtable-tool

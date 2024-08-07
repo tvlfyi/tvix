@@ -27,7 +27,7 @@ pub async fn from_addr(
     })?
     .0;
     let blob_service = blob_service_config
-        .build("anonymous", &CompositionContext::blank())
+        .build("anonymous", &CompositionContext::blank(&REG))
         .await?;
 
     Ok(blob_service)

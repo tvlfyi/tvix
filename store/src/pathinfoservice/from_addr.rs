@@ -44,7 +44,10 @@ pub async fn from_addr(
     })?
     .0;
     let path_info_service = path_info_service_config
-        .build("anonymous", context.unwrap_or(&CompositionContext::blank()))
+        .build(
+            "anonymous",
+            context.unwrap_or(&CompositionContext::blank(&REG)),
+        )
         .await?;
 
     Ok(path_info_service)
@@ -53,7 +56,7 @@ pub async fn from_addr(
 #[cfg(test)]
 mod tests {
     use super::from_addr;
-    use crate::composition::{Composition, DeserializeWithRegistry, ServiceBuilder};
+    use crate::composition::{Composition, DeserializeWithRegistry, ServiceBuilder, REG};
     use lazy_static::lazy_static;
     use rstest::rstest;
     use tempfile::TempDir;
@@ -125,7 +128,7 @@ mod tests {
     )]
     #[tokio::test]
     async fn test_from_addr_tokio(#[case] uri_str: &str, #[case] exp_succeed: bool) {
-        let mut comp = Composition::default();
+        let mut comp = Composition::new(&REG);
         comp.extend(vec![(
             "default".into(),
             DeserializeWithRegistry(Box::new(MemoryBlobServiceConfig {})

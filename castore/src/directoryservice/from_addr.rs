@@ -37,7 +37,7 @@ pub async fn from_addr(
     })?
     .0;
     let directory_service = directory_service_config
-        .build("anonymous", &CompositionContext::blank())
+        .build("anonymous", &CompositionContext::blank(&REG))
         .await?;
 
     Ok(directory_service)
@@ -88,6 +88,16 @@ mod tests {
     #[case::grpc_valid_https_host_without_port("grpc+https://localhost", true)]
     /// Correct scheme to connect to localhost over http, but with additional path, which is invalid.
     #[case::grpc_invalid_host_and_path("grpc+http://localhost/some-path", false)]
+    /// A valid example for store composition using anonymous urls
+    #[cfg_attr(
+        feature = "xp-store-composition",
+        case::anonymous_url_composition("cache://?near=memory://&far=memory://", true)
+    )]
+    /// Store composition with anonymous urls should fail if the feature is disabled
+    #[cfg_attr(
+        not(feature = "xp-store-composition"),
+        case::anonymous_url_composition("cache://?near=memory://&far=memory://", false)
+    )]
     /// A valid example for Bigtable
     #[cfg_attr(
         all(feature = "cloud", feature = "integration"),
