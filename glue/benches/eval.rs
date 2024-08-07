@@ -1,9 +1,8 @@
 use clap::Parser;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lazy_static::lazy_static;
+use mimalloc::MiMalloc;
 use std::{env, rc::Rc, sync::Arc, time::Duration};
-#[cfg(not(target_env = "msvc"))]
-use tikv_jemallocator::Jemalloc;
 use tvix_build::buildservice::DummyBuildService;
 use tvix_eval::{builtins::impure_builtins, EvalIO};
 use tvix_glue::{
@@ -14,9 +13,8 @@ use tvix_glue::{
 };
 use tvix_store::utils::{construct_services, ServiceUrlsMemory};
 
-#[cfg(not(target_env = "msvc"))]
 #[global_allocator]
-static GLOBAL: Jemalloc = Jemalloc;
+static GLOBAL: MiMalloc = MiMalloc;
 
 lazy_static! {
     static ref TOKIO_RUNTIME: tokio::runtime::Runtime = tokio::runtime::Runtime::new().unwrap();

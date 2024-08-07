@@ -1,9 +1,13 @@
 use clap::Parser;
+use mimalloc::MiMalloc;
 use nar_bridge::AppState;
 use tower::ServiceBuilder;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::info;
 use tvix_store::utils::ServiceUrlsGrpc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 /// Expose the Nix HTTP Binary Cache protocol for a tvix-store.
 #[derive(Parser)]

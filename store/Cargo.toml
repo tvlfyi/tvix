@@ -46,6 +46,7 @@ hyper-util = "0.1.6"
 toml = { version = "0.8.15", optional = true }
 tonic-health = { version = "0.12.1", default-features = false }
 redb = "2.1.1"
+mimalloc = "0.1.43"
 
 [dependencies.tonic-reflection]
 optional = true

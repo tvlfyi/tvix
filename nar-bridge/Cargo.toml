@@ -28,6 +28,7 @@ url = "2.4.0"
 serde = { version = "1.0.204", features = ["derive"] }
 lru = "0.12.3"
 parking_lot = "0.12.3"
+mimalloc = "0.1.43"
 
 [build-dependencies]
 prost-build = "0.13.1"

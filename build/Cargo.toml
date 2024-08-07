@@ -16,6 +16,7 @@ tvix-castore = { path = "../castore" }
 tvix-tracing = { path = "../tracing" }
 tracing = "0.1.40"
 url = "2.4.0"
+mimalloc = "0.1.43"
 
 [dependencies.tonic-reflection]
 optional = true

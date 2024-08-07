@@ -1,4 +1,5 @@
 use clap::Parser;
+use mimalloc::MiMalloc;
 use std::rc::Rc;
 use std::{fs, path::PathBuf};
 use tvix_cli::args::Args;
@@ -7,12 +8,8 @@ use tvix_cli::{init_io_handle, interpret, AllowIncomplete};
 use tvix_eval::observer::DisassemblingObserver;
 use tvix_glue::tvix_store_io::TvixStoreIO;
 
-#[cfg(not(target_env = "msvc"))]
-use tikv_jemallocator::Jemalloc;
-
-#[cfg(not(target_env = "msvc"))]
 #[global_allocator]
-static GLOBAL: Jemalloc = Jemalloc;
+static GLOBAL: MiMalloc = MiMalloc;
 
 /// Interpret the given code snippet, but only run the Tvix compiler
 /// on it and return errors and warnings.

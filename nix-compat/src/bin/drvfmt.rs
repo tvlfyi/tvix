@@ -3,6 +3,11 @@ use std::{collections::BTreeMap, io::Read};
 use nix_compat::derivation::Derivation;
 use serde_json::json;
 
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 /// construct a serde_json::Value from a Derivation.
 /// Some environment values can be non-valid UTF-8 strings.
 /// `serde_json` prints them out really unreadable.

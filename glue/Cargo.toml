@@ -36,13 +36,11 @@ clap = { version = "4.4.0", default-features = false }
 [dependencies.wu-manber]
 git = "https://github.com/tvlfyi/wu-manber.git"
 
-[target.'cfg(not(target_env = "msvc"))'.dependencies]
-tikv-jemallocator = "0.5"
-
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 hex-literal = "0.4.1"
 lazy_static = "1.4.0"
+mimalloc = "0.1.43"
 nix = { version = "0.27.1", features = [ "fs" ] }
 pretty_assertions = "1.4.0"
 rstest = "0.19.0"

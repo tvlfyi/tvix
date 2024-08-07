@@ -2074,6 +2074,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ec2a862134d2a7d32d7983ddcdd1c4923530833c9f2ea1a44fc5fa473989058"
 
 [[package]]
+name = "libmimalloc-sys"
+version = "0.1.39"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23aa6811d3bd4deb8a84dde645f943476d13b248d818edcf8ce0b2f37f036b44"
+dependencies = [
+ "cc",
+ "libc",
+]
+
+[[package]]
 name = "libredox"
 version = "0.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2223,6 +2233,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mimalloc"
+version = "0.1.43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68914350ae34959d83f732418d51e2427a794055d0b9529f48259ac07af65633"
+dependencies = [
+ "libmimalloc-sys",
+]
+
+[[package]]
 name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2273,6 +2292,7 @@ dependencies = [
  "hex-literal",
  "itertools 0.12.0",
  "lru",
+ "mimalloc",
  "nix-compat",
  "parking_lot 0.12.3",
  "prost 0.13.1",
@@ -2365,6 +2385,7 @@ dependencies = [
  "glob",
  "hex-literal",
  "lazy_static",
+ "mimalloc",
  "nom",
  "num-traits",
  "pin-project-lite",
@@ -4149,26 +4170,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tikv-jemalloc-sys"
-version = "0.5.4+5.3.0-patched"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9402443cb8fd499b6f327e40565234ff34dbda27460c5b47db0db77443dd85d1"
-dependencies = [
- "cc",
- "libc",
-]
-
-[[package]]
-name = "tikv-jemallocator"
-version = "0.5.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "965fe0c26be5c56c94e38ba547249074803efd52adfb66de62107d95aab3eaca"
-dependencies = [
- "libc",
- "tikv-jemalloc-sys",
-]
-
-[[package]]
 name = "time"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4780,6 +4781,7 @@ dependencies = [
  "bytes",
  "clap",
  "itertools 0.12.0",
+ "mimalloc",
  "prost 0.13.1",
  "prost-build 0.13.1",
  "rstest",
@@ -4867,6 +4869,7 @@ dependencies = [
  "clap",
  "dirs",
  "expect-test",
+ "mimalloc",
  "nix-compat",
  "rnix",
  "rowan",
@@ -4874,7 +4877,6 @@ dependencies = [
  "rustyline",
  "smol_str",
  "thiserror",
- "tikv-jemallocator",
  "tokio",
  "tracing",
  "tracing-indicatif",
@@ -4904,6 +4906,7 @@ dependencies = [
  "lazy_static",
  "lexical-core",
  "md-5",
+ "mimalloc",
  "os_str_bytes",
  "path-clean",
  "pretty_assertions",
@@ -4921,7 +4924,6 @@ dependencies = [
  "tabwriter",
  "tempfile",
  "test-strategy",
- "tikv-jemallocator",
  "toml 0.6.0",
  "tvix-eval-builtin-macros",
 ]
@@ -4951,6 +4953,7 @@ dependencies = [
  "lazy_static",
  "magic",
  "md-5",
+ "mimalloc",
  "nix 0.27.1",
  "nix-compat",
  "pin-project",
@@ -4963,7 +4966,6 @@ dependencies = [
  "sha2",
  "tempfile",
  "thiserror",
- "tikv-jemallocator",
  "tokio",
  "tokio-tar",
  "tokio-util",
@@ -5007,6 +5009,7 @@ dependencies = [
  "hyper-util",
  "lazy_static",
  "lru",
+ "mimalloc",
  "nix-compat",
  "parking_lot 0.12.3",
  "pin-project-lite",

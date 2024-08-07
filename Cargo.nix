@@ -6484,6 +6484,32 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" ];
       };
+      "libmimalloc-sys" = rec {
+        crateName = "libmimalloc-sys";
+        version = "0.1.39";
+        edition = "2018";
+        links = "mimalloc";
+        sha256 = "0i3b0dzz7cp0ik7ys66q92r16va78gwlbrnxhj5fnkdxsc8niai3";
+        authors = [
+          "Octavian Oncescu <octavonce@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "libc";
+            packageId = "libc";
+          }
+        ];
+        buildDependencies = [
+          {
+            name = "cc";
+            packageId = "cc";
+          }
+        ];
+        features = {
+          "cty" = [ "dep:cty" ];
+          "extended" = [ "cty" ];
+        };
+      };
       "libredox" = rec {
         crateName = "libredox";
         version = "0.0.1";
@@ -6883,6 +6909,34 @@ rec {
         features = { };
         resolvedDefaultFeatures = [ "default" ];
       };
+      "mimalloc" = rec {
+        crateName = "mimalloc";
+        version = "0.1.43";
+        edition = "2018";
+        sha256 = "0csnyrxc16i592gm5ffham07jyj2w98qsh9jyy1rv59lmr8474b8";
+        authors = [
+          "Octavian Oncescu <octavonce@gmail.com>"
+          "Vincent Rouillé <vincent@speedy37.fr>"
+          "Thom Chiovoloni <chiovolonit@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "libmimalloc-sys";
+            packageId = "libmimalloc-sys";
+            usesDefaultFeatures = false;
+          }
+        ];
+        features = {
+          "debug" = [ "libmimalloc-sys/debug" ];
+          "debug_in_debug" = [ "libmimalloc-sys/debug_in_debug" ];
+          "extended" = [ "libmimalloc-sys/extended" ];
+          "local_dynamic_tls" = [ "libmimalloc-sys/local_dynamic_tls" ];
+          "no_thp" = [ "libmimalloc-sys/no_thp" ];
+          "override" = [ "libmimalloc-sys/override" ];
+          "secure" = [ "libmimalloc-sys/secure" ];
+        };
+        resolvedDefaultFeatures = [ "default" ];
+      };
       "mime" = rec {
         crateName = "mime";
         version = "0.3.17";
@@ -7034,6 +7088,10 @@ rec {
           {
             name = "lru";
             packageId = "lru";
+          }
+          {
+            name = "mimalloc";
+            packageId = "mimalloc";
           }
           {
             name = "nix-compat";
@@ -7373,6 +7431,10 @@ rec {
             packageId = "glob";
           }
           {
+            name = "mimalloc";
+            packageId = "mimalloc";
+          }
+          {
             name = "nom";
             packageId = "nom";
           }
@@ -7428,6 +7490,10 @@ rec {
           {
             name = "lazy_static";
             packageId = "lazy_static";
+          }
+          {
+            name = "mimalloc";
+            packageId = "mimalloc";
           }
           {
             name = "pretty_assertions";
@@ -13059,72 +13125,6 @@ rec {
         ];
 
       };
-      "tikv-jemalloc-sys" = rec {
-        crateName = "tikv-jemalloc-sys";
-        version = "0.5.4+5.3.0-patched";
-        edition = "2018";
-        links = "jemalloc";
-        sha256 = "1lc5vm1p9dqdvd3mn3264zddnd7z6i95ch3y69prnjgxp0y480ll";
-        authors = [
-          "Alex Crichton <alex@alexcrichton.com>"
-          "Gonzalo Brito Gadeschi <gonzalobg88@gmail.com>"
-          "The TiKV Project Developers"
-        ];
-        dependencies = [
-          {
-            name = "libc";
-            packageId = "libc";
-            usesDefaultFeatures = false;
-          }
-        ];
-        buildDependencies = [
-          {
-            name = "cc";
-            packageId = "cc";
-          }
-        ];
-        features = {
-          "background_threads" = [ "background_threads_runtime_support" ];
-          "default" = [ "background_threads_runtime_support" ];
-        };
-        resolvedDefaultFeatures = [ "background_threads_runtime_support" ];
-      };
-      "tikv-jemallocator" = rec {
-        crateName = "tikv-jemallocator";
-        version = "0.5.4";
-        edition = "2018";
-        sha256 = "1jpanfm9az8hcbg6dyxdabykx03lj0j4g9cbwfa6rig5dg1f0pwn";
-        authors = [
-          "Alex Crichton <alex@alexcrichton.com>"
-          "Gonzalo Brito Gadeschi <gonzalobg88@gmail.com>"
-          "Simon Sapin <simon.sapin@exyr.org>"
-          "Steven Fackler <sfackler@gmail.com>"
-          "The TiKV Project Developers"
-        ];
-        dependencies = [
-          {
-            name = "libc";
-            packageId = "libc";
-            usesDefaultFeatures = false;
-          }
-          {
-            name = "tikv-jemalloc-sys";
-            packageId = "tikv-jemalloc-sys";
-            usesDefaultFeatures = false;
-          }
-        ];
-        features = {
-          "background_threads" = [ "tikv-jemalloc-sys/background_threads" ];
-          "background_threads_runtime_support" = [ "tikv-jemalloc-sys/background_threads_runtime_support" ];
-          "debug" = [ "tikv-jemalloc-sys/debug" ];
-          "default" = [ "background_threads_runtime_support" ];
-          "disable_initial_exec_tls" = [ "tikv-jemalloc-sys/disable_initial_exec_tls" ];
-          "profiling" = [ "tikv-jemalloc-sys/profiling" ];
-          "stats" = [ "tikv-jemalloc-sys/stats" ];
-          "unprefixed_malloc_on_supported_platforms" = [ "tikv-jemalloc-sys/unprefixed_malloc_on_supported_platforms" ];
-        };
-        resolvedDefaultFeatures = [ "background_threads_runtime_support" "default" ];
-      };
       "time" = rec {
         crateName = "time";
         version = "0.3.34";
@@ -15531,6 +15531,10 @@ rec {
             packageId = "itertools 0.12.0";
           }
           {
+            name = "mimalloc";
+            packageId = "mimalloc";
+          }
+          {
             name = "prost";
             packageId = "prost 0.13.1";
           }
@@ -15895,6 +15899,10 @@ rec {
             packageId = "dirs";
           }
           {
+            name = "mimalloc";
+            packageId = "mimalloc";
+          }
+          {
             name = "nix-compat";
             packageId = "nix-compat";
           }
@@ -15921,11 +15929,6 @@ rec {
           {
             name = "thiserror";
             packageId = "thiserror";
-          }
-          {
-            name = "tikv-jemallocator";
-            packageId = "tikv-jemallocator";
-            target = { target, features }: (!("msvc" == target."env" or null));
           }
           {
             name = "tokio";
@@ -16121,6 +16124,10 @@ rec {
             packageId = "itertools 0.12.0";
           }
           {
+            name = "mimalloc";
+            packageId = "mimalloc";
+          }
+          {
             name = "pretty_assertions";
             packageId = "pretty_assertions";
           }
@@ -16131,11 +16138,6 @@ rec {
           {
             name = "tempfile";
             packageId = "tempfile";
-          }
-          {
-            name = "tikv-jemallocator";
-            packageId = "tikv-jemallocator";
-            target = { target, features }: (!("msvc" == target."env" or null));
           }
         ];
         features = {
@@ -16253,11 +16255,6 @@ rec {
             packageId = "thiserror";
           }
           {
-            name = "tikv-jemallocator";
-            packageId = "tikv-jemallocator";
-            target = { target, features }: (!("msvc" == target."env" or null));
-          }
-          {
             name = "tokio";
             packageId = "tokio";
           }
@@ -16326,6 +16323,10 @@ rec {
           {
             name = "lazy_static";
             packageId = "lazy_static";
+          }
+          {
+            name = "mimalloc";
+            packageId = "mimalloc";
           }
           {
             name = "nix";
@@ -16445,6 +16446,10 @@ rec {
           {
             name = "lru";
             packageId = "lru";
+          }
+          {
+            name = "mimalloc";
+            packageId = "mimalloc";
           }
           {
             name = "nix-compat";

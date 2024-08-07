@@ -1,7 +1,11 @@
 use std::path::Path;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use mimalloc::MiMalloc;
 use nix_compat::derivation::Derivation;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 const RESOURCES_PATHS: &str = "src/derivation/tests/derivation_tests/ok";
 

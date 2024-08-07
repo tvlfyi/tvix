@@ -1,7 +1,11 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use lazy_static::lazy_static;
+use mimalloc::MiMalloc;
 use nix_compat::narinfo::NarInfo;
 use std::{io, str};
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 const SAMPLE: &str = r#"StorePath: /nix/store/1pajsq519irjy86vli20bgq1wr1q3pny-banking-0.3.0
 URL: nar/0rdn027rxqbl42bv9jxhsipgq2hwqdapvwmdzligmzdmz2p9vybs.nar.xz
