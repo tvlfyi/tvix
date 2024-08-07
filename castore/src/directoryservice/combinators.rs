@@ -152,11 +152,12 @@ pub struct CacheConfig {
 
 impl TryFrom<url::Url> for CacheConfig {
     type Error = Box<dyn std::error::Error + Send + Sync>;
-    fn try_from(_url: url::Url) -> Result<Self, Self::Error> {
-        Err(Error::StorageError(
-            "Instantiating a CombinedDirectoryService from a url is not supported".into(),
-        )
-        .into())
+    fn try_from(url: url::Url) -> Result<Self, Self::Error> {
+        // cache doesn't support host or path in the URL.
+        if url.has_host() || !url.path().is_empty() {
+            return Err(Error::StorageError("invalid url".to_string()).into());
+        }
+        Ok(serde_qs::from_str(url.query().unwrap_or_default())?)
     }
 }
 
