@@ -89,6 +89,8 @@ correctness:
    This is somewhat the "spiritual counterpart" to our sequential ingestion
    code (`ConcurrentBlobUploader`, used by `ingest_nar`), which keeps
    "some amount of outgoing bytes" in memory.
+   This is somewhat blocked until the {Chunk/Blob}Service split is done, as then
+   prefetching would only be a matter of adding it into the one `BlobReader`.
 
 ### Error cleanup
  - Currently, all services use tvix_castore::Error, which only has two kinds
