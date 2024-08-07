@@ -39,7 +39,37 @@ sure noone is working on this, or has some specific design in mind already.
     the checks we currently have when converting from `Vec<u8>` to `B3Digest` in
     various places.
 
-## Perf
+### Correctness > Performance
+A lot of the Nix behaviour isn't well documented out, and before going too deep
+into performance optimizations, we need to ensure we properly grasped all hidden
+features. This is to avoid doing a lot of "overall architecture perf-related
+work" and increased code complexity based on a mental model that might get
+disproved later on, as we work towards correctness.
+
+We do this by evaluating more and more parts of the official Nix test suite, as
+well as our own Tvix test suite, and compare it with Nix' output.
+
+Additionally, we evaluate attributes from nixpkgs, compare calculated output
+paths (to determine equivalence of evaluated A-Terms) and fix differences as we
+encounter them.
+
+This currently is a very manual and time-consuming process, both in terms of
+setup, as well as spotting the source of the differences (and "compensating" for
+the resulting diff noise on resulting mismtaches).
+
+ - We could use some better tooling that periodically evaluates nixpkgs, and
+   compares the output paths with the ones produced by Nix
+ - We could use some better tooling that can spot the (real) differences between
+   two (graphs of) derivations, while removing all resulting noise from the diff
+in resulting store paths.
+
+
+### Performance
+Even while keeping in mind some of the above caveats, there's some obvious
+low-langing fruits that could have a good impact on performance, with somewhat
+limited risk of becoming obsolete in case of behaviorial changes due to
+correctness:
+
  - String Contexts currently do a lot of indirections (edef)
    (NixString -> NixStringInner -> HashSet[element] -> NixContextElement -> String -> data)
    to get to the actual data. We should improve this. There's various ideas, one
