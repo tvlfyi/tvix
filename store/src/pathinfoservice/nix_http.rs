@@ -267,6 +267,7 @@ pub struct NixHTTPPathInfoServiceConfig {
 impl TryFrom<Url> for NixHTTPPathInfoServiceConfig {
     type Error = Box<dyn std::error::Error + Send + Sync>;
     fn try_from(url: Url) -> Result<Self, Self::Error> {
+        // Be careful about the distinction between `None` and `Some(vec![])`!
         let mut public_keys: Option<Vec<String>> = None;
         for (_, v) in url
             .query_pairs()
@@ -277,13 +278,28 @@ impl TryFrom<Url> for NixHTTPPathInfoServiceConfig {
                 .get_or_insert(Default::default())
                 .extend(v.split_ascii_whitespace().map(ToString::to_string));
         }
+
+        // FUTUREWORK: move url deserialization to serde?
+        let blob_service = url
+            .query_pairs()
+            .into_iter()
+            .find(|(k, _)| k == "blob_service")
+            .map(|(_, v)| v.to_string())
+            .unwrap_or("default".to_string());
+        let directory_service = url
+            .query_pairs()
+            .into_iter()
+            .find(|(k, _)| k == "directory_service")
+            .map(|(_, v)| v.to_string())
+            .unwrap_or("default".to_string());
+
         Ok(NixHTTPPathInfoServiceConfig {
             // Stringify the URL and remove the nix+ prefix.
             // We can't use `url.set_scheme(rest)`, as it disallows
             // setting something http(s) that previously wasn't.
             base_url: url.to_string().strip_prefix("nix+").unwrap().to_string(),
-            blob_service: "default".to_string(),
-            directory_service: "default".to_string(),
+            blob_service,
+            directory_service,
             public_keys,
         })
     }
