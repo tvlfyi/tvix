@@ -39,7 +39,7 @@
 //! TOK_NAR ::= "nix-archive-1" "(" "type"
 //! TOK_SYM ::= "symlink" "target"
 //! TOK_REG ::= "regular" "contents"
-//! TOK_EXE ::= "regular" "executable" ""
+//! TOK_EXE ::= "regular" "executable" "" "contents"
 //! TOK_DIR ::= "directory"
 //! TOK_ENT ::= "entry" "(" "name"
 //! TOK_NOD ::= "node" "(" "type"
