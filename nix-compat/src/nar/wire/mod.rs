@@ -119,6 +119,8 @@ fn tokens() {
         (&TOK_ENT, &["entry", "(", "name"]),
         (&TOK_NOD, &["node", "(", "type"]),
         (&TOK_PAR, &[")"]),
+        #[cfg(feature = "async")]
+        (&TOK_PAD_PAR, &["", ")"]),
     ];
 
     for &(tok, xs) in cases {
