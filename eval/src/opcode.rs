@@ -52,8 +52,7 @@ pub struct JumpOffset(pub usize);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Count(pub usize);
 
-/// All variants of this enum carry a bounded amount of data to
-/// ensure that no heap allocations are needed for an Opcode.
+/// Op represents all instructions in the Tvix abstract machine.
 ///
 /// In documentation comments, stack positions are referred to by
 /// indices written in `{}` as such, where required:
@@ -70,187 +69,182 @@ pub struct Count(pub usize);
 ///
 /// Unless otherwise specified, operations leave their result at the
 /// top of the stack.
-#[warn(variant_size_differences)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum OpCode {
+#[repr(u8)]
+#[derive(Debug, PartialEq, Eq)]
+pub enum Op {
     /// Push a constant onto the stack.
-    OpConstant(ConstantIdx),
+    Constant,
 
-    // Unary operators
-    /// Discard a value from the stack.
-    OpPop,
+    /// Discard the value on top of the stack.
+    Pop,
 
     /// Invert the boolean at the top of the stack.
-    OpInvert,
+    Invert,
 
-    // Binary operators
     /// Invert the sign of the number at the top of the stack.
-    OpNegate,
+    Negate,
 
     /// Sum up the two numbers at the top of the stack.
-    OpAdd,
+    Add,
 
     /// Subtract the number at {1} from the number at {2}.
-    OpSub,
+    Sub,
 
     /// Multiply the two numbers at the top of the stack.
-    OpMul,
+    Mul,
 
     /// Divide the two numbers at the top of the stack.
-    OpDiv,
+    Div,
 
-    // Comparison operators
     /// Check the two values at the top of the stack for Nix-equality.
-    OpEqual,
+    Equal,
 
     /// Check whether the value at {2} is less than {1}.
-    OpLess,
+    Less,
 
     /// Check whether the value at {2} is less than or equal to {1}.
-    OpLessOrEq,
+    LessOrEq,
 
     /// Check whether the value at {2} is greater than {1}.
-    OpMore,
+    More,
 
     /// Check whether the value at {2} is greater than or equal to {1}.
-    OpMoreOrEq,
+    MoreOrEq,
 
-    // Logical operators & generic jumps
     /// Jump forward in the bytecode specified by the number of
     /// instructions in its usize operand.
-    OpJump(JumpOffset),
+    Jump,
 
     /// Jump forward in the bytecode specified by the number of
     /// instructions in its usize operand, *if* the value at the top
     /// of the stack is `true`.
-    OpJumpIfTrue(JumpOffset),
+    JumpIfTrue,
 
     /// Jump forward in the bytecode specified by the number of
     /// instructions in its usize operand, *if* the value at the top
     /// of the stack is `false`.
-    OpJumpIfFalse(JumpOffset),
+    JumpIfFalse,
 
     /// Pop one stack item and jump forward in the bytecode
     /// specified by the number of instructions in its usize
     /// operand, *if* the value at the top of the stack is a
     /// Value::Catchable.
-    OpJumpIfCatchable(JumpOffset),
+    JumpIfCatchable,
 
     /// Jump forward in the bytecode specified by the number of
     /// instructions in its usize operand, *if* the value at the top
     /// of the stack is the internal value representing a missing
     /// attribute set key.
-    OpJumpIfNotFound(JumpOffset),
+    JumpIfNotFound,
 
     /// Jump forward in the bytecode specified by the number of
     /// instructions in its usize operand, *if* the value at the top
     /// of the stack is *not* the internal value requesting a
     /// stack value finalisation.
-    OpJumpIfNoFinaliseRequest(JumpOffset),
+    JumpIfNoFinaliseRequest,
 
-    // Attribute sets
-    /// Construct an attribute set from the given number of key-value pairs on the top of the stack
-    ///
-    /// Note that this takes the count of *pairs*, not the number of *stack values* - the actual
-    /// number of values popped off the stack will be twice the argument to this op
-    OpAttrs(Count),
+    /// Construct an attribute set from the given number of key-value pairs on
+    /// the top of the stack. The operand gives the count of *pairs*, not the
+    /// number of *stack values* - the actual number of values popped off the
+    /// stack will be twice the argument to this op.
+    Attrs,
+
     /// Merge the attribute set at {2} into the attribute set at {1},
     /// and leave the new set at the top of the stack.
-    OpAttrsUpdate,
+    AttrsUpdate,
 
     /// Select the attribute with the name at {1} from the set at {2}.
-    OpAttrsSelect,
+    AttrsSelect,
 
     /// Select the attribute with the name at {1} from the set at {2}, but leave
     /// a `Value::AttrNotFound` in the stack instead of failing if it is
     /// missing.
-    OpAttrsTrySelect,
+    AttrsTrySelect,
 
     /// Check for the presence of the attribute with the name at {1} in the set
     /// at {2}.
-    OpHasAttr,
+    HasAttr,
 
     /// Throw an error if the attribute set at the top of the stack has any attributes
     /// other than those listed in the formals of the current lambda
     ///
     /// Panics if the current frame is not a lambda with formals
-    OpValidateClosedFormals,
+    ValidateClosedFormals,
 
-    // `with`-handling
     /// Push a value onto the runtime `with`-stack to enable dynamic identifier
     /// resolution. The absolute stack index of the value is supplied as a usize
     /// operand.
-    OpPushWith(StackIdx),
+    PushWith,
 
     /// Pop the last runtime `with`-stack element.
-    OpPopWith,
+    PopWith,
 
     /// Dynamically resolve an identifier with the name at {1} from the runtime
     /// `with`-stack.
-    OpResolveWith,
+    ResolveWith,
 
     // Lists
     /// Construct a list from the given number of values at the top of the
     /// stack.
-    OpList(Count),
+    List,
 
     /// Concatenate the lists at {2} and {1}.
-    OpConcat,
+    Concat,
 
     // Strings
     /// Interpolate the given number of string fragments into a single string.
-    OpInterpolate(Count),
+    Interpolate,
 
     /// Force the Value on the stack and coerce it to a string
-    OpCoerceToString(crate::CoercionKind),
+    CoerceToString,
 
     // Paths
     /// Attempt to resolve the Value on the stack using the configured [`NixSearchPath`][]
     ///
     /// [`NixSearchPath`]: crate::nix_search_path::NixSearchPath
-    OpFindFile,
+    FindFile,
 
     /// Attempt to resolve a path literal relative to the home dir
-    OpResolveHomePath,
+    ResolveHomePath,
 
     // Type assertion operators
     /// Assert that the value at {1} is a boolean, and fail with a runtime error
     /// otherwise.
-    OpAssertBool,
-    OpAssertAttrs,
+    AssertBool,
+    AssertAttrs,
 
     /// Access local identifiers with statically known positions.
-    OpGetLocal(StackIdx),
+    GetLocal,
 
     /// Close scopes while leaving their expression value around.
-    OpCloseScope(Count), // number of locals to pop
+    CloseScope,
 
     /// Return an error indicating that an `assert` failed
-    OpAssertFail,
+    AssertFail,
 
     // Lambdas & closures
     /// Call the value at {1} in a new VM callframe
-    OpCall,
+    Call,
 
     /// Retrieve the upvalue at the given index from the closure or thunk
     /// currently under evaluation.
-    OpGetUpvalue(UpvalueIdx),
+    GetUpvalue,
 
     /// Construct a closure which has upvalues but no self-references
-    OpClosure(ConstantIdx),
+    Closure,
 
     /// Construct a closure which has self-references (direct or via upvalues)
-    OpThunkClosure(ConstantIdx),
+    ThunkClosure,
 
     /// Construct a suspended thunk, used to delay a computation for laziness.
-    OpThunkSuspended(ConstantIdx),
+    ThunkSuspended,
 
     /// Force the value at {1} until it is a `Thunk::Evaluated`.
-    OpForce,
+    Force,
 
     /// Finalise initialisation of the upvalues of the value in the given stack
     /// index (which must be a Value::Thunk) after the scope is fully bound.
-    OpFinalise(StackIdx),
+    Finalise,
 
     /// Final instruction emitted in a chunk. Does not have an
     /// inherent effect, but can simplify VM logic as a marker in some
@@ -258,27 +252,140 @@ pub enum OpCode {
     ///
     /// Can be thought of as "returning" the value to the parent
     /// frame, hence the name.
-    OpReturn,
+    Return,
 
-    // [`OpClosure`], [`OpThunkSuspended`], and [`OpThunkClosure`] have a
-    // variable number of arguments to the instruction, which is
-    // represented here by making their data part of the opcodes.
-    // Each of these two opcodes has a `ConstantIdx`, which must
-    // reference a `Value::Blueprint(Lambda)`.  The `upvalue_count`
-    // field in that `Lambda` indicates the number of arguments it
-    // takes, and the opcode must be followed by exactly this number
-    // of `Data*` opcodes.  The VM skips over these by advancing the
-    // instruction pointer.
-    //
-    // It is illegal for a `Data*` opcode to appear anywhere else.
-    /// Populate a static upvalue by copying from the stack immediately.
-    DataStackIdx(StackIdx),
-    /// Populate a static upvalue of a thunk by copying it the stack, but do
-    /// when the thunk is finalised (by OpFinalise) rather than immediately.
-    DataDeferredLocal(StackIdx),
-    /// Populate a static upvalue by copying it from the upvalues of an
-    /// enclosing scope.
-    DataUpvalueIdx(UpvalueIdx),
-    /// Populate dynamic upvalues by saving a copy of the with-stack.
-    DataCaptureWith,
+    /// Sentinel value to signal invalid bytecode. This MUST always be the last
+    /// value in the enum. Do not move it!
+    Invalid,
+}
+
+const _ASSERT_SMALL_OP: () = assert!(std::mem::size_of::<Op>() == 1);
+
+impl From<u8> for Op {
+    fn from(num: u8) -> Self {
+        if num >= Self::Invalid as u8 {
+            return Self::Invalid;
+        }
+
+        // SAFETY: As long as `Invalid` remains the last variant of the enum,
+        // and as long as variant values are not specified manually, this
+        // conversion is safe.
+        unsafe { std::mem::transmute(num) }
+    }
+}
+
+pub enum OpArg {
+    None,
+    Uvarint,
+    Fixed,
+    Custom,
+}
+
+impl Op {
+    pub fn arg_type(&self) -> OpArg {
+        match self {
+            Op::Constant
+            | Op::Attrs
+            | Op::PushWith
+            | Op::List
+            | Op::Interpolate
+            | Op::GetLocal
+            | Op::CloseScope
+            | Op::GetUpvalue
+            | Op::Finalise => OpArg::Uvarint,
+
+            Op::Jump
+            | Op::JumpIfTrue
+            | Op::JumpIfFalse
+            | Op::JumpIfCatchable
+            | Op::JumpIfNotFound
+            | Op::JumpIfNoFinaliseRequest => OpArg::Fixed,
+
+            Op::CoerceToString | Op::Closure | Op::ThunkClosure | Op::ThunkSuspended => {
+                OpArg::Custom
+            }
+            _ => OpArg::None,
+        }
+    }
+}
+
+/// Position is used to represent where to capture an upvalue from.
+#[derive(Clone, Copy)]
+pub struct Position(pub u64);
+
+impl Position {
+    pub fn stack_index(idx: StackIdx) -> Self {
+        Position((idx.0 as u64) << 2)
+    }
+
+    pub fn deferred_local(idx: StackIdx) -> Self {
+        Position(((idx.0 as u64) << 2) | 1)
+    }
+
+    pub fn upvalue_index(idx: UpvalueIdx) -> Self {
+        Position(((idx.0 as u64) << 2) | 2)
+    }
+
+    pub fn runtime_stack_index(&self) -> Option<StackIdx> {
+        if (self.0 & 0b11) == 0 {
+            return Some(StackIdx((self.0 >> 2) as usize));
+        }
+
+        None
+    }
+
+    pub fn runtime_deferred_local(&self) -> Option<StackIdx> {
+        if (self.0 & 0b11) == 1 {
+            return Some(StackIdx((self.0 >> 2) as usize));
+        }
+
+        None
+    }
+
+    pub fn runtime_upvalue_index(&self) -> Option<UpvalueIdx> {
+        if (self.0 & 0b11) == 2 {
+            return Some(UpvalueIdx((self.0 >> 2) as usize));
+        }
+
+        None
+    }
+}
+
+#[cfg(test)]
+mod position_tests {
+    use super::Position; // he-he
+    use super::{StackIdx, UpvalueIdx};
+
+    #[test]
+    fn test_stack_index_position() {
+        let idx = StackIdx(42);
+        let pos = Position::stack_index(idx);
+        let result = pos.runtime_stack_index();
+
+        assert_eq!(result, Some(idx));
+        assert_eq!(pos.runtime_deferred_local(), None);
+        assert_eq!(pos.runtime_upvalue_index(), None);
+    }
+
+    #[test]
+    fn test_deferred_local_position() {
+        let idx = StackIdx(42);
+        let pos = Position::deferred_local(idx);
+        let result = pos.runtime_deferred_local();
+
+        assert_eq!(result, Some(idx));
+        assert_eq!(pos.runtime_stack_index(), None);
+        assert_eq!(pos.runtime_upvalue_index(), None);
+    }
+
+    #[test]
+    fn test_upvalue_index_position() {
+        let idx = UpvalueIdx(42);
+        let pos = Position::upvalue_index(idx);
+        let result = pos.runtime_upvalue_index();
+
+        assert_eq!(result, Some(idx));
+        assert_eq!(pos.runtime_stack_index(), None);
+        assert_eq!(pos.runtime_deferred_local(), None);
+    }
 }

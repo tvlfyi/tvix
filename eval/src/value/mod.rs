@@ -186,6 +186,21 @@ pub struct CoercionKind {
     pub import_paths: bool,
 }
 
+impl From<CoercionKind> for u8 {
+    fn from(k: CoercionKind) -> u8 {
+        k.strong as u8 | (k.import_paths as u8) << 1
+    }
+}
+
+impl From<u8> for CoercionKind {
+    fn from(byte: u8) -> Self {
+        CoercionKind {
+            strong: byte & 0x01 != 0,
+            import_paths: byte & 0x02 != 0,
+        }
+    }
+}
+
 impl<T> From<T> for Value
 where
     T: Into<NixString>,

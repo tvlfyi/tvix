@@ -4935,6 +4935,7 @@ dependencies = [
  "test-strategy",
  "toml 0.6.0",
  "tvix-eval-builtin-macros",
+ "vu128",
 ]
 
 [[package]]
@@ -5325,6 +5326,12 @@ dependencies = [
  "proc-macro2",
  "quote",
 ]
+
+[[package]]
+name = "vu128"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c51a178c8f3f425d86542b14f3dce9e16e86bb86328e2293745e6744ebd62e11"
 
 [[package]]
 name = "wait-timeout"

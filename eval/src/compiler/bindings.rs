@@ -605,7 +605,7 @@ impl Compiler<'_, '_> {
                         c.emit_force(&namespace);
 
                         c.emit_constant(name.as_str().into(), &span);
-                        c.push_op(OpCode::OpAttrsSelect, &span);
+                        c.push_op(Op::AttrsSelect, &span);
                     })
                 }
 
@@ -632,7 +632,8 @@ impl Compiler<'_, '_> {
             if self.scope()[idx].needs_finaliser {
                 let stack_idx = self.scope().stack_index(idx);
                 let span = self.scope()[idx].span;
-                self.push_op(OpCode::OpFinalise(stack_idx), &OrEntireFile(span));
+                self.push_op(Op::Finalise, &OrEntireFile(span));
+                self.push_uvarint(stack_idx.0 as u64)
             }
         }
     }
@@ -667,11 +668,8 @@ impl Compiler<'_, '_> {
         self.bind_values(bindings);
 
         if kind.is_attrs() {
-            self.push_op(OpCode::OpAttrs(Count(count)), node);
-        }
-
-        if count == 0 {
-            self.unthunk();
+            self.push_op(Op::Attrs, node);
+            self.push_uvarint(count as u64);
         }
     }
 
@@ -697,7 +695,7 @@ impl Compiler<'_, '_> {
         self.scope_mut().end_scope();
 
         self.emit_constant("body".into(), node);
-        self.push_op(OpCode::OpAttrsSelect, node);
+        self.push_op(Op::AttrsSelect, node);
     }
 
     /// Is the given identifier defined *by the user* in any current scope?
@@ -718,8 +716,9 @@ impl Compiler<'_, '_> {
         match self.scope_mut().resolve_local(ident) {
             LocalPosition::Unknown => {
                 // Are we possibly dealing with an upvalue?
-                if let Some(idx) = self.resolve_upvalue(self.contexts.len() - 1, ident, node) {
-                    self.push_op(OpCode::OpGetUpvalue(idx), node);
+                if let Some(idx) = self.resolve_upvalue(self.contexts.len() - 1, ident) {
+                    self.push_op(Op::GetUpvalue, node);
+                    self.push_uvarint(idx.0 as u64);
                     return;
                 }
 
@@ -742,7 +741,7 @@ impl Compiler<'_, '_> {
                     self.thunk(slot, node, |c, _| {
                         c.context_mut().captures_with_stack = true;
                         c.emit_constant(ident.into(), node);
-                        c.push_op(OpCode::OpResolveWith, node);
+                        c.push_op(Op::ResolveWith, node);
                     });
                     return;
                 }
@@ -753,18 +752,17 @@ impl Compiler<'_, '_> {
 
             LocalPosition::Known(idx) => {
                 let stack_idx = self.scope().stack_index(idx);
-                self.push_op(OpCode::OpGetLocal(stack_idx), node);
+                self.push_op(Op::GetLocal, node);
+                self.push_uvarint(stack_idx.0 as u64);
             }
 
             // This identifier is referring to a value from the same scope which
             // is not yet defined. This identifier access must be thunked.
             LocalPosition::Recursive(idx) => self.thunk(slot, node, move |compiler, _| {
-                let upvalue_idx = compiler.add_upvalue(
-                    compiler.contexts.len() - 1,
-                    node,
-                    UpvalueKind::Local(idx),
-                );
-                compiler.push_op(OpCode::OpGetUpvalue(upvalue_idx), node);
+                let upvalue_idx =
+                    compiler.add_upvalue(compiler.contexts.len() - 1, UpvalueKind::Local(idx));
+                compiler.push_op(Op::GetUpvalue, node);
+                compiler.push_uvarint(upvalue_idx.0 as u64);
             }),
         };
     }
@@ -777,12 +775,7 @@ impl Compiler<'_, '_> {
 
 /// Private compiler helpers related to bindings.
 impl Compiler<'_, '_> {
-    fn resolve_upvalue<N: ToSpan>(
-        &mut self,
-        ctx_idx: usize,
-        name: &str,
-        node: &N,
-    ) -> Option<UpvalueIdx> {
+    fn resolve_upvalue(&mut self, ctx_idx: usize, name: &str) -> Option<UpvalueIdx> {
         if ctx_idx == 0 {
             // There can not be any upvalue at the outermost context.
             return None;
@@ -795,7 +788,7 @@ impl Compiler<'_, '_> {
             // stack (i.e. in the right position) *during* their runtime
             // construction
             LocalPosition::Known(idx) | LocalPosition::Recursive(idx) => {
-                return Some(self.add_upvalue(ctx_idx, node, UpvalueKind::Local(idx)))
+                return Some(self.add_upvalue(ctx_idx, UpvalueKind::Local(idx)))
             }
 
             LocalPosition::Unknown => { /* continue below */ }
@@ -803,19 +796,14 @@ impl Compiler<'_, '_> {
 
         // If the upvalue comes from even further up, we need to recurse to make
         // sure that the upvalues are created at each level.
-        if let Some(idx) = self.resolve_upvalue(ctx_idx - 1, name, node) {
-            return Some(self.add_upvalue(ctx_idx, node, UpvalueKind::Upvalue(idx)));
+        if let Some(idx) = self.resolve_upvalue(ctx_idx - 1, name) {
+            return Some(self.add_upvalue(ctx_idx, UpvalueKind::Upvalue(idx)));
         }
 
         None
     }
 
-    fn add_upvalue<N: ToSpan>(
-        &mut self,
-        ctx_idx: usize,
-        node: &N,
-        kind: UpvalueKind,
-    ) -> UpvalueIdx {
+    fn add_upvalue(&mut self, ctx_idx: usize, kind: UpvalueKind) -> UpvalueIdx {
         // If there is already an upvalue closing over the specified index,
         // retrieve that instead.
         for (idx, existing) in self.contexts[ctx_idx].scope.upvalues.iter().enumerate() {
@@ -824,11 +812,7 @@ impl Compiler<'_, '_> {
             }
         }
 
-        let span = self.span_for(node);
-        self.contexts[ctx_idx]
-            .scope
-            .upvalues
-            .push(Upvalue { kind, span });
+        self.contexts[ctx_idx].scope.upvalues.push(Upvalue { kind });
 
         let idx = UpvalueIdx(self.contexts[ctx_idx].lambda.upvalue_count);
         self.contexts[ctx_idx].lambda.upvalue_count += 1;

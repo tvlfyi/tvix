@@ -1,9 +1,10 @@
-use std::io::Write;
-use std::ops::{Index, IndexMut};
-
-use crate::opcode::{CodeIdx, ConstantIdx, OpCode};
+use crate::opcode::{CodeIdx, ConstantIdx, Op, OpArg};
 use crate::value::Value;
-use crate::SourceCode;
+use crate::{CoercionKind, SourceCode};
+use std::io::Write;
+
+/// Maximum size of a u64 encoded in the vu128 varint encoding.
+const U64_VARINT_SIZE: usize = 9;
 
 /// Represents a source location from which one or more operations
 /// were compiled.
@@ -30,39 +31,69 @@ struct SourceSpan {
 /// emitted by the compiler.
 #[derive(Debug, Default)]
 pub struct Chunk {
-    pub code: Vec<OpCode>,
+    pub code: Vec<u8>,
     pub constants: Vec<Value>,
     spans: Vec<SourceSpan>,
-}
 
-impl Index<ConstantIdx> for Chunk {
-    type Output = Value;
-
-    fn index(&self, index: ConstantIdx) -> &Self::Output {
-        &self.constants[index.0]
-    }
-}
-
-impl Index<CodeIdx> for Chunk {
-    type Output = OpCode;
-
-    fn index(&self, index: CodeIdx) -> &Self::Output {
-        &self.code[index.0]
-    }
-}
-
-impl IndexMut<CodeIdx> for Chunk {
-    fn index_mut(&mut self, index: CodeIdx) -> &mut Self::Output {
-        &mut self.code[index.0]
-    }
+    /// Index of the last operation (i.e. not data) written to the code vector.
+    /// Some operations (e.g. jump patching) need to know this.
+    last_op: usize,
 }
 
 impl Chunk {
-    pub fn push_op(&mut self, data: OpCode, span: codemap::Span) -> CodeIdx {
-        let idx = self.code.len();
-        self.code.push(data);
-        self.push_span(span, idx);
-        CodeIdx(idx)
+    pub fn push_op(&mut self, op: Op, span: codemap::Span) -> usize {
+        self.last_op = self.code.len();
+        self.code.push(op as u8);
+        self.push_span(span, self.last_op);
+        self.last_op
+    }
+
+    pub fn push_uvarint(&mut self, data: u64) {
+        let mut encoded = [0u8; U64_VARINT_SIZE];
+        let bytes_written = vu128::encode_u64(&mut encoded, data);
+        self.code.extend_from_slice(&encoded[..bytes_written]);
+    }
+
+    pub fn read_uvarint(&self, idx: usize) -> (u64, usize) {
+        debug_assert!(
+            idx < self.code.len(),
+            "invalid bytecode (missing varint operand)",
+        );
+
+        if self.code.len() - idx >= U64_VARINT_SIZE {
+            vu128::decode_u64(
+                &self.code[idx..idx + U64_VARINT_SIZE]
+                    .try_into()
+                    .expect("size statically checked"),
+            )
+        } else {
+            let mut tmp = [0u8; U64_VARINT_SIZE];
+            tmp[..self.code.len() - idx].copy_from_slice(&self.code[idx..]);
+            vu128::decode_u64(&tmp)
+        }
+    }
+
+    pub fn push_u16(&mut self, data: u16) {
+        self.code.extend_from_slice(&data.to_le_bytes())
+    }
+
+    /// Patches the argument to the jump operand of the jump at the given index
+    /// to point to the *next* instruction that will be emitted.
+    pub fn patch_jump(&mut self, idx: usize) {
+        let offset = (self.code.len() - idx - /* arg idx = */ 1 - /* jump arg size = */ 2) as u16;
+        self.code[idx + 1..idx + 3].copy_from_slice(&offset.to_le_bytes())
+    }
+
+    pub fn read_u16(&self, idx: usize) -> u16 {
+        if idx + 2 > self.code.len() {
+            panic!("Tvix bug: invalid bytecode (expected u16 operand not found)")
+        }
+
+        let byte_array: &[u8; 2] = &self.code[idx..idx + 2]
+            .try_into()
+            .expect("fixed-size slice can not fail to convert to array");
+
+        u16::from_le_bytes(*byte_array)
     }
 
     /// Get the first span of a chunk, no questions asked.
@@ -70,23 +101,13 @@ impl Chunk {
         self.spans[0].span
     }
 
-    /// Return a reference to the last op in the chunk, if any
-    pub fn last_op(&self) -> Option<&OpCode> {
-        self.code.last()
-    }
-
-    /// Pop the last operation from the chunk and clean up its tracked
-    /// span. Used when the compiler backtracks.
-    pub fn pop_op(&mut self) {
-        // Simply drop the last op.
-        self.code.pop();
-
-        if let Some(span) = self.spans.last() {
-            // If the last span started at this op, drop it.
-            if span.start == self.code.len() {
-                self.spans.pop();
-            }
+    /// Return the last op in the chunk together with its index, if any.
+    pub fn last_op(&self) -> Option<(Op, usize)> {
+        if self.code.is_empty() {
+            return None;
         }
+
+        Some((self.code[self.last_op].into(), self.last_op))
     }
 
     pub fn push_constant(&mut self, data: Value) -> ConstantIdx {
@@ -99,8 +120,6 @@ impl Chunk {
     pub fn get_constant(&self, constant: ConstantIdx) -> Option<&Value> {
         self.constants.get(constant.0)
     }
-
-    // Span tracking implementation
 
     fn push_span(&mut self, span: codemap::Span, start: usize) {
         match self.spans.last_mut() {
@@ -136,76 +155,88 @@ impl Chunk {
     }
 
     /// Write the disassembler representation of the operation at
-    /// `idx` to the specified writer.
+    /// `idx` to the specified writer, and return how many bytes in the code to
+    /// skip for the next op.
     pub fn disassemble_op<W: Write>(
         &self,
         writer: &mut W,
         source: &SourceCode,
         width: usize,
         idx: CodeIdx,
-    ) -> Result<(), std::io::Error> {
+    ) -> Result<usize, std::io::Error> {
         write!(writer, "{:#width$x}\t ", idx.0, width = width)?;
 
         // Print continuation character if the previous operation was at
         // the same line, otherwise print the line.
         let line = source.get_line(self.get_span(idx));
-        if idx.0 > 0 && source.get_line(self.get_span(CodeIdx(idx.0 - 1))) == line {
+        if idx.0 > 0 && source.get_line(self.get_span(idx - 1)) == line {
             write!(writer, "   |\t")?;
         } else {
             write!(writer, "{:4}\t", line)?;
         }
 
-        let a = |idx| match &self[idx] {
+        let _fmt_constant = |idx: ConstantIdx| match &self.constants[idx.0] {
             Value::Thunk(t) => t.debug_repr(),
             Value::Closure(c) => format!("closure({:p})", c.lambda),
             Value::Blueprint(b) => format!("blueprint({:p})", b),
             val => format!("{}", val),
         };
 
-        match self[idx] {
-            OpCode::OpConstant(idx) => {
-                writeln!(writer, "OpConstant({}@{})", a(idx), idx.0)
-            }
-            OpCode::OpClosure(idx) => {
-                writeln!(writer, "OpClosure({}@{})", a(idx), idx.0)
-            }
-            OpCode::OpThunkClosure(idx) => {
-                writeln!(writer, "OpThunkClosure({}@{})", a(idx), idx.0)
-            }
-            OpCode::OpThunkSuspended(idx) => {
-                writeln!(writer, "OpThunkSuspended({}@{})", a(idx), idx.0)
-            }
-            op => writeln!(writer, "{:?}", op),
-        }?;
+        let op: Op = self.code[idx.0].into();
 
-        Ok(())
-    }
+        match op.arg_type() {
+            OpArg::None => {
+                writeln!(writer, "Op{:?}", op)?;
+                Ok(1)
+            }
 
-    /// Extend this chunk with the content of another, moving out of the other
-    /// in the process.
-    ///
-    /// This is used by the compiler when it detects that it unnecessarily
-    /// thunked a nested expression.
-    pub fn extend(&mut self, other: Self) {
-        // Some operations need to be modified in certain ways before being
-        // valid as part of the new chunk.
-        let const_count = self.constants.len();
-        for (idx, op) in other.code.iter().enumerate() {
-            let span = other.get_span(CodeIdx(idx));
-            match op {
-                // As the constants shift, the index needs to be moved relatively.
-                OpCode::OpConstant(ConstantIdx(idx)) => {
-                    self.push_op(OpCode::OpConstant(ConstantIdx(idx + const_count)), span)
+            OpArg::Fixed => {
+                let arg = self.read_u16(idx.0 + 1);
+                writeln!(writer, "Op{:?}({})", op, arg)?;
+                Ok(3)
+            }
+
+            OpArg::Uvarint => {
+                let (arg, size) = self.read_uvarint(idx.0 + 1);
+                writeln!(writer, "Op{:?}({})", op, arg)?;
+                Ok(1 + size)
+            }
+
+            _ => match op {
+                Op::CoerceToString => {
+                    let kind: CoercionKind = self.code[idx.0 + 1].into();
+                    writeln!(writer, "Op{:?}({:?})", op, kind)?;
+                    Ok(2)
                 }
 
-                // Other operations either operate on relative offsets, or no
-                // offsets, and are safe to keep as-is.
-                _ => self.push_op(*op, span),
-            };
-        }
+                Op::Closure | Op::ThunkClosure | Op::ThunkSuspended => {
+                    let mut cidx = idx.0 + 1;
 
-        self.constants.extend(other.constants);
-        self.spans.extend(other.spans);
+                    let (bp_idx, size) = self.read_uvarint(cidx);
+                    cidx += size;
+
+                    let (packed_count, size) = self.read_uvarint(cidx);
+                    cidx += size;
+
+                    let captures_with = packed_count & 0b1 == 1;
+                    let count = packed_count >> 1;
+
+                    write!(writer, "Op{:?}(BP @ {}, ", op, bp_idx)?;
+                    if captures_with {
+                        write!(writer, "captures with, ")?;
+                    }
+                    writeln!(writer, "{} upvalues)", count)?;
+
+                    for _ in 0..count {
+                        let (_, size) = self.read_uvarint(cidx);
+                        cidx += size;
+                    }
+
+                    Ok(cidx - idx.0)
+                }
+                _ => panic!("Tvix bug: don't know how to format argument for Op{:?}", op),
+            },
+        }
     }
 }
 
@@ -221,79 +252,49 @@ mod tests {
     #[test]
     fn push_op() {
         let mut chunk = Chunk::default();
-        chunk.push_op(OpCode::OpAdd, dummy_span());
-        assert_eq!(chunk.code.last().unwrap(), &OpCode::OpAdd);
+        let idx = chunk.push_op(Op::Add, dummy_span());
+        assert_eq!(*chunk.code.last().unwrap(), Op::Add as u8);
+        assert_eq!(chunk.code[idx], Op::Add as u8);
     }
 
     #[test]
-    fn extend_empty() {
+    fn push_op_with_arg() {
         let mut chunk = Chunk::default();
-        chunk.push_op(OpCode::OpAdd, dummy_span());
+        let mut idx = chunk.push_op(Op::Constant, dummy_span());
+        chunk.push_uvarint(42);
 
-        let other = Chunk::default();
-        chunk.extend(other);
+        assert_eq!(chunk.code[idx], Op::Constant as u8);
 
-        assert_eq!(
-            chunk.code,
-            vec![OpCode::OpAdd],
-            "code should not have changed"
-        );
+        idx += 1;
+        let (arg, size) = chunk.read_uvarint(idx);
+        assert_eq!(idx + size, chunk.code.len());
+        assert_eq!(arg, 42);
     }
 
     #[test]
-    fn extend_simple() {
-        let span = dummy_span();
+    fn push_jump() {
         let mut chunk = Chunk::default();
-        chunk.push_op(OpCode::OpAdd, span);
 
-        let mut other = Chunk::default();
-        other.push_op(OpCode::OpSub, span);
-        other.push_op(OpCode::OpMul, span);
+        chunk.push_op(Op::Constant, dummy_span());
+        chunk.push_uvarint(0);
 
-        let expected_code = vec![OpCode::OpAdd, OpCode::OpSub, OpCode::OpMul];
+        let idx = chunk.push_op(Op::Jump, dummy_span());
+        chunk.push_u16(0);
 
-        chunk.extend(other);
+        chunk.push_op(Op::Constant, dummy_span());
+        chunk.push_uvarint(1);
 
-        assert_eq!(chunk.code, expected_code, "code should have been extended");
-    }
+        chunk.patch_jump(idx);
+        chunk.push_op(Op::Return, dummy_span());
 
-    #[test]
-    fn extend_with_constant() {
-        let span = dummy_span();
-        let mut chunk = Chunk::default();
-        chunk.push_op(OpCode::OpAdd, span);
-        let cidx = chunk.push_constant(Value::Integer(0));
-        assert_eq!(
-            cidx.0, 0,
-            "first constant in main chunk should have index 0"
-        );
-        chunk.push_op(OpCode::OpConstant(cidx), span);
-
-        let mut other = Chunk::default();
-        other.push_op(OpCode::OpSub, span);
-        let other_cidx = other.push_constant(Value::Integer(1));
-        assert_eq!(
-            other_cidx.0, 0,
-            "first constant in other chunk should have index 0"
-        );
-        other.push_op(OpCode::OpConstant(other_cidx), span);
-
-        chunk.extend(other);
-
-        let expected_code = vec![
-            OpCode::OpAdd,
-            OpCode::OpConstant(ConstantIdx(0)),
-            OpCode::OpSub,
-            OpCode::OpConstant(ConstantIdx(1)), // <- note: this was rewritten
+        #[rustfmt::skip]
+        let expected: Vec<u8> = vec![
+            Op::Constant as u8, 0,
+            Op::Jump as u8, 2, 0,
+            Op::Constant as u8, 1,
+            Op::Return as u8,
         ];
 
-        assert_eq!(
-            chunk.code, expected_code,
-            "code should have been extended and rewritten"
-        );
-
-        assert_eq!(chunk.constants.len(), 2);
-        assert!(matches!(chunk.constants[0], Value::Integer(0)));
-        assert!(matches!(chunk.constants[1], Value::Integer(1)));
+        assert_eq!(chunk.code, expected);
     }
 }

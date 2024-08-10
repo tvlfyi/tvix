@@ -27,7 +27,7 @@ use std::{
 
 use crate::{
     errors::ErrorKind,
-    opcode::OpCode,
+    opcode::Op,
     upvalues::Upvalues,
     value::Closure,
     vm::generators::{self, GenCo},
@@ -170,13 +170,15 @@ impl Thunk {
         // This is basically a recreation of compile_apply():
         // We need to push the argument onto the stack and then the function.
         // The function (not the argument) needs to be forced before calling.
-        lambda.chunk.push_op(OpCode::OpConstant(arg_idx), span);
-        lambda.chunk().push_op(OpCode::OpConstant(f_idx), span);
-        lambda.chunk.push_op(OpCode::OpForce, span);
-        lambda.chunk.push_op(OpCode::OpCall, span);
+        lambda.chunk.push_op(Op::Constant, span);
+        lambda.chunk.push_uvarint(arg_idx.0 as u64);
+        lambda.chunk.push_op(Op::Constant, span);
+        lambda.chunk.push_uvarint(f_idx.0 as u64);
+        lambda.chunk.push_op(Op::Force, span);
+        lambda.chunk.push_op(Op::Call, span);
 
         // Inform the VM that the chunk has ended
-        lambda.chunk.push_op(OpCode::OpReturn, span);
+        lambda.chunk.push_op(Op::Return, span);
 
         Thunk(Rc::new(RefCell::new(ThunkRepr::Suspended {
             upvalues: Rc::new(Upvalues::with_capacity(0)),

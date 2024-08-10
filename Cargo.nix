@@ -16327,6 +16327,10 @@ rec {
             packageId = "tvix-eval-builtin-macros";
             rename = "builtin-macros";
           }
+          {
+            name = "vu128";
+            packageId = "vu128";
+          }
         ];
         devDependencies = [
           {
@@ -17584,6 +17588,17 @@ rec {
             name = "quote";
             packageId = "quote";
           }
+        ];
+
+      };
+      "vu128" = rec {
+        crateName = "vu128";
+        version = "1.0.0";
+        edition = "2018";
+        sha256 = "049fsvml8rsyfj9j53ijhsxqcvp1x7fg651baj35shiziy61f6n5";
+        libPath = "vu128/vu128.rs";
+        authors = [
+          "John Millikin <john@john-millikin.com>"
         ];
 
       };

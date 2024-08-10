@@ -13,7 +13,7 @@ use tabwriter::TabWriter;
 
 use crate::chunk::Chunk;
 use crate::generators::VMRequest;
-use crate::opcode::{CodeIdx, OpCode};
+use crate::opcode::{CodeIdx, Op};
 use crate::value::Lambda;
 use crate::SourceCode;
 use crate::Value;
@@ -73,7 +73,7 @@ pub trait RuntimeObserver {
 
     /// Called when the runtime *begins* executing an instruction. The
     /// provided stack is the state at the beginning of the operation.
-    fn observe_execute_op(&mut self, _ip: CodeIdx, _: &OpCode, _: &[Value]) {}
+    fn observe_execute_op(&mut self, _ip: CodeIdx, _: &Op, _: &[Value]) {}
 }
 
 #[derive(Default)]
@@ -112,8 +112,12 @@ impl<W: Write> DisassemblingObserver<W> {
         // calculate width of the widest address in the chunk
         let width = format!("{:#x}", chunk.code.len() - 1).len();
 
-        for (idx, _) in chunk.code.iter().enumerate() {
-            let _ = chunk.disassemble_op(&mut self.writer, &self.source, width, CodeIdx(idx));
+        let mut idx = 0;
+        while idx < chunk.code.len() {
+            let size = chunk
+                .disassemble_op(&mut self.writer, &self.source, width, CodeIdx(idx))
+                .expect("writing debug output should work");
+            idx += size;
         }
     }
 }
@@ -304,7 +308,7 @@ impl<W: Write> RuntimeObserver for TracingObserver<W> {
         );
     }
 
-    fn observe_execute_op(&mut self, ip: CodeIdx, op: &OpCode, stack: &[Value]) {
+    fn observe_execute_op(&mut self, ip: CodeIdx, op: &Op, stack: &[Value]) {
         self.maybe_write_time();
         let _ = write!(&mut self.writer, "{:04} {:?}\t", ip.0, op);
         self.write_stack(stack);

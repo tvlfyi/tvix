@@ -105,7 +105,6 @@ pub enum UpvalueKind {
 #[derive(Clone, Debug)]
 pub struct Upvalue {
     pub kind: UpvalueKind,
-    pub span: codemap::Span,
 }
 
 /// The index of a local in the scope's local array at compile time.

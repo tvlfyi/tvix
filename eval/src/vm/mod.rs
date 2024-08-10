@@ -28,7 +28,7 @@ use crate::{
     lifted_pop,
     nix_search_path::NixSearchPath,
     observer::RuntimeObserver,
-    opcode::{CodeIdx, Count, JumpOffset, OpCode, StackIdx, UpvalueIdx},
+    opcode::{CodeIdx, Op, Position, UpvalueIdx},
     upvalues::Upvalues,
     value::{
         Builtin, BuiltinResult, Closure, CoercionKind, Lambda, NixAttrs, NixContext, NixList,
@@ -146,10 +146,32 @@ impl CallFrame {
 
     /// Increment this frame's instruction pointer and return the operation that
     /// the pointer moved past.
-    fn inc_ip(&mut self) -> OpCode {
-        let op = self.chunk()[self.ip];
+    fn inc_ip(&mut self) -> Op {
+        debug_assert!(
+            self.ip.0 < self.chunk().code.len(),
+            "out of bounds code at IP {} in {:p}",
+            self.ip.0,
+            self.lambda
+        );
+
+        let op = self.chunk().code[self.ip.0];
         self.ip += 1;
-        op
+        op.into()
+    }
+
+    /// Read a varint-encoded operand and return it. The frame pointer is
+    /// incremented internally.
+    fn read_uvarint(&mut self) -> u64 {
+        let (arg, size) = self.chunk().read_uvarint(self.ip.0);
+        self.ip += size;
+        arg
+    }
+
+    /// Read a fixed-size u16 and increment the frame pointer.
+    fn read_u16(&mut self) -> u16 {
+        let arg = self.chunk().read_u16(self.ip.0);
+        self.ip += 2;
+        arg
     }
 
     /// Construct an error result from the given ErrorKind and the source span
@@ -443,17 +465,25 @@ where
             self.observer.observe_execute_op(frame.ip, &op, &self.stack);
 
             match op {
-                OpCode::OpThunkSuspended(idx) | OpCode::OpThunkClosure(idx) => {
-                    let blueprint = match &frame.chunk()[idx] {
+                Op::ThunkSuspended | Op::ThunkClosure => {
+                    let idx = frame.read_uvarint() as usize;
+
+                    let blueprint = match &frame.chunk().constants[idx] {
                         Value::Blueprint(lambda) => lambda.clone(),
                         _ => panic!("compiler bug: non-blueprint in blueprint slot"),
                     };
 
-                    let upvalue_count = blueprint.upvalue_count;
-                    let thunk = if matches!(op, OpCode::OpThunkClosure(_)) {
+                    let upvalue_count = frame.read_uvarint();
+
+                    debug_assert!(
+                        (upvalue_count >> 1) == blueprint.upvalue_count as u64,
+                        "TODO: new upvalue count not correct",
+                    );
+
+                    let thunk = if op == Op::ThunkClosure {
                         debug_assert!(
-                            upvalue_count > 0,
-                            "OpThunkClosure should not be called for plain lambdas"
+                            (((upvalue_count >> 1) > 0) || (upvalue_count & 0b1 == 1)),
+                            "OpThunkClosure should not be called for plain lambdas",
                         );
                         Thunk::new_closure(blueprint)
                     } else {
@@ -470,7 +500,7 @@ where
                     self.populate_upvalues(&mut frame, upvalue_count, upvalues)?;
                 }
 
-                OpCode::OpForce => {
+                Op::Force => {
                     if let Some(Value::Thunk(_)) = self.stack.last() {
                         let thunk = match self.stack_pop() {
                             Value::Thunk(t) => t,
@@ -488,25 +518,35 @@ where
                     }
                 }
 
-                OpCode::OpGetUpvalue(upv_idx) => {
-                    let value = frame.upvalue(upv_idx).clone();
+                Op::GetUpvalue => {
+                    let idx = UpvalueIdx(frame.read_uvarint() as usize);
+                    let value = frame.upvalue(idx).clone();
                     self.stack.push(value);
                 }
 
                 // Discard the current frame.
-                OpCode::OpReturn => {
+                Op::Return => {
                     // TODO(amjoseph): I think this should assert `==` rather
                     // than `<=` but it fails with the stricter condition.
                     debug_assert!(self.stack.len() - 1 <= frame.stack_offset);
                     return Ok(true);
                 }
 
-                OpCode::OpConstant(idx) => {
-                    let c = frame.chunk()[idx].clone();
+                Op::Constant => {
+                    let idx = frame.read_uvarint() as usize;
+
+                    debug_assert!(
+                        idx < frame.chunk().constants.len(),
+                        "out of bounds constant at IP {} in {:p}",
+                        frame.ip.0,
+                        frame.lambda
+                    );
+
+                    let c = frame.chunk().constants[idx].clone();
                     self.stack.push(c);
                 }
 
-                OpCode::OpCall => {
+                Op::Call => {
                     let callable = self.stack_pop();
                     self.call_value(frame.current_span(), Some((span, frame)), callable)?;
 
@@ -516,7 +556,8 @@ where
 
                 // Remove the given number of elements from the stack,
                 // but retain the top value.
-                OpCode::OpCloseScope(Count(count)) => {
+                Op::CloseScope => {
+                    let count = frame.read_uvarint() as usize;
                     // Immediately move the top value into the right
                     // position.
                     let target_idx = self.stack.len() - 1 - count;
@@ -528,15 +569,22 @@ where
                     }
                 }
 
-                OpCode::OpClosure(idx) => {
-                    let blueprint = match &frame.chunk()[idx] {
+                Op::Closure => {
+                    let idx = frame.read_uvarint() as usize;
+                    let blueprint = match &frame.chunk().constants[idx] {
                         Value::Blueprint(lambda) => lambda.clone(),
                         _ => panic!("compiler bug: non-blueprint in blueprint slot"),
                     };
 
-                    let upvalue_count = blueprint.upvalue_count;
+                    let upvalue_count = frame.read_uvarint();
+
                     debug_assert!(
-                        upvalue_count > 0,
+                        (upvalue_count >> 1) == blueprint.upvalue_count as u64,
+                        "TODO: new upvalue count not correct in closure",
+                    );
+
+                    debug_assert!(
+                        ((upvalue_count >> 1) > 0 || (upvalue_count & 0b1 == 1)),
                         "OpClosure should not be called for plain lambdas"
                     );
 
@@ -549,7 +597,7 @@ where
                         ))));
                 }
 
-                OpCode::OpAttrsSelect => lifted_pop! {
+                Op::AttrsSelect => lifted_pop! {
                     self(key, attrs) => {
                         let key = key.to_str().with_span(&frame, self)?;
                         let attrs = attrs.to_attrs().with_span(&frame, self)?;
@@ -569,21 +617,24 @@ where
                     }
                 },
 
-                OpCode::OpJumpIfFalse(JumpOffset(offset)) => {
+                Op::JumpIfFalse => {
+                    let offset = frame.read_u16() as usize;
                     debug_assert!(offset != 0);
                     if !self.stack_peek(0).as_bool().with_span(&frame, self)? {
                         frame.ip += offset;
                     }
                 }
 
-                OpCode::OpJumpIfCatchable(JumpOffset(offset)) => {
+                Op::JumpIfCatchable => {
+                    let offset = frame.read_u16() as usize;
                     debug_assert!(offset != 0);
                     if self.stack_peek(0).is_catchable() {
                         frame.ip += offset;
                     }
                 }
 
-                OpCode::OpJumpIfNoFinaliseRequest(JumpOffset(offset)) => {
+                Op::JumpIfNoFinaliseRequest => {
+                    let offset = frame.read_u16() as usize;
                     debug_assert!(offset != 0);
                     match self.stack_peek(0) {
                         Value::FinaliseRequest(finalise) => {
@@ -595,11 +646,11 @@ where
                     }
                 }
 
-                OpCode::OpPop => {
+                Op::Pop => {
                     self.stack.pop();
                 }
 
-                OpCode::OpAttrsTrySelect => {
+                Op::AttrsTrySelect => {
                     let key = self.stack_pop().to_str().with_span(&frame, self)?;
                     let value = match self.stack_pop() {
                         Value::Attrs(attrs) => match attrs.select(&key) {
@@ -613,12 +664,14 @@ where
                     self.stack.push(value);
                 }
 
-                OpCode::OpGetLocal(StackIdx(local_idx)) => {
+                Op::GetLocal => {
+                    let local_idx = frame.read_uvarint() as usize;
                     let idx = frame.stack_offset + local_idx;
                     self.stack.push(self.stack[idx].clone());
                 }
 
-                OpCode::OpJumpIfNotFound(JumpOffset(offset)) => {
+                Op::JumpIfNotFound => {
+                    let offset = frame.read_u16() as usize;
                     debug_assert!(offset != 0);
                     if matches!(self.stack_peek(0), Value::AttrNotFound) {
                         self.stack_pop();
@@ -626,12 +679,13 @@ where
                     }
                 }
 
-                OpCode::OpJump(JumpOffset(offset)) => {
+                Op::Jump => {
+                    let offset = frame.read_u16() as usize;
                     debug_assert!(offset != 0);
                     frame.ip += offset;
                 }
 
-                OpCode::OpEqual => lifted_pop! {
+                Op::Equal => lifted_pop! {
                     self(b, a) => {
                         let gen_span = frame.current_span();
                         self.push_call_frame(span, frame);
@@ -646,7 +700,7 @@ where
                 // top is not of the expected type. This is necessary
                 // to implement some specific behaviours of Nix
                 // exactly.
-                OpCode::OpAssertBool => {
+                Op::AssertBool => {
                     let val = self.stack_peek(0);
                     // TODO(edef): propagate this into is_bool, since bottom values *are* values of any type
                     if !val.is_catchable() && !val.is_bool() {
@@ -660,7 +714,7 @@ where
                     }
                 }
 
-                OpCode::OpAssertAttrs => {
+                Op::AssertAttrs => {
                     let val = self.stack_peek(0);
                     // TODO(edef): propagate this into is_attrs, since bottom values *are* values of any type
                     if !val.is_catchable() && !val.is_attrs() {
@@ -674,9 +728,9 @@ where
                     }
                 }
 
-                OpCode::OpAttrs(Count(count)) => self.run_attrset(&frame, count)?,
+                Op::Attrs => self.run_attrset(frame.read_uvarint() as usize, &frame)?,
 
-                OpCode::OpAttrsUpdate => lifted_pop! {
+                Op::AttrsUpdate => lifted_pop! {
                     self(rhs, lhs) => {
                         let rhs = rhs.to_attrs().with_span(&frame, self)?;
                         let lhs = lhs.to_attrs().with_span(&frame, self)?;
@@ -684,28 +738,30 @@ where
                     }
                 },
 
-                OpCode::OpInvert => lifted_pop! {
+                Op::Invert => lifted_pop! {
                     self(v) => {
                         let v = v.as_bool().with_span(&frame, self)?;
                         self.stack.push(Value::Bool(!v));
                     }
                 },
 
-                OpCode::OpList(Count(count)) => {
+                Op::List => {
+                    let count = frame.read_uvarint() as usize;
                     let list =
                         NixList::construct(count, self.stack.split_off(self.stack.len() - count));
 
                     self.stack.push(Value::List(list));
                 }
 
-                OpCode::OpJumpIfTrue(JumpOffset(offset)) => {
+                Op::JumpIfTrue => {
+                    let offset = frame.read_u16() as usize;
                     debug_assert!(offset != 0);
                     if self.stack_peek(0).as_bool().with_span(&frame, self)? {
                         frame.ip += offset;
                     }
                 }
 
-                OpCode::OpHasAttr => lifted_pop! {
+                Op::HasAttr => lifted_pop! {
                     self(key, attrs) => {
                         let key = key.to_str().with_span(&frame, self)?;
                         let result = match attrs {
@@ -720,7 +776,7 @@ where
                     }
                 },
 
-                OpCode::OpConcat => lifted_pop! {
+                Op::Concat => lifted_pop! {
                     self(rhs, lhs) => {
                         let rhs = rhs.to_list().with_span(&frame, self)?.into_inner();
                         let lhs = lhs.to_list().with_span(&frame, self)?.into_inner();
@@ -728,7 +784,7 @@ where
                     }
                 },
 
-                OpCode::OpResolveWith => {
+                Op::ResolveWith => {
                     let ident = self.stack_pop().to_str().with_span(&frame, self)?;
 
                     // Re-enqueue this frame.
@@ -755,13 +811,19 @@ where
                     return Ok(false);
                 }
 
-                OpCode::OpFinalise(StackIdx(idx)) => match &self.stack[frame.stack_offset + idx] {
-                    Value::Closure(_) => panic!("attempted to finalise a closure"),
-                    Value::Thunk(thunk) => thunk.finalise(&self.stack[frame.stack_offset..]),
-                    _ => panic!("attempted to finalise a non-thunk"),
-                },
+                Op::Finalise => {
+                    let idx = frame.read_uvarint() as usize;
+                    match &self.stack[frame.stack_offset + idx] {
+                        Value::Closure(_) => panic!("attempted to finalise a closure"),
+                        Value::Thunk(thunk) => thunk.finalise(&self.stack[frame.stack_offset..]),
+                        _ => panic!("attempted to finalise a non-thunk"),
+                    }
+                }
 
-                OpCode::OpCoerceToString(kind) => {
+                Op::CoerceToString => {
+                    let kind: CoercionKind = frame.chunk().code[frame.ip.0].into();
+                    frame.ip.0 += 1;
+
                     let value = self.stack_pop();
                     let gen_span = frame.current_span();
                     self.push_call_frame(span, frame);
@@ -773,9 +835,9 @@ where
                     return Ok(false);
                 }
 
-                OpCode::OpInterpolate(Count(count)) => self.run_interpolate(&frame, count)?,
+                Op::Interpolate => self.run_interpolate(frame.read_uvarint(), &frame)?,
 
-                OpCode::OpValidateClosedFormals => {
+                Op::ValidateClosedFormals => {
                     let formals = frame.lambda.formals.as_ref().expect(
                         "OpValidateClosedFormals called within the frame of a lambda without formals",
                     );
@@ -799,7 +861,7 @@ where
                     }
                 }
 
-                OpCode::OpAdd => lifted_pop! {
+                Op::Add => lifted_pop! {
                     self(b, a) => {
                         let gen_span = frame.current_span();
                         self.push_call_frame(span, frame);
@@ -812,21 +874,21 @@ where
                     }
                 },
 
-                OpCode::OpSub => lifted_pop! {
+                Op::Sub => lifted_pop! {
                     self(b, a) => {
                         let result = arithmetic_op!(&a, &b, -).with_span(&frame, self)?;
                         self.stack.push(result);
                     }
                 },
 
-                OpCode::OpMul => lifted_pop! {
+                Op::Mul => lifted_pop! {
                     self(b, a) => {
                         let result = arithmetic_op!(&a, &b, *).with_span(&frame, self)?;
                         self.stack.push(result);
                     }
                 },
 
-                OpCode::OpDiv => lifted_pop! {
+                Op::Div => lifted_pop! {
                     self(b, a) => {
                         match b {
                             Value::Integer(0) => return frame.error(self, ErrorKind::DivisionByZero),
@@ -841,7 +903,7 @@ where
                     }
                 },
 
-                OpCode::OpNegate => match self.stack_pop() {
+                Op::Negate => match self.stack_pop() {
                     Value::Integer(i) => self.stack.push(Value::Integer(-i)),
                     Value::Float(f) => self.stack.push(Value::Float(-f)),
                     Value::Catchable(cex) => self.stack.push(Value::Catchable(cex)),
@@ -856,12 +918,12 @@ where
                     }
                 },
 
-                OpCode::OpLess => cmp_op!(self, frame, span, <),
-                OpCode::OpLessOrEq => cmp_op!(self, frame, span, <=),
-                OpCode::OpMore => cmp_op!(self, frame, span, >),
-                OpCode::OpMoreOrEq => cmp_op!(self, frame, span, >=),
+                Op::Less => cmp_op!(self, frame, span, <),
+                Op::LessOrEq => cmp_op!(self, frame, span, <=),
+                Op::More => cmp_op!(self, frame, span, >),
+                Op::MoreOrEq => cmp_op!(self, frame, span, >=),
 
-                OpCode::OpFindFile => match self.stack_pop() {
+                Op::FindFile => match self.stack_pop() {
                     Value::UnresolvedPath(path) => {
                         let resolved = self
                             .nix_search_path
@@ -873,7 +935,7 @@ where
                     _ => panic!("tvix compiler bug: OpFindFile called on non-UnresolvedPath"),
                 },
 
-                OpCode::OpResolveHomePath => match self.stack_pop() {
+                Op::ResolveHomePath => match self.stack_pop() {
                     Value::UnresolvedPath(path) => {
                         match dirs::home_dir() {
                             None => {
@@ -896,24 +958,23 @@ where
                     }
                 },
 
-                OpCode::OpPushWith(StackIdx(idx)) => self.with_stack.push(frame.stack_offset + idx),
+                Op::PushWith => self
+                    .with_stack
+                    .push(frame.stack_offset + frame.read_uvarint() as usize),
 
-                OpCode::OpPopWith => {
+                Op::PopWith => {
                     self.with_stack.pop();
                 }
 
-                OpCode::OpAssertFail => {
+                Op::AssertFail => {
                     self.stack
                         .push(Value::from(CatchableErrorKind::AssertionFailed));
                 }
 
-                // Data-carrying operands should never be executed,
-                // that is a critical error in the VM/compiler.
-                OpCode::DataStackIdx(_)
-                | OpCode::DataDeferredLocal(_)
-                | OpCode::DataUpvalueIdx(_)
-                | OpCode::DataCaptureWith => {
-                    panic!("Tvix bug: attempted to execute data-carrying operand")
+                // Encountering an invalid opcode is a critical error in the
+                // VM/compiler.
+                Op::Invalid => {
+                    panic!("Tvix bug: attempted to execute invalid opcode")
                 }
             }
         }
@@ -933,7 +994,7 @@ where
         &self.stack[self.stack.len() - 1 - offset]
     }
 
-    fn run_attrset(&mut self, frame: &CallFrame, count: usize) -> EvalResult<()> {
+    fn run_attrset(&mut self, count: usize, frame: &CallFrame) -> EvalResult<()> {
         let attrs = NixAttrs::construct(count, self.stack.split_off(self.stack.len() - count * 2))
             .with_span(frame, self)?
             .map(Value::attrs)
@@ -971,7 +1032,7 @@ where
     /// Interpolate string fragments by popping the specified number of
     /// fragments of the stack, evaluating them to strings, and pushing
     /// the concatenated result string back on the stack.
-    fn run_interpolate(&mut self, frame: &CallFrame, count: usize) -> EvalResult<()> {
+    fn run_interpolate(&mut self, count: u64, frame: &CallFrame) -> EvalResult<()> {
         let mut out = BString::default();
         // Interpolation propagates the context and union them.
         let mut context: NixContext = NixContext::new();
@@ -1090,64 +1151,74 @@ where
     }
 
     /// Populate the upvalue fields of a thunk or closure under construction.
+    ///
+    /// See the closely tied function `emit_upvalue_data` in the compiler
+    /// implementation for details on the argument processing.
     fn populate_upvalues(
         &mut self,
         frame: &mut CallFrame,
-        count: usize,
+        count: u64,
         mut upvalues: impl DerefMut<Target = Upvalues>,
     ) -> EvalResult<()> {
-        for _ in 0..count {
-            match frame.inc_ip() {
-                OpCode::DataStackIdx(StackIdx(stack_idx)) => {
-                    let idx = frame.stack_offset + stack_idx;
+        // Determine whether to capture the with stack, and then shift the
+        // actual count of upvalues back.
+        let capture_with = count & 0b1 == 1;
+        let count = count >> 1;
+        if capture_with {
+            // Start the captured with_stack off of the
+            // current call frame's captured with_stack, ...
+            let mut captured_with_stack = frame
+                .upvalues
+                .with_stack()
+                .cloned()
+                // ... or make an empty one if there isn't one already.
+                .unwrap_or_else(|| Vec::with_capacity(self.with_stack.len()));
 
-                    let val = match self.stack.get(idx) {
-                        Some(val) => val.clone(),
-                        None => {
-                            return frame.error(
-                                self,
-                                ErrorKind::TvixBug {
-                                    msg: "upvalue to be captured was missing on stack",
-                                    metadata: Some(Rc::new(json!({
-                                        "ip": format!("{:#x}", frame.ip.0 - 1),
-                                        "stack_idx(relative)": stack_idx,
-                                        "stack_idx(absolute)": idx,
-                                    }))),
-                                },
-                            );
-                        }
-                    };
-
-                    upvalues.deref_mut().push(val);
-                }
-
-                OpCode::DataUpvalueIdx(upv_idx) => {
-                    upvalues.deref_mut().push(frame.upvalue(upv_idx).clone());
-                }
-
-                OpCode::DataDeferredLocal(idx) => {
-                    upvalues.deref_mut().push(Value::DeferredUpvalue(idx));
-                }
-
-                OpCode::DataCaptureWith => {
-                    // Start the captured with_stack off of the
-                    // current call frame's captured with_stack, ...
-                    let mut captured_with_stack = frame
-                        .upvalues
-                        .with_stack()
-                        .cloned()
-                        // ... or make an empty one if there isn't one already.
-                        .unwrap_or_else(|| Vec::with_capacity(self.with_stack.len()));
-
-                    for idx in &self.with_stack {
-                        captured_with_stack.push(self.stack[*idx].clone());
-                    }
-
-                    upvalues.deref_mut().set_with_stack(captured_with_stack);
-                }
-
-                _ => panic!("compiler error: missing closure operand"),
+            for idx in &self.with_stack {
+                captured_with_stack.push(self.stack[*idx].clone());
             }
+
+            upvalues.deref_mut().set_with_stack(captured_with_stack);
+        }
+
+        for _ in 0..count {
+            let pos = Position(frame.read_uvarint());
+
+            if let Some(stack_idx) = pos.runtime_stack_index() {
+                let idx = frame.stack_offset + stack_idx.0;
+
+                let val = match self.stack.get(idx) {
+                    Some(val) => val.clone(),
+                    None => {
+                        return frame.error(
+                            self,
+                            ErrorKind::TvixBug {
+                                msg: "upvalue to be captured was missing on stack",
+                                metadata: Some(Rc::new(json!({
+                                    "ip": format!("{:#x}", frame.ip.0 - 1),
+                                    "stack_idx(relative)": stack_idx.0,
+                                    "stack_idx(absolute)": idx,
+                                }))),
+                            },
+                        );
+                    }
+                };
+
+                upvalues.deref_mut().push(val);
+                continue;
+            }
+
+            if let Some(idx) = pos.runtime_deferred_local() {
+                upvalues.deref_mut().push(Value::DeferredUpvalue(idx));
+                continue;
+            }
+
+            if let Some(idx) = pos.runtime_upvalue_index() {
+                upvalues.deref_mut().push(frame.upvalue(idx).clone());
+                continue;
+            }
+
+            panic!("Tvix bug: invalid capture position emitted")
         }
 
         Ok(())
