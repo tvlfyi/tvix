@@ -84,7 +84,6 @@ pub enum Value {
     FinaliseRequest(bool),
 
     #[serde(skip)]
-    // TODO(tazjin): why is this in a Box?
     Catchable(Box<CatchableErrorKind>),
 }
 
