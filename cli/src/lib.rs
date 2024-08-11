@@ -112,7 +112,7 @@ pub fn evaluate(
             eval_builder = eval_builder.add_builtins(impure_builtins());
             eval_builder = add_derivation_builtins(eval_builder, Rc::clone(&tvix_store_io));
             eval_builder = add_fetcher_builtins(eval_builder, Rc::clone(&tvix_store_io));
-            eval_builder = add_import_builtins(eval_builder, tvix_store_io);
+            eval_builder = add_import_builtins(eval_builder, Rc::clone(&tvix_store_io));
         }
     };
     eval_builder = configure_nix_path(eval_builder, &args.nix_search_path);
@@ -171,6 +171,21 @@ pub fn evaluate(
         for warning in &result.warnings {
             warning.fancy_format_stderr(&source_map);
         }
+    }
+
+    if let Some(dumpdir) = &args.drv_dumpdir {
+        // Dump all known derivations files to `dumpdir`.
+        std::fs::create_dir_all(dumpdir).expect("failed to create drv dumpdir");
+        tvix_store_io
+            .known_paths
+            .borrow()
+            .get_derivations()
+            // Skip already dumped derivations.
+            .filter(|(drv_path, _)| !dumpdir.join(drv_path.to_string()).exists())
+            .for_each(|(drv_path, drv)| {
+                std::fs::write(dumpdir.join(drv_path.to_string()), drv.to_aterm_bytes())
+                    .expect("failed to write drv to dumpdir");
+            })
     }
 
     Ok(EvalResult {

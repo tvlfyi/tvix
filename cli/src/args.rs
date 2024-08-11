@@ -72,4 +72,15 @@ pub struct Args {
 
     #[arg(long, env, default_value = "dummy://")]
     pub build_service_addr: String,
+
+    /// An optional path in which Derivations encountered during evaluation
+    /// are dumped into, after evaluation. If it doesn't exist, the directory is created.
+    ///
+    /// Files dumped there are named like they would show up in `/nix/store`,
+    /// if produced by Nix. Existing files are not overwritten.
+    ///
+    /// This is only for debugging and diffing purposes for post-eval inspection;
+    /// Tvix does not read from these.
+    #[clap(long)]
+    pub drv_dumpdir: Option<PathBuf>,
 }

@@ -67,7 +67,7 @@ pub struct TvixStoreIO {
     >,
 
     // Paths known how to produce, by building or fetching.
-    pub(crate) known_paths: RefCell<KnownPaths>,
+    pub known_paths: RefCell<KnownPaths>,
 }
 
 impl TvixStoreIO {
