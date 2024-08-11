@@ -1,8 +1,7 @@
 //! This module implements Nix language strings.
 //!
-//! Nix language strings never need to be modified on the language
-//! level, allowing us to shave off some memory overhead and only
-//! paying the cost when creating new strings.
+//! See [`NixString`] for more information about the internals of string values
+
 use bstr::{BStr, BString, ByteSlice, Chars};
 use nohash_hasher::BuildNoHashHasher;
 use rnix::ast;
