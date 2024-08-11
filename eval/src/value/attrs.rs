@@ -118,6 +118,18 @@ where
 
 impl TotalDisplay for NixAttrs {
     fn total_fmt(&self, f: &mut std::fmt::Formatter<'_>, set: &mut ThunkSet) -> std::fmt::Result {
+        if let Some(Value::String(s)) = self.select("type") {
+            if *s == "derivation" {
+                write!(f, "«derivation ")?;
+                if let Some(p) = self.select("drvPath") {
+                    p.total_fmt(f, set)?;
+                } else {
+                    write!(f, "???")?;
+                }
+                return write!(f, "»");
+            }
+        }
+
         f.write_str("{ ")?;
 
         match &self.0 {
