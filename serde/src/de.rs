@@ -3,7 +3,7 @@
 use bstr::ByteSlice;
 use serde::de::value::{MapDeserializer, SeqDeserializer};
 use serde::de::{self, EnumAccess, VariantAccess};
-use tvix_eval::{EvalIO, EvaluationBuilder, Value};
+use tvix_eval::{EvalIO, EvalMode, EvaluationBuilder, Value};
 
 use crate::error::Error;
 
@@ -48,7 +48,7 @@ where
     ) -> EvaluationBuilder<'co, 'ro, 'env, Box<dyn EvalIO>>,
 {
     // First step is to evaluate the Nix code ...
-    let eval = config(EvaluationBuilder::new_pure().strict()).build();
+    let eval = config(EvaluationBuilder::new_pure().mode(EvalMode::Strict)).build();
     let result = eval.evaluate(src, None);
 
     if !result.errors.is_empty() {

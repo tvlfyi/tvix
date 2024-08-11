@@ -1378,6 +1378,18 @@ async fn final_deep_force(co: GenCo) -> Result<Value, ErrorKind> {
     Ok(generators::request_deep_force(&co, value).await)
 }
 
+/// Specification for how to handle top-level values returned by evaluation
+#[derive(Debug, Clone, Copy, Default)]
+pub enum EvalMode {
+    /// The default. Values are returned from evaluations as-is, without any extra forcing or
+    /// special handling.
+    #[default]
+    Lazy,
+
+    /// Strictly and deeply evaluate top-level values returned by evaluation.
+    Strict,
+}
+
 pub fn run_lambda<IO>(
     nix_search_path: NixSearchPath,
     io_handle: IO,
@@ -1385,7 +1397,7 @@ pub fn run_lambda<IO>(
     source: SourceCode,
     globals: Rc<GlobalsMap>,
     lambda: Rc<Lambda>,
-    strict: bool,
+    mode: EvalMode,
 ) -> EvalResult<RuntimeResult>
 where
     IO: AsRef<dyn EvalIO> + 'static,
@@ -1409,8 +1421,9 @@ where
 
     // When evaluating strictly, synthesise a frame that will instruct
     // the VM to deep-force the final value before returning it.
-    if strict {
-        vm.enqueue_generator("final_deep_force", root_span, final_deep_force);
+    match mode {
+        EvalMode::Lazy => {}
+        EvalMode::Strict => vm.enqueue_generator("final_deep_force", root_span, final_deep_force),
     }
 
     vm.frames.push(Frame::CallFrame {

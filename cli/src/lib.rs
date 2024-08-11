@@ -10,7 +10,7 @@ use tvix_build::buildservice;
 use tvix_eval::{
     builtins::impure_builtins,
     observer::{DisassemblingObserver, TracingObserver},
-    ErrorKind, EvalIO, GlobalsMap, SourceCode, Value,
+    ErrorKind, EvalIO, EvalMode, GlobalsMap, SourceCode, Value,
 };
 use tvix_glue::{
     builtins::{add_derivation_builtins, add_fetcher_builtins, add_import_builtins},
@@ -101,8 +101,11 @@ pub fn evaluate(
         tvix_store_io.clone() as Rc<dyn EvalIO>,
     )) as Box<dyn EvalIO>)
     .enable_import()
-    .with_strict(args.strict)
     .env(env);
+
+    if args.strict {
+        eval_builder = eval_builder.mode(EvalMode::Strict);
+    }
 
     match globals {
         Some(globals) => {

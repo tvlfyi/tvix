@@ -53,7 +53,7 @@ pub use crate::io::{DummyIO, EvalIO, FileType};
 pub use crate::pretty_ast::pretty_print_expr;
 pub use crate::source::SourceCode;
 pub use crate::value::{NixContext, NixContextElement};
-pub use crate::vm::generators;
+pub use crate::vm::{generators, EvalMode};
 pub use crate::warnings::{EvalWarning, WarningKind};
 pub use builtin_macros;
 use smol_str::SmolStr;
@@ -89,7 +89,7 @@ pub struct EvaluationBuilder<'co, 'ro, 'env, IO> {
     env: Option<&'env FxHashMap<SmolStr, Value>>,
     io_handle: IO,
     enable_import: bool,
-    strict: bool,
+    mode: EvalMode,
     nix_path: Option<String>,
     compiler_observer: Option<&'co mut dyn CompilerObserver>,
     runtime_observer: Option<&'ro mut dyn RuntimeObserver>,
@@ -134,7 +134,7 @@ where
             globals,
             env: self.env,
             io_handle: self.io_handle,
-            strict: self.strict,
+            mode: self.mode,
             nix_path: self.nix_path,
             compiler_observer: self.compiler_observer,
             runtime_observer: self.runtime_observer,
@@ -158,7 +158,7 @@ impl<'co, 'ro, 'env, IO> EvaluationBuilder<'co, 'ro, 'env, IO> {
                 src_builtins: vec![],
             }),
             env: None,
-            strict: false,
+            mode: Default::default(),
             nix_path: None,
             compiler_observer: None,
             runtime_observer: None,
@@ -172,7 +172,7 @@ impl<'co, 'ro, 'env, IO> EvaluationBuilder<'co, 'ro, 'env, IO> {
             globals: self.globals,
             env: self.env,
             enable_import: self.enable_import,
-            strict: self.strict,
+            mode: self.mode,
             nix_path: self.nix_path,
             compiler_observer: self.compiler_observer,
             runtime_observer: self.runtime_observer,
@@ -252,12 +252,8 @@ impl<'co, 'ro, 'env, IO> EvaluationBuilder<'co, 'ro, 'env, IO> {
         }
     }
 
-    pub fn with_strict(self, strict: bool) -> Self {
-        Self { strict, ..self }
-    }
-
-    pub fn strict(self) -> Self {
-        self.with_strict(true)
+    pub fn mode(self, mode: EvalMode) -> Self {
+        Self { mode, ..self }
     }
 
     pub fn nix_path(self, nix_path: Option<String>) -> Self {
@@ -360,10 +356,10 @@ pub struct Evaluation<'co, 'ro, 'env, IO> {
     /// Defaults to [`DummyIO`] if not set explicitly.
     io_handle: IO,
 
-    /// Determines whether the returned value should be strictly
-    /// evaluated, that is whether its list and attribute set elements
-    /// should be forced recursively.
-    strict: bool,
+    /// Specification for how to handle top-level values returned by evaluation
+    ///
+    /// See the documentation for [`EvalMode`] for more information.
+    mode: EvalMode,
 
     /// (optional) Nix search path, e.g. the value of `NIX_PATH` used
     /// for resolving items on the search path (such as `<nixpkgs>`).
@@ -534,7 +530,7 @@ where
             source.clone(),
             self.globals,
             lambda,
-            self.strict,
+            self.mode,
         );
 
         match vm_result {

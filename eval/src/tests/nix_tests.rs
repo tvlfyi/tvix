@@ -37,6 +37,8 @@ mod mock_builtins {
 
 #[cfg(feature = "impure")]
 fn eval_test(code_path: PathBuf, expect_success: bool) {
+    use crate::vm::EvalMode;
+
     std::env::set_var("TEST_VAR", "foo"); // for eval-okay-getenv.nix
 
     eprintln!("path: {}", code_path.display());
@@ -49,7 +51,7 @@ fn eval_test(code_path: PathBuf, expect_success: bool) {
     let code = std::fs::read_to_string(&code_path).expect("should be able to read test code");
 
     let eval = crate::Evaluation::builder_impure()
-        .strict()
+        .mode(EvalMode::Strict)
         .add_builtins(mock_builtins::builtins())
         .build();
 
@@ -125,13 +127,13 @@ fn eval_test(code_path: PathBuf, expect_success: bool) {
 #[cfg(feature = "impure")]
 #[rstest]
 fn identity(#[files("src/tests/tvix_tests/identity-*.nix")] code_path: PathBuf) {
-    use crate::EvalIO;
+    use crate::{vm::EvalMode, EvalIO};
 
     let code = std::fs::read_to_string(code_path).expect("should be able to read test code");
 
     let eval = crate::Evaluation::builder(Box::new(crate::StdIO) as Box<dyn EvalIO>)
         .disable_import()
-        .strict()
+        .mode(EvalMode::Strict)
         .build();
 
     let result = eval.evaluate(&code, None);

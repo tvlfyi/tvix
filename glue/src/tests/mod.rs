@@ -4,7 +4,7 @@ use clap::Parser;
 use pretty_assertions::assert_eq;
 use std::path::PathBuf;
 use tvix_build::buildservice::DummyBuildService;
-use tvix_eval::{EvalIO, Value};
+use tvix_eval::{EvalIO, EvalMode, Value};
 use tvix_store::utils::{construct_services, ServiceUrlsMemory};
 
 use rstest::rstest;
@@ -54,7 +54,7 @@ fn eval_test(code_path: PathBuf, expect_success: bool) {
         tvix_store_io.clone() as Rc<dyn EvalIO>,
     )) as Box<dyn EvalIO>)
     .enable_import()
-    .strict();
+    .mode(EvalMode::Strict);
 
     eval_builder = add_derivation_builtins(eval_builder, Rc::clone(&tvix_store_io));
     eval_builder = add_fetcher_builtins(eval_builder, Rc::clone(&tvix_store_io));

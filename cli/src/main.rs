@@ -6,6 +6,7 @@ use tvix_cli::args::Args;
 use tvix_cli::repl::Repl;
 use tvix_cli::{init_io_handle, interpret, AllowIncomplete};
 use tvix_eval::observer::DisassemblingObserver;
+use tvix_eval::EvalMode;
 use tvix_glue::tvix_store_io::TvixStoreIO;
 
 #[global_allocator]
@@ -14,7 +15,11 @@ static GLOBAL: MiMalloc = MiMalloc;
 /// Interpret the given code snippet, but only run the Tvix compiler
 /// on it and return errors and warnings.
 fn lint(code: &str, path: Option<PathBuf>, args: &Args) -> bool {
-    let mut eval_builder = tvix_eval::Evaluation::builder_impure().with_strict(args.strict);
+    let mut eval_builder = tvix_eval::Evaluation::builder_impure();
+
+    if args.strict {
+        eval_builder = eval_builder.mode(EvalMode::Strict);
+    }
 
     let source_map = eval_builder.source_map().clone();
 
