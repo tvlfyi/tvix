@@ -29,6 +29,10 @@ pub struct CompositionConfigs {
     >,
 }
 
+/// Provides a set clap arguments to configure tvix-[ca]store services.
+///
+/// This particular variant has defaults tailored for usecases accessing data
+/// directly locally, like the `tvix-store daemon` command.
 #[derive(clap::Parser, Clone)]
 pub struct ServiceUrls {
     #[arg(
@@ -56,7 +60,10 @@ pub struct ServiceUrls {
     experimental_store_composition: Option<String>,
 }
 
-/// like ServiceUrls, but with different clap defaults
+/// Provides a set clap arguments to configure tvix-[ca]store services.
+///
+/// This particular variant has defaults tailored for usecases accessing data
+/// from another running tvix daemon, via gRPC.
 #[derive(clap::Parser, Clone)]
 pub struct ServiceUrlsGrpc {
     #[arg(long, env, default_value = "grpc+http://[::1]:8000")]
@@ -73,7 +80,13 @@ pub struct ServiceUrlsGrpc {
     experimental_store_composition: Option<String>,
 }
 
-/// like ServiceUrls, but with different clap defaults
+/// Provides a set clap arguments to configure tvix-[ca]store services.
+///
+/// This particular variant has defaults tailored for usecases keeping all data
+/// in memory.
+/// It's currently used in tvix-cli, as we don't really care about persistency
+/// there yet, and using something else here might make some perf output harder
+/// to interpret.
 #[derive(clap::Parser, Clone)]
 pub struct ServiceUrlsMemory {
     #[arg(long, env, default_value = "memory://")]
