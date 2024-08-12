@@ -779,8 +779,9 @@ where
                 Op::Concat => lifted_pop! {
                     self(rhs, lhs) => {
                         let rhs = rhs.to_list().with_span(&frame, self)?.into_inner();
-                        let lhs = lhs.to_list().with_span(&frame, self)?.into_inner();
-                        self.stack.push(Value::List(NixList::from(lhs + rhs)))
+                        let mut lhs = lhs.to_list().with_span(&frame, self)?.into_inner();
+                        lhs.extend(rhs.into_iter());
+                        self.stack.push(Value::List(lhs.into()))
                     }
                 },
 

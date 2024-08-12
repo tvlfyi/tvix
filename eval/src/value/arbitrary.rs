@@ -1,6 +1,7 @@
 //! Support for configurable generation of arbitrary nix values
 
-use imbl::proptest::{ord_map, vector};
+use imbl::proptest::ord_map;
+use proptest::collection::vec;
 use proptest::{prelude::*, strategy::BoxedStrategy};
 use std::ffi::OsString;
 
@@ -53,7 +54,7 @@ impl Arbitrary for NixList {
     type Strategy = BoxedStrategy<Self>;
 
     fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-        vector(<Value as Arbitrary>::arbitrary_with(args), 0..100)
+        vec(<Value as Arbitrary>::arbitrary_with(args), 0..100)
             .prop_map(NixList::from)
             .boxed()
     }

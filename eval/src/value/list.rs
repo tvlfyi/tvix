@@ -2,8 +2,6 @@
 use std::ops::Index;
 use std::rc::Rc;
 
-use imbl::{vector, Vector};
-
 use serde::Deserialize;
 
 use super::thunk::ThunkSet;
@@ -12,7 +10,7 @@ use super::Value;
 
 #[repr(transparent)]
 #[derive(Clone, Debug, Deserialize)]
-pub struct NixList(Rc<Vector<Value>>);
+pub struct NixList(Rc<Vec<Value>>);
 
 impl TotalDisplay for NixList {
     fn total_fmt(&self, f: &mut std::fmt::Formatter<'_>, set: &mut ThunkSet) -> std::fmt::Result {
@@ -27,8 +25,8 @@ impl TotalDisplay for NixList {
     }
 }
 
-impl From<Vector<Value>> for NixList {
-    fn from(vs: Vector<Value>) -> Self {
+impl From<Vec<Value>> for NixList {
+    fn from(vs: Vec<Value>) -> Self {
         Self(Rc::new(vs))
     }
 }
@@ -54,10 +52,10 @@ impl NixList {
             stack_slice.len(),
         );
 
-        NixList(Rc::new(Vector::from_iter(stack_slice)))
+        NixList(Rc::new(stack_slice))
     }
 
-    pub fn iter(&self) -> vector::Iter<Value> {
+    pub fn iter(&self) -> std::slice::Iter<Value> {
         self.0.iter()
     }
 
@@ -65,19 +63,14 @@ impl NixList {
         Rc::ptr_eq(&self.0, &other.0)
     }
 
-    pub fn into_inner(self) -> Vector<Value> {
+    pub fn into_inner(self) -> Vec<Value> {
         Rc::try_unwrap(self.0).unwrap_or_else(|rc| (*rc).clone())
-    }
-
-    #[deprecated(note = "callers should avoid constructing from Vec")]
-    pub fn from_vec(vs: Vec<Value>) -> Self {
-        Self(Rc::new(Vector::from_iter(vs)))
     }
 }
 
 impl IntoIterator for NixList {
     type Item = Value;
-    type IntoIter = imbl::vector::ConsumingIter<Value>;
+    type IntoIter = std::vec::IntoIter<Value>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.into_inner().into_iter()
@@ -86,7 +79,7 @@ impl IntoIterator for NixList {
 
 impl<'a> IntoIterator for &'a NixList {
     type Item = &'a Value;
-    type IntoIter = imbl::vector::Iter<'a, Value>;
+    type IntoIter = std::slice::Iter<'a, Value>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
