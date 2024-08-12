@@ -4,6 +4,14 @@ use clap::Parser;
 use tracing::Level;
 use tvix_store::utils::ServiceUrlsMemory;
 
+/// Provides a CLI interface to trigger evaluation using tvix-eval.
+///
+/// Uses configured tvix-[ca]store and tvix-build components,
+/// and by default a set of builtins similar to these present in Nix.
+///
+/// None of the stores available add to the local `/nix/store` location.
+///
+/// The CLI interface is not stable and subject to change.
 #[derive(Parser, Clone)]
 pub struct Args {
     /// A global log level to use when printing logs.
