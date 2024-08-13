@@ -25,20 +25,6 @@ sure noone is working on this, or has some specific design in mind already.
    with a different level of `--strict`, but the toplevel doc-comment suggests
    its generic?
 
-### castore
-  - The `Directory` struct is currently being generated from the protobuf definitions.
-    We should change this, have `Directory` be our own type (holding a `B3Digest`),
-    rather than a `Vec<u8>`, and move impls to there.
-    The protobuf struct can stay in `castore/proto`, but should only be used
-    when converting to/from Protobuf definitons:
-     - gRPC client/server impls
-     - implementations that use protobuf as a internal data format
-     - `digest()` implementation of our stricter `Directory` struct
-
-    The traits should use our stricter type. This would allow removing a lot of
-    the checks we currently have when converting from `Vec<u8>` to `B3Digest` in
-    various places.
-
 ### Correctness > Performance
 A lot of the Nix behaviour isn't well documented out, and before going too deep
 into performance optimizations, we need to ensure we properly grasped all hidden
@@ -158,8 +144,14 @@ there are ruled out, adding other types of builders might be interesting.
  - gVisor
  - Cloud Hypervisor (using similar technique as `//tvix//boot`).
 
-Long-term, we want to extend traits and gRPC protocol to expose more telemetry,
-logs etc, but this is something requiring a lot of designing.
+Long-term, we want to extend traits and gRPC protocol.
+This requires some more designing. Some goals:
+
+ - use stricter castore types (and maybe stricter build types) instead of
+   proto types, add conversion code where necessary
+ - (more granular) control while a build is happening
+ - expose more telemetry and logs
+
 
 ### Store composition
  - Combinators: list-by-priority, first-come-first-serve, cache
