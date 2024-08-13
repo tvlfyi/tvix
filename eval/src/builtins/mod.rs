@@ -6,7 +6,6 @@
 use bstr::{ByteSlice, ByteVec};
 use builtin_macros::builtins;
 use genawaiter::rc::Gen;
-use imbl::OrdMap;
 use regex::Regex;
 use std::cmp::{self, Ordering};
 use std::collections::BTreeMap;
@@ -795,7 +794,7 @@ mod pure_builtins {
         }
         let mut right_keys = right_set.keys();
 
-        let mut out: OrdMap<NixString, Value> = OrdMap::new();
+        let mut out: BTreeMap<NixString, Value> = BTreeMap::new();
 
         // Both iterators have at least one entry
         let mut left = left_keys.next().unwrap();
@@ -998,7 +997,7 @@ mod pure_builtins {
         attrs: Value,
     ) -> Result<Value, ErrorKind> {
         let attrs = attrs.to_attrs()?;
-        let mut out = imbl::OrdMap::new();
+        let mut out: BTreeMap<NixString, Value> = BTreeMap::new();
 
         // the best span we can get…
         let span = generators::request_span(&co).await;

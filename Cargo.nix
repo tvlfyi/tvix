@@ -1667,45 +1667,6 @@ rec {
         ];
 
       };
-      "bit-set" = rec {
-        crateName = "bit-set";
-        version = "0.5.3";
-        edition = "2015";
-        sha256 = "1wcm9vxi00ma4rcxkl3pzzjli6ihrpn9cfdi0c5b4cvga2mxs007";
-        libName = "bit_set";
-        authors = [
-          "Alexis Beingessner <a.beingessner@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "bit-vec";
-            packageId = "bit-vec";
-            usesDefaultFeatures = false;
-          }
-        ];
-        features = {
-          "default" = [ "std" ];
-          "std" = [ "bit-vec/std" ];
-        };
-        resolvedDefaultFeatures = [ "default" "std" ];
-      };
-      "bit-vec" = rec {
-        crateName = "bit-vec";
-        version = "0.6.3";
-        edition = "2015";
-        sha256 = "1ywqjnv60cdh1slhz67psnp422md6jdliji6alq0gmly2xm9p7rl";
-        libName = "bit_vec";
-        authors = [
-          "Alexis Beingessner <a.beingessner@gmail.com>"
-        ];
-        features = {
-          "default" = [ "std" ];
-          "serde" = [ "dep:serde" ];
-          "serde_no_std" = [ "serde/alloc" ];
-          "serde_std" = [ "std" "serde/std" ];
-        };
-        resolvedDefaultFeatures = [ "default" "std" ];
-      };
       "bitflags 1.3.2" = rec {
         crateName = "bitflags";
         version = "1.3.2";
@@ -1738,19 +1699,6 @@ rec {
           "serde" = [ "dep:serde" ];
         };
         resolvedDefaultFeatures = [ "std" ];
-      };
-      "bitmaps" = rec {
-        crateName = "bitmaps";
-        version = "3.2.0";
-        edition = "2021";
-        sha256 = "00ql08pm4l9hizkldyy54v0pk96g7zg8x6i72c2vkcq0iawl4dkh";
-        authors = [
-          "Bodil Stokke <bodil@bodil.org>"
-        ];
-        features = {
-          "default" = [ "std" ];
-        };
-        resolvedDefaultFeatures = [ "default" "std" ];
       };
       "blake3" = rec {
         crateName = "blake3";
@@ -5886,96 +5834,6 @@ rec {
         };
         resolvedDefaultFeatures = [ "alloc" "default" "std" ];
       };
-      "imbl" = rec {
-        crateName = "imbl";
-        version = "3.0.0";
-        edition = "2018";
-        sha256 = "1sw1vw8qysyr9cxyxfi3fal9ykf46zw337w4n533mwrnrpcfhfxw";
-        authors = [
-          "Bodil Stokke <bodil@bodil.org>"
-          "Joe Neeman <joeneeman@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "bitmaps";
-            packageId = "bitmaps";
-          }
-          {
-            name = "imbl-sized-chunks";
-            packageId = "imbl-sized-chunks";
-          }
-          {
-            name = "proptest";
-            packageId = "proptest";
-            optional = true;
-          }
-          {
-            name = "rand_core";
-            packageId = "rand_core";
-          }
-          {
-            name = "rand_xoshiro";
-            packageId = "rand_xoshiro";
-          }
-          {
-            name = "serde";
-            packageId = "serde";
-            optional = true;
-          }
-        ];
-        buildDependencies = [
-          {
-            name = "version_check";
-            packageId = "version_check";
-          }
-        ];
-        devDependencies = [
-          {
-            name = "proptest";
-            packageId = "proptest";
-          }
-          {
-            name = "serde";
-            packageId = "serde";
-          }
-        ];
-        features = {
-          "arbitrary" = [ "dep:arbitrary" ];
-          "proptest" = [ "dep:proptest" ];
-          "quickcheck" = [ "dep:quickcheck" ];
-          "rayon" = [ "dep:rayon" ];
-          "refpool" = [ "dep:refpool" ];
-          "serde" = [ "dep:serde" ];
-          "triomphe" = [ "dep:triomphe" ];
-        };
-        resolvedDefaultFeatures = [ "proptest" "serde" ];
-      };
-      "imbl-sized-chunks" = rec {
-        crateName = "imbl-sized-chunks";
-        version = "0.1.2";
-        edition = "2021";
-        sha256 = "0qzdw55na2w6fd44p7y9rh05nxa98gzpaigmwg57sy7db3xhch0l";
-        libName = "imbl_sized_chunks";
-        authors = [
-          "Bodil Stokke <bodil@bodil.org>"
-          "Joe Neeman <joeneeman@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "bitmaps";
-            packageId = "bitmaps";
-            usesDefaultFeatures = false;
-          }
-        ];
-        features = {
-          "arbitrary" = [ "dep:arbitrary" ];
-          "array-ops" = [ "dep:array-ops" ];
-          "default" = [ "std" ];
-          "refpool" = [ "dep:refpool" ];
-          "ringbuffer" = [ "array-ops" ];
-        };
-        resolvedDefaultFeatures = [ "default" "std" ];
-      };
       "indexmap 1.9.3" = rec {
         crateName = "indexmap";
         version = "1.9.3";
@@ -9198,16 +9056,6 @@ rec {
         ];
         dependencies = [
           {
-            name = "bit-set";
-            packageId = "bit-set";
-            optional = true;
-          }
-          {
-            name = "bit-vec";
-            packageId = "bit-vec";
-            optional = true;
-          }
-          {
             name = "bitflags";
             packageId = "bitflags 2.4.2";
           }
@@ -9243,12 +9091,6 @@ rec {
             optional = true;
           }
           {
-            name = "rusty-fork";
-            packageId = "rusty-fork";
-            optional = true;
-            usesDefaultFeatures = false;
-          }
-          {
             name = "tempfile";
             packageId = "tempfile";
             optional = true;
@@ -9272,7 +9114,7 @@ rec {
           "timeout" = [ "fork" "rusty-fork/timeout" ];
           "x86" = [ "dep:x86" ];
         };
-        resolvedDefaultFeatures = [ "alloc" "bit-set" "default" "fork" "lazy_static" "regex-syntax" "rusty-fork" "std" "tempfile" "timeout" ];
+        resolvedDefaultFeatures = [ "alloc" "lazy_static" "regex-syntax" "std" "tempfile" ];
       };
       "prost 0.12.3" = rec {
         crateName = "prost";
@@ -9844,18 +9686,6 @@ rec {
         ];
 
       };
-      "quick-error" = rec {
-        crateName = "quick-error";
-        version = "1.2.3";
-        edition = "2015";
-        sha256 = "1q6za3v78hsspisc197bg3g7rpc989qycy8ypr8ap8igv10ikl51";
-        libName = "quick_error";
-        authors = [
-          "Paul Colomiets <paul@colomiets.name>"
-          "Colin Kiegel <kiegel@gmx.de>"
-        ];
-
-      };
       "quick-xml" = rec {
         crateName = "quick-xml";
         version = "0.36.1";
@@ -10204,25 +10034,6 @@ rec {
         authors = [
           "The Rand Project Developers"
           "The Rust Project Developers"
-        ];
-        dependencies = [
-          {
-            name = "rand_core";
-            packageId = "rand_core";
-          }
-        ];
-        features = {
-          "serde" = [ "dep:serde" ];
-          "serde1" = [ "serde" ];
-        };
-      };
-      "rand_xoshiro" = rec {
-        crateName = "rand_xoshiro";
-        version = "0.6.0";
-        edition = "2018";
-        sha256 = "1ajsic84rzwz5qr0mzlay8vi17swqi684bqvwqyiim3flfrcv5vg";
-        authors = [
-          "The Rand Project Developers"
         ];
         dependencies = [
           {
@@ -11774,41 +11585,6 @@ rec {
           "David Tolnay <dtolnay@gmail.com>"
         ];
 
-      };
-      "rusty-fork" = rec {
-        crateName = "rusty-fork";
-        version = "0.3.0";
-        edition = "2018";
-        sha256 = "0kxwq5c480gg6q0j3bg4zzyfh2kwmc3v2ba94jw8ncjc8mpcqgfb";
-        libName = "rusty_fork";
-        authors = [
-          "Jason Lingle"
-        ];
-        dependencies = [
-          {
-            name = "fnv";
-            packageId = "fnv";
-          }
-          {
-            name = "quick-error";
-            packageId = "quick-error";
-          }
-          {
-            name = "tempfile";
-            packageId = "tempfile";
-          }
-          {
-            name = "wait-timeout";
-            packageId = "wait-timeout";
-            optional = true;
-          }
-        ];
-        features = {
-          "default" = [ "timeout" ];
-          "timeout" = [ "wait-timeout" ];
-          "wait-timeout" = [ "dep:wait-timeout" ];
-        };
-        resolvedDefaultFeatures = [ "timeout" "wait-timeout" ];
       };
       "rustyline" = rec {
         crateName = "rustyline";
@@ -16231,11 +16007,6 @@ rec {
             usesDefaultFeatures = false;
           }
           {
-            name = "imbl";
-            packageId = "imbl";
-            features = [ "serde" ];
-          }
-          {
             name = "itertools";
             packageId = "itertools 0.12.0";
           }
@@ -16359,7 +16130,7 @@ rec {
           }
         ];
         features = {
-          "arbitrary" = [ "proptest" "test-strategy" "imbl/proptest" ];
+          "arbitrary" = [ "proptest" "test-strategy" ];
           "default" = [ "impure" "arbitrary" "nix_tests" ];
           "proptest" = [ "dep:proptest" ];
           "test-strategy" = [ "dep:test-strategy" ];
@@ -17599,25 +17370,6 @@ rec {
         libPath = "vu128/vu128.rs";
         authors = [
           "John Millikin <john@john-millikin.com>"
-        ];
-
-      };
-      "wait-timeout" = rec {
-        crateName = "wait-timeout";
-        version = "0.2.0";
-        edition = "2015";
-        crateBin = [ ];
-        sha256 = "1xpkk0j5l9pfmjfh1pi0i89invlavfrd9av5xp0zhxgb29dhy84z";
-        libName = "wait_timeout";
-        authors = [
-          "Alex Crichton <alex@alexcrichton.com>"
-        ];
-        dependencies = [
-          {
-            name = "libc";
-            packageId = "libc";
-            target = { target, features }: (target."unix" or false);
-          }
         ];
 
       };

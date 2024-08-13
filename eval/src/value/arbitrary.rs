@@ -1,7 +1,6 @@
 //! Support for configurable generation of arbitrary nix values
 
-use imbl::proptest::ord_map;
-use proptest::collection::vec;
+use proptest::collection::{btree_map, vec};
 use proptest::{prelude::*, strategy::BoxedStrategy};
 use std::ffi::OsString;
 
@@ -34,16 +33,16 @@ impl Arbitrary for NixAttrs {
     fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
         prop_oneof![
             // Empty attrs representation
-            Just(Self(AttrsRep::Empty)),
+            Just(AttrsRep::Empty.into()),
             // KV representation (name/value pairs)
             (
                 any_with::<Value>(args.clone()),
                 any_with::<Value>(args.clone())
             )
-                .prop_map(|(name, value)| Self(AttrsRep::KV { name, value })),
+                .prop_map(|(name, value)| AttrsRep::KV { name, value }.into()),
             // Map representation
-            ord_map(NixString::arbitrary(), Value::arbitrary_with(args), 0..100)
-                .prop_map(|map| Self(AttrsRep::Im(map)))
+            btree_map(NixString::arbitrary(), Value::arbitrary_with(args), 0..100)
+                .prop_map(|map| AttrsRep::Map(map).into())
         ]
         .boxed()
     }

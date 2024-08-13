@@ -60,7 +60,7 @@ fn interpret(code: &str) {
     let eval = eval_builder.build();
     let result = eval.evaluate(code, None);
 
-    assert!(result.errors.is_empty());
+    assert!(result.errors.is_empty(), "{:#?}", result.errors);
 }
 
 fn eval_nixpkgs(c: &mut Criterion) {

@@ -14,7 +14,6 @@ codemap = "0.1.3"
 codemap-diagnostic = "0.1.1"
 dirs = "4.0.0"
 genawaiter = { version = "0.99.1", default-features = false }
-imbl = { version = "3.0", features = [ "serde" ] }
 itertools = "0.12.0"
 lazy_static = "1.4.0"
 lexical-core = { version = "0.8.5", features = ["format", "parse-floats"] }
@@ -57,7 +56,7 @@ nix_tests = []
 impure = []
 
 # Enables Arbitrary impls for internal types (required to run tests)
-arbitrary = ["proptest", "test-strategy", "imbl/proptest"]
+arbitrary = ["proptest", "test-strategy"]
 
 # Don't leak strings (enable this if you care about peak memory usage of eval)
 #

@@ -9,7 +9,7 @@ fn test_empty_attrs() {
         .unwrap();
 
     assert!(
-        matches!(attrs, NixAttrs(AttrsRep::Empty)),
+        matches!(attrs.0.as_ref(), AttrsRep::Empty),
         "empty attribute set should use optimised representation"
     );
 }
@@ -21,7 +21,7 @@ fn test_simple_attrs() {
         .unwrap();
 
     assert!(
-        matches!(attrs, NixAttrs(AttrsRep::Im(_))),
+        matches!(attrs.0.as_ref(), AttrsRep::Map(_)),
         "simple attribute set should use map representation",
     )
 }
@@ -45,8 +45,8 @@ fn test_kv_attrs() {
     .expect("constructing K/V pair attrs should succeed")
     .unwrap();
 
-    match kv_attrs {
-        NixAttrs(AttrsRep::KV { name, value })
+    match kv_attrs.0.as_ref() {
+        AttrsRep::KV { name, value }
             if name.to_str().unwrap() == meaning_val.to_str().unwrap()
                 || value.to_str().unwrap() == forty_two_val.to_str().unwrap() => {}
 
