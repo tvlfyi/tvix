@@ -220,12 +220,6 @@ logs etc, but this is something requiring a lot of designing.
    (https://github.com/apache/arrow-rs/pull/5650), there's no support on the
    local filesystem yet. We'd need to add support to this (through xattrs).
 
-### DirectoryService
- - Add an `object_store` variant, storing a Directory *closure* keyed by the
-   root `Directory` digest. This won't allow indexing intermediate Directory
-   nodes, but once we have `DirectoryService` composition, it shouldn't be an
-   issue.
-
 ### PathInfoService
  - sqlite backend (different schema than the Nix one, we need the root nodes data!)
 
