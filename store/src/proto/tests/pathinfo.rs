@@ -231,7 +231,7 @@ fn validate_symlink_empty_target_invalid() {
         target: "".into(),
     });
 
-    tvix_castore::directoryservice::Node::try_from(&node).expect_err("must fail validation");
+    tvix_castore::Node::try_from(&node).expect_err("must fail validation");
 }
 
 /// Create a node with a symlink target including null bytes, and ensure it
@@ -243,7 +243,7 @@ fn validate_symlink_target_null_byte_invalid() {
         target: "foo\0".into(),
     });
 
-    tvix_castore::directoryservice::Node::try_from(&node).expect_err("must fail validation");
+    tvix_castore::Node::try_from(&node).expect_err("must fail validation");
 }
 
 /// Create a PathInfo with a correct deriver field and ensure it succeeds.

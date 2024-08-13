@@ -9,8 +9,7 @@ use nix_compat::{
     store_path::{self, StorePathRef},
 };
 use thiserror::Error;
-use tvix_castore::directoryservice::NamedNode;
-use tvix_castore::ValidateNodeError;
+use tvix_castore::{NamedNode, ValidateNodeError};
 
 mod grpc_pathinfoservice_wrapper;
 
@@ -162,7 +161,7 @@ impl PathInfo {
             None => Err(ValidatePathInfoError::NoNodePresent)?,
             Some(node) => {
                 // TODO save result somewhere
-                let node: tvix_castore::directoryservice::Node = node
+                let node: tvix_castore::Node = node
                     .try_into()
                     .map_err(ValidatePathInfoError::InvalidRootNode)?;
                 // parse the name of the node itself and return

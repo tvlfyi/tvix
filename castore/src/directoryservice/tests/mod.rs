@@ -8,8 +8,8 @@ use rstest_reuse::{self, *};
 
 use super::DirectoryService;
 use crate::directoryservice;
-use crate::directoryservice::{Directory, DirectoryNode, Node};
 use crate::fixtures::{DIRECTORY_A, DIRECTORY_B, DIRECTORY_C, DIRECTORY_D};
+use crate::{Directory, DirectoryNode, Node};
 
 mod utils;
 use self::utils::make_grpc_directory_service_client;

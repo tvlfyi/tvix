@@ -10,7 +10,8 @@ use tracing::{instrument, Span};
 use tracing_indicatif::span_ext::IndicatifSpanExt;
 use tvix_castore::{
     blobservice::BlobService,
-    directoryservice::{DirectoryService, NamedNode, Node},
+    directoryservice::DirectoryService,
+    {NamedNode, Node},
 };
 
 pub struct SimpleRenderer<BS, DS> {

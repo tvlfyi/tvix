@@ -15,10 +15,8 @@ use super::FuseDaemon;
 use crate::fs::{TvixStoreFs, XATTR_NAME_BLOB_DIGEST, XATTR_NAME_DIRECTORY_DIGEST};
 use crate::{
     blobservice::{BlobService, MemoryBlobService},
-    directoryservice::{
-        DirectoryNode, DirectoryService, FileNode, MemoryDirectoryService, Node, SymlinkNode,
-    },
-    fixtures,
+    directoryservice::{DirectoryService, MemoryDirectoryService},
+    fixtures, {DirectoryNode, FileNode, Node, SymlinkNode},
 };
 
 const BLOB_A_NAME: &str = "00000000000000000000000000000000-test";

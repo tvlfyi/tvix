@@ -10,8 +10,7 @@ use petgraph::{
 use tracing::instrument;
 
 use super::order_validator::{LeavesToRootValidator, OrderValidator, RootToLeavesValidator};
-use super::{Directory, DirectoryNode};
-use crate::B3Digest;
+use crate::{B3Digest, Directory, DirectoryNode, NamedNode};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -72,11 +71,11 @@ pub struct ValidatedDirectoryGraph {
 
 fn check_edge(dir: &DirectoryNode, child: &Directory) -> Result<(), Error> {
     // Ensure the size specified in the child node matches our records.
-    if dir.size != child.size() {
+    if dir.size() != child.size() {
         return Err(Error::ValidationError(format!(
             "'{}' has wrong size, specified {}, recorded {}",
-            dir.name.as_bstr(),
-            dir.size,
+            dir.get_name().as_bstr(),
+            dir.size(),
             child.size(),
         )));
     }
@@ -145,7 +144,7 @@ impl<O: OrderValidator> DirectoryGraph<O> {
         for subdir in directory.directories() {
             let child_ix = *self
                 .digest_to_node_ix
-                .entry(subdir.digest.clone())
+                .entry(subdir.digest().clone())
                 .or_insert_with(|| self.graph.add_node(None));
 
             let pending_edge_check = match &self.graph[child_ix] {
@@ -268,8 +267,8 @@ impl ValidatedDirectoryGraph {
 */
 #[cfg(test)]
 mod tests {
-    use crate::directoryservice::{Directory, DirectoryNode, Node};
     use crate::fixtures::{DIRECTORY_A, DIRECTORY_B, DIRECTORY_C};
+    use crate::{Directory, DirectoryNode, Node};
     use lazy_static::lazy_static;
     use rstest::rstest;
 

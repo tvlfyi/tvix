@@ -52,7 +52,7 @@ pub async fn get(
             StatusCode::NOT_FOUND
         })?;
 
-    let root_node: tvix_castore::directoryservice::Node = (&root_node).try_into().map_err(|e| {
+    let root_node: tvix_castore::Node = (&root_node).try_into().map_err(|e| {
         warn!(err=%e, "root node validation failed");
         StatusCode::BAD_REQUEST
     })?;

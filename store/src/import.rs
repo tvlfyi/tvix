@@ -2,8 +2,9 @@ use std::path::Path;
 use tracing::{debug, instrument};
 use tvix_castore::{
     blobservice::BlobService,
-    directoryservice::{DirectoryService, NamedNode, Node},
+    directoryservice::DirectoryService,
     import::fs::ingest_path,
+    {NamedNode, Node},
 };
 
 use nix_compat::{

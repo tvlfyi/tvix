@@ -4,8 +4,7 @@ use std::time::Duration;
 
 use bytes::Bytes;
 
-use crate::directoryservice::{NamedNode, Node};
-use crate::B3Digest;
+use crate::{B3Digest, NamedNode, Node};
 
 #[derive(Clone, Debug)]
 pub enum InodeData {

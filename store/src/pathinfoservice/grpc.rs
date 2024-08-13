@@ -11,8 +11,8 @@ use tonic::{async_trait, Code};
 use tracing::{instrument, Span};
 use tracing_indicatif::span_ext::IndicatifSpanExt;
 use tvix_castore::composition::{CompositionContext, ServiceBuilder};
-use tvix_castore::directoryservice::Node;
 use tvix_castore::Error;
+use tvix_castore::Node;
 
 /// Connects to a (remote) tvix-store PathInfoService over gRPC.
 #[derive(Clone)]

@@ -10,7 +10,7 @@ use std::{
 
 use bstr::ByteSlice;
 
-use crate::directoryservice::Directory;
+use crate::Directory;
 
 /// Represents a Path in the castore model.
 /// These are always relative, and platform-independent, which distinguishes

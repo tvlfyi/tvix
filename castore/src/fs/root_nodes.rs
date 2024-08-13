@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::{directoryservice::Node, Error};
-use bytes::Bytes;
+use crate::{Error, Node};
 use futures::stream::BoxStream;
 use tonic::async_trait;
 
@@ -23,7 +22,7 @@ pub trait RootNodes: Send + Sync {
 /// the key is the node name.
 impl<T> RootNodes for T
 where
-    T: AsRef<BTreeMap<Bytes, Node>> + Send + Sync,
+    T: AsRef<BTreeMap<bytes::Bytes, Node>> + Send + Sync,
 {
     async fn get_by_basename(&self, name: &[u8]) -> Result<Option<Node>, Error> {
         Ok(self.as_ref().get(name).cloned())

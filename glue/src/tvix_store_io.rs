@@ -20,7 +20,8 @@ use tvix_store::nar::NarCalculationService;
 
 use tvix_castore::{
     blobservice::BlobService,
-    directoryservice::{self, DirectoryService, NamedNode, Node},
+    directoryservice::{self, DirectoryService},
+    {NamedNode, Node},
 };
 use tvix_store::{pathinfoservice::PathInfoService, proto::PathInfo};
 

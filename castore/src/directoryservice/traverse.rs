@@ -1,5 +1,4 @@
-use super::{DirectoryService, NamedNode, Node};
-use crate::{Error, Path};
+use crate::{directoryservice::DirectoryService, Error, NamedNode, Node, Path};
 use tracing::{instrument, warn};
 
 /// This descends from a (root) node to the given (sub)path, returning the Node
@@ -25,15 +24,15 @@ where
                 // fetch the linked node from the directory_service.
                 let directory = directory_service
                     .as_ref()
-                    .get(&directory_node.digest)
+                    .get(directory_node.digest())
                     .await?
                     .ok_or_else(|| {
                         // If we didn't get the directory node that's linked, that's a store inconsistency, bail out!
-                        warn!("directory {} does not exist", directory_node.digest);
+                        warn!("directory {} does not exist", directory_node.digest());
 
                         Error::StorageError(format!(
                             "directory {} does not exist",
-                            directory_node.digest
+                            directory_node.digest()
                         ))
                     })?;
 
@@ -59,9 +58,8 @@ where
 mod tests {
     use crate::{
         directoryservice,
-        directoryservice::{DirectoryNode, Node},
         fixtures::{DIRECTORY_COMPLICATED, DIRECTORY_WITH_KEEP},
-        PathBuf,
+        DirectoryNode, Node, PathBuf,
     };
 
     use super::descend_to;

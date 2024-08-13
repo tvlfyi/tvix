@@ -10,6 +10,9 @@ pub mod fixtures;
 #[cfg(feature = "fs")]
 pub mod fs;
 
+mod nodes;
+pub use nodes::*;
+
 mod path;
 pub use path::{Path, PathBuf};
 

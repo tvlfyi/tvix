@@ -1,6 +1,5 @@
 use crate::{
-    directoryservice::{Directory, DirectoryNode, FileNode, Node, SymlinkNode},
-    B3Digest,
+    B3Digest, {Directory, DirectoryNode, FileNode, Node, SymlinkNode},
 };
 use lazy_static::lazy_static;
 

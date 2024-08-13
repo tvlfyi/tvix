@@ -67,11 +67,10 @@ pub async fn get(
     })?;
 
     // encode the (unnamed) root node in the NAR url itself.
-    let root_node = tvix_castore::directoryservice::Node::try_from(
-        path_info.node.as_ref().expect("root node must not be none"),
-    )
-    .unwrap() // PathInfo is validated
-    .rename("".into());
+    let root_node =
+        tvix_castore::Node::try_from(path_info.node.as_ref().expect("root node must not be none"))
+            .unwrap() // PathInfo is validated
+            .rename("".into());
 
     let mut buf = Vec::new();
     Node::encode(&(&root_node).into(), &mut buf);
@@ -126,7 +125,7 @@ pub async fn put(
 
     // Lookup root node with peek, as we don't want to update the LRU list.
     // We need to be careful to not hold the RwLock across the await point.
-    let maybe_root_node: Option<tvix_castore::directoryservice::Node> = root_nodes
+    let maybe_root_node: Option<tvix_castore::Node> = root_nodes
         .read()
         .peek(&narinfo.nar_hash)
         .and_then(|v| v.try_into().ok());

@@ -50,7 +50,7 @@ impl RootToLeavesValidator {
 
         for subdir in directory.directories() {
             // Allow the children to appear next
-            self.expected_digests.insert(subdir.digest.clone());
+            self.expected_digests.insert(subdir.digest().clone());
         }
     }
 }
@@ -80,10 +80,10 @@ impl OrderValidator for LeavesToRootValidator {
         let digest = directory.digest();
 
         for subdir in directory.directories() {
-            if !self.allowed_references.contains(&subdir.digest) {
+            if !self.allowed_references.contains(subdir.digest()) {
                 warn!(
                     directory.digest = %digest,
-                    subdirectory.digest = %subdir.digest,
+                    subdirectory.digest = %subdir.digest(),
                     "unexpected directory reference"
                 );
                 return false;

@@ -1,9 +1,9 @@
 use crate::blobservice::{self, BlobService};
 use crate::directoryservice;
-use crate::directoryservice::{DirectoryNode, Node, SymlinkNode};
 use crate::fixtures::*;
 use crate::import::fs::ingest_path;
 use crate::proto;
+use crate::{DirectoryNode, Node, SymlinkNode};
 
 use tempfile::TempDir;
 

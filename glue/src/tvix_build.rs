@@ -10,7 +10,7 @@ use tvix_build::proto::{
     build_request::{AdditionalFile, BuildConstraints, EnvVar},
     BuildRequest,
 };
-use tvix_castore::directoryservice::Node;
+use tvix_castore::Node;
 
 /// These are the environment variables that Nix sets in its sandbox for every
 /// build.
@@ -197,8 +197,8 @@ mod test {
         build_request::{AdditionalFile, BuildConstraints, EnvVar},
         BuildRequest,
     };
-    use tvix_castore::directoryservice::{DirectoryNode, Node};
     use tvix_castore::fixtures::DUMMY_DIGEST;
+    use tvix_castore::{DirectoryNode, Node};
 
     use crate::tvix_build::NIX_ENVIRONMENT_VARS;
 

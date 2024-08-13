@@ -4,15 +4,9 @@
 //! Specific implementations, such as ingesting from the filesystem, live in
 //! child modules.
 
-use crate::directoryservice::Directory;
-use crate::directoryservice::DirectoryNode;
-use crate::directoryservice::DirectoryPutter;
-use crate::directoryservice::DirectoryService;
-use crate::directoryservice::FileNode;
-use crate::directoryservice::Node;
-use crate::directoryservice::SymlinkNode;
+use crate::directoryservice::{DirectoryPutter, DirectoryService};
 use crate::path::{Path, PathBuf};
-use crate::B3Digest;
+use crate::{B3Digest, Directory, DirectoryNode, FileNode, Node, SymlinkNode};
 use futures::{Stream, StreamExt};
 use tracing::Level;
 
@@ -219,9 +213,9 @@ impl IngestionEntry {
 mod test {
     use rstest::rstest;
 
-    use crate::directoryservice::{Directory, DirectoryNode, FileNode, Node, SymlinkNode};
     use crate::fixtures::{DIRECTORY_COMPLICATED, DIRECTORY_WITH_KEEP, EMPTY_BLOB_DIGEST};
     use crate::{directoryservice::MemoryDirectoryService, fixtures::DUMMY_DIGEST};
+    use crate::{Directory, DirectoryNode, FileNode, Node, SymlinkNode};
 
     use super::ingest_entries;
     use super::IngestionEntry;

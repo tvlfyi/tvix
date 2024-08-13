@@ -179,7 +179,7 @@ pub(crate) mod derivation_builtins {
     use nix_compat::nixhash::CAHash;
     use nix_compat::store_path::{build_ca_path, hash_placeholder};
     use sha2::Sha256;
-    use tvix_castore::directoryservice::{FileNode, Node};
+    use tvix_castore::{FileNode, Node};
     use tvix_eval::generators::Gen;
     use tvix_eval::{NixContext, NixContextElement, NixString};
     use tvix_store::proto::{NarInfo, PathInfo};

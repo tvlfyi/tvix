@@ -147,7 +147,7 @@ fn digest() {
 #[test]
 fn validate_empty() {
     let d = Directory::default();
-    assert!(crate::directoryservice::Directory::try_from(d).is_ok());
+    assert!(crate::Directory::try_from(d).is_ok());
 }
 
 #[test]
@@ -161,7 +161,7 @@ fn validate_invalid_names() {
             }],
             ..Default::default()
         };
-        match crate::directoryservice::Directory::try_from(d).expect_err("must fail") {
+        match crate::Directory::try_from(d).expect_err("must fail") {
             ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName(_)) => {
                 assert_eq!(n, b"")
             }
@@ -178,7 +178,7 @@ fn validate_invalid_names() {
             }],
             ..Default::default()
         };
-        match crate::directoryservice::Directory::try_from(d).expect_err("must fail") {
+        match crate::Directory::try_from(d).expect_err("must fail") {
             ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName(_)) => {
                 assert_eq!(n, b".")
             }
@@ -196,7 +196,7 @@ fn validate_invalid_names() {
             }],
             ..Default::default()
         };
-        match crate::directoryservice::Directory::try_from(d).expect_err("must fail") {
+        match crate::Directory::try_from(d).expect_err("must fail") {
             ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName(_)) => {
                 assert_eq!(n, b"..")
             }
@@ -212,7 +212,7 @@ fn validate_invalid_names() {
             }],
             ..Default::default()
         };
-        match crate::directoryservice::Directory::try_from(d).expect_err("must fail") {
+        match crate::Directory::try_from(d).expect_err("must fail") {
             ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName(_)) => {
                 assert_eq!(n, b"\x00")
             }
@@ -228,7 +228,7 @@ fn validate_invalid_names() {
             }],
             ..Default::default()
         };
-        match crate::directoryservice::Directory::try_from(d).expect_err("must fail") {
+        match crate::Directory::try_from(d).expect_err("must fail") {
             ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName(_)) => {
                 assert_eq!(n, b"foo/bar")
             }
@@ -247,7 +247,7 @@ fn validate_invalid_digest() {
         }],
         ..Default::default()
     };
-    match crate::directoryservice::Directory::try_from(d).expect_err("must fail") {
+    match crate::Directory::try_from(d).expect_err("must fail") {
         ValidateDirectoryError::InvalidNode(_, ValidateNodeError::InvalidDigestLen(n)) => {
             assert_eq!(n, 2)
         }
@@ -274,7 +274,7 @@ fn validate_sorting() {
             ],
             ..Default::default()
         };
-        match crate::directoryservice::Directory::try_from(d).expect_err("must fail") {
+        match crate::Directory::try_from(d).expect_err("must fail") {
             ValidateDirectoryError::WrongSorting(s) => {
                 assert_eq!(s, b"a");
             }
@@ -299,7 +299,7 @@ fn validate_sorting() {
             ],
             ..Default::default()
         };
-        match crate::directoryservice::Directory::try_from(d).expect_err("must fail") {
+        match crate::Directory::try_from(d).expect_err("must fail") {
             ValidateDirectoryError::DuplicateName(s) => {
                 assert_eq!(s, b"a");
             }
@@ -325,7 +325,7 @@ fn validate_sorting() {
             ..Default::default()
         };
 
-        crate::directoryservice::Directory::try_from(d).expect("validate shouldn't error");
+        crate::Directory::try_from(d).expect("validate shouldn't error");
     }
 
     // [b, c] and [a] are both properly sorted.
@@ -350,6 +350,6 @@ fn validate_sorting() {
             ..Default::default()
         };
 
-        crate::directoryservice::Directory::try_from(d).expect("validate shouldn't error");
+        crate::Directory::try_from(d).expect("validate shouldn't error");
     }
 }

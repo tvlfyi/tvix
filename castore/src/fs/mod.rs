@@ -17,8 +17,8 @@ use self::{
 };
 use crate::{
     blobservice::{BlobReader, BlobService},
-    directoryservice::{DirectoryService, NamedNode, Node},
-    B3Digest,
+    directoryservice::DirectoryService,
+    {B3Digest, NamedNode, Node},
 };
 use bstr::ByteVec;
 use bytes::Bytes;

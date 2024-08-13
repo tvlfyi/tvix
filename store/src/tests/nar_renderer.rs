@@ -9,9 +9,8 @@ use std::io;
 use std::sync::Arc;
 use tokio::io::sink;
 use tvix_castore::blobservice::BlobService;
-use tvix_castore::directoryservice::{
-    DirectoryNode, DirectoryService, FileNode, Node, SymlinkNode,
-};
+use tvix_castore::directoryservice::DirectoryService;
+use tvix_castore::{DirectoryNode, FileNode, Node, SymlinkNode};
 
 #[rstest]
 #[tokio::test]

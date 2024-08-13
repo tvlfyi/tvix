@@ -1,10 +1,9 @@
 use futures::stream::BoxStream;
 use futures::StreamExt;
 use tonic::async_trait;
-use tvix_castore::directoryservice::Node;
 use tvix_castore::fs::{RootNodes, TvixStoreFs};
 use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService};
-use tvix_castore::{Error, ValidateNodeError};
+use tvix_castore::{Error, Node, ValidateNodeError};
 
 use super::PathInfoService;
 

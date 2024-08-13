@@ -11,9 +11,7 @@ use tokio_util::io::{InspectReader, InspectWriter};
 use tracing::{instrument, warn, Span};
 use tracing_indicatif::span_ext::IndicatifSpanExt;
 use tvix_castore::{
-    blobservice::BlobService,
-    directoryservice::{DirectoryService, FileNode, Node},
-    ValidateNodeError,
+    blobservice::BlobService, directoryservice::DirectoryService, FileNode, Node, ValidateNodeError,
 };
 use tvix_store::{nar::NarCalculationService, pathinfoservice::PathInfoService, proto::PathInfo};
 use url::Url;

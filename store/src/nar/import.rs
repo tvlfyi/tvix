@@ -7,12 +7,12 @@ use tokio::{
 };
 use tvix_castore::{
     blobservice::BlobService,
-    directoryservice::{DirectoryService, NamedNode, Node},
+    directoryservice::DirectoryService,
     import::{
         blobs::{self, ConcurrentBlobUploader},
         ingest_entries, IngestionEntry, IngestionError,
     },
-    PathBuf,
+    PathBuf, {NamedNode, Node},
 };
 
 /// Ingests the contents from a [AsyncRead] providing NAR into the tvix store,
@@ -171,13 +171,12 @@ mod test {
     use rstest::*;
     use tokio_stream::StreamExt;
     use tvix_castore::blobservice::BlobService;
-    use tvix_castore::directoryservice::{
-        Directory, DirectoryNode, DirectoryService, FileNode, Node, SymlinkNode,
-    };
+    use tvix_castore::directoryservice::DirectoryService;
     use tvix_castore::fixtures::{
         DIRECTORY_COMPLICATED, DIRECTORY_WITH_KEEP, EMPTY_BLOB_DIGEST, HELLOWORLD_BLOB_CONTENTS,
         HELLOWORLD_BLOB_DIGEST,
     };
+    use tvix_castore::{Directory, DirectoryNode, FileNode, Node, SymlinkNode};
 
     use crate::tests::fixtures::{
         blob_service, directory_service, NAR_CONTENTS_COMPLICATED, NAR_CONTENTS_HELLOWORLD,

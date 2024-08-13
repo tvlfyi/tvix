@@ -1,9 +1,8 @@
 use std::path::{Path, PathBuf};
 
 use itertools::Itertools;
-use tvix_castore::directoryservice::NamedNode;
-use tvix_castore::directoryservice::Node;
 use tvix_castore::ValidateNodeError;
+use tvix_castore::{NamedNode, Node};
 
 mod grpc_buildservice_wrapper;
 

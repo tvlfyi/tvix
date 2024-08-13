@@ -2,9 +2,8 @@
 
 use crate::builtins::errors::ImportError;
 use std::path::Path;
-use tvix_castore::directoryservice::FileNode;
-use tvix_castore::directoryservice::Node;
 use tvix_castore::import::ingest_entries;
+use tvix_castore::{FileNode, Node};
 use tvix_eval::{
     builtin_macros::builtins,
     generators::{self, GenCo},
