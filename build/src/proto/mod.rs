@@ -1,8 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use itertools::Itertools;
-use tvix_castore::ValidateNodeError;
-use tvix_castore::{NamedNode, Node};
+use tvix_castore::DirectoryError;
 
 mod grpc_buildservice_wrapper;
 
@@ -20,7 +19,7 @@ pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("tvix
 #[derive(Debug, thiserror::Error)]
 pub enum ValidateBuildRequestError {
     #[error("invalid input node at position {0}: {1}")]
-    InvalidInputNode(usize, ValidateNodeError),
+    InvalidInputNode(usize, DirectoryError),
 
     #[error("input nodes are not sorted by name")]
     InputNodesNotSorted,
@@ -124,19 +123,21 @@ impl BuildRequest {
     /// and all restrictions around paths themselves (relative, clean, …) need
     // to be fulfilled.
     pub fn validate(&self) -> Result<(), ValidateBuildRequestError> {
-        // now we can look at the names, and make sure they're sorted.
-        if !is_sorted(
-            self.inputs
-                .iter()
-                // TODO(flokli) handle conversion errors and store result somewhere
-                .map(|e| {
-                    Node::try_from(e.node.as_ref().unwrap())
-                        .unwrap()
-                        .get_name()
-                        .clone()
-                }),
-        ) {
-            Err(ValidateBuildRequestError::InputNodesNotSorted)?
+        // validate names. Make sure they're sorted
+
+        let mut last_name = bytes::Bytes::new();
+        for (i, node) in self.inputs.iter().enumerate() {
+            // TODO(flokli): store result somewhere
+            let (name, _node) = node
+                .clone()
+                .into_name_and_node()
+                .map_err(|e| ValidateBuildRequestError::InvalidInputNode(i, e))?;
+
+            if name <= last_name {
+                return Err(ValidateBuildRequestError::InputNodesNotSorted);
+            } else {
+                last_name = name
+            }
         }
 
         // validate working_dir

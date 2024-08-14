@@ -8,11 +8,7 @@ use tokio::io::{self, AsyncWrite, BufReader};
 use tonic::async_trait;
 use tracing::{instrument, Span};
 use tracing_indicatif::span_ext::IndicatifSpanExt;
-use tvix_castore::{
-    blobservice::BlobService,
-    directoryservice::DirectoryService,
-    {NamedNode, Node},
-};
+use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService, Node};
 
 pub struct SimpleRenderer<BS, DS> {
     blob_service: BS,
@@ -103,6 +99,7 @@ where
     walk_node(
         nar_root_node,
         proto_root_node,
+        b"",
         blob_service,
         directory_service,
     )
@@ -115,7 +112,8 @@ where
 /// This consumes the node.
 async fn walk_node<BS, DS>(
     nar_node: nar_writer::Node<'_, '_>,
-    proto_node: &Node,
+    castore_node: &Node,
+    name: &[u8],
     blob_service: BS,
     directory_service: DS,
 ) -> Result<(BS, DS), RenderError>
@@ -123,10 +121,10 @@ where
     BS: BlobService + Send,
     DS: DirectoryService + Send,
 {
-    match proto_node {
-        Node::Symlink(proto_symlink_node) => {
+    match castore_node {
+        Node::Symlink(symlink_node) => {
             nar_node
-                .symlink(proto_symlink_node.target())
+                .symlink(symlink_node.target())
                 .await
                 .map_err(RenderError::NARWriterError)?;
         }
@@ -154,19 +152,19 @@ where
                 .await
                 .map_err(RenderError::NARWriterError)?;
         }
-        Node::Directory(proto_directory_node) => {
+        Node::Directory(directory_node) => {
             // look it up with the directory service
             match directory_service
-                .get(proto_directory_node.digest())
+                .get(directory_node.digest())
                 .await
                 .map_err(|e| RenderError::StoreError(e.into()))?
             {
                 // if it's None, that's an error!
                 None => Err(RenderError::DirectoryNotFound(
-                    proto_directory_node.digest().clone(),
-                    proto_directory_node.get_name().clone(),
+                    directory_node.digest().clone(),
+                    bytes::Bytes::copy_from_slice(name),
                 ))?,
-                Some(proto_directory) => {
+                Some(directory) => {
                     // start a directory node
                     let mut nar_node_directory = nar_node
                         .directory()
@@ -180,15 +178,16 @@ where
 
                     // for each node in the directory, create a new entry with its name,
                     // and then recurse on that entry.
-                    for proto_node in proto_directory.nodes() {
+                    for (name, node) in directory.nodes() {
                         let child_node = nar_node_directory
-                            .entry(proto_node.get_name())
+                            .entry(name)
                             .await
                             .map_err(RenderError::NARWriterError)?;
 
                         (blob_service, directory_service) = Box::pin(walk_node(
                             child_node,
-                            proto_node,
+                            node,
+                            name.as_ref(),
                             blob_service,
                             directory_service,
                         ))

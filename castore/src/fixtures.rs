@@ -35,70 +35,83 @@ lazy_static! {
     // Directories
     pub static ref DIRECTORY_WITH_KEEP: Directory = {
         let mut dir = Directory::new();
-        dir.add(Node::File(FileNode::new(
-            b".keep".to_vec().into(),
-            EMPTY_BLOB_DIGEST.clone(),
-            0,
-            false
-        ).unwrap())).unwrap();
+        dir.add(
+            ".keep".into(),
+            Node::File(FileNode::new(
+                EMPTY_BLOB_DIGEST.clone(),
+                0,
+                false
+            ))).unwrap();
+
         dir
     };
     pub static ref DIRECTORY_COMPLICATED: Directory = {
         let mut dir = Directory::new();
-        dir.add(Node::Directory(DirectoryNode::new(
-            b"keep".to_vec().into(),
-            DIRECTORY_WITH_KEEP.digest(),
-            DIRECTORY_WITH_KEEP.size()
-        ).unwrap())).unwrap();
-        dir.add(Node::File(FileNode::new(
-            b".keep".to_vec().into(),
+        dir.add(
+            "keep".into(),
+            Node::Directory(DirectoryNode::new(
+                DIRECTORY_WITH_KEEP.digest(),
+                DIRECTORY_WITH_KEEP.size()
+            ))).unwrap();
+        dir.add(
+            ".keep".into(),
+            Node::File(FileNode::new(
             EMPTY_BLOB_DIGEST.clone(),
             0,
             false
-        ).unwrap())).unwrap();
-        dir.add(Node::Symlink(SymlinkNode::new(
-            b"aa".to_vec().into(),
-            b"/nix/store/somewhereelse".to_vec().into()
-        ).unwrap())).unwrap();
+        ))).unwrap();
+        dir.add(
+            "aa".into(),
+            Node::Symlink(SymlinkNode::new(
+                b"/nix/store/somewhereelse".to_vec().into()
+            ).unwrap())).unwrap();
+
         dir
     };
     pub static ref DIRECTORY_A: Directory = Directory::new();
     pub static ref DIRECTORY_B: Directory = {
         let mut dir = Directory::new();
-        dir.add(Node::Directory(DirectoryNode::new(
-            b"a".to_vec().into(),
-            DIRECTORY_A.digest(),
-            DIRECTORY_A.size(),
-        ).unwrap())).unwrap();
+        dir.add(
+            "a".into(),
+            Node::Directory(DirectoryNode::new(
+                DIRECTORY_A.digest(),
+                DIRECTORY_A.size(),
+            ))).unwrap();
+
         dir
     };
     pub static ref DIRECTORY_C: Directory = {
         let mut dir = Directory::new();
-        dir.add(Node::Directory(DirectoryNode::new(
-            b"a".to_vec().into(),
-            DIRECTORY_A.digest(),
-            DIRECTORY_A.size(),
-        ).unwrap())).unwrap();
-        dir.add(Node::Directory(DirectoryNode::new(
-                    b"a'".to_vec().into(),
+        dir.add(
+            "a".into(),
+            Node::Directory(DirectoryNode::new(
+                DIRECTORY_A.digest(),
+                DIRECTORY_A.size(),
+            ))).unwrap();
+        dir.add(
+            "a'".into(),
+            Node::Directory(DirectoryNode::new(
                     DIRECTORY_A.digest(),
                     DIRECTORY_A.size(),
-        ).unwrap())).unwrap();
+        ))).unwrap();
+
         dir
     };
     pub static ref DIRECTORY_D: Directory = {
         let mut dir = Directory::new();
-        dir.add(Node::Directory(DirectoryNode::new(
-            b"a".to_vec().into(),
-            DIRECTORY_A.digest(),
-            DIRECTORY_A.size(),
-        ).unwrap())).unwrap();
-            dir.add(Node::Directory(DirectoryNode::new(
-            b"b".to_vec().into(),
-            DIRECTORY_B.digest(),
-            DIRECTORY_B.size(),
-        ).unwrap())).unwrap();
-            dir
+        dir.add(
+            "a".into(),
+            Node::Directory(DirectoryNode::new(
+                DIRECTORY_A.digest(),
+                DIRECTORY_A.size(),
+            ))).unwrap();
+        dir.add(
+            "b".into(),
+            Node::Directory(DirectoryNode::new(
+                DIRECTORY_B.digest(),
+                DIRECTORY_B.size(),
+            ))).unwrap();
 
+        dir
     };
 }

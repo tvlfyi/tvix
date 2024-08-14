@@ -5,11 +5,9 @@ use prost::Message;
 mod grpc_blobservice_wrapper;
 mod grpc_directoryservice_wrapper;
 
+use crate::{B3Digest, DirectoryError};
 pub use grpc_blobservice_wrapper::GRPCBlobServiceWrapper;
 pub use grpc_directoryservice_wrapper::GRPCDirectoryServiceWrapper;
-
-use crate::NamedNode;
-use crate::{B3Digest, ValidateDirectoryError, ValidateNodeError};
 
 tonic::include_proto!("tvix.castore.v1");
 
@@ -71,168 +69,83 @@ impl Directory {
 /// Accepts a name, and a mutable reference to the previous name.
 /// If the passed name is larger than the previous one, the reference is updated.
 /// If it's not, an error is returned.
-fn update_if_lt_prev<'n>(
-    prev_name: &mut &'n [u8],
-    name: &'n [u8],
-) -> Result<(), ValidateDirectoryError> {
+fn update_if_lt_prev<'n>(prev_name: &mut &'n [u8], name: &'n [u8]) -> Result<(), DirectoryError> {
     if *name < **prev_name {
-        return Err(ValidateDirectoryError::WrongSorting(name.to_vec()));
+        return Err(DirectoryError::WrongSorting(bytes::Bytes::copy_from_slice(
+            name,
+        )));
     }
     *prev_name = name;
     Ok(())
 }
 
-impl TryFrom<&node::Node> for crate::Node {
-    type Error = ValidateNodeError;
-
-    fn try_from(node: &node::Node) -> Result<crate::Node, ValidateNodeError> {
-        Ok(match node {
-            node::Node::Directory(n) => crate::Node::Directory(n.try_into()?),
-            node::Node::File(n) => crate::Node::File(n.try_into()?),
-            node::Node::Symlink(n) => crate::Node::Symlink(n.try_into()?),
-        })
-    }
-}
-
-impl TryFrom<&Node> for crate::Node {
-    type Error = ValidateNodeError;
-
-    fn try_from(node: &Node) -> Result<crate::Node, ValidateNodeError> {
-        match node {
-            Node { node: None } => Err(ValidateNodeError::NoNodeSet),
-            Node { node: Some(node) } => node.try_into(),
-        }
-    }
-}
-
-impl TryFrom<&DirectoryNode> for crate::DirectoryNode {
-    type Error = ValidateNodeError;
-
-    fn try_from(node: &DirectoryNode) -> Result<crate::DirectoryNode, ValidateNodeError> {
-        crate::DirectoryNode::new(
-            node.name.clone(),
-            node.digest.clone().try_into()?,
-            node.size,
-        )
-    }
-}
-
-impl TryFrom<&SymlinkNode> for crate::SymlinkNode {
-    type Error = ValidateNodeError;
-
-    fn try_from(node: &SymlinkNode) -> Result<crate::SymlinkNode, ValidateNodeError> {
-        crate::SymlinkNode::new(node.name.clone(), node.target.clone())
-    }
-}
-
-impl TryFrom<&FileNode> for crate::FileNode {
-    type Error = ValidateNodeError;
-
-    fn try_from(node: &FileNode) -> Result<crate::FileNode, ValidateNodeError> {
-        crate::FileNode::new(
-            node.name.clone(),
-            node.digest.clone().try_into()?,
-            node.size,
-            node.executable,
-        )
-    }
-}
-
+// TODO: add a proper owned version here that moves various fields
 impl TryFrom<Directory> for crate::Directory {
-    type Error = ValidateDirectoryError;
+    type Error = DirectoryError;
 
-    fn try_from(directory: Directory) -> Result<crate::Directory, ValidateDirectoryError> {
-        (&directory).try_into()
+    fn try_from(value: Directory) -> Result<Self, Self::Error> {
+        (&value).try_into()
     }
 }
 
 impl TryFrom<&Directory> for crate::Directory {
-    type Error = ValidateDirectoryError;
+    type Error = DirectoryError;
 
-    fn try_from(directory: &Directory) -> Result<crate::Directory, ValidateDirectoryError> {
+    fn try_from(directory: &Directory) -> Result<crate::Directory, DirectoryError> {
         let mut dir = crate::Directory::new();
+
         let mut last_file_name: &[u8] = b"";
+
+        // TODO: this currently loops over all three types separately, rather
+        // than peeking and picking from where would be the next.
+
         for file in directory.files.iter().map(move |file| {
             update_if_lt_prev(&mut last_file_name, &file.name).map(|()| file.clone())
         }) {
             let file = file?;
-            dir.add(crate::Node::File((&file).try_into().map_err(|e| {
-                ValidateDirectoryError::InvalidNode(file.name.into(), e)
-            })?))?;
+
+            let (name, node) = Node {
+                node: Some(node::Node::File(file)),
+            }
+            .into_name_and_node()?;
+
+            dir.add(name, node)?;
         }
         let mut last_directory_name: &[u8] = b"";
         for directory in directory.directories.iter().map(move |directory| {
             update_if_lt_prev(&mut last_directory_name, &directory.name).map(|()| directory.clone())
         }) {
             let directory = directory?;
-            dir.add(crate::Node::Directory((&directory).try_into().map_err(
-                |e| ValidateDirectoryError::InvalidNode(directory.name.into(), e),
-            )?))?;
+
+            let (name, node) = Node {
+                node: Some(node::Node::Directory(directory)),
+            }
+            .into_name_and_node()?;
+
+            dir.add(name, node)?;
         }
         let mut last_symlink_name: &[u8] = b"";
         for symlink in directory.symlinks.iter().map(move |symlink| {
             update_if_lt_prev(&mut last_symlink_name, &symlink.name).map(|()| symlink.clone())
         }) {
             let symlink = symlink?;
-            dir.add(crate::Node::Symlink((&symlink).try_into().map_err(
-                |e| ValidateDirectoryError::InvalidNode(symlink.name.into(), e),
-            )?))?;
+
+            let (name, node) = Node {
+                node: Some(node::Node::Symlink(symlink)),
+            }
+            .into_name_and_node()?;
+
+            dir.add(name, node)?;
         }
+
         Ok(dir)
     }
 }
 
-impl From<&crate::Node> for node::Node {
-    fn from(node: &crate::Node) -> node::Node {
-        match node {
-            crate::Node::Directory(n) => node::Node::Directory(n.into()),
-            crate::Node::File(n) => node::Node::File(n.into()),
-            crate::Node::Symlink(n) => node::Node::Symlink(n.into()),
-        }
-    }
-}
-
-impl From<&crate::Node> for Node {
-    fn from(node: &crate::Node) -> Node {
-        Node {
-            node: Some(node.into()),
-        }
-    }
-}
-
-impl From<&crate::DirectoryNode> for DirectoryNode {
-    fn from(node: &crate::DirectoryNode) -> DirectoryNode {
-        DirectoryNode {
-            digest: node.digest().clone().into(),
-            size: node.size(),
-            name: node.get_name().clone(),
-        }
-    }
-}
-
-impl From<&crate::FileNode> for FileNode {
-    fn from(node: &crate::FileNode) -> FileNode {
-        FileNode {
-            digest: node.digest().clone().into(),
-            size: node.size(),
-            name: node.get_name().clone(),
-            executable: node.executable(),
-        }
-    }
-}
-
-impl From<&crate::SymlinkNode> for SymlinkNode {
-    fn from(node: &crate::SymlinkNode) -> SymlinkNode {
-        SymlinkNode {
-            name: node.get_name().clone(),
-            target: node.target().clone(),
-        }
-    }
-}
-
+// TODO: add a proper owned version here that moves various fields
 impl From<crate::Directory> for Directory {
-    fn from(directory: crate::Directory) -> Directory {
-        (&directory).into()
+    fn from(value: crate::Directory) -> Self {
+        (&value).into()
     }
 }
 
@@ -241,16 +154,25 @@ impl From<&crate::Directory> for Directory {
         let mut directories = vec![];
         let mut files = vec![];
         let mut symlinks = vec![];
-        for node in directory.nodes() {
+
+        for (name, node) in directory.nodes() {
             match node {
-                crate::Node::File(n) => {
-                    files.push(n.into());
-                }
-                crate::Node::Directory(n) => {
-                    directories.push(n.into());
-                }
+                crate::Node::File(n) => files.push(FileNode {
+                    name: name.clone(),
+                    digest: n.digest().to_owned().into(),
+                    size: n.size(),
+                    executable: n.executable(),
+                }),
+                crate::Node::Directory(n) => directories.push(DirectoryNode {
+                    name: name.clone(),
+                    digest: n.digest().to_owned().into(),
+                    size: n.size(),
+                }),
                 crate::Node::Symlink(n) => {
-                    symlinks.push(n.into());
+                    symlinks.push(SymlinkNode {
+                        name: name.clone(),
+                        target: n.target().to_owned(),
+                    });
                 }
             }
         }
@@ -258,6 +180,67 @@ impl From<&crate::Directory> for Directory {
             directories,
             files,
             symlinks,
+        }
+    }
+}
+
+impl Node {
+    /// Converts a proto [Node] to a [crate::Node], and splits off the name.
+    pub fn into_name_and_node(self) -> Result<(bytes::Bytes, crate::Node), DirectoryError> {
+        match self.node.ok_or_else(|| DirectoryError::NoNodeSet)? {
+            node::Node::Directory(n) => {
+                let digest = B3Digest::try_from(n.digest)
+                    .map_err(|e| DirectoryError::InvalidNode(n.name.to_owned(), e.into()))?;
+
+                let node = crate::Node::Directory(crate::DirectoryNode::new(digest, n.size));
+
+                Ok((n.name, node))
+            }
+            node::Node::File(n) => {
+                let digest = B3Digest::try_from(n.digest)
+                    .map_err(|e| DirectoryError::InvalidNode(n.name.to_owned(), e.into()))?;
+
+                let node = crate::Node::File(crate::FileNode::new(digest, n.size, n.executable));
+
+                Ok((n.name, node))
+            }
+
+            node::Node::Symlink(n) => {
+                let node = crate::Node::Symlink(
+                    crate::SymlinkNode::new(n.target)
+                        .map_err(|e| DirectoryError::InvalidNode(n.name.to_owned(), e))?,
+                );
+
+                Ok((n.name, node))
+            }
+        }
+    }
+
+    /// Construsts a [Node] from a name and [crate::Node].
+    pub fn from_name_and_node(name: bytes::Bytes, n: crate::Node) -> Self {
+        // TODO: make these pub(crate) so we can avoid cloning?
+        match n {
+            crate::Node::Directory(directory_node) => Self {
+                node: Some(node::Node::Directory(DirectoryNode {
+                    name,
+                    digest: directory_node.digest().to_owned().into(),
+                    size: directory_node.size(),
+                })),
+            },
+            crate::Node::File(file_node) => Self {
+                node: Some(node::Node::File(FileNode {
+                    name,
+                    digest: file_node.digest().to_owned().into(),
+                    size: file_node.size(),
+                    executable: file_node.executable(),
+                })),
+            },
+            crate::Node::Symlink(symlink_node) => Self {
+                node: Some(node::Node::Symlink(SymlinkNode {
+                    name,
+                    target: symlink_node.target().to_owned(),
+                })),
+            },
         }
     }
 }

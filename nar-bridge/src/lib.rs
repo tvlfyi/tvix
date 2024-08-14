@@ -7,7 +7,7 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 use tvix_castore::blobservice::BlobService;
 use tvix_castore::directoryservice::DirectoryService;
-use tvix_castore::proto::node::Node;
+use tvix_castore::Node;
 use tvix_store::pathinfoservice::PathInfoService;
 
 mod nar;

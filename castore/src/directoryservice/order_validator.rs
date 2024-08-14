@@ -48,9 +48,9 @@ impl RootToLeavesValidator {
             self.expected_digests.insert(directory.digest());
         }
 
-        for subdir in directory.directories() {
+        for (_, subdir_node) in directory.directories() {
             // Allow the children to appear next
-            self.expected_digests.insert(subdir.digest().clone());
+            self.expected_digests.insert(subdir_node.digest().clone());
         }
     }
 }
@@ -79,11 +79,11 @@ impl OrderValidator for LeavesToRootValidator {
     fn add_directory(&mut self, directory: &Directory) -> bool {
         let digest = directory.digest();
 
-        for subdir in directory.directories() {
-            if !self.allowed_references.contains(subdir.digest()) {
+        for (_, subdir_node) in directory.directories() {
+            if !self.allowed_references.contains(subdir_node.digest()) {
                 warn!(
                     directory.digest = %digest,
-                    subdirectory.digest = %subdir.digest(),
+                    subdirectory.digest = %subdir_node.digest(),
                     "unexpected directory reference"
                 );
                 return false;

@@ -108,11 +108,17 @@ mod test {
             let mut p = PATHINFO_1.clone();
             let root_node = p.node.as_mut().unwrap();
             if let castorepb::Node { node: Some(node) } = root_node {
-                let n = node.to_owned();
-                *node = (&tvix_castore::Node::try_from(&n)
-                    .unwrap()
-                    .rename("11111111111111111111111111111111-dummy2".into()))
-                    .into();
+                match node {
+                    castorepb::node::Node::Directory(n) => {
+                        n.name = "11111111111111111111111111111111-dummy2".into()
+                    }
+                    castorepb::node::Node::File(n) => {
+                        n.name = "11111111111111111111111111111111-dummy2".into()
+                    }
+                    castorepb::node::Node::Symlink(n) => {
+                        n.name = "11111111111111111111111111111111-dummy2".into()
+                    }
+                }
             } else {
                 unreachable!()
             }

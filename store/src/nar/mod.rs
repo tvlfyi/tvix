@@ -37,13 +37,13 @@ pub enum RenderError {
     #[error("failure talking to a backing store client: {0}")]
     StoreError(#[source] std::io::Error),
 
-    #[error("unable to find directory {}, referred from {:?}", .0, .1)]
+    #[error("unable to find directory {0}, referred from {1:?}")]
     DirectoryNotFound(B3Digest, bytes::Bytes),
 
-    #[error("unable to find blob {}, referred from {:?}", .0, .1)]
+    #[error("unable to find blob {0}, referred from {1:?}")]
     BlobNotFound(B3Digest, bytes::Bytes),
 
-    #[error("unexpected size in metadata for blob {}, referred from {:?} returned, expected {}, got {}", .0, .1, .2, .3)]
+    #[error("unexpected size in metadata for blob {0}, referred from {1:?} returned, expected {2}, got {3}")]
     UnexpectedBlobMeta(B3Digest, bytes::Bytes, u32, u32),
 
     #[error("failure using the NAR writer: {0}")]

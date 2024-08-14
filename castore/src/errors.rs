@@ -13,33 +13,12 @@ pub enum Error {
     StorageError(String),
 }
 
-/// Errors that can occur during the validation of [Directory] messages.
-#[derive(Debug, thiserror::Error, PartialEq)]
-pub enum ValidateDirectoryError {
-    /// Elements are not in sorted order
-    #[error("{:?} is not sorted", .0.as_bstr())]
-    WrongSorting(Vec<u8>),
-    /// Multiple elements with the same name encountered
-    #[error("{:?} is a duplicate name", .0.as_bstr())]
-    DuplicateName(Vec<u8>),
-    /// Invalid node
-    #[error("invalid node with name {:?}: {:?}", .0.as_bstr(), .1.to_string())]
-    InvalidNode(Vec<u8>, ValidateNodeError),
-    #[error("Total size exceeds u32::MAX")]
-    SizeOverflow,
-}
-
-/// Errors that occur during Node validation
+/// Errors that occur during construction of [crate::Node]
 #[derive(Debug, thiserror::Error, PartialEq)]
 pub enum ValidateNodeError {
-    #[error("No node set")]
-    NoNodeSet,
     /// Invalid digest length encountered
     #[error("invalid digest length: {0}")]
     InvalidDigestLen(usize),
-    /// Invalid name encountered
-    #[error("Invalid name: {}", .0.as_bstr())]
-    InvalidName(bytes::Bytes),
     /// Invalid symlink target
     #[error("Invalid symlink target: {}", .0.as_bstr())]
     InvalidSymlinkTarget(bytes::Bytes),
@@ -51,6 +30,29 @@ impl From<crate::digests::Error> for ValidateNodeError {
             crate::digests::Error::InvalidDigestLen(n) => ValidateNodeError::InvalidDigestLen(n),
         }
     }
+}
+
+/// Errors that can occur when populating [crate::Directory] messages,
+/// or parsing [crate::proto::Directory]
+#[derive(Debug, thiserror::Error, PartialEq)]
+pub enum DirectoryError {
+    /// Multiple elements with the same name encountered
+    #[error("{:?} is a duplicate name", .0.as_bstr())]
+    DuplicateName(Vec<u8>),
+    /// Node failed validation
+    #[error("invalid node with name {:?}: {:?}", .0.as_bstr(), .1.to_string())]
+    InvalidNode(bytes::Bytes, ValidateNodeError),
+    #[error("Total size exceeds u32::MAX")]
+    SizeOverflow,
+    /// Invalid name encountered
+    #[error("Invalid name: {}", .0.as_bstr())]
+    InvalidName(bytes::Bytes),
+    /// Elements are not in sorted order. Can only happen on protos
+    #[error("{:?} is not sorted", .0.as_bstr())]
+    WrongSorting(bytes::Bytes),
+    /// This can only happen if there's an unknown node type (on protos)
+    #[error("No node set")]
+    NoNodeSet,
 }
 
 impl From<JoinError> for Error {

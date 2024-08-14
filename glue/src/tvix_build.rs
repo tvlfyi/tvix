@@ -1,7 +1,7 @@
 //! This module contains glue code translating from
 //! [nix_compat::derivation::Derivation] to [tvix_build::proto::BuildRequest].
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use bytes::Bytes;
 use nix_compat::{derivation::Derivation, nixbase32};
@@ -39,7 +39,7 @@ const NIX_ENVIRONMENT_VARS: [(&str, &str); 12] = [
 #[allow(clippy::mutable_key_type)]
 pub(crate) fn derivation_to_build_request(
     derivation: &Derivation,
-    inputs: BTreeSet<Node>,
+    inputs: BTreeMap<bytes::Bytes, Node>,
 ) -> std::io::Result<BuildRequest> {
     debug_assert!(derivation.validate(true).is_ok(), "drv must validate");
 
@@ -109,7 +109,10 @@ pub(crate) fn derivation_to_build_request(
             .into_iter()
             .map(|(key, value)| EnvVar { key, value })
             .collect(),
-        inputs: inputs.iter().map(Into::into).collect(),
+        inputs: inputs
+            .into_iter()
+            .map(|(name, node)| tvix_castore::proto::Node::from_name_and_node(name, node))
+            .collect(),
         inputs_dir: nix_compat::store_path::STORE_DIR[1..].into(),
         constraints,
         working_dir: "build".into(),
@@ -189,10 +192,9 @@ fn calculate_pass_as_file_env(k: &str) -> (String, String) {
 
 #[cfg(test)]
 mod test {
-    use std::collections::BTreeSet;
-
     use bytes::Bytes;
     use nix_compat::derivation::Derivation;
+    use std::collections::BTreeMap;
     use tvix_build::proto::{
         build_request::{AdditionalFile, BuildConstraints, EnvVar},
         BuildRequest,
@@ -206,14 +208,9 @@ mod test {
     use lazy_static::lazy_static;
 
     lazy_static! {
-        static ref INPUT_NODE_FOO: Node = Node::Directory(
-            DirectoryNode::new(
-                Bytes::from("mp57d33657rf34lzvlbpfa1gjfv5gmpg-bar"),
-                DUMMY_DIGEST.clone(),
-                42,
-            )
-            .unwrap()
-        );
+        static ref INPUT_NODE_FOO_NAME: Bytes = "mp57d33657rf34lzvlbpfa1gjfv5gmpg-bar".into();
+        static ref INPUT_NODE_FOO: Node =
+            Node::Directory(DirectoryNode::new(DUMMY_DIGEST.clone(), 42,));
     }
 
     #[test]
@@ -222,9 +219,11 @@ mod test {
 
         let derivation = Derivation::from_aterm_bytes(aterm_bytes).expect("must parse");
 
-        let build_request =
-            derivation_to_build_request(&derivation, BTreeSet::from([INPUT_NODE_FOO.clone()]))
-                .expect("must succeed");
+        let build_request = derivation_to_build_request(
+            &derivation,
+            BTreeMap::from([(INPUT_NODE_FOO_NAME.clone(), INPUT_NODE_FOO.clone())]),
+        )
+        .expect("must succeed");
 
         let mut expected_environment_vars = vec![
             EnvVar {
@@ -261,7 +260,10 @@ mod test {
                 command_args: vec![":".into()],
                 outputs: vec!["nix/store/fhaj6gmwns62s6ypkcldbaj2ybvkhx3p-foo".into()],
                 environment_vars: expected_environment_vars,
-                inputs: vec![(&*INPUT_NODE_FOO).into()],
+                inputs: vec![tvix_castore::proto::Node::from_name_and_node(
+                    INPUT_NODE_FOO_NAME.clone(),
+                    INPUT_NODE_FOO.clone()
+                )],
                 inputs_dir: "nix/store".into(),
                 constraints: Some(BuildConstraints {
                     system: derivation.system.clone(),
@@ -285,7 +287,7 @@ mod test {
         let derivation = Derivation::from_aterm_bytes(aterm_bytes).expect("must parse");
 
         let build_request =
-            derivation_to_build_request(&derivation, BTreeSet::from([])).expect("must succeed");
+            derivation_to_build_request(&derivation, BTreeMap::from([])).expect("must succeed");
 
         let mut expected_environment_vars = vec![
             EnvVar {
@@ -355,7 +357,7 @@ mod test {
         let derivation = Derivation::from_aterm_bytes(aterm_bytes).expect("must parse");
 
         let build_request =
-            derivation_to_build_request(&derivation, BTreeSet::from([])).expect("must succeed");
+            derivation_to_build_request(&derivation, BTreeMap::from([])).expect("must succeed");
 
         let mut expected_environment_vars = vec![
             // Note how bar and baz are not present in the env anymore,

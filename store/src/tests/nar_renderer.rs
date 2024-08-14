@@ -22,9 +22,7 @@ async fn single_symlink(
 
     write_nar(
         &mut buf,
-        &Node::Symlink(
-            SymlinkNode::new("doesntmatter".into(), "/nix/store/somewhereelse".into()).unwrap(),
-        ),
+        &Node::Symlink(SymlinkNode::new("/nix/store/somewhereelse".into()).unwrap()),
         // don't put anything in the stores, as we don't actually do any requests.
         blob_service,
         directory_service,
@@ -44,15 +42,11 @@ async fn single_file_missing_blob(
 ) {
     let e = write_nar(
         sink(),
-        &Node::File(
-            FileNode::new(
-                "doesntmatter".into(),
-                HELLOWORLD_BLOB_DIGEST.clone(),
-                HELLOWORLD_BLOB_CONTENTS.len() as u64,
-                false,
-            )
-            .unwrap(),
-        ),
+        &Node::File(FileNode::new(
+            HELLOWORLD_BLOB_DIGEST.clone(),
+            HELLOWORLD_BLOB_CONTENTS.len() as u64,
+            false,
+        )),
         // the blobservice is empty intentionally, to provoke the error.
         blob_service,
         directory_service,
@@ -92,15 +86,11 @@ async fn single_file_wrong_blob_size(
     // Test with a root FileNode of a too big size
     let e = write_nar(
         sink(),
-        &Node::File(
-            FileNode::new(
-                "doesntmatter".into(),
-                HELLOWORLD_BLOB_DIGEST.clone(),
-                42, // <- note the wrong size here!
-                false,
-            )
-            .unwrap(),
-        ),
+        &Node::File(FileNode::new(
+            HELLOWORLD_BLOB_DIGEST.clone(),
+            42, // <- note the wrong size here!
+            false,
+        )),
         blob_service.clone(),
         directory_service.clone(),
     )
@@ -117,15 +107,11 @@ async fn single_file_wrong_blob_size(
     // Test with a root FileNode of a too small size
     let e = write_nar(
         sink(),
-        &Node::File(
-            FileNode::new(
-                "doesntmatter".into(),
-                HELLOWORLD_BLOB_DIGEST.clone(),
-                2, // <- note the wrong size here!
-                false,
-            )
-            .unwrap(),
-        ),
+        &Node::File(FileNode::new(
+            HELLOWORLD_BLOB_DIGEST.clone(),
+            2, // <- note the wrong size here!
+            false,
+        )),
         blob_service,
         directory_service,
     )
@@ -161,15 +147,11 @@ async fn single_file(
 
     write_nar(
         &mut buf,
-        &Node::File(
-            FileNode::new(
-                "doesntmatter".into(),
-                HELLOWORLD_BLOB_DIGEST.clone(),
-                HELLOWORLD_BLOB_CONTENTS.len() as u64,
-                false,
-            )
-            .unwrap(),
-        ),
+        &Node::File(FileNode::new(
+            HELLOWORLD_BLOB_DIGEST.clone(),
+            HELLOWORLD_BLOB_CONTENTS.len() as u64,
+            false,
+        )),
         blob_service,
         directory_service,
     )
@@ -207,14 +189,10 @@ async fn test_complicated(
 
     write_nar(
         &mut buf,
-        &Node::Directory(
-            DirectoryNode::new(
-                "doesntmatter".into(),
-                DIRECTORY_COMPLICATED.digest(),
-                DIRECTORY_COMPLICATED.size(),
-            )
-            .unwrap(),
-        ),
+        &Node::Directory(DirectoryNode::new(
+            DIRECTORY_COMPLICATED.digest(),
+            DIRECTORY_COMPLICATED.size(),
+        )),
         blob_service.clone(),
         directory_service.clone(),
     )
@@ -225,14 +203,10 @@ async fn test_complicated(
 
     // ensure calculate_nar does return the correct sha256 digest and sum.
     let (nar_size, nar_digest) = calculate_size_and_sha256(
-        &Node::Directory(
-            DirectoryNode::new(
-                "doesntmatter".into(),
-                DIRECTORY_COMPLICATED.digest(),
-                DIRECTORY_COMPLICATED.size(),
-            )
-            .unwrap(),
-        ),
+        &Node::Directory(DirectoryNode::new(
+            DIRECTORY_COMPLICATED.digest(),
+            DIRECTORY_COMPLICATED.size(),
+        )),
         blob_service,
         directory_service,
     )

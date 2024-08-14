@@ -2,13 +2,9 @@ use crate::blobservice::{self, BlobService};
 use crate::directoryservice;
 use crate::fixtures::*;
 use crate::import::fs::ingest_path;
-use crate::proto;
 use crate::{DirectoryNode, Node, SymlinkNode};
 
 use tempfile::TempDir;
-
-#[cfg(target_family = "unix")]
-use std::os::unix::ffi::OsStrExt;
 
 #[cfg(target_family = "unix")]
 #[tokio::test]
@@ -34,9 +30,7 @@ async fn symlink() {
     .expect("must succeed");
 
     assert_eq!(
-        Node::Symlink(
-            SymlinkNode::new("doesntmatter".into(), "/nix/store/somewhereelse".into(),).unwrap()
-        ),
+        Node::Symlink(SymlinkNode::new("/nix/store/somewhereelse".into(),).unwrap()),
         root_node,
     )
 }
@@ -59,13 +53,12 @@ async fn single_file() {
     .expect("must succeed");
 
     assert_eq!(
-        proto::node::Node::File(proto::FileNode {
-            name: "root".into(),
-            digest: HELLOWORLD_BLOB_DIGEST.clone().into(),
-            size: HELLOWORLD_BLOB_CONTENTS.len() as u64,
-            executable: false,
-        }),
-        (&root_node).into(),
+        Node::File(crate::FileNode::new(
+            HELLOWORLD_BLOB_DIGEST.clone(),
+            HELLOWORLD_BLOB_CONTENTS.len() as u64,
+            false,
+        )),
+        root_node,
     );
 
     // ensure the blob has been uploaded
@@ -95,20 +88,10 @@ async fn complicated() {
 
     // ensure root_node matched expectations
     assert_eq!(
-        Node::Directory(
-            DirectoryNode::new(
-                tmpdir
-                    .path()
-                    .file_name()
-                    .unwrap()
-                    .as_bytes()
-                    .to_owned()
-                    .into(),
-                DIRECTORY_COMPLICATED.digest().clone(),
-                DIRECTORY_COMPLICATED.size(),
-            )
-            .unwrap()
-        ),
+        Node::Directory(DirectoryNode::new(
+            DIRECTORY_COMPLICATED.digest().clone(),
+            DIRECTORY_COMPLICATED.size(),
+        )),
         root_node,
     );
 

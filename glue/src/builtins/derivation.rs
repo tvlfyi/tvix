@@ -577,10 +577,7 @@ pub(crate) mod derivation_builtins {
                     })
                     .map_err(DerivationError::InvalidDerivation)?;
 
-            let root_node = Node::File(
-                FileNode::new(store_path.to_string().into(), blob_digest, blob_size, false)
-                    .map_err(|e| ErrorKind::TvixError(Rc::new(e)))?,
-            );
+            let root_node = Node::File(FileNode::new(blob_digest, blob_size, false));
 
             // calculate the nar hash
             let (nar_size, nar_sha256) = state
@@ -600,7 +597,10 @@ pub(crate) mod derivation_builtins {
             state
                 .path_info_service
                 .put(PathInfo {
-                    node: Some((&root_node).into()),
+                    node: Some(tvix_castore::proto::Node::from_name_and_node(
+                        store_path.to_string().into(),
+                        root_node,
+                    )),
                     references: reference_paths
                         .iter()
                         .map(|x| bytes::Bytes::copy_from_slice(x.digest()))

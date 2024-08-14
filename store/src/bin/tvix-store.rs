@@ -351,9 +351,10 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error + Send + Sync
                 // Create and upload a PathInfo pointing to the root_node,
                 // annotated with information we have from the reference graph.
                 let path_info = PathInfo {
-                    node: Some(tvix_castore::proto::Node {
-                        node: Some((&root_node).into()),
-                    }),
+                    node: Some(tvix_castore::proto::Node::from_name_and_node(
+                        elem.path.to_string().into(),
+                        root_node,
+                    )),
                     references: Vec::from_iter(
                         elem.references.iter().map(|e| e.digest().to_vec().into()),
                     ),

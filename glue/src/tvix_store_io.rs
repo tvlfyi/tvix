@@ -4,9 +4,9 @@ use futures::{StreamExt, TryStreamExt};
 use nix_compat::nixhash::NixHash;
 use nix_compat::store_path::StorePathRef;
 use nix_compat::{nixhash::CAHash, store_path::StorePath};
+use std::collections::BTreeMap;
 use std::{
     cell::RefCell,
-    collections::BTreeSet,
     io,
     path::{Path, PathBuf},
     sync::Arc,
@@ -21,7 +21,7 @@ use tvix_store::nar::NarCalculationService;
 use tvix_castore::{
     blobservice::BlobService,
     directoryservice::{self, DirectoryService},
-    {NamedNode, Node},
+    Node,
 };
 use tvix_store::{pathinfoservice::PathInfoService, proto::PathInfo};
 
@@ -120,12 +120,22 @@ impl TvixStoreIO {
             .await?
         {
             // if we have a PathInfo, we know there will be a root_node (due to validation)
-            Some(path_info) => path_info
-                .node
-                .as_ref()
-                .expect("no node")
-                .try_into()
-                .expect("invalid node"),
+            // TODO: use stricter typed BuildRequest here.
+            Some(path_info) => {
+                let (name, node) = path_info
+                    .node
+                    .expect("no node")
+                    .into_name_and_node()
+                    .expect("invalid node");
+
+                assert_eq!(
+                    store_path.to_string().as_bytes(),
+                    name.as_ref(),
+                    "returned node basename must match requested store path"
+                );
+
+                node
+            }
             // If there's no PathInfo found, this normally means we have to
             // trigger the build (and insert into PathInfoService, after
             // reference scanning).
@@ -189,7 +199,7 @@ impl TvixStoreIO {
                         // Provide them, which means, here is where we recursively build
                         // all dependencies.
                         #[allow(clippy::mutable_key_type)]
-                        let mut input_nodes: BTreeSet<Node> =
+                        let mut inputs: BTreeMap<Bytes, Node> =
                             futures::stream::iter(drv.input_derivations.iter())
                                 .map(|(input_drv_path, output_names)| {
                                     // look up the derivation object
@@ -217,6 +227,7 @@ impl TvixStoreIO {
                                                 .clone()
                                         })
                                         .collect();
+
                                     // For each output, ask for the castore node.
                                     // We're in a per-derivation context, so if they're
                                     // not built yet they'll all get built together.
@@ -231,7 +242,7 @@ impl TvixStoreIO {
                                                 .await?;
 
                                             if let Some(node) = node {
-                                                Ok(node)
+                                                Ok((output_path.to_string().into(), node))
                                             } else {
                                                 Err(io::Error::other("no node produced"))
                                             }
@@ -245,26 +256,30 @@ impl TvixStoreIO {
                                 .try_collect()
                                 .await?;
 
-                        // add input sources
                         // FUTUREWORK: merge these who things together
                         #[allow(clippy::mutable_key_type)]
-                        let input_nodes_input_sources: BTreeSet<Node> =
+                        // add input sources
+                        let input_sources: BTreeMap<_, _> =
                             futures::stream::iter(drv.input_sources.iter())
                                 .then(|input_source| {
-                                    Box::pin(async {
-                                        let node = self
-                                            .store_path_to_node(input_source, Path::new(""))
-                                            .await?;
-                                        if let Some(node) = node {
-                                            Ok(node)
-                                        } else {
-                                            Err(io::Error::other("no node produced"))
+                                    Box::pin({
+                                        let input_source = input_source.clone();
+                                        async move {
+                                            let node = self
+                                                .store_path_to_node(&input_source, Path::new(""))
+                                                .await?;
+                                            if let Some(node) = node {
+                                                Ok((input_source.to_string().into(), node))
+                                            } else {
+                                                Err(io::Error::other("no node produced"))
+                                            }
                                         }
                                     })
                                 })
                                 .try_collect()
                                 .await?;
-                        input_nodes.extend(input_nodes_input_sources);
+
+                        inputs.extend(input_sources);
 
                         span.pb_set_message(&format!("🔨Building {}", &store_path));
 
@@ -273,7 +288,7 @@ impl TvixStoreIO {
                         // operations, so dealt with in the Some(…) match arm
 
                         // synthesize the build request.
-                        let build_request = derivation_to_build_request(&drv, input_nodes)?;
+                        let build_request = derivation_to_build_request(&drv, inputs)?;
 
                         // create a build
                         let build_result = self
@@ -287,17 +302,21 @@ impl TvixStoreIO {
 
                         // For each output, insert a PathInfo.
                         for output in &build_result.outputs {
-                            let root_node = output.try_into().expect("invalid root node");
+                            let (output_name, output_node) =
+                                output.clone().into_name_and_node().expect("invalid node");
 
                             // calculate the nar representation
                             let (nar_size, nar_sha256) = self
                                 .nar_calculation_service
-                                .calculate_nar(&root_node)
+                                .calculate_nar(&output_node)
                                 .await?;
 
                             // assemble the PathInfo to persist
                             let path_info = PathInfo {
-                                node: Some((&root_node).into()),
+                                node: Some(tvix_castore::proto::Node::from_name_and_node(
+                                    output_name,
+                                    output_node,
+                                )),
                                 references: vec![], // TODO: refscan
                                 narinfo: Some(tvix_store::proto::NarInfo {
                                     nar_size,
@@ -330,14 +349,15 @@ impl TvixStoreIO {
                         }
 
                         // find the output for the store path requested
+                        let s = store_path.to_string();
+
                         build_result
                             .outputs
                             .into_iter()
-                            .map(|output_node| Node::try_from(&output_node).expect("invalid node"))
-                            .find(|output_node| {
-                                output_node.get_name() == store_path.to_string().as_bytes()
-                            })
+                            .map(|e| e.into_name_and_node().expect("invalid node"))
+                            .find(|(output_name, _output_node)| output_name == s.as_bytes())
                             .expect("build didn't produce the store path")
+                            .1
                     }
                 }
             }
@@ -380,12 +400,16 @@ impl TvixStoreIO {
                 },
             )?;
 
-        // assemble a new root_node with a name that is derived from the nar hash.
-        let root_node = root_node.rename(output_path.to_string().into_bytes().into());
-        tvix_store::import::log_node(&root_node, path);
+        tvix_store::import::log_node(name.as_bytes(), &root_node, path);
 
-        let path_info =
-            tvix_store::import::derive_nar_ca_path_info(nar_size, nar_sha256, Some(ca), root_node);
+        // construct a PathInfo
+        let path_info = tvix_store::import::derive_nar_ca_path_info(
+            nar_size,
+            nar_sha256,
+            Some(ca),
+            output_path.to_string().into(),
+            root_node,
+        );
 
         Ok((
             path_info,
@@ -540,13 +564,12 @@ impl EvalIO for TvixStoreIO {
                             self.directory_service.as_ref().get(&digest).await
                         })? {
                             let mut children: Vec<(bytes::Bytes, FileType)> = Vec::new();
-                            for node in directory.nodes() {
+                            // TODO: into_nodes() to avoid cloning
+                            for (name, node) in directory.nodes() {
                                 children.push(match node {
-                                    Node::Directory(e) => {
-                                        (e.get_name().clone(), FileType::Directory)
-                                    }
-                                    Node::File(e) => (e.get_name().clone(), FileType::Regular),
-                                    Node::Symlink(e) => (e.get_name().clone(), FileType::Symlink),
+                                    Node::Directory(_) => (name.clone(), FileType::Directory),
+                                    Node::File(_) => (name.clone(), FileType::Regular),
+                                    Node::Symlink(_) => (name.clone(), FileType::Symlink),
                                 })
                             }
                             Ok(children)

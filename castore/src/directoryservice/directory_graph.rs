@@ -10,7 +10,7 @@ use petgraph::{
 use tracing::instrument;
 
 use super::order_validator::{LeavesToRootValidator, OrderValidator, RootToLeavesValidator};
-use crate::{B3Digest, Directory, DirectoryNode, NamedNode};
+use crate::{B3Digest, Directory, DirectoryNode};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -69,12 +69,12 @@ pub struct ValidatedDirectoryGraph {
     root: Option<NodeIndex>,
 }
 
-fn check_edge(dir: &DirectoryNode, child: &Directory) -> Result<(), Error> {
+fn check_edge(dir: &DirectoryNode, dir_name: &[u8], child: &Directory) -> Result<(), Error> {
     // Ensure the size specified in the child node matches our records.
     if dir.size() != child.size() {
         return Err(Error::ValidationError(format!(
             "'{}' has wrong size, specified {}, recorded {}",
-            dir.get_name().as_bstr(),
+            dir_name.as_bstr(),
             dir.size(),
             child.size(),
         )));
@@ -141,19 +141,19 @@ impl<O: OrderValidator> DirectoryGraph<O> {
         }
 
         // set up edges to all child directories
-        for subdir in directory.directories() {
+        for (subdir_name, subdir_node) in directory.directories() {
             let child_ix = *self
                 .digest_to_node_ix
-                .entry(subdir.digest().clone())
+                .entry(subdir_node.digest().clone())
                 .or_insert_with(|| self.graph.add_node(None));
 
             let pending_edge_check = match &self.graph[child_ix] {
                 Some(child) => {
                     // child is already available, validate the edge now
-                    check_edge(subdir, child)?;
+                    check_edge(subdir_node, subdir_name, child)?;
                     None
                 }
-                None => Some(subdir.clone()), // pending validation
+                None => Some(subdir_node.clone()), // pending validation
             };
             self.graph.add_edge(ix, child_ix, pending_edge_check);
         }
@@ -173,7 +173,9 @@ impl<O: OrderValidator> DirectoryGraph<O> {
                 .expect("edge not found")
                 .take()
                 .expect("edge is already validated");
-            check_edge(&edge_weight, &directory)?;
+
+            // TODO: where's the name here?
+            check_edge(&edge_weight, b"??", &directory)?;
         }
 
         // finally, store the directory information in the node weight
@@ -277,11 +279,12 @@ mod tests {
     lazy_static! {
         pub static ref BROKEN_PARENT_DIRECTORY: Directory = {
             let mut dir = Directory::new();
-            dir.add(Node::Directory(DirectoryNode::new(
+            dir.add(
                 "foo".into(),
-                DIRECTORY_A.digest(),
-                DIRECTORY_A.size() + 42, // wrong!
-            ).unwrap())).unwrap();
+                Node::Directory(DirectoryNode::new(
+                    DIRECTORY_A.digest(),
+                    DIRECTORY_A.size() + 42, // wrong!
+                ))).unwrap();
             dir
         };
     }

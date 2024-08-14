@@ -3,8 +3,7 @@ use std::collections::HashSet;
 use super::{Directory, DirectoryPutter, DirectoryService};
 use crate::composition::{CompositionContext, ServiceBuilder};
 use crate::proto::{self, get_directory_request::ByWhat};
-use crate::ValidateDirectoryError;
-use crate::{B3Digest, Error};
+use crate::{B3Digest, DirectoryError, Error};
 use async_stream::try_stream;
 use futures::stream::BoxStream;
 use std::sync::Arc;
@@ -154,7 +153,7 @@ where
                         }
 
                         let directory = directory.try_into()
-                            .map_err(|e: ValidateDirectoryError| Error::StorageError(e.to_string()))?;
+                            .map_err(|e: DirectoryError| Error::StorageError(e.to_string()))?;
 
                         yield directory;
                     },

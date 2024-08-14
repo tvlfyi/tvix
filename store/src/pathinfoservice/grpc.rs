@@ -132,9 +132,10 @@ where
         let path_info = self
             .grpc_client
             .clone()
-            .calculate_nar(tvix_castore::proto::Node {
-                node: Some(root_node.into()),
-            })
+            .calculate_nar(tvix_castore::proto::Node::from_name_and_node(
+                "".into(),
+                root_node.to_owned(),
+            ))
             .await
             .map_err(|e| Error::StorageError(e.to_string()))?
             .into_inner();

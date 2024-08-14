@@ -12,7 +12,7 @@ use tvix_castore::{
         blobs::{self, ConcurrentBlobUploader},
         ingest_entries, IngestionEntry, IngestionError,
     },
-    PathBuf, {NamedNode, Node},
+    Node, PathBuf,
 };
 
 /// Ingests the contents from a [AsyncRead] providing NAR into the tvix store,
@@ -97,9 +97,7 @@ where
 
     let (_, node) = try_join!(produce, consume)?;
 
-    // remove the fake "root" name again
-    debug_assert_eq!(&node.get_name()[..], b"root");
-    Ok(node.rename("".into()))
+    Ok(node)
 }
 
 async fn produce_nar_inner<BS>(
@@ -198,13 +196,7 @@ mod test {
         .expect("must parse");
 
         assert_eq!(
-            Node::Symlink(
-                SymlinkNode::new(
-                    "".into(), // name must be empty
-                    "/nix/store/somewhereelse".into(),
-                )
-                .unwrap()
-            ),
+            Node::Symlink(SymlinkNode::new("/nix/store/somewhereelse".into(),).unwrap()),
             root_node
         );
     }
@@ -224,15 +216,11 @@ mod test {
         .expect("must parse");
 
         assert_eq!(
-            Node::File(
-                FileNode::new(
-                    "".into(), // name must be empty
-                    HELLOWORLD_BLOB_DIGEST.clone(),
-                    HELLOWORLD_BLOB_CONTENTS.len() as u64,
-                    false,
-                )
-                .unwrap()
-            ),
+            Node::File(FileNode::new(
+                HELLOWORLD_BLOB_DIGEST.clone(),
+                HELLOWORLD_BLOB_CONTENTS.len() as u64,
+                false,
+            )),
             root_node
         );
 
@@ -255,14 +243,10 @@ mod test {
         .expect("must parse");
 
         assert_eq!(
-            Node::Directory(
-                DirectoryNode::new(
-                    "".into(), // name must be empty
-                    DIRECTORY_COMPLICATED.digest(),
-                    DIRECTORY_COMPLICATED.size(),
-                )
-                .unwrap()
-            ),
+            Node::Directory(DirectoryNode::new(
+                DIRECTORY_COMPLICATED.digest(),
+                DIRECTORY_COMPLICATED.size(),
+            )),
             root_node,
         );
 

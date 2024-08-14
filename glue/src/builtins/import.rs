@@ -213,16 +213,7 @@ mod import_builtins {
                     .tokio_handle
                     .block_on(async { blob_writer.close().await })?;
 
-                let root_node = Node::File(
-                    FileNode::new(
-                        // The name gets set further down, while constructing the PathInfo.
-                        "".into(),
-                        blob_digest,
-                        blob_size,
-                        false,
-                    )
-                    .map_err(|e| tvix_eval::ErrorKind::TvixError(Rc::new(e)))?,
-                );
+                let root_node = Node::File(FileNode::new(blob_digest, blob_size, false));
 
                 let ca_hash = if recursive_ingestion {
                     let (_nar_size, nar_sha256) = state

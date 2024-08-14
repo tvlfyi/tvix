@@ -1,10 +1,8 @@
+use bstr::ByteSlice;
 use std::path::Path;
 use tracing::{debug, instrument};
 use tvix_castore::{
-    blobservice::BlobService,
-    directoryservice::DirectoryService,
-    import::fs::ingest_path,
-    {NamedNode, Node},
+    blobservice::BlobService, directoryservice::DirectoryService, import::fs::ingest_path, Node,
 };
 
 use nix_compat::{
@@ -29,12 +27,12 @@ impl From<CAHash> for nar_info::Ca {
     }
 }
 
-pub fn log_node(node: &Node, path: &Path) {
+pub fn log_node(name: &[u8], node: &Node, path: &Path) {
     match node {
         Node::Directory(directory_node) => {
             debug!(
                 path = ?path,
-                name = ?directory_node.get_name(),
+                name = %name.as_bstr(),
                 digest = %directory_node.digest(),
                 "import successful",
             )
@@ -42,7 +40,7 @@ pub fn log_node(node: &Node, path: &Path) {
         Node::File(file_node) => {
             debug!(
                 path = ?path,
-                name = ?file_node.get_name(),
+                name = %name.as_bstr(),
                 digest = %file_node.digest(),
                 "import successful"
             )
@@ -50,7 +48,7 @@ pub fn log_node(node: &Node, path: &Path) {
         Node::Symlink(symlink_node) => {
             debug!(
                 path = ?path,
-                name = ?symlink_node.get_name(),
+                name = %name.as_bstr(),
                 target = ?symlink_node.target(),
                 "import successful"
             )
@@ -84,13 +82,14 @@ pub fn derive_nar_ca_path_info(
     nar_size: u64,
     nar_sha256: [u8; 32],
     ca: Option<&CAHash>,
+    name: bytes::Bytes,
     root_node: Node,
 ) -> PathInfo {
     // assemble the [crate::proto::PathInfo] object.
     PathInfo {
-        node: Some(tvix_castore::proto::Node {
-            node: Some((&root_node).into()),
-        }),
+        node: Some(tvix_castore::proto::Node::from_name_and_node(
+            name, root_node,
+        )),
         // There's no reference scanning on path contents ingested like this.
         references: vec![],
         narinfo: Some(NarInfo {
@@ -140,14 +139,14 @@ where
         )
     })?;
 
-    // rename the root node to match the calculated output path.
-    let root_node = root_node.rename(output_path.to_string().into_bytes().into());
-    log_node(&root_node, path.as_ref());
+    let name = bytes::Bytes::from(output_path.to_string());
+    log_node(name.as_ref(), &root_node, path.as_ref());
 
     let path_info = derive_nar_ca_path_info(
         nar_size,
         nar_sha256,
         Some(&CAHash::Nar(NixHash::Sha256(nar_sha256))),
+        output_path.to_string().into_bytes().into(),
         root_node,
     );
 

@@ -59,14 +59,6 @@ where
             // we break the loop manually.
             .expect("Tvix bug: unexpected end of stream")?;
 
-        let name = entry
-            .path()
-            .file_name()
-            // If this is the root node, it will have an empty name.
-            .unwrap_or_default()
-            .to_owned()
-            .into();
-
         let node = match &mut entry {
             IngestionEntry::Dir { .. } => {
                 // If the entry is a directory, we traversed all its children (and
@@ -92,36 +84,22 @@ where
                         IngestionError::UploadDirectoryError(entry.path().to_owned(), e)
                     })?;
 
-                Node::Directory(
-                    DirectoryNode::new(name, directory_digest, directory_size).map_err(|e| {
-                        IngestionError::UploadDirectoryError(
-                            entry.path().to_owned(),
-                            crate::Error::StorageError(e.to_string()),
-                        )
-                    })?,
-                )
+                Node::Directory(DirectoryNode::new(directory_digest, directory_size))
             }
-            IngestionEntry::Symlink { ref target, .. } => Node::Symlink(
-                SymlinkNode::new(name, target.to_owned().into()).map_err(|e| {
+            IngestionEntry::Symlink { ref target, .. } => {
+                Node::Symlink(SymlinkNode::new(target.to_owned().into()).map_err(|e| {
                     IngestionError::UploadDirectoryError(
                         entry.path().to_owned(),
                         crate::Error::StorageError(e.to_string()),
                     )
-                })?,
-            ),
+                })?)
+            }
             IngestionEntry::Regular {
                 size,
                 executable,
                 digest,
                 ..
-            } => Node::File(
-                FileNode::new(name, digest.clone(), *size, *executable).map_err(|e| {
-                    IngestionError::UploadDirectoryError(
-                        entry.path().to_owned(),
-                        crate::Error::StorageError(e.to_string()),
-                    )
-                })?,
-            ),
+            } => Node::File(FileNode::new(digest.clone(), *size, *executable)),
         };
 
         let parent = entry
@@ -132,11 +110,19 @@ where
         if parent == crate::Path::ROOT {
             break node;
         } else {
+            let name = entry
+                .path()
+                .file_name()
+                // If this is the root node, it will have an empty name.
+                .unwrap_or_default()
+                .to_owned()
+                .into();
+
             // record node in parent directory, creating a new [Directory] if not there yet.
             directories
                 .entry(parent.to_owned())
                 .or_default()
-                .add(node)
+                .add(name, node)
                 .map_err(|e| {
                     IngestionError::UploadDirectoryError(
                         entry.path().to_owned(),
@@ -227,18 +213,18 @@ mod test {
         executable: true,
         digest: DUMMY_DIGEST.clone(),
     }],
-        Node::File(FileNode::new("foo".into(), DUMMY_DIGEST.clone(), 42, true).unwrap())
+        Node::File(FileNode::new(DUMMY_DIGEST.clone(), 42, true))
     )]
     #[case::single_symlink(vec![IngestionEntry::Symlink {
         path: "foo".parse().unwrap(),
         target: b"blub".into(),
     }],
-        Node::Symlink(SymlinkNode::new("foo".into(), "blub".into()).unwrap())
+        Node::Symlink(SymlinkNode::new("blub".into()).unwrap())
     )]
     #[case::single_dir(vec![IngestionEntry::Dir {
         path: "foo".parse().unwrap(),
     }],
-        Node::Directory(DirectoryNode::new("foo".into(), Directory::default().digest(), Directory::default().size()).unwrap())
+        Node::Directory(DirectoryNode::new(Directory::default().digest(), Directory::default().size()))
     )]
     #[case::dir_with_keep(vec![
         IngestionEntry::Regular {
@@ -251,7 +237,7 @@ mod test {
             path: "foo".parse().unwrap(),
         },
     ],
-        Node::Directory(DirectoryNode::new("foo".into(), DIRECTORY_WITH_KEEP.digest(), DIRECTORY_WITH_KEEP.size()).unwrap())
+        Node::Directory(DirectoryNode::new(DIRECTORY_WITH_KEEP.digest(), DIRECTORY_WITH_KEEP.size()))
     )]
     /// This is intentionally a bit unsorted, though it still satisfies all
     /// requirements we have on the order of elements in the stream.
@@ -279,7 +265,7 @@ mod test {
             path: "blub".parse().unwrap(),
         },
     ],
-    Node::Directory(DirectoryNode::new("blub".into(), DIRECTORY_COMPLICATED.digest(), DIRECTORY_COMPLICATED.size()).unwrap())
+    Node::Directory(DirectoryNode::new(DIRECTORY_COMPLICATED.digest(), DIRECTORY_COMPLICATED.size()))
     )]
     #[tokio::test]
     async fn test_ingestion(#[case] entries: Vec<IngestionEntry>, #[case] exp_root_node: Node) {

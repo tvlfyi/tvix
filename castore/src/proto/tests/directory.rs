@@ -1,4 +1,4 @@
-use crate::proto::{Directory, DirectoryNode, FileNode, SymlinkNode, ValidateDirectoryError};
+use crate::proto::{Directory, DirectoryError, DirectoryNode, FileNode, SymlinkNode};
 use crate::ValidateNodeError;
 
 use hex_literal::hex;
@@ -162,8 +162,8 @@ fn validate_invalid_names() {
             ..Default::default()
         };
         match crate::Directory::try_from(d).expect_err("must fail") {
-            ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName(_)) => {
-                assert_eq!(n, b"")
+            DirectoryError::InvalidName(n) => {
+                assert_eq!(n.as_ref(), b"")
             }
             _ => panic!("unexpected error"),
         };
@@ -179,8 +179,8 @@ fn validate_invalid_names() {
             ..Default::default()
         };
         match crate::Directory::try_from(d).expect_err("must fail") {
-            ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName(_)) => {
-                assert_eq!(n, b".")
+            DirectoryError::InvalidName(n) => {
+                assert_eq!(n.as_ref(), b".")
             }
             _ => panic!("unexpected error"),
         };
@@ -197,8 +197,8 @@ fn validate_invalid_names() {
             ..Default::default()
         };
         match crate::Directory::try_from(d).expect_err("must fail") {
-            ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName(_)) => {
-                assert_eq!(n, b"..")
+            DirectoryError::InvalidName(n) => {
+                assert_eq!(n.as_ref(), b"..")
             }
             _ => panic!("unexpected error"),
         };
@@ -213,8 +213,8 @@ fn validate_invalid_names() {
             ..Default::default()
         };
         match crate::Directory::try_from(d).expect_err("must fail") {
-            ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName(_)) => {
-                assert_eq!(n, b"\x00")
+            DirectoryError::InvalidName(n) => {
+                assert_eq!(n.as_ref(), b"\x00")
             }
             _ => panic!("unexpected error"),
         };
@@ -229,8 +229,8 @@ fn validate_invalid_names() {
             ..Default::default()
         };
         match crate::Directory::try_from(d).expect_err("must fail") {
-            ValidateDirectoryError::InvalidNode(n, ValidateNodeError::InvalidName(_)) => {
-                assert_eq!(n, b"foo/bar")
+            DirectoryError::InvalidName(n) => {
+                assert_eq!(n.as_ref(), b"foo/bar")
             }
             _ => panic!("unexpected error"),
         };
@@ -248,7 +248,7 @@ fn validate_invalid_digest() {
         ..Default::default()
     };
     match crate::Directory::try_from(d).expect_err("must fail") {
-        ValidateDirectoryError::InvalidNode(_, ValidateNodeError::InvalidDigestLen(n)) => {
+        DirectoryError::InvalidNode(_, ValidateNodeError::InvalidDigestLen(n)) => {
             assert_eq!(n, 2)
         }
         _ => panic!("unexpected error"),
@@ -275,8 +275,8 @@ fn validate_sorting() {
             ..Default::default()
         };
         match crate::Directory::try_from(d).expect_err("must fail") {
-            ValidateDirectoryError::WrongSorting(s) => {
-                assert_eq!(s, b"a");
+            DirectoryError::WrongSorting(s) => {
+                assert_eq!(s.as_ref(), b"a");
             }
             _ => panic!("unexpected error"),
         }
@@ -300,7 +300,7 @@ fn validate_sorting() {
             ..Default::default()
         };
         match crate::Directory::try_from(d).expect_err("must fail") {
-            ValidateDirectoryError::DuplicateName(s) => {
+            DirectoryError::DuplicateName(s) => {
                 assert_eq!(s, b"a");
             }
             _ => panic!("unexpected error"),

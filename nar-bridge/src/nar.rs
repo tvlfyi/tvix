@@ -52,14 +52,15 @@ pub async fn get(
             StatusCode::NOT_FOUND
         })?;
 
-    let root_node: tvix_castore::Node = (&root_node).try_into().map_err(|e| {
+    let (root_name, root_node) = root_node.into_name_and_node().map_err(|e| {
         warn!(err=%e, "root node validation failed");
         StatusCode::BAD_REQUEST
     })?;
 
-    // validate the node, but add a dummy node name, as we only send unnamed
-    // nodes
-    let root_node = root_node.rename("00000000000000000000000000000000-dummy".into());
+    if !root_name.is_empty() {
+        warn!("root node has name, which it shouldn't");
+        return Err(StatusCode::BAD_REQUEST);
+    }
 
     let (w, r) = tokio::io::duplex(1024 * 8);
 
@@ -125,7 +126,7 @@ pub async fn put(
 
     // store mapping of narhash to root node into root_nodes.
     // we need it later to populate the root node when accepting the PathInfo.
-    root_nodes.write().put(nar_hash_actual, (&root_node).into());
+    root_nodes.write().put(nar_hash_actual, root_node);
 
     Ok("")
 }

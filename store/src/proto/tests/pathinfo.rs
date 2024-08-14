@@ -6,11 +6,11 @@ use nix_compat::nixbase32;
 use nix_compat::store_path::{self, StorePath, StorePathRef};
 use rstest::rstest;
 use tvix_castore::proto as castorepb;
-use tvix_castore::ValidateNodeError;
+use tvix_castore::{DirectoryError, ValidateNodeError};
 
 #[rstest]
 #[case::no_node(None, Err(ValidatePathInfoError::NoNodePresent))]
-#[case::no_node_2(Some(castorepb::Node { node: None}), Err(ValidatePathInfoError::InvalidRootNode(ValidateNodeError::NoNodeSet)))]
+#[case::no_node_2(Some(castorepb::Node { node: None}), Err(ValidatePathInfoError::InvalidRootNode(DirectoryError::NoNodeSet)))]
 
 fn validate_pathinfo(
     #[case] node: Option<castorepb::Node>,
@@ -35,7 +35,7 @@ fn validate_pathinfo(
         name: DUMMY_PATH.into(),
         digest: Bytes::new(),
         size: 0,
-}, Err(ValidatePathInfoError::InvalidRootNode(tvix_castore::ValidateNodeError::InvalidDigestLen(0))))]
+}, Err(ValidatePathInfoError::InvalidRootNode(DirectoryError::InvalidNode(DUMMY_PATH.into(), ValidateNodeError::InvalidDigestLen(0)))))]
 #[case::invalid_node_name_no_storepath(castorepb::DirectoryNode {
         name: "invalid".into(),
         digest: DUMMY_DIGEST.clone().into(),
@@ -74,7 +74,7 @@ fn validate_directory(
         digest: Bytes::new(),
         ..Default::default()
     },
-    Err(ValidatePathInfoError::InvalidRootNode(tvix_castore::ValidateNodeError::InvalidDigestLen(0)))
+    Err(ValidatePathInfoError::InvalidRootNode(DirectoryError::InvalidNode(DUMMY_PATH.into(), ValidateNodeError::InvalidDigestLen(0))))
 )]
 #[case::invalid_node_name(
     castorepb::FileNode {
@@ -226,24 +226,28 @@ fn validate_inconsistent_narinfo_reference_name_digest() {
 /// Create a node with an empty symlink target, and ensure it fails validation.
 #[test]
 fn validate_symlink_empty_target_invalid() {
-    let node = castorepb::node::Node::Symlink(castorepb::SymlinkNode {
-        name: "foo".into(),
-        target: "".into(),
-    });
-
-    tvix_castore::Node::try_from(&node).expect_err("must fail validation");
+    castorepb::Node {
+        node: Some(castorepb::node::Node::Symlink(castorepb::SymlinkNode {
+            name: "foo".into(),
+            target: "".into(),
+        })),
+    }
+    .into_name_and_node()
+    .expect_err("must fail validation");
 }
 
 /// Create a node with a symlink target including null bytes, and ensure it
 /// fails validation.
 #[test]
 fn validate_symlink_target_null_byte_invalid() {
-    let node = castorepb::node::Node::Symlink(castorepb::SymlinkNode {
-        name: "foo".into(),
-        target: "foo\0".into(),
-    });
-
-    tvix_castore::Node::try_from(&node).expect_err("must fail validation");
+    castorepb::Node {
+        node: Some(castorepb::node::Node::Symlink(castorepb::SymlinkNode {
+            name: "foo".into(),
+            target: "foo\0".into(),
+        })),
+    }
+    .into_name_and_node()
+    .expect_err("must fail validation");
 }
 
 /// Create a PathInfo with a correct deriver field and ensure it succeeds.

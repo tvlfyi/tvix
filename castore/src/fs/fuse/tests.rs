@@ -68,15 +68,11 @@ async fn populate_blob_a(
 
     root_nodes.insert(
         BLOB_A_NAME.into(),
-        Node::File(
-            FileNode::new(
-                BLOB_A_NAME.into(),
-                fixtures::BLOB_A_DIGEST.clone(),
-                fixtures::BLOB_A.len() as u64,
-                false,
-            )
-            .unwrap(),
-        ),
+        Node::File(FileNode::new(
+            fixtures::BLOB_A_DIGEST.clone(),
+            fixtures::BLOB_A.len() as u64,
+            false,
+        )),
     );
 }
 
@@ -92,15 +88,11 @@ async fn populate_blob_b(
 
     root_nodes.insert(
         BLOB_B_NAME.into(),
-        Node::File(
-            FileNode::new(
-                BLOB_B_NAME.into(),
-                fixtures::BLOB_B_DIGEST.clone(),
-                fixtures::BLOB_B.len() as u64,
-                false,
-            )
-            .unwrap(),
-        ),
+        Node::File(FileNode::new(
+            fixtures::BLOB_B_DIGEST.clone(),
+            fixtures::BLOB_B.len() as u64,
+            false,
+        )),
     );
 }
 
@@ -120,22 +112,18 @@ async fn populate_blob_helloworld(
 
     root_nodes.insert(
         HELLOWORLD_BLOB_NAME.into(),
-        Node::File(
-            FileNode::new(
-                HELLOWORLD_BLOB_NAME.into(),
-                fixtures::HELLOWORLD_BLOB_DIGEST.clone(),
-                fixtures::HELLOWORLD_BLOB_CONTENTS.len() as u64,
-                true,
-            )
-            .unwrap(),
-        ),
+        Node::File(FileNode::new(
+            fixtures::HELLOWORLD_BLOB_DIGEST.clone(),
+            fixtures::HELLOWORLD_BLOB_CONTENTS.len() as u64,
+            true,
+        )),
     );
 }
 
 async fn populate_symlink(root_nodes: &mut BTreeMap<Bytes, Node>) {
     root_nodes.insert(
         SYMLINK_NAME.into(),
-        Node::Symlink(SymlinkNode::new(SYMLINK_NAME.into(), BLOB_A_NAME.into()).unwrap()),
+        Node::Symlink(SymlinkNode::new(BLOB_A_NAME.into()).unwrap()),
     );
 }
 
@@ -144,9 +132,7 @@ async fn populate_symlink(root_nodes: &mut BTreeMap<Bytes, Node>) {
 async fn populate_symlink2(root_nodes: &mut BTreeMap<Bytes, Node>) {
     root_nodes.insert(
         SYMLINK_NAME2.into(),
-        Node::Symlink(
-            SymlinkNode::new(SYMLINK_NAME2.into(), "/nix/store/somewhereelse".into()).unwrap(),
-        ),
+        Node::Symlink(SymlinkNode::new("/nix/store/somewhereelse".into()).unwrap()),
     );
 }
 
@@ -170,14 +156,10 @@ async fn populate_directory_with_keep(
 
     root_nodes.insert(
         DIRECTORY_WITH_KEEP_NAME.into(),
-        Node::Directory(
-            DirectoryNode::new(
-                DIRECTORY_WITH_KEEP_NAME.into(),
-                fixtures::DIRECTORY_WITH_KEEP.digest(),
-                fixtures::DIRECTORY_WITH_KEEP.size(),
-            )
-            .unwrap(),
-        ),
+        Node::Directory(DirectoryNode::new(
+            fixtures::DIRECTORY_WITH_KEEP.digest(),
+            fixtures::DIRECTORY_WITH_KEEP.size(),
+        )),
     );
 }
 
@@ -186,14 +168,10 @@ async fn populate_directory_with_keep(
 async fn populate_directorynode_without_directory(root_nodes: &mut BTreeMap<Bytes, Node>) {
     root_nodes.insert(
         DIRECTORY_WITH_KEEP_NAME.into(),
-        Node::Directory(
-            DirectoryNode::new(
-                DIRECTORY_WITH_KEEP_NAME.into(),
-                fixtures::DIRECTORY_WITH_KEEP.digest(),
-                fixtures::DIRECTORY_WITH_KEEP.size(),
-            )
-            .unwrap(),
-        ),
+        Node::Directory(DirectoryNode::new(
+            fixtures::DIRECTORY_WITH_KEEP.digest(),
+            fixtures::DIRECTORY_WITH_KEEP.size(),
+        )),
     );
 }
 
@@ -201,15 +179,11 @@ async fn populate_directorynode_without_directory(root_nodes: &mut BTreeMap<Byte
 async fn populate_filenode_without_blob(root_nodes: &mut BTreeMap<Bytes, Node>) {
     root_nodes.insert(
         BLOB_A_NAME.into(),
-        Node::File(
-            FileNode::new(
-                BLOB_A_NAME.into(),
-                fixtures::BLOB_A_DIGEST.clone(),
-                fixtures::BLOB_A.len() as u64,
-                false,
-            )
-            .unwrap(),
-        ),
+        Node::File(FileNode::new(
+            fixtures::BLOB_A_DIGEST.clone(),
+            fixtures::BLOB_A.len() as u64,
+            false,
+        )),
     );
 }
 
@@ -239,14 +213,10 @@ async fn populate_directory_complicated(
 
     root_nodes.insert(
         DIRECTORY_COMPLICATED_NAME.into(),
-        Node::Directory(
-            DirectoryNode::new(
-                DIRECTORY_COMPLICATED_NAME.into(),
-                fixtures::DIRECTORY_COMPLICATED.digest(),
-                fixtures::DIRECTORY_COMPLICATED.size(),
-            )
-            .unwrap(),
-        ),
+        Node::Directory(DirectoryNode::new(
+            fixtures::DIRECTORY_COMPLICATED.digest(),
+            fixtures::DIRECTORY_COMPLICATED.size(),
+        )),
     );
 }
 

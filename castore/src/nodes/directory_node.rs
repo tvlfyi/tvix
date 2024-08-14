@@ -1,13 +1,11 @@
-use crate::{B3Digest, NamedNode, ValidateNodeError};
+use crate::B3Digest;
 
 /// A DirectoryNode is a pointer to a [Directory], by its [Directory::digest].
-/// It also gives it a `name` and `size`.
+/// It also records a`size`.
 /// Such a node is either an element in the [Directory] it itself is contained in,
 /// or a standalone root node./
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DirectoryNode {
-    /// The (base)name of the directory
-    name: bytes::Bytes,
     /// The blake3 hash of a Directory message, serialized in protobuf canonical form.
     digest: B3Digest,
     /// Number of child elements in the Directory referred to by `digest`.
@@ -23,8 +21,8 @@ pub struct DirectoryNode {
 }
 
 impl DirectoryNode {
-    pub fn new(name: bytes::Bytes, digest: B3Digest, size: u64) -> Result<Self, ValidateNodeError> {
-        Ok(Self { name, digest, size })
+    pub fn new(digest: B3Digest, size: u64) -> Self {
+        Self { digest, size }
     }
 
     pub fn digest(&self) -> &B3Digest {
@@ -33,32 +31,5 @@ impl DirectoryNode {
 
     pub fn size(&self) -> u64 {
         self.size
-    }
-
-    pub fn rename(self, name: bytes::Bytes) -> Self {
-        Self { name, ..self }
-    }
-}
-
-impl PartialOrd for DirectoryNode {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for DirectoryNode {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.get_name().cmp(other.get_name())
-    }
-}
-
-impl NamedNode for &DirectoryNode {
-    fn get_name(&self) -> &bytes::Bytes {
-        &self.name
-    }
-}
-impl NamedNode for DirectoryNode {
-    fn get_name(&self) -> &bytes::Bytes {
-        &self.name
     }
 }

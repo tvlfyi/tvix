@@ -9,7 +9,7 @@ use nix_compat::{
     store_path::{self, StorePathRef},
 };
 use thiserror::Error;
-use tvix_castore::{NamedNode, ValidateNodeError};
+use tvix_castore::DirectoryError;
 
 mod grpc_pathinfoservice_wrapper;
 
@@ -39,7 +39,7 @@ pub enum ValidatePathInfoError {
 
     /// Node fails validation
     #[error("Invalid root node: {:?}", .0.to_string())]
-    InvalidRootNode(ValidateNodeError),
+    InvalidRootNode(DirectoryError),
 
     /// Invalid node name encountered. Root nodes in PathInfos have more strict name requirements
     #[error("Failed to parse {} as StorePath: {1}", .0.to_str_lossy())]
@@ -160,12 +160,13 @@ impl PathInfo {
         let root_nix_path = match &self.node {
             None => Err(ValidatePathInfoError::NoNodePresent)?,
             Some(node) => {
-                // TODO save result somewhere
-                let node: tvix_castore::Node = node
-                    .try_into()
+                let (name, _node) = node
+                    .clone()
+                    .into_name_and_node()
                     .map_err(ValidatePathInfoError::InvalidRootNode)?;
+
                 // parse the name of the node itself and return
-                parse_node_name_root(node.get_name(), ValidatePathInfoError::InvalidNodeName)?
+                parse_node_name_root(name.as_ref(), ValidatePathInfoError::InvalidNodeName)?
                     .to_owned()
             }
         };

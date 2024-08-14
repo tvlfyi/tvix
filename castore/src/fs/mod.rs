@@ -18,7 +18,7 @@ use self::{
 use crate::{
     blobservice::{BlobReader, BlobService},
     directoryservice::DirectoryService,
-    {B3Digest, NamedNode, Node},
+    {B3Digest, Node},
 };
 use bstr::ByteVec;
 use bytes::Bytes;
@@ -103,7 +103,7 @@ pub struct TvixStoreFs<BS, DS, RN> {
             u64,
             (
                 Span,
-                Arc<Mutex<mpsc::Receiver<(usize, Result<Node, crate::Error>)>>>,
+                Arc<Mutex<mpsc::Receiver<(usize, Result<(Bytes, Node), crate::Error>)>>>,
             ),
         >,
     >,
@@ -165,8 +165,12 @@ where
     /// It is ok if it's a [DirectoryInodeData::Sparse] - in that case, a lookup
     /// in self.directory_service is performed, and self.inode_tracker is updated with the
     /// [DirectoryInodeData::Populated].
+    #[allow(clippy::type_complexity)]
     #[instrument(skip(self), err)]
-    fn get_directory_children(&self, ino: u64) -> io::Result<(B3Digest, Vec<(u64, Node)>)> {
+    fn get_directory_children(
+        &self,
+        ino: u64,
+    ) -> io::Result<(B3Digest, Vec<(u64, bytes::Bytes, Node)>)> {
         let data = self.inode_tracker.read().get(ino).unwrap();
         match *data {
             // if it's populated already, return children.
@@ -196,13 +200,13 @@ where
                 let children = {
                     let mut inode_tracker = self.inode_tracker.write();
 
-                    let children: Vec<(u64, Node)> = directory
+                    let children: Vec<(u64, Bytes, Node)> = directory
                         .nodes()
-                        .map(|child_node| {
-                            let (inode_data, _) = InodeData::from_node(child_node);
+                        .map(|(child_name, child_node)| {
+                            let inode_data = InodeData::from_node(child_node);
 
                             let child_ino = inode_tracker.put(inode_data);
-                            (child_ino, child_node.clone())
+                            (child_ino, child_name.to_owned(), child_node.clone())
                         })
                         .collect();
 
@@ -263,12 +267,6 @@ where
             Ok(None) => Err(io::Error::from_raw_os_error(libc::ENOENT)),
             // The root node does exist
             Ok(Some(root_node)) => {
-                // The name must match what's passed in the lookup, otherwise this is also a ENOENT.
-                if root_node.get_name() != name.to_bytes() {
-                    debug!(root_node.name=?root_node.get_name(), found_node.name=%name.to_string_lossy(), "node name mismatch");
-                    return Err(io::Error::from_raw_os_error(libc::ENOENT));
-                }
-
                 // Let's check if someone else beat us to updating the inode tracker and
                 // root_nodes map. This avoids locking inode_tracker for writing.
                 if let Some(ino) = self.root_nodes.read().get(name.to_bytes()) {
@@ -285,9 +283,9 @@ where
 
                 // insert the (sparse) inode data and register in
                 // self.root_nodes.
-                let (inode_data, name) = InodeData::from_node(&root_node);
+                let inode_data = InodeData::from_node(&root_node);
                 let ino = inode_tracker.put(inode_data.clone());
-                root_nodes.insert(name, ino);
+                root_nodes.insert(bytes::Bytes::copy_from_slice(name.to_bytes()), ino);
 
                 Ok((ino, Arc::new(inode_data)))
             }
@@ -362,7 +360,7 @@ where
         // Search for that name in the list of children and return the FileAttrs.
 
         // in the children, find the one with the desired name.
-        if let Some((child_ino, _)) = children.iter().find(|e| e.1.get_name() == name.to_bytes()) {
+        if let Some((child_ino, _, _)) = children.iter().find(|(_, n, _)| n == name.to_bytes()) {
             // lookup the child [InodeData] in [self.inode_tracker].
             // We know the inodes for children have already been allocated.
             let child_inode_data = self.inode_tracker.read().get(*child_ino).unwrap();
@@ -398,8 +396,8 @@ where
             self.tokio_handle.spawn(
                 async move {
                     let mut stream = root_nodes_provider.list().enumerate();
-                    while let Some(node) = stream.next().await {
-                        if tx.send(node).await.is_err() {
+                    while let Some(e) = stream.next().await {
+                        if tx.send(e).await.is_err() {
                             // If we get a send error, it means the sync code
                             // doesn't want any more entries.
                             break;
@@ -461,12 +459,12 @@ where
                 .map_err(|_| crate::Error::StorageError("mutex poisoned".into()))?;
 
             while let Some((i, n)) = rx.blocking_recv() {
-                let root_node = n.map_err(|e| {
+                let (name, node) = n.map_err(|e| {
                     warn!("failed to retrieve root node: {}", e);
                     io::Error::from_raw_os_error(libc::EIO)
                 })?;
 
-                let (inode_data, name) = InodeData::from_node(&root_node);
+                let inode_data = InodeData::from_node(&node);
 
                 // obtain the inode, or allocate a new one.
                 let ino = self.get_inode_for_root_name(&name).unwrap_or_else(|| {
@@ -495,15 +493,17 @@ where
         let (parent_digest, children) = self.get_directory_children(inode)?;
         Span::current().record("directory.digest", parent_digest.to_string());
 
-        for (i, (ino, child_node)) in children.into_iter().skip(offset as usize).enumerate() {
-            let (inode_data, name) = InodeData::from_node(&child_node);
+        for (i, (ino, child_name, child_node)) in
+            children.into_iter().skip(offset as usize).enumerate()
+        {
+            let inode_data = InodeData::from_node(&child_node);
 
             // the second parameter will become the "offset" parameter on the next call.
             let written = add_entry(fuse_backend_rs::api::filesystem::DirEntry {
                 ino,
                 offset: offset + (i as u64) + 1,
                 type_: inode_data.as_fuse_type(),
-                name: &name,
+                name: &child_name,
             })?;
             // If the buffer is full, add_entry will return `Ok(0)`.
             if written == 0 {
@@ -548,12 +548,12 @@ where
                 .map_err(|_| crate::Error::StorageError("mutex poisoned".into()))?;
 
             while let Some((i, n)) = rx.blocking_recv() {
-                let root_node = n.map_err(|e| {
+                let (name, node) = n.map_err(|e| {
                     warn!("failed to retrieve root node: {}", e);
                     io::Error::from_raw_os_error(libc::EPERM)
                 })?;
 
-                let (inode_data, name) = InodeData::from_node(&root_node);
+                let inode_data = InodeData::from_node(&node);
 
                 // obtain the inode, or allocate a new one.
                 let ino = self.get_inode_for_root_name(&name).unwrap_or_else(|| {
@@ -585,8 +585,8 @@ where
         let (parent_digest, children) = self.get_directory_children(inode)?;
         Span::current().record("directory.digest", parent_digest.to_string());
 
-        for (i, (ino, child_node)) in children.into_iter().skip(offset as usize).enumerate() {
-            let (inode_data, name) = InodeData::from_node(&child_node);
+        for (i, (ino, name, child_node)) in children.into_iter().skip(offset as usize).enumerate() {
+            let inode_data = InodeData::from_node(&child_node);
 
             // the second parameter will become the "offset" parameter on the next call.
             let written = add_entry(

@@ -12,9 +12,10 @@ pub trait RootNodes: Send + Sync {
     /// directory of the filesystem.
     async fn get_by_basename(&self, name: &[u8]) -> Result<Option<Node>, Error>;
 
-    /// Lists all root CA nodes in the filesystem. An error can be returned
-    /// in case listing is not allowed
-    fn list(&self) -> BoxStream<Result<Node, Error>>;
+    /// Lists all root CA nodes in the filesystem, as a tuple of (base)name
+    /// and Node.
+    /// An error can be returned in case listing is not allowed.
+    fn list(&self) -> BoxStream<Result<(bytes::Bytes, Node), Error>>;
 }
 
 #[async_trait]
@@ -28,9 +29,11 @@ where
         Ok(self.as_ref().get(name).cloned())
     }
 
-    fn list(&self) -> BoxStream<Result<Node, Error>> {
+    fn list(&self) -> BoxStream<Result<(bytes::Bytes, Node), Error>> {
         Box::pin(tokio_stream::iter(
-            self.as_ref().iter().map(|(_, v)| Ok(v.clone())),
+            self.as_ref()
+                .iter()
+                .map(|(name, node)| Ok((name.to_owned(), node.to_owned()))),
         ))
     }
 }

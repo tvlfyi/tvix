@@ -21,7 +21,7 @@ pub mod proto;
 pub mod tonic;
 
 pub use digests::{B3Digest, B3_LEN};
-pub use errors::{Error, ValidateDirectoryError, ValidateNodeError};
+pub use errors::{DirectoryError, Error, ValidateNodeError};
 pub use hashing_reader::{B3HashingReader, HashingReader};
 
 #[cfg(test)]

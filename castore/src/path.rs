@@ -38,7 +38,9 @@ impl Path {
         if !bytes.is_empty() {
             // Ensure all components are valid castore node names.
             for component in bytes.split_str(b"/") {
-                Directory::validate_node_name(component).ok()?;
+                if !Directory::is_valid_name(component) {
+                    return None;
+                }
             }
         }
 
@@ -211,7 +213,9 @@ impl PathBuf {
 
     /// Adjoins `name` to self.
     pub fn try_push(&mut self, name: &[u8]) -> Result<(), std::io::Error> {
-        Directory::validate_node_name(name).map_err(|_| std::io::ErrorKind::InvalidData)?;
+        if !Directory::is_valid_name(name) {
+            return Err(std::io::ErrorKind::InvalidData.into());
+        }
 
         if !self.inner.is_empty() {
             self.inner.push(b'/');

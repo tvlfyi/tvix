@@ -2,9 +2,7 @@
 //! about inodes, which present tvix-castore nodes in a filesystem.
 use std::time::Duration;
 
-use bytes::Bytes;
-
-use crate::{B3Digest, NamedNode, Node};
+use crate::{B3Digest, Node};
 
 #[derive(Clone, Debug)]
 pub enum InodeData {
@@ -19,24 +17,19 @@ pub enum InodeData {
 /// lookup and did fetch the data.
 #[derive(Clone, Debug)]
 pub enum DirectoryInodeData {
-    Sparse(B3Digest, u64),                 // digest, size
-    Populated(B3Digest, Vec<(u64, Node)>), // [(child_inode, node)]
+    Sparse(B3Digest, u64),                               // digest, size
+    Populated(B3Digest, Vec<(u64, bytes::Bytes, Node)>), // [(child_inode, name, node)]
 }
 
 impl InodeData {
     /// Constructs a new InodeData by consuming a [Node].
-    /// It splits off the orginal name, so it can be used later.
-    pub fn from_node(node: &Node) -> (Self, Bytes) {
+    pub fn from_node(node: &Node) -> Self {
         match node {
-            Node::Directory(n) => (
-                Self::Directory(DirectoryInodeData::Sparse(n.digest().clone(), n.size())),
-                n.get_name().clone(),
-            ),
-            Node::File(n) => (
-                Self::Regular(n.digest().clone(), n.size(), n.executable()),
-                n.get_name().clone(),
-            ),
-            Node::Symlink(n) => (Self::Symlink(n.target().clone()), n.get_name().clone()),
+            Node::Directory(n) => {
+                Self::Directory(DirectoryInodeData::Sparse(n.digest().clone(), n.size()))
+            }
+            Node::File(n) => Self::Regular(n.digest().clone(), n.size(), n.executable()),
+            Node::Symlink(n) => Self::Symlink(n.target().clone()),
         }
     }
 

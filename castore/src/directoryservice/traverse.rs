@@ -1,4 +1,4 @@
-use crate::{directoryservice::DirectoryService, Error, NamedNode, Node, Path};
+use crate::{directoryservice::DirectoryService, Error, Node, Path};
 use tracing::{instrument, warn};
 
 /// This descends from a (root) node to the given (sub)path, returning the Node
@@ -37,9 +37,10 @@ where
                     })?;
 
                 // look for the component in the [Directory].
-                // FUTUREWORK: as the nodes() iterator returns in a sorted fashion, we
-                // could stop as soon as e.name is larger than the search string.
-                if let Some(child_node) = directory.nodes().find(|n| n.get_name() == component) {
+                if let Some((_child_name, child_node)) = directory
+                    .nodes()
+                    .find(|(name, _node)| name.as_ref() == component)
+                {
                     // child node found, update prev_node to that and continue.
                     parent_node = child_node.clone();
                 } else {
@@ -81,21 +82,23 @@ mod tests {
         handle.close().await.expect("must upload");
 
         // construct the node for DIRECTORY_COMPLICATED
-        let node_directory_complicated = Node::Directory(
-            DirectoryNode::new(
-                "doesntmatter".into(),
-                DIRECTORY_COMPLICATED.digest(),
-                DIRECTORY_COMPLICATED.size(),
-            )
-            .unwrap(),
-        );
+        let node_directory_complicated = Node::Directory(DirectoryNode::new(
+            DIRECTORY_COMPLICATED.digest(),
+            DIRECTORY_COMPLICATED.size(),
+        ));
 
         // construct the node for DIRECTORY_COMPLICATED
-        let node_directory_with_keep =
-            Node::Directory(DIRECTORY_COMPLICATED.directories().next().unwrap().clone());
+        let node_directory_with_keep = Node::Directory(
+            DIRECTORY_COMPLICATED
+                .directories()
+                .next()
+                .unwrap()
+                .1
+                .clone(),
+        );
 
         // construct the node for the .keep file
-        let node_file_keep = Node::File(DIRECTORY_WITH_KEEP.files().next().unwrap().clone());
+        let node_file_keep = Node::File(DIRECTORY_WITH_KEEP.files().next().unwrap().1.clone());
 
         // traversal to an empty subpath should return the root node.
         {

@@ -57,16 +57,15 @@ pub fn traverse_directory<'a, DS: DirectoryService + 'static>(
             // enqueue all child directory digests to the work queue, as
             // long as they're not part of the worklist or already sent.
             // This panics if the digest looks invalid, it's supposed to be checked first.
-            for child_directory_node in current_directory.directories() {
-                // TODO: propagate error
-                let child_digest: B3Digest = child_directory_node.digest().clone();
+            for (_, child_directory_node) in current_directory.directories() {
+                let child_digest = child_directory_node.digest();
 
-                if worklist_directory_digests.contains(&child_digest)
-                    || sent_directory_digests.contains(&child_digest)
+                if worklist_directory_digests.contains(child_digest)
+                    || sent_directory_digests.contains(child_digest)
                 {
                     continue;
                 }
-                worklist_directory_digests.push_back(child_digest);
+                worklist_directory_digests.push_back(child_digest.clone());
             }
 
             yield current_directory;

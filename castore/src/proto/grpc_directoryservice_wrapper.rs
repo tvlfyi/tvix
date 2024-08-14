@@ -1,5 +1,5 @@
 use crate::directoryservice::{DirectoryGraph, DirectoryService, LeavesToRootValidator};
-use crate::{proto, B3Digest, ValidateDirectoryError};
+use crate::{proto, B3Digest, DirectoryError};
 use futures::stream::BoxStream;
 use futures::TryStreamExt;
 use std::ops::Deref;
@@ -84,7 +84,7 @@ where
         let mut validator = DirectoryGraph::<LeavesToRootValidator>::default();
         while let Some(directory) = req_inner.message().await? {
             validator
-                .add(directory.try_into().map_err(|e: ValidateDirectoryError| {
+                .add(directory.try_into().map_err(|e: DirectoryError| {
                     tonic::Status::new(tonic::Code::Internal, e.to_string())
                 })?)
                 .map_err(|e| tonic::Status::new(tonic::Code::Internal, e.to_string()))?;

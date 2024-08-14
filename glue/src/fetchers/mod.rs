@@ -10,9 +10,7 @@ use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio_util::io::{InspectReader, InspectWriter};
 use tracing::{instrument, warn, Span};
 use tracing_indicatif::span_ext::IndicatifSpanExt;
-use tvix_castore::{
-    blobservice::BlobService, directoryservice::DirectoryService, FileNode, Node, ValidateNodeError,
-};
+use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService, FileNode, Node};
 use tvix_store::{nar::NarCalculationService, pathinfoservice::PathInfoService, proto::PathInfo};
 use url::Url;
 
@@ -329,10 +327,7 @@ where
 
                 // Construct and return the FileNode describing the downloaded contents.
                 Ok((
-                    Node::File(
-                        FileNode::new(vec![].into(), blob_writer.close().await?, blob_size, false)
-                            .map_err(|e| FetcherError::Io(std::io::Error::other(e.to_string())))?,
-                    ),
+                    Node::File(FileNode::new(blob_writer.close().await?, blob_size, false)),
                     CAHash::Flat(actual_hash),
                     blob_size,
                 ))
@@ -527,13 +522,7 @@ where
 
                 // Construct and return the FileNode describing the downloaded contents,
                 // make it executable.
-                let root_node = Node::File(
-                    FileNode::new(vec![].into(), blob_digest, file_size, true).map_err(
-                        |e: ValidateNodeError| {
-                            FetcherError::Io(std::io::Error::other(e.to_string()))
-                        },
-                    )?,
-                );
+                let root_node = Node::File(FileNode::new(blob_digest, file_size, true));
 
                 Ok((root_node, CAHash::Nar(actual_hash), file_size))
             }
@@ -557,9 +546,6 @@ where
         // Calculate the store path to return, by calculating from ca_hash.
         let store_path = build_ca_path(name, &ca_hash, Vec::<String>::new(), false)?;
 
-        // Rename the node name to match the Store Path.
-        let node = node.rename(store_path.to_string().into());
-
         // If the resulting hash is not a CAHash::Nar, we also need to invoke
         // `calculate_nar` to calculate this representation, as it's required in
         // the [PathInfo].
@@ -577,7 +563,10 @@ where
 
         // Construct the PathInfo and persist it.
         let path_info = PathInfo {
-            node: Some((&node).into()),
+            node: Some(tvix_castore::proto::Node::from_name_and_node(
+                store_path.to_string().into(),
+                node.clone(),
+            )),
             references: vec![],
             narinfo: Some(tvix_store::proto::NarInfo {
                 nar_size,
@@ -589,20 +578,12 @@ where
             }),
         };
 
-        let path_info = self
-            .path_info_service
+        self.path_info_service
             .put(path_info)
             .await
             .map_err(|e| FetcherError::Io(e.into()))?;
 
-        Ok((
-            store_path,
-            (&path_info.node.unwrap().node.unwrap())
-                .try_into()
-                .map_err(|e: ValidateNodeError| {
-                    FetcherError::Io(std::io::Error::other(e.to_string()))
-                })?,
-        ))
+        Ok((store_path, node))
     }
 }
 

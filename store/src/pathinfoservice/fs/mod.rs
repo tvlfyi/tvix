@@ -3,7 +3,7 @@ use futures::StreamExt;
 use tonic::async_trait;
 use tvix_castore::fs::{RootNodes, TvixStoreFs};
 use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService};
-use tvix_castore::{Error, Node, ValidateNodeError};
+use tvix_castore::{Error, Node};
 
 use super::PathInfoService;
 
@@ -58,25 +58,31 @@ where
             .get(*store_path.digest())
             .await?
             .map(|path_info| {
-                path_info
+                let node = path_info
                     .node
                     .as_ref()
                     .expect("missing root node")
-                    .try_into()
-                    .map_err(|e: ValidateNodeError| Error::StorageError(e.to_string()))
+                    .to_owned();
+
+                match node.into_name_and_node() {
+                    Ok((_name, node)) => Ok(node),
+                    Err(e) => Err(Error::StorageError(e.to_string())),
+                }
             })
             .transpose()?)
     }
 
-    fn list(&self) -> BoxStream<Result<Node, Error>> {
+    fn list(&self) -> BoxStream<Result<(bytes::Bytes, Node), Error>> {
         Box::pin(self.0.as_ref().list().map(|result| {
             result.and_then(|path_info| {
-                path_info
+                let node = path_info
                     .node
                     .as_ref()
                     .expect("missing root node")
-                    .try_into()
-                    .map_err(|e: ValidateNodeError| Error::StorageError(e.to_string()))
+                    .to_owned();
+
+                node.into_name_and_node()
+                    .map_err(|e| Error::StorageError(e.to_string()))
             })
         }))
     }

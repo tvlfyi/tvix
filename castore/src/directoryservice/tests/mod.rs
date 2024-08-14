@@ -218,14 +218,13 @@ async fn upload_reject_dangling_pointer(directory_service: impl DirectoryService
 async fn upload_reject_wrong_size(directory_service: impl DirectoryService) {
     let wrong_parent_directory = {
         let mut dir = Directory::new();
-        dir.add(Node::Directory(
-            DirectoryNode::new(
-                "foo".into(),
+        dir.add(
+            "foo".into(),
+            Node::Directory(DirectoryNode::new(
                 DIRECTORY_A.digest(),
                 DIRECTORY_A.size() + 42, // wrong!
-            )
-            .unwrap(),
-        ))
+            )),
+        )
         .unwrap();
         dir
     };

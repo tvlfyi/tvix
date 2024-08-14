@@ -1,8 +1,9 @@
 use axum::http::StatusCode;
 use bytes::Bytes;
 use nix_compat::{narinfo::NarInfo, nixbase32};
+use prost::Message;
 use tracing::{instrument, warn, Span};
-use tvix_castore::proto::{self as castorepb, node::Node};
+use tvix_castore::proto::{self as castorepb};
 use tvix_store::proto::PathInfo;
 
 use crate::AppState;
@@ -67,17 +68,21 @@ pub async fn get(
     })?;
 
     // encode the (unnamed) root node in the NAR url itself.
-    let root_node =
-        tvix_castore::Node::try_from(path_info.node.as_ref().expect("root node must not be none"))
-            .unwrap() // PathInfo is validated
-            .rename("".into());
-
-    let mut buf = Vec::new();
-    Node::encode(&(&root_node).into(), &mut buf);
+    // We strip the name from the proto node before sending it out.
+    // It's not needed to render the NAR, it'll make the URL shorter, and it
+    // will make caching these requests easier.
+    let (_, root_node) = path_info
+        .node
+        .as_ref()
+        .expect("invalid pathinfo")
+        .to_owned()
+        .into_name_and_node()
+        .expect("invalid pathinfo");
 
     let url = format!(
         "nar/tvix-castore/{}?narsize={}",
-        data_encoding::BASE64URL_NOPAD.encode(&buf),
+        data_encoding::BASE64URL_NOPAD
+            .encode(&castorepb::Node::from_name_and_node("".into(), root_node).encode_to_vec()),
         narinfo.nar_size,
     );
 
@@ -125,19 +130,18 @@ pub async fn put(
 
     // Lookup root node with peek, as we don't want to update the LRU list.
     // We need to be careful to not hold the RwLock across the await point.
-    let maybe_root_node: Option<tvix_castore::Node> = root_nodes
-        .read()
-        .peek(&narinfo.nar_hash)
-        .and_then(|v| v.try_into().ok());
+    let maybe_root_node: Option<tvix_castore::Node> =
+        root_nodes.read().peek(&narinfo.nar_hash).cloned();
 
     match maybe_root_node {
         Some(root_node) => {
             // Set the root node from the lookup.
             // We need to rename the node to the narinfo storepath basename, as
             // that's where it's stored in PathInfo.
-            pathinfo.node = Some(castorepb::Node {
-                node: Some((&root_node.rename(narinfo.store_path.to_string().into())).into()),
-            });
+            pathinfo.node = Some(castorepb::Node::from_name_and_node(
+                narinfo.store_path.to_string().into(),
+                root_node,
+            ));
 
             // Persist the PathInfo.
             path_info_service.put(pathinfo).await.map_err(|e| {
