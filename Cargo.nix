@@ -288,6 +288,7 @@ rec {
         version = "0.2.18";
         edition = "2018";
         sha256 = "0kr6lfnxvnj164j1x38g97qjlhb7akppqzvgfs0697140ixbav2w";
+        libName = "allocator_api2";
         authors = [
           "Zakarum <zaq.dev@icloud.com>"
         ];
@@ -303,6 +304,7 @@ rec {
         version = "0.1.1";
         edition = "2018";
         sha256 = "1w7ynjxrfs97xg3qlcdns4kgfpwcdv824g611fq32cag4cdr96g9";
+        libName = "android_tzdata";
         authors = [
           "RumovZ"
         ];
@@ -394,6 +396,7 @@ rec {
         version = "0.2.3";
         edition = "2021";
         sha256 = "134jhzrz89labrdwxxnjxqjdg06qvaflj1wkfnmyapwyldfwcnn7";
+        libName = "anstyle_parse";
         dependencies = [
           {
             name = "utf8parse";
@@ -413,6 +416,7 @@ rec {
         version = "1.0.2";
         edition = "2021";
         sha256 = "0j3na4b1nma39g4x7cwvj009awxckjf3z2vkwhldgka44hqj72g2";
+        libName = "anstyle_query";
         dependencies = [
           {
             name = "windows-sys";
@@ -428,6 +432,7 @@ rec {
         version = "3.0.2";
         edition = "2021";
         sha256 = "19v0fv400bmp4niqpzxnhg83vz12mmqv7l2l8vi80qcdxj0lpm8w";
+        libName = "anstyle_wincon";
         dependencies = [
           {
             name = "anstyle";
@@ -461,6 +466,7 @@ rec {
         version = "1.6.0";
         edition = "2018";
         sha256 = "19n9j146bpxs9phyh48gmlh9jjsdijr9p9br04qms0g9ypfsvp5x";
+        libName = "arc_swap";
         authors = [
           "Michal 'vorner' Vaner <vorner@vorner.cz>"
         ];
@@ -497,6 +503,7 @@ rec {
         version = "2.2.0";
         edition = "2021";
         sha256 = "1hzhkbrlmgbrrwb1d5aba5f03p42s6z80g5p38s127c27nj470pj";
+        libName = "async_channel";
         authors = [
           "Stjepan Glavina <stjepang@gmail.com>"
         ];
@@ -537,6 +544,7 @@ rec {
         version = "0.4.9";
         edition = "2018";
         sha256 = "14r6vbsbbkqjiqy0qwwywjakdi29jfyidhqp389l5r4gm7bsp7jf";
+        libName = "async_compression";
         authors = [
           "Wim Looman <wim@nemo157.com>"
           "Allen Bui <fairingrey@gmail.com>"
@@ -626,6 +634,7 @@ rec {
         version = "2.3.2";
         edition = "2021";
         sha256 = "110847w0ycfhklm3i928avd28x7lf9amblr2wjngi8ngk7sv1k6w";
+        libName = "async_io";
         authors = [
           "Stjepan Glavina <stjepang@gmail.com>"
         ];
@@ -690,6 +699,7 @@ rec {
         version = "2.8.0";
         edition = "2018";
         sha256 = "0asq5xdzgp3d5m82y5rg7a0k9q0g95jy6mgc7ivl334x7qlp4wi8";
+        libName = "async_lock";
         authors = [
           "Stjepan Glavina <stjepang@gmail.com>"
         ];
@@ -706,6 +716,7 @@ rec {
         version = "3.3.0";
         edition = "2021";
         sha256 = "0yxflkfw46rad4lv86f59b5z555dlfmg1riz1n8830rgi0qb8d6h";
+        libName = "async_lock";
         authors = [
           "Stjepan Glavina <stjepang@gmail.com>"
         ];
@@ -736,6 +747,7 @@ rec {
         version = "2.1.0";
         edition = "2021";
         sha256 = "1j0cfac9p3kq5dclfzlz6jv5l29kwflh9nvr3ivmdg8ih3v3q7j5";
+        libName = "async_process";
         authors = [
           "Stjepan Glavina <stjepang@gmail.com>"
         ];
@@ -804,6 +816,7 @@ rec {
         version = "0.2.5";
         edition = "2018";
         sha256 = "1i9466hiqghhmljjnn83a8vnxi8z013xga03f59c89d2cl7xjiwy";
+        libName = "async_signal";
         authors = [
           "John Nunley <dev@notgull.net>"
         ];
@@ -874,6 +887,7 @@ rec {
         version = "0.3.5";
         edition = "2018";
         sha256 = "0l8sjq1rylkb1ak0pdyjn83b3k6x36j22myngl4sqqgg7whdsmnd";
+        libName = "async_stream";
         authors = [
           "Carl Lerche <me@carllerche.com>"
         ];
@@ -899,6 +913,7 @@ rec {
         edition = "2018";
         sha256 = "14q179j4y8p2z1d0ic6aqgy9fhwz8p9cai1ia8kpw4bw7q12mrhn";
         procMacro = true;
+        libName = "async_stream_impl";
         authors = [
           "Carl Lerche <me@carllerche.com>"
         ];
@@ -924,6 +939,7 @@ rec {
         version = "4.7.0";
         edition = "2018";
         sha256 = "16975vx6aqy5yf16fs9xz5vx1zq8mwkzfmykvcilc1j7b6c6xczv";
+        libName = "async_task";
         authors = [
           "Stjepan Glavina <stjepang@gmail.com>"
         ];
@@ -938,6 +954,7 @@ rec {
         version = "0.4.0";
         edition = "2021";
         sha256 = "16zx4qcwzq94n13pp6xwa4589apm5y8j20jb7lk4yzn42fqlnzdk";
+        libName = "async_tempfile";
         authors = [
           "Markus Mayer"
         ];
@@ -973,6 +990,7 @@ rec {
         edition = "2021";
         sha256 = "1adf1jh2yg39rkpmqjqyr9xyd6849p0d95425i6imgbhx0syx069";
         procMacro = true;
+        libName = "async_trait";
         authors = [
           "David Tolnay <dtolnay@gmail.com>"
         ];
@@ -998,6 +1016,7 @@ rec {
         version = "1.1.2";
         edition = "2018";
         sha256 = "1h5av1lw56m0jf0fd3bchxq8a30xv0b4wv8s4zkp4s0i7mfvs18m";
+        libName = "atomic_waker";
         authors = [
           "Stjepan Glavina <stjepang@gmail.com>"
           "Contributors to futures-rs"
@@ -1326,6 +1345,7 @@ rec {
         version = "0.3.4";
         edition = "2021";
         sha256 = "0b1d9nkqb8znaba4qqzxzc968qwj4ybn4vgpyz9lz4a7l9vsb7vm";
+        libName = "axum_core";
         dependencies = [
           {
             name = "async-trait";
@@ -1386,6 +1406,7 @@ rec {
         version = "0.4.3";
         edition = "2021";
         sha256 = "1qx28wg4j6qdcdrisqwyaavlzc0zvbsrcwa99zf9456lfbyn6p51";
+        libName = "axum_core";
         dependencies = [
           {
             name = "async-trait";
@@ -1651,6 +1672,7 @@ rec {
         version = "0.5.3";
         edition = "2015";
         sha256 = "1wcm9vxi00ma4rcxkl3pzzjli6ihrpn9cfdi0c5b4cvga2mxs007";
+        libName = "bit_set";
         authors = [
           "Alexis Beingessner <a.beingessner@gmail.com>"
         ];
@@ -1672,6 +1694,7 @@ rec {
         version = "0.6.3";
         edition = "2015";
         sha256 = "1ywqjnv60cdh1slhz67psnp422md6jdliji6alq0gmly2xm9p7rl";
+        libName = "bit_vec";
         authors = [
           "Alexis Beingessner <a.beingessner@gmail.com>"
         ];
@@ -1790,6 +1813,7 @@ rec {
         version = "0.10.4";
         edition = "2018";
         sha256 = "0w9sa2ypmrsqqvc20nhwr75wbb5cjr4kkyhpjm1z1lv2kdicfy1h";
+        libName = "block_buffer";
         authors = [
           "RustCrypto Developers"
         ];
@@ -2054,6 +2078,7 @@ rec {
         version = "1.0.0";
         edition = "2018";
         sha256 = "1za0vb97n4brpzpv8lsbnzmq5r8f2b0cpqqr0sy8h5bn751xxwds";
+        libName = "cfg_if";
         authors = [
           "Alex Crichton <alex@alexcrichton.com>"
         ];
@@ -2173,6 +2198,7 @@ rec {
         version = "0.2.1";
         edition = "2021";
         sha256 = "0mi6ci27lpz3azksxrvgzl9jc4a3dfr20pjx7y2nkcrjalbikyfd";
+        libName = "ciborium_io";
         authors = [
           "Nathaniel McCallum <npmccallum@profian.com>"
         ];
@@ -2186,6 +2212,7 @@ rec {
         version = "0.2.1";
         edition = "2021";
         sha256 = "0az2vabamfk75m74ylgf6nzqgqgma5yf25bc1ripfg09ri7a5yny";
+        libName = "ciborium_ll";
         authors = [
           "Nathaniel McCallum <npmccallum@profian.com>"
         ];
@@ -2325,6 +2352,7 @@ rec {
         version = "4.5.0";
         edition = "2018";
         sha256 = "0qh3rypkf1lazniq4nr04hxsck0d55rigb5sjvpvgnap4dyc54bi";
+        libName = "clipboard_win";
         authors = [
           "Douman <douman@gmx.se>"
         ];
@@ -2366,6 +2394,7 @@ rec {
         version = "0.1.2";
         edition = "2015";
         sha256 = "08l1b84bn8r8a72rbvyi2v8a5i0j0kk0a5gr7fb6lmjvw05pf86c";
+        libName = "codemap_diagnostic";
         authors = [
           "Kevin Mehall <km@kevinmehall.net>"
           "The Rust Project Developers"
@@ -2394,6 +2423,7 @@ rec {
         version = "2.4.0";
         edition = "2018";
         sha256 = "0qvk23ynj311adb4z7v89wk3bs65blps4n24q8rgl23vjk6lhq6i";
+        libName = "concurrent_queue";
         authors = [
           "Stjepan Glavina <stjepang@gmail.com>"
           "Taiki Endo <te316e89@gmail.com>"
@@ -2459,6 +2489,7 @@ rec {
         version = "0.9.6";
         edition = "2021";
         sha256 = "1y0jnqaq7p2wvspnx7qj76m7hjcqpz73qzvr9l2p9n2s51vr6if2";
+        libName = "const_oid";
         authors = [
           "RustCrypto Developers"
         ];
@@ -2481,6 +2512,7 @@ rec {
         version = "0.9.4";
         edition = "2018";
         sha256 = "13zvbbj07yk3b61b8fhwfzhy35535a583irf23vlcg59j7h9bqci";
+        libName = "core_foundation";
         authors = [
           "The Servo Project Developers"
         ];
@@ -2512,6 +2544,7 @@ rec {
         version = "0.8.6";
         edition = "2018";
         sha256 = "13w6sdf06r0hn7bx2b45zxsg1mm2phz34jikm6xc5qrbr6djpsh6";
+        libName = "core_foundation_sys";
         authors = [
           "The Servo Project Developers"
         ];
@@ -2525,6 +2558,7 @@ rec {
         version = "0.1.0";
         edition = "2018";
         sha256 = "11bswmgr81s3jagdci1pr6qh9vnz9zsbbf2dqpi260daa2mhgmff";
+        libName = "count_write";
         authors = [
           "SOFe <sofe2038@gmail.com>"
         ];
@@ -2720,6 +2754,7 @@ rec {
         version = "0.5.0";
         edition = "2018";
         sha256 = "1c866xkjqqhzg4cjvg01f8w6xc1j3j7s58rdksl52skq89iq4l3b";
+        libName = "criterion_plot";
         authors = [
           "Jorge Aparicio <japaricious@gmail.com>"
           "Brook Heisler <brookheisler@gmail.com>"
@@ -2741,6 +2776,7 @@ rec {
         version = "0.5.11";
         edition = "2021";
         sha256 = "16v48qdflpw3hgdik70bhsj7hympna79q7ci47rw0mlgnxsw2v8p";
+        libName = "crossbeam_channel";
         dependencies = [
           {
             name = "crossbeam-utils";
@@ -2759,6 +2795,7 @@ rec {
         version = "0.8.5";
         edition = "2021";
         sha256 = "03bp38ljx4wj6vvy4fbhx41q8f585zyqix6pncz1mkz93z08qgv1";
+        libName = "crossbeam_deque";
         dependencies = [
           {
             name = "crossbeam-epoch";
@@ -2782,6 +2819,7 @@ rec {
         version = "0.9.18";
         edition = "2021";
         sha256 = "03j2np8llwf376m3fxqx859mgp9f83hj1w34153c7a9c7i5ar0jv";
+        libName = "crossbeam_epoch";
         dependencies = [
           {
             name = "crossbeam-utils";
@@ -2803,6 +2841,7 @@ rec {
         version = "0.8.19";
         edition = "2021";
         sha256 = "0iakrb1b8fjqrag7wphl94d10irhbh2fw1g444xslsywqyn3p3i4";
+        libName = "crossbeam_utils";
         features = {
           "default" = [ "std" ];
           "loom" = [ "dep:loom" ];
@@ -2814,6 +2853,7 @@ rec {
         version = "0.1.6";
         edition = "2018";
         sha256 = "1cvby95a6xg7kxdz5ln3rl9xh66nz66w46mm3g56ri1z5x815yqv";
+        libName = "crypto_common";
         authors = [
           "RustCrypto Developers"
         ];
@@ -2836,9 +2876,10 @@ rec {
       };
       "curve25519-dalek" = rec {
         crateName = "curve25519-dalek";
-        version = "4.1.1";
+        version = "4.1.3";
         edition = "2021";
-        sha256 = "0p7ns5917k6369gajrsbfj24llc5zfm635yh3abla7sb5rm8r6z8";
+        sha256 = "1gmjb9dsknrr8lypmhkyjd67p1arb8mbfamlwxm7vph38my8pywp";
+        libName = "curve25519_dalek";
         authors = [
           "Isis Lovecruft <isis@patternsinthevoid.net>"
           "Henry de Valence <hdevalence@hdevalence.ca>"
@@ -2884,10 +2925,6 @@ rec {
         ];
         buildDependencies = [
           {
-            name = "platforms";
-            packageId = "platforms";
-          }
-          {
             name = "rustc_version";
             packageId = "rustc_version";
           }
@@ -2911,6 +2948,7 @@ rec {
         edition = "2021";
         sha256 = "1cry71xxrr0mcy5my3fb502cwfxy6822k4pm19cwrilrg7hq4s7l";
         procMacro = true;
+        libName = "curve25519_dalek_derive";
         dependencies = [
           {
             name = "proc-macro2";
@@ -3025,6 +3063,7 @@ rec {
         version = "2.6.0";
         edition = "2018";
         sha256 = "1qnn68n4vragxaxlkqcb1r28d3hhj43wch67lm4rpxlw89wnjmp8";
+        libName = "data_encoding";
         authors = [
           "Julien Cretin <git@ia0.eu>"
         ];
@@ -3173,6 +3212,7 @@ rec {
         version = "2.0.0";
         edition = "2018";
         sha256 = "1q9kr151h9681wwp6is18750ssghz6j9j7qm7qi1ngcwy7mzi35r";
+        libName = "dirs_next";
         authors = [
           "The @xdg-rs members"
         ];
@@ -3193,6 +3233,7 @@ rec {
         version = "0.3.7";
         edition = "2015";
         sha256 = "19md1cnkazham8a6kh22v12d8hh3raqahfk6yb043vrjr68is78v";
+        libName = "dirs_sys";
         authors = [
           "Simon Ochsenreither <simon@ochsenreither.de>"
         ];
@@ -3222,6 +3263,7 @@ rec {
         version = "0.1.2";
         edition = "2018";
         sha256 = "0kavhavdxv4phzj4l0psvh55hszwnr0rcz8sxbvx20pyqi2a3gaf";
+        libName = "dirs_sys_next";
         authors = [
           "The @xdg-rs members"
         ];
@@ -3273,6 +3315,7 @@ rec {
         edition = "2018";
         sha256 = "15cvgxqngxslgllz15m8aban6wqfgsi6nlhr0g25yfsnd6nq4lpg";
         procMacro = true;
+        libName = "document_features";
         libPath = "lib.rs";
         authors = [
           "Slint Developers <info@slint-ui.com>"
@@ -3324,6 +3367,7 @@ rec {
         version = "2.1.0";
         edition = "2021";
         sha256 = "1h13qm789m9gdjl6jazss80hqi8ll37m0afwcnw23zcbqjp8wqhz";
+        libName = "ed25519_dalek";
         authors = [
           "isis lovecruft <isis@patternsinthevoid.net>"
           "Tony Arcieri <bascule@gmail.com>"
@@ -3430,6 +3474,7 @@ rec {
         version = "0.1.2";
         edition = "2015";
         sha256 = "0bbh88zaig1jfqrm7w3gx0pz81kw2jakk3055vbgapw3dmk08ky3";
+        libName = "endian_type";
         authors = [
           "Lolirofle <lolipopple@hotmail.com>"
         ];
@@ -3441,6 +3486,7 @@ rec {
         edition = "2018";
         sha256 = "0k6wcf58h5kh64yq5nfq71va53kaya0kzxwsjwbgwm2n2zd9axxs";
         procMacro = true;
+        libName = "enum_primitive_derive";
         authors = [
           "Doug Goldstein <cardoe@cardoe.com>"
         ];
@@ -3540,6 +3586,7 @@ rec {
         version = "2.3.1";
         edition = "2018";
         sha256 = "08baxlf8qz01lgjsdbfhs193r9y1nlc566s5xvzyf4dzwy8qkwb4";
+        libName = "error_code";
         authors = [
           "Douman <douman@gmx.se>"
         ];
@@ -3561,6 +3608,7 @@ rec {
         version = "2.5.3";
         edition = "2018";
         sha256 = "1q4w3pndc518crld6zsqvvpy9lkzwahp2zgza9kbzmmqh9gif1h2";
+        libName = "event_listener";
         authors = [
           "Stjepan Glavina <stjepang@gmail.com>"
         ];
@@ -3571,6 +3619,7 @@ rec {
         version = "4.0.3";
         edition = "2021";
         sha256 = "0vk4smw1vf871vi76af1zn7w69jg3zmpjddpby2qq91bkg21bck7";
+        libName = "event_listener";
         authors = [
           "Stjepan Glavina <stjepang@gmail.com>"
         ];
@@ -3606,6 +3655,7 @@ rec {
         version = "5.2.0";
         edition = "2021";
         sha256 = "14fcnjgpfl22645nhc3hzkdq3a1v0srqacc3kfassg7sjj8vhprb";
+        libName = "event_listener";
         authors = [
           "Stjepan Glavina <stjepang@gmail.com>"
         ];
@@ -3641,6 +3691,7 @@ rec {
         version = "0.4.0";
         edition = "2018";
         sha256 = "1lwprdjqp2ibbxhgm9khw7s7y7k4xiqj5i5yprqiks6mnrq4v3lm";
+        libName = "event_listener_strategy";
         authors = [
           "John Nunley <dev@notgull.net>"
         ];
@@ -3666,6 +3717,7 @@ rec {
         version = "0.5.0";
         edition = "2021";
         sha256 = "148jflvjrq0zrr3dx3srv88jksj1klm4amy3b9fifjdpm75azvgy";
+        libName = "event_listener_strategy";
         authors = [
           "John Nunley <dev@notgull.net>"
         ];
@@ -3691,6 +3743,7 @@ rec {
         version = "1.5.0";
         edition = "2018";
         sha256 = "1q55nrkgzg345905aqbsdrwlq4sk0gjn4z5bdph1an1kc6jy02wy";
+        libName = "expect_test";
         authors = [
           "rust-analyzer developers"
         ];
@@ -3768,6 +3821,7 @@ rec {
         version = "3.0.13";
         edition = "2018";
         sha256 = "1df1jdncda67g65hrnmd2zsl7q5hdn8cm84chdalxndsx7akw0zg";
+        libName = "fd_lock";
         authors = [
           "Yoshua Wuyts <yoshuawuyts@gmail.com>"
         ];
@@ -3796,6 +3850,7 @@ rec {
         version = "0.2.5";
         edition = "2018";
         sha256 = "1dxn0g50pv0ppal779vi7k40fr55pbhkyv4in7i13pgl4sn3wmr7";
+        libName = "fiat_crypto";
         authors = [
           "Fiat Crypto library authors <jgross@mit.edu>"
         ];
@@ -3958,6 +4013,7 @@ rec {
         version = "0.11.0";
         edition = "2018";
         sha256 = "0jyldvp0kvjk21j5vqga42lkksaf7zg8jkj3l6h2dv20kyl66nif";
+        libName = "fuse_backend_rs";
         authors = [
           "Liu Bo <bo.liu@linux.alibaba.com>"
           "Liu Jiang <gerry@linux.alibaba.com>"
@@ -4126,6 +4182,7 @@ rec {
         version = "0.3.30";
         edition = "2018";
         sha256 = "0y6b7xxqdjm9hlcjpakcg41qfl7lihf6gavk8fyqijsxhvbzgj7a";
+        libName = "futures_channel";
         dependencies = [
           {
             name = "futures-core";
@@ -4153,6 +4210,7 @@ rec {
         version = "0.3.30";
         edition = "2018";
         sha256 = "07aslayrn3lbggj54kci0ishmd1pr367fp7iks7adia1p05miinz";
+        libName = "futures_core";
         features = {
           "default" = [ "std" ];
           "portable-atomic" = [ "dep:portable-atomic" ];
@@ -4165,6 +4223,7 @@ rec {
         version = "0.3.30";
         edition = "2018";
         sha256 = "07dh08gs9vfll2h36kq32q9xd86xm6lyl9xikmmwlkqnmrrgqxm5";
+        libName = "futures_executor";
         dependencies = [
           {
             name = "futures-core";
@@ -4195,6 +4254,7 @@ rec {
         version = "0.3.30";
         edition = "2018";
         sha256 = "1hgh25isvsr4ybibywhr4dpys8mjnscw4wfxxwca70cn1gi26im4";
+        libName = "futures_io";
         features = {
           "default" = [ "std" ];
         };
@@ -4205,6 +4265,7 @@ rec {
         version = "2.3.0";
         edition = "2021";
         sha256 = "19gk4my8zhfym6gwnpdjiyv2hw8cc098skkbkhryjdaf0yspwljj";
+        libName = "futures_lite";
         authors = [
           "Stjepan Glavina <stjepang@gmail.com>"
           "Contributors to futures-rs"
@@ -4253,6 +4314,7 @@ rec {
         edition = "2018";
         sha256 = "1b49qh9d402y8nka4q6wvvj0c88qq91wbr192mdn5h54nzs0qxc7";
         procMacro = true;
+        libName = "futures_macro";
         dependencies = [
           {
             name = "proc-macro2";
@@ -4275,6 +4337,7 @@ rec {
         version = "0.3.30";
         edition = "2018";
         sha256 = "1dag8xyyaya8n8mh8smx7x6w2dpmafg2din145v973a3hw7f1f4z";
+        libName = "futures_sink";
         features = {
           "default" = [ "std" ];
           "std" = [ "alloc" ];
@@ -4286,6 +4349,7 @@ rec {
         version = "0.3.30";
         edition = "2018";
         sha256 = "013h1724454hj8qczp8vvs10qfiqrxr937qsrv6rhii68ahlzn1q";
+        libName = "futures_task";
         features = {
           "default" = [ "std" ];
           "std" = [ "alloc" ];
@@ -4297,6 +4361,7 @@ rec {
         version = "3.0.2";
         edition = "2018";
         sha256 = "0b5v7lk9838ix6jdcrainsyrh7xrf24pwm61dp13907qkn806jz6";
+        libName = "futures_timer";
         authors = [
           "Alex Crichton <alex@alexcrichton.com>"
         ];
@@ -4311,6 +4376,7 @@ rec {
         version = "0.3.30";
         edition = "2018";
         sha256 = "0j0xqhcir1zf2dcbpd421kgw6wvsk0rpxflylcysn1rlp3g02r1x";
+        libName = "futures_util";
         dependencies = [
           {
             name = "futures-channel";
@@ -4530,6 +4596,7 @@ rec {
         version = "0.99.1";
         edition = "2018";
         sha256 = "1g6zmr88fk48f1ksz9ik1i2mwjsiam9s4p9aybhvs2zwzphxychb";
+        libName = "genawaiter_macro";
         authors = [
           "Devin R <devin.ragotzy@gmail.com>"
         ];
@@ -4921,6 +4988,7 @@ rec {
         version = "0.3.4";
         edition = "2021";
         sha256 = "07v5vbwb9kx0yxgdpx15h38ynpzhaqx5ncriryipypi5707hwgax";
+        libName = "hermit_abi";
         authors = [
           "Stefan Lankes"
         ];
@@ -4952,6 +5020,7 @@ rec {
         version = "0.4.1";
         edition = "2021";
         sha256 = "0iny5inkixsdr41pm2vkqh3fl66752z5j5c0cdxw16yl9ryjdqkg";
+        libName = "hex_literal";
         authors = [
           "RustCrypto Developers"
         ];
@@ -5035,6 +5104,7 @@ rec {
         version = "0.4.6";
         edition = "2018";
         sha256 = "1lmyjfk6bqk6k9gkn1dxq770sb78pqbqshga241hr5p995bb5skw";
+        libName = "http_body";
         authors = [
           "Carl Lerche <me@carllerche.com>"
           "Lucio Franco <luciofranco14@gmail.com>"
@@ -5061,6 +5131,7 @@ rec {
         version = "1.0.0";
         edition = "2018";
         sha256 = "0hyn8n3iadrbwq8y0p1rl1275s4nm49bllw5wji29g4aa3dqbb0w";
+        libName = "http_body";
         authors = [
           "Carl Lerche <me@carllerche.com>"
           "Lucio Franco <luciofranco14@gmail.com>"
@@ -5083,6 +5154,7 @@ rec {
         version = "0.1.1";
         edition = "2018";
         sha256 = "07agldas2qgcfc05ckiarlmf9vzragbda823nqhrqrc6mjrghx84";
+        libName = "http_body_util";
         authors = [
           "Carl Lerche <me@carllerche.com>"
           "Lucio Franco <luciofranco14@gmail.com>"
@@ -5360,6 +5432,7 @@ rec {
         version = "0.24.2";
         edition = "2021";
         sha256 = "1475j4a2nczz4aajzzsq3hpwg1zacmzbqg393a14j80ff8izsgpc";
+        libName = "hyper_rustls";
         dependencies = [
           {
             name = "futures-util";
@@ -5435,6 +5508,7 @@ rec {
         version = "0.27.2";
         edition = "2021";
         sha256 = "0ma1wyfnqnkz7zyr7wpply3xfvlijd0rqqhb6ajs28c9jhnbxr2y";
+        libName = "hyper_rustls";
         dependencies = [
           {
             name = "futures-util";
@@ -5527,6 +5601,7 @@ rec {
         version = "0.4.1";
         edition = "2018";
         sha256 = "1c8k3g8k2yh1gxvsx9p7amkimgxhl9kafwpj7jyf8ywc5r45ifdv";
+        libName = "hyper_timeout";
         authors = [
           "Herman J. Radtke III <herman@hermanradtke.com>"
         ];
@@ -5568,6 +5643,7 @@ rec {
         version = "0.5.1";
         edition = "2018";
         sha256 = "14rpyv9zz0ncadn9qgmnjz0hiqk3nav7hglkk1a6yfy8wmhsj0rj";
+        libName = "hyper_timeout";
         authors = [
           "Herman J. Radtke III <herman@hermanradtke.com>"
         ];
@@ -5715,6 +5791,7 @@ rec {
         version = "0.1.60";
         edition = "2018";
         sha256 = "0hdid5xz3jznm04lysjm3vi93h3c523w0hcc3xba47jl3ddbpzz7";
+        libName = "iana_time_zone";
         authors = [
           "Andrew Straw <strawman@astraw.com>"
           "René Kijewski <rene.kijewski@fu-berlin.de>"
@@ -5760,6 +5837,7 @@ rec {
         version = "0.1.2";
         edition = "2018";
         sha256 = "17r6jmj31chn7xs9698r122mapq85mfnv98bb4pg6spm0si2f67k";
+        libName = "iana_time_zone_haiku";
         authors = [
           "René Kijewski <crates.io@k6i.de>"
         ];
@@ -5877,6 +5955,7 @@ rec {
         version = "0.1.2";
         edition = "2021";
         sha256 = "0qzdw55na2w6fd44p7y9rh05nxa98gzpaigmwg57sy7db3xhch0l";
+        libName = "imbl_sized_chunks";
         authors = [
           "Bodil Stokke <bodil@bodil.org>"
           "Joe Neeman <joeneeman@gmail.com>"
@@ -6070,6 +6149,7 @@ rec {
         version = "0.4.10";
         edition = "2018";
         sha256 = "0m9la3f7cs77y85nkbcjsxkb7k861fc6bdhahyfidgh7gljh1b8b";
+        libName = "is_terminal";
         authors = [
           "softprops <d.tangren@gmail.com>"
           "Dan Gohman <dev@sunfishcode.online>"
@@ -6200,6 +6280,7 @@ rec {
         version = "0.3.67";
         edition = "2018";
         sha256 = "1lar78p13w781b4zf44a0sk26i461fczbdrhpan6kjav4gqkc7cs";
+        libName = "js_sys";
         authors = [
           "The wasm-bindgen Developers"
         ];
@@ -6229,6 +6310,7 @@ rec {
         version = "0.8.5";
         edition = "2018";
         sha256 = "0ihf0x3vrk25fq3bv9q35m0xax0wmvwkh0j0pjm2yk4ddvh5vpic";
+        libName = "lexical_core";
         authors = [
           "Alex Huszagh <ahuszagh@gmail.com>"
         ];
@@ -6291,6 +6373,7 @@ rec {
         version = "0.8.5";
         edition = "2018";
         sha256 = "0py0gp8hlzcrlvjqmqlpl2v1as65iiqxq2xsabxvhc01pmg3lfv8";
+        libName = "lexical_parse_float";
         authors = [
           "Alex Huszagh <ahuszagh@gmail.com>"
         ];
@@ -6331,6 +6414,7 @@ rec {
         version = "0.8.6";
         edition = "2018";
         sha256 = "1sayji3mpvb2xsjq56qcq3whfz8px9a6fxk5v7v15hyhbr4982bd";
+        libName = "lexical_parse_integer";
         authors = [
           "Alex Huszagh <ahuszagh@gmail.com>"
         ];
@@ -6362,6 +6446,7 @@ rec {
         version = "0.8.5";
         edition = "2018";
         sha256 = "1z73qkv7yxhsbc4aiginn1dqmsj8jarkrdlyxc88g2gz2vzvjmaj";
+        libName = "lexical_util";
         authors = [
           "Alex Huszagh <ahuszagh@gmail.com>"
         ];
@@ -6388,6 +6473,7 @@ rec {
         version = "0.8.5";
         edition = "2018";
         sha256 = "0qk825l0csvnksh9sywb51996cjc2bylq6rxjaiha7sqqjhvmjmc";
+        libName = "lexical_write_float";
         authors = [
           "Alex Huszagh <ahuszagh@gmail.com>"
         ];
@@ -6428,6 +6514,7 @@ rec {
         version = "0.8.5";
         edition = "2018";
         sha256 = "0ii4hmvqrg6pd4j9y1pkhkp0nw2wpivjzmljh6v6ca22yk8z7dp1";
+        libName = "lexical_write_integer";
         authors = [
           "Alex Huszagh <ahuszagh@gmail.com>"
         ];
@@ -6490,6 +6577,7 @@ rec {
         edition = "2018";
         links = "mimalloc";
         sha256 = "0i3b0dzz7cp0ik7ys66q92r16va78gwlbrnxhj5fnkdxsc8niai3";
+        libName = "libmimalloc_sys";
         authors = [
           "Octavian Oncescu <octavonce@gmail.com>"
         ];
@@ -6543,6 +6631,7 @@ rec {
         version = "0.4.13";
         edition = "2021";
         sha256 = "172k2c6422gsc914ig8rh99mb9yc7siw6ikc3d9xw1k7vx0s3k81";
+        libName = "linux_raw_sys";
         authors = [
           "Dan Gohman <dev@sunfishcode.online>"
         ];
@@ -6687,6 +6776,7 @@ rec {
         edition = "2018";
         links = "lzma";
         sha256 = "09sxp20waxyglgn3cjz8qjkspb3ryz2fwx4rigkwvrk46ymh9njz";
+        libName = "lzma_sys";
         authors = [
           "Alex Crichton <alex@alexcrichton.com>"
         ];
@@ -6748,6 +6838,7 @@ rec {
         edition = "2015";
         links = "magic";
         sha256 = "1g5k9d9igxv4h23nbhp8bqa5gdpkd3ahgm0rh5i0s54mi3h6my7g";
+        libName = "magic_sys";
         authors = [
           "robo9k <robo9k@symlink.io>"
         ];
@@ -6952,6 +7043,7 @@ rec {
         version = "0.2.1";
         edition = "2018";
         sha256 = "16ppc5g84aijpri4jzv14rvcnslvlpphbszc7zzp6vfkddf4qdb8";
+        libName = "minimal_lexical";
         authors = [
           "Alex Huszagh <ahuszagh@gmail.com>"
         ];
@@ -7058,6 +7150,7 @@ rec {
           }
         ];
         src = lib.cleanSourceWith { filter = sourceFilter; src = ./nar-bridge; };
+        libName = "nar_bridge";
         dependencies = [
           {
             name = "axum";
@@ -7400,6 +7493,7 @@ rec {
           }
         ];
         src = lib.cleanSourceWith { filter = sourceFilter; src = ./nix-compat; };
+        libName = "nix_compat";
         dependencies = [
           {
             name = "bitflags";
@@ -7530,6 +7624,7 @@ rec {
         version = "0.2.0";
         edition = "2018";
         sha256 = "0lf4p6k01w4wm7zn4grnihzj8s7zd5qczjmzng7wviwxawih5x9b";
+        libName = "nohash_hasher";
         authors = [
           "Parity Technologies <admin@parity.io>"
         ];
@@ -7588,6 +7683,7 @@ rec {
         version = "0.46.0";
         edition = "2018";
         sha256 = "115sywxh53p190lyw97alm14nc004qj5jm5lvdj608z84rbida3p";
+        libName = "nu_ansi_term";
         authors = [
           "ogham@bsago.me"
           "Ryan Scheel (Havvy) <ryan.havvy@gmail.com>"
@@ -7616,6 +7712,7 @@ rec {
         version = "0.1.0";
         edition = "2021";
         sha256 = "1ndiyg82q73783jq18isi71a7mjh56wxrk52rlvyx0mi5z9ibmai";
+        libName = "num_conv";
         authors = [
           "Jacob Pratt <jacob@jhpratt.dev>"
         ];
@@ -7626,6 +7723,7 @@ rec {
         version = "0.2.18";
         edition = "2018";
         sha256 = "0yjib8p2p9kzmaz48xwhs69w5dh1wipph9jgnillzd2x33jz03fs";
+        libName = "num_traits";
         authors = [
           "The Rust Project Developers"
         ];
@@ -7908,6 +8006,7 @@ rec {
         version = "0.1.5";
         edition = "2015";
         sha256 = "1kq18qm48rvkwgcggfkqq6pm948190czqc94d6bm2sir5hq1l0gz";
+        libName = "openssl_probe";
         authors = [
           "Alex Crichton <alex@alexcrichton.com>"
         ];
@@ -8008,6 +8107,7 @@ rec {
         version = "0.13.0";
         edition = "2021";
         sha256 = "1avqmyh42apakbkhjij3c9hl0brnq5v37zk4kpxkhdgf8kgfjcdd";
+        libName = "opentelemetry_http";
         dependencies = [
           {
             name = "async-trait";
@@ -8041,6 +8141,7 @@ rec {
         version = "0.17.0";
         edition = "2021";
         sha256 = "09z70ygp6lfcplnwx7cgf3p3fyq2arkvhxhj8avnz4gv5xh5m4kb";
+        libName = "opentelemetry_otlp";
         dependencies = [
           {
             name = "async-trait";
@@ -8138,6 +8239,7 @@ rec {
         version = "0.7.0";
         edition = "2021";
         sha256 = "1nahv1dflvwdgi4c4p7ikd59x0yyivf85w02398q9jgrpwh9zvih";
+        libName = "opentelemetry_proto";
         dependencies = [
           {
             name = "opentelemetry";
@@ -8385,6 +8487,7 @@ rec {
         version = "4.2.0";
         edition = "2021";
         sha256 = "0kjqcvvbcsibbx3hnj7ag06bd9gv2zfi5ja6rgyh2kbxbh3zfvd7";
+        libName = "ordered_float";
         authors = [
           "Jonathan Reem <jonathan.reem@gmail.com>"
           "Matt Brubeck <mbrubeck@limpet.net>"
@@ -8613,6 +8716,7 @@ rec {
         version = "0.1.0";
         edition = "2015";
         sha256 = "1pcgqxw0mgg3ha5hi5xkjhyjf488bw5rw1g3qlr9awbq4szh3fpc";
+        libName = "path_clean";
         authors = [
           "Dan Reeves <hey@danreev.es>"
         ];
@@ -8623,6 +8727,7 @@ rec {
         version = "2.3.1";
         edition = "2018";
         sha256 = "0gi8wgx0dcy8rnv1kywdv98lwcx67hz0a0zwpib5v2i08r88y573";
+        libName = "percent_encoding";
         authors = [
           "The rust-url developers"
         ];
@@ -8668,6 +8773,7 @@ rec {
         version = "1.1.3";
         edition = "2021";
         sha256 = "08k4cpy8q3j93qqgnrbzkcgpn7g0a88l4a9nm33kyghpdhffv97x";
+        libName = "pin_project";
         dependencies = [
           {
             name = "pin-project-internal";
@@ -8682,6 +8788,7 @@ rec {
         edition = "2021";
         sha256 = "01a4l3vb84brv9v7wl71chzxra2kynm6yvcjca66xv3ij6fgsna3";
         procMacro = true;
+        libName = "pin_project_internal";
         dependencies = [
           {
             name = "proc-macro2";
@@ -8704,6 +8811,7 @@ rec {
         version = "0.2.13";
         edition = "2018";
         sha256 = "0n0bwr5qxlf0mhn2xkl36sy55118s9qmvx2yl5f3ixkb007lbywa";
+        libName = "pin_project_lite";
 
       };
       "pin-utils" = rec {
@@ -8711,6 +8819,7 @@ rec {
         version = "0.1.0";
         edition = "2018";
         sha256 = "117ir7vslsl2z1a7qzhws4pd01cg2d3338c47swjyvqv2n60v1wb";
+        libName = "pin_utils";
         authors = [
           "Josef Brandl <mail@josefbrandl.de>"
         ];
@@ -8790,25 +8899,11 @@ rec {
         version = "0.3.29";
         edition = "2015";
         sha256 = "1jy6158v1316khkpmq2sjj1vgbnbnw51wffx7p0k0l9h9vlys019";
+        libName = "pkg_config";
         authors = [
           "Alex Crichton <alex@alexcrichton.com>"
         ];
 
-      };
-      "platforms" = rec {
-        crateName = "platforms";
-        version = "3.3.0";
-        edition = "2018";
-        sha256 = "0k7q6pigmnvgpfasvssb12m2pv3pc94zrhrfg9by3h3wmhyfqvb2";
-        authors = [
-          "Tony Arcieri <bascule@gmail.com>"
-          "Sergey \"Shnatsel\" Davidoff <shnatsel@gmail.com>"
-        ];
-        features = {
-          "default" = [ "std" ];
-          "serde" = [ "dep:serde" ];
-        };
-        resolvedDefaultFeatures = [ "default" "std" ];
       };
       "plotters" = rec {
         crateName = "plotters";
@@ -8875,6 +8970,7 @@ rec {
         version = "0.3.5";
         edition = "2018";
         sha256 = "02cn98gsj2i1bwrfsymifmyas1wn2gibdm9mk8w82x9s9n5n4xly";
+        libName = "plotters_backend";
         authors = [
           "Hao Hou <haohou302@gmail.com>"
         ];
@@ -8885,6 +8981,7 @@ rec {
         version = "0.3.5";
         edition = "2018";
         sha256 = "1axbw82frs5di4drbyzihr5j35wpy2a75hp3f49p186cjfcd7xiq";
+        libName = "plotters_svg";
         authors = [
           "Hao Hou <haohou302@gmail.com>"
         ];
@@ -8949,6 +9046,7 @@ rec {
         version = "1.6.0";
         edition = "2018";
         sha256 = "1h77x9qx7pns0d66vdrmdbmwpi7586h7ysnkdnhrn5mwi2cyyw3i";
+        libName = "portable_atomic";
         features = {
           "critical-section" = [ "dep:critical-section" ];
           "default" = [ "fallback" ];
@@ -8975,6 +9073,7 @@ rec {
         version = "0.2.17";
         edition = "2018";
         sha256 = "1pp6g52aw970adv3x2310n7glqnji96z0a9wiamzw89ibf0ayh2v";
+        libName = "ppv_lite86";
         authors = [
           "The CryptoCorrosion Contributors"
         ];
@@ -9052,6 +9151,7 @@ rec {
         version = "1.0.76";
         edition = "2021";
         sha256 = "136cp0fgl6rg5ljm3b1xpc0bn0lyvagzzmxvbxgk5hxml36mdz4m";
+        libName = "proc_macro2";
         authors = [
           "David Tolnay <dtolnay@gmail.com>"
           "Alex Crichton <alex@alexcrichton.com>"
@@ -9216,6 +9316,7 @@ rec {
         version = "0.12.3";
         edition = "2021";
         sha256 = "1lp2l1l65l163yggk9nw5mjb2fqwzz12693af5phn1v0abih4pn5";
+        libName = "prost_build";
         authors = [
           "Dan Burkert <dan@danburkert.com>"
           "Lucio Franco <luciofranco14@gmail.com>"
@@ -9318,6 +9419,7 @@ rec {
         version = "0.13.1";
         edition = "2021";
         sha256 = "1hbp7cam99q56qf2wp8inwfh59adkzgf676hi07hgpbi1xc85cav";
+        libName = "prost_build";
         authors = [
           "Dan Burkert <dan@danburkert.com>"
           "Lucio Franco <luciofranco14@gmail.com>"
@@ -9403,6 +9505,7 @@ rec {
         edition = "2021";
         sha256 = "03l4yf6pdjvc4sgbvln2srq1avzm1ai86zni4hhqxvqxvnhwkdpg";
         procMacro = true;
+        libName = "prost_derive";
         authors = [
           "Dan Burkert <dan@danburkert.com>"
           "Lucio Franco <luciofranco14@gmail.com>"
@@ -9441,6 +9544,7 @@ rec {
         edition = "2021";
         sha256 = "1jng0kwkwiih777f77kn6ja7hdvi7sxbg11nndwagsy4mnqckghq";
         procMacro = true;
+        libName = "prost_derive";
         authors = [
           "Dan Burkert <dan@danburkert.com>"
           "Lucio Franco <luciofranco14@gmail.com>"
@@ -9477,6 +9581,7 @@ rec {
         version = "0.12.3";
         edition = "2021";
         sha256 = "03j73llzljdxv9cdxp4m3vb9j3gh4y24rkbx48k3rx6wkvsrhf0r";
+        libName = "prost_types";
         authors = [
           "Dan Burkert <dan@danburkert.com>"
           "Lucio Franco <luciofranco14@gmail.com"
@@ -9501,6 +9606,7 @@ rec {
         version = "0.13.1";
         edition = "2021";
         sha256 = "1hjww9k35c4fqjd75ziyjvyzl8kv9aqnw841ll64p7gl0n5idrff";
+        libName = "prost_types";
         authors = [
           "Dan Burkert <dan@danburkert.com>"
           "Lucio Franco <luciofranco14@gmail.com>"
@@ -9526,6 +9632,7 @@ rec {
         version = "0.5.0";
         edition = "2021";
         sha256 = "0h3c0jyfpg7f3s9a3mx6xcif28j3ir5c5qmps88bknpiy31zk3jd";
+        libName = "prost_wkt";
         authors = [
           "fdeantoni <fdeantoni@gmail.com>"
         ];
@@ -9568,6 +9675,7 @@ rec {
         version = "0.5.0";
         edition = "2021";
         sha256 = "0883g26vrhx07kv0dq85559pj95zxs10lx042pp4za2clplwlcav";
+        libName = "prost_wkt_build";
         authors = [
           "fdeantoni <fdeantoni@gmail.com>"
         ];
@@ -9600,6 +9708,7 @@ rec {
         version = "0.5.0";
         edition = "2021";
         sha256 = "1vipmgvqqzr3hn9z5v85mx9zznzjwyfpjy8xzg2v94a0f2lf8ns3";
+        libName = "prost_wkt_types";
         authors = [
           "fdeantoni <fdeantoni@gmail.com>"
         ];
@@ -9668,6 +9777,7 @@ rec {
         edition = "2021";
         crateBin = [ ];
         sha256 = "0av876a31qvqhy7gzdg134zn4s10smlyi744mz9vrllkf906n82p";
+        libName = "pulldown_cmark";
         authors = [
           "Raph Levien <raph.levien@gmail.com>"
           "Marcus Klaas de Vries <mail@marcusklaas.nl>"
@@ -9697,6 +9807,7 @@ rec {
         version = "10.0.4";
         edition = "2018";
         sha256 = "0gc366cmd5jxal9m95l17rvqsm4dn62lywc8v5gwq8vcjvhyd501";
+        libName = "pulldown_cmark_to_cmark";
         authors = [
           "Sebastian Thiel <byronimo@gmail.com>"
           "Dylan Owen <dyltotheo@gmail.com>"
@@ -9717,6 +9828,7 @@ rec {
         version = "1.2.3";
         edition = "2015";
         sha256 = "1q6za3v78hsspisc197bg3g7rpc989qycy8ypr8ap8igv10ikl51";
+        libName = "quick_error";
         authors = [
           "Paul Colomiets <paul@colomiets.name>"
           "Colin Kiegel <kiegel@gmx.de>"
@@ -9728,6 +9840,7 @@ rec {
         version = "0.31.0";
         edition = "2021";
         sha256 = "0cravqanylzh5cq2v6hzlfqgxcid5nrp2snnb3pf4m0and2a610h";
+        libName = "quick_xml";
         dependencies = [
           {
             name = "memchr";
@@ -9831,6 +9944,7 @@ rec {
         version = "0.11.3";
         edition = "2021";
         sha256 = "1zhfcj6fffdgkqdhxzlr18hqmpwqshwbx9280h8bi78h7b01gxfx";
+        libName = "quinn_proto";
         dependencies = [
           {
             name = "bytes";
@@ -9889,6 +10003,7 @@ rec {
         version = "0.5.2";
         edition = "2021";
         sha256 = "0ilcrwrah36nqxh329p31ghj3rxm4sw5w4iy2kxwf3w68nf655lh";
+        libName = "quinn_udp";
         dependencies = [
           {
             name = "libc";
@@ -10129,6 +10244,7 @@ rec {
         edition = "2021";
         links = "rayon-core";
         sha256 = "1qpwim68ai5h0j7axa8ai8z0payaawv3id0lrgkqmapx7lx8fr8l";
+        libName = "rayon_core";
         authors = [
           "Niko Matsakis <niko@alum.mit.edu>"
           "Josh Stone <cuviper@gmail.com>"
@@ -10329,6 +10445,7 @@ rec {
         version = "0.1.10";
         edition = "2015";
         sha256 = "0ci1hvbzhrfby5fdpf4ganhf7kla58acad9i1ff1p34dzdrhs8vc";
+        libName = "regex_automata";
         authors = [
           "Andrew Gallant <jamslam@gmail.com>"
         ];
@@ -10353,6 +10470,7 @@ rec {
         version = "0.4.3";
         edition = "2021";
         sha256 = "0gs8q9yhd3kcg4pr00ag4viqxnh5l7jpyb9fsfr8hzh451w4r02z";
+        libName = "regex_automata";
         authors = [
           "The Rust Project Developers"
           "Andrew Gallant <jamslam@gmail.com>"
@@ -10413,6 +10531,7 @@ rec {
         version = "0.6.29";
         edition = "2018";
         sha256 = "1qgj49vm6y3zn1hi09x91jvgkl2b1fiaq402skj83280ggfwcqpi";
+        libName = "regex_syntax";
         authors = [
           "The Rust Project Developers"
         ];
@@ -10427,6 +10546,7 @@ rec {
         version = "0.8.2";
         edition = "2021";
         sha256 = "17rd2s8xbiyf6lb4aj2nfi44zqlj98g2ays8zzj2vfs743k79360";
+        libName = "regex_syntax";
         authors = [
           "The Rust Project Developers"
           "Andrew Gallant <jamslam@gmail.com>"
@@ -10443,6 +10563,7 @@ rec {
         version = "1.9.2";
         edition = "2021";
         sha256 = "1g0gc604zwm73gvpcicn8si25j9j5agqz50r0x1bkmgx6f7mi678";
+        libName = "relative_path";
         authors = [
           "John-John Tedro <udoprog@tedro.se>"
         ];
@@ -10756,6 +10877,7 @@ rec {
         version = "0.3.2";
         edition = "2018";
         sha256 = "0s0jrbn3ns8l07qjjwmq62r9g2w1jvllr8qpph6f0szyvlrnld1r";
+        libName = "reqwest_middleware";
         authors = [
           "Rodrigo Gryzinski <rodrigo.gryzinski@truelayer.com>"
         ];
@@ -11121,6 +11243,7 @@ rec {
         version = "0.1.23";
         edition = "2015";
         sha256 = "0xnbk2bmyzshacjm2g1kd4zzv2y2az14bw3sjccq5qkpmsfvn9nn";
+        libName = "rustc_demangle";
         authors = [
           "Alex Crichton <alex@alexcrichton.com>"
         ];
@@ -11135,6 +11258,7 @@ rec {
         version = "1.1.0";
         edition = "2015";
         sha256 = "1qkc5khrmv5pqi5l5ca9p5nl5hs742cagrndhbrlk3dhlrx3zm08";
+        libName = "rustc_hash";
         authors = [
           "The Rust Project Developers"
         ];
@@ -11148,6 +11272,7 @@ rec {
         version = "2.0.0";
         edition = "2021";
         sha256 = "0lni0lf846bzrf3jvci6jaf4142n1mdqxvcpczk5ch9pfgyk8c2q";
+        libName = "rustc_hash";
         authors = [
           "The Rust Project Developers"
         ];
@@ -11451,6 +11576,7 @@ rec {
         version = "0.6.3";
         edition = "2021";
         sha256 = "007zind70rd5rfsrkdcfm8vn09j8sg02phg9334kark6rdscxam9";
+        libName = "rustls_native_certs";
         dependencies = [
           {
             name = "openssl-probe";
@@ -11479,6 +11605,7 @@ rec {
         version = "0.7.0";
         edition = "2021";
         sha256 = "14ip15dcr6fmjzi12lla9cpln7mmkdid4a7wsp344v4kz9gbh7wg";
+        libName = "rustls_native_certs";
         dependencies = [
           {
             name = "openssl-probe";
@@ -11512,6 +11639,7 @@ rec {
         version = "1.0.4";
         edition = "2018";
         sha256 = "1324n5bcns0rnw6vywr5agff3rwfvzphi7rmbyzwnv6glkhclx0w";
+        libName = "rustls_pemfile";
         dependencies = [
           {
             name = "base64";
@@ -11525,6 +11653,7 @@ rec {
         version = "2.1.0";
         edition = "2018";
         sha256 = "02y7qn9d93ri4hrm72yw4zqlbxch6ma045nyazmdrppw6jvkncrw";
+        libName = "rustls_pemfile";
         dependencies = [
           {
             name = "base64";
@@ -11549,6 +11678,7 @@ rec {
         version = "1.3.1";
         edition = "2021";
         sha256 = "1a0g7453h07701vyxjj05gv903a0shi43mf7hl3cdd08hsr6gpjy";
+        libName = "rustls_pki_types";
         features = {
           "default" = [ "alloc" ];
           "std" = [ "alloc" ];
@@ -11629,6 +11759,7 @@ rec {
         version = "0.3.0";
         edition = "2018";
         sha256 = "0kxwq5c480gg6q0j3bg4zzyfh2kwmc3v2ba94jw8ncjc8mpcqgfb";
+        libName = "rusty_fork";
         authors = [
           "Jason Lingle"
         ];
@@ -11769,6 +11900,7 @@ rec {
         version = "1.0.6";
         edition = "2018";
         sha256 = "00h5j1w87dmhnvbv9l8bic3y7xxsnjmssvifw2ayvgx9mb1ivz4k";
+        libName = "same_file";
         authors = [
           "Andrew Gallant <jamslam@gmail.com>"
         ];
@@ -11811,6 +11943,7 @@ rec {
         version = "1.0.1";
         edition = "2015";
         sha256 = "15524h04mafihcvfpgxd8f4bgc3k95aclz8grjkg9a0rxcvn9kz1";
+        libName = "scoped_tls";
         authors = [
           "Alex Crichton <alex@alexcrichton.com>"
         ];
@@ -11854,6 +11987,7 @@ rec {
         version = "2.9.2";
         edition = "2021";
         sha256 = "1pplxk15s5yxvi2m1sz5xfmjibp96cscdcl432w9jzbk0frlzdh5";
+        libName = "security_framework";
         authors = [
           "Steven Fackler <sfackler@gmail.com>"
           "Kornel <kornel@geekhood.net>"
@@ -11900,6 +12034,7 @@ rec {
         version = "2.9.1";
         edition = "2021";
         sha256 = "0yhciwlsy9dh0ps1gw3197kvyqx1bvc4knrhiznhid6kax196cp9";
+        libName = "security_framework_sys";
         authors = [
           "Steven Fackler <sfackler@gmail.com>"
           "Kornel <kornel@geekhood.net>"
@@ -12402,6 +12537,7 @@ rec {
         version = "0.1.7";
         edition = "2018";
         sha256 = "1xipjr4nqsgw34k7a2cgj9zaasl2ds6jwn89886kww93d32a637l";
+        libName = "sharded_slab";
         authors = [
           "Eliza Weisman <eliza@buoyant.io>"
         ];
@@ -12420,6 +12556,7 @@ rec {
         version = "1.4.1";
         edition = "2015";
         sha256 = "18crkkw5k82bvcx088xlf5g4n3772m24qhzgfan80nda7d3rn8nq";
+        libName = "signal_hook_registry";
         authors = [
           "Michal 'vorner' Vaner <vorner@vorner.cz>"
           "Masaki Hara <ackie.h.gmai@gmail.com>"
@@ -12629,6 +12766,7 @@ rec {
         edition = "2018";
         sha256 = "1gzy9rzggs090zf7hfvgp4lm1glrmg9qzh796686jnq7bxk7j04r";
         procMacro = true;
+        libName = "snafu_derive";
         authors = [
           "Jake Goulding <jake.goulding@gmail.com>"
         ];
@@ -12751,6 +12889,7 @@ rec {
         version = "1.0.6";
         edition = "2018";
         sha256 = "1l7q4nha7wpsr0970bfqm773vhmpwr9l6rr8r4gwgrh46wvdh24y";
+        libName = "str_buf";
         authors = [
           "Douman <douman@gmx.se>"
         ];
@@ -12809,6 +12948,7 @@ rec {
         edition = "2021";
         sha256 = "14vxik2m3dm7bwx016qfz062fwznkbq02fyq8vby545m0pj0nhi4";
         procMacro = true;
+        libName = "structmeta_derive";
         authors = [
           "frozenlib"
         ];
@@ -13022,6 +13162,7 @@ rec {
         edition = "2021";
         sha256 = "105lxqs0vnqff5821sgns8q1scvrwfx1yw6iz7i7nr862j6l1mk2";
         procMacro = true;
+        libName = "test_strategy";
         authors = [
           "frozenlib"
         ];
@@ -13051,6 +13192,7 @@ rec {
         version = "1.1.1";
         edition = "2018";
         sha256 = "0cwjbkl7w3xc8mnkhg1nwij6p5y2qkcfldgss8ddnawvhf3s32pi";
+        libName = "text_size";
         authors = [
           "Aleksey Kladov <aleksey.kladov@gmail.com>"
           "Christopher Durham (CAD97) <cad97@cad97.com>"
@@ -13081,6 +13223,7 @@ rec {
         edition = "2021";
         sha256 = "0w9ldp8fa574ilz4dn7y7scpcq66vdjy59qal8qdpwsh7faal3zs";
         procMacro = true;
+        libName = "thiserror_impl";
         authors = [
           "David Tolnay <dtolnay@gmail.com>"
         ];
@@ -13223,6 +13366,7 @@ rec {
         version = "0.1.2";
         edition = "2021";
         sha256 = "1wx3qizcihw6z151hywfzzyd1y5dl804ydyxci6qm07vbakpr4pg";
+        libName = "time_core";
         authors = [
           "Jacob Pratt <open-source@jhpratt.dev>"
           "Time contributors"
@@ -13235,6 +13379,7 @@ rec {
         edition = "2021";
         sha256 = "0x3pahhk2751c6kqqq9dk6lz0gydbnxr44q01wpjlrz687ps78vv";
         procMacro = true;
+        libName = "time_macros";
         authors = [
           "Jacob Pratt <open-source@jhpratt.dev>"
           "Time contributors"
@@ -13419,6 +13564,7 @@ rec {
         version = "1.2.0";
         edition = "2018";
         sha256 = "1gx84f92q1491vj4pkn81j8pz1s3pgwnbrsdhfsa2556mli41drh";
+        libName = "tokio_io_timeout";
         authors = [
           "Steven Fackler <sfackler@gmail.com>"
         ];
@@ -13579,6 +13725,7 @@ rec {
         edition = "2021";
         sha256 = "0fwjy4vdx1h9pi4g2nml72wi0fr27b5m954p13ji9anyy8l1x2jv";
         procMacro = true;
+        libName = "tokio_macros";
         authors = [
           "Tokio Contributors <team@tokio.rs>"
         ];
@@ -13604,6 +13751,7 @@ rec {
         version = "0.3.0";
         edition = "2018";
         sha256 = "0kr1hnm5dmb9gfkby88yg2xj8g6x4i4gipva0c8ca3xyxhvfnmvz";
+        libName = "tokio_retry";
         authors = [
           "Sam Rijs <srijs@airpost.net>"
         ];
@@ -13636,6 +13784,7 @@ rec {
         version = "0.24.1";
         edition = "2018";
         sha256 = "10bhibg57mqir7xjhb2xmf24xgfpx6fzpyw720a4ih8a737jg0y2";
+        libName = "tokio_rustls";
         dependencies = [
           {
             name = "rustls";
@@ -13667,6 +13816,7 @@ rec {
         version = "0.25.0";
         edition = "2021";
         sha256 = "03w6d5aqqf084rmcmrsyq5grhydl53blaiqcl0i2yfnv187hqpkp";
+        libName = "tokio_rustls";
         dependencies = [
           {
             name = "rustls";
@@ -13703,6 +13853,7 @@ rec {
         version = "0.26.0";
         edition = "2021";
         sha256 = "1m00czrmk8x7pdjnz10a3da3i1d0sdf9j9vfp5dnk5ss1q6w8yqc";
+        libName = "tokio_rustls";
         dependencies = [
           {
             name = "rustls";
@@ -13743,6 +13894,7 @@ rec {
         version = "0.1.14";
         edition = "2021";
         sha256 = "0hi8hcwavh5sdi1ivc9qc4yvyr32f153c212dpd7sb366y6rhz1r";
+        libName = "tokio_stream";
         authors = [
           "Tokio Contributors <team@tokio.rs>"
         ];
@@ -13786,6 +13938,7 @@ rec {
         version = "0.3.1";
         edition = "2018";
         sha256 = "0xffvap4g7hlswk5daklk3jaqha6s6wxw72c24kmqgna23018mwx";
+        libName = "tokio_tar";
         authors = [
           "Alex Crichton <alex@alexcrichton.com>"
           "dignifiedquire <me@dignifiequire.com>"
@@ -13845,6 +13998,7 @@ rec {
         version = "0.4.3";
         edition = "2021";
         sha256 = "06fplzcc2ymahfzykd2ickw2qn7g3lz47bll00865s1spnx3r6z8";
+        libName = "tokio_test";
         authors = [
           "Tokio Contributors <team@tokio.rs>"
         ];
@@ -13885,6 +14039,7 @@ rec {
         version = "0.7.10";
         edition = "2021";
         sha256 = "058y6x4mf0fsqji9rfyb77qbfyc50y4pk2spqgj6xsyr693z66al";
+        libName = "tokio_util";
         authors = [
           "Tokio Contributors <team@tokio.rs>"
         ];
@@ -14474,6 +14629,7 @@ rec {
         version = "0.11.0";
         edition = "2021";
         sha256 = "1hm99ckaw0pzq8h22bdjy6gpbg06kpvs0f73nj60f456f3fzckmy";
+        libName = "tonic_build";
         authors = [
           "Lucio Franco <luciofranco14@gmail.com>"
         ];
@@ -14513,6 +14669,7 @@ rec {
         version = "0.12.1";
         edition = "2021";
         sha256 = "0r5riq6gm79hmmsd1z6rdziszava2y8phf1z7rr2005xlb2r50sn";
+        libName = "tonic_build";
         authors = [
           "Lucio Franco <luciofranco14@gmail.com>"
         ];
@@ -14552,6 +14709,7 @@ rec {
         version = "0.12.1";
         edition = "2021";
         sha256 = "0ma93g27szqjh4gniws6wz82ils2hhvd91rl8k7bc27fjrm0xqg1";
+        libName = "tonic_health";
         authors = [
           "James Nugent <james@jen20.com>"
         ];
@@ -14600,6 +14758,7 @@ rec {
         version = "0.12.1";
         edition = "2021";
         sha256 = "0wy1vdj4fj90j6zjqs78c2fvwcl9krxiz6709idspsbksqxchhmp";
+        libName = "tonic_reflection";
         authors = [
           "James Nugent <james@jen20.com>"
           "Samani G. Gikandi <samani@gojulas.com>"
@@ -14774,6 +14933,7 @@ rec {
         version = "0.5.2";
         edition = "2018";
         sha256 = "1xakj3x0anp55gjqibiwvzma5iz0w9pcjsr7qk97sx4qm4sd970y";
+        libName = "tower_http";
         authors = [
           "Tower Maintainers <team@tower-rs.com>"
         ];
@@ -14867,6 +15027,7 @@ rec {
         version = "0.3.2";
         edition = "2018";
         sha256 = "1l7i17k9vlssrdg4s3b0ia5jjkmmxsvv8s9y9ih0jfi8ssz8s362";
+        libName = "tower_layer";
         authors = [
           "Tower Maintainers <team@tower-rs.com>"
         ];
@@ -14877,6 +15038,7 @@ rec {
         version = "0.3.2";
         edition = "2018";
         sha256 = "0lmfzmmvid2yp2l36mbavhmqgsvzqf7r2wiwz73ml4xmwaf1rg5n";
+        libName = "tower_service";
         authors = [
           "Tower Maintainers <team@tower-rs.com>"
         ];
@@ -14935,6 +15097,7 @@ rec {
         edition = "2018";
         sha256 = "1rvb5dn9z6d0xdj14r403z0af0bbaqhg02hq4jc97g5wds6lqw1l";
         procMacro = true;
+        libName = "tracing_attributes";
         authors = [
           "Tokio Contributors <team@tokio.rs>"
           "Eliza Weisman <eliza@buoyant.io>"
@@ -14963,6 +15126,7 @@ rec {
         version = "0.1.32";
         edition = "2018";
         sha256 = "0m5aglin3cdwxpvbg6kz0r9r0k31j48n0kcfwsp6l49z26k3svf0";
+        libName = "tracing_core";
         authors = [
           "Tokio Contributors <team@tokio.rs>"
         ];
@@ -14993,6 +15157,7 @@ rec {
         version = "0.2.5";
         edition = "2018";
         sha256 = "1wimg0iwa2ldq7xv98lvivvf3q9ykfminig8r1bs0ig22np9bl4p";
+        libName = "tracing_futures";
         authors = [
           "Eliza Weisman <eliza@buoyant.io>"
           "Tokio Contributors <team@tokio.rs>"
@@ -15056,6 +15221,7 @@ rec {
         version = "0.2.0";
         edition = "2018";
         sha256 = "1hs77z026k730ij1a9dhahzrl0s073gfa2hm5p0fbl0b80gmz1gf";
+        libName = "tracing_log";
         authors = [
           "Tokio Contributors <team@tokio.rs>"
         ];
@@ -15087,6 +15253,7 @@ rec {
         version = "0.23.0";
         edition = "2018";
         sha256 = "1112kmckw0qwyckhbwarb230n4ldmfgzixr9jagbfjmy3fx19gm9";
+        libName = "tracing_opentelemetry";
         authors = [
           "Julian Tescher <julian@tescher.me>"
           "Tokio Contributors <team@tokio.rs>"
@@ -15187,6 +15354,7 @@ rec {
         version = "0.25.0";
         edition = "2021";
         sha256 = "0fzzhpcxngnxra56cxmslr5y6k0f1b4ghqv9vz41p4kxvba4wy59";
+        libName = "tracing_opentelemetry";
         dependencies = [
           {
             name = "js-sys";
@@ -15285,6 +15453,7 @@ rec {
         version = "0.3.18";
         edition = "2018";
         sha256 = "12vs1bwk4kig1l2qqjbbn2nm5amwiqmkcmnznylzmnfvjy6083xd";
+        libName = "tracing_subscriber";
         authors = [
           "Eliza Weisman <eliza@buoyant.io>"
           "David Barsky <me@davidbarsky.com>"
@@ -15398,6 +15567,7 @@ rec {
         version = "0.11.0";
         edition = "2021";
         sha256 = "051nf1ncp1z45acgk0h5199ldlhb0wmkmvhyvk8x17x6hi7x0930";
+        libName = "tracing_tracy";
         authors = [
           "Simonas Kazlauskas <tracing-tracy@kazlauskas.me>"
         ];
@@ -15446,6 +15616,7 @@ rec {
         version = "0.17.0";
         edition = "2021";
         sha256 = "07bla4iigg17fl4zil2dwizslhw8mv8vrsfkhr7ri27zchd97ysr";
+        libName = "tracy_client";
         authors = [
           "Simonas Kazlauskas <tracy-client@kazlauskas.me>"
         ];
@@ -15491,6 +15662,7 @@ rec {
         version = "0.22.2";
         edition = "2021";
         sha256 = "10h8msq85b7rhfg2vg22g2iizbk4c6fcq0jiadad37gs1mhls44x";
+        libName = "tracy_client_sys";
         authors = [
           "Simonas Kazlauskas <tracy-client-sys@kazlauskas.me>"
         ];
@@ -15512,6 +15684,7 @@ rec {
         version = "0.2.5";
         edition = "2015";
         sha256 = "0jqijrrvm1pyq34zn1jmy2vihd4jcrjlvsh4alkjahhssjnsn8g4";
+        libName = "try_lock";
         authors = [
           "Sean McArthur <sean@seanmonstar.com>"
         ];
@@ -15529,6 +15702,7 @@ rec {
           }
         ];
         src = lib.cleanSourceWith { filter = sourceFilter; src = ./build; };
+        libName = "tvix_build";
         dependencies = [
           {
             name = "bytes";
@@ -15617,6 +15791,7 @@ rec {
         version = "0.1.0";
         edition = "2021";
         src = lib.cleanSourceWith { filter = sourceFilter; src = ./castore; };
+        libName = "tvix_castore";
         dependencies = [
           {
             name = "async-compression";
@@ -15897,6 +16072,7 @@ rec {
           }
         ];
         src = lib.cleanSourceWith { filter = sourceFilter; src = ./cli; };
+        libName = "tvix_cli";
         dependencies = [
           {
             name = "bytes";
@@ -16171,6 +16347,7 @@ rec {
         edition = "2021";
         src = lib.cleanSourceWith { filter = sourceFilter; src = ./eval/builtin-macros; };
         procMacro = true;
+        libName = "tvix_eval_builtin_macros";
         authors = [
           "Griffin Smith <root@gws.fyi>"
         ];
@@ -16202,6 +16379,7 @@ rec {
         version = "0.1.0";
         edition = "2021";
         src = lib.cleanSourceWith { filter = sourceFilter; src = ./glue; };
+        libName = "tvix_glue";
         dependencies = [
           {
             name = "async-compression";
@@ -16373,6 +16551,7 @@ rec {
         version = "0.1.0";
         edition = "2021";
         src = lib.cleanSourceWith { filter = sourceFilter; src = ./serde; };
+        libName = "tvix_serde";
         dependencies = [
           {
             name = "bstr";
@@ -16403,6 +16582,7 @@ rec {
           }
         ];
         src = lib.cleanSourceWith { filter = sourceFilter; src = ./store; };
+        libName = "tvix_store";
         dependencies = [
           {
             name = "anyhow";
@@ -16653,6 +16833,7 @@ rec {
         version = "0.1.0";
         edition = "2021";
         src = lib.cleanSourceWith { filter = sourceFilter; src = ./tracing; };
+        libName = "tvix_tracing";
         dependencies = [
           {
             name = "axum";
@@ -16817,6 +16998,7 @@ rec {
         edition = "2021";
         sha256 = "1cabnvm526bcgh1sh34js5ils0gz4xwlgvwhm992acdr8xzqhwxc";
         procMacro = true;
+        libName = "typetag_impl";
         authors = [
           "David Tolnay <dtolnay@gmail.com>"
         ];
@@ -16884,6 +17066,7 @@ rec {
         version = "1.0.12";
         edition = "2018";
         sha256 = "0jzf1znfpb2gx8nr8mvmyqs1crnv79l57nxnbiszc7xf7ynbjm1k";
+        libName = "unicode_ident";
         authors = [
           "David Tolnay <dtolnay@gmail.com>"
         ];
@@ -16894,6 +17077,7 @@ rec {
         version = "0.1.22";
         edition = "2018";
         sha256 = "08d95g7b1irc578b2iyhzv4xhsa4pfvwsqxcl9lbcpabzkq16msw";
+        libName = "unicode_normalization";
         authors = [
           "kwantam <kwantam@gmail.com>"
           "Manish Goregaokar <manishsmail@gmail.com>"
@@ -16915,6 +17099,7 @@ rec {
         version = "1.10.1";
         edition = "2018";
         sha256 = "0dky2hm5k51xy11hc3nk85p533rvghd462b6i0c532b7hl4j9mhx";
+        libName = "unicode_segmentation";
         authors = [
           "kwantam <kwantam@gmail.com>"
           "Manish Goregaokar <manishsmail@gmail.com>"
@@ -16926,6 +17111,7 @@ rec {
         version = "0.1.11";
         edition = "2015";
         sha256 = "11ds4ydhg8g7l06rlmh712q41qsrd0j0h00n1jm74kww3kqk65z5";
+        libName = "unicode_width";
         authors = [
           "kwantam <kwantam@gmail.com>"
           "Manish Goregaokar <manishsmail@gmail.com>"
@@ -17119,6 +17305,7 @@ rec {
         version = "0.8.0";
         edition = "2018";
         sha256 = "00s33wy8cj2i8b4hlxn7wd8zm1fpaa5kjhzv77b3khsavf8pn8wz";
+        libName = "vhost_user_backend";
         authors = [
           "The Cloud Hypervisor Authors"
         ];
@@ -17173,6 +17360,7 @@ rec {
         version = "0.1.0";
         edition = "2018";
         sha256 = "0sxxhhmz1r4s4q5pd2lykswcv9qk05fmpwc5xlb8aj45h8bi5x9z";
+        libName = "virtio_bindings";
         authors = [
           "Sergio Lopez <slp@redhat.com>"
         ];
@@ -17183,6 +17371,7 @@ rec {
         version = "0.2.2";
         edition = "2021";
         sha256 = "11mfm9brqgwpfg0izsgc4n7xkqwxk5ad03ivslq0r88j50dwp2w7";
+        libName = "virtio_bindings";
         authors = [
           "Sergio Lopez <slp@redhat.com>"
         ];
@@ -17193,6 +17382,7 @@ rec {
         version = "0.7.1";
         edition = "2021";
         sha256 = "1gbppbapj7c0vyca88vl34cx4sp2cy9yg0v6bvyd5h11rhmixa1v";
+        libName = "virtio_queue";
         authors = [
           "The Chromium OS Authors"
         ];
@@ -17228,6 +17418,7 @@ rec {
         version = "0.10.0";
         edition = "2021";
         sha256 = "0z423a8i4s3addq4yjad4ar5l6qwarjwdn94lismbd0mcqv712k8";
+        libName = "vm_memory";
         authors = [
           "Liu Jiang <gerry@linux.alibaba.com>"
         ];
@@ -17259,6 +17450,7 @@ rec {
         version = "0.11.2";
         edition = "2021";
         sha256 = "0a9azxk6wsahwkggshbdga4jdryzfw6j5r21f11gf50j4f2b1ds8";
+        libName = "vmm_sys_util";
         authors = [
           "Intel Virtualization Team <vmm-maintainers@intel.com>"
         ];
@@ -17376,6 +17568,7 @@ rec {
         edition = "2015";
         crateBin = [ ];
         sha256 = "1xpkk0j5l9pfmjfh1pi0i89invlavfrd9av5xp0zhxgb29dhy84z";
+        libName = "wait_timeout";
         authors = [
           "Alex Crichton <alex@alexcrichton.com>"
         ];
@@ -17447,6 +17640,7 @@ rec {
         version = "0.2.90";
         edition = "2018";
         sha256 = "01jlal3mynqwvqx4acrdnr9bvsdczaz2sy8lmmzmqh81lab348mi";
+        libName = "wasm_bindgen";
         authors = [
           "The wasm-bindgen Developers"
         ];
@@ -17478,6 +17672,7 @@ rec {
         version = "0.2.90";
         edition = "2018";
         sha256 = "1kcxml9762zjdrn0h0n0qxfg1n7z1f577jcc5yimi3a0cddr7p7w";
+        libName = "wasm_bindgen_backend";
         authors = [
           "The wasm-bindgen Developers"
         ];
@@ -17522,6 +17717,7 @@ rec {
         version = "0.4.40";
         edition = "2018";
         sha256 = "0qf4bzlinyg0s4b38fhzdi1cqdd7rgrywqdjr3ngmgc6xcm07qmx";
+        libName = "wasm_bindgen_futures";
         authors = [
           "The wasm-bindgen Developers"
         ];
@@ -17556,6 +17752,7 @@ rec {
         edition = "2018";
         sha256 = "16d980bql7y5krfqlmcr8mk1q4mrm0rmb0a99j92im5jc62j6k1y";
         procMacro = true;
+        libName = "wasm_bindgen_macro";
         authors = [
           "The wasm-bindgen Developers"
         ];
@@ -17580,6 +17777,7 @@ rec {
         version = "0.2.90";
         edition = "2018";
         sha256 = "19r5bsyjw0fvim7dsj8pbwrq8v0ggh845lhfasgavhbdh2vapqds";
+        libName = "wasm_bindgen_macro_support";
         authors = [
           "The wasm-bindgen Developers"
         ];
@@ -17618,6 +17816,7 @@ rec {
         edition = "2018";
         links = "wasm_bindgen";
         sha256 = "0av0m0shdg1jxhf66ymjbq03m0qb7ypm297glndm7mri3hxl34ad";
+        libName = "wasm_bindgen_shared";
         authors = [
           "The wasm-bindgen Developers"
         ];
@@ -17628,6 +17827,7 @@ rec {
         version = "0.4.0";
         edition = "2021";
         sha256 = "0ad17c59xb8fffsnbrqbyqz93hb66nzxhizpii31icb31g4w8pdn";
+        libName = "wasm_streams";
         type = [ "cdylib" "rlib" ];
         authors = [
           "Mattias Buelens <mattias@buelens.com>"
@@ -17670,6 +17870,7 @@ rec {
         version = "0.3.67";
         edition = "2018";
         sha256 = "1vfjjj3i49gy8bh8znnqhak1hx7xj9c2a3jzc0wpmgp0nqrj7kaq";
+        libName = "web_sys";
         authors = [
           "The wasm-bindgen Developers"
         ];
@@ -18139,6 +18340,7 @@ rec {
         version = "1.1.0";
         edition = "2021";
         sha256 = "1fx05yqx83dhx628wb70fyy10yjfq1jpl20qfqhdkymi13rq0ras";
+        libName = "web_time";
         dependencies = [
           {
             name = "js-sys";
@@ -18260,6 +18462,7 @@ rec {
         version = "0.4.0";
         edition = "2015";
         sha256 = "1dmpa6mvcvzz16zg6d5vrfy4bxgg541wxrcip7cnshi06v38ffxc";
+        libName = "winapi_i686_pc_windows_gnu";
         authors = [
           "Peter Atashian <retep998@gmail.com>"
         ];
@@ -18270,6 +18473,7 @@ rec {
         version = "0.1.6";
         edition = "2021";
         sha256 = "15i5lm39wd44004i9d5qspry2cynkrpvwzghr6s2c3dsk28nz7pj";
+        libName = "winapi_util";
         authors = [
           "Andrew Gallant <jamslam@gmail.com>"
         ];
@@ -18288,6 +18492,7 @@ rec {
         version = "0.4.0";
         edition = "2015";
         sha256 = "0gqq64czqb64kskjryj8isp62m2sgvx25yyj3kpc2myh85w24bki";
+        libName = "winapi_x86_64_pc_windows_gnu";
         authors = [
           "Peter Atashian <retep998@gmail.com>"
         ];
@@ -19008,6 +19213,7 @@ rec {
         version = "0.52.0";
         edition = "2021";
         sha256 = "1nc3qv7sy24x0nlnb32f7alzpd6f72l4p24vl65vydbyil669ark";
+        libName = "windows_core";
         authors = [
           "Microsoft"
         ];
@@ -19025,6 +19231,7 @@ rec {
         version = "0.54.0";
         edition = "2021";
         sha256 = "0r8x2sgl4qq1h23ldf4z7cj213k0bz7479m8a156h79mi6f1nrhj";
+        libName = "windows_core";
         authors = [
           "Microsoft"
         ];
@@ -19066,6 +19273,7 @@ rec {
         version = "0.48.0";
         edition = "2018";
         sha256 = "1aan23v5gs7gya1lc46hqn9mdh8yph3fhxmhxlw36pn6pqc28zb7";
+        libName = "windows_sys";
         authors = [
           "Microsoft"
         ];
@@ -19359,6 +19567,7 @@ rec {
         version = "0.52.0";
         edition = "2021";
         sha256 = "0gd3v4ji88490zgb6b5mq5zgbvwv7zx1ibn8v3x83rwcdbryaar8";
+        libName = "windows_sys";
         authors = [
           "Microsoft"
         ];
@@ -19606,6 +19815,7 @@ rec {
         version = "0.48.5";
         edition = "2018";
         sha256 = "034ljxqshifs1lan89xwpcy1hp0lhdh4b5n0d2z4fwjx2piacbws";
+        libName = "windows_targets";
         authors = [
           "Microsoft"
         ];
@@ -19653,6 +19863,7 @@ rec {
         version = "0.52.5";
         edition = "2021";
         sha256 = "1sz7jrnkygmmlj1ia8fk85wbyil450kq5qkh5qh9sh2rcnj161vg";
+        libName = "windows_targets";
         authors = [
           "Microsoft"
         ];
@@ -19907,6 +20118,7 @@ rec {
           rev = "0d5b22bea136659f7de60b102a7030e0daaa503d";
           sha256 = "1zhk83lbq99xzyjwphv2qrb8f8qgfqwa5bbbvyzm0z0bljsjv0pd";
         };
+        libName = "wu_manber";
         authors = [
           "Joe Neeman <joeneeman@gmail.com>"
         ];
@@ -20026,6 +20238,7 @@ rec {
         edition = "2018";
         sha256 = "0fqvglw01w3hp7xj9gdk1800x9j7v58s9w8ijiyiz2a7krb39s8m";
         procMacro = true;
+        libName = "zerocopy_derive";
         authors = [
           "Joshua Liebow-Feeser <joshlf@google.com>"
         ];
@@ -20100,6 +20313,7 @@ rec {
         version = "7.0.0";
         edition = "2018";
         sha256 = "0gpav2lcibrpmyslmjkcn3w0w64qif3jjljd2h8lr4p249s7qx23";
+        libName = "zstd_safe";
         authors = [
           "Alexandre Bury <alexandre.bury@gmail.com>"
         ];
@@ -20133,6 +20347,7 @@ rec {
         edition = "2018";
         links = "zstd";
         sha256 = "0mk6a2367swdi22zg03lcackpnvgq96d7120awd4i83lm2lfy5ly";
+        libName = "zstd_sys";
         authors = [
           "Alexandre Bury <alexandre.bury@gmail.com>"
         ];
