@@ -1221,9 +1221,9 @@ rec {
       };
       "curve25519-dalek" = rec {
         crateName = "curve25519-dalek";
-        version = "4.1.2";
+        version = "4.1.3";
         edition = "2021";
-        sha256 = "0j7kqchcgycs4a11gvlda93h9w2jr05nn4hjpfyh2kn94a4pnrqa";
+        sha256 = "1gmjb9dsknrr8lypmhkyjd67p1arb8mbfamlwxm7vph38my8pywp";
         libName = "curve25519_dalek";
         authors = [
           "Isis Lovecruft <isis@patternsinthevoid.net>"
@@ -1269,10 +1269,6 @@ rec {
           }
         ];
         buildDependencies = [
-          {
-            name = "platforms";
-            packageId = "platforms";
-          }
           {
             name = "rustc_version";
             packageId = "rustc_version";
@@ -3153,21 +3149,6 @@ rec {
         ];
         features = {
           "default" = [ "std" ];
-        };
-        resolvedDefaultFeatures = [ "default" "std" ];
-      };
-      "platforms" = rec {
-        crateName = "platforms";
-        version = "3.3.0";
-        edition = "2018";
-        sha256 = "0k7q6pigmnvgpfasvssb12m2pv3pc94zrhrfg9by3h3wmhyfqvb2";
-        authors = [
-          "Tony Arcieri <bascule@gmail.com>"
-          "Sergey \"Shnatsel\" Davidoff <shnatsel@gmail.com>"
-        ];
-        features = {
-          "default" = [ "std" ];
-          "serde" = [ "dep:serde" ];
         };
         resolvedDefaultFeatures = [ "default" "std" ];
       };
