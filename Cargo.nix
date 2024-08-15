@@ -6246,6 +6246,27 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "use_alloc" "use_std" ];
       };
+      "itertools 0.13.0" = rec {
+        crateName = "itertools";
+        version = "0.13.0";
+        edition = "2018";
+        sha256 = "11hiy3qzl643zcigknclh446qb9zlg4dpdzfkjaa9q9fqpgyfgj1";
+        authors = [
+          "bluss"
+        ];
+        dependencies = [
+          {
+            name = "either";
+            packageId = "either";
+            usesDefaultFeatures = false;
+          }
+        ];
+        features = {
+          "default" = [ "use_std" ];
+          "use_std" = [ "use_alloc" "either/use_std" ];
+        };
+        resolvedDefaultFeatures = [ "default" "use_alloc" "use_std" ];
+      };
       "itoa" = rec {
         crateName = "itoa";
         version = "1.0.10";
@@ -7815,9 +7836,9 @@ rec {
       };
       "object_store" = rec {
         crateName = "object_store";
-        version = "0.10.1";
+        version = "0.10.2";
         edition = "2021";
-        sha256 = "1mkag13fnzcgn52smi9h7ssf53as04w9373sz83ikfhkq8rgvszv";
+        sha256 = "1wz3m20hqs3v93dyxcqy7qpsbd4rqp6050hy49wcw5f740l4bnp6";
         dependencies = [
           {
             name = "async-trait";
@@ -7856,7 +7877,7 @@ rec {
           }
           {
             name = "itertools";
-            packageId = "itertools 0.12.0";
+            packageId = "itertools 0.13.0";
           }
           {
             name = "md-5";
@@ -9438,7 +9459,7 @@ rec {
           }
           {
             name = "itertools";
-            packageId = "itertools 0.12.0";
+            packageId = "itertools 0.10.5";
             usesDefaultFeatures = false;
             features = [ "use_alloc" ];
           }
@@ -9558,7 +9579,7 @@ rec {
           }
           {
             name = "itertools";
-            packageId = "itertools 0.12.0";
+            packageId = "itertools 0.10.5";
           }
           {
             name = "proc-macro2";
@@ -9837,9 +9858,9 @@ rec {
       };
       "quick-xml" = rec {
         crateName = "quick-xml";
-        version = "0.31.0";
+        version = "0.36.1";
         edition = "2021";
-        sha256 = "0cravqanylzh5cq2v6hzlfqgxcid5nrp2snnb3pf4m0and2a610h";
+        sha256 = "1g0p8h4hxz2ymiyd71mn862nrj7s0g1wwiyahhdabpzxiqp5x84n";
         libName = "quick_xml";
         dependencies = [
           {
