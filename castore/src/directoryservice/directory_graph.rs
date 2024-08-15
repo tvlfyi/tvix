@@ -10,13 +10,15 @@ use petgraph::{
 use tracing::instrument;
 
 use super::order_validator::{LeavesToRootValidator, OrderValidator, RootToLeavesValidator};
-use crate::{B3Digest, Directory, DirectoryNode};
+use crate::{B3Digest, Directory, Node};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("{0}")]
     ValidationError(String),
 }
+
+type Edge = (B3Digest, u64);
 
 /// This can be used to validate and/or re-order a Directory closure (DAG of
 /// connected Directories), and their insertion order.
@@ -55,7 +57,7 @@ pub struct DirectoryGraph<O> {
     //
     // The option in the edge weight tracks the pending validation state of the respective edge, for example if
     // the child has not been added yet.
-    graph: DiGraph<Option<Directory>, Option<DirectoryNode>>,
+    graph: DiGraph<Option<Directory>, Option<Edge>>,
 
     // A lookup table from directory digest to node index.
     digest_to_node_ix: HashMap<B3Digest, NodeIndex>,
@@ -64,18 +66,18 @@ pub struct DirectoryGraph<O> {
 }
 
 pub struct ValidatedDirectoryGraph {
-    graph: DiGraph<Option<Directory>, Option<DirectoryNode>>,
+    graph: DiGraph<Option<Directory>, Option<Edge>>,
 
     root: Option<NodeIndex>,
 }
 
-fn check_edge(dir: &DirectoryNode, dir_name: &[u8], child: &Directory) -> Result<(), Error> {
+fn check_edge(dir: &Edge, dir_name: &[u8], child: &Directory) -> Result<(), Error> {
     // Ensure the size specified in the child node matches our records.
-    if dir.size() != child.size() {
+    if dir.1 != child.size() {
         return Err(Error::ValidationError(format!(
             "'{}' has wrong size, specified {}, recorded {}",
             dir_name.as_bstr(),
-            dir.size(),
+            dir.1,
             child.size(),
         )));
     }
@@ -141,21 +143,23 @@ impl<O: OrderValidator> DirectoryGraph<O> {
         }
 
         // set up edges to all child directories
-        for (subdir_name, subdir_node) in directory.directories() {
-            let child_ix = *self
-                .digest_to_node_ix
-                .entry(subdir_node.digest().clone())
-                .or_insert_with(|| self.graph.add_node(None));
+        for (name, node) in directory.nodes() {
+            if let Node::Directory { digest, size } = node {
+                let child_ix = *self
+                    .digest_to_node_ix
+                    .entry(digest.clone())
+                    .or_insert_with(|| self.graph.add_node(None));
 
-            let pending_edge_check = match &self.graph[child_ix] {
-                Some(child) => {
-                    // child is already available, validate the edge now
-                    check_edge(subdir_node, subdir_name, child)?;
-                    None
-                }
-                None => Some(subdir_node.clone()), // pending validation
-            };
-            self.graph.add_edge(ix, child_ix, pending_edge_check);
+                let pending_edge_check = match &self.graph[child_ix] {
+                    Some(child) => {
+                        // child is already available, validate the edge now
+                        check_edge(&(digest.to_owned(), *size), name, child)?;
+                        None
+                    }
+                    None => Some((digest.to_owned(), *size)), // pending validation
+                };
+                self.graph.add_edge(ix, child_ix, pending_edge_check);
+            }
         }
 
         // validate the edges from parents to this node
@@ -270,7 +274,7 @@ impl ValidatedDirectoryGraph {
 #[cfg(test)]
 mod tests {
     use crate::fixtures::{DIRECTORY_A, DIRECTORY_B, DIRECTORY_C};
-    use crate::{Directory, DirectoryNode, Node};
+    use crate::{Directory, Node};
     use lazy_static::lazy_static;
     use rstest::rstest;
 
@@ -281,10 +285,10 @@ mod tests {
             let mut dir = Directory::new();
             dir.add(
                 "foo".into(),
-                Node::Directory(DirectoryNode::new(
-                    DIRECTORY_A.digest(),
-                    DIRECTORY_A.size() + 42, // wrong!
-                ))).unwrap();
+                Node::Directory{
+                    digest: DIRECTORY_A.digest(),
+                    size: DIRECTORY_A.size() + 42, // wrong!
+                }).unwrap();
             dir
         };
     }

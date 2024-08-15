@@ -21,7 +21,7 @@ use super::{
     RootToLeavesValidator,
 };
 use crate::composition::{CompositionContext, ServiceBuilder};
-use crate::{proto, B3Digest, Error};
+use crate::{proto, B3Digest, Error, Node};
 
 /// Stores directory closures in an object store.
 /// Notably, this makes use of the option to disallow accessing child directories except when
@@ -85,7 +85,11 @@ impl DirectoryService for ObjectStoreDirectoryService {
 
     #[instrument(skip(self, directory), fields(directory.digest = %directory.digest()))]
     async fn put(&self, directory: Directory) -> Result<B3Digest, Error> {
-        if directory.directories().next().is_some() {
+        // Ensure the directory doesn't contain other directory children
+        if directory
+            .nodes()
+            .any(|(_, e)| matches!(e, Node::Directory { .. }))
+        {
             return Err(Error::InvalidRequest(
                     "only put_multiple_start is supported by the ObjectStoreDirectoryService for directories with children".into(),
             ));

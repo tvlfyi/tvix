@@ -2,7 +2,7 @@ use crate::blobservice::{self, BlobService};
 use crate::directoryservice;
 use crate::fixtures::*;
 use crate::import::fs::ingest_path;
-use crate::{DirectoryNode, Node, SymlinkNode};
+use crate::Node;
 
 use tempfile::TempDir;
 
@@ -30,7 +30,9 @@ async fn symlink() {
     .expect("must succeed");
 
     assert_eq!(
-        Node::Symlink(SymlinkNode::new("/nix/store/somewhereelse".into(),).unwrap()),
+        Node::Symlink {
+            target: "/nix/store/somewhereelse".try_into().unwrap()
+        },
         root_node,
     )
 }
@@ -53,11 +55,11 @@ async fn single_file() {
     .expect("must succeed");
 
     assert_eq!(
-        Node::File(crate::FileNode::new(
-            HELLOWORLD_BLOB_DIGEST.clone(),
-            HELLOWORLD_BLOB_CONTENTS.len() as u64,
-            false,
-        )),
+        Node::File {
+            digest: HELLOWORLD_BLOB_DIGEST.clone(),
+            size: HELLOWORLD_BLOB_CONTENTS.len() as u64,
+            executable: false,
+        },
         root_node,
     );
 
@@ -88,10 +90,10 @@ async fn complicated() {
 
     // ensure root_node matched expectations
     assert_eq!(
-        Node::Directory(DirectoryNode::new(
-            DIRECTORY_COMPLICATED.digest().clone(),
-            DIRECTORY_COMPLICATED.size(),
-        )),
+        Node::Directory {
+            digest: DIRECTORY_COMPLICATED.digest().clone(),
+            size: DIRECTORY_COMPLICATED.size(),
+        },
         root_node,
     );
 

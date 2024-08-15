@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use tracing::warn;
 
 use super::Directory;
-use crate::B3Digest;
+use crate::{B3Digest, Node};
 
 pub trait OrderValidator {
     /// Update the order validator's state with the directory
@@ -48,9 +48,11 @@ impl RootToLeavesValidator {
             self.expected_digests.insert(directory.digest());
         }
 
-        for (_, subdir_node) in directory.directories() {
-            // Allow the children to appear next
-            self.expected_digests.insert(subdir_node.digest().clone());
+        // Allow the children to appear next
+        for (_, node) in directory.nodes() {
+            if let Node::Directory { digest, .. } = node {
+                self.expected_digests.insert(digest.clone());
+            }
         }
     }
 }
@@ -79,14 +81,20 @@ impl OrderValidator for LeavesToRootValidator {
     fn add_directory(&mut self, directory: &Directory) -> bool {
         let digest = directory.digest();
 
-        for (_, subdir_node) in directory.directories() {
-            if !self.allowed_references.contains(subdir_node.digest()) {
-                warn!(
-                    directory.digest = %digest,
-                    subdirectory.digest = %subdir_node.digest(),
-                    "unexpected directory reference"
-                );
-                return false;
+        for (_, node) in directory.nodes() {
+            if let Node::Directory {
+                digest: subdir_node_digest,
+                ..
+            } = node
+            {
+                if !self.allowed_references.contains(subdir_node_digest) {
+                    warn!(
+                        directory.digest = %digest,
+                        subdirectory.digest = %subdir_node_digest,
+                        "unexpected directory reference"
+                    );
+                    return false;
+                }
             }
         }
 

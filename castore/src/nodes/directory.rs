@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::{errors::DirectoryError, proto, B3Digest, DirectoryNode, FileNode, Node, SymlinkNode};
+use crate::{errors::DirectoryError, proto, B3Digest, Node};
 
 /// A Directory contains nodes, which can be Directory, File or Symlink nodes.
 /// It attached names to these nodes, which is the basename in that directory.
@@ -27,7 +27,14 @@ impl Directory {
     pub fn size(&self) -> u64 {
         // It's impossible to create a Directory where the size overflows, because we
         // check before every add() that the size won't overflow.
-        (self.nodes.len() as u64) + self.directories().map(|(_name, dn)| dn.size()).sum::<u64>()
+        (self.nodes.len() as u64)
+            + self
+                .nodes()
+                .map(|(_name, n)| match n {
+                    Node::Directory { size, .. } => 1 + size,
+                    Node::File { .. } | Node::Symlink { .. } => 1,
+                })
+                .sum::<u64>()
     }
 
     /// Calculates the digest of a Directory, which is the blake3 hash of a
@@ -41,40 +48,6 @@ impl Directory {
     /// The elements are sorted by their names.
     pub fn nodes(&self) -> impl Iterator<Item = (&bytes::Bytes, &Node)> + Send + Sync + '_ {
         self.nodes.iter()
-    }
-
-    /// Allows iterating over the FileNode entries of this directory.
-    /// For each, it returns a tuple of its name and node.
-    /// The elements are sorted by their names.
-    pub fn files(&self) -> impl Iterator<Item = (&bytes::Bytes, &FileNode)> + Send + Sync + '_ {
-        self.nodes.iter().filter_map(|(name, node)| match node {
-            Node::File(n) => Some((name, n)),
-            _ => None,
-        })
-    }
-
-    /// Allows iterating over the DirectoryNode entries (subdirectories) of this directory.
-    /// For each, it returns a tuple of its name and node.
-    /// The elements are sorted by their names.
-    pub fn directories(
-        &self,
-    ) -> impl Iterator<Item = (&bytes::Bytes, &DirectoryNode)> + Send + Sync + '_ {
-        self.nodes.iter().filter_map(|(name, node)| match node {
-            Node::Directory(n) => Some((name, n)),
-            _ => None,
-        })
-    }
-
-    /// Allows iterating over the SymlinkNode entries of this directory
-    /// For each, it returns a tuple of its name and node.
-    /// The elements are sorted by their names.
-    pub fn symlinks(
-        &self,
-    ) -> impl Iterator<Item = (&bytes::Bytes, &SymlinkNode)> + Send + Sync + '_ {
-        self.nodes.iter().filter_map(|(name, node)| match node {
-            Node::Symlink(n) => Some((name, n)),
-            _ => None,
-        })
     }
 
     /// Checks a Node name for validity as a directory entry
@@ -106,7 +79,7 @@ impl Directory {
             self.size(),
             1,
             match node {
-                Node::Directory(ref dir) => dir.size(),
+                Node::Directory { size, .. } => size,
                 _ => 0,
             },
         ])
@@ -130,7 +103,7 @@ fn checked_sum(iter: impl IntoIterator<Item = u64>) -> Option<u64> {
 
 #[cfg(test)]
 mod test {
-    use super::{Directory, DirectoryNode, FileNode, Node, SymlinkNode};
+    use super::{Directory, Node};
     use crate::fixtures::DUMMY_DIGEST;
     use crate::DirectoryError;
 
@@ -140,49 +113,76 @@ mod test {
 
         d.add(
             "b".into(),
-            Node::Directory(DirectoryNode::new(DUMMY_DIGEST.clone(), 1)),
+            Node::Directory {
+                digest: DUMMY_DIGEST.clone(),
+                size: 1,
+            },
         )
         .unwrap();
         d.add(
             "a".into(),
-            Node::Directory(DirectoryNode::new(DUMMY_DIGEST.clone(), 1)),
+            Node::Directory {
+                digest: DUMMY_DIGEST.clone(),
+                size: 1,
+            },
         )
         .unwrap();
         d.add(
             "z".into(),
-            Node::Directory(DirectoryNode::new(DUMMY_DIGEST.clone(), 1)),
+            Node::Directory {
+                digest: DUMMY_DIGEST.clone(),
+                size: 1,
+            },
         )
         .unwrap();
 
         d.add(
             "f".into(),
-            Node::File(FileNode::new(DUMMY_DIGEST.clone(), 1, true)),
+            Node::File {
+                digest: DUMMY_DIGEST.clone(),
+                size: 1,
+                executable: true,
+            },
         )
         .unwrap();
         d.add(
             "c".into(),
-            Node::File(FileNode::new(DUMMY_DIGEST.clone(), 1, true)),
+            Node::File {
+                digest: DUMMY_DIGEST.clone(),
+                size: 1,
+                executable: true,
+            },
         )
         .unwrap();
         d.add(
             "g".into(),
-            Node::File(FileNode::new(DUMMY_DIGEST.clone(), 1, true)),
+            Node::File {
+                digest: DUMMY_DIGEST.clone(),
+                size: 1,
+                executable: true,
+            },
         )
         .unwrap();
 
         d.add(
             "t".into(),
-            Node::Symlink(SymlinkNode::new("a".into()).unwrap()),
+            Node::Symlink {
+                target: "a".try_into().unwrap(),
+            },
         )
         .unwrap();
         d.add(
             "o".into(),
-            Node::Symlink(SymlinkNode::new("a".into()).unwrap()),
+            Node::Symlink {
+                target: "a".try_into().unwrap(),
+            },
         )
         .unwrap();
         d.add(
             "e".into(),
-            Node::Symlink(SymlinkNode::new("a".into()).unwrap()),
+            Node::Symlink {
+                target: "a".try_into().unwrap(),
+            },
         )
         .unwrap();
 
@@ -198,7 +198,10 @@ mod test {
         assert_eq!(
             d.add(
                 "foo".into(),
-                Node::Directory(DirectoryNode::new(DUMMY_DIGEST.clone(), u64::MAX))
+                Node::Directory {
+                    digest: DUMMY_DIGEST.clone(),
+                    size: u64::MAX
+                }
             ),
             Err(DirectoryError::SizeOverflow)
         );
@@ -210,7 +213,10 @@ mod test {
 
         d.add(
             "a".into(),
-            Node::Directory(DirectoryNode::new(DUMMY_DIGEST.clone(), 1)),
+            Node::Directory {
+                digest: DUMMY_DIGEST.clone(),
+                size: 1,
+            },
         )
         .unwrap();
         assert_eq!(
@@ -218,7 +224,11 @@ mod test {
                 "{}",
                 d.add(
                     "a".into(),
-                    Node::File(FileNode::new(DUMMY_DIGEST.clone(), 1, true))
+                    Node::File {
+                        digest: DUMMY_DIGEST.clone(),
+                        size: 1,
+                        executable: true
+                    }
                 )
                 .expect_err("adding duplicate dir entry must fail")
             ),
@@ -233,7 +243,9 @@ mod test {
         assert!(
             dir.add(
                 "".into(), // wrong! can not be added to directory
-                Node::Symlink(SymlinkNode::new("doesntmatter".into(),).unwrap())
+                Node::Symlink {
+                    target: "doesntmatter".try_into().unwrap(),
+                },
             )
             .is_err(),
             "invalid symlink entry be rejected"

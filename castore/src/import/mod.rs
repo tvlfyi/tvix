@@ -6,7 +6,7 @@
 
 use crate::directoryservice::{DirectoryPutter, DirectoryService};
 use crate::path::{Path, PathBuf};
-use crate::{B3Digest, Directory, DirectoryNode, FileNode, Node, SymlinkNode};
+use crate::{B3Digest, Directory, Node};
 use futures::{Stream, StreamExt};
 use tracing::Level;
 
@@ -84,22 +84,31 @@ where
                         IngestionError::UploadDirectoryError(entry.path().to_owned(), e)
                     })?;
 
-                Node::Directory(DirectoryNode::new(directory_digest, directory_size))
+                Node::Directory {
+                    digest: directory_digest,
+                    size: directory_size,
+                }
             }
-            IngestionEntry::Symlink { ref target, .. } => {
-                Node::Symlink(SymlinkNode::new(target.to_owned().into()).map_err(|e| {
-                    IngestionError::UploadDirectoryError(
-                        entry.path().to_owned(),
-                        crate::Error::StorageError(e.to_string()),
-                    )
-                })?)
-            }
+            IngestionEntry::Symlink { ref target, .. } => Node::Symlink {
+                target: bytes::Bytes::copy_from_slice(target).try_into().map_err(
+                    |e: crate::ValidateNodeError| {
+                        IngestionError::UploadDirectoryError(
+                            entry.path().to_owned(),
+                            crate::Error::StorageError(e.to_string()),
+                        )
+                    },
+                )?,
+            },
             IngestionEntry::Regular {
                 size,
                 executable,
                 digest,
                 ..
-            } => Node::File(FileNode::new(digest.clone(), *size, *executable)),
+            } => Node::File {
+                digest: digest.clone(),
+                size: *size,
+                executable: *executable,
+            },
         };
 
         let parent = entry
@@ -153,8 +162,8 @@ where
 
         #[cfg(debug_assertions)]
         {
-            if let Node::Directory(directory_node) = &root_node {
-                debug_assert_eq!(&root_directory_digest, directory_node.digest())
+            if let Node::Directory { digest, .. } = &root_node {
+                debug_assert_eq!(&root_directory_digest, digest);
             } else {
                 unreachable!("Tvix bug: directory putter initialized but no root directory node");
             }
@@ -201,7 +210,7 @@ mod test {
 
     use crate::fixtures::{DIRECTORY_COMPLICATED, DIRECTORY_WITH_KEEP, EMPTY_BLOB_DIGEST};
     use crate::{directoryservice::MemoryDirectoryService, fixtures::DUMMY_DIGEST};
-    use crate::{Directory, DirectoryNode, FileNode, Node, SymlinkNode};
+    use crate::{Directory, Node};
 
     use super::ingest_entries;
     use super::IngestionEntry;
@@ -213,18 +222,18 @@ mod test {
         executable: true,
         digest: DUMMY_DIGEST.clone(),
     }],
-        Node::File(FileNode::new(DUMMY_DIGEST.clone(), 42, true))
+        Node::File{digest: DUMMY_DIGEST.clone(), size: 42, executable: true}
     )]
     #[case::single_symlink(vec![IngestionEntry::Symlink {
         path: "foo".parse().unwrap(),
         target: b"blub".into(),
     }],
-        Node::Symlink(SymlinkNode::new("blub".into()).unwrap())
+        Node::Symlink{target: "blub".try_into().unwrap()}
     )]
     #[case::single_dir(vec![IngestionEntry::Dir {
         path: "foo".parse().unwrap(),
     }],
-        Node::Directory(DirectoryNode::new(Directory::default().digest(), Directory::default().size()))
+        Node::Directory{digest: Directory::default().digest(), size: Directory::default().size()}
     )]
     #[case::dir_with_keep(vec![
         IngestionEntry::Regular {
@@ -237,7 +246,7 @@ mod test {
             path: "foo".parse().unwrap(),
         },
     ],
-        Node::Directory(DirectoryNode::new(DIRECTORY_WITH_KEEP.digest(), DIRECTORY_WITH_KEEP.size()))
+        Node::Directory{ digest: DIRECTORY_WITH_KEEP.digest(), size: DIRECTORY_WITH_KEEP.size()}
     )]
     /// This is intentionally a bit unsorted, though it still satisfies all
     /// requirements we have on the order of elements in the stream.
@@ -265,7 +274,7 @@ mod test {
             path: "blub".parse().unwrap(),
         },
     ],
-    Node::Directory(DirectoryNode::new(DIRECTORY_COMPLICATED.digest(), DIRECTORY_COMPLICATED.size()))
+    Node::Directory{ digest: DIRECTORY_COMPLICATED.digest(), size: DIRECTORY_COMPLICATED.size() }
     )]
     #[tokio::test]
     async fn test_ingestion(#[case] entries: Vec<IngestionEntry>, #[case] exp_root_node: Node) {

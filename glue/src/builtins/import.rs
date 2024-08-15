@@ -3,7 +3,7 @@
 use crate::builtins::errors::ImportError;
 use std::path::Path;
 use tvix_castore::import::ingest_entries;
-use tvix_castore::{FileNode, Node};
+use tvix_castore::Node;
 use tvix_eval::{
     builtin_macros::builtins,
     generators::{self, GenCo},
@@ -213,7 +213,11 @@ mod import_builtins {
                     .tokio_handle
                     .block_on(async { blob_writer.close().await })?;
 
-                let root_node = Node::File(FileNode::new(blob_digest, blob_size, false));
+                let root_node = Node::File {
+                    digest: blob_digest,
+                    size: blob_size,
+                    executable: false,
+                };
 
                 let ca_hash = if recursive_ingestion {
                     let (_nar_size, nar_sha256) = state

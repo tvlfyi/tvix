@@ -475,20 +475,16 @@ impl EvalIO for TvixStoreIO {
             {
                 // depending on the node type, treat open differently
                 match node {
-                    Node::Directory(_) => {
+                    Node::Directory { .. } => {
                         // This would normally be a io::ErrorKind::IsADirectory (still unstable)
                         Err(io::Error::new(
                             io::ErrorKind::Unsupported,
                             format!("tried to open directory at {:?}", path),
                         ))
                     }
-                    Node::File(file_node) => {
+                    Node::File { digest, .. } => {
                         self.tokio_handle.block_on(async {
-                            let resp = self
-                                .blob_service
-                                .as_ref()
-                                .open_read(file_node.digest())
-                                .await?;
+                            let resp = self.blob_service.as_ref().open_read(&digest).await?;
                             match resp {
                                 Some(blob_reader) => {
                                     // The VM Response needs a sync [std::io::Reader].
@@ -497,18 +493,18 @@ impl EvalIO for TvixStoreIO {
                                 }
                                 None => {
                                     error!(
-                                        blob.digest = %file_node.digest(),
+                                        blob.digest = %digest,
                                         "blob not found",
                                     );
                                     Err(io::Error::new(
                                         io::ErrorKind::NotFound,
-                                        format!("blob {} not found", &file_node.digest()),
+                                        format!("blob {} not found", &digest),
                                     ))
                                 }
                             }
                         })
                     }
-                    Node::Symlink(_symlink_node) => Err(io::Error::new(
+                    Node::Symlink { .. } => Err(io::Error::new(
                         io::ErrorKind::Unsupported,
                         "open for symlinks is unsupported",
                     ))?,
@@ -534,9 +530,9 @@ impl EvalIO for TvixStoreIO {
                 .block_on(async { self.store_path_to_node(&store_path, &sub_path).await })?
             {
                 match node {
-                    Node::Directory(_) => Ok(FileType::Directory),
-                    Node::File(_) => Ok(FileType::Regular),
-                    Node::Symlink(_) => Ok(FileType::Symlink),
+                    Node::Directory { .. } => Ok(FileType::Directory),
+                    Node::File { .. } => Ok(FileType::Regular),
+                    Node::Symlink { .. } => Ok(FileType::Symlink),
                 }
             } else {
                 self.std_io.file_type(path)
@@ -556,20 +552,19 @@ impl EvalIO for TvixStoreIO {
                 .block_on(async { self.store_path_to_node(&store_path, &sub_path).await })?
             {
                 match node {
-                    Node::Directory(directory_node) => {
+                    Node::Directory { digest, .. } => {
                         // fetch the Directory itself.
-                        let digest = directory_node.digest().clone();
-
-                        if let Some(directory) = self.tokio_handle.block_on(async {
-                            self.directory_service.as_ref().get(&digest).await
+                        if let Some(directory) = self.tokio_handle.block_on({
+                            let digest = digest.clone();
+                            async move { self.directory_service.as_ref().get(&digest).await }
                         })? {
                             let mut children: Vec<(bytes::Bytes, FileType)> = Vec::new();
                             // TODO: into_nodes() to avoid cloning
                             for (name, node) in directory.nodes() {
                                 children.push(match node {
-                                    Node::Directory(_) => (name.clone(), FileType::Directory),
-                                    Node::File(_) => (name.clone(), FileType::Regular),
-                                    Node::Symlink(_) => (name.clone(), FileType::Symlink),
+                                    Node::Directory { .. } => (name.clone(), FileType::Directory),
+                                    Node::File { .. } => (name.clone(), FileType::Regular),
+                                    Node::Symlink { .. } => (name.clone(), FileType::Symlink),
                                 })
                             }
                             Ok(children)
@@ -586,14 +581,14 @@ impl EvalIO for TvixStoreIO {
                             ))?
                         }
                     }
-                    Node::File(_file_node) => {
+                    Node::File { .. } => {
                         // This would normally be a io::ErrorKind::NotADirectory (still unstable)
                         Err(io::Error::new(
                             io::ErrorKind::Unsupported,
                             "tried to readdir path {:?}, which is a file",
                         ))?
                     }
-                    Node::Symlink(_symlink_node) => Err(io::Error::new(
+                    Node::Symlink { .. } => Err(io::Error::new(
                         io::ErrorKind::Unsupported,
                         "read_dir for symlinks is unsupported",
                     ))?,

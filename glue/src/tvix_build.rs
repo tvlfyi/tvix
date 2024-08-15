@@ -200,7 +200,7 @@ mod test {
         BuildRequest,
     };
     use tvix_castore::fixtures::DUMMY_DIGEST;
-    use tvix_castore::{DirectoryNode, Node};
+    use tvix_castore::Node;
 
     use crate::tvix_build::NIX_ENVIRONMENT_VARS;
 
@@ -209,8 +209,10 @@ mod test {
 
     lazy_static! {
         static ref INPUT_NODE_FOO_NAME: Bytes = "mp57d33657rf34lzvlbpfa1gjfv5gmpg-bar".into();
-        static ref INPUT_NODE_FOO: Node =
-            Node::Directory(DirectoryNode::new(DUMMY_DIGEST.clone(), 42,));
+        static ref INPUT_NODE_FOO: Node = Node::Directory {
+            digest: DUMMY_DIGEST.clone(),
+            size: 42
+        };
     }
 
     #[test]

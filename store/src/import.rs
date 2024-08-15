@@ -29,27 +29,27 @@ impl From<CAHash> for nar_info::Ca {
 
 pub fn log_node(name: &[u8], node: &Node, path: &Path) {
     match node {
-        Node::Directory(directory_node) => {
+        Node::Directory { digest, .. } => {
             debug!(
                 path = ?path,
                 name = %name.as_bstr(),
-                digest = %directory_node.digest(),
+                digest = %digest,
                 "import successful",
             )
         }
-        Node::File(file_node) => {
+        Node::File { digest, .. } => {
             debug!(
                 path = ?path,
                 name = %name.as_bstr(),
-                digest = %file_node.digest(),
+                digest = %digest,
                 "import successful"
             )
         }
-        Node::Symlink(symlink_node) => {
+        Node::Symlink { target } => {
             debug!(
                 path = ?path,
                 name = %name.as_bstr(),
-                target = ?symlink_node.target(),
+                target = ?target,
                 "import successful"
             )
         }

@@ -10,7 +10,7 @@ use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio_util::io::{InspectReader, InspectWriter};
 use tracing::{instrument, warn, Span};
 use tracing_indicatif::span_ext::IndicatifSpanExt;
-use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService, FileNode, Node};
+use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService, Node};
 use tvix_store::{nar::NarCalculationService, pathinfoservice::PathInfoService, proto::PathInfo};
 use url::Url;
 
@@ -327,7 +327,11 @@ where
 
                 // Construct and return the FileNode describing the downloaded contents.
                 Ok((
-                    Node::File(FileNode::new(blob_writer.close().await?, blob_size, false)),
+                    Node::File {
+                        digest: blob_writer.close().await?,
+                        size: blob_size,
+                        executable: false,
+                    },
                     CAHash::Flat(actual_hash),
                     blob_size,
                 ))
@@ -522,7 +526,11 @@ where
 
                 // Construct and return the FileNode describing the downloaded contents,
                 // make it executable.
-                let root_node = Node::File(FileNode::new(blob_digest, file_size, true));
+                let root_node = Node::File {
+                    digest: blob_digest,
+                    size: file_size,
+                    executable: true,
+                };
 
                 Ok((root_node, CAHash::Nar(actual_hash), file_size))
             }

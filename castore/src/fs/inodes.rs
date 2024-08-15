@@ -25,11 +25,15 @@ impl InodeData {
     /// Constructs a new InodeData by consuming a [Node].
     pub fn from_node(node: &Node) -> Self {
         match node {
-            Node::Directory(n) => {
-                Self::Directory(DirectoryInodeData::Sparse(n.digest().clone(), n.size()))
+            Node::Directory { digest, size } => {
+                Self::Directory(DirectoryInodeData::Sparse(digest.clone(), *size))
             }
-            Node::File(n) => Self::Regular(n.digest().clone(), n.size(), n.executable()),
-            Node::Symlink(n) => Self::Symlink(n.target().clone()),
+            Node::File {
+                digest,
+                size,
+                executable,
+            } => Self::Regular(digest.clone(), *size, *executable),
+            Node::Symlink { target } => Self::Symlink(target.clone().into()),
         }
     }
 

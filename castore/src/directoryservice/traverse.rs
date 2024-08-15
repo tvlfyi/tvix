@@ -15,26 +15,24 @@ where
     let mut parent_node = root_node;
     for component in path.as_ref().components() {
         match parent_node {
-            Node::File(_) | Node::Symlink(_) => {
+            Node::File { .. } | Node::Symlink { .. } => {
                 // There's still some path left, but the parent node is no directory.
                 // This means the path doesn't exist, as we can't reach it.
                 return Ok(None);
             }
-            Node::Directory(directory_node) => {
+            Node::Directory { digest, .. } => {
                 // fetch the linked node from the directory_service.
-                let directory = directory_service
-                    .as_ref()
-                    .get(directory_node.digest())
-                    .await?
-                    .ok_or_else(|| {
-                        // If we didn't get the directory node that's linked, that's a store inconsistency, bail out!
-                        warn!("directory {} does not exist", directory_node.digest());
+                let directory =
+                    directory_service
+                        .as_ref()
+                        .get(&digest)
+                        .await?
+                        .ok_or_else(|| {
+                            // If we didn't get the directory node that's linked, that's a store inconsistency, bail out!
+                            warn!("directory {} does not exist", digest);
 
-                        Error::StorageError(format!(
-                            "directory {} does not exist",
-                            directory_node.digest()
-                        ))
-                    })?;
+                            Error::StorageError(format!("directory {} does not exist", digest))
+                        })?;
 
                 // look for the component in the [Directory].
                 if let Some((_child_name, child_node)) = directory
@@ -59,8 +57,8 @@ where
 mod tests {
     use crate::{
         directoryservice,
-        fixtures::{DIRECTORY_COMPLICATED, DIRECTORY_WITH_KEEP},
-        DirectoryNode, Node, PathBuf,
+        fixtures::{DIRECTORY_COMPLICATED, DIRECTORY_WITH_KEEP, EMPTY_BLOB_DIGEST},
+        Node, PathBuf,
     };
 
     use super::descend_to;
@@ -82,23 +80,23 @@ mod tests {
         handle.close().await.expect("must upload");
 
         // construct the node for DIRECTORY_COMPLICATED
-        let node_directory_complicated = Node::Directory(DirectoryNode::new(
-            DIRECTORY_COMPLICATED.digest(),
-            DIRECTORY_COMPLICATED.size(),
-        ));
+        let node_directory_complicated = Node::Directory {
+            digest: DIRECTORY_COMPLICATED.digest(),
+            size: DIRECTORY_COMPLICATED.size(),
+        };
 
         // construct the node for DIRECTORY_COMPLICATED
-        let node_directory_with_keep = Node::Directory(
-            DIRECTORY_COMPLICATED
-                .directories()
-                .next()
-                .unwrap()
-                .1
-                .clone(),
-        );
+        let node_directory_with_keep = Node::Directory {
+            digest: DIRECTORY_WITH_KEEP.digest(),
+            size: DIRECTORY_WITH_KEEP.size(),
+        };
 
         // construct the node for the .keep file
-        let node_file_keep = Node::File(DIRECTORY_WITH_KEEP.files().next().unwrap().1.clone());
+        let node_file_keep = Node::File {
+            digest: EMPTY_BLOB_DIGEST.clone(),
+            size: 0,
+            executable: false,
+        };
 
         // traversal to an empty subpath should return the root node.
         {

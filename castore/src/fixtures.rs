@@ -1,6 +1,4 @@
-use crate::{
-    B3Digest, {Directory, DirectoryNode, FileNode, Node, SymlinkNode},
-};
+use crate::{B3Digest, Directory, Node};
 use lazy_static::lazy_static;
 
 pub const HELLOWORLD_BLOB_CONTENTS: &[u8] = b"Hello World!";
@@ -37,11 +35,11 @@ lazy_static! {
         let mut dir = Directory::new();
         dir.add(
             ".keep".into(),
-            Node::File(FileNode::new(
-                EMPTY_BLOB_DIGEST.clone(),
-                0,
-                false
-            ))).unwrap();
+            Node::File{
+                digest: EMPTY_BLOB_DIGEST.clone(),
+                size: 0,
+                executable: false
+            }).unwrap();
 
         dir
     };
@@ -49,22 +47,22 @@ lazy_static! {
         let mut dir = Directory::new();
         dir.add(
             "keep".into(),
-            Node::Directory(DirectoryNode::new(
-                DIRECTORY_WITH_KEEP.digest(),
-                DIRECTORY_WITH_KEEP.size()
-            ))).unwrap();
+            Node::Directory{
+                digest: DIRECTORY_WITH_KEEP.digest(),
+                size: DIRECTORY_WITH_KEEP.size()
+            }).unwrap();
         dir.add(
             ".keep".into(),
-            Node::File(FileNode::new(
-            EMPTY_BLOB_DIGEST.clone(),
-            0,
-            false
-        ))).unwrap();
+            Node::File{
+                digest: EMPTY_BLOB_DIGEST.clone(),
+                size: 0,
+                executable: false
+            }).unwrap();
         dir.add(
             "aa".into(),
-            Node::Symlink(SymlinkNode::new(
-                b"/nix/store/somewhereelse".to_vec().into()
-            ).unwrap())).unwrap();
+            Node::Symlink{
+                target: "/nix/store/somewhereelse".try_into().unwrap()
+            }).unwrap();
 
         dir
     };
@@ -73,10 +71,10 @@ lazy_static! {
         let mut dir = Directory::new();
         dir.add(
             "a".into(),
-            Node::Directory(DirectoryNode::new(
-                DIRECTORY_A.digest(),
-                DIRECTORY_A.size(),
-            ))).unwrap();
+            Node::Directory{
+                digest: DIRECTORY_A.digest(),
+                size: DIRECTORY_A.size(),
+            }).unwrap();
 
         dir
     };
@@ -84,16 +82,16 @@ lazy_static! {
         let mut dir = Directory::new();
         dir.add(
             "a".into(),
-            Node::Directory(DirectoryNode::new(
-                DIRECTORY_A.digest(),
-                DIRECTORY_A.size(),
-            ))).unwrap();
+            Node::Directory{
+                digest: DIRECTORY_A.digest(),
+                size: DIRECTORY_A.size(),
+            }).unwrap();
         dir.add(
             "a'".into(),
-            Node::Directory(DirectoryNode::new(
-                    DIRECTORY_A.digest(),
-                    DIRECTORY_A.size(),
-        ))).unwrap();
+            Node::Directory{
+                digest: DIRECTORY_A.digest(),
+                size: DIRECTORY_A.size(),
+        }).unwrap();
 
         dir
     };
@@ -101,16 +99,16 @@ lazy_static! {
         let mut dir = Directory::new();
         dir.add(
             "a".into(),
-            Node::Directory(DirectoryNode::new(
-                DIRECTORY_A.digest(),
-                DIRECTORY_A.size(),
-            ))).unwrap();
+            Node::Directory{
+                digest: DIRECTORY_A.digest(),
+                size: DIRECTORY_A.size(),
+            }).unwrap();
         dir.add(
             "b".into(),
-            Node::Directory(DirectoryNode::new(
-                DIRECTORY_B.digest(),
-                DIRECTORY_B.size(),
-            ))).unwrap();
+            Node::Directory{
+                digest: DIRECTORY_B.digest(),
+                size: DIRECTORY_B.size(),
+            }).unwrap();
 
         dir
     };

@@ -82,7 +82,7 @@ where
 /// The contents in NAR serialization are writen to the passed [AsyncWrite].
 pub async fn write_nar<W, BS, DS>(
     mut w: W,
-    proto_root_node: &Node,
+    root_node: &Node,
     blob_service: BS,
     directory_service: DS,
 ) -> Result<(), RenderError>
@@ -98,7 +98,7 @@ where
 
     walk_node(
         nar_root_node,
-        proto_root_node,
+        root_node,
         b"",
         blob_service,
         directory_service,
@@ -122,15 +122,17 @@ where
     DS: DirectoryService + Send,
 {
     match castore_node {
-        Node::Symlink(symlink_node) => {
+        Node::Symlink { target, .. } => {
             nar_node
-                .symlink(symlink_node.target())
+                .symlink(target.as_ref())
                 .await
                 .map_err(RenderError::NARWriterError)?;
         }
-        Node::File(proto_file_node) => {
-            let digest = proto_file_node.digest();
-
+        Node::File {
+            digest,
+            size,
+            executable,
+        } => {
             let mut blob_reader = match blob_service
                 .open_read(digest)
                 .await
@@ -144,24 +146,20 @@ where
             }?;
 
             nar_node
-                .file(
-                    proto_file_node.executable(),
-                    proto_file_node.size(),
-                    &mut blob_reader,
-                )
+                .file(*executable, *size, &mut blob_reader)
                 .await
                 .map_err(RenderError::NARWriterError)?;
         }
-        Node::Directory(directory_node) => {
+        Node::Directory { digest, .. } => {
             // look it up with the directory service
             match directory_service
-                .get(directory_node.digest())
+                .get(digest)
                 .await
                 .map_err(|e| RenderError::StoreError(e.into()))?
             {
                 // if it's None, that's an error!
                 None => Err(RenderError::DirectoryNotFound(
-                    directory_node.digest().clone(),
+                    digest.clone(),
                     bytes::Bytes::copy_from_slice(name),
                 ))?,
                 Some(directory) => {

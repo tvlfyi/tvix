@@ -174,7 +174,7 @@ mod test {
         DIRECTORY_COMPLICATED, DIRECTORY_WITH_KEEP, EMPTY_BLOB_DIGEST, HELLOWORLD_BLOB_CONTENTS,
         HELLOWORLD_BLOB_DIGEST,
     };
-    use tvix_castore::{Directory, DirectoryNode, FileNode, Node, SymlinkNode};
+    use tvix_castore::{Directory, Node};
 
     use crate::tests::fixtures::{
         blob_service, directory_service, NAR_CONTENTS_COMPLICATED, NAR_CONTENTS_HELLOWORLD,
@@ -196,7 +196,9 @@ mod test {
         .expect("must parse");
 
         assert_eq!(
-            Node::Symlink(SymlinkNode::new("/nix/store/somewhereelse".into(),).unwrap()),
+            Node::Symlink {
+                target: "/nix/store/somewhereelse".try_into().unwrap()
+            },
             root_node
         );
     }
@@ -216,11 +218,11 @@ mod test {
         .expect("must parse");
 
         assert_eq!(
-            Node::File(FileNode::new(
-                HELLOWORLD_BLOB_DIGEST.clone(),
-                HELLOWORLD_BLOB_CONTENTS.len() as u64,
-                false,
-            )),
+            Node::File {
+                digest: HELLOWORLD_BLOB_DIGEST.clone(),
+                size: HELLOWORLD_BLOB_CONTENTS.len() as u64,
+                executable: false,
+            },
             root_node
         );
 
@@ -243,10 +245,10 @@ mod test {
         .expect("must parse");
 
         assert_eq!(
-            Node::Directory(DirectoryNode::new(
-                DIRECTORY_COMPLICATED.digest(),
-                DIRECTORY_COMPLICATED.size(),
-            )),
+            Node::Directory {
+                digest: DIRECTORY_COMPLICATED.digest(),
+                size: DIRECTORY_COMPLICATED.size()
+            },
             root_node,
         );
 

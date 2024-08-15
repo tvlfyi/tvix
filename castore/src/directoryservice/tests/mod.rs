@@ -9,7 +9,7 @@ use rstest_reuse::{self, *};
 use super::DirectoryService;
 use crate::directoryservice;
 use crate::fixtures::{DIRECTORY_A, DIRECTORY_B, DIRECTORY_C, DIRECTORY_D};
-use crate::{Directory, DirectoryNode, Node};
+use crate::{Directory, Node};
 
 mod utils;
 use self::utils::make_grpc_directory_service_client;
@@ -220,12 +220,13 @@ async fn upload_reject_wrong_size(directory_service: impl DirectoryService) {
         let mut dir = Directory::new();
         dir.add(
             "foo".into(),
-            Node::Directory(DirectoryNode::new(
-                DIRECTORY_A.digest(),
-                DIRECTORY_A.size() + 42, // wrong!
-            )),
+            Node::Directory {
+                digest: DIRECTORY_A.digest(),
+                size: DIRECTORY_A.size() + 42, // wrong!
+            },
         )
         .unwrap();
+
         dir
     };
 

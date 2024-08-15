@@ -157,21 +157,25 @@ impl From<&crate::Directory> for Directory {
 
         for (name, node) in directory.nodes() {
             match node {
-                crate::Node::File(n) => files.push(FileNode {
+                crate::Node::File {
+                    digest,
+                    size,
+                    executable,
+                } => files.push(FileNode {
                     name: name.clone(),
-                    digest: n.digest().to_owned().into(),
-                    size: n.size(),
-                    executable: n.executable(),
+                    digest: digest.to_owned().into(),
+                    size: *size,
+                    executable: *executable,
                 }),
-                crate::Node::Directory(n) => directories.push(DirectoryNode {
+                crate::Node::Directory { digest, size } => directories.push(DirectoryNode {
                     name: name.clone(),
-                    digest: n.digest().to_owned().into(),
-                    size: n.size(),
+                    digest: digest.to_owned().into(),
+                    size: *size,
                 }),
-                crate::Node::Symlink(n) => {
+                crate::Node::Symlink { target } => {
                     symlinks.push(SymlinkNode {
                         name: name.clone(),
-                        target: n.target().to_owned(),
+                        target: target.to_owned().into(),
                     });
                 }
             }
@@ -192,7 +196,10 @@ impl Node {
                 let digest = B3Digest::try_from(n.digest)
                     .map_err(|e| DirectoryError::InvalidNode(n.name.to_owned(), e.into()))?;
 
-                let node = crate::Node::Directory(crate::DirectoryNode::new(digest, n.size));
+                let node = crate::Node::Directory {
+                    digest,
+                    size: n.size,
+                };
 
                 Ok((n.name, node))
             }
@@ -200,16 +207,22 @@ impl Node {
                 let digest = B3Digest::try_from(n.digest)
                     .map_err(|e| DirectoryError::InvalidNode(n.name.to_owned(), e.into()))?;
 
-                let node = crate::Node::File(crate::FileNode::new(digest, n.size, n.executable));
+                let node = crate::Node::File {
+                    digest,
+                    size: n.size,
+                    executable: n.executable,
+                };
 
                 Ok((n.name, node))
             }
 
             node::Node::Symlink(n) => {
-                let node = crate::Node::Symlink(
-                    crate::SymlinkNode::new(n.target)
+                let node = crate::Node::Symlink {
+                    target: n
+                        .target
+                        .try_into()
                         .map_err(|e| DirectoryError::InvalidNode(n.name.to_owned(), e))?,
-                );
+                };
 
                 Ok((n.name, node))
             }
@@ -218,27 +231,30 @@ impl Node {
 
     /// Construsts a [Node] from a name and [crate::Node].
     pub fn from_name_and_node(name: bytes::Bytes, n: crate::Node) -> Self {
-        // TODO: make these pub(crate) so we can avoid cloning?
         match n {
-            crate::Node::Directory(directory_node) => Self {
+            crate::Node::Directory { digest, size } => Self {
                 node: Some(node::Node::Directory(DirectoryNode {
                     name,
-                    digest: directory_node.digest().to_owned().into(),
-                    size: directory_node.size(),
+                    digest: digest.into(),
+                    size,
                 })),
             },
-            crate::Node::File(file_node) => Self {
+            crate::Node::File {
+                digest,
+                size,
+                executable,
+            } => Self {
                 node: Some(node::Node::File(FileNode {
                     name,
-                    digest: file_node.digest().to_owned().into(),
-                    size: file_node.size(),
-                    executable: file_node.executable(),
+                    digest: digest.into(),
+                    size,
+                    executable,
                 })),
             },
-            crate::Node::Symlink(symlink_node) => Self {
+            crate::Node::Symlink { target } => Self {
                 node: Some(node::Node::Symlink(SymlinkNode {
                     name,
-                    target: symlink_node.target().to_owned(),
+                    target: target.into(),
                 })),
             },
         }

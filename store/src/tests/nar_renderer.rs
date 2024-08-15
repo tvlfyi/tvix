@@ -10,7 +10,7 @@ use std::sync::Arc;
 use tokio::io::sink;
 use tvix_castore::blobservice::BlobService;
 use tvix_castore::directoryservice::DirectoryService;
-use tvix_castore::{DirectoryNode, FileNode, Node, SymlinkNode};
+use tvix_castore::Node;
 
 #[rstest]
 #[tokio::test]
@@ -22,7 +22,9 @@ async fn single_symlink(
 
     write_nar(
         &mut buf,
-        &Node::Symlink(SymlinkNode::new("/nix/store/somewhereelse".into()).unwrap()),
+        &Node::Symlink {
+            target: "/nix/store/somewhereelse".try_into().unwrap(),
+        },
         // don't put anything in the stores, as we don't actually do any requests.
         blob_service,
         directory_service,
@@ -42,11 +44,11 @@ async fn single_file_missing_blob(
 ) {
     let e = write_nar(
         sink(),
-        &Node::File(FileNode::new(
-            HELLOWORLD_BLOB_DIGEST.clone(),
-            HELLOWORLD_BLOB_CONTENTS.len() as u64,
-            false,
-        )),
+        &Node::File {
+            digest: HELLOWORLD_BLOB_DIGEST.clone(),
+            size: HELLOWORLD_BLOB_CONTENTS.len() as u64,
+            executable: false,
+        },
         // the blobservice is empty intentionally, to provoke the error.
         blob_service,
         directory_service,
@@ -86,11 +88,11 @@ async fn single_file_wrong_blob_size(
     // Test with a root FileNode of a too big size
     let e = write_nar(
         sink(),
-        &Node::File(FileNode::new(
-            HELLOWORLD_BLOB_DIGEST.clone(),
-            42, // <- note the wrong size here!
-            false,
-        )),
+        &Node::File {
+            digest: HELLOWORLD_BLOB_DIGEST.clone(),
+            size: 42, // <- note the wrong size here!
+            executable: false,
+        },
         blob_service.clone(),
         directory_service.clone(),
     )
@@ -107,11 +109,11 @@ async fn single_file_wrong_blob_size(
     // Test with a root FileNode of a too small size
     let e = write_nar(
         sink(),
-        &Node::File(FileNode::new(
-            HELLOWORLD_BLOB_DIGEST.clone(),
-            2, // <- note the wrong size here!
-            false,
-        )),
+        &Node::File {
+            digest: HELLOWORLD_BLOB_DIGEST.clone(),
+            size: 2, // <- note the wrong size here!
+            executable: false,
+        },
         blob_service,
         directory_service,
     )
@@ -147,11 +149,11 @@ async fn single_file(
 
     write_nar(
         &mut buf,
-        &Node::File(FileNode::new(
-            HELLOWORLD_BLOB_DIGEST.clone(),
-            HELLOWORLD_BLOB_CONTENTS.len() as u64,
-            false,
-        )),
+        &Node::File {
+            digest: HELLOWORLD_BLOB_DIGEST.clone(),
+            size: HELLOWORLD_BLOB_CONTENTS.len() as u64,
+            executable: false,
+        },
         blob_service,
         directory_service,
     )
@@ -189,10 +191,10 @@ async fn test_complicated(
 
     write_nar(
         &mut buf,
-        &Node::Directory(DirectoryNode::new(
-            DIRECTORY_COMPLICATED.digest(),
-            DIRECTORY_COMPLICATED.size(),
-        )),
+        &Node::Directory {
+            digest: DIRECTORY_COMPLICATED.digest(),
+            size: DIRECTORY_COMPLICATED.size(),
+        },
         blob_service.clone(),
         directory_service.clone(),
     )
@@ -203,10 +205,10 @@ async fn test_complicated(
 
     // ensure calculate_nar does return the correct sha256 digest and sum.
     let (nar_size, nar_digest) = calculate_size_and_sha256(
-        &Node::Directory(DirectoryNode::new(
-            DIRECTORY_COMPLICATED.digest(),
-            DIRECTORY_COMPLICATED.size(),
-        )),
+        &Node::Directory {
+            digest: DIRECTORY_COMPLICATED.digest(),
+            size: DIRECTORY_COMPLICATED.size(),
+        },
         blob_service,
         directory_service,
     )
