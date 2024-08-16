@@ -66,8 +66,8 @@ type BuildRequest struct {
 
 	// The list of all root nodes that should be visible in `inputs_dir` at the
 	// time of the build.
-	// As root nodes are content-addressed, no additional signatures are needed
-	// to substitute / make these available in the build environment.
+	// As all references are content-addressed, no additional signatures are
+	// needed to substitute / make these available in the build environment.
 	// Inputs MUST be sorted by their names.
 	Inputs []*castore_go.Node `protobuf:"bytes,1,rep,name=inputs,proto3" json:"inputs,omitempty"`
 	// The command (and its args) executed as the build script.

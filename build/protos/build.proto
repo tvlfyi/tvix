@@ -47,8 +47,8 @@ option go_package = "code.tvl.fyi/tvix/build-go;buildv1";
 message BuildRequest {
   // The list of all root nodes that should be visible in `inputs_dir` at the
   // time of the build.
-  // As root nodes are content-addressed, no additional signatures are needed
-  // to substitute / make these available in the build environment.
+  // As all references are content-addressed, no additional signatures are
+  // needed to substitute / make these available in the build environment.
   // Inputs MUST be sorted by their names.
   repeated tvix.castore.v1.Node inputs = 1;
 
