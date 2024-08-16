@@ -201,12 +201,12 @@ where
                     let mut inode_tracker = self.inode_tracker.write();
 
                     let children: Vec<(u64, PathComponent, Node)> = directory
-                        .nodes()
+                        .into_nodes()
                         .map(|(child_name, child_node)| {
-                            let inode_data = InodeData::from_node(child_node);
+                            let inode_data = InodeData::from_node(&child_node);
 
                             let child_ino = inode_tracker.put(inode_data);
-                            (child_ino, child_name.to_owned(), child_node.clone())
+                            (child_ino, child_name, child_node)
                         })
                         .collect();
 

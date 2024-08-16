@@ -36,7 +36,7 @@ where
 
                 // look for the component in the [Directory].
                 if let Some((_child_name, child_node)) = directory
-                    .nodes()
+                    .into_nodes()
                     .find(|(name, _node)| name.as_ref() == component)
                 {
                     // child node found, update prev_node to that and continue.

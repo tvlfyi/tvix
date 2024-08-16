@@ -50,6 +50,12 @@ impl Directory {
         self.nodes.iter()
     }
 
+    /// Dissolves a Directory into its individual names and nodes.
+    /// The elements are sorted by their names.
+    pub fn into_nodes(self) -> impl Iterator<Item = (PathComponent, Node)> + Send + Sync {
+        self.nodes.into_iter()
+    }
+
     /// Adds the specified [Node] to the [Directory] with a given name.
     ///
     /// Inserting an element that already exists with the same name in the directory will yield an

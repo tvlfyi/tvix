@@ -142,44 +142,38 @@ impl TryFrom<&Directory> for crate::Directory {
     }
 }
 
-// TODO: add a proper owned version here that moves various fields
 impl From<crate::Directory> for Directory {
     fn from(value: crate::Directory) -> Self {
-        (&value).into()
-    }
-}
-
-impl From<&crate::Directory> for Directory {
-    fn from(directory: &crate::Directory) -> Directory {
         let mut directories = vec![];
         let mut files = vec![];
         let mut symlinks = vec![];
 
-        for (name, node) in directory.nodes() {
+        for (name, node) in value.into_nodes() {
             match node {
                 crate::Node::File {
                     digest,
                     size,
                     executable,
                 } => files.push(FileNode {
-                    name: name.to_owned().into(),
-                    digest: digest.to_owned().into(),
-                    size: *size,
-                    executable: *executable,
+                    name: name.into(),
+                    digest: digest.into(),
+                    size,
+                    executable,
                 }),
                 crate::Node::Directory { digest, size } => directories.push(DirectoryNode {
-                    name: name.to_owned().into(),
-                    digest: digest.to_owned().into(),
-                    size: *size,
+                    name: name.into(),
+                    digest: digest.into(),
+                    size,
                 }),
                 crate::Node::Symlink { target } => {
                     symlinks.push(SymlinkNode {
-                        name: name.to_owned().into(),
-                        target: target.to_owned().into(),
+                        name: name.into(),
+                        target: target.into(),
                     });
                 }
             }
         }
+
         Directory {
             directories,
             files,
