@@ -301,7 +301,7 @@ fn validate_sorting() {
         };
         match crate::Directory::try_from(d).expect_err("must fail") {
             DirectoryError::DuplicateName(s) => {
-                assert_eq!(s, b"a");
+                assert_eq!(s.as_ref(), b"a");
             }
             _ => panic!("unexpected error"),
         }

@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::{errors::DirectoryError, proto, B3Digest, Node};
+use crate::{errors::DirectoryError, path::PathComponent, proto, B3Digest, Node};
 
 /// A Directory contains nodes, which can be Directory, File or Symlink nodes.
 /// It attached names to these nodes, which is the basename in that directory.
@@ -10,7 +10,7 @@ use crate::{errors::DirectoryError, proto, B3Digest, Node};
 ///  - MUST be unique across all three lists
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Directory {
-    nodes: BTreeMap<bytes::Bytes, Node>,
+    nodes: BTreeMap<PathComponent, Node>,
 }
 
 impl Directory {
@@ -46,18 +46,8 @@ impl Directory {
     /// Allows iterating over all nodes (directories, files and symlinks)
     /// For each, it returns a tuple of its name and node.
     /// The elements are sorted by their names.
-    pub fn nodes(&self) -> impl Iterator<Item = (&bytes::Bytes, &Node)> + Send + Sync + '_ {
+    pub fn nodes(&self) -> impl Iterator<Item = (&PathComponent, &Node)> + Send + Sync + '_ {
         self.nodes.iter()
-    }
-
-    /// Checks a Node name for validity as a directory entry
-    /// We disallow slashes, null bytes, '.', '..' and the empty string.
-    pub(crate) fn is_valid_name(name: &[u8]) -> bool {
-        !(name.is_empty()
-            || name == b".."
-            || name == b"."
-            || name.contains(&0x00)
-            || name.contains(&b'/'))
     }
 
     /// Adds the specified [Node] to the [Directory] with a given name.
@@ -66,11 +56,7 @@ impl Directory {
     /// error.
     /// Inserting an element will validate that its name fulfills the
     /// requirements for directory entries and yield an error if it is not.
-    pub fn add(&mut self, name: bytes::Bytes, node: Node) -> Result<(), DirectoryError> {
-        if !Self::is_valid_name(&name) {
-            return Err(DirectoryError::InvalidName(name));
-        }
-
+    pub fn add(&mut self, name: PathComponent, node: Node) -> Result<(), DirectoryError> {
         // Check that the even after adding this new directory entry, the size calculation will not
         // overflow
         // FUTUREWORK: add some sort of batch add interface which only does this check once with
@@ -91,7 +77,7 @@ impl Directory {
                 Ok(())
             }
             std::collections::btree_map::Entry::Occupied(occupied) => {
-                Err(DirectoryError::DuplicateName(occupied.key().to_vec()))
+                Err(DirectoryError::DuplicateName(occupied.key().to_owned()))
             }
         }
     }
@@ -112,7 +98,7 @@ mod test {
         let mut d = Directory::new();
 
         d.add(
-            "b".into(),
+            "b".try_into().unwrap(),
             Node::Directory {
                 digest: DUMMY_DIGEST.clone(),
                 size: 1,
@@ -120,7 +106,7 @@ mod test {
         )
         .unwrap();
         d.add(
-            "a".into(),
+            "a".try_into().unwrap(),
             Node::Directory {
                 digest: DUMMY_DIGEST.clone(),
                 size: 1,
@@ -128,7 +114,7 @@ mod test {
         )
         .unwrap();
         d.add(
-            "z".into(),
+            "z".try_into().unwrap(),
             Node::Directory {
                 digest: DUMMY_DIGEST.clone(),
                 size: 1,
@@ -137,7 +123,7 @@ mod test {
         .unwrap();
 
         d.add(
-            "f".into(),
+            "f".try_into().unwrap(),
             Node::File {
                 digest: DUMMY_DIGEST.clone(),
                 size: 1,
@@ -146,7 +132,7 @@ mod test {
         )
         .unwrap();
         d.add(
-            "c".into(),
+            "c".try_into().unwrap(),
             Node::File {
                 digest: DUMMY_DIGEST.clone(),
                 size: 1,
@@ -155,7 +141,7 @@ mod test {
         )
         .unwrap();
         d.add(
-            "g".into(),
+            "g".try_into().unwrap(),
             Node::File {
                 digest: DUMMY_DIGEST.clone(),
                 size: 1,
@@ -165,21 +151,21 @@ mod test {
         .unwrap();
 
         d.add(
-            "t".into(),
+            "t".try_into().unwrap(),
             Node::Symlink {
                 target: "a".try_into().unwrap(),
             },
         )
         .unwrap();
         d.add(
-            "o".into(),
+            "o".try_into().unwrap(),
             Node::Symlink {
                 target: "a".try_into().unwrap(),
             },
         )
         .unwrap();
         d.add(
-            "e".into(),
+            "e".try_into().unwrap(),
             Node::Symlink {
                 target: "a".try_into().unwrap(),
             },
@@ -197,7 +183,7 @@ mod test {
 
         assert_eq!(
             d.add(
-                "foo".into(),
+                "foo".try_into().unwrap(),
                 Node::Directory {
                     digest: DUMMY_DIGEST.clone(),
                     size: u64::MAX
@@ -212,7 +198,7 @@ mod test {
         let mut d = Directory::new();
 
         d.add(
-            "a".into(),
+            "a".try_into().unwrap(),
             Node::Directory {
                 digest: DUMMY_DIGEST.clone(),
                 size: 1,
@@ -223,7 +209,7 @@ mod test {
             format!(
                 "{}",
                 d.add(
-                    "a".into(),
+                    "a".try_into().unwrap(),
                     Node::File {
                         digest: DUMMY_DIGEST.clone(),
                         size: 1,
@@ -233,22 +219,6 @@ mod test {
                 .expect_err("adding duplicate dir entry must fail")
             ),
             "\"a\" is a duplicate name"
-        );
-    }
-
-    /// Attempt to add a directory entry with a name which should be rejected.
-    #[tokio::test]
-    async fn directory_reject_invalid_name() {
-        let mut dir = Directory::new();
-        assert!(
-            dir.add(
-                "".into(), // wrong! can not be added to directory
-                Node::Symlink {
-                    target: "doesntmatter".try_into().unwrap(),
-                },
-            )
-            .is_err(),
-            "invalid symlink entry be rejected"
         );
     }
 }

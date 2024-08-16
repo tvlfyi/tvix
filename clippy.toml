@@ -1,6 +1,8 @@
 # prevents a false-positive lint on our types containing bytes::Bytes
 # https://rust-lang.github.io/rust-clippy/master/index.html#/mutable_key_type
 ignore-interior-mutability = [
+  # make sure to specify the originating type name, not re-exports!
   "bytes::Bytes",
-  "tvix_castore::digests::B3Digest"
+  "tvix_castore::digests::B3Digest",
+  "tvix_castore::path::component::PathComponent"
 ]

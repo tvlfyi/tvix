@@ -123,9 +123,8 @@ where
                 .path()
                 .file_name()
                 // If this is the root node, it will have an empty name.
-                .unwrap_or_default()
-                .to_owned()
-                .into();
+                .unwrap_or_else(|| "".try_into().unwrap())
+                .to_owned();
 
             // record node in parent directory, creating a new [Directory] if not there yet.
             directories

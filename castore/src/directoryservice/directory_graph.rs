@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use bstr::ByteSlice;
-
 use petgraph::{
     graph::{DiGraph, NodeIndex},
     visit::{Bfs, DfsPostOrder, EdgeRef, IntoNodeIdentifiers, Walker},
@@ -10,7 +8,7 @@ use petgraph::{
 use tracing::instrument;
 
 use super::order_validator::{LeavesToRootValidator, OrderValidator, RootToLeavesValidator};
-use crate::{B3Digest, Directory, Node};
+use crate::{path::PathComponent, B3Digest, Directory, Node};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -71,12 +69,12 @@ pub struct ValidatedDirectoryGraph {
     root: Option<NodeIndex>,
 }
 
-fn check_edge(dir: &Edge, dir_name: &[u8], child: &Directory) -> Result<(), Error> {
+fn check_edge(dir: &Edge, dir_name: &PathComponent, child: &Directory) -> Result<(), Error> {
     // Ensure the size specified in the child node matches our records.
     if dir.1 != child.size() {
         return Err(Error::ValidationError(format!(
             "'{}' has wrong size, specified {}, recorded {}",
-            dir_name.as_bstr(),
+            dir_name,
             dir.1,
             child.size(),
         )));
@@ -179,7 +177,7 @@ impl<O: OrderValidator> DirectoryGraph<O> {
                 .expect("edge is already validated");
 
             // TODO: where's the name here?
-            check_edge(&edge_weight, b"??", &directory)?;
+            check_edge(&edge_weight, &"??".try_into().unwrap(), &directory)?;
         }
 
         // finally, store the directory information in the node weight
@@ -284,7 +282,7 @@ mod tests {
         pub static ref BROKEN_PARENT_DIRECTORY: Directory = {
             let mut dir = Directory::new();
             dir.add(
-                "foo".into(),
+                "foo".try_into().unwrap(),
                 Node::Directory{
                     digest: DIRECTORY_A.digest(),
                     size: DIRECTORY_A.size() + 42, // wrong!

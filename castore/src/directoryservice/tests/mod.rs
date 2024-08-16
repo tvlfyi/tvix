@@ -219,7 +219,7 @@ async fn upload_reject_wrong_size(directory_service: impl DirectoryService) {
     let wrong_parent_directory = {
         let mut dir = Directory::new();
         dir.add(
-            "foo".into(),
+            "foo".try_into().unwrap(),
             Node::Directory {
                 digest: DIRECTORY_A.digest(),
                 size: DIRECTORY_A.size() + 42, // wrong!

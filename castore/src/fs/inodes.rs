@@ -2,7 +2,7 @@
 //! about inodes, which present tvix-castore nodes in a filesystem.
 use std::time::Duration;
 
-use crate::{B3Digest, Node};
+use crate::{path::PathComponent, B3Digest, Node};
 
 #[derive(Clone, Debug)]
 pub enum InodeData {
@@ -17,8 +17,8 @@ pub enum InodeData {
 /// lookup and did fetch the data.
 #[derive(Clone, Debug)]
 pub enum DirectoryInodeData {
-    Sparse(B3Digest, u64),                               // digest, size
-    Populated(B3Digest, Vec<(u64, bytes::Bytes, Node)>), // [(child_inode, name, node)]
+    Sparse(B3Digest, u64),                                // digest, size
+    Populated(B3Digest, Vec<(u64, PathComponent, Node)>), // [(child_inode, name, node)]
 }
 
 impl InodeData {

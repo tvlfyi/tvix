@@ -314,7 +314,7 @@ impl TvixStoreIO {
                             // assemble the PathInfo to persist
                             let path_info = PathInfo {
                                 node: Some(tvix_castore::proto::Node::from_name_and_node(
-                                    output_name,
+                                    output_name.into(),
                                     output_node,
                                 )),
                                 references: vec![], // TODO: refscan
@@ -355,7 +355,9 @@ impl TvixStoreIO {
                             .outputs
                             .into_iter()
                             .map(|e| e.into_name_and_node().expect("invalid node"))
-                            .find(|(output_name, _output_node)| output_name == s.as_bytes())
+                            .find(|(output_name, _output_node)| {
+                                output_name.as_ref() == s.as_bytes()
+                            })
                             .expect("build didn't produce the store path")
                             .1
                     }
@@ -562,9 +564,13 @@ impl EvalIO for TvixStoreIO {
                             // TODO: into_nodes() to avoid cloning
                             for (name, node) in directory.nodes() {
                                 children.push(match node {
-                                    Node::Directory { .. } => (name.clone(), FileType::Directory),
-                                    Node::File { .. } => (name.clone(), FileType::Regular),
-                                    Node::Symlink { .. } => (name.clone(), FileType::Symlink),
+                                    Node::Directory { .. } => {
+                                        (name.clone().into(), FileType::Directory)
+                                    }
+                                    Node::File { .. } => (name.clone().into(), FileType::Regular),
+                                    Node::Symlink { .. } => {
+                                        (name.clone().into(), FileType::Symlink)
+                                    }
                                 })
                             }
                             Ok(children)

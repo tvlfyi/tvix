@@ -1,5 +1,5 @@
 //! Contains data structures to deal with Paths in the tvix-castore model.
-
+use bstr::ByteSlice;
 use std::{
     borrow::Borrow,
     fmt::{self, Debug, Display},
@@ -8,9 +8,8 @@ use std::{
     str::FromStr,
 };
 
-use bstr::ByteSlice;
-
-use crate::Directory;
+mod component;
+pub use component::PathComponent;
 
 /// Represents a Path in the castore model.
 /// These are always relative, and platform-independent, which distinguishes
@@ -38,7 +37,7 @@ impl Path {
         if !bytes.is_empty() {
             // Ensure all components are valid castore node names.
             for component in bytes.split_str(b"/") {
-                if !Directory::is_valid_name(component) {
+                if !component::is_valid_name(component) {
                     return None;
                 }
             }
@@ -83,10 +82,26 @@ impl Path {
         Ok(v)
     }
 
+    /// Provides an iterator over the components of the path,
+    /// which are invividual [PathComponent].
+    /// In case the path is empty, an empty iterator is returned.
+    pub fn components(&self) -> impl Iterator<Item = PathComponent> + '_ {
+        let mut iter = self.inner.split_str(&b"/");
+
+        // We don't want to return an empty element, consume it if it's the only one.
+        if self.inner.is_empty() {
+            let _ = iter.next();
+        }
+
+        iter.map(|b| PathComponent {
+            inner: bytes::Bytes::copy_from_slice(b),
+        })
+    }
+
     /// Produces an iterator over the components of the path, which are
     /// individual byte slices.
     /// In case the path is empty, an empty iterator is returned.
-    pub fn components(&self) -> impl Iterator<Item = &[u8]> {
+    pub fn components_bytes(&self) -> impl Iterator<Item = &[u8]> {
         let mut iter = self.inner.split_str(&b"/");
 
         // We don't want to return an empty element, consume it if it's the only one.
@@ -97,9 +112,14 @@ impl Path {
         iter
     }
 
-    /// Returns the final component of the Path, if there is one.
-    pub fn file_name(&self) -> Option<&[u8]> {
+    /// Returns the final component of the Path, if there is one, in bytes.
+    pub fn file_name(&self) -> Option<PathComponent> {
         self.components().last()
+    }
+
+    /// Returns the final component of the Path, if there is one, in bytes.
+    pub fn file_name_bytes(&self) -> Option<&[u8]> {
+        self.components_bytes().last()
     }
 
     pub fn as_bytes(&self) -> &[u8] {
@@ -213,7 +233,7 @@ impl PathBuf {
 
     /// Adjoins `name` to self.
     pub fn try_push(&mut self, name: &[u8]) -> Result<(), std::io::Error> {
-        if !Directory::is_valid_name(name) {
+        if !component::is_valid_name(name) {
             return Err(std::io::ErrorKind::InvalidData.into());
         }
 
@@ -333,7 +353,7 @@ mod test {
         assert_eq!(s.as_bytes(), p.as_bytes(), "inner bytes mismatch");
         assert_eq!(
             num_components,
-            p.components().count(),
+            p.components_bytes().count(),
             "number of components mismatch"
         );
     }
@@ -400,10 +420,10 @@ mod test {
     #[case("a", vec!["a"])]
     #[case("a/b", vec!["a", "b"])]
     #[case("a/b/c", vec!["a","b", "c"])]
-    pub fn components(#[case] p: PathBuf, #[case] exp_components: Vec<&str>) {
+    pub fn components_bytes(#[case] p: PathBuf, #[case] exp_components: Vec<&str>) {
         assert_eq!(
             exp_components,
-            p.components()
+            p.components_bytes()
                 .map(|x| x.to_str().unwrap())
                 .collect::<Vec<_>>()
         );

@@ -178,7 +178,7 @@ where
                     // and then recurse on that entry.
                     for (name, node) in directory.nodes() {
                         let child_node = nar_node_directory
-                            .entry(name)
+                            .entry(name.as_ref())
                             .await
                             .map_err(RenderError::NARWriterError)?;
 

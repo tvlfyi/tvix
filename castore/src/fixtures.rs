@@ -34,7 +34,7 @@ lazy_static! {
     pub static ref DIRECTORY_WITH_KEEP: Directory = {
         let mut dir = Directory::new();
         dir.add(
-            ".keep".into(),
+            ".keep".try_into().unwrap(),
             Node::File{
                 digest: EMPTY_BLOB_DIGEST.clone(),
                 size: 0,
@@ -46,20 +46,20 @@ lazy_static! {
     pub static ref DIRECTORY_COMPLICATED: Directory = {
         let mut dir = Directory::new();
         dir.add(
-            "keep".into(),
+            "keep".try_into().unwrap(),
             Node::Directory{
                 digest: DIRECTORY_WITH_KEEP.digest(),
                 size: DIRECTORY_WITH_KEEP.size()
             }).unwrap();
         dir.add(
-            ".keep".into(),
+            ".keep".try_into().unwrap(),
             Node::File{
                 digest: EMPTY_BLOB_DIGEST.clone(),
                 size: 0,
                 executable: false
             }).unwrap();
         dir.add(
-            "aa".into(),
+            "aa".try_into().unwrap(),
             Node::Symlink{
                 target: "/nix/store/somewhereelse".try_into().unwrap()
             }).unwrap();
@@ -70,7 +70,7 @@ lazy_static! {
     pub static ref DIRECTORY_B: Directory = {
         let mut dir = Directory::new();
         dir.add(
-            "a".into(),
+            "a".try_into().unwrap(),
             Node::Directory{
                 digest: DIRECTORY_A.digest(),
                 size: DIRECTORY_A.size(),
@@ -81,13 +81,13 @@ lazy_static! {
     pub static ref DIRECTORY_C: Directory = {
         let mut dir = Directory::new();
         dir.add(
-            "a".into(),
+            "a".try_into().unwrap(),
             Node::Directory{
                 digest: DIRECTORY_A.digest(),
                 size: DIRECTORY_A.size(),
             }).unwrap();
         dir.add(
-            "a'".into(),
+            "a'".try_into().unwrap(),
             Node::Directory{
                 digest: DIRECTORY_A.digest(),
                 size: DIRECTORY_A.size(),
@@ -98,13 +98,13 @@ lazy_static! {
     pub static ref DIRECTORY_D: Directory = {
         let mut dir = Directory::new();
         dir.add(
-            "a".into(),
+            "a".try_into().unwrap(),
             Node::Directory{
                 digest: DIRECTORY_A.digest(),
                 size: DIRECTORY_A.size(),
             }).unwrap();
         dir.add(
-            "b".into(),
+            "b".try_into().unwrap(),
             Node::Directory{
                 digest: DIRECTORY_B.digest(),
                 size: DIRECTORY_B.size(),

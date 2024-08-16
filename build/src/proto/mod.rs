@@ -125,7 +125,7 @@ impl BuildRequest {
     pub fn validate(&self) -> Result<(), ValidateBuildRequestError> {
         // validate names. Make sure they're sorted
 
-        let mut last_name = bytes::Bytes::new();
+        let mut last_name: bytes::Bytes = "".into();
         for (i, node) in self.inputs.iter().enumerate() {
             // TODO(flokli): store result somewhere
             let (name, _node) = node
@@ -133,10 +133,10 @@ impl BuildRequest {
                 .into_name_and_node()
                 .map_err(|e| ValidateBuildRequestError::InvalidInputNode(i, e))?;
 
-            if name <= last_name {
+            if name.as_ref() <= last_name.as_ref() {
                 return Err(ValidateBuildRequestError::InputNodesNotSorted);
             } else {
-                last_name = name
+                last_name = name.into()
             }
         }
 

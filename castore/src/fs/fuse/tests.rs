@@ -1,5 +1,4 @@
 use bstr::ByteSlice;
-use bytes::Bytes;
 use std::{
     collections::BTreeMap,
     ffi::{OsStr, OsString},
@@ -12,11 +11,14 @@ use tempfile::TempDir;
 use tokio_stream::{wrappers::ReadDirStream, StreamExt};
 
 use super::FuseDaemon;
-use crate::fs::{TvixStoreFs, XATTR_NAME_BLOB_DIGEST, XATTR_NAME_DIRECTORY_DIGEST};
 use crate::{
     blobservice::{BlobService, MemoryBlobService},
     directoryservice::{DirectoryService, MemoryDirectoryService},
     fixtures, Node,
+};
+use crate::{
+    fs::{TvixStoreFs, XATTR_NAME_BLOB_DIGEST, XATTR_NAME_DIRECTORY_DIGEST},
+    PathComponent,
 };
 
 const BLOB_A_NAME: &str = "00000000000000000000000000000000-test";
@@ -37,7 +39,7 @@ fn gen_svcs() -> (Arc<dyn BlobService>, Arc<dyn DirectoryService>) {
 fn do_mount<P: AsRef<Path>, BS, DS>(
     blob_service: BS,
     directory_service: DS,
-    root_nodes: BTreeMap<bytes::Bytes, Node>,
+    root_nodes: BTreeMap<PathComponent, Node>,
     mountpoint: P,
     list_root: bool,
     show_xattr: bool,
@@ -58,7 +60,7 @@ where
 
 async fn populate_blob_a(
     blob_service: &Arc<dyn BlobService>,
-    root_nodes: &mut BTreeMap<Bytes, Node>,
+    root_nodes: &mut BTreeMap<PathComponent, Node>,
 ) {
     let mut bw = blob_service.open_write().await;
     tokio::io::copy(&mut Cursor::new(fixtures::BLOB_A.to_vec()), &mut bw)
@@ -67,7 +69,7 @@ async fn populate_blob_a(
     bw.close().await.expect("must succeed closing");
 
     root_nodes.insert(
-        BLOB_A_NAME.into(),
+        BLOB_A_NAME.try_into().unwrap(),
         Node::File {
             digest: fixtures::BLOB_A_DIGEST.clone(),
             size: fixtures::BLOB_A.len() as u64,
@@ -78,7 +80,7 @@ async fn populate_blob_a(
 
 async fn populate_blob_b(
     blob_service: &Arc<dyn BlobService>,
-    root_nodes: &mut BTreeMap<Bytes, Node>,
+    root_nodes: &mut BTreeMap<PathComponent, Node>,
 ) {
     let mut bw = blob_service.open_write().await;
     tokio::io::copy(&mut Cursor::new(fixtures::BLOB_B.to_vec()), &mut bw)
@@ -87,7 +89,7 @@ async fn populate_blob_b(
     bw.close().await.expect("must succeed closing");
 
     root_nodes.insert(
-        BLOB_B_NAME.into(),
+        BLOB_B_NAME.try_into().unwrap(),
         Node::File {
             digest: fixtures::BLOB_B_DIGEST.clone(),
             size: fixtures::BLOB_B.len() as u64,
@@ -99,7 +101,7 @@ async fn populate_blob_b(
 /// adds a blob containing helloworld and marks it as executable
 async fn populate_blob_helloworld(
     blob_service: &Arc<dyn BlobService>,
-    root_nodes: &mut BTreeMap<Bytes, Node>,
+    root_nodes: &mut BTreeMap<PathComponent, Node>,
 ) {
     let mut bw = blob_service.open_write().await;
     tokio::io::copy(
@@ -111,7 +113,7 @@ async fn populate_blob_helloworld(
     bw.close().await.expect("must succeed closing");
 
     root_nodes.insert(
-        HELLOWORLD_BLOB_NAME.into(),
+        HELLOWORLD_BLOB_NAME.try_into().unwrap(),
         Node::File {
             digest: fixtures::HELLOWORLD_BLOB_DIGEST.clone(),
             size: fixtures::HELLOWORLD_BLOB_CONTENTS.len() as u64,
@@ -120,9 +122,9 @@ async fn populate_blob_helloworld(
     );
 }
 
-async fn populate_symlink(root_nodes: &mut BTreeMap<Bytes, Node>) {
+async fn populate_symlink(root_nodes: &mut BTreeMap<PathComponent, Node>) {
     root_nodes.insert(
-        SYMLINK_NAME.into(),
+        SYMLINK_NAME.try_into().unwrap(),
         Node::Symlink {
             target: BLOB_A_NAME.try_into().unwrap(),
         },
@@ -131,9 +133,9 @@ async fn populate_symlink(root_nodes: &mut BTreeMap<Bytes, Node>) {
 
 /// This writes a symlink pointing to /nix/store/somewhereelse,
 /// which is the same symlink target as "aa" inside DIRECTORY_COMPLICATED.
-async fn populate_symlink2(root_nodes: &mut BTreeMap<Bytes, Node>) {
+async fn populate_symlink2(root_nodes: &mut BTreeMap<PathComponent, Node>) {
     root_nodes.insert(
-        SYMLINK_NAME2.into(),
+        SYMLINK_NAME2.try_into().unwrap(),
         Node::Symlink {
             target: "/nix/store/somewhereelse".try_into().unwrap(),
         },
@@ -143,7 +145,7 @@ async fn populate_symlink2(root_nodes: &mut BTreeMap<Bytes, Node>) {
 async fn populate_directory_with_keep(
     blob_service: &Arc<dyn BlobService>,
     directory_service: &Arc<dyn DirectoryService>,
-    root_nodes: &mut BTreeMap<Bytes, Node>,
+    root_nodes: &mut BTreeMap<PathComponent, Node>,
 ) {
     // upload empty blob
     let mut bw = blob_service.open_write().await;
@@ -159,7 +161,7 @@ async fn populate_directory_with_keep(
         .expect("must succeed uploading");
 
     root_nodes.insert(
-        DIRECTORY_WITH_KEEP_NAME.into(),
+        DIRECTORY_WITH_KEEP_NAME.try_into().unwrap(),
         Node::Directory {
             digest: fixtures::DIRECTORY_WITH_KEEP.digest(),
             size: fixtures::DIRECTORY_WITH_KEEP.size(),
@@ -169,9 +171,9 @@ async fn populate_directory_with_keep(
 
 /// Create a root node for DIRECTORY_WITH_KEEP, but don't upload the Directory
 /// itself.
-async fn populate_directorynode_without_directory(root_nodes: &mut BTreeMap<Bytes, Node>) {
+async fn populate_directorynode_without_directory(root_nodes: &mut BTreeMap<PathComponent, Node>) {
     root_nodes.insert(
-        DIRECTORY_WITH_KEEP_NAME.into(),
+        DIRECTORY_WITH_KEEP_NAME.try_into().unwrap(),
         Node::Directory {
             digest: fixtures::DIRECTORY_WITH_KEEP.digest(),
             size: fixtures::DIRECTORY_WITH_KEEP.size(),
@@ -180,9 +182,9 @@ async fn populate_directorynode_without_directory(root_nodes: &mut BTreeMap<Byte
 }
 
 /// Insert BLOB_A, but don't provide the blob .keep is pointing to.
-async fn populate_filenode_without_blob(root_nodes: &mut BTreeMap<Bytes, Node>) {
+async fn populate_filenode_without_blob(root_nodes: &mut BTreeMap<PathComponent, Node>) {
     root_nodes.insert(
-        BLOB_A_NAME.into(),
+        BLOB_A_NAME.try_into().unwrap(),
         Node::File {
             digest: fixtures::BLOB_A_DIGEST.clone(),
             size: fixtures::BLOB_A.len() as u64,
@@ -194,7 +196,7 @@ async fn populate_filenode_without_blob(root_nodes: &mut BTreeMap<Bytes, Node>) 
 async fn populate_directory_complicated(
     blob_service: &Arc<dyn BlobService>,
     directory_service: &Arc<dyn DirectoryService>,
-    root_nodes: &mut BTreeMap<Bytes, Node>,
+    root_nodes: &mut BTreeMap<PathComponent, Node>,
 ) {
     // upload empty blob
     let mut bw = blob_service.open_write().await;
@@ -216,7 +218,7 @@ async fn populate_directory_complicated(
         .expect("must succeed uploading");
 
     root_nodes.insert(
-        DIRECTORY_COMPLICATED_NAME.into(),
+        DIRECTORY_COMPLICATED_NAME.try_into().unwrap(),
         Node::Directory {
             digest: fixtures::DIRECTORY_COMPLICATED.digest(),
             size: fixtures::DIRECTORY_COMPLICATED.size(),

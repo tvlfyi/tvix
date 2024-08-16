@@ -5,7 +5,7 @@ use prost::Message;
 mod grpc_blobservice_wrapper;
 mod grpc_directoryservice_wrapper;
 
-use crate::{B3Digest, DirectoryError};
+use crate::{path::PathComponent, B3Digest, DirectoryError};
 pub use grpc_blobservice_wrapper::GRPCBlobServiceWrapper;
 pub use grpc_directoryservice_wrapper::GRPCDirectoryServiceWrapper;
 
@@ -162,19 +162,19 @@ impl From<&crate::Directory> for Directory {
                     size,
                     executable,
                 } => files.push(FileNode {
-                    name: name.clone(),
+                    name: name.to_owned().into(),
                     digest: digest.to_owned().into(),
                     size: *size,
                     executable: *executable,
                 }),
                 crate::Node::Directory { digest, size } => directories.push(DirectoryNode {
-                    name: name.clone(),
+                    name: name.to_owned().into(),
                     digest: digest.to_owned().into(),
                     size: *size,
                 }),
                 crate::Node::Symlink { target } => {
                     symlinks.push(SymlinkNode {
-                        name: name.clone(),
+                        name: name.to_owned().into(),
                         target: target.to_owned().into(),
                     });
                 }
@@ -190,22 +190,24 @@ impl From<&crate::Directory> for Directory {
 
 impl Node {
     /// Converts a proto [Node] to a [crate::Node], and splits off the name.
-    pub fn into_name_and_node(self) -> Result<(bytes::Bytes, crate::Node), DirectoryError> {
+    pub fn into_name_and_node(self) -> Result<(PathComponent, crate::Node), DirectoryError> {
         match self.node.ok_or_else(|| DirectoryError::NoNodeSet)? {
             node::Node::Directory(n) => {
+                let name: PathComponent = n.name.try_into()?;
                 let digest = B3Digest::try_from(n.digest)
-                    .map_err(|e| DirectoryError::InvalidNode(n.name.to_owned(), e.into()))?;
+                    .map_err(|e| DirectoryError::InvalidNode(name.clone(), e.into()))?;
 
                 let node = crate::Node::Directory {
                     digest,
                     size: n.size,
                 };
 
-                Ok((n.name, node))
+                Ok((name, node))
             }
             node::Node::File(n) => {
+                let name: PathComponent = n.name.try_into()?;
                 let digest = B3Digest::try_from(n.digest)
-                    .map_err(|e| DirectoryError::InvalidNode(n.name.to_owned(), e.into()))?;
+                    .map_err(|e| DirectoryError::InvalidNode(name.clone(), e.into()))?;
 
                 let node = crate::Node::File {
                     digest,
@@ -213,23 +215,26 @@ impl Node {
                     executable: n.executable,
                 };
 
-                Ok((n.name, node))
+                Ok((name, node))
             }
 
             node::Node::Symlink(n) => {
+                let name: PathComponent = n.name.try_into()?;
                 let node = crate::Node::Symlink {
                     target: n
                         .target
                         .try_into()
-                        .map_err(|e| DirectoryError::InvalidNode(n.name.to_owned(), e))?,
+                        .map_err(|e| DirectoryError::InvalidNode(name.clone(), e))?,
                 };
 
-                Ok((n.name, node))
+                Ok((name, node))
             }
         }
     }
 
     /// Construsts a [Node] from a name and [crate::Node].
+    /// The name is a [bytes::Bytes], not a [PathComponent], as we have use an
+    /// empty name in some places.
     pub fn from_name_and_node(name: bytes::Bytes, n: crate::Node) -> Self {
         match n {
             crate::Node::Directory { digest, size } => Self {

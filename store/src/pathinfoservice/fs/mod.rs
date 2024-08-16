@@ -3,7 +3,7 @@ use futures::StreamExt;
 use tonic::async_trait;
 use tvix_castore::fs::{RootNodes, TvixStoreFs};
 use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService};
-use tvix_castore::{Error, Node};
+use tvix_castore::{Error, Node, PathComponent};
 
 use super::PathInfoService;
 
@@ -47,8 +47,8 @@ impl<T> RootNodes for RootNodesWrapper<T>
 where
     T: AsRef<dyn PathInfoService> + Send + Sync,
 {
-    async fn get_by_basename(&self, name: &[u8]) -> Result<Option<Node>, Error> {
-        let Ok(store_path) = nix_compat::store_path::StorePath::from_bytes(name) else {
+    async fn get_by_basename(&self, name: &PathComponent) -> Result<Option<Node>, Error> {
+        let Ok(store_path) = nix_compat::store_path::StorePath::from_bytes(name.as_ref()) else {
             return Ok(None);
         };
 
@@ -72,7 +72,7 @@ where
             .transpose()?)
     }
 
-    fn list(&self) -> BoxStream<Result<(bytes::Bytes, Node), Error>> {
+    fn list(&self) -> BoxStream<Result<(PathComponent, Node), Error>> {
         Box::pin(self.0.as_ref().list().map(|result| {
             result.and_then(|path_info| {
                 let node = path_info

@@ -13,7 +13,7 @@ where
     DS: AsRef<dyn DirectoryService>,
 {
     let mut parent_node = root_node;
-    for component in path.as_ref().components() {
+    for component in path.as_ref().components_bytes() {
         match parent_node {
             Node::File { .. } | Node::Symlink { .. } => {
                 // There's still some path left, but the parent node is no directory.

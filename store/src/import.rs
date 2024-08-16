@@ -3,6 +3,7 @@ use std::path::Path;
 use tracing::{debug, instrument};
 use tvix_castore::{
     blobservice::BlobService, directoryservice::DirectoryService, import::fs::ingest_path, Node,
+    PathComponent,
 };
 
 use nix_compat::{
@@ -139,14 +140,19 @@ where
         )
     })?;
 
-    let name = bytes::Bytes::from(output_path.to_string());
+    let name: PathComponent = output_path
+        .to_string()
+        .as_str()
+        .try_into()
+        .expect("Tvix bug: StorePath must be PathComponent");
+
     log_node(name.as_ref(), &root_node, path.as_ref());
 
     let path_info = derive_nar_ca_path_info(
         nar_size,
         nar_sha256,
         Some(&CAHash::Nar(NixHash::Sha256(nar_sha256))),
-        output_path.to_string().into_bytes().into(),
+        name.into(),
         root_node,
     );
 

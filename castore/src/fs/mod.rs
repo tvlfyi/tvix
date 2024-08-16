@@ -18,10 +18,10 @@ use self::{
 use crate::{
     blobservice::{BlobReader, BlobService},
     directoryservice::DirectoryService,
-    {B3Digest, Node},
+    path::PathComponent,
+    B3Digest, Node,
 };
 use bstr::ByteVec;
-use bytes::Bytes;
 use fuse_backend_rs::abi::fuse_abi::{stat64, OpenOptions};
 use fuse_backend_rs::api::filesystem::{
     Context, FileSystem, FsOptions, GetxattrReply, ListxattrReply, ROOT_ID,
@@ -87,7 +87,7 @@ pub struct TvixStoreFs<BS, DS, RN> {
     show_xattr: bool,
 
     /// This maps a given basename in the root to the inode we allocated for the node.
-    root_nodes: RwLock<HashMap<Bytes, u64>>,
+    root_nodes: RwLock<HashMap<PathComponent, u64>>,
 
     /// This keeps track of inodes and data alongside them.
     inode_tracker: RwLock<InodeTracker>,
@@ -103,7 +103,7 @@ pub struct TvixStoreFs<BS, DS, RN> {
             u64,
             (
                 Span,
-                Arc<Mutex<mpsc::Receiver<(usize, Result<(Bytes, Node), crate::Error>)>>>,
+                Arc<Mutex<mpsc::Receiver<(usize, Result<(PathComponent, Node), crate::Error>)>>>,
             ),
         >,
     >,
@@ -154,7 +154,7 @@ where
 
     /// Retrieves the inode for a given root node basename, if present.
     /// This obtains a read lock on self.root_nodes.
-    fn get_inode_for_root_name(&self, name: &[u8]) -> Option<u64> {
+    fn get_inode_for_root_name(&self, name: &PathComponent) -> Option<u64> {
         self.root_nodes.read().get(name).cloned()
     }
 
@@ -170,7 +170,7 @@ where
     fn get_directory_children(
         &self,
         ino: u64,
-    ) -> io::Result<(B3Digest, Vec<(u64, bytes::Bytes, Node)>)> {
+    ) -> io::Result<(B3Digest, Vec<(u64, PathComponent, Node)>)> {
         let data = self.inode_tracker.read().get(ino).unwrap();
         match *data {
             // if it's populated already, return children.
@@ -200,7 +200,7 @@ where
                 let children = {
                     let mut inode_tracker = self.inode_tracker.write();
 
-                    let children: Vec<(u64, Bytes, Node)> = directory
+                    let children: Vec<(u64, PathComponent, Node)> = directory
                         .nodes()
                         .map(|(child_name, child_node)| {
                             let inode_data = InodeData::from_node(child_node);
@@ -240,12 +240,12 @@ where
     /// In the case the name can't be found, a libc::ENOENT is returned.
     fn name_in_root_to_ino_and_data(
         &self,
-        name: &std::ffi::CStr,
+        name: &PathComponent,
     ) -> io::Result<(u64, Arc<InodeData>)> {
         // Look up the inode for that root node.
         // If there's one, [self.inode_tracker] MUST also contain the data,
         // which we can then return.
-        if let Some(inode) = self.get_inode_for_root_name(name.to_bytes()) {
+        if let Some(inode) = self.get_inode_for_root_name(name) {
             return Ok((
                 inode,
                 self.inode_tracker
@@ -259,7 +259,8 @@ where
         // We don't have it yet, look it up in [self.root_nodes].
         match self.tokio_handle.block_on({
             let root_nodes_provider = self.root_nodes_provider.clone();
-            async move { root_nodes_provider.get_by_basename(name.to_bytes()).await }
+            let name = name.clone();
+            async move { root_nodes_provider.get_by_basename(&name).await }
         }) {
             // if there was an error looking up the root node, propagate up an IO error.
             Err(_e) => Err(io::Error::from_raw_os_error(libc::EIO)),
@@ -269,7 +270,7 @@ where
             Ok(Some(root_node)) => {
                 // Let's check if someone else beat us to updating the inode tracker and
                 // root_nodes map. This avoids locking inode_tracker for writing.
-                if let Some(ino) = self.root_nodes.read().get(name.to_bytes()) {
+                if let Some(ino) = self.root_nodes.read().get(name) {
                     return Ok((
                         *ino,
                         self.inode_tracker.read().get(*ino).expect("must exist"),
@@ -285,7 +286,7 @@ where
                 // self.root_nodes.
                 let inode_data = InodeData::from_node(&root_node);
                 let ino = inode_tracker.put(inode_data.clone());
-                root_nodes.insert(bytes::Bytes::copy_from_slice(name.to_bytes()), ino);
+                root_nodes.insert(name.to_owned(), ino);
 
                 Ok((ino, Arc::new(inode_data)))
             }
@@ -341,13 +342,17 @@ where
     ) -> io::Result<fuse_backend_rs::api::filesystem::Entry> {
         debug!("lookup");
 
+        // convert the CStr to a PathComponent
+        // If it can't be converted, we definitely don't have anything here.
+        let name: PathComponent = name.try_into().map_err(|_| std::io::ErrorKind::NotFound)?;
+
         // This goes from a parent inode to a node.
         // - If the parent is [ROOT_ID], we need to check
         //   [self.root_nodes] (fetching from a [RootNode] provider if needed)
         // - Otherwise, lookup the parent in [self.inode_tracker] (which must be
         //   a [InodeData::Directory]), and find the child with that name.
         if parent == ROOT_ID {
-            let (ino, inode_data) = self.name_in_root_to_ino_and_data(name)?;
+            let (ino, inode_data) = self.name_in_root_to_ino_and_data(&name)?;
 
             debug!(inode_data=?&inode_data, ino=ino, "Some");
             return Ok(inode_data.as_fuse_entry(ino));
@@ -360,7 +365,7 @@ where
         // Search for that name in the list of children and return the FileAttrs.
 
         // in the children, find the one with the desired name.
-        if let Some((child_ino, _, _)) = children.iter().find(|(_, n, _)| n == name.to_bytes()) {
+        if let Some((child_ino, _, _)) = children.iter().find(|(_, n, _)| n == &name) {
             // lookup the child [InodeData] in [self.inode_tracker].
             // We know the inodes for children have already been allocated.
             let child_inode_data = self.inode_tracker.read().get(*child_ino).unwrap();
@@ -479,7 +484,7 @@ where
                     ino,
                     offset: offset + (i as u64) + 1,
                     type_: inode_data.as_fuse_type(),
-                    name: &name,
+                    name: name.as_ref(),
                 })?;
                 // If the buffer is full, add_entry will return `Ok(0)`.
                 if written == 0 {
@@ -503,7 +508,7 @@ where
                 ino,
                 offset: offset + (i as u64) + 1,
                 type_: inode_data.as_fuse_type(),
-                name: &child_name,
+                name: child_name.as_ref(),
             })?;
             // If the buffer is full, add_entry will return `Ok(0)`.
             if written == 0 {
@@ -569,7 +574,7 @@ where
                         ino,
                         offset: offset + (i as u64) + 1,
                         type_: inode_data.as_fuse_type(),
-                        name: &name,
+                        name: name.as_ref(),
                     },
                     inode_data.as_fuse_entry(ino),
                 )?;
@@ -594,7 +599,7 @@ where
                     ino,
                     offset: offset + (i as u64) + 1,
                     type_: inode_data.as_fuse_type(),
-                    name: &name,
+                    name: name.as_ref(),
                 },
                 inode_data.as_fuse_entry(ino),
             )?;

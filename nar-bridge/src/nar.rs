@@ -57,7 +57,7 @@ pub async fn get(
         StatusCode::BAD_REQUEST
     })?;
 
-    if !root_name.is_empty() {
+    if !root_name.as_ref().is_empty() {
         warn!("root node has name, which it shouldn't");
         return Err(StatusCode::BAD_REQUEST);
     }

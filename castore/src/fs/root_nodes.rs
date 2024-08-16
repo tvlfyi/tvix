@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::{Error, Node};
+use crate::{path::PathComponent, Error, Node};
 use futures::stream::BoxStream;
 use tonic::async_trait;
 
@@ -10,12 +10,12 @@ use tonic::async_trait;
 pub trait RootNodes: Send + Sync {
     /// Looks up a root CA node based on the basename of the node in the root
     /// directory of the filesystem.
-    async fn get_by_basename(&self, name: &[u8]) -> Result<Option<Node>, Error>;
+    async fn get_by_basename(&self, name: &PathComponent) -> Result<Option<Node>, Error>;
 
     /// Lists all root CA nodes in the filesystem, as a tuple of (base)name
     /// and Node.
     /// An error can be returned in case listing is not allowed.
-    fn list(&self) -> BoxStream<Result<(bytes::Bytes, Node), Error>>;
+    fn list(&self) -> BoxStream<Result<(PathComponent, Node), Error>>;
 }
 
 #[async_trait]
@@ -23,13 +23,13 @@ pub trait RootNodes: Send + Sync {
 /// the key is the node name.
 impl<T> RootNodes for T
 where
-    T: AsRef<BTreeMap<bytes::Bytes, Node>> + Send + Sync,
+    T: AsRef<BTreeMap<PathComponent, Node>> + Send + Sync,
 {
-    async fn get_by_basename(&self, name: &[u8]) -> Result<Option<Node>, Error> {
+    async fn get_by_basename(&self, name: &PathComponent) -> Result<Option<Node>, Error> {
         Ok(self.as_ref().get(name).cloned())
     }
 
-    fn list(&self) -> BoxStream<Result<(bytes::Bytes, Node), Error>> {
+    fn list(&self) -> BoxStream<Result<(PathComponent, Node), Error>> {
         Box::pin(tokio_stream::iter(
             self.as_ref()
                 .iter()
