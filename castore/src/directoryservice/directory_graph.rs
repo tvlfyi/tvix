@@ -16,7 +16,10 @@ pub enum Error {
     ValidationError(String),
 }
 
-type Edge = (B3Digest, u64);
+struct EdgeWeight {
+    name: PathComponent,
+    size: u64,
+}
 
 /// This can be used to validate and/or re-order a Directory closure (DAG of
 /// connected Directories), and their insertion order.
@@ -55,7 +58,7 @@ pub struct DirectoryGraph<O> {
     //
     // The option in the edge weight tracks the pending validation state of the respective edge, for example if
     // the child has not been added yet.
-    graph: DiGraph<Option<Directory>, Option<Edge>>,
+    graph: DiGraph<Option<Directory>, Option<EdgeWeight>>,
 
     // A lookup table from directory digest to node index.
     digest_to_node_ix: HashMap<B3Digest, NodeIndex>,
@@ -64,18 +67,18 @@ pub struct DirectoryGraph<O> {
 }
 
 pub struct ValidatedDirectoryGraph {
-    graph: DiGraph<Option<Directory>, Option<Edge>>,
+    graph: DiGraph<Option<Directory>, Option<EdgeWeight>>,
 
     root: Option<NodeIndex>,
 }
 
-fn check_edge(dir: &Edge, dir_name: &PathComponent, child: &Directory) -> Result<(), Error> {
+fn check_edge(edge: &EdgeWeight, child: &Directory) -> Result<(), Error> {
     // Ensure the size specified in the child node matches our records.
-    if dir.1 != child.size() {
+    if edge.size != child.size() {
         return Err(Error::ValidationError(format!(
             "'{}' has wrong size, specified {}, recorded {}",
-            dir_name,
-            dir.1,
+            edge.name,
+            edge.size,
             child.size(),
         )));
     }
@@ -151,10 +154,19 @@ impl<O: OrderValidator> DirectoryGraph<O> {
                 let pending_edge_check = match &self.graph[child_ix] {
                     Some(child) => {
                         // child is already available, validate the edge now
-                        check_edge(&(digest.to_owned(), *size), name, child)?;
+                        check_edge(
+                            &EdgeWeight {
+                                name: name.clone(),
+                                size: *size,
+                            },
+                            child,
+                        )?;
                         None
                     }
-                    None => Some((digest.to_owned(), *size)), // pending validation
+                    None => Some(EdgeWeight {
+                        name: name.clone(),
+                        size: *size,
+                    }), // pending validation
                 };
                 self.graph.add_edge(ix, child_ix, pending_edge_check);
             }
@@ -176,8 +188,7 @@ impl<O: OrderValidator> DirectoryGraph<O> {
                 .take()
                 .expect("edge is already validated");
 
-            // TODO: where's the name here?
-            check_edge(&edge_weight, &"??".try_into().unwrap(), &directory)?;
+            check_edge(&edge_weight, &directory)?;
         }
 
         // finally, store the directory information in the node weight
