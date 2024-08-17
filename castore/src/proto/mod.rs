@@ -1,4 +1,4 @@
-use std::str;
+use std::{cmp::Ordering, str};
 
 use prost::Message;
 
@@ -66,79 +66,76 @@ impl Directory {
     }
 }
 
-/// Accepts a name, and a mutable reference to the previous name.
-/// If the passed name is larger than the previous one, the reference is updated.
-/// If it's not, an error is returned.
-fn update_if_lt_prev<'n>(prev_name: &mut &'n [u8], name: &'n [u8]) -> Result<(), DirectoryError> {
-    if *name < **prev_name {
-        return Err(DirectoryError::WrongSorting(bytes::Bytes::copy_from_slice(
-            name,
-        )));
-    }
-    *prev_name = name;
-    Ok(())
-}
-
-// TODO: add a proper owned version here that moves various fields
 impl TryFrom<Directory> for crate::Directory {
     type Error = DirectoryError;
 
     fn try_from(value: Directory) -> Result<Self, Self::Error> {
-        (&value).try_into()
-    }
-}
-
-impl TryFrom<&Directory> for crate::Directory {
-    type Error = DirectoryError;
-
-    fn try_from(directory: &Directory) -> Result<crate::Directory, DirectoryError> {
-        let mut dir = crate::Directory::new();
-
-        let mut last_file_name: &[u8] = b"";
-
-        // TODO: this currently loops over all three types separately, rather
-        // than peeking and picking from where would be the next.
-
-        for file in directory.files.iter().map(move |file| {
-            update_if_lt_prev(&mut last_file_name, &file.name).map(|()| file.clone())
-        }) {
-            let file = file?;
-
-            let (name, node) = Node {
-                node: Some(node::Node::File(file)),
+        // Check directories, files and symlinks are sorted
+        // We'll notice duplicates across all three fields when constructing the Directory.
+        // FUTUREWORK: use is_sorted() once stable, and/or implement the producer for
+        // [crate::Directory::try_from_iter] iterating over all three and doing all checks inline.
+        value
+            .directories
+            .iter()
+            .try_fold(&b""[..], |prev_name, e| {
+                match e.name.as_ref().cmp(prev_name) {
+                    Ordering::Less => Err(DirectoryError::WrongSorting(e.name.to_owned())),
+                    Ordering::Equal => {
+                        Err(DirectoryError::DuplicateName(e.name.to_owned().try_into()?))
+                    }
+                    Ordering::Greater => Ok(e.name.as_ref()),
+                }
+            })?;
+        value.files.iter().try_fold(&b""[..], |prev_name, e| {
+            match e.name.as_ref().cmp(prev_name) {
+                Ordering::Less => Err(DirectoryError::WrongSorting(e.name.to_owned())),
+                Ordering::Equal => {
+                    Err(DirectoryError::DuplicateName(e.name.to_owned().try_into()?))
+                }
+                Ordering::Greater => Ok(e.name.as_ref()),
             }
-            .into_name_and_node()?;
-
-            dir.add(name, node)?;
-        }
-        let mut last_directory_name: &[u8] = b"";
-        for directory in directory.directories.iter().map(move |directory| {
-            update_if_lt_prev(&mut last_directory_name, &directory.name).map(|()| directory.clone())
-        }) {
-            let directory = directory?;
-
-            let (name, node) = Node {
-                node: Some(node::Node::Directory(directory)),
+        })?;
+        value.symlinks.iter().try_fold(&b""[..], |prev_name, e| {
+            match e.name.as_ref().cmp(prev_name) {
+                Ordering::Less => Err(DirectoryError::WrongSorting(e.name.to_owned())),
+                Ordering::Equal => {
+                    Err(DirectoryError::DuplicateName(e.name.to_owned().try_into()?))
+                }
+                Ordering::Greater => Ok(e.name.as_ref()),
             }
-            .into_name_and_node()?;
+        })?;
 
-            dir.add(name, node)?;
-        }
-        let mut last_symlink_name: &[u8] = b"";
-        for symlink in directory.symlinks.iter().map(move |symlink| {
-            update_if_lt_prev(&mut last_symlink_name, &symlink.name).map(|()| symlink.clone())
-        }) {
-            let symlink = symlink?;
+        let mut elems: Vec<(PathComponent, crate::Node)> =
+            Vec::with_capacity(value.directories.len() + value.files.len() + value.symlinks.len());
 
-            let (name, node) = Node {
-                node: Some(node::Node::Symlink(symlink)),
-            }
-            .into_name_and_node()?;
-
-            dir.add(name, node)?;
+        for e in value.directories {
+            elems.push(
+                Node {
+                    node: Some(node::Node::Directory(e)),
+                }
+                .into_name_and_node()?,
+            );
         }
 
-        Ok(dir)
+        for e in value.files {
+            elems.push(
+                Node {
+                    node: Some(node::Node::File(e)),
+                }
+                .into_name_and_node()?,
+            )
+        }
+
+        for e in value.symlinks {
+            elems.push(
+                Node {
+                    node: Some(node::Node::Symlink(e)),
+                }
+                .into_name_and_node()?,
+            )
+        }
+
+        crate::Directory::try_from_iter(elems)
     }
 }
 

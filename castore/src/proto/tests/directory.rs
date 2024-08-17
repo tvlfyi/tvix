@@ -155,7 +155,7 @@ fn validate_invalid_names() {
     {
         let d = Directory {
             directories: vec![DirectoryNode {
-                name: "".into(),
+                name: b"\0"[..].into(),
                 digest: DUMMY_DIGEST.to_vec().into(),
                 size: 42,
             }],
@@ -163,7 +163,7 @@ fn validate_invalid_names() {
         };
         match crate::Directory::try_from(d).expect_err("must fail") {
             DirectoryError::InvalidName(n) => {
-                assert_eq!(n.as_ref(), b"")
+                assert_eq!(n.as_ref(), b"\0")
             }
             _ => panic!("unexpected error"),
         };
@@ -282,7 +282,7 @@ fn validate_sorting() {
         }
     }
 
-    // "a" exists twice, bad.
+    // "a" exists twice (same types), bad.
     {
         let d = Directory {
             directories: vec![
@@ -297,6 +297,28 @@ fn validate_sorting() {
                     size: 42,
                 },
             ],
+            ..Default::default()
+        };
+        match crate::Directory::try_from(d).expect_err("must fail") {
+            DirectoryError::DuplicateName(s) => {
+                assert_eq!(s.as_ref(), b"a");
+            }
+            _ => panic!("unexpected error"),
+        }
+    }
+
+    // "a" exists twice (different types), bad.
+    {
+        let d = Directory {
+            directories: vec![DirectoryNode {
+                name: "a".into(),
+                digest: DUMMY_DIGEST.to_vec().into(),
+                size: 42,
+            }],
+            symlinks: vec![SymlinkNode {
+                name: "a".into(),
+                target: "b".into(),
+            }],
             ..Default::default()
         };
         match crate::Directory::try_from(d).expect_err("must fail") {
