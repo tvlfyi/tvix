@@ -1,9 +1,9 @@
-use std::collections::BTreeMap;
+use std::collections::btree_map::{self, BTreeMap};
 
 use crate::{errors::DirectoryError, path::PathComponent, proto, B3Digest, Node};
 
 /// A Directory contains nodes, which can be Directory, File or Symlink nodes.
-/// It attached names to these nodes, which is the basename in that directory.
+/// It attaches names to these nodes, which is the basename in that directory.
 /// These names:
 ///  - MUST not contain slashes or null bytes
 ///  - MUST not be '.' or '..'
@@ -15,11 +15,26 @@ pub struct Directory {
 
 impl Directory {
     /// Constructs a new, empty Directory.
-    /// FUTUREWORK: provide a constructor from an interator of (sorted) names and nodes.
     pub fn new() -> Self {
         Directory {
             nodes: BTreeMap::new(),
         }
+    }
+
+    /// Construct a [Directory] from tuples of name and [Node].
+    ///
+    /// Inserting multiple elements with the same name will yield an error, as
+    /// well as exceeding the maximum size.
+    pub fn try_from_iter<T: IntoIterator<Item = (PathComponent, Node)>>(
+        iter: T,
+    ) -> Result<Directory, DirectoryError> {
+        let mut nodes = BTreeMap::new();
+
+        iter.into_iter().try_fold(0u64, |size, (name, node)| {
+            check_insert_node(size, &mut nodes, name, node)
+        })?;
+
+        Ok(Self { nodes })
     }
 
     /// The size of a directory is the number of all regular and symlink elements,
@@ -58,34 +73,14 @@ impl Directory {
 
     /// Adds the specified [Node] to the [Directory] with a given name.
     ///
-    /// Inserting an element that already exists with the same name in the directory will yield an
-    /// error.
-    /// Inserting an element will validate that its name fulfills the
-    /// requirements for directory entries and yield an error if it is not.
+    /// Inserting a node that already exists with the same name in the directory
+    /// will yield an error, as well as exceeding the maximum size.
+    ///
+    /// In case you want to construct a [Directory] from multiple elements, use
+    /// [from_iter] instead.
     pub fn add(&mut self, name: PathComponent, node: Node) -> Result<(), DirectoryError> {
-        // Check that the even after adding this new directory entry, the size calculation will not
-        // overflow
-        // FUTUREWORK: add some sort of batch add interface which only does this check once with
-        // all the to-be-added entries
-        checked_sum([
-            self.size(),
-            1,
-            match node {
-                Node::Directory { size, .. } => size,
-                _ => 0,
-            },
-        ])
-        .ok_or(DirectoryError::SizeOverflow)?;
-
-        match self.nodes.entry(name) {
-            std::collections::btree_map::Entry::Vacant(e) => {
-                e.insert(node);
-                Ok(())
-            }
-            std::collections::btree_map::Entry::Occupied(occupied) => {
-                Err(DirectoryError::DuplicateName(occupied.key().to_owned()))
-            }
-        }
+        check_insert_node(self.size(), &mut self.nodes, name, node)?;
+        Ok(())
     }
 }
 
@@ -93,11 +88,131 @@ fn checked_sum(iter: impl IntoIterator<Item = u64>) -> Option<u64> {
     iter.into_iter().try_fold(0u64, |acc, i| acc.checked_add(i))
 }
 
+/// Helper function dealing with inserting nodes into the nodes [BTreeMap],
+/// after ensuring the new size doesn't overlow and the key doesn't exist already.
+///
+/// Returns the new total size, or an error.
+fn check_insert_node(
+    current_size: u64,
+    nodes: &mut BTreeMap<PathComponent, Node>,
+    name: PathComponent,
+    node: Node,
+) -> Result<u64, DirectoryError> {
+    // Check that the even after adding this new directory entry, the size calculation will not
+    // overflow
+    let new_size = checked_sum([
+        current_size,
+        1,
+        match node {
+            Node::Directory { size, .. } => size,
+            _ => 0,
+        },
+    ])
+    .ok_or(DirectoryError::SizeOverflow)?;
+
+    match nodes.entry(name) {
+        btree_map::Entry::Vacant(e) => {
+            e.insert(node);
+        }
+        btree_map::Entry::Occupied(occupied) => {
+            return Err(DirectoryError::DuplicateName(occupied.key().to_owned()))
+        }
+    }
+
+    Ok(new_size)
+}
+
 #[cfg(test)]
 mod test {
     use super::{Directory, Node};
     use crate::fixtures::DUMMY_DIGEST;
-    use crate::DirectoryError;
+    use crate::{DirectoryError, PathComponent};
+
+    #[test]
+    fn from_iter_single() {
+        Directory::try_from_iter([(
+            PathComponent::try_from("b").unwrap(),
+            Node::Directory {
+                digest: DUMMY_DIGEST.clone(),
+                size: 1,
+            },
+        )])
+        .unwrap();
+    }
+
+    #[test]
+    fn from_iter_multiple() {
+        let d = Directory::try_from_iter([
+            (
+                "b".try_into().unwrap(),
+                Node::Directory {
+                    digest: DUMMY_DIGEST.clone(),
+                    size: 1,
+                },
+            ),
+            (
+                "a".try_into().unwrap(),
+                Node::Directory {
+                    digest: DUMMY_DIGEST.clone(),
+                    size: 1,
+                },
+            ),
+            (
+                "z".try_into().unwrap(),
+                Node::Directory {
+                    digest: DUMMY_DIGEST.clone(),
+                    size: 1,
+                },
+            ),
+            (
+                "f".try_into().unwrap(),
+                Node::File {
+                    digest: DUMMY_DIGEST.clone(),
+                    size: 1,
+                    executable: true,
+                },
+            ),
+            (
+                "c".try_into().unwrap(),
+                Node::File {
+                    digest: DUMMY_DIGEST.clone(),
+                    size: 1,
+                    executable: true,
+                },
+            ),
+            (
+                "g".try_into().unwrap(),
+                Node::File {
+                    digest: DUMMY_DIGEST.clone(),
+                    size: 1,
+                    executable: true,
+                },
+            ),
+            (
+                "t".try_into().unwrap(),
+                Node::Symlink {
+                    target: "a".try_into().unwrap(),
+                },
+            ),
+            (
+                "o".try_into().unwrap(),
+                Node::Symlink {
+                    target: "a".try_into().unwrap(),
+                },
+            ),
+            (
+                "e".try_into().unwrap(),
+                Node::Symlink {
+                    target: "a".try_into().unwrap(),
+                },
+            ),
+        ])
+        .unwrap();
+
+        // Convert to proto struct and back to ensure we are not generating any invalid structures
+        crate::Directory::try_from(crate::proto::Directory::from(d))
+            .expect("directory should be valid");
+    }
 
     #[test]
     fn add_nodes_to_directory() {
@@ -116,64 +231,6 @@ mod test {
             Node::Directory {
                 digest: DUMMY_DIGEST.clone(),
                 size: 1,
-            },
-        )
-        .unwrap();
-        d.add(
-            "z".try_into().unwrap(),
-            Node::Directory {
-                digest: DUMMY_DIGEST.clone(),
-                size: 1,
-            },
-        )
-        .unwrap();
-
-        d.add(
-            "f".try_into().unwrap(),
-            Node::File {
-                digest: DUMMY_DIGEST.clone(),
-                size: 1,
-                executable: true,
-            },
-        )
-        .unwrap();
-        d.add(
-            "c".try_into().unwrap(),
-            Node::File {
-                digest: DUMMY_DIGEST.clone(),
-                size: 1,
-                executable: true,
-            },
-        )
-        .unwrap();
-        d.add(
-            "g".try_into().unwrap(),
-            Node::File {
-                digest: DUMMY_DIGEST.clone(),
-                size: 1,
-                executable: true,
-            },
-        )
-        .unwrap();
-
-        d.add(
-            "t".try_into().unwrap(),
-            Node::Symlink {
-                target: "a".try_into().unwrap(),
-            },
-        )
-        .unwrap();
-        d.add(
-            "o".try_into().unwrap(),
-            Node::Symlink {
-                target: "a".try_into().unwrap(),
-            },
-        )
-        .unwrap();
-        d.add(
-            "e".try_into().unwrap(),
-            Node::Symlink {
-                target: "a".try_into().unwrap(),
             },
         )
         .unwrap();

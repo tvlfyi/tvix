@@ -290,16 +290,16 @@ mod tests {
     use super::{DirectoryGraph, LeavesToRootValidator, RootToLeavesValidator};
 
     lazy_static! {
-        pub static ref BROKEN_PARENT_DIRECTORY: Directory = {
-            let mut dir = Directory::new();
-            dir.add(
-                "foo".try_into().unwrap(),
-                Node::Directory{
-                    digest: DIRECTORY_A.digest(),
-                    size: DIRECTORY_A.size() + 42, // wrong!
-                }).unwrap();
-            dir
-        };
+        pub static ref BROKEN_PARENT_DIRECTORY: Directory =
+            Directory::try_from_iter([
+                (
+                    "foo".try_into().unwrap(),
+                    Node::Directory{
+                        digest: DIRECTORY_A.digest(),
+                        size: DIRECTORY_A.size() + 42, // wrong!
+                    }
+                )
+            ]).unwrap();
     }
 
     #[rstest]

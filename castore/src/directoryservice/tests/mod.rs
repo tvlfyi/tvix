@@ -216,19 +216,14 @@ async fn upload_reject_dangling_pointer(directory_service: impl DirectoryService
 #[apply(directory_services)]
 #[tokio::test]
 async fn upload_reject_wrong_size(directory_service: impl DirectoryService) {
-    let wrong_parent_directory = {
-        let mut dir = Directory::new();
-        dir.add(
-            "foo".try_into().unwrap(),
-            Node::Directory {
-                digest: DIRECTORY_A.digest(),
-                size: DIRECTORY_A.size() + 42, // wrong!
-            },
-        )
-        .unwrap();
-
-        dir
-    };
+    let wrong_parent_directory = Directory::try_from_iter([(
+        "foo".try_into().unwrap(),
+        Node::Directory {
+            digest: DIRECTORY_A.digest(),
+            size: DIRECTORY_A.size() + 42, // wrong!
+        },
+    )])
+    .unwrap();
 
     // Now upload both. Ensure it either fails during the second put, or during
     // the close.

@@ -31,85 +31,74 @@ lazy_static! {
     pub static ref BLOB_B_DIGEST: B3Digest = blake3::hash(&BLOB_B).as_bytes().into();
 
     // Directories
-    pub static ref DIRECTORY_WITH_KEEP: Directory = {
-        let mut dir = Directory::new();
-        dir.add(
-            ".keep".try_into().unwrap(),
-            Node::File{
-                digest: EMPTY_BLOB_DIGEST.clone(),
-                size: 0,
-                executable: false
-            }).unwrap();
-
-        dir
-    };
-    pub static ref DIRECTORY_COMPLICATED: Directory = {
-        let mut dir = Directory::new();
-        dir.add(
+    pub static ref DIRECTORY_WITH_KEEP: Directory = Directory::try_from_iter([(
+        ".keep".try_into().unwrap(),
+        Node::File{
+            digest: EMPTY_BLOB_DIGEST.clone(),
+            size: 0,
+            executable: false
+    })]).unwrap();
+    pub static ref DIRECTORY_COMPLICATED: Directory = Directory::try_from_iter([
+        (
             "keep".try_into().unwrap(),
             Node::Directory{
                 digest: DIRECTORY_WITH_KEEP.digest(),
                 size: DIRECTORY_WITH_KEEP.size()
-            }).unwrap();
-        dir.add(
+            }
+        ),
+        (
             ".keep".try_into().unwrap(),
             Node::File{
                 digest: EMPTY_BLOB_DIGEST.clone(),
                 size: 0,
                 executable: false
-            }).unwrap();
-        dir.add(
+            }
+        ),
+        (
             "aa".try_into().unwrap(),
             Node::Symlink{
                 target: "/nix/store/somewhereelse".try_into().unwrap()
-            }).unwrap();
-
-        dir
-    };
+            }
+        )
+    ]).unwrap();
     pub static ref DIRECTORY_A: Directory = Directory::new();
-    pub static ref DIRECTORY_B: Directory = {
-        let mut dir = Directory::new();
-        dir.add(
+    pub static ref DIRECTORY_B: Directory = Directory::try_from_iter([(
             "a".try_into().unwrap(),
             Node::Directory{
                 digest: DIRECTORY_A.digest(),
                 size: DIRECTORY_A.size(),
-            }).unwrap();
-
-        dir
-    };
-    pub static ref DIRECTORY_C: Directory = {
-        let mut dir = Directory::new();
-        dir.add(
+            }
+    )]).unwrap();
+    pub static ref DIRECTORY_C: Directory = Directory::try_from_iter([
+        (
             "a".try_into().unwrap(),
             Node::Directory{
                 digest: DIRECTORY_A.digest(),
                 size: DIRECTORY_A.size(),
-            }).unwrap();
-        dir.add(
+            }
+        ),
+        (
             "a'".try_into().unwrap(),
             Node::Directory{
                 digest: DIRECTORY_A.digest(),
                 size: DIRECTORY_A.size(),
-        }).unwrap();
-
-        dir
-    };
-    pub static ref DIRECTORY_D: Directory = {
-        let mut dir = Directory::new();
-        dir.add(
+            }
+        )
+    ]).unwrap();
+    pub static ref DIRECTORY_D: Directory = Directory::try_from_iter([
+        (
             "a".try_into().unwrap(),
             Node::Directory{
                 digest: DIRECTORY_A.digest(),
                 size: DIRECTORY_A.size(),
-            }).unwrap();
-        dir.add(
+            }
+        ),
+        (
             "b".try_into().unwrap(),
             Node::Directory{
                 digest: DIRECTORY_B.digest(),
                 size: DIRECTORY_B.size(),
-            }).unwrap();
-
-        dir
-    };
+            }
+        )
+    ]).unwrap();
 }
