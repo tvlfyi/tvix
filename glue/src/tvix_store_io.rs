@@ -198,7 +198,6 @@ impl TvixStoreIO {
                         // derivation_to_build_request needs castore nodes for all inputs.
                         // Provide them, which means, here is where we recursively build
                         // all dependencies.
-                        #[allow(clippy::mutable_key_type)]
                         let mut inputs: BTreeMap<Bytes, Node> =
                             futures::stream::iter(drv.input_derivations.iter())
                                 .map(|(input_drv_path, output_names)| {
@@ -257,7 +256,6 @@ impl TvixStoreIO {
                                 .await?;
 
                         // FUTUREWORK: merge these who things together
-                        #[allow(clippy::mutable_key_type)]
                         // add input sources
                         let input_sources: BTreeMap<_, _> =
                             futures::stream::iter(drv.input_sources.iter())
