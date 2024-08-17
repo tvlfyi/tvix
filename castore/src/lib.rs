@@ -14,7 +14,7 @@ mod nodes;
 pub use nodes::*;
 
 mod path;
-pub use path::{Path, PathBuf, PathComponent};
+pub use path::{Path, PathBuf, PathComponent, PathComponentError};
 
 pub mod import;
 pub mod proto;

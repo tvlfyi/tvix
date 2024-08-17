@@ -161,12 +161,9 @@ fn validate_invalid_names() {
             }],
             ..Default::default()
         };
-        match crate::Directory::try_from(d).expect_err("must fail") {
-            DirectoryError::InvalidName(n) => {
-                assert_eq!(n.as_ref(), b"\0")
-            }
-            _ => panic!("unexpected error"),
-        };
+
+        let e = crate::Directory::try_from(d).expect_err("must fail");
+        assert!(matches!(e, DirectoryError::InvalidName(_)));
     }
 
     {
@@ -178,12 +175,8 @@ fn validate_invalid_names() {
             }],
             ..Default::default()
         };
-        match crate::Directory::try_from(d).expect_err("must fail") {
-            DirectoryError::InvalidName(n) => {
-                assert_eq!(n.as_ref(), b".")
-            }
-            _ => panic!("unexpected error"),
-        };
+        let e = crate::Directory::try_from(d).expect_err("must fail");
+        assert!(matches!(e, DirectoryError::InvalidName(_)));
     }
 
     {
@@ -196,12 +189,8 @@ fn validate_invalid_names() {
             }],
             ..Default::default()
         };
-        match crate::Directory::try_from(d).expect_err("must fail") {
-            DirectoryError::InvalidName(n) => {
-                assert_eq!(n.as_ref(), b"..")
-            }
-            _ => panic!("unexpected error"),
-        };
+        let e = crate::Directory::try_from(d).expect_err("must fail");
+        assert!(matches!(e, DirectoryError::InvalidName(_)));
     }
 
     {
@@ -212,12 +201,8 @@ fn validate_invalid_names() {
             }],
             ..Default::default()
         };
-        match crate::Directory::try_from(d).expect_err("must fail") {
-            DirectoryError::InvalidName(n) => {
-                assert_eq!(n.as_ref(), b"\x00")
-            }
-            _ => panic!("unexpected error"),
-        };
+        let e = crate::Directory::try_from(d).expect_err("must fail");
+        assert!(matches!(e, DirectoryError::InvalidName(_)));
     }
 
     {
@@ -228,12 +213,20 @@ fn validate_invalid_names() {
             }],
             ..Default::default()
         };
-        match crate::Directory::try_from(d).expect_err("must fail") {
-            DirectoryError::InvalidName(n) => {
-                assert_eq!(n.as_ref(), b"foo/bar")
-            }
-            _ => panic!("unexpected error"),
+        let e = crate::Directory::try_from(d).expect_err("must fail");
+        assert!(matches!(e, DirectoryError::InvalidName(_)));
+    }
+
+    {
+        let d = Directory {
+            symlinks: vec![SymlinkNode {
+                name: bytes::Bytes::copy_from_slice("X".repeat(500).into_bytes().as_slice()),
+                target: "foo".into(),
+            }],
+            ..Default::default()
         };
+        let e = crate::Directory::try_from(d).expect_err("must fail");
+        assert!(matches!(e, DirectoryError::InvalidName(_)));
     }
 }
 

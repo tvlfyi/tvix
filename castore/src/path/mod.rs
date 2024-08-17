@@ -9,7 +9,7 @@ use std::{
 };
 
 mod component;
-pub use component::PathComponent;
+pub use component::{PathComponent, PathComponentError};
 
 /// Represents a Path in the castore model.
 /// These are always relative, and platform-independent, which distinguishes
@@ -37,7 +37,7 @@ impl Path {
         if !bytes.is_empty() {
             // Ensure all components are valid castore node names.
             for component in bytes.split_str(b"/") {
-                if !component::is_valid_name(component) {
+                if component::validate_name(component).is_err() {
                     return None;
                 }
             }
@@ -233,7 +233,7 @@ impl PathBuf {
 
     /// Adjoins `name` to self.
     pub fn try_push(&mut self, name: &[u8]) -> Result<(), std::io::Error> {
-        if !component::is_valid_name(name) {
+        if component::validate_name(name).is_err() {
             return Err(std::io::ErrorKind::InvalidData.into());
         }
 

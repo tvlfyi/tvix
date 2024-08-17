@@ -1,6 +1,5 @@
-use std::{cmp::Ordering, str};
-
 use prost::Message;
+use std::cmp::Ordering;
 
 mod grpc_blobservice_wrapper;
 mod grpc_directoryservice_wrapper;
@@ -80,31 +79,42 @@ impl TryFrom<Directory> for crate::Directory {
             .try_fold(&b""[..], |prev_name, e| {
                 match e.name.as_ref().cmp(prev_name) {
                     Ordering::Less => Err(DirectoryError::WrongSorting(e.name.to_owned())),
-                    Ordering::Equal => {
-                        Err(DirectoryError::DuplicateName(e.name.to_owned().try_into()?))
-                    }
+                    Ordering::Equal => Err(DirectoryError::DuplicateName(
+                        e.name
+                            .to_owned()
+                            .try_into()
+                            .map_err(DirectoryError::InvalidName)?,
+                    )),
                     Ordering::Greater => Ok(e.name.as_ref()),
                 }
             })?;
         value.files.iter().try_fold(&b""[..], |prev_name, e| {
             match e.name.as_ref().cmp(prev_name) {
                 Ordering::Less => Err(DirectoryError::WrongSorting(e.name.to_owned())),
-                Ordering::Equal => {
-                    Err(DirectoryError::DuplicateName(e.name.to_owned().try_into()?))
-                }
+                Ordering::Equal => Err(DirectoryError::DuplicateName(
+                    e.name
+                        .to_owned()
+                        .try_into()
+                        .map_err(DirectoryError::InvalidName)?,
+                )),
                 Ordering::Greater => Ok(e.name.as_ref()),
             }
         })?;
         value.symlinks.iter().try_fold(&b""[..], |prev_name, e| {
             match e.name.as_ref().cmp(prev_name) {
                 Ordering::Less => Err(DirectoryError::WrongSorting(e.name.to_owned())),
-                Ordering::Equal => {
-                    Err(DirectoryError::DuplicateName(e.name.to_owned().try_into()?))
-                }
+                Ordering::Equal => Err(DirectoryError::DuplicateName(
+                    e.name
+                        .to_owned()
+                        .try_into()
+                        .map_err(DirectoryError::InvalidName)?,
+                )),
                 Ordering::Greater => Ok(e.name.as_ref()),
             }
         })?;
 
+        // FUTUREWORK: use is_sorted() once stable, and/or implement the producer for
+        // [crate::Directory::try_from_iter] iterating over all three and doing all checks inline.
         let mut elems: Vec<(PathComponent, crate::Node)> =
             Vec::with_capacity(value.directories.len() + value.files.len() + value.symlinks.len());
 
@@ -184,7 +194,7 @@ impl Node {
     pub fn into_name_and_node(self) -> Result<(PathComponent, crate::Node), DirectoryError> {
         match self.node.ok_or_else(|| DirectoryError::NoNodeSet)? {
             node::Node::Directory(n) => {
-                let name: PathComponent = n.name.try_into()?;
+                let name: PathComponent = n.name.try_into().map_err(DirectoryError::InvalidName)?;
                 let digest = B3Digest::try_from(n.digest)
                     .map_err(|e| DirectoryError::InvalidNode(name.clone(), e.into()))?;
 
@@ -196,7 +206,7 @@ impl Node {
                 Ok((name, node))
             }
             node::Node::File(n) => {
-                let name: PathComponent = n.name.try_into()?;
+                let name: PathComponent = n.name.try_into().map_err(DirectoryError::InvalidName)?;
                 let digest = B3Digest::try_from(n.digest)
                     .map_err(|e| DirectoryError::InvalidNode(name.clone(), e.into()))?;
 
@@ -210,7 +220,8 @@ impl Node {
             }
 
             node::Node::Symlink(n) => {
-                let name: PathComponent = n.name.try_into()?;
+                let name: PathComponent = n.name.try_into().map_err(DirectoryError::InvalidName)?;
+
                 let node = crate::Node::Symlink {
                     target: n
                         .target

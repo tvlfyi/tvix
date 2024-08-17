@@ -3,7 +3,7 @@ use thiserror::Error;
 use tokio::task::JoinError;
 use tonic::Status;
 
-use crate::path::PathComponent;
+use crate::path::{PathComponent, PathComponentError};
 
 /// Errors related to communication with the store.
 #[derive(Debug, Error, PartialEq)]
@@ -47,8 +47,8 @@ pub enum DirectoryError {
     #[error("Total size exceeds u32::MAX")]
     SizeOverflow,
     /// Invalid name encountered
-    #[error("Invalid name: {}", .0.as_bstr())]
-    InvalidName(bytes::Bytes),
+    #[error("Invalid name: {0}")]
+    InvalidName(PathComponentError),
     /// Elements are not in sorted order. Can only happen on protos
     #[error("{:?} is not sorted", .0.as_bstr())]
     WrongSorting(bytes::Bytes),
