@@ -223,10 +223,12 @@ impl Node {
                 let name: PathComponent = n.name.try_into().map_err(DirectoryError::InvalidName)?;
 
                 let node = crate::Node::Symlink {
-                    target: n
-                        .target
-                        .try_into()
-                        .map_err(|e| DirectoryError::InvalidNode(name.clone(), e))?,
+                    target: n.target.try_into().map_err(|e| {
+                        DirectoryError::InvalidNode(
+                            name.clone(),
+                            crate::ValidateNodeError::InvalidSymlinkTarget(e),
+                        )
+                    })?,
                 };
 
                 Ok((name, node))

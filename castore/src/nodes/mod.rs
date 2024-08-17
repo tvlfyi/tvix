@@ -4,7 +4,7 @@ mod symlink_target;
 
 use crate::B3Digest;
 pub use directory::Directory;
-pub use symlink_target::SymlinkTarget;
+pub use symlink_target::{SymlinkTarget, SymlinkTargetError};
 
 /// A Node is either a [DirectoryNode], [FileNode] or [SymlinkNode].
 /// Nodes themselves don't have names, what gives them names is either them

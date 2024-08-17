@@ -6,7 +6,7 @@
 
 use crate::directoryservice::{DirectoryPutter, DirectoryService};
 use crate::path::{Path, PathBuf};
-use crate::{B3Digest, Directory, Node};
+use crate::{B3Digest, Directory, Node, SymlinkTargetError};
 use futures::{Stream, StreamExt};
 use tracing::Level;
 
@@ -91,10 +91,10 @@ where
             }
             IngestionEntry::Symlink { ref target, .. } => Node::Symlink {
                 target: bytes::Bytes::copy_from_slice(target).try_into().map_err(
-                    |e: crate::ValidateNodeError| {
+                    |e: SymlinkTargetError| {
                         IngestionError::UploadDirectoryError(
                             entry.path().to_owned(),
-                            crate::Error::StorageError(e.to_string()),
+                            crate::Error::StorageError(format!("invalid symlink target: {}", e)),
                         )
                     },
                 )?,

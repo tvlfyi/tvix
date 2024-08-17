@@ -3,7 +3,10 @@ use thiserror::Error;
 use tokio::task::JoinError;
 use tonic::Status;
 
-use crate::path::{PathComponent, PathComponentError};
+use crate::{
+    path::{PathComponent, PathComponentError},
+    SymlinkTargetError,
+};
 
 /// Errors related to communication with the store.
 #[derive(Debug, Error, PartialEq)]
@@ -22,8 +25,8 @@ pub enum ValidateNodeError {
     #[error("invalid digest length: {0}")]
     InvalidDigestLen(usize),
     /// Invalid symlink target
-    #[error("Invalid symlink target: {}", .0.as_bstr())]
-    InvalidSymlinkTarget(bytes::Bytes),
+    #[error("Invalid symlink target: {0}")]
+    InvalidSymlinkTarget(SymlinkTargetError),
 }
 
 impl From<crate::digests::Error> for ValidateNodeError {
