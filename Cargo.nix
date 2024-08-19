@@ -7481,6 +7481,10 @@ rec {
             packageId = "serde_json";
           }
           {
+            name = "smol_str";
+            packageId = "smol_str";
+          }
+          {
             name = "tokio-test";
             packageId = "tokio-test";
           }
@@ -9301,7 +9305,7 @@ rec {
           }
           {
             name = "itertools";
-            packageId = "itertools 0.10.5";
+            packageId = "itertools 0.13.0";
             usesDefaultFeatures = false;
             features = [ "use_alloc" ];
           }
@@ -9421,7 +9425,7 @@ rec {
           }
           {
             name = "itertools";
-            packageId = "itertools 0.10.5";
+            packageId = "itertools 0.13.0";
           }
           {
             name = "proc-macro2";
@@ -12491,9 +12495,9 @@ rec {
       };
       "smol_str" = rec {
         crateName = "smol_str";
-        version = "0.2.1";
+        version = "0.2.2";
         edition = "2018";
-        sha256 = "0jca0hyrwnv428q5gxhn2s8jsvrrkyrb0fyla9x37056mmimb176";
+        sha256 = "1bfylqf2vnqaglw58930vpxm2rfzji5gjp15a2c0kh8aj6v8ylyx";
         authors = [
           "Aleksey Kladov <aleksey.kladov@gmail.com>"
         ];

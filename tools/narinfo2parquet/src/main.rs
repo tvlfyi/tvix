@@ -187,7 +187,7 @@ impl FrameBuilder {
         assert!(entry.signatures.len() <= 1);
         self.signature
             .append_option(entry.signatures.get(0).map(|sig| {
-                assert_eq!(sig.name(), "cache.nixos.org-1");
+                assert_eq!(sig.name(), &"cache.nixos.org-1");
                 sig.bytes()
             }));
 

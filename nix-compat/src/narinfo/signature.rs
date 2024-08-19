@@ -1,4 +1,7 @@
-use std::fmt::{self, Display};
+use std::{
+    fmt::{self, Display},
+    ops::Deref,
+};
 
 use data_encoding::BASE64;
 use serde::{Deserialize, Serialize};
@@ -6,17 +9,36 @@ use serde::{Deserialize, Serialize};
 const SIGNATURE_LENGTH: usize = std::mem::size_of::<ed25519::SignatureBytes>();
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Signature<'a> {
-    name: &'a str,
+pub struct Signature<S> {
+    name: S,
     bytes: ed25519::SignatureBytes,
 }
 
-impl<'a> Signature<'a> {
-    pub fn new(name: &'a str, bytes: ed25519::SignatureBytes) -> Self {
+/// Type alias of a [Signature] using a `&str` as `name` field.
+pub type SignatureRef<'a> = Signature<&'a str>;
+
+/// Represents the signatures that Nix emits.
+/// It consists of a name (an identifier for a public key), and an ed25519
+/// signature (64 bytes).
+/// It is generic over the string type that's used for the name, and there's
+/// [SignatureRef] as a type alias for one containing &str.
+impl<S> Signature<S>
+where
+    S: Deref<Target = str>,
+{
+    /// Constructs a new [Signature] from a name and public key.
+    pub fn new(name: S, bytes: ed25519::SignatureBytes) -> Self {
         Self { name, bytes }
     }
 
-    pub fn parse(input: &'a str) -> Result<Self, Error> {
+    /// Parses a [Signature] from a string containing the name, a colon, and 64
+    /// base64-encoded bytes (plus padding).
+    /// These strings are commonly seen in the `Signature:` field of a NARInfo
+    /// file.
+    pub fn parse<'a>(input: &'a str) -> Result<Self, Error>
+    where
+        S: From<&'a str>,
+    {
         let (name, bytes64) = input.split_once(':').ok_or(Error::MissingSeparator)?;
 
         if name.is_empty()
@@ -40,13 +62,18 @@ impl<'a> Signature<'a> {
             Err(_) => return Err(Error::DecodeError(input.to_string())),
         }
 
-        Ok(Signature { name, bytes })
+        Ok(Self {
+            name: name.into(),
+            bytes,
+        })
     }
 
-    pub fn name(&self) -> &'a str {
-        self.name
+    /// Returns the name field of the signature.
+    pub fn name(&self) -> &S {
+        &self.name
     }
 
+    /// Returns the 64 bytes of signatures.
     pub fn bytes(&self) -> &ed25519::SignatureBytes {
         &self.bytes
     }
@@ -57,9 +84,21 @@ impl<'a> Signature<'a> {
 
         verifying_key.verify_strict(fingerprint, &signature).is_ok()
     }
+
+    /// Constructs a [SignatureRef] from this signature.
+    pub fn as_ref(&self) -> SignatureRef<'_> {
+        SignatureRef {
+            name: self.name.deref(),
+            bytes: self.bytes,
+        }
+    }
 }
 
-impl<'de: 'a, 'a> Deserialize<'de> for Signature<'a> {
+impl<'a, 'de, S> Deserialize<'de> for Signature<S>
+where
+    S: Deref<Target = str> + From<&'a str>,
+    'de: 'a,
+{
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -71,14 +110,26 @@ impl<'de: 'a, 'a> Deserialize<'de> for Signature<'a> {
     }
 }
 
-impl<'a> Serialize for Signature<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+impl<S: Display> Serialize for Signature<S>
+where
+    S: Deref<Target = str>,
+{
+    fn serialize<SR>(&self, serializer: SR) -> Result<SR::Ok, SR::Error>
     where
-        S: serde::Serializer,
+        SR: serde::Serializer,
     {
         let string: String = self.to_string();
 
         string.serialize(serializer)
+    }
+}
+
+impl<S> Display for Signature<S>
+where
+    S: Display,
+{
+    fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
+        write!(w, "{}:{}", self.name, BASE64.encode(&self.bytes))
     }
 }
 
@@ -92,12 +143,6 @@ pub enum Error {
     InvalidSignatureLen(usize),
     #[error("Unable to base64-decode signature: {0}")]
     DecodeError(String),
-}
-
-impl Display for Signature<'_> {
-    fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
-        write!(w, "{}:{}", self.name, BASE64.encode(&self.bytes))
-    }
 }
 
 #[cfg(test)]
@@ -144,7 +189,7 @@ mod test {
         #[case] fp: &str,
         #[case] expect_valid: bool,
     ) {
-        let sig = Signature::parse(sig_str).expect("must parse");
+        let sig = Signature::<&str>::parse(sig_str).expect("must parse");
         assert_eq!(expect_valid, sig.verify(fp.as_bytes(), verifying_key));
     }
 
@@ -159,7 +204,7 @@ mod test {
         "u01BybwQhyI5H1bW1EIWXssMDhDDIvXOG5uh8Qzgdyjz6U1qg6DHhMAvXZOUStIj6X5t4/ufFgR8i3fjf0bMAw=="
     )]
     fn parse_fail(#[case] input: &'static str) {
-        Signature::parse(input).expect_err("must fail");
+        Signature::<&str>::parse(input).expect_err("must fail");
     }
 
     #[test]
@@ -178,8 +223,29 @@ mod test {
         let serialized = serde_json::to_string(&signature_actual).expect("must serialize");
         assert_eq!(signature_str_json, &serialized);
 
-        let deserialized: Signature<'_> =
+        let deserialized: Signature<&str> =
             serde_json::from_str(signature_str_json).expect("must deserialize");
         assert_eq!(&signature_actual, &deserialized);
+    }
+
+    /// Construct a [Signature], using different String types for the name field.
+    #[test]
+    fn signature_owned() {
+        let signature1 = Signature::<String>::parse("cache.nixos.org-1:TsTTb3WGTZKphvYdBHXwo6weVILmTytUjLB+vcX89fOjjRicCHmKA4RCPMVLkj6TMJ4GMX3HPVWRdD1hkeKZBQ==").expect("must parse");
+        let signature2 = Signature::<smol_str::SmolStr>::parse("cache.nixos.org-1:TsTTb3WGTZKphvYdBHXwo6weVILmTytUjLB+vcX89fOjjRicCHmKA4RCPMVLkj6TMJ4GMX3HPVWRdD1hkeKZBQ==").expect("must parse");
+        let signature3 = Signature::<&str>::parse("cache.nixos.org-1:TsTTb3WGTZKphvYdBHXwo6weVILmTytUjLB+vcX89fOjjRicCHmKA4RCPMVLkj6TMJ4GMX3HPVWRdD1hkeKZBQ==").expect("must parse");
+
+        assert!(
+            signature1.verify(FINGERPRINT.as_bytes(), &PUB_CACHE_NIXOS_ORG_1),
+            "must verify"
+        );
+        assert!(
+            signature2.verify(FINGERPRINT.as_bytes(), &PUB_CACHE_NIXOS_ORG_1),
+            "must verify"
+        );
+        assert!(
+            signature3.verify(FINGERPRINT.as_bytes(), &PUB_CACHE_NIXOS_ORG_1),
+            "must verify"
+        );
     }
 }

@@ -46,6 +46,7 @@ mimalloc = "0.1.43"
 pretty_assertions = "1.4.0"
 rstest = "0.19.0"
 serde_json = "1.0"
+smol_str = "0.2.2"
 tokio-test = "0.4.3"
 zstd = "^0.13.0"
 

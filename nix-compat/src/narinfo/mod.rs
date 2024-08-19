@@ -32,7 +32,7 @@ mod signing_keys;
 mod verifying_keys;
 
 pub use fingerprint::fingerprint;
-pub use signature::{Error as SignatureError, Signature};
+pub use signature::{Error as SignatureError, Signature, SignatureRef};
 pub use signing_keys::parse_keypair;
 pub use signing_keys::{Error as SigningKeyError, SigningKey};
 pub use verifying_keys::{Error as VerifyingKeyError, VerifyingKey};
@@ -51,7 +51,7 @@ pub struct NarInfo<'a> {
     pub references: Vec<StorePathRef<'a>>,
     // authenticity
     /// Ed25519 signature over the path fingerprint
-    pub signatures: Vec<Signature<'a>>,
+    pub signatures: Vec<SignatureRef<'a>>,
     /// Content address (for content-defined paths)
     pub ca: Option<CAHash>,
     // derivation metadata
@@ -246,7 +246,7 @@ impl<'a> NarInfo<'a> {
                     };
                 }
                 "Sig" => {
-                    let val = Signature::parse(val)
+                    let val = SignatureRef::parse(val)
                         .map_err(|e| Error::UnableToParseSignature(signatures.len(), e))?;
 
                     signatures.push(val);
@@ -578,7 +578,7 @@ CA: fixed:r:sha1:1ak1ymbmsfx7z8kh09jzkr3a4dvkrfjw
 
         // ensure the signature is added
         let new_sig = narinfo.signatures.last().unwrap();
-        assert_eq!(signing_key.name(), new_sig.name());
+        assert_eq!(signing_key.name(), *new_sig.name());
 
         // verify the new signature against the verifying key
         let verifying_key = super::VerifyingKey::parse(super::DUMMY_VERIFYING_KEY)

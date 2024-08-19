@@ -221,7 +221,7 @@ impl PathInfo {
                 .signatures
                 .iter()
                 .map(|sig| {
-                    nix_compat::narinfo::Signature::new(
+                    nix_compat::narinfo::SignatureRef::new(
                         &sig.name,
                         // This shouldn't pass validation
                         sig.data[..].try_into().expect("invalid signature len"),

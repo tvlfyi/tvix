@@ -7,7 +7,7 @@
 use data_encoding::BASE64;
 use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
 
-use super::{Signature, VerifyingKey};
+use super::{SignatureRef, VerifyingKey};
 
 pub struct SigningKey<S> {
     name: String,
@@ -23,9 +23,9 @@ where
         Self { name, signing_key }
     }
 
-    /// Signs a fingerprint using the internal signing key, returns the [Signature]
-    pub(crate) fn sign<'a>(&'a self, fp: &[u8]) -> Signature<'a> {
-        Signature::new(&self.name, self.signing_key.sign(fp).to_bytes())
+    /// Signs a fingerprint using the internal signing key, returns the [SignatureRef]
+    pub(crate) fn sign<'a>(&'a self, fp: &[u8]) -> SignatureRef<'a> {
+        SignatureRef::new(&self.name, self.signing_key.sign(fp).to_bytes())
     }
 
     pub fn name(&self) -> &str {
