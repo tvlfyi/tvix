@@ -1,17 +1,18 @@
 use std::fmt::{self, Display};
 
 use data_encoding::BASE64;
-use ed25519_dalek::SIGNATURE_LENGTH;
 use serde::{Deserialize, Serialize};
+
+const SIGNATURE_LENGTH: usize = std::mem::size_of::<ed25519::SignatureBytes>();
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Signature<'a> {
     name: &'a str,
-    bytes: [u8; SIGNATURE_LENGTH],
+    bytes: ed25519::SignatureBytes,
 }
 
 impl<'a> Signature<'a> {
-    pub fn new(name: &'a str, bytes: [u8; SIGNATURE_LENGTH]) -> Self {
+    pub fn new(name: &'a str, bytes: ed25519::SignatureBytes) -> Self {
         Self { name, bytes }
     }
 
@@ -46,7 +47,7 @@ impl<'a> Signature<'a> {
         self.name
     }
 
-    pub fn bytes(&self) -> &[u8; SIGNATURE_LENGTH] {
+    pub fn bytes(&self) -> &ed25519::SignatureBytes {
         &self.bytes
     }
 
