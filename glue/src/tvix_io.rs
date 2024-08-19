@@ -1,12 +1,10 @@
 //! This module implements a wrapper around tvix-eval's [EvalIO] type,
 //! adding functionality which is required by tvix-cli:
 //!
-//! 1. Marking plain paths known to the reference scanner.
-//! 2. Handling the C++ Nix `__corepkgs__`-hack for nixpkgs bootstrapping.
+//! 1. Handling the C++ Nix `__corepkgs__`-hack for nixpkgs bootstrapping.
 //!
 //! All uses of [EvalIO] in tvix-cli must make use of this wrapper,
-//! otherwise fundamental features like nixpkgs bootstrapping and hash
-//! calculation will not work.
+//! otherwise nixpkgs bootstrapping will not work.
 
 use std::io::{self, Cursor};
 use std::path::{Path, PathBuf};
