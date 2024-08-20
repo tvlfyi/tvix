@@ -11,8 +11,10 @@ use nom::multi::separated_list0;
 use nom::sequence::delimited;
 use nom::IResult;
 
-/// Parse a bstr and undo any escaping.
-fn parse_escaped_bstr(i: &[u8]) -> IResult<&[u8], BString> {
+/// Parse a bstr and undo any escaping (which is why this needs to allocate).
+// FUTUREWORK: have a version for fields that are known to not need escaping
+// (like store paths), and use &str.
+fn parse_escaped_bytes(i: &[u8]) -> IResult<&[u8], BString> {
     escaped_transform(
         is_not("\"\\"),
         '\\',
@@ -29,14 +31,14 @@ fn parse_escaped_bstr(i: &[u8]) -> IResult<&[u8], BString> {
 
 /// Parse a field in double quotes, undo any escaping, and return the unquoted
 /// and decoded `Vec<u8>`.
-pub(crate) fn parse_bstr_field(i: &[u8]) -> IResult<&[u8], BString> {
+pub(crate) fn parse_bytes_field(i: &[u8]) -> IResult<&[u8], BString> {
     // inside double quotes…
     delimited(
         nomchar('\"'),
         // There is
         alt((
             // …either is a bstr after unescaping
-            parse_escaped_bstr,
+            parse_escaped_bytes,
             // …or an empty string.
             map(tag(b""), |_| BString::default()),
         )),
@@ -45,8 +47,8 @@ pub(crate) fn parse_bstr_field(i: &[u8]) -> IResult<&[u8], BString> {
 }
 
 /// Parse a field in double quotes, undo any escaping, and return the unquoted
-/// and decoded string, if it's a valid string. Or fail parsing if the bytes are
-/// no valid UTF-8.
+/// and decoded [String], if it's valid UTF-8.
+/// Or fail parsing if the bytes are no valid UTF-8.
 pub(crate) fn parse_string_field(i: &[u8]) -> IResult<&[u8], String> {
     // inside double quotes…
     delimited(
@@ -54,18 +56,18 @@ pub(crate) fn parse_string_field(i: &[u8]) -> IResult<&[u8], String> {
         // There is
         alt((
             // either is a String after unescaping
-            nom::combinator::map_opt(parse_escaped_bstr, |escaped_bstr| {
-                String::from_utf8(escaped_bstr.into()).ok()
+            nom::combinator::map_opt(parse_escaped_bytes, |escaped_bytes| {
+                String::from_utf8(escaped_bytes.into()).ok()
             }),
             // or an empty string.
-            map(tag(b""), |_| String::new()),
+            map(tag(b""), |_| "".to_string()),
         )),
         nomchar('\"'),
     )(i)
 }
 
-/// Parse a list of of string fields (enclosed in brackets)
-pub(crate) fn parse_str_list(i: &[u8]) -> IResult<&[u8], Vec<String>> {
+/// Parse a list of string fields (enclosed in brackets)
+pub(crate) fn parse_string_list(i: &[u8]) -> IResult<&[u8], Vec<String>> {
     // inside brackets
     delimited(
         nomchar('['),
@@ -89,7 +91,7 @@ mod tests {
         #[case] expected: &[u8],
         #[case] exp_rest: &[u8],
     ) {
-        let (rest, parsed) = super::parse_bstr_field(input).expect("must parse");
+        let (rest, parsed) = super::parse_bytes_field(input).expect("must parse");
         assert_eq!(exp_rest, rest, "expected remainder");
         assert_eq!(expected, parsed);
     }
@@ -118,7 +120,7 @@ mod tests {
     #[case::empty_list(b"[]", vec![], b"")]
     #[case::empty_list_with_rest(b"[]blub", vec![], b"blub")]
     fn parse_list(#[case] input: &[u8], #[case] expected: Vec<String>, #[case] exp_rest: &[u8]) {
-        let (rest, parsed) = super::parse_str_list(input).expect("must parse");
+        let (rest, parsed) = super::parse_string_list(input).expect("must parse");
         assert_eq!(exp_rest, rest, "expected remainder");
         assert_eq!(expected, parsed);
     }

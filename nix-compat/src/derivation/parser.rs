@@ -3,7 +3,6 @@
 //!
 //! [ATerm]: http://program-transformation.org/Tools/ATermFormat.html
 
-use bstr::BString;
 use nom::bytes::complete::tag;
 use nom::character::complete::char as nomchar;
 use nom::combinator::{all_consuming, map_res};
@@ -73,7 +72,7 @@ fn parse_output(i: &[u8]) -> NomResult<&[u8], (String, Output)> {
                     terminated(aterm::parse_string_field, nomchar(',')),
                     terminated(aterm::parse_string_field, nomchar(',')),
                     terminated(aterm::parse_string_field, nomchar(',')),
-                    aterm::parse_bstr_field,
+                    aterm::parse_bytes_field,
                 ))(i)
                 .map_err(into_nomerror)
             },
@@ -150,10 +149,10 @@ fn parse_outputs(i: &[u8]) -> NomResult<&[u8], BTreeMap<String, Output>> {
 }
 
 fn parse_input_derivations(i: &[u8]) -> NomResult<&[u8], BTreeMap<StorePath, BTreeSet<String>>> {
-    let (i, input_derivations_list) = parse_kv::<Vec<String>, _>(aterm::parse_str_list)(i)?;
+    let (i, input_derivations_list) = parse_kv(aterm::parse_string_list)(i)?;
 
     // This is a HashMap of drv paths to a list of output names.
-    let mut input_derivations: BTreeMap<StorePath, BTreeSet<String>> = BTreeMap::new();
+    let mut input_derivations: BTreeMap<StorePath, BTreeSet<_>> = BTreeMap::new();
 
     for (input_derivation, output_names) in input_derivations_list {
         let mut new_output_names = BTreeSet::new();
@@ -179,7 +178,7 @@ fn parse_input_derivations(i: &[u8]) -> NomResult<&[u8], BTreeMap<StorePath, BTr
 }
 
 fn parse_input_sources(i: &[u8]) -> NomResult<&[u8], BTreeSet<StorePath>> {
-    let (i, input_sources_lst) = aterm::parse_str_list(i).map_err(into_nomerror)?;
+    let (i, input_sources_lst) = aterm::parse_string_list(i).map_err(into_nomerror)?;
 
     let mut input_sources: BTreeSet<_> = BTreeSet::new();
     for input_source in input_sources_lst.into_iter() {
@@ -240,9 +239,9 @@ pub fn parse_derivation(i: &[u8]) -> NomResult<&[u8], Derivation> {
                 // // parse builder
                 |i| terminated(aterm::parse_string_field, nomchar(','))(i).map_err(into_nomerror),
                 // // parse arguments
-                |i| terminated(aterm::parse_str_list, nomchar(','))(i).map_err(into_nomerror),
+                |i| terminated(aterm::parse_string_list, nomchar(','))(i).map_err(into_nomerror),
                 // parse environment
-                parse_kv::<BString, _>(aterm::parse_bstr_field),
+                parse_kv(aterm::parse_bytes_field),
             )),
             nomchar(')'),
         )
@@ -427,8 +426,8 @@ mod tests {
         #[case] expected: &BTreeMap<String, BString>,
         #[case] exp_rest: &[u8],
     ) {
-        let (rest, parsed) = super::parse_kv::<BString, _>(crate::aterm::parse_bstr_field)(input)
-            .expect("must parse");
+        let (rest, parsed) =
+            super::parse_kv(crate::aterm::parse_bytes_field)(input).expect("must parse");
         assert_eq!(exp_rest, rest, "expected remainder");
         assert_eq!(*expected, parsed);
     }
@@ -437,8 +436,7 @@ mod tests {
     #[test]
     fn parse_kv_fail_dup_keys() {
         let input: &'static [u8] = b"[(\"a\",\"1\"),(\"a\",\"2\")]";
-        let e = super::parse_kv::<BString, _>(crate::aterm::parse_bstr_field)(input)
-            .expect_err("must fail");
+        let e = super::parse_kv(crate::aterm::parse_bytes_field)(input).expect_err("must fail");
 
         match e {
             nom::Err::Failure(e) => {
