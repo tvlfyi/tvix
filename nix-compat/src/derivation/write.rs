@@ -6,7 +6,7 @@
 use crate::aterm::escape_bytes;
 use crate::derivation::{ca_kind_prefix, output::Output};
 use crate::nixbase32;
-use crate::store_path::{StorePath, StorePathRef, STORE_DIR_WITH_SLASH};
+use crate::store_path::{StorePath, STORE_DIR_WITH_SLASH};
 use bstr::BString;
 use data_encoding::HEXLOWER;
 
@@ -34,7 +34,10 @@ pub(crate) trait AtermWriteable {
     fn aterm_write(&self, writer: &mut impl Write) -> std::io::Result<()>;
 }
 
-impl AtermWriteable for StorePathRef<'_> {
+impl<S> AtermWriteable for StorePath<S>
+where
+    S: std::cmp::Eq + std::ops::Deref<Target = str>,
+{
     fn aterm_write(&self, writer: &mut impl Write) -> std::io::Result<()> {
         write_char(writer, QUOTE)?;
         writer.write_all(STORE_DIR_WITH_SLASH.as_bytes())?;
@@ -43,13 +46,6 @@ impl AtermWriteable for StorePathRef<'_> {
         writer.write_all(self.name().as_bytes())?;
         write_char(writer, QUOTE)?;
         Ok(())
-    }
-}
-
-impl AtermWriteable for StorePath {
-    fn aterm_write(&self, writer: &mut impl Write) -> std::io::Result<()> {
-        let r: StorePathRef = self.into();
-        r.aterm_write(writer)
     }
 }
 
@@ -179,7 +175,7 @@ pub(crate) fn write_input_derivations(
 
 pub(crate) fn write_input_sources(
     writer: &mut impl Write,
-    input_sources: &BTreeSet<StorePath>,
+    input_sources: &BTreeSet<StorePath<String>>,
 ) -> Result<(), io::Error> {
     write_char(writer, BRACKET_OPEN)?;
     write_array_elements(

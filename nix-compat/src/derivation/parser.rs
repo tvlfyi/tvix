@@ -13,7 +13,7 @@ use thiserror;
 
 use crate::derivation::parse_error::{into_nomerror, ErrorKind, NomError, NomResult};
 use crate::derivation::{write, CAHash, Derivation, Output};
-use crate::store_path::{self, StorePath, StorePathRef};
+use crate::store_path::{self, StorePath};
 use crate::{aterm, nixhash};
 
 #[derive(Debug, thiserror::Error)]
@@ -101,7 +101,7 @@ fn parse_output(i: &[u8]) -> NomResult<&[u8], (String, Output)> {
                             path: if output_path.is_empty() {
                                 None
                             } else {
-                                Some(string_to_store_path(i, output_path)?)
+                                Some(string_to_store_path(i, &output_path)?)
                             },
                             ca_hash: hash_with_mode,
                         },
@@ -131,12 +131,12 @@ fn parse_outputs(i: &[u8]) -> NomResult<&[u8], BTreeMap<String, Output>> {
 
     match res {
         Ok((rst, outputs_lst)) => {
-            let mut outputs: BTreeMap<String, Output> = BTreeMap::default();
+            let mut outputs = BTreeMap::default();
             for (output_name, output) in outputs_lst.into_iter() {
                 if outputs.contains_key(&output_name) {
                     return Err(nom::Err::Failure(NomError {
                         input: i,
-                        code: ErrorKind::DuplicateMapKey(output_name),
+                        code: ErrorKind::DuplicateMapKey(output_name.to_string()),
                     }));
                 }
                 outputs.insert(output_name, output);
@@ -148,11 +148,13 @@ fn parse_outputs(i: &[u8]) -> NomResult<&[u8], BTreeMap<String, Output>> {
     }
 }
 
-fn parse_input_derivations(i: &[u8]) -> NomResult<&[u8], BTreeMap<StorePath, BTreeSet<String>>> {
+fn parse_input_derivations(
+    i: &[u8],
+) -> NomResult<&[u8], BTreeMap<StorePath<String>, BTreeSet<String>>> {
     let (i, input_derivations_list) = parse_kv(aterm::parse_string_list)(i)?;
 
     // This is a HashMap of drv paths to a list of output names.
-    let mut input_derivations: BTreeMap<StorePath, BTreeSet<_>> = BTreeMap::new();
+    let mut input_derivations: BTreeMap<StorePath<String>, BTreeSet<_>> = BTreeMap::new();
 
     for (input_derivation, output_names) in input_derivations_list {
         let mut new_output_names = BTreeSet::new();
@@ -169,7 +171,7 @@ fn parse_input_derivations(i: &[u8]) -> NomResult<&[u8], BTreeMap<StorePath, BTr
             new_output_names.insert(output_name);
         }
 
-        let input_derivation: StorePath = string_to_store_path(i, input_derivation)?;
+        let input_derivation = string_to_store_path(i, input_derivation.as_str())?;
 
         input_derivations.insert(input_derivation, new_output_names);
     }
@@ -177,16 +179,16 @@ fn parse_input_derivations(i: &[u8]) -> NomResult<&[u8], BTreeMap<StorePath, BTr
     Ok((i, input_derivations))
 }
 
-fn parse_input_sources(i: &[u8]) -> NomResult<&[u8], BTreeSet<StorePath>> {
+fn parse_input_sources(i: &[u8]) -> NomResult<&[u8], BTreeSet<StorePath<String>>> {
     let (i, input_sources_lst) = aterm::parse_string_list(i).map_err(into_nomerror)?;
 
     let mut input_sources: BTreeSet<_> = BTreeSet::new();
     for input_source in input_sources_lst.into_iter() {
-        let input_source: StorePath = string_to_store_path(i, input_source)?;
+        let input_source = string_to_store_path(i, input_source.as_str())?;
         if input_sources.contains(&input_source) {
             return Err(nom::Err::Failure(NomError {
                 input: i,
-                code: ErrorKind::DuplicateInputSource(input_source),
+                code: ErrorKind::DuplicateInputSource(input_source.to_owned()),
             }));
         } else {
             input_sources.insert(input_source);
@@ -196,24 +198,27 @@ fn parse_input_sources(i: &[u8]) -> NomResult<&[u8], BTreeSet<StorePath>> {
     Ok((i, input_sources))
 }
 
-fn string_to_store_path(
-    i: &[u8],
-    path_str: String,
-) -> Result<StorePath, nom::Err<NomError<&[u8]>>> {
-    #[cfg(debug_assertions)]
-    let path_str2 = path_str.clone();
-
-    let path: StorePath = StorePathRef::from_absolute_path(path_str.as_bytes())
-        .map_err(|e: store_path::Error| {
+fn string_to_store_path<'a, 'i, S>(
+    i: &'i [u8],
+    path_str: &'a str,
+) -> Result<StorePath<S>, nom::Err<NomError<&'i [u8]>>>
+where
+    S: std::cmp::Eq
+        + std::fmt::Display
+        + std::clone::Clone
+        + std::ops::Deref<Target = str>
+        + std::convert::From<&'a str>,
+{
+    let path =
+        StorePath::from_absolute_path(path_str.as_bytes()).map_err(|e: store_path::Error| {
             nom::Err::Failure(NomError {
                 input: i,
                 code: e.into(),
             })
-        })?
-        .to_owned();
+        })?;
 
     #[cfg(debug_assertions)]
-    assert_eq!(path_str2, path.to_absolute_path());
+    assert_eq!(path_str, path.to_absolute_path());
 
     Ok(path)
 }
@@ -375,11 +380,11 @@ mod tests {
         };
         static ref EXP_AB_MAP: BTreeMap<String, BString> = {
             let mut b = BTreeMap::new();
-            b.insert("a".to_string(), b"1".as_bstr().to_owned());
-            b.insert("b".to_string(), b"2".as_bstr().to_owned());
+            b.insert("a".to_string(), b"1".into());
+            b.insert("b".to_string(), b"2".into());
             b
         };
-        static ref EXP_INPUT_DERIVATIONS_SIMPLE: BTreeMap<StorePath, BTreeSet<String>> = {
+        static ref EXP_INPUT_DERIVATIONS_SIMPLE: BTreeMap<StorePath<String>, BTreeSet<String>> = {
             let mut b = BTreeMap::new();
             b.insert(
                 StorePath::from_bytes(b"8bjm87p310sb7r2r0sg4xrynlvg86j8k-hello-2.12.1.tar.gz.drv")
@@ -452,7 +457,7 @@ mod tests {
     #[case::simple(EXP_INPUT_DERIVATIONS_SIMPLE_ATERM.as_bytes(), &EXP_INPUT_DERIVATIONS_SIMPLE)]
     fn parse_input_derivations(
         #[case] input: &'static [u8],
-        #[case] expected: &BTreeMap<StorePath, BTreeSet<String>>,
+        #[case] expected: &BTreeMap<StorePath<String>, BTreeSet<String>>,
     ) {
         let (rest, parsed) = super::parse_input_derivations(input).expect("must parse");
 

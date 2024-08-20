@@ -105,7 +105,7 @@ impl TvixStoreIO {
     #[instrument(skip(self, store_path), fields(store_path=%store_path, indicatif.pb_show=1), ret(level = Level::TRACE), err)]
     async fn store_path_to_node(
         &self,
-        store_path: &StorePath,
+        store_path: &StorePath<String>,
         sub_path: &Path,
     ) -> io::Result<Option<Node>> {
         // Find the root node for the store_path.
@@ -213,7 +213,7 @@ impl TvixStoreIO {
                                     };
 
                                     // convert output names to actual paths
-                                    let output_paths: Vec<StorePath> = output_names
+                                    let output_paths: Vec<StorePath<String>> = output_names
                                         .iter()
                                         .map(|output_name| {
                                             input_drv
@@ -372,13 +372,13 @@ impl TvixStoreIO {
             .map_err(|e| std::io::Error::new(io::ErrorKind::Other, e))
     }
 
-    pub(crate) async fn node_to_path_info(
+    pub(crate) async fn node_to_path_info<'a>(
         &self,
-        name: &str,
+        name: &'a str,
         path: &Path,
         ca: &CAHash,
         root_node: Node,
-    ) -> io::Result<(PathInfo, NixHash, StorePath)> {
+    ) -> io::Result<(PathInfo, NixHash, StorePathRef<'a>)> {
         // Ask the PathInfoService for the NAR size and sha256
         // We always need it no matter what is the actual hash mode
         // because the path info construct a narinfo which *always*
@@ -411,20 +411,16 @@ impl TvixStoreIO {
             root_node,
         );
 
-        Ok((
-            path_info,
-            NixHash::Sha256(nar_sha256),
-            output_path.to_owned(),
-        ))
+        Ok((path_info, NixHash::Sha256(nar_sha256), output_path))
     }
 
-    pub(crate) async fn register_node_in_path_info_service(
+    pub(crate) async fn register_node_in_path_info_service<'a>(
         &self,
-        name: &str,
+        name: &'a str,
         path: &Path,
         ca: &CAHash,
         root_node: Node,
-    ) -> io::Result<StorePath> {
+    ) -> io::Result<StorePathRef<'a>> {
         let (path_info, _, output_path) = self.node_to_path_info(name, path, ca, root_node).await?;
         let _path_info = self.path_info_service.as_ref().put(path_info).await?;
 
@@ -449,7 +445,7 @@ impl EvalIO for TvixStoreIO {
         {
             if self
                 .tokio_handle
-                .block_on(self.store_path_to_node(&store_path, &sub_path))?
+                .block_on(self.store_path_to_node(&store_path, sub_path))?
                 .is_some()
             {
                 Ok(true)
@@ -471,7 +467,7 @@ impl EvalIO for TvixStoreIO {
         {
             if let Some(node) = self
                 .tokio_handle
-                .block_on(async { self.store_path_to_node(&store_path, &sub_path).await })?
+                .block_on(async { self.store_path_to_node(&store_path, sub_path).await })?
             {
                 // depending on the node type, treat open differently
                 match node {
@@ -527,7 +523,7 @@ impl EvalIO for TvixStoreIO {
         {
             if let Some(node) = self
                 .tokio_handle
-                .block_on(async { self.store_path_to_node(&store_path, &sub_path).await })?
+                .block_on(async { self.store_path_to_node(&store_path, sub_path).await })?
             {
                 match node {
                     Node::Directory { .. } => Ok(FileType::Directory),
@@ -549,7 +545,7 @@ impl EvalIO for TvixStoreIO {
         {
             if let Some(node) = self
                 .tokio_handle
-                .block_on(async { self.store_path_to_node(&store_path, &sub_path).await })?
+                .block_on(async { self.store_path_to_node(&store_path, sub_path).await })?
             {
                 match node {
                     Node::Directory { digest, .. } => {

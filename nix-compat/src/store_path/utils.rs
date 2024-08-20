@@ -1,6 +1,6 @@
 use crate::nixbase32;
 use crate::nixhash::{CAHash, NixHash};
-use crate::store_path::{Error, StorePathRef, STORE_DIR};
+use crate::store_path::{Error, StorePath, StorePathRef, STORE_DIR};
 use data_encoding::HEXLOWER;
 use sha2::{Digest, Sha256};
 use thiserror;
@@ -43,11 +43,17 @@ pub fn compress_hash<const OUTPUT_SIZE: usize>(input: &[u8]) -> [u8; OUTPUT_SIZE
 /// derivation or a literal text file that may contain references.
 /// If you don't want to have to pass the entire contents, you might want to use
 /// [build_ca_path] instead.
-pub fn build_text_path<S: AsRef<str>, I: IntoIterator<Item = S>, C: AsRef<[u8]>>(
-    name: &str,
+pub fn build_text_path<'a, S, SP, I, C>(
+    name: &'a str,
     content: C,
     references: I,
-) -> Result<StorePathRef<'_>, BuildStorePathError> {
+) -> Result<StorePath<SP>, BuildStorePathError>
+where
+    S: AsRef<str>,
+    SP: std::cmp::Eq + std::ops::Deref<Target = str> + std::convert::From<&'a str>,
+    I: IntoIterator<Item = S>,
+    C: AsRef<[u8]>,
+{
     // produce the sha256 digest of the contents
     let content_digest = Sha256::new_with_prefix(content).finalize().into();
 
@@ -55,12 +61,17 @@ pub fn build_text_path<S: AsRef<str>, I: IntoIterator<Item = S>, C: AsRef<[u8]>>
 }
 
 /// This builds a store path from a [CAHash] and a list of references.
-pub fn build_ca_path<'a, S: AsRef<str>, I: IntoIterator<Item = S>>(
+pub fn build_ca_path<'a, S, SP, I>(
     name: &'a str,
     ca_hash: &CAHash,
     references: I,
     self_reference: bool,
-) -> Result<StorePathRef<'a>, BuildStorePathError> {
+) -> Result<StorePath<SP>, BuildStorePathError>
+where
+    S: AsRef<str>,
+    SP: std::cmp::Eq + std::ops::Deref<Target = str> + std::convert::From<&'a str>,
+    I: IntoIterator<Item = S>,
+{
     // self references are only allowed for CAHash::Nar(NixHash::Sha256(_)).
     if self_reference && matches!(ca_hash, CAHash::Nar(NixHash::Sha256(_))) {
         return Err(BuildStorePathError::InvalidReference());
@@ -145,17 +156,20 @@ pub fn build_output_path<'a>(
 /// bytes.
 /// Inside a StorePath, that digest is printed nixbase32-encoded
 /// (32 characters).
-fn build_store_path_from_fingerprint_parts<'a>(
+fn build_store_path_from_fingerprint_parts<'a, S>(
     ty: &str,
     inner_digest: &[u8; 32],
     name: &'a str,
-) -> Result<StorePathRef<'a>, Error> {
+) -> Result<StorePath<S>, Error>
+where
+    S: std::cmp::Eq + std::ops::Deref<Target = str> + std::convert::From<&'a str>,
+{
     let fingerprint = format!(
         "{ty}:sha256:{}:{STORE_DIR}:{name}",
         HEXLOWER.encode(inner_digest)
     );
     // name validation happens in here.
-    StorePathRef::from_name_and_digest_fixed(
+    StorePath::from_name_and_digest_fixed(
         name,
         compress_hash(&Sha256::new_with_prefix(fingerprint).finalize()),
     )
@@ -216,7 +230,7 @@ mod test {
         // nix-repl> builtins.toFile "foo" "bar"
         // "/nix/store/vxjiwkjkn7x4079qvh1jkl5pn05j2aw0-foo"
 
-        let store_path = build_text_path("foo", "bar", Vec::<String>::new())
+        let store_path: StorePathRef = build_text_path("foo", "bar", Vec::<String>::new())
             .expect("build_store_path() should succeed");
 
         assert_eq!(
@@ -232,11 +246,11 @@ mod test {
         // nix-repl> builtins.toFile "baz" "${builtins.toFile "foo" "bar"}"
         // "/nix/store/5xd714cbfnkz02h2vbsj4fm03x3f15nf-baz"
 
-        let inner = build_text_path("foo", "bar", Vec::<String>::new())
+        let inner: StorePathRef = build_text_path("foo", "bar", Vec::<String>::new())
             .expect("path_with_references() should succeed");
         let inner_path = inner.to_absolute_path();
 
-        let outer = build_text_path("baz", &inner_path, vec![inner_path.as_str()])
+        let outer: StorePathRef = build_text_path("baz", &inner_path, vec![inner_path.as_str()])
             .expect("path_with_references() should succeed");
 
         assert_eq!(
@@ -247,7 +261,7 @@ mod test {
 
     #[test]
     fn build_sha1_path() {
-        let outer = build_ca_path(
+        let outer: StorePathRef = build_ca_path(
             "bar",
             &CAHash::Nar(NixHash::Sha1(hex!(
                 "0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33"
@@ -272,7 +286,7 @@ mod test {
         //
         // $ nix store make-content-addressed /nix/store/5xd714cbfnkz02h2vbsj4fm03x3f15nf-baz
         // rewrote '/nix/store/5xd714cbfnkz02h2vbsj4fm03x3f15nf-baz' to '/nix/store/s89y431zzhmdn3k8r96rvakryddkpv2v-baz'
-        let outer = build_ca_path(
+        let outer: StorePathRef = build_ca_path(
             "baz",
             &CAHash::Nar(NixHash::Sha256(
                 nixbase32::decode(b"1xqkzcb3909fp07qngljr4wcdnrh1gdam1m2n29i6hhrxlmkgkv1")

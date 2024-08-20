@@ -36,11 +36,11 @@ pub struct Derivation {
 
     /// Map from drv path to output names used from this derivation.
     #[serde(rename = "inputDrvs")]
-    pub input_derivations: BTreeMap<StorePath, BTreeSet<String>>,
+    pub input_derivations: BTreeMap<StorePath<String>, BTreeSet<String>>,
 
     /// Plain store paths of additional inputs.
     #[serde(rename = "inputSrcs")]
-    pub input_sources: BTreeSet<StorePath>,
+    pub input_sources: BTreeSet<StorePath<String>>,
 
     /// Maps output names to Output.
     pub outputs: BTreeMap<String, Output>,
@@ -127,7 +127,10 @@ impl Derivation {
     /// the `name` with a `.drv` suffix as name, all [Derivation::input_sources] and
     /// keys of [Derivation::input_derivations] as references, and the ATerm string of
     /// the [Derivation] as content.
-    pub fn calculate_derivation_path(&self, name: &str) -> Result<StorePath, DerivationError> {
+    pub fn calculate_derivation_path(
+        &self,
+        name: &str,
+    ) -> Result<StorePath<String>, DerivationError> {
         // append .drv to the name
         let name = &format!("{}.drv", name);
 
@@ -141,7 +144,6 @@ impl Derivation {
             .collect();
 
         build_text_path(name, self.to_aterm_bytes(), references)
-            .map(|s| s.to_owned())
             .map_err(|_e| DerivationError::InvalidOutputName(name.to_string()))
     }
 
@@ -210,7 +212,7 @@ impl Derivation {
                 self.input_derivations
                     .iter()
                     .map(|(drv_path, output_names)| {
-                        let hash = fn_lookup_hash_derivation_modulo(&drv_path.into());
+                        let hash = fn_lookup_hash_derivation_modulo(&drv_path.as_ref());
 
                         (hash, output_names.to_owned())
                     }),

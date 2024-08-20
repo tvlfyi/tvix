@@ -1,5 +1,6 @@
 use futures::stream::BoxStream;
 use futures::StreamExt;
+use nix_compat::store_path::StorePathRef;
 use tonic::async_trait;
 use tvix_castore::fs::{RootNodes, TvixStoreFs};
 use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService};
@@ -48,7 +49,7 @@ where
     T: AsRef<dyn PathInfoService> + Send + Sync,
 {
     async fn get_by_basename(&self, name: &PathComponent) -> Result<Option<Node>, Error> {
-        let Ok(store_path) = nix_compat::store_path::StorePath::from_bytes(name.as_ref()) else {
+        let Ok(store_path) = StorePathRef::from_bytes(name.as_ref()) else {
             return Ok(None);
         };
 

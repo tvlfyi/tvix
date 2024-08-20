@@ -1,5 +1,4 @@
 use crate::nixhash::CAHash;
-use crate::store_path::StorePathRef;
 use crate::{derivation::OutputError, store_path::StorePath};
 use serde::de::Unexpected;
 use serde::{Deserialize, Serialize};
@@ -10,7 +9,7 @@ use std::borrow::Cow;
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct Output {
     /// Store path of build result.
-    pub path: Option<StorePath>,
+    pub path: Option<StorePath<String>>,
 
     #[serde(flatten)]
     pub ca_hash: Option<CAHash>, // we can only represent a subset here.
@@ -33,10 +32,10 @@ impl<'de> Deserialize<'de> for Output {
                 &"a string",
             ))?;
 
-        let path = StorePathRef::from_absolute_path(path.as_bytes())
+        let path = StorePath::from_absolute_path(path.as_bytes())
             .map_err(|_| serde::de::Error::invalid_value(Unexpected::Str(path), &"StorePath"))?;
         Ok(Self {
-            path: Some(path.to_owned()),
+            path: Some(path),
             ca_hash: CAHash::from_map::<D>(&fields)?,
         })
     }

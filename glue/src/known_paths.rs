@@ -25,27 +25,27 @@ pub struct KnownPaths {
     ///
     /// Keys are derivation paths, values are a tuple of the "hash derivation
     /// modulo" and the Derivation struct itself.
-    derivations: HashMap<StorePath, ([u8; 32], Derivation)>,
+    derivations: HashMap<StorePath<String>, ([u8; 32], Derivation)>,
 
     /// A map from output path to (one) drv path.
     /// Note that in the case of FODs, multiple drvs can produce the same output
     /// path. We use one of them.
-    outputs_to_drvpath: HashMap<StorePath, StorePath>,
+    outputs_to_drvpath: HashMap<StorePath<String>, StorePath<String>>,
 
     /// A map from output path to fetches (and their names).
-    outputs_to_fetches: HashMap<StorePath, (String, Fetch)>,
+    outputs_to_fetches: HashMap<StorePath<String>, (String, Fetch)>,
 }
 
 impl KnownPaths {
     /// Fetch the opaque "hash derivation modulo" for a given derivation path.
-    pub fn get_hash_derivation_modulo(&self, drv_path: &StorePath) -> Option<&[u8; 32]> {
+    pub fn get_hash_derivation_modulo(&self, drv_path: &StorePath<String>) -> Option<&[u8; 32]> {
         self.derivations
             .get(drv_path)
             .map(|(hash_derivation_modulo, _derivation)| hash_derivation_modulo)
     }
 
     /// Return a reference to the Derivation for a given drv path.
-    pub fn get_drv_by_drvpath(&self, drv_path: &StorePath) -> Option<&Derivation> {
+    pub fn get_drv_by_drvpath(&self, drv_path: &StorePath<String>) -> Option<&Derivation> {
         self.derivations
             .get(drv_path)
             .map(|(_hash_derivation_modulo, derivation)| derivation)
@@ -54,7 +54,10 @@ impl KnownPaths {
     /// Return the drv path of the derivation producing the passed output path.
     /// Note there can be multiple Derivations producing the same output path in
     /// flight; this function will only return one of them.
-    pub fn get_drv_path_for_output_path(&self, output_path: &StorePath) -> Option<&StorePath> {
+    pub fn get_drv_path_for_output_path(
+        &self,
+        output_path: &StorePath<String>,
+    ) -> Option<&StorePath<String>> {
         self.outputs_to_drvpath.get(output_path)
     }
 
@@ -63,7 +66,7 @@ impl KnownPaths {
     /// be fully calculated.
     /// All input derivations this refers to must also be inserted to this
     /// struct.
-    pub fn add_derivation(&mut self, drv_path: StorePath, drv: Derivation) {
+    pub fn add_derivation(&mut self, drv_path: StorePath<String>, drv: Derivation) {
         // check input derivations to have been inserted.
         #[cfg(debug_assertions)]
         {
@@ -124,14 +127,17 @@ impl KnownPaths {
 
     /// Return the name and fetch producing the passed output path.
     /// Note there can also be (multiple) Derivations producing the same output path.
-    pub fn get_fetch_for_output_path(&self, output_path: &StorePath) -> Option<(String, Fetch)> {
+    pub fn get_fetch_for_output_path(
+        &self,
+        output_path: &StorePath<String>,
+    ) -> Option<(String, Fetch)> {
         self.outputs_to_fetches
             .get(output_path)
             .map(|(name, fetch)| (name.to_owned(), fetch.to_owned()))
     }
 
     /// Returns an iterator over all known derivations and their store path.
-    pub fn get_derivations(&self) -> impl Iterator<Item = (&StorePath, &Derivation)> {
+    pub fn get_derivations(&self) -> impl Iterator<Item = (&StorePath<String>, &Derivation)> {
         self.derivations.iter().map(|(k, v)| (k, &v.1))
     }
 }
@@ -156,26 +162,26 @@ mod tests {
             "tests/ch49594n9avinrf8ip0aslidkc4lxkqv-foo.drv"
         ))
         .expect("must parse");
-        static ref BAR_DRV_PATH: StorePath =
+        static ref BAR_DRV_PATH: StorePath<String> =
             StorePath::from_bytes(b"ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv").expect("must parse");
-        static ref FOO_DRV_PATH: StorePath =
+        static ref FOO_DRV_PATH: StorePath<String> =
             StorePath::from_bytes(b"ch49594n9avinrf8ip0aslidkc4lxkqv-foo.drv").expect("must parse");
-        static ref BAR_OUT_PATH: StorePath =
+        static ref BAR_OUT_PATH: StorePath<String> =
             StorePath::from_bytes(b"mp57d33657rf34lzvlbpfa1gjfv5gmpg-bar").expect("must parse");
-        static ref FOO_OUT_PATH: StorePath =
+        static ref FOO_OUT_PATH: StorePath<String> =
             StorePath::from_bytes(b"fhaj6gmwns62s6ypkcldbaj2ybvkhx3p-foo").expect("must parse");
 
         static ref FETCH_URL : Fetch = Fetch::URL{
             url: Url::parse("https://raw.githubusercontent.com/aaptel/notmuch-extract-patch/f732a53e12a7c91a06755ebfab2007adc9b3063b/notmuch-extract-patch").unwrap(),
             exp_hash: Some(nixhash::from_sri_str("sha256-Xa1Jbl2Eq5+L0ww+Ph1osA3Z/Dxe/RkN1/dITQCdXFk=").unwrap())
         };
-        static ref FETCH_URL_OUT_PATH: StorePath = StorePath::from_bytes(b"06qi00hylriyfm0nl827crgjvbax84mz-notmuch-extract-patch").unwrap();
+        static ref FETCH_URL_OUT_PATH: StorePath<String> = StorePath::from_bytes(b"06qi00hylriyfm0nl827crgjvbax84mz-notmuch-extract-patch").unwrap();
 
         static ref FETCH_TARBALL : Fetch = Fetch::Tarball{
             url: Url::parse("https://github.com/NixOS/nixpkgs/archive/91050ea1e57e50388fa87a3302ba12d188ef723a.tar.gz").unwrap(),
             exp_nar_sha256: Some(nixbase32::decode_fixed("1hf6cgaci1n186kkkjq106ryf8mmlq9vnwgfwh625wa8hfgdn4dm").unwrap())
         };
-        static ref FETCH_TARBALL_OUT_PATH: StorePath = StorePath::from_bytes(b"7adgvk5zdfq4pwrhsm3n9lzypb12gw0g-source").unwrap();
+        static ref FETCH_TARBALL_OUT_PATH: StorePath<String> = StorePath::from_bytes(b"7adgvk5zdfq4pwrhsm3n9lzypb12gw0g-source").unwrap();
     }
 
     /// ensure we don't allow acdding a Derivation that depends on another,

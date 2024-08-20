@@ -568,7 +568,7 @@ pub(crate) mod derivation_builtins {
             let blob_digest = blob_writer.close().await?;
             let ca_hash = CAHash::Text(Sha256::digest(&content).into());
 
-            let store_path =
+            let store_path: StorePathRef =
                 build_ca_path(name.to_str()?, &ca_hash, content.iter_ctx_plain(), false)
                     .map_err(|_e| {
                         nix_compat::derivation::DerivationError::InvalidOutputName(

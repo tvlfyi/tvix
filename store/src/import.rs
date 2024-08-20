@@ -8,7 +8,7 @@ use tvix_castore::{
 
 use nix_compat::{
     nixhash::{CAHash, NixHash},
-    store_path::{self, StorePath},
+    store_path::{self, StorePathRef},
 };
 
 use crate::{
@@ -115,7 +115,7 @@ pub async fn import_path_as_nar_ca<BS, DS, PS, NS, P>(
     directory_service: DS,
     path_info_service: PS,
     nar_calculation_service: NS,
-) -> Result<StorePath, std::io::Error>
+) -> Result<StorePathRef, std::io::Error>
 where
     P: AsRef<Path> + std::fmt::Debug,
     BS: BlobService + Clone,
@@ -161,7 +161,7 @@ where
     // callers don't really need it.
     let _path_info = path_info_service.as_ref().put(path_info).await?;
 
-    Ok(output_path.to_owned())
+    Ok(output_path)
 }
 
 #[cfg(test)]

@@ -2,14 +2,15 @@ use crate::nixbase32;
 use data_encoding::{DecodeError, BASE64};
 use serde::{Deserialize, Serialize};
 use std::{
-    fmt,
-    path::PathBuf,
+    fmt::{self, Display},
+    ops::Deref,
+    path::Path,
     str::{self, FromStr},
 };
 use thiserror;
 
 #[cfg(target_family = "unix")]
-use std::os::unix::ffi::OsStringExt;
+use std::os::unix::ffi::OsStrExt;
 
 mod utils;
 
@@ -54,17 +55,26 @@ pub enum Error {
 /// A [StorePath] does not encode any additional subpath "inside" the store
 /// path.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct StorePath {
+pub struct StorePath<S>
+where
+    S: std::cmp::Eq + std::cmp::PartialEq,
+{
     digest: [u8; DIGEST_SIZE],
-    name: Box<str>,
+    name: S,
 }
+/// Like [StorePath], but without a heap allocation for the name.
+/// Used by [StorePath] for parsing.
+pub type StorePathRef<'a> = StorePath<&'a str>;
 
-impl StorePath {
+impl<S> StorePath<S>
+where
+    S: std::cmp::Eq + Deref<Target = str>,
+{
     pub fn digest(&self) -> &[u8; DIGEST_SIZE] {
         &self.digest
     }
 
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &S {
         &self.name
     }
 
@@ -74,174 +84,20 @@ impl StorePath {
             name: &self.name,
         }
     }
-}
 
-impl PartialOrd for StorePath {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-/// `StorePath`s are sorted by their reverse digest to match the sorting order
-/// of the nixbase32-encoded string.
-impl Ord for StorePath {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.as_ref().cmp(&other.as_ref())
-    }
-}
-
-impl FromStr for StorePath {
-    type Err = Error;
-
-    /// Construct a [StorePath] by passing the `$digest-$name` string
-    /// that comes after [STORE_DIR_WITH_SLASH].
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_bytes(s.as_bytes())
-    }
-}
-
-impl StorePath {
-    /// Construct a [StorePath] by passing the `$digest-$name` string
-    /// that comes after [STORE_DIR_WITH_SLASH].
-    pub fn from_bytes(s: &[u8]) -> Result<StorePath, Error> {
-        Ok(StorePathRef::from_bytes(s)?.to_owned())
-    }
-
-    /// Decompose a string into a [StorePath] and a [PathBuf] containing the
-    /// rest of the path, or an error.
-    #[cfg(target_family = "unix")]
-    pub fn from_absolute_path_full(s: &str) -> Result<(StorePath, PathBuf), Error> {
-        // strip [STORE_DIR_WITH_SLASH] from s
-        match s.strip_prefix(STORE_DIR_WITH_SLASH) {
-            None => Err(Error::MissingStoreDir),
-            Some(rest) => {
-                // put rest in a PathBuf
-                let mut p = PathBuf::new();
-                p.push(rest);
-
-                let mut it = p.components();
-
-                // The first component of the rest must be parse-able as a [StorePath]
-                if let Some(first_component) = it.next() {
-                    // convert first component to StorePath
-                    let first_component_bytes = first_component.as_os_str().to_owned().into_vec();
-                    let store_path = StorePath::from_bytes(&first_component_bytes)?;
-                    // collect rest
-                    let rest_buf: PathBuf = it.collect();
-                    Ok((store_path, rest_buf))
-                } else {
-                    Err(Error::InvalidLength) // Well, or missing "/"?
-                }
-            }
-        }
-    }
-
-    /// Returns an absolute store path string.
-    /// That is just the string representation, prefixed with the store prefix
-    /// ([STORE_DIR_WITH_SLASH]),
-    pub fn to_absolute_path(&self) -> String {
-        let sp_ref: StorePathRef = self.into();
-        sp_ref.to_absolute_path()
-    }
-}
-
-impl<'de> Deserialize<'de> for StorePath {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let r = <StorePathRef<'de> as Deserialize<'de>>::deserialize(deserializer)?;
-        Ok(r.to_owned())
-    }
-}
-
-impl Serialize for StorePath {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let r: StorePathRef = self.into();
-        r.serialize(serializer)
-    }
-}
-
-/// Like [StorePath], but without a heap allocation for the name.
-/// Used by [StorePath] for parsing.
-///
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
-pub struct StorePathRef<'a> {
-    digest: [u8; DIGEST_SIZE],
-    name: &'a str,
-}
-
-impl<'a> From<&'a StorePath> for StorePathRef<'a> {
-    fn from(&StorePath { digest, ref name }: &'a StorePath) -> Self {
-        StorePathRef { digest, name }
-    }
-}
-
-impl<'a> PartialOrd for StorePathRef<'a> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-/// `StorePathRef`s are sorted by their reverse digest to match the sorting order
-/// of the nixbase32-encoded string.
-impl<'a> Ord for StorePathRef<'a> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.digest.iter().rev().cmp(other.digest.iter().rev())
-    }
-}
-
-impl<'a> StorePathRef<'a> {
-    pub fn digest(&self) -> &[u8; DIGEST_SIZE] {
-        &self.digest
-    }
-
-    pub fn name(&self) -> &'a str {
-        self.name
-    }
-
-    pub fn to_owned(&self) -> StorePath {
+    pub fn to_owned(&self) -> StorePath<String> {
         StorePath {
             digest: self.digest,
-            name: self.name.into(),
+            name: self.name.to_string(),
         }
     }
 
-    /// Construct a [StorePathRef] from a name and digest.
-    /// The name is validated, and the digest checked for size.
-    pub fn from_name_and_digest(name: &'a str, digest: &[u8]) -> Result<Self, Error> {
-        let digest_fixed = digest.try_into().map_err(|_| Error::InvalidLength)?;
-        Self::from_name_and_digest_fixed(name, digest_fixed)
-    }
-
-    /// Construct a [StorePathRef] from a name and digest of correct length.
-    /// The name is validated.
-    pub fn from_name_and_digest_fixed(
-        name: &'a str,
-        digest: [u8; DIGEST_SIZE],
-    ) -> Result<Self, Error> {
-        Ok(Self {
-            name: validate_name(name.as_bytes())?,
-            digest,
-        })
-    }
-
-    /// Construct a [StorePathRef] from an absolute store path string.
-    /// This is equivalent to calling [StorePathRef::from_bytes], but stripping
-    /// the [STORE_DIR_WITH_SLASH] prefix before.
-    pub fn from_absolute_path(s: &'a [u8]) -> Result<Self, Error> {
-        match s.strip_prefix(STORE_DIR_WITH_SLASH.as_bytes()) {
-            Some(s_stripped) => Self::from_bytes(s_stripped),
-            None => Err(Error::MissingStoreDir),
-        }
-    }
-
-    /// Construct a [StorePathRef] by passing the `$digest-$name` string
+    /// Construct a [StorePath] by passing the `$digest-$name` string
     /// that comes after [STORE_DIR_WITH_SLASH].
-    pub fn from_bytes(s: &'a [u8]) -> Result<Self, Error> {
+    pub fn from_bytes<'a>(s: &'a [u8]) -> Result<Self, Error>
+    where
+        S: From<&'a str>,
+    {
         // the whole string needs to be at least:
         //
         // - 32 characters (encoded hash)
@@ -257,21 +113,125 @@ impl<'a> StorePathRef<'a> {
             return Err(Error::MissingDash);
         }
 
-        Ok(StorePathRef {
+        Ok(StorePath {
             digest,
-            name: validate_name(&s[ENCODED_DIGEST_SIZE + 1..])?,
+            name: validate_name(&s[ENCODED_DIGEST_SIZE + 1..])?.into(),
         })
+    }
+
+    /// Construct a [StorePathRef] from a name and digest.
+    /// The name is validated, and the digest checked for size.
+    pub fn from_name_and_digest<'a>(name: &'a str, digest: &[u8]) -> Result<Self, Error>
+    where
+        S: From<&'a str>,
+    {
+        let digest_fixed = digest.try_into().map_err(|_| Error::InvalidLength)?;
+        Self::from_name_and_digest_fixed(name, digest_fixed)
+    }
+
+    /// Construct a [StorePathRef] from a name and digest of correct length.
+    /// The name is validated.
+    pub fn from_name_and_digest_fixed<'a>(
+        name: &'a str,
+        digest: [u8; DIGEST_SIZE],
+    ) -> Result<Self, Error>
+    where
+        S: From<&'a str>,
+    {
+        Ok(Self {
+            name: validate_name(name.as_bytes())?.into(),
+            digest,
+        })
+    }
+
+    /// Construct a [StorePathRef] from an absolute store path string.
+    /// This is equivalent to calling [StorePathRef::from_bytes], but stripping
+    /// the [STORE_DIR_WITH_SLASH] prefix before.
+    pub fn from_absolute_path<'a>(s: &'a [u8]) -> Result<Self, Error>
+    where
+        S: From<&'a str>,
+    {
+        match s.strip_prefix(STORE_DIR_WITH_SLASH.as_bytes()) {
+            Some(s_stripped) => Self::from_bytes(s_stripped),
+            None => Err(Error::MissingStoreDir),
+        }
+    }
+
+    /// Decompose a string into a [StorePath] and a [PathBuf] containing the
+    /// rest of the path, or an error.
+    #[cfg(target_family = "unix")]
+    pub fn from_absolute_path_full<'a>(s: &'a str) -> Result<(Self, &'a Path), Error>
+    where
+        S: From<&'a str>,
+    {
+        // strip [STORE_DIR_WITH_SLASH] from s
+
+        match s.strip_prefix(STORE_DIR_WITH_SLASH) {
+            None => Err(Error::MissingStoreDir),
+            Some(rest) => {
+                let mut it = Path::new(rest).components();
+
+                // The first component of the rest must be parse-able as a [StorePath]
+                if let Some(first_component) = it.next() {
+                    // convert first component to StorePath
+                    let store_path = StorePath::from_bytes(first_component.as_os_str().as_bytes())?;
+
+                    // collect rest
+                    let rest_buf = it.as_path();
+
+                    Ok((store_path, rest_buf))
+                } else {
+                    Err(Error::InvalidLength) // Well, or missing "/"?
+                }
+            }
+        }
     }
 
     /// Returns an absolute store path string.
     /// That is just the string representation, prefixed with the store prefix
     /// ([STORE_DIR_WITH_SLASH]),
-    pub fn to_absolute_path(&self) -> String {
+    pub fn to_absolute_path(&self) -> String
+    where
+        S: Display,
+    {
         format!("{}{}", STORE_DIR_WITH_SLASH, self)
     }
 }
 
-impl<'de: 'a, 'a> Deserialize<'de> for StorePathRef<'a> {
+impl<S> PartialOrd for StorePath<S>
+where
+    S: std::cmp::PartialEq + std::cmp::Eq,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+/// `StorePath`s are sorted by their reverse digest to match the sorting order
+/// of the nixbase32-encoded string.
+impl<S> Ord for StorePath<S>
+where
+    S: std::cmp::PartialEq + std::cmp::Eq,
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.digest.iter().rev().cmp(other.digest.iter().rev())
+    }
+}
+
+impl<'a, 'b: 'a> FromStr for StorePath<String> {
+    type Err = Error;
+
+    /// Construct a [StorePath] by passing the `$digest-$name` string
+    /// that comes after [STORE_DIR_WITH_SLASH].
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        StorePath::<String>::from_bytes(s.as_bytes())
+    }
+}
+
+impl<'a, 'de: 'a, S> Deserialize<'de> for StorePath<S>
+where
+    S: std::cmp::Eq + Deref<Target = str> + From<&'a str>,
+{
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -284,16 +244,19 @@ impl<'de: 'a, 'a> Deserialize<'de> for StorePathRef<'a> {
                 &"store path prefix",
             )
         })?;
-        StorePathRef::from_bytes(stripped.as_bytes()).map_err(|_| {
+        StorePath::from_bytes(stripped.as_bytes()).map_err(|_| {
             serde::de::Error::invalid_value(serde::de::Unexpected::Str(string), &"StorePath")
         })
     }
 }
 
-impl Serialize for StorePathRef<'_> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+impl<S> Serialize for StorePath<S>
+where
+    S: std::cmp::Eq + Deref<Target = str> + Display,
+{
+    fn serialize<SR>(&self, serializer: SR) -> Result<SR::Ok, SR::Error>
     where
-        S: serde::Serializer,
+        SR: serde::Serializer,
     {
         let string: String = self.to_absolute_path();
         string.serialize(serializer)
@@ -347,13 +310,10 @@ pub(crate) fn validate_name(s: &(impl AsRef<[u8]> + ?Sized)) -> Result<&str, Err
     Ok(unsafe { str::from_utf8_unchecked(s) })
 }
 
-impl fmt::Display for StorePath {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        StorePathRef::from(self).fmt(f)
-    }
-}
-
-impl fmt::Display for StorePathRef<'_> {
+impl<S> fmt::Display for StorePath<S>
+where
+    S: fmt::Display + std::cmp::Eq,
+{
     /// The string representation of a store path starts with a digest (20
     /// bytes), [crate::nixbase32]-encoded, followed by a `-`,
     /// and ends with the name.
@@ -386,12 +346,12 @@ mod tests {
     fn happy_path() {
         let example_nix_path_str =
             "00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432";
-        let nixpath = StorePath::from_bytes(example_nix_path_str.as_bytes())
+        let nixpath = StorePathRef::from_bytes(example_nix_path_str.as_bytes())
             .expect("Error parsing example string");
 
         let expected_digest: [u8; DIGEST_SIZE] = hex!("8a12321522fd91efbd60ebb2481af88580f61600");
 
-        assert_eq!("net-tools-1.60_p20170221182432", nixpath.name());
+        assert_eq!("net-tools-1.60_p20170221182432", *nixpath.name());
         assert_eq!(nixpath.digest, expected_digest);
 
         assert_eq!(example_nix_path_str, nixpath.to_string())
@@ -426,8 +386,8 @@ mod tests {
             if w.len() < 2 {
                 continue;
             }
-            let (pa, _) = StorePath::from_absolute_path_full(w[0]).expect("parseable");
-            let (pb, _) = StorePath::from_absolute_path_full(w[1]).expect("parseable");
+            let (pa, _) = StorePathRef::from_absolute_path_full(w[0]).expect("parseable");
+            let (pb, _) = StorePathRef::from_absolute_path_full(w[1]).expect("parseable");
             assert_eq!(
                 Ordering::Less,
                 pa.cmp(&pb),
@@ -448,36 +408,38 @@ mod tests {
     /// https://github.com/NixOS/nix/pull/9867 (revert-of-revert)
     #[test]
     fn starts_with_dot() {
-        StorePath::from_bytes(b"fli4bwscgna7lpm7v5xgnjxrxh0yc7ra-.gitignore")
+        StorePathRef::from_bytes(b"fli4bwscgna7lpm7v5xgnjxrxh0yc7ra-.gitignore")
             .expect("must succeed");
     }
 
     #[test]
     fn empty_name() {
-        StorePath::from_bytes(b"00bgd045z0d4icpbc2yy-").expect_err("must fail");
+        StorePathRef::from_bytes(b"00bgd045z0d4icpbc2yy-").expect_err("must fail");
     }
 
     #[test]
     fn excessive_length() {
-        StorePath::from_bytes(b"00bgd045z0d4icpbc2yy-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        StorePathRef::from_bytes(b"00bgd045z0d4icpbc2yy-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
             .expect_err("must fail");
     }
 
     #[test]
     fn invalid_hash_length() {
-        StorePath::from_bytes(b"00bgd045z0d4icpbc2yy-net-tools-1.60_p20170221182432")
+        StorePathRef::from_bytes(b"00bgd045z0d4icpbc2yy-net-tools-1.60_p20170221182432")
             .expect_err("must fail");
     }
 
     #[test]
     fn invalid_encoding_hash() {
-        StorePath::from_bytes(b"00bgd045z0d4icpbc2yyz4gx48aku4la-net-tools-1.60_p20170221182432")
-            .expect_err("must fail");
+        StorePathRef::from_bytes(
+            b"00bgd045z0d4icpbc2yyz4gx48aku4la-net-tools-1.60_p20170221182432",
+        )
+        .expect_err("must fail");
     }
 
     #[test]
     fn more_than_just_the_bare_nix_store_path() {
-        StorePath::from_bytes(
+        StorePathRef::from_bytes(
             b"00bgd045z0d4icpbc2yyz4gx48aku4la-net-tools-1.60_p20170221182432/bin/arp",
         )
         .expect_err("must fail");
@@ -485,7 +447,7 @@ mod tests {
 
     #[test]
     fn no_dash_between_hash_and_name() {
-        StorePath::from_bytes(b"00bgd045z0d4icpbc2yyz4gx48ak44lanet-tools-1.60_p20170221182432")
+        StorePathRef::from_bytes(b"00bgd045z0d4icpbc2yyz4gx48ak44lanet-tools-1.60_p20170221182432")
             .expect_err("must fail");
     }
 
@@ -534,7 +496,7 @@ mod tests {
 
     #[test]
     fn serialize_owned() {
-        let nixpath_actual = StorePath::from_bytes(
+        let nixpath_actual = StorePathRef::from_bytes(
             b"00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432",
         )
         .expect("can parse");
@@ -578,7 +540,8 @@ mod tests {
         let store_path_str_json =
             "\"/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432\"";
 
-        let store_path: StorePath = serde_json::from_str(store_path_str_json).expect("valid json");
+        let store_path: StorePath<String> =
+            serde_json::from_str(store_path_str_json).expect("valid json");
 
         assert_eq!(
             "/nix/store/00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432",
@@ -601,7 +564,7 @@ mod tests {
         StorePath::from_bytes(b"00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432").unwrap(), PathBuf::from("bin/arp/"))]
     fn from_absolute_path_full(
         #[case] s: &str,
-        #[case] exp_store_path: StorePath,
+        #[case] exp_store_path: StorePath<&str>,
         #[case] exp_path: PathBuf,
     ) {
         let (actual_store_path, actual_path) =
@@ -615,15 +578,15 @@ mod tests {
     fn from_absolute_path_errors() {
         assert_eq!(
             Error::InvalidLength,
-            StorePath::from_absolute_path_full("/nix/store/").expect_err("must fail")
+            StorePathRef::from_absolute_path_full("/nix/store/").expect_err("must fail")
         );
         assert_eq!(
             Error::InvalidLength,
-            StorePath::from_absolute_path_full("/nix/store/foo").expect_err("must fail")
+            StorePathRef::from_absolute_path_full("/nix/store/foo").expect_err("must fail")
         );
         assert_eq!(
             Error::MissingStoreDir,
-            StorePath::from_absolute_path_full(
+            StorePathRef::from_absolute_path_full(
                 "00bgd045z0d4icpbc2yyz4gx48ak44la-net-tools-1.60_p20170221182432"
             )
             .expect_err("must fail")

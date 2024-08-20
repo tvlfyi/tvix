@@ -87,7 +87,7 @@ impl PathInfo {
     /// validate performs some checks on the PathInfo struct,
     /// Returning either a [store_path::StorePath] of the root node, or a
     /// [ValidatePathInfoError].
-    pub fn validate(&self) -> Result<store_path::StorePath, ValidatePathInfoError> {
+    pub fn validate(&self) -> Result<store_path::StorePath<String>, ValidatePathInfoError> {
         // ensure the references have the right number of bytes.
         for (i, reference) in self.references.iter().enumerate() {
             if reference.len() != store_path::DIGEST_SIZE {
@@ -118,7 +118,7 @@ impl PathInfo {
             // parse references in reference_names.
             for (i, reference_name_str) in narinfo.reference_names.iter().enumerate() {
                 // ensure thy parse as (non-absolute) store path
-                let reference_names_store_path = store_path::StorePath::from_bytes(
+                let reference_names_store_path = store_path::StorePathRef::from_bytes(
                     reference_name_str.as_bytes(),
                 )
                 .map_err(|_| {
@@ -160,6 +160,10 @@ impl PathInfo {
         let root_nix_path = match &self.node {
             None => Err(ValidatePathInfoError::NoNodePresent)?,
             Some(node) => {
+                // NOTE: We could have some PathComponent not allocating here,
+                // so this can return StorePathRef.
+                // However, as this will get refactored away to stricter types
+                // soon anyways, there's no point.
                 let (name, _node) = node
                     .clone()
                     .into_name_and_node()
@@ -356,7 +360,7 @@ impl From<&nix_compat::narinfo::NarInfo<'_>> for NarInfo {
             signatures,
             reference_names: value.references.iter().map(|r| r.to_string()).collect(),
             deriver: value.deriver.as_ref().map(|sp| StorePath {
-                name: sp.name().to_owned(),
+                name: (*sp.name()).to_owned(),
                 digest: Bytes::copy_from_slice(sp.digest()),
             }),
             ca: value.ca.as_ref().map(|ca| ca.into()),

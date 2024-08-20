@@ -14,7 +14,7 @@ use tvix_castore::{DirectoryError, ValidateNodeError};
 
 fn validate_pathinfo(
     #[case] node: Option<castorepb::Node>,
-    #[case] exp_result: Result<StorePath, ValidatePathInfoError>,
+    #[case] exp_result: Result<StorePath<String>, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
     let p = PathInfo {
@@ -46,7 +46,7 @@ fn validate_pathinfo(
 )))]
 fn validate_directory(
     #[case] directory_node: castorepb::DirectoryNode,
-    #[case] exp_result: Result<StorePath, ValidatePathInfoError>,
+    #[case] exp_result: Result<StorePath<String>, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
     let p = PathInfo {
@@ -89,7 +89,7 @@ fn validate_directory(
 )]
 fn validate_file(
     #[case] file_node: castorepb::FileNode,
-    #[case] exp_result: Result<StorePath, ValidatePathInfoError>,
+    #[case] exp_result: Result<StorePath<String>, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
     let p = PathInfo {
@@ -121,7 +121,7 @@ fn validate_file(
 )]
 fn validate_symlink(
     #[case] symlink_node: castorepb::SymlinkNode,
-    #[case] exp_result: Result<StorePath, ValidatePathInfoError>,
+    #[case] exp_result: Result<StorePath<String>, ValidatePathInfoError>,
 ) {
     // construct the PathInfo object
     let p = PathInfo {

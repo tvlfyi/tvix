@@ -20,7 +20,7 @@ pub enum ErrorKind {
     DuplicateInputDerivationOutputName(String, String),
 
     #[error("duplicate input source: {0}")]
-    DuplicateInputSource(StorePath),
+    DuplicateInputSource(StorePath<String>),
 
     #[error("nix hash error: {0}")]
     NixHashError(nixhash::Error),

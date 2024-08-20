@@ -112,7 +112,7 @@ mod import_builtins {
 
     use crate::tvix_store_io::TvixStoreIO;
     use nix_compat::nixhash::{CAHash, NixHash};
-    use nix_compat::store_path::StorePath;
+    use nix_compat::store_path::StorePathRef;
     use sha2::Digest;
     use tokio::io::AsyncWriteExt;
     use tvix_eval::builtins::coerce_value_to_path;
@@ -377,16 +377,16 @@ mod import_builtins {
             }
         })?;
 
-        let path_exists = if let Ok((store_path, sub_path)) = StorePath::from_absolute_path_full(p)
-        {
-            if !sub_path.as_os_str().is_empty() {
-                false
+        let path_exists =
+            if let Ok((store_path, sub_path)) = StorePathRef::from_absolute_path_full(p) {
+                if !sub_path.as_os_str().is_empty() {
+                    false
+                } else {
+                    state.store_path_exists(store_path.as_ref()).await?
+                }
             } else {
-                state.store_path_exists(store_path.as_ref()).await?
-            }
-        } else {
-            false
-        };
+                false
+            };
 
         if !path_exists {
             return Err(ImportError::PathNotInStore(p.into()).into());
