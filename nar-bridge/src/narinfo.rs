@@ -1,6 +1,6 @@
 use axum::http::StatusCode;
 use bytes::Bytes;
-use nix_compat::{narinfo::NarInfo, nixbase32};
+use nix_compat::{narinfo::NarInfo, nix_http, nixbase32};
 use prost::Message;
 use tracing::{instrument, warn, Span};
 use tvix_castore::proto::{self as castorepb};
@@ -18,7 +18,7 @@ pub async fn head(
         path_info_service, ..
     }): axum::extract::State<AppState>,
 ) -> Result<&'static str, StatusCode> {
-    let digest = parse_narinfo_str(&narinfo_str)?;
+    let digest = nix_http::parse_narinfo_str(&narinfo_str).ok_or(StatusCode::NOT_FOUND)?;
     Span::current().record("path_info.digest", &narinfo_str[0..32]);
 
     if path_info_service
@@ -44,7 +44,7 @@ pub async fn get(
         path_info_service, ..
     }): axum::extract::State<AppState>,
 ) -> Result<String, StatusCode> {
-    let digest = parse_narinfo_str(&narinfo_str)?;
+    let digest = nix_http::parse_narinfo_str(&narinfo_str).ok_or(StatusCode::NOT_FOUND)?;
     Span::current().record("path_info.digest", &narinfo_str[0..32]);
 
     // fetch the PathInfo
@@ -101,7 +101,7 @@ pub async fn put(
     }): axum::extract::State<AppState>,
     request: axum::extract::Request,
 ) -> Result<&'static str, StatusCode> {
-    let _narinfo_digest = parse_narinfo_str(&narinfo_str)?;
+    let _narinfo_digest = nix_http::parse_narinfo_str(&narinfo_str).ok_or(StatusCode::UNAUTHORIZED);
     Span::current().record("path_info.digest", &narinfo_str[0..32]);
 
     let narinfo_bytes: Bytes = axum::body::to_bytes(request.into_body(), NARINFO_LIMIT)
@@ -155,51 +155,5 @@ pub async fn put(
             warn!("received narinfo with unknown NARHash");
             Err(StatusCode::BAD_REQUEST)
         }
-    }
-}
-
-/// Parses a `3mzh8lvgbynm9daj7c82k2sfsfhrsfsy.narinfo` string and returns the
-/// nixbase32-decoded digest.
-fn parse_narinfo_str(s: &str) -> Result<[u8; 20], StatusCode> {
-    if !s.is_char_boundary(32) {
-        warn!("invalid string, no char boundary at 32");
-        return Err(StatusCode::NOT_FOUND);
-    }
-
-    Ok(match s.split_at(32) {
-        (hash_str, ".narinfo") => {
-            // we know this is 32 bytes
-            let hash_str_fixed: [u8; 32] = hash_str.as_bytes().try_into().unwrap();
-            nixbase32::decode_fixed(hash_str_fixed).map_err(|e| {
-                warn!(err=%e, "invalid digest");
-                StatusCode::NOT_FOUND
-            })?
-        }
-        _ => {
-            warn!("invalid string");
-            return Err(StatusCode::NOT_FOUND);
-        }
-    })
-}
-
-#[cfg(test)]
-mod test {
-    use super::parse_narinfo_str;
-    use hex_literal::hex;
-
-    #[test]
-    fn success() {
-        assert_eq!(
-            hex!("8a12321522fd91efbd60ebb2481af88580f61600"),
-            parse_narinfo_str("00bgd045z0d4icpbc2yyz4gx48ak44la.narinfo").unwrap()
-        );
-    }
-
-    #[test]
-    fn failure() {
-        assert!(parse_narinfo_str("00bgd045z0d4icpbc2yyz4gx48ak44la").is_err());
-        assert!(parse_narinfo_str("/00bgd045z0d4icpbc2yyz4gx48ak44la").is_err());
-        assert!(parse_narinfo_str("000000").is_err());
-        assert!(parse_narinfo_str("00bgd045z0d4icpbc2yyz4gx48ak44l🦊.narinfo").is_err());
     }
 }

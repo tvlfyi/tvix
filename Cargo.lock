@@ -2361,6 +2361,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-test",
+ "tracing",
  "zstd",
 ]
 

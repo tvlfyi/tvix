@@ -7443,6 +7443,10 @@ rec {
             optional = true;
             features = [ "io-util" "macros" ];
           }
+          {
+            name = "tracing";
+            packageId = "tracing";
+          }
         ];
         devDependencies = [
           {

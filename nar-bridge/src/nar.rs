@@ -5,7 +5,7 @@ use axum::response::Response;
 use bytes::Bytes;
 use data_encoding::BASE64URL_NOPAD;
 use futures::TryStreamExt;
-use nix_compat::nixbase32;
+use nix_compat::{nix_http, nixbase32};
 use serde::Deserialize;
 use std::io;
 use tokio_util::io::ReaderStream;
@@ -92,7 +92,14 @@ pub async fn put(
     }): axum::extract::State<AppState>,
     request: axum::extract::Request,
 ) -> Result<&'static str, StatusCode> {
-    let nar_hash_expected = parse_nar_str(&nar_str)?;
+    let (nar_hash_expected, compression_suffix) =
+        nix_http::parse_nar_str(&nar_str).ok_or(StatusCode::UNAUTHORIZED)?;
+
+    // No paths with compression suffix are supported.
+    if !compression_suffix.is_empty() {
+        warn!(%compression_suffix, "invalid compression suffix requested");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
 
     let s = request.into_body().into_data_stream();
 
@@ -133,54 +140,3 @@ pub async fn put(
 
 // FUTUREWORK: maybe head by narhash. Though not too critical, as we do
 // implement HEAD for .narinfo.
-
-/// Parses a `14cx20k6z4hq508kqi2lm79qfld5f9mf7kiafpqsjs3zlmycza0k.nar`
-/// string and returns the nixbase32-decoded digest.
-/// No compression is supported.
-fn parse_nar_str(s: &str) -> Result<[u8; 32], StatusCode> {
-    if !s.is_char_boundary(52) {
-        warn!("invalid string, no char boundary at 32");
-        return Err(StatusCode::NOT_FOUND);
-    }
-
-    Ok(match s.split_at(52) {
-        (hash_str, ".nar") => {
-            // we know this is 52 bytes
-            let hash_str_fixed: [u8; 52] = hash_str.as_bytes().try_into().unwrap();
-            nixbase32::decode_fixed(hash_str_fixed).map_err(|e| {
-                warn!(err=%e, "invalid digest");
-                StatusCode::NOT_FOUND
-            })?
-        }
-        _ => {
-            warn!("invalid string");
-            return Err(StatusCode::BAD_REQUEST);
-        }
-    })
-}
-
-#[cfg(test)]
-mod test {
-    use super::parse_nar_str;
-    use hex_literal::hex;
-
-    #[test]
-    fn success() {
-        assert_eq!(
-            hex!("13a8cf7ca57f68a9f1752acee36a72a55187d3a954443c112818926f26109d91"),
-            parse_nar_str("14cx20k6z4hq508kqi2lm79qfld5f9mf7kiafpqsjs3zlmycza0k.nar").unwrap()
-        )
-    }
-
-    #[test]
-    fn failure() {
-        assert!(
-            parse_nar_str("14cx20k6z4hq508kqi2lm79qfld5f9mf7kiafpqsjs3zlmycza0k.nar.x").is_err()
-        );
-        assert!(
-            parse_nar_str("14cx20k6z4hq508kqi2lm79qfld5f9mf7kiafpqsjs3zlmycza0k.nar.xz").is_err()
-        );
-        assert!(parse_nar_str("14cx20k6z4hq508kqi2lm79qfld5f9mf7kiafpqsjs3zlmycza0").is_err());
-        assert!(parse_nar_str("14cx20k6z4hq508kqi2lm79qfld5f9mf7kiafpqsjs3zlmycza0🦊.nar").is_err())
-    }
-}

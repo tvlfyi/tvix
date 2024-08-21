@@ -2,6 +2,7 @@ pub(crate) mod aterm;
 pub mod derivation;
 pub mod nar;
 pub mod narinfo;
+pub mod nix_http;
 pub mod nixbase32;
 pub mod nixcpp;
 pub mod nixhash;
