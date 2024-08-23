@@ -2,6 +2,13 @@ use tracing::trace;
 
 use crate::nixbase32;
 
+/// The mime type used for NAR files, both compressed and uncompressed
+pub const MIME_TYPE_NAR: &str = "application/x-nix-nar";
+/// The mime type used for NARInfo files
+pub const MIME_TYPE_NARINFO: &str = "text/x-nix-narinfo";
+/// The mime type used for the `nix-cache-info` file
+pub const MIME_TYPE_CACHE_INFO: &str = "text/x-nix-cache-info";
+
 /// Parses a `14cx20k6z4hq508kqi2lm79qfld5f9mf7kiafpqsjs3zlmycza0k.nar`
 /// string and returns the nixbase32-decoded digest, as well as the compression
 /// suffix (which might be empty).
