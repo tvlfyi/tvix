@@ -1,7 +1,9 @@
 use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use axum::routing::{head, put};
 use axum::{routing::get, Router};
 use lru::LruCache;
+use nix_compat::nix_http;
 use parking_lot::RwLock;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -71,9 +73,12 @@ async fn four_o_four() -> Result<(), StatusCode> {
     Err(StatusCode::NOT_FOUND)
 }
 
-async fn nix_cache_info(priority: u64) -> String {
-    format!(
-        "StoreDir: /nix/store\nWantMassQuery: 1\nPriority: {}\n",
-        priority
+async fn nix_cache_info(priority: u64) -> impl IntoResponse {
+    (
+        [("Content-Type", nix_http::MIME_TYPE_CACHE_INFO)],
+        format!(
+            "StoreDir: /nix/store\nWantMassQuery: 1\nPriority: {}\n",
+            priority
+        ),
     )
 }

@@ -77,6 +77,7 @@ pub async fn get(
         .status(StatusCode::OK)
         .header("cache-control", "max-age=31536000, immutable")
         .header("content-length", nar_size)
+        .header("content-type", nix_http::MIME_TYPE_NAR)
         .body(Body::from_stream(ReaderStream::new(r)))
         .unwrap())
 }

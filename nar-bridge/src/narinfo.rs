@@ -1,4 +1,4 @@
-use axum::http::StatusCode;
+use axum::{http::StatusCode, response::IntoResponse};
 use bytes::Bytes;
 use nix_compat::{narinfo::NarInfo, nix_http, nixbase32};
 use prost::Message;
@@ -17,7 +17,7 @@ pub async fn head(
     axum::extract::State(AppState {
         path_info_service, ..
     }): axum::extract::State<AppState>,
-) -> Result<&'static str, StatusCode> {
+) -> Result<impl IntoResponse, StatusCode> {
     let digest = nix_http::parse_narinfo_str(&narinfo_str).ok_or(StatusCode::NOT_FOUND)?;
     Span::current().record("path_info.digest", &narinfo_str[0..32]);
 
@@ -30,7 +30,7 @@ pub async fn head(
         })?
         .is_some()
     {
-        Ok("")
+        Ok(([("content-type", nix_http::MIME_TYPE_NARINFO)], ""))
     } else {
         warn!("PathInfo not found");
         Err(StatusCode::NOT_FOUND)
@@ -43,7 +43,7 @@ pub async fn get(
     axum::extract::State(AppState {
         path_info_service, ..
     }): axum::extract::State<AppState>,
-) -> Result<String, StatusCode> {
+) -> Result<impl IntoResponse, StatusCode> {
     let digest = nix_http::parse_narinfo_str(&narinfo_str).ok_or(StatusCode::NOT_FOUND)?;
     Span::current().record("path_info.digest", &narinfo_str[0..32]);
 
@@ -88,7 +88,10 @@ pub async fn get(
 
     narinfo.url = &url;
 
-    Ok(narinfo.to_string())
+    Ok((
+        [("content-type", nix_http::MIME_TYPE_NARINFO)],
+        narinfo.to_string(),
+    ))
 }
 
 #[instrument(skip(path_info_service, root_nodes, request))]
