@@ -821,6 +821,13 @@ rec {
         ];
 
       };
+      "equivalent" = rec {
+        crateName = "equivalent";
+        version = "1.0.1";
+        edition = "2015";
+        sha256 = "1malmx5f4lkfvqasz319lq6gb3ddg19yzf9s8cykfsgzdmyq0hsl";
+
+      };
       "fnv" = rec {
         crateName = "fnv";
         version = "1.0.7";
@@ -1195,9 +1202,9 @@ rec {
       };
       "h2" = rec {
         crateName = "h2";
-        version = "0.3.21";
+        version = "0.3.26";
         edition = "2018";
-        sha256 = "0cq8g5bgk3fihnqicy3g8gc3dpsalzqjg4bjyip9g4my26m27z4i";
+        sha256 = "1s7msnfv7xprzs6xzfj5sg6p8bjcdpcqcmjjbkd345cyi1x55zl1";
         authors = [
           "Carl Lerche <me@carllerche.com>"
           "Sean McArthur <sean@seanmonstar.com>"
@@ -1247,7 +1254,7 @@ rec {
           {
             name = "tokio-util";
             packageId = "tokio-util";
-            features = [ "codec" ];
+            features = [ "codec" "io" ];
           }
           {
             name = "tracing";
@@ -1267,21 +1274,23 @@ rec {
       };
       "hashbrown" = rec {
         crateName = "hashbrown";
-        version = "0.12.3";
+        version = "0.14.5";
         edition = "2021";
-        sha256 = "1268ka4750pyg2pbgsr43f0289l5zah4arir2k4igx5a8c6fg7la";
+        sha256 = "1wa1vy1xs3mp11bn3z9dv0jricgr6a2j0zkf1g19yz3vw4il89z5";
         authors = [
           "Amanieu d'Antras <amanieu@gmail.com>"
         ];
         features = {
           "ahash" = [ "dep:ahash" ];
-          "ahash-compile-time-rng" = [ "ahash/compile-time-rng" ];
           "alloc" = [ "dep:alloc" ];
-          "bumpalo" = [ "dep:bumpalo" ];
+          "allocator-api2" = [ "dep:allocator-api2" ];
           "compiler_builtins" = [ "dep:compiler_builtins" ];
           "core" = [ "dep:core" ];
-          "default" = [ "ahash" "inline-more" ];
+          "default" = [ "ahash" "inline-more" "allocator-api2" ];
+          "equivalent" = [ "dep:equivalent" ];
+          "nightly" = [ "allocator-api2?/nightly" "bumpalo/allocator_api" ];
           "rayon" = [ "dep:rayon" ];
+          "rkyv" = [ "dep:rkyv" ];
           "rustc-dep-of-std" = [ "nightly" "core" "compiler_builtins" "alloc" "rustc-internal-api" ];
           "serde" = [ "dep:serde" ];
         };
@@ -1693,10 +1702,15 @@ rec {
       };
       "indexmap" = rec {
         crateName = "indexmap";
-        version = "1.9.3";
+        version = "2.4.0";
         edition = "2021";
-        sha256 = "16dxmy7yvk51wvnih3a3im6fp5lmx0wx76i03n06wyak6cwhw1xx";
+        sha256 = "0p2hwvmir50qcl5q6lib8fjq5dzv4f0gqy8czcyfva3yzhzdbslk";
         dependencies = [
+          {
+            name = "equivalent";
+            packageId = "equivalent";
+            usesDefaultFeatures = false;
+          }
           {
             name = "hashbrown";
             packageId = "hashbrown";
@@ -1704,21 +1718,16 @@ rec {
             features = [ "raw" ];
           }
         ];
-        buildDependencies = [
-          {
-            name = "autocfg";
-            packageId = "autocfg";
-          }
-        ];
         features = {
           "arbitrary" = [ "dep:arbitrary" ];
+          "borsh" = [ "dep:borsh" ];
+          "default" = [ "std" ];
           "quickcheck" = [ "dep:quickcheck" ];
           "rayon" = [ "dep:rayon" ];
           "rustc-rayon" = [ "dep:rustc-rayon" ];
           "serde" = [ "dep:serde" ];
-          "serde-1" = [ "serde" ];
         };
-        resolvedDefaultFeatures = [ "std" ];
+        resolvedDefaultFeatures = [ "default" "std" ];
       };
       "itoa" = rec {
         crateName = "itoa";
@@ -2122,9 +2131,9 @@ rec {
       };
       "mio" = rec {
         crateName = "mio";
-        version = "0.8.9";
+        version = "0.8.11";
         edition = "2018";
-        sha256 = "1l23hg513c23nhcdzvk25caaj28mic6qgqadbn8axgj6bqf2ikix";
+        sha256 = "034byyl0ardml5yliy1hmvx8arkmn9rv479pid794sm07ia519m4";
         authors = [
           "Carl Lerche <me@carllerche.com>"
           "Thomas de Zeeuw <thomasdezeeuw@gmail.com>"
@@ -3476,12 +3485,16 @@ rec {
       };
       "shlex" = rec {
         crateName = "shlex";
-        version = "1.2.0";
+        version = "1.3.0";
         edition = "2015";
-        sha256 = "1033pj9dyb76nm5yv597nnvj3zpvr2aw9rm5wy0gah3dk99f1km7";
+        sha256 = "0r1y6bv26c1scpxvhg2cabimrmwgbp4p3wy6syj9n0c4s3q2znhg";
         authors = [
           "comex <comexk@gmail.com>"
           "Fenhl <fenhl@fenhl.net>"
+          "Adrian Taylor <adetaylor@chromium.org>"
+          "Alex Touchet <alextouchet@outlook.com>"
+          "Daniel Parks <dp+git@oxidized.org>"
+          "Garrett Berg <googberg@gmail.com>"
         ];
         features = {
           "default" = [ "std" ];
@@ -4017,7 +4030,7 @@ rec {
           "time" = [ "tokio/time" "slab" ];
           "tracing" = [ "dep:tracing" ];
         };
-        resolvedDefaultFeatures = [ "codec" "default" "tracing" ];
+        resolvedDefaultFeatures = [ "codec" "default" "io" "tracing" ];
       };
       "tower" = rec {
         crateName = "tower";
