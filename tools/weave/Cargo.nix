@@ -2584,9 +2584,9 @@ rec {
       };
       "mio" = rec {
         crateName = "mio";
-        version = "0.8.10";
+        version = "0.8.11";
         edition = "2018";
-        sha256 = "02gyaxvaia9zzi4drrw59k9s0j6pa5d1y2kv7iplwjipdqlhngcg";
+        sha256 = "034byyl0ardml5yliy1hmvx8arkmn9rv479pid794sm07ia519m4";
         authors = [
           "Carl Lerche <me@carllerche.com>"
           "Thomas de Zeeuw <thomasdezeeuw@gmail.com>"
