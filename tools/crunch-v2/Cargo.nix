@@ -2867,9 +2867,9 @@ rec {
       };
       "h2" = rec {
         crateName = "h2";
-        version = "0.3.22";
+        version = "0.3.26";
         edition = "2018";
-        sha256 = "0y41jlflvw8niifdirgng67zdmic62cjf5m2z69hzrpn5qr50qjd";
+        sha256 = "1s7msnfv7xprzs6xzfj5sg6p8bjcdpcqcmjjbkd345cyi1x55zl1";
         authors = [
           "Carl Lerche <me@carllerche.com>"
           "Sean McArthur <sean@seanmonstar.com>"
@@ -3967,9 +3967,9 @@ rec {
       };
       "mio" = rec {
         crateName = "mio";
-        version = "0.8.9";
+        version = "0.8.11";
         edition = "2018";
-        sha256 = "1l23hg513c23nhcdzvk25caaj28mic6qgqadbn8axgj6bqf2ikix";
+        sha256 = "034byyl0ardml5yliy1hmvx8arkmn9rv479pid794sm07ia519m4";
         authors = [
           "Carl Lerche <me@carllerche.com>"
           "Thomas de Zeeuw <thomasdezeeuw@gmail.com>"
@@ -8137,12 +8137,16 @@ rec {
       };
       "shlex" = rec {
         crateName = "shlex";
-        version = "1.2.0";
+        version = "1.3.0";
         edition = "2015";
-        sha256 = "1033pj9dyb76nm5yv597nnvj3zpvr2aw9rm5wy0gah3dk99f1km7";
+        sha256 = "0r1y6bv26c1scpxvhg2cabimrmwgbp4p3wy6syj9n0c4s3q2znhg";
         authors = [
           "comex <comexk@gmail.com>"
           "Fenhl <fenhl@fenhl.net>"
+          "Adrian Taylor <adetaylor@chromium.org>"
+          "Alex Touchet <alextouchet@outlook.com>"
+          "Daniel Parks <dp+git@oxidized.org>"
+          "Garrett Berg <googberg@gmail.com>"
         ];
         features = {
           "default" = [ "std" ];
@@ -11275,9 +11279,9 @@ rec {
       };
       "zerocopy" = rec {
         crateName = "zerocopy";
-        version = "0.7.26";
+        version = "0.7.35";
         edition = "2018";
-        sha256 = "184s51bzn8mpx3p9h6klrlppv9b7ja1b8y9998jr36jmj1a42zp9";
+        sha256 = "1w36q7b9il2flg0qskapgi9ymgg7p985vniqd09vi0mwib8lz6qv";
         authors = [
           "Joshua Liebow-Feeser <joshlf@google.com>"
         ];
@@ -11311,9 +11315,9 @@ rec {
       };
       "zerocopy-derive" = rec {
         crateName = "zerocopy-derive";
-        version = "0.7.26";
+        version = "0.7.35";
         edition = "2018";
-        sha256 = "17v8yshfa23z5az2xhclpwrlzih26nj7imwbra12i5b6y764hznx";
+        sha256 = "0gnf2ap2y92nwdalzz3x7142f2b83sni66l39vxp2ijd6j080kzs";
         procMacro = true;
         libName = "zerocopy_derive";
         authors = [
