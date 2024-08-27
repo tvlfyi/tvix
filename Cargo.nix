@@ -14692,9 +14692,9 @@ rec {
       };
       "tonic-reflection" = rec {
         crateName = "tonic-reflection";
-        version = "0.12.1";
+        version = "0.12.2";
         edition = "2021";
-        sha256 = "0wy1vdj4fj90j6zjqs78c2fvwcl9krxiz6709idspsbksqxchhmp";
+        sha256 = "1zwrm9zzahipsrmaqfp4vk0w31qymf740fsp0yczh16vxrsbhmkv";
         libName = "tonic_reflection";
         authors = [
           "James Nugent <james@jen20.com>"

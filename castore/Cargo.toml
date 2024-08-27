@@ -60,7 +60,7 @@ optional = true
 
 [dependencies.tonic-reflection]
 optional = true
-version = "0.12.0"
+version = "0.12.2"
 
 [dependencies.vhost]
 optional = true

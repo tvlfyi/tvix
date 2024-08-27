@@ -201,11 +201,18 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error + Send + Sync
 
             #[cfg(feature = "tonic-reflection")]
             {
-                let reflection_svc = tonic_reflection::server::Builder::configure()
-                    .register_encoded_file_descriptor_set(CASTORE_FILE_DESCRIPTOR_SET)
-                    .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
-                    .build()?;
-                router = router.add_service(reflection_svc);
+                router = router.add_service(
+                    tonic_reflection::server::Builder::configure()
+                        .register_encoded_file_descriptor_set(CASTORE_FILE_DESCRIPTOR_SET)
+                        .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
+                        .build_v1alpha()?,
+                );
+                router = router.add_service(
+                    tonic_reflection::server::Builder::configure()
+                        .register_encoded_file_descriptor_set(CASTORE_FILE_DESCRIPTOR_SET)
+                        .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
+                        .build_v1()?,
+                );
             }
 
             let listen_address = &listen_args.listen_address.unwrap_or_else(|| {
