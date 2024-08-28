@@ -888,6 +888,12 @@ impl Value {
             | Value::FinaliseRequest(_) => "an internal Tvix evaluator value".into(),
         }
     }
+
+    /// Constructs a thunk that will be evaluated lazily at runtime. This lets
+    /// users of Tvix implement their own lazy builtins and so on.
+    pub fn suspended_native_thunk(native: Box<dyn Fn() -> Result<Value, ErrorKind>>) -> Self {
+        Value::Thunk(Thunk::new_suspended_native(native))
+    }
 }
 
 trait TotalDisplay {
