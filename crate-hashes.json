@@ -1,3 +1,4 @@
 {
+  "git+https://github.com/liufuyang/bigtable_rs?rev=1818355a5373a5bc2c84287e3a4e3807154ac8ef#0.2.10": "0mn6iw1z7gdxbarsqiwscbdr25nplwlvzs0rs51vgnnjfsnbgl6q",
   "git+https://github.com/tvlfyi/wu-manber.git#wu-manber@0.1.0": "1zhk83lbq99xzyjwphv2qrb8f8qgfqwa5bbbvyzm0z0bljsjv0pd"
 }

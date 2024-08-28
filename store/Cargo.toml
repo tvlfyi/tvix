@@ -54,7 +54,9 @@ version = "0.12.2"
 
 [dependencies.bigtable_rs]
 optional = true
-version = "0.2.10"
+# https://github.com/liufuyang/bigtable_rs/pull/86
+git = "https://github.com/liufuyang/bigtable_rs"
+rev = "1818355a5373a5bc2c84287e3a4e3807154ac8ef"
 
 [build-dependencies]
 prost-build = "0.13.1"
