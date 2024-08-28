@@ -210,14 +210,6 @@ where
     }
 }
 
-/// Constructors
-impl Value {
-    /// Construct a [`Value::Attrs`] from a [`NixAttrs`].
-    pub fn attrs(attrs: NixAttrs) -> Self {
-        Self::Attrs(Box::new(attrs))
-    }
-}
-
 /// Controls what kind of by-pointer equality comparison is allowed.
 ///
 /// See `//tvix/docs/value-pointer-equality.md` for details.
@@ -234,6 +226,11 @@ pub enum PointerEquality {
 }
 
 impl Value {
+    /// Construct a [`Value::Attrs`] from a [`NixAttrs`].
+    pub fn attrs(attrs: NixAttrs) -> Self {
+        Self::Attrs(Box::new(attrs))
+    }
+
     /// Deeply forces a value, traversing e.g. lists and attribute sets and forcing
     /// their contents, too.
     ///
