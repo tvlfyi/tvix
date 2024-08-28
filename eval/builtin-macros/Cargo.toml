@@ -6,8 +6,8 @@ edition = "2021"
 
 [dependencies]
 syn = { version = "1.0.109", features = ["full", "parsing", "printing", "visit", "visit-mut", "extra-traits"] }
-quote = "1.0.37"
-proc-macro2 = "1"
+quote = { workspace = true }
+proc-macro2 = { workspace = true }
 
 [lib]
 proc-macro = true

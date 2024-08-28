@@ -7,11 +7,12 @@ edition = "2021"
 compile-tests = []
 
 [dev-dependencies]
-hex-literal = "0.4.1"
-pretty_assertions = "1.4.0"
-rstest = "0.19.0"
-tokio-test = "0.4.4"
-trybuild = "1.0.99"
+hex-literal = { workspace = true }
+pretty_assertions = { workspace = true }
+rstest = { workspace = true }
+tokio-test = { workspace = true }
+trybuild = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "macros"] }
 
 [dev-dependencies.nix-compat]
 version = "0.1.0"
@@ -21,7 +22,3 @@ features = ["test", "wire"]
 [dev-dependencies.nix-compat-derive]
 version = "0.1.0"
 path = "../nix-compat-derive"
-
-[dev-dependencies.tokio]
-version = "^1.39"
-features = ["io-util", "macros"]

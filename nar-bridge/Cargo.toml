@@ -4,43 +4,43 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = { version = "0.7.5", features = ["http2"] }
-tower = "0.4.13"
-tower-http = { version = "0.5", features = ["trace"] }
-bytes = "1.7.1"
-clap = { version = "4.5", features = ["derive", "env"] }
-data-encoding = "2.6.0"
-futures = "0.3.30"
-itertools = "0.12.1"
-prost = "0.13.1"
+axum = { workspace = true, features = ["http2"] }
+tower = { workspace = true }
+tower-http = { workspace = true, features = ["trace"] }
+bytes = { workspace = true }
+clap = { workspace = true, features = ["derive", "env"] }
+data-encoding = { workspace = true }
+futures = { workspace = true }
+itertools = { workspace = true }
+prost = { workspace = true }
 nix-compat = { path = "../nix-compat", features = ["async"] }
-thiserror = "1.0.63"
-tokio = { version = "1.39.3" }
-tokio-listener = { version = "0.4.3", features = [ "axum07", "clap", "multi-listener", "sd_listen" ] }
-tokio-util = { version = "0.7.11", features = ["io", "io-util", "compat"] }
-tonic = { version = "0.12.2", features = ["tls", "tls-roots"] }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-listener = { workspace = true, features = ["axum07", "clap", "multi-listener", "sd_listen"] }
+tokio-util = { workspace = true, features = ["io", "io-util", "compat"] }
+tonic = { workspace = true, features = ["tls", "tls-roots"] }
 tvix-castore = { path = "../castore" }
 tvix-store = { path = "../store" }
 tvix-tracing = { path = "../tracing", features = ["tonic", "axum"] }
-tracing = "0.1.40"
-tracing-subscriber = "0.3.18"
-url = "2.5.2"
-serde = { version = "1.0.209", features = ["derive"] }
-lru = "0.12.4"
-parking_lot = "0.12.3"
-mimalloc = "0.1.43"
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+url = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+lru = { workspace = true }
+parking_lot = { workspace = true }
+mimalloc = { workspace = true }
 
 [build-dependencies]
-prost-build = "0.13.1"
-tonic-build = "0.12.2"
+prost-build = { workspace = true }
+tonic-build = { workspace = true }
 
 [features]
 default = ["otlp"]
 otlp = ["tvix-tracing/otlp"]
 
 [dev-dependencies]
-hex-literal = "0.4.1"
-rstest = "0.19.0"
+hex-literal = { workspace = true }
+rstest = { workspace = true }
 
 [lints]
 workspace = true

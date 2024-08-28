@@ -4,48 +4,46 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-async-compression = { version = "0.4.12", features = ["tokio", "gzip", "bzip2", "xz"]}
-bstr = "1.10.0"
-bytes = "1.7.1"
-data-encoding = "2.6.0"
-futures = "0.3.30"
-magic = "0.16.2"
+async-compression = { workspace = true, features = ["tokio", "gzip", "bzip2", "xz"] }
+bstr = { workspace = true }
+bytes = { workspace = true }
+data-encoding = { workspace = true }
+futures = { workspace = true }
+magic = { workspace = true }
 nix-compat = { path = "../nix-compat" }
-pin-project = "1.1"
-reqwest = { version = "0.12.7", features = ["rustls-tls-native-roots"], default-features = false }
+pin-project = { workspace = true }
+reqwest = { workspace = true, features = ["rustls-tls-native-roots"] }
 tvix-build = { path = "../build", default-features = false, features = []}
 tvix-eval = { path = "../eval" }
 tvix-castore = { path = "../castore" }
 tvix-store = { path = "../store", default-features = false, features = []}
 tvix-tracing = { path = "../tracing" }
-tracing = "0.1.40"
-tracing-indicatif = "0.3.6"
-tokio = "1.39.3"
-tokio-tar = "0.3.1"
-tokio-util = { version = "0.7.11", features = ["io", "io-util", "compat"] }
-thiserror = "1.0.63"
-serde = "1.0.209"
-serde_json = "1.0"
-sha2 = "0.10.8"
-sha1 = "0.10.6"
-md-5 = "0.10.6"
-url = "2.5.2"
-walkdir = "2.5.0"
-clap = { version = "4.5.16", default-features = false }
-
-[dependencies.wu-manber]
-git = "https://github.com/tvlfyi/wu-manber.git"
+tracing = { workspace = true }
+tracing-indicatif = { workspace = true }
+tokio = { workspace = true }
+tokio-tar = { workspace = true }
+tokio-util = { workspace = true, features = ["io", "io-util", "compat"] }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+sha1 = { workspace = true }
+md-5 = { workspace = true }
+url = { workspace = true }
+walkdir = { workspace = true }
+clap = { workspace = true }
+wu-manber = { workspace = true }
 
 [dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
-hex-literal = "0.4.1"
-lazy_static = "1.5.0"
-mimalloc = "0.1.43"
-nix = { version = "0.27.1", features = [ "fs" ] }
-pretty_assertions = "1.4.0"
-rstest = "0.19.0"
-tempfile = "3.12.0"
-tokio-test = "0.4.4"
+criterion = { workspace = true, features = ["html_reports"] }
+hex-literal = { workspace = true }
+lazy_static = { workspace = true }
+mimalloc = { workspace = true }
+nix = { workspace = true, features = ["fs"] }
+pretty_assertions = { workspace = true }
+rstest = { workspace = true }
+tempfile = { workspace = true }
+tokio-test = { workspace = true }
 
 [features]
 default = ["nix_tests"]

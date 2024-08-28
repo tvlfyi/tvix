@@ -4,70 +4,62 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.86"
-async-compression = { version = "0.4.12", features = ["tokio", "bzip2", "gzip", "xz", "zstd"]}
-async-stream = "0.3.5"
-blake3 = { version = "1.5.4", features = ["rayon", "std"] }
-bstr = "1.10.0"
-bytes = "1.7.1"
-clap = { version = "4.5", features = ["derive", "env"] }
-count-write = "0.1.0"
-data-encoding = "2.6.0"
-futures = "0.3.30"
-lazy_static = "1.5.0"
+anyhow = { workspace = true }
+async-compression = { workspace = true, features = ["tokio", "bzip2", "gzip", "xz", "zstd"] }
+async-stream = { workspace = true }
+blake3 = { workspace = true, features = ["rayon", "std"] }
+bstr = { workspace = true }
+bytes = { workspace = true }
+clap = { workspace = true, features = ["derive", "env"] }
+count-write = { workspace = true }
+data-encoding = { workspace = true }
+futures = { workspace = true }
+lazy_static = { workspace = true }
 nix-compat = { path = "../nix-compat", features = ["async"] }
-pin-project-lite = "0.2.14"
-prost = "0.13.1"
-serde = { version = "1.0.209", features = [ "derive" ] }
-serde_json = "1.0"
-serde_with = "3.9.0"
-serde_qs = "0.12.0"
-sha2 = "0.10.8"
-sled = { version = "0.34.7" }
-thiserror = "1.0.63"
-tokio = { version = "1.39.3", features = ["fs", "macros", "net", "rt", "rt-multi-thread", "signal"] }
-tokio-listener = { version = "0.4.3", features = [ "clap", "multi-listener", "sd_listen", "tonic012" ] }
-tokio-stream = { version = "0.1.15", features = ["fs"] }
-tokio-util = { version = "0.7.11", features = ["io", "io-util", "compat"] }
-tonic = { version = "0.12.2", features = ["tls", "tls-roots"] }
-tower = "0.4.13"
-tower-http = { version = "0.5.2", features = ["trace"] }
+pin-project-lite = { workspace = true }
+prost = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
+serde_qs = { workspace = true }
+sha2 = { workspace = true }
+sled = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["fs", "macros", "net", "rt", "rt-multi-thread", "signal"] }
+tokio-listener = { workspace = true, features = ["clap", "multi-listener", "sd_listen", "tonic012"] }
+tokio-stream = { workspace = true, features = ["fs"] }
+tokio-util = { workspace = true, features = ["io", "io-util", "compat"] }
+tonic = { workspace = true, features = ["tls", "tls-roots"] }
+tower = { workspace = true }
+tower-http = { workspace = true, features = ["trace"] }
 tvix-castore = { path = "../castore" }
-url = "2.5.2"
-walkdir = "2.5.0"
-reqwest = { version = "0.12.7", features = ["rustls-tls-native-roots", "stream"], default-features = false }
-reqwest-middleware = "0.3.3"
-lru = "0.12.4"
-parking_lot = "0.12.3"
+url = { workspace = true }
+walkdir = { workspace = true }
+reqwest = { workspace = true, features = ["rustls-tls-native-roots", "stream"] }
+reqwest-middleware = { workspace = true }
+lru = { workspace = true }
+parking_lot = { workspace = true }
 tvix-tracing = { path = "../tracing", features = ["tonic", "reqwest"] }
-tracing = "0.1.40"
-tracing-indicatif = "0.3.6"
-hyper-util = "0.1.7"
+tracing = { workspace = true }
+tracing-indicatif = { workspace = true }
+hyper-util = { workspace = true }
 toml = { version = "0.8.19", optional = true }
-tonic-health = { version = "0.12.2", default-features = false }
-redb = "2.1.2"
-mimalloc = "0.1.43"
-
-[dependencies.tonic-reflection]
-optional = true
-version = "0.12.2"
-
-[dependencies.bigtable_rs]
-optional = true
-# https://github.com/liufuyang/bigtable_rs/pull/86
-git = "https://github.com/liufuyang/bigtable_rs"
-rev = "1818355a5373a5bc2c84287e3a4e3807154ac8ef"
+tonic-health = { workspace = true }
+redb = { workspace = true }
+mimalloc = { workspace = true }
+tonic-reflection = { workspace = true, optional = true }
+bigtable_rs = { workspace = true, optional = true }
 
 [build-dependencies]
-prost-build = "0.13.1"
-tonic-build = "0.12.2"
+prost-build = { workspace = true }
+tonic-build = { workspace = true }
 
 [dev-dependencies]
-async-process = "2.2.4"
-rstest = "0.19.0"
-rstest_reuse = "0.6.0"
-tempfile = "3.12.0"
-tokio-retry = "0.3.0"
+async-process = { workspace = true }
+rstest = { workspace = true }
+rstest_reuse = { workspace = true }
+tempfile = { workspace = true }
+tokio-retry = { workspace = true }
 
 [features]
 default = ["cloud", "fuse", "otlp", "tonic-reflection"]

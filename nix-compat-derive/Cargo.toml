@@ -7,19 +7,16 @@ edition = "2021"
 proc-macro = true
 
 [dependencies]
-proc-macro2 = { version = "1.0.86",  features = ["proc-macro"] }
-quote = { version = "1.0.37", features = ["proc-macro"] }
+proc-macro2 = { workspace = true, features = ["proc-macro"] }
+quote = { workspace = true, features = ["proc-macro"] }
 syn = { version = "2.0.76", features = ["full", "extra-traits"] }
 
 [dev-dependencies]
-hex-literal = "0.4.1"
-pretty_assertions = "1.4.0"
-rstest = "0.19.0"
-tokio-test = "0.4.4"
-
-[dev-dependencies.tokio]
-version = "^1.39"
-features = ["io-util", "macros"]
+hex-literal = { workspace = true }
+pretty_assertions = { workspace = true }
+rstest = { workspace = true }
+tokio-test = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "macros"] }
 
 [dev-dependencies.nix-compat]
 path = "../nix-compat"

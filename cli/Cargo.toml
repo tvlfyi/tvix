@@ -15,25 +15,23 @@ tvix-store = { path = "../store", default-features = false, features = []}
 tvix-eval = { path = "../eval" }
 tvix-glue = { path = "../glue" }
 tvix-tracing = { path = "../tracing" }
-bytes = "1.7.1"
-clap = { version = "4.5", features = ["derive", "env"] }
-dirs = "4.0.0"
-rustyline = "10.1.1"
-rnix = "0.11.0"
-rowan = "*"
-smol_str = "0.2.2"
-thiserror = "1.0.63"
-tokio = "1.39.3"
-tracing = "0.1.40"
-tracing-indicatif = "0.3.6"
-rustc-hash = "2.0.0"
-mimalloc = "0.1.43"
-
-[dependencies.wu-manber]
-git = "https://github.com/tvlfyi/wu-manber.git"
+bytes = { workspace = true }
+clap = { workspace = true, features = ["derive", "env"] }
+dirs = { workspace = true }
+rustyline = { workspace = true }
+rnix = { workspace = true }
+rowan = { workspace = true }
+smol_str = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-indicatif = { workspace = true }
+rustc-hash = { workspace = true }
+mimalloc = { workspace = true }
+wu-manber = { workspace = true }
 
 [dev-dependencies]
-expect-test = "1.5.0"
+expect-test = { workspace = true }
 
 [features]
 default = []

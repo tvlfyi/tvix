@@ -4,34 +4,31 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bytes = "1.7.1"
-clap = { version = "4.5", features = ["derive", "env"] }
-itertools = "0.12.1"
-prost = "0.13.1"
-thiserror = "1.0.63"
-tokio = { version = "1.39.3" }
-tokio-listener = { version = "0.4.3", features = [ "tonic012" ] }
-tonic = { version = "0.12.2", features = ["tls", "tls-roots"] }
+bytes = { workspace = true }
+clap = { workspace = true, features = ["derive", "env"] }
+itertools = { workspace = true }
+prost = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-listener = { workspace = true, features = ["tonic012"] }
+tonic = { workspace = true, features = ["tls", "tls-roots"] }
 tvix-castore = { path = "../castore" }
 tvix-tracing = { path = "../tracing" }
-tracing = "0.1.40"
-url = "2.5.2"
-mimalloc = "0.1.43"
-
-[dependencies.tonic-reflection]
-optional = true
-version = "0.12.2"
+tracing = { workspace = true }
+url = { workspace = true }
+mimalloc = { workspace = true }
+tonic-reflection = { workspace = true, optional = true }
 
 [build-dependencies]
-prost-build = "0.13.1"
-tonic-build = "0.12.2"
+prost-build = { workspace = true }
+tonic-build = { workspace = true }
 
 [features]
 default = []
 tonic-reflection = ["dep:tonic-reflection", "tvix-castore/tonic-reflection"]
 
 [dev-dependencies]
-rstest = "0.19.0"
+rstest = { workspace = true }
 
 [lints]
 workspace = true

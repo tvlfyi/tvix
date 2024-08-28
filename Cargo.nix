@@ -362,9 +362,9 @@ rec {
       };
       "anstream" = rec {
         crateName = "anstream";
-        version = "0.6.11";
+        version = "0.6.15";
         edition = "2021";
-        sha256 = "19dndamalavhjwp4i74k8hdijcixb7gsfa6ycwyc1r8xn6y1wbkf";
+        sha256 = "09nm4qj34kiwgzczdvj14x7hgsb235g4sqsay3xsz7zqn4d5rqb4";
         dependencies = [
           {
             name = "anstyle";
@@ -390,6 +390,10 @@ rec {
             packageId = "colorchoice";
           }
           {
+            name = "is_terminal_polyfill";
+            packageId = "is_terminal_polyfill";
+          }
+          {
             name = "utf8parse";
             packageId = "utf8parse";
           }
@@ -413,9 +417,9 @@ rec {
       };
       "anstyle-parse" = rec {
         crateName = "anstyle-parse";
-        version = "0.2.3";
+        version = "0.2.5";
         edition = "2021";
-        sha256 = "134jhzrz89labrdwxxnjxqjdg06qvaflj1wkfnmyapwyldfwcnn7";
+        sha256 = "1jy12rvgbldflnb2x7mcww9dcffw1mx22nyv6p3n7d62h0gdwizb";
         libName = "anstyle_parse";
         dependencies = [
           {
@@ -433,9 +437,9 @@ rec {
       };
       "anstyle-query" = rec {
         crateName = "anstyle-query";
-        version = "1.0.2";
+        version = "1.1.1";
         edition = "2021";
-        sha256 = "0j3na4b1nma39g4x7cwvj009awxckjf3z2vkwhldgka44hqj72g2";
+        sha256 = "0aj22iy4pzk6mz745sfrm1ym14r0y892jhcrbs8nkj7nqx9gqdkd";
         libName = "anstyle_query";
         dependencies = [
           {
@@ -449,9 +453,9 @@ rec {
       };
       "anstyle-wincon" = rec {
         crateName = "anstyle-wincon";
-        version = "3.0.2";
+        version = "3.0.4";
         edition = "2021";
-        sha256 = "19v0fv400bmp4niqpzxnhg83vz12mmqv7l2l8vi80qcdxj0lpm8w";
+        sha256 = "1y2pkvsrdxbcwircahb4wimans2pzmwwxad7ikdhj5lpdqdlxxsv";
         libName = "anstyle_wincon";
         dependencies = [
           {
@@ -2228,9 +2232,9 @@ rec {
       };
       "colorchoice" = rec {
         crateName = "colorchoice";
-        version = "1.0.0";
+        version = "1.0.2";
         edition = "2021";
-        sha256 = "1ix7w85kwvyybwi2jdkl3yva2r2bvdcc3ka2grjfzfgrapqimgxc";
+        sha256 = "1h18ph538y8yjmbpaf8li98l0ifms2xmh3rax9666c5qfjfi3zfk";
 
       };
       "concurrent-queue" = rec {
@@ -5579,6 +5583,14 @@ rec {
         ];
 
       };
+      "is_terminal_polyfill" = rec {
+        crateName = "is_terminal_polyfill";
+        version = "1.70.1";
+        edition = "2021";
+        sha256 = "1kwfgglh91z33kl0w5i338mfpa3zs0hidq5j4ny4rmjwrikchhvr";
+        features = { };
+        resolvedDefaultFeatures = [ "default" ];
+      };
       "itertools 0.10.5" = rec {
         crateName = "itertools";
         version = "0.10.5";
@@ -6615,6 +6627,7 @@ rec {
           {
             name = "futures";
             packageId = "futures";
+            usesDefaultFeatures = false;
           }
           {
             name = "itertools";
@@ -14777,6 +14790,7 @@ rec {
           {
             name = "futures";
             packageId = "futures";
+            usesDefaultFeatures = false;
           }
           {
             name = "hyper-util";
@@ -15324,7 +15338,6 @@ rec {
           {
             name = "clap";
             packageId = "clap";
-            usesDefaultFeatures = false;
           }
           {
             name = "data-encoding";
@@ -15333,6 +15346,7 @@ rec {
           {
             name = "futures";
             packageId = "futures";
+            usesDefaultFeatures = false;
           }
           {
             name = "magic";
@@ -15562,6 +15576,7 @@ rec {
           {
             name = "futures";
             packageId = "futures";
+            usesDefaultFeatures = false;
           }
           {
             name = "hyper-util";
