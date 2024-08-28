@@ -37,7 +37,6 @@ version = "1.6.1"
 [dependencies.nix-compat-derive]
 path = "../nix-compat-derive"
 optional = true
-default-features = false
 
 [dependencies.tokio]
 optional = true

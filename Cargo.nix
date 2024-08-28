@@ -7419,7 +7419,6 @@ rec {
             name = "nix-compat-derive";
             packageId = "nix-compat-derive";
             optional = true;
-            usesDefaultFeatures = false;
           }
           {
             name = "nom";
@@ -7575,10 +7574,7 @@ rec {
             packageId = "tokio-test";
           }
         ];
-        features = {
-          "default" = [ "external" ];
-        };
-        resolvedDefaultFeatures = [ "default" "external" ];
+
       };
       "nix-compat-derive-tests" = rec {
         crateName = "nix-compat-derive-tests";

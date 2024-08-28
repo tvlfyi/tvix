@@ -261,17 +261,6 @@ use syn::{parse_quote, DeriveInput};
 mod de;
 mod internal;
 
-#[cfg(not(feature = "external"))]
-#[proc_macro_derive(NixDeserialize, attributes(nix))]
-pub fn derive_nix_deserialize(item: TokenStream) -> TokenStream {
-    let mut input = syn::parse_macro_input!(item as DeriveInput);
-    let nnixrs: syn::Path = parse_quote!(crate);
-    de::expand_nix_deserialize(nnixrs, &mut input)
-        .unwrap_or_else(syn::Error::into_compile_error)
-        .into()
-}
-
-#[cfg(feature = "external")]
 #[proc_macro_derive(NixDeserialize, attributes(nix))]
 pub fn derive_nix_deserialize(item: TokenStream) -> TokenStream {
     let mut input = syn::parse_macro_input!(item as DeriveInput);
@@ -304,40 +293,6 @@ pub fn derive_nix_deserialize(item: TokenStream) -> TokenStream {
 ///
 /// nix_deserialize_remote!(#[nix(from="u64")] MyU64);
 /// ```
-#[cfg(not(feature = "external"))]
-#[proc_macro]
-pub fn nix_deserialize_remote(item: TokenStream) -> TokenStream {
-    let input = syn::parse_macro_input!(item as RemoteInput);
-    let crate_path = parse_quote!(crate);
-    de::expand_nix_deserialize_remote(crate_path, &input)
-        .unwrap_or_else(syn::Error::into_compile_error)
-        .into()
-}
-
-/// Macro to implement `NixDeserialize` on a type.
-/// Sometimes you can't use the deriver to implement `NixDeserialize`
-/// (like when dealing with types in Rust standard library) but don't want
-/// to implement it yourself. So this macro can be used for those situations
-/// where you would derive using `#[nix(from_str)]`,
-/// `#[nix(from = "FromType")]` or `#[nix(try_from = "FromType")]` if you
-/// could.
-///
-/// #### Example
-///
-/// ```rust
-/// # use nix_compat_derive::nix_deserialize_remote;
-/// #
-/// struct MyU64(u64);
-///
-/// impl From<u64> for MyU64 {
-///     fn from(value: u64) -> Self {
-///         Self(value)
-///     }
-/// }
-///
-/// nix_deserialize_remote!(#[nix(from="u64")] MyU64);
-/// ```
-#[cfg(feature = "external")]
 #[proc_macro]
 pub fn nix_deserialize_remote(item: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(item as RemoteInput);

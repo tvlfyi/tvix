@@ -1,3 +1,5 @@
+extern crate self as nix_compat;
+
 pub(crate) mod aterm;
 pub mod derivation;
 pub mod nar;
