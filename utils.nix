@@ -34,7 +34,7 @@
       fileset = lib.fileset.intersection
         (lib.fileset.fromSource root) # We build our final fileset from the original src
         (lib.fileset.unions ([
-          (root + "/src")
+          (lib.fileset.maybeMissing (root + "/src")) # src may be missing if the crate just has tests for example
           (lib.fileset.fileFilter (f: f.hasExt "rs") root)
         ] ++ lib.optionals cargoSupport [
           (lib.fileset.fileFilter (f: f.name == "Cargo.toml") root)
@@ -62,6 +62,15 @@
           extraFileset = root + "/testdata";
         };
       };
+
+      nix-compat-derive = prev: {
+        src = depot.tvix.utils.filterRustCrateSrc { root = prev.src.origSrc; };
+      };
+
+      nix-compat-derive-tests = prev: {
+        src = depot.tvix.utils.filterRustCrateSrc { root = prev.src.origSrc; };
+      };
+
       tvix-build = prev: {
         src = depot.tvix.utils.filterRustCrateSrc rec {
           root = prev.src.origSrc;
