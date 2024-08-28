@@ -5,8 +5,8 @@ authors = [ "Griffin Smith <root@gws.fyi>" ]
 edition = "2021"
 
 [dependencies]
-syn = { version = "1.0.57", features = ["full", "parsing", "printing", "visit", "visit-mut", "extra-traits"] }
-quote = "1.0.8"
+syn = { version = "1.0.109", features = ["full", "parsing", "printing", "visit", "visit-mut", "extra-traits"] }
+quote = "1.0.37"
 proc-macro2 = "1"
 
 [lib]
