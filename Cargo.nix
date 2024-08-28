@@ -6105,7 +6105,7 @@ rec {
           "default" = [ "use_std" ];
           "use_std" = [ "use_alloc" "either/use_std" ];
         };
-        resolvedDefaultFeatures = [ "use_alloc" ];
+        resolvedDefaultFeatures = [ "default" "use_alloc" "use_std" ];
       };
       "itertools 0.12.0" = rec {
         crateName = "itertools";
@@ -7106,7 +7106,7 @@ rec {
           }
           {
             name = "tonic";
-            packageId = "tonic 0.12.1";
+            packageId = "tonic 0.12.2";
             features = [ "tls" "tls-roots" ];
           }
           {
@@ -7151,7 +7151,7 @@ rec {
           }
           {
             name = "tonic-build";
-            packageId = "tonic-build 0.12.1";
+            packageId = "tonic-build 0.12.2";
           }
         ];
         devDependencies = [
@@ -8193,7 +8193,7 @@ rec {
           }
           {
             name = "tonic";
-            packageId = "tonic 0.12.1";
+            packageId = "tonic 0.12.2";
             optional = true;
             usesDefaultFeatures = false;
           }
@@ -8259,7 +8259,7 @@ rec {
           }
           {
             name = "tonic";
-            packageId = "tonic 0.12.1";
+            packageId = "tonic 0.12.2";
             optional = true;
             usesDefaultFeatures = false;
             features = [ "codegen" "prost" ];
@@ -9438,7 +9438,7 @@ rec {
           }
           {
             name = "itertools";
-            packageId = "itertools 0.12.0";
+            packageId = "itertools 0.11.0";
             usesDefaultFeatures = false;
             features = [ "use_alloc" ];
           }
@@ -9558,7 +9558,7 @@ rec {
           }
           {
             name = "itertools";
-            packageId = "itertools 0.12.0";
+            packageId = "itertools 0.11.0";
           }
           {
             name = "proc-macro2";
@@ -13598,7 +13598,7 @@ rec {
           }
           {
             name = "tonic";
-            packageId = "tonic 0.12.1";
+            packageId = "tonic 0.12.2";
             rename = "tonic_012";
             optional = true;
           }
@@ -14394,11 +14394,11 @@ rec {
         };
         resolvedDefaultFeatures = [ "channel" "codegen" "default" "prost" "tls" "transport" ];
       };
-      "tonic 0.12.1" = rec {
+      "tonic 0.12.2" = rec {
         crateName = "tonic";
-        version = "0.12.1";
+        version = "0.12.2";
         edition = "2021";
-        sha256 = "00bl9i4fal2s90g1p877053dkpbxvgsqj5c24y6mka5bj559yr9q";
+        sha256 = "1bc8m8r7ysgkb7mhs3b3mvivd43nwaix6qnqhfp5hb2bkscbmxn6";
         authors = [
           "Lucio Franco <luciofranco14@gmail.com>"
         ];
@@ -14550,12 +14550,13 @@ rec {
           "router" = [ "dep:axum" "dep:tower" "tower?/util" ];
           "server" = [ "router" "dep:async-stream" "dep:h2" "dep:hyper" "hyper?/server" "dep:hyper-util" "hyper-util?/service" "hyper-util?/server-auto" "dep:socket2" "dep:tokio" "tokio?/macros" "tokio?/net" "tokio?/time" "tokio-stream/net" "dep:tower" "tower?/util" "tower?/limit" ];
           "tls" = [ "dep:rustls-pemfile" "dep:tokio-rustls" "dep:tokio" "tokio?/rt" "tokio?/macros" ];
-          "tls-roots" = [ "tls" "channel" "dep:rustls-native-certs" ];
+          "tls-native-roots" = [ "tls" "channel" "dep:rustls-native-certs" ];
+          "tls-roots" = [ "tls-native-roots" ];
           "tls-webpki-roots" = [ "tls" "channel" "dep:webpki-roots" ];
           "transport" = [ "server" "channel" ];
           "zstd" = [ "dep:zstd" ];
         };
-        resolvedDefaultFeatures = [ "channel" "codegen" "default" "prost" "router" "server" "tls" "tls-roots" "transport" ];
+        resolvedDefaultFeatures = [ "channel" "codegen" "default" "prost" "router" "server" "tls" "tls-native-roots" "tls-roots" "transport" ];
       };
       "tonic-build 0.11.0" = rec {
         crateName = "tonic-build";
@@ -14597,11 +14598,11 @@ rec {
         };
         resolvedDefaultFeatures = [ "cleanup-markdown" "default" "prost" "prost-build" "transport" ];
       };
-      "tonic-build 0.12.1" = rec {
+      "tonic-build 0.12.2" = rec {
         crateName = "tonic-build";
-        version = "0.12.1";
+        version = "0.12.2";
         edition = "2021";
-        sha256 = "0r5riq6gm79hmmsd1z6rdziszava2y8phf1z7rr2005xlb2r50sn";
+        sha256 = "0rwaxvsx4rld1ncmcih0bvmg8k8ah4r1ccyjwgbnn4shfa3yhkpy";
         libName = "tonic_build";
         authors = [
           "Lucio Franco <luciofranco14@gmail.com>"
@@ -14666,7 +14667,7 @@ rec {
           }
           {
             name = "tonic";
-            packageId = "tonic 0.12.1";
+            packageId = "tonic 0.12.2";
             usesDefaultFeatures = false;
             features = [ "codegen" "prost" ];
           }
@@ -14720,7 +14721,7 @@ rec {
           }
           {
             name = "tonic";
-            packageId = "tonic 0.12.1";
+            packageId = "tonic 0.12.2";
             usesDefaultFeatures = false;
             features = [ "codegen" "prost" ];
           }
@@ -14728,7 +14729,7 @@ rec {
         devDependencies = [
           {
             name = "tonic";
-            packageId = "tonic 0.12.1";
+            packageId = "tonic 0.12.2";
             usesDefaultFeatures = false;
             features = [ "transport" ];
           }
@@ -15712,7 +15713,7 @@ rec {
           }
           {
             name = "tonic";
-            packageId = "tonic 0.12.1";
+            packageId = "tonic 0.12.2";
             features = [ "tls" "tls-roots" ];
           }
           {
@@ -15744,7 +15745,7 @@ rec {
           }
           {
             name = "tonic-build";
-            packageId = "tonic-build 0.12.1";
+            packageId = "tonic-build 0.12.2";
           }
         ];
         devDependencies = [
@@ -15911,7 +15912,7 @@ rec {
           }
           {
             name = "tonic";
-            packageId = "tonic 0.12.1";
+            packageId = "tonic 0.12.2";
           }
           {
             name = "tonic-reflection";
@@ -15985,7 +15986,7 @@ rec {
           }
           {
             name = "tonic-build";
-            packageId = "tonic-build 0.12.1";
+            packageId = "tonic-build 0.12.2";
           }
         ];
         devDependencies = [
@@ -16710,7 +16711,7 @@ rec {
           }
           {
             name = "tonic";
-            packageId = "tonic 0.12.1";
+            packageId = "tonic 0.12.2";
             features = [ "tls" "tls-roots" ];
           }
           {
@@ -16765,7 +16766,7 @@ rec {
           }
           {
             name = "tonic-build";
-            packageId = "tonic-build 0.12.1";
+            packageId = "tonic-build 0.12.2";
           }
         ];
         devDependencies = [
@@ -16866,7 +16867,7 @@ rec {
           }
           {
             name = "tonic";
-            packageId = "tonic 0.12.1";
+            packageId = "tonic 0.12.2";
             optional = true;
           }
           {

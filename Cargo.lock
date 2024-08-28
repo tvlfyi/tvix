@@ -2258,8 +2258,8 @@ dependencies = [
  "tokio",
  "tokio-listener",
  "tokio-util",
- "tonic 0.12.1",
- "tonic-build 0.12.1",
+ "tonic 0.12.2",
+ "tonic-build 0.12.2",
  "tower",
  "tower-http",
  "tracing",
@@ -2569,7 +2569,7 @@ dependencies = [
  "prost 0.13.1",
  "thiserror",
  "tokio",
- "tonic 0.12.1",
+ "tonic 0.12.2",
 ]
 
 [[package]]
@@ -2581,7 +2581,7 @@ dependencies = [
  "opentelemetry 0.24.0",
  "opentelemetry_sdk 0.24.1",
  "prost 0.13.1",
- "tonic 0.12.1",
+ "tonic 0.12.2",
 ]
 
 [[package]]
@@ -2948,7 +2948,7 @@ checksum = "5bb182580f71dd070f88d01ce3de9f4da5021db7115d2e1c3605a754153b77c1"
 dependencies = [
  "bytes",
  "heck",
- "itertools 0.12.0",
+ "itertools 0.11.0",
  "log",
  "multimap",
  "once_cell",
@@ -2981,7 +2981,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18bec9b0adc4eba778b33684b7ba3e7137789434769ee3ce3930463ef904cfca"
 dependencies = [
  "anyhow",
- "itertools 0.12.0",
+ "itertools 0.11.0",
  "proc-macro2",
  "quote",
  "syn 2.0.72",
@@ -4235,7 +4235,7 @@ dependencies = [
  "socket2",
  "tokio",
  "tokio-util",
- "tonic 0.12.1",
+ "tonic 0.12.2",
  "tower",
  "tower-service",
  "tracing",
@@ -4449,9 +4449,9 @@ dependencies = [
 
 [[package]]
 name = "tonic"
-version = "0.12.1"
+version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38659f4a91aba8598d27821589f5db7dddd94601e7a01b1e485a50e5484c7401"
+checksum = "c6f6ba989e4b2c58ae83d862d3a3e27690b6e3ae630d0deb59f3697f32aa88ad"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -4495,9 +4495,9 @@ dependencies = [
 
 [[package]]
 name = "tonic-build"
-version = "0.12.1"
+version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "568392c5a2bd0020723e3f387891176aabafe36fd9fcd074ad309dfa0c8eb964"
+checksum = "fe4ee8877250136bd7e3d2331632810a4df4ea5e004656990d8d66d2f5ee8a67"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -4516,7 +4516,7 @@ dependencies = [
  "prost 0.13.1",
  "tokio",
  "tokio-stream",
- "tonic 0.12.1",
+ "tonic 0.12.2",
 ]
 
 [[package]]
@@ -4529,7 +4529,7 @@ dependencies = [
  "prost-types 0.13.1",
  "tokio",
  "tokio-stream",
- "tonic 0.12.1",
+ "tonic 0.12.2",
 ]
 
 [[package]]
@@ -4766,8 +4766,8 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-listener",
- "tonic 0.12.1",
- "tonic-build 0.12.1",
+ "tonic 0.12.2",
+ "tonic-build 0.12.2",
  "tonic-reflection",
  "tracing",
  "tvix-castore",
@@ -4820,8 +4820,8 @@ dependencies = [
  "tokio-stream",
  "tokio-tar",
  "tokio-util",
- "tonic 0.12.1",
- "tonic-build 0.12.1",
+ "tonic 0.12.2",
+ "tonic-build 0.12.2",
  "tonic-reflection",
  "tower",
  "tracing",
@@ -5014,8 +5014,8 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "toml 0.8.15",
- "tonic 0.12.1",
- "tonic-build 0.12.1",
+ "tonic 0.12.2",
+ "tonic-build 0.12.2",
  "tonic-health",
  "tonic-reflection",
  "tower",
@@ -5043,7 +5043,7 @@ dependencies = [
  "reqwest-tracing",
  "thiserror",
  "tokio",
- "tonic 0.12.1",
+ "tonic 0.12.2",
  "tracing",
  "tracing-indicatif",
  "tracing-opentelemetry 0.25.0",
