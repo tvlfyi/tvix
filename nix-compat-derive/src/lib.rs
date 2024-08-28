@@ -64,7 +64,7 @@
 //! #[derive(NixDeserialize)]
 //! #[nix(crate="nix_compat")] // <-- This is also a container attribute
 //! enum E {
-//!     #[nix(version="..10")] // <-- This is a variant attribute
+//!     #[nix(version="..=9")] // <-- This is a variant attribute
 //!     A(u64),
 //!     #[nix(version="10..")] // <-- This is also a variant attribute
 //!     B(String),
