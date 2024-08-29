@@ -6627,7 +6627,6 @@ rec {
           {
             name = "futures";
             packageId = "futures";
-            usesDefaultFeatures = false;
           }
           {
             name = "itertools";
@@ -7043,8 +7042,6 @@ rec {
           {
             name = "futures";
             packageId = "futures";
-            usesDefaultFeatures = false;
-            features = [ "executor" ];
           }
           {
             name = "hex-literal";
@@ -14790,7 +14787,6 @@ rec {
           {
             name = "futures";
             packageId = "futures";
-            usesDefaultFeatures = false;
           }
           {
             name = "hyper-util";
@@ -15346,7 +15342,6 @@ rec {
           {
             name = "futures";
             packageId = "futures";
-            usesDefaultFeatures = false;
           }
           {
             name = "magic";
@@ -15576,7 +15571,6 @@ rec {
           {
             name = "futures";
             packageId = "futures";
-            usesDefaultFeatures = false;
           }
           {
             name = "hyper-util";

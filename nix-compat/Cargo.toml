@@ -39,7 +39,7 @@ optional = true
 
 [dev-dependencies]
 criterion = { workspace = true, features = ["html_reports"] }
-futures = { workspace = true, features = ["executor"] }
+futures = { workspace = true }
 hex-literal = { workspace = true }
 lazy_static = { workspace = true }
 mimalloc = { workspace = true }
