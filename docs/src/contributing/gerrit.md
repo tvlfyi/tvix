@@ -17,7 +17,8 @@ that error is not your fault. You can create that account by following these
 instructions:
 
 1. Checkout [TVL’s monorepo][check-out-monorepo] if you haven’t already
-2. Be a member of `#tvl` on [hackint][], a communication network.
+2. Be a member of `#tvix-dev` (and/or `#tvl`) on [hackint][], a communication
+   network.
 3. Generate a user entry using [//web/pwcrypt](https://signup.tvl.fyi/).
 4. Commit that generated user entry to our LDAP server configuration in
    [ops/users][ops-users] (for an example, see:
