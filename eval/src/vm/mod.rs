@@ -449,8 +449,8 @@ where
     ///    stack. In this case, the frame is not returned to the frame stack.
     ///
     /// 2. The code encounters a generator, in which case the frame in its
-    /// current state is pushed back on the stack, and the generator is left on
-    /// top of it for the outer loop to execute.
+    ///    current state is pushed back on the stack, and the generator is left
+    ///    on top of it for the outer loop to execute.
     ///
     /// 3. An error is encountered.
     ///

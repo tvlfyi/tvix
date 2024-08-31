@@ -58,6 +58,9 @@ let
 
     # the big lis package change breaks everything in //3p/lisp, undo it for now.
     lispPackages = stableNixpkgs.lispPackages;
+
+    # mypaint is broken on stable (2024-09-05)
+    mypaint = stableNixpkgs.mypaint;
   };
 
   # Overlay to expose the nixpkgs commits we are using to other Nix code.

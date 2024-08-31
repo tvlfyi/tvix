@@ -230,7 +230,10 @@ where
                 break;
             }
         }
+
+        #[allow(clippy::needless_borrows_for_generic_args)] // misfiring lint (breaks code below)
         this.scanner.scan(&this.buffer);
+
         Poll::Ready(Ok(&this.buffer[*this.consumed..]))
     }
 

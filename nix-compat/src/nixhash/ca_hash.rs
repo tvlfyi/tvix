@@ -72,7 +72,8 @@ impl CAHash {
     /// - `text:sha256:$nixbase32sha256digest`
     /// - `fixed:r:$algo:$nixbase32digest`
     /// - `fixed:$algo:$nixbase32digest`
-    /// which is the format that's used in the NARInfo for example.
+    ///
+    /// These formats are used in NARInfo, for example.
     pub fn from_nix_hex_str(s: &str) -> Option<Self> {
         let (tag, s) = s.split_once(':')?;
 
@@ -108,11 +109,13 @@ impl CAHash {
     /// know whether we have a invalid or a missing NixHashWithMode structure in another structure,
     /// e.g. Output.
     /// This means we have this combinatorial situation:
+    ///
     /// - no hash, no hashAlgo: no [CAHash] so we return Ok(None).
     /// - present hash, missing hashAlgo: invalid, we will return missing_field
     /// - missing hash, present hashAlgo: same
     /// - present hash, present hashAlgo: either we return ourselves or a type/value validation
-    /// error.
+    ///   error.
+    ///
     /// This function is for internal consumption regarding those needs until we have a better
     /// solution. Now this is said, let's explain how this works.
     ///

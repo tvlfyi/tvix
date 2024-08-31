@@ -29,9 +29,11 @@ struct ArchiveReader<'a, 'r> {
     inner: &'a mut Reader<'r>,
 
     /// In debug mode, also track when we need to abandon this archive reader.
+    ///
     /// The archive reader must be abandoned when:
     ///   * An error is encountered at any point
     ///   * A file or directory reader is dropped before being read entirely.
+    ///
     /// All of these checks vanish in release mode.
     status: ArchiveReaderStatus<'a>,
 }

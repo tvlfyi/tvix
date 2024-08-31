@@ -10,13 +10,6 @@
     depot.third_party.sources = import ./sources { };
     additionalOverlays = [
       (self: super: {
-        # https://github.com/googleapis/google-cloud-go/pull/9665
-        cbtemulator = super.cbtemulator.overrideAttrs (old: {
-          patches = old.patches or [ ] ++ [
-            ./nixpkgs/cbtemulator-uds.patch
-          ];
-        });
-
         # macFUSE bump containing fix for https://github.com/osxfuse/osxfuse/issues/974
         # https://github.com/NixOS/nixpkgs/pull/320197
         fuse =
