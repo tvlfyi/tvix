@@ -10,11 +10,9 @@ StackOverflow account.
 
 Additionally if you would prefer not to use an SSO option or wish to have a
 backup authentication strategy in the event of downed server or otherwise, we
-recommend setting up a TVL-specific LDAP account. Do note that our IdP
-(Keycloak) sometimes has [problems doing SSO with GitHub][github-problematic],
-so you might get an “unexpected error” while trying to sign in with GitHub;
-that error is not your fault. You can create that account by following these
-instructions:
+recommend setting up a TVL-specific LDAP account.
+
+You can create such an account by following these instructions:
 
 1. Checkout [TVL’s monorepo][check-out-monorepo] if you haven’t already
 2. Be a member of `#tvix-dev` (and/or `#tvl`) on [hackint][], a communication
@@ -107,7 +105,6 @@ system, as well as the other [attention set rules][attention-set-rules].
 [ops-users]: https://code.tvl.fyi/tree/ops/users/default.nix
 [hackint]: https://hackint.org
 [github-diff]: https://gerrit.wikimedia.org/r/Documentation/intro-gerrit-walkthrough-github.html
-[github-problematic]: https://b.tvl.fyi/issues/201
 [attention sets]: https://gerrit-review.googlesource.com/Documentation/user-attention-set.html
 [attention-set-rules]: https://gerrit-review.googlesource.com/Documentation/user-attention-set.html#_rules
 [^keycloak]: [^amend]: `git commit --amend`
