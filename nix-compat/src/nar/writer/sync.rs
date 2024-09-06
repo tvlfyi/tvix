@@ -35,11 +35,8 @@ use std::io::{
     Write,
 };
 
-/// Convenience type alias for types implementing [`Write`].
-pub type Writer<'a> = dyn Write + Send + 'a;
-
 /// Create a new NAR, writing the output to the specified writer.
-pub fn open<'a, 'w: 'a>(writer: &'a mut Writer<'w>) -> io::Result<Node<'a, 'w>> {
+pub fn open<W: Write>(writer: &mut W) -> io::Result<Node<W>> {
     let mut node = Node { writer };
     node.write(&wire::TOK_NAR)?;
     Ok(node)
@@ -49,11 +46,11 @@ pub fn open<'a, 'w: 'a>(writer: &'a mut Writer<'w>) -> io::Result<Node<'a, 'w>> 
 ///
 /// A NAR can be thought of as a tree of nodes represented by this type. Each
 /// node can be a file, a symlink or a directory containing other nodes.
-pub struct Node<'a, 'w: 'a> {
-    writer: &'a mut Writer<'w>,
+pub struct Node<'a, W: Write> {
+    writer: &'a mut W,
 }
 
-impl<'a, 'w> Node<'a, 'w> {
+impl<'a, W: Write> Node<'a, W> {
     fn write(&mut self, data: &[u8]) -> io::Result<()> {
         self.writer.write_all(data)
     }
@@ -128,7 +125,7 @@ impl<'a, 'w> Node<'a, 'w> {
     ///
     /// It is the caller's responsibility to invoke [`Directory::close`],
     /// or invalid archives will be produced silently.
-    pub fn directory(mut self) -> io::Result<Directory<'a, 'w>> {
+    pub fn directory(mut self) -> io::Result<Directory<'a, W>> {
         self.write(&wire::TOK_DIR)?;
         Ok(Directory::new(self))
     }
@@ -145,13 +142,13 @@ fn into_name(_name: &[u8]) -> Name {
 }
 
 /// Content of a NAR node that represents a directory.
-pub struct Directory<'a, 'w> {
-    node: Node<'a, 'w>,
+pub struct Directory<'a, W: Write> {
+    node: Node<'a, W>,
     prev_name: Option<Name>,
 }
 
-impl<'a, 'w> Directory<'a, 'w> {
-    fn new(node: Node<'a, 'w>) -> Self {
+impl<'a, W: Write> Directory<'a, W> {
+    fn new(node: Node<'a, W>) -> Self {
         Self {
             node,
             prev_name: None,
@@ -166,7 +163,7 @@ impl<'a, 'w> Directory<'a, 'w> {
     /// It is the caller's responsibility to ensure that directory entries are
     /// written in order of ascending name. If this is not ensured, this method
     /// may panic or silently produce invalid archives.
-    pub fn entry(&mut self, name: &[u8]) -> io::Result<Node<'_, 'w>> {
+    pub fn entry(&mut self, name: &[u8]) -> io::Result<Node<'_, W>> {
         debug_assert!(
             name.len() <= wire::MAX_NAME_LEN,
             "name.len() > {}",
