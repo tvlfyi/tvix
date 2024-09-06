@@ -120,6 +120,53 @@ impl<'a, W: Write> Node<'a, W> {
         Ok(())
     }
 
+    /// Make this node a single file but let the user handle the writing of the file contents.
+    /// The user gets access to a writer to write the file contents to, plus a struct they must
+    /// invoke a function on to finish writing the NAR file.
+    ///
+    /// It is the caller's responsibility to write the correct number of bytes to the writer and
+    /// invoke [`FileManualWrite::close`], or invalid archives will be produced silently.
+    ///
+    /// ```rust
+    /// # use std::io::BufReader;
+    /// # use std::io::Write;
+    /// #
+    /// # // Output location to write the NAR to.
+    /// # let mut sink: Vec<u8> = Vec::new();
+    /// #
+    /// # // Instantiate writer for this output location.
+    /// # let mut nar = nix_compat::nar::writer::open(&mut sink)?;
+    /// #
+    /// let contents = "Hello world\n".as_bytes();
+    /// let size = contents.len() as u64;
+    /// let executable = false;
+    ///
+    /// let (writer, skip) = nar
+    ///     .file_manual_write(executable, size)?;
+    ///
+    /// // Write the contents
+    /// writer.write_all(&contents)?;
+    ///
+    /// // Close the file node
+    /// skip.close(writer)?;
+    /// # Ok::<(), std::io::Error>(())
+    /// ```
+    pub fn file_manual_write(
+        mut self,
+        executable: bool,
+        size: u64,
+    ) -> io::Result<(&'a mut W, FileManualWrite)> {
+        self.write(if executable {
+            &wire::TOK_EXE
+        } else {
+            &wire::TOK_REG
+        })?;
+
+        self.write(&size.to_le_bytes())?;
+
+        Ok((self.writer, FileManualWrite { size }))
+    }
+
     /// Make this node a directory, the content of which is set using the
     /// resulting [`Directory`] value.
     ///
@@ -216,6 +263,27 @@ impl<'a, W: Write> Directory<'a, W> {
         }
 
         self.node.write(&wire::TOK_PAR)?;
+        Ok(())
+    }
+}
+
+/// Content of a NAR node that represents a file whose contents are being written out manually.
+/// Returned by the `file_manual_write` function.
+#[must_use]
+pub struct FileManualWrite {
+    size: u64,
+}
+
+impl FileManualWrite {
+    /// Finish writing the file structure to the NAR after having manually written the file contents.
+    ///
+    /// **Important:** This *must* be called with the writer returned by file_manual_write after
+    /// the file contents have been manually and fully written. Otherwise the resulting NAR file
+    /// will be invalid.
+    pub fn close<W: Write>(self, writer: &mut W) -> io::Result<()> {
+        let mut node = Node { writer };
+        node.pad(self.size)?;
+        node.write(&wire::TOK_PAR)?;
         Ok(())
     }
 }
