@@ -3,6 +3,7 @@ use tvix_castore::B3Digest;
 
 mod import;
 mod renderer;
+pub mod seekable;
 pub use import::ingest_nar;
 pub use import::ingest_nar_and_hash;
 pub use renderer::calculate_size_and_sha256;
