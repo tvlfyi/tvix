@@ -109,8 +109,6 @@ where
     }
 
     /// Remaining data length, ie not including data already read.
-    ///
-    /// If the size has not been read yet, this is [None].
     pub fn len(&self) -> u64 {
         match self.state {
             State::Body {
