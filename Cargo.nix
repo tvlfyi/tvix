@@ -15231,6 +15231,10 @@ rec {
             optional = true;
           }
           {
+            name = "thiserror";
+            packageId = "thiserror";
+          }
+          {
             name = "toml";
             packageId = "toml 0.6.0";
           }

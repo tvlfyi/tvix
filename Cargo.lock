@@ -4612,6 +4612,7 @@ dependencies = [
  "tabwriter",
  "tempfile",
  "test-strategy",
+ "thiserror",
  "toml 0.6.0",
  "tvix-eval-builtin-macros",
  "vu128",
