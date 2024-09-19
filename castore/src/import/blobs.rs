@@ -28,6 +28,9 @@ pub enum Error {
     #[error("unable to read blob contents for {0}: {1}")]
     BlobRead(PathBuf, std::io::Error),
 
+    #[error("unable to check whether blob at {0} already exists: {1}")]
+    BlobCheck(PathBuf, std::io::Error),
+
     // FUTUREWORK: proper error for blob finalize
     #[error("unable to finalize blob {0}: {1}")]
     BlobFinalize(PathBuf, std::io::Error),
@@ -118,6 +121,16 @@ where
                 let path = path.to_owned();
                 let r = Cursor::new(buffer);
                 async move {
+                    // We know the blob digest already, check it exists before sending it.
+                    if blob_service
+                        .has(&expected_digest)
+                        .await
+                        .map_err(|e| Error::BlobCheck(path.clone(), e))?
+                    {
+                        drop(permit);
+                        return Ok(());
+                    }
+
                     let digest = upload_blob(&blob_service, &path, expected_size, r).await?;
 
                     assert_eq!(digest, expected_digest, "Tvix bug: blob digest mismatch");
