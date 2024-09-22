@@ -1,4 +1,5 @@
 use prost::Message;
+
 use std::cmp::Ordering;
 
 mod grpc_blobservice_wrapper;
@@ -192,23 +193,35 @@ impl From<crate::Directory> for Directory {
 impl Node {
     /// Converts a proto [Node] to a [crate::Node], and splits off the name.
     pub fn into_name_and_node(self) -> Result<(PathComponent, crate::Node), DirectoryError> {
+        let (unvalidated_name, node) = self.into_name_bytes_and_node()?;
+        Ok((
+            unvalidated_name
+                .try_into()
+                .map_err(DirectoryError::InvalidName)?,
+            node,
+        ))
+    }
+
+    /// Converts a proto [Node] to a [crate::Node], and splits off the name and returns it as a
+    /// [bytes::Bytes].
+    ///
+    /// Note: the returned name is not validated.
+    pub fn into_name_bytes_and_node(self) -> Result<(bytes::Bytes, crate::Node), DirectoryError> {
         match self.node.ok_or_else(|| DirectoryError::NoNodeSet)? {
             node::Node::Directory(n) => {
-                let name: PathComponent = n.name.try_into().map_err(DirectoryError::InvalidName)?;
                 let digest = B3Digest::try_from(n.digest)
-                    .map_err(|e| DirectoryError::InvalidNode(name.clone(), e.into()))?;
+                    .map_err(|e| DirectoryError::InvalidNode(n.name.clone(), e.into()))?;
 
                 let node = crate::Node::Directory {
                     digest,
                     size: n.size,
                 };
 
-                Ok((name, node))
+                Ok((n.name, node))
             }
             node::Node::File(n) => {
-                let name: PathComponent = n.name.try_into().map_err(DirectoryError::InvalidName)?;
                 let digest = B3Digest::try_from(n.digest)
-                    .map_err(|e| DirectoryError::InvalidNode(name.clone(), e.into()))?;
+                    .map_err(|e| DirectoryError::InvalidNode(n.name.clone(), e.into()))?;
 
                 let node = crate::Node::File {
                     digest,
@@ -216,27 +229,25 @@ impl Node {
                     executable: n.executable,
                 };
 
-                Ok((name, node))
+                Ok((n.name, node))
             }
 
             node::Node::Symlink(n) => {
-                let name: PathComponent = n.name.try_into().map_err(DirectoryError::InvalidName)?;
-
                 let node = crate::Node::Symlink {
                     target: n.target.try_into().map_err(|e| {
                         DirectoryError::InvalidNode(
-                            name.clone(),
+                            n.name.clone(),
                             crate::ValidateNodeError::InvalidSymlinkTarget(e),
                         )
                     })?,
                 };
 
-                Ok((name, node))
+                Ok((n.name, node))
             }
         }
     }
 
-    /// Construsts a [Node] from a name and [crate::Node].
+    /// Constructs a [Node] from a name and [crate::Node].
     /// The name is a [bytes::Bytes], not a [PathComponent], as we have use an
     /// empty name in some places.
     pub fn from_name_and_node(name: bytes::Bytes, n: crate::Node) -> Self {
