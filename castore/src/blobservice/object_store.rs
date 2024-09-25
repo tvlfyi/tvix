@@ -92,7 +92,7 @@ fn derive_chunk_path(base_path: &Path, digest: &B3Digest) -> Path {
 
 #[async_trait]
 impl BlobService for ObjectStoreBlobService {
-    #[instrument(skip_all, ret, err, fields(blob.digest=%digest))]
+    #[instrument(skip_all, ret(level = Level::TRACE), err, fields(blob.digest=%digest))]
     async fn has(&self, digest: &B3Digest) -> io::Result<bool> {
         // TODO: clarify if this should work for chunks or not, and explicitly
         // document in the proto docs.
