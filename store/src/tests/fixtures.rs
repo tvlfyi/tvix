@@ -1,11 +1,13 @@
 use lazy_static::lazy_static;
-use rstest::*;
+use rstest::{self, *};
+use rstest_reuse::*;
+use std::io;
 use std::sync::Arc;
 pub use tvix_castore::fixtures::*;
 use tvix_castore::{
     blobservice::{BlobService, MemoryBlobService},
     directoryservice::{DirectoryService, MemoryDirectoryService},
-    proto as castorepb,
+    proto as castorepb, Node,
 };
 
 use crate::proto::{
@@ -17,6 +19,10 @@ pub const DUMMY_PATH: &str = "00000000000000000000000000000000-dummy";
 pub const DUMMY_PATH_DIGEST: [u8; 20] = [0; 20];
 
 lazy_static! {
+    pub static ref CASTORE_NODE_SYMLINK: Node = Node::Symlink {
+        target: "/nix/store/somewhereelse".try_into().unwrap(),
+    };
+
     /// The NAR representation of a symlink pointing to `/nix/store/somewhereelse`
     pub static ref NAR_CONTENTS_SYMLINK: Vec<u8> = vec![
         13, 0, 0, 0, 0, 0, 0, 0, b'n', b'i', b'x', b'-', b'a', b'r', b'c', b'h', b'i', b'v', b'e', b'-', b'1', 0,
@@ -31,6 +37,12 @@ lazy_static! {
         1, 0, 0, 0, 0, 0, 0, 0, b')', 0, 0, 0, 0, 0, 0, 0 // ")"
     ];
 
+    pub static ref CASTORE_NODE_HELLOWORLD: Node = Node::File {
+        digest: HELLOWORLD_BLOB_DIGEST.clone(),
+        size: HELLOWORLD_BLOB_CONTENTS.len() as u64,
+        executable: false,
+    };
+
     /// The NAR representation of a regular file with the contents "Hello World!"
     pub static ref NAR_CONTENTS_HELLOWORLD: Vec<u8> = vec![
         13, 0, 0, 0, 0, 0, 0, 0, b'n', b'i', b'x', b'-', b'a', b'r', b'c', b'h', b'i', b'v', b'e', b'-', b'1', 0,
@@ -43,6 +55,22 @@ lazy_static! {
         0, 0, // "Hello World!"
         1, 0, 0, 0, 0, 0, 0, 0, b')', 0, 0, 0, 0, 0, 0, 0 // ")"
     ];
+
+    pub static ref CASTORE_NODE_TOO_BIG: Node = Node::File {
+        digest: HELLOWORLD_BLOB_DIGEST.clone(),
+        size: 42, // <- note the wrong size here!
+        executable: false,
+    };
+    pub static ref CASTORE_NODE_TOO_SMALL: Node = Node::File {
+        digest: HELLOWORLD_BLOB_DIGEST.clone(),
+        size: 2, // <- note the wrong size here!
+        executable: false,
+    };
+
+    pub static ref CASTORE_NODE_COMPLICATED: Node = Node::Directory {
+        digest: DIRECTORY_COMPLICATED.digest(),
+        size: DIRECTORY_COMPLICATED.size(),
+    };
 
     /// The NAR representation of a more complicated directory structure.
     pub static ref NAR_CONTENTS_COMPLICATED: Vec<u8> = vec![
@@ -137,6 +165,46 @@ pub(crate) fn blob_service() -> Arc<dyn BlobService> {
 }
 
 #[fixture]
+pub(crate) async fn blob_service_with_contents() -> Arc<dyn BlobService> {
+    let blob_service = Arc::from(MemoryBlobService::default());
+    for (blob_contents, blob_digest) in [
+        (EMPTY_BLOB_CONTENTS, &*EMPTY_BLOB_DIGEST),
+        (HELLOWORLD_BLOB_CONTENTS, &*HELLOWORLD_BLOB_DIGEST),
+    ] {
+        // put all data into the stores.
+        // insert blob into the store
+        let mut writer = blob_service.open_write().await;
+        tokio::io::copy(&mut io::Cursor::new(blob_contents), &mut writer)
+            .await
+            .unwrap();
+        assert_eq!(blob_digest.clone(), writer.close().await.unwrap());
+    }
+    blob_service
+}
+
+#[fixture]
 pub(crate) fn directory_service() -> Arc<dyn DirectoryService> {
     Arc::from(MemoryDirectoryService::default())
+}
+
+#[fixture]
+pub(crate) async fn directory_service_with_contents() -> Arc<dyn DirectoryService> {
+    let directory_service = Arc::from(MemoryDirectoryService::default());
+    for directory in [&*DIRECTORY_WITH_KEEP, &*DIRECTORY_COMPLICATED] {
+        directory_service.put(directory.clone()).await.unwrap();
+    }
+    directory_service
+}
+
+#[template]
+#[rstest]
+#[case::symlink    (&*CASTORE_NODE_SYMLINK,     Ok(Ok(&*NAR_CONTENTS_SYMLINK)))]
+#[case::helloworld (&*CASTORE_NODE_HELLOWORLD,  Ok(Ok(&*NAR_CONTENTS_HELLOWORLD)))]
+#[case::too_big    (&*CASTORE_NODE_TOO_BIG,     Ok(Err(io::ErrorKind::UnexpectedEof)))]
+#[case::too_small  (&*CASTORE_NODE_TOO_SMALL,   Ok(Err(io::ErrorKind::InvalidInput)))]
+#[case::complicated(&*CASTORE_NODE_COMPLICATED, Ok(Ok(&*NAR_CONTENTS_COMPLICATED)))]
+fn castore_fixtures_template(
+    #[case] test_input: &Node,
+    #[case] test_output: Result<Result<&Vec<u8>, io::ErrorKind>, crate::nar::RenderError>,
+) {
 }

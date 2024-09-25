@@ -1,39 +1,13 @@
-use crate::nar::calculate_size_and_sha256;
 use crate::nar::write_nar;
-use crate::tests::fixtures::blob_service;
-use crate::tests::fixtures::directory_service;
 use crate::tests::fixtures::*;
 use rstest::*;
-use sha2::{Digest, Sha256};
+use rstest_reuse::*;
 use std::io;
 use std::sync::Arc;
 use tokio::io::sink;
 use tvix_castore::blobservice::BlobService;
 use tvix_castore::directoryservice::DirectoryService;
 use tvix_castore::Node;
-
-#[rstest]
-#[tokio::test]
-async fn single_symlink(
-    blob_service: Arc<dyn BlobService>,
-    directory_service: Arc<dyn DirectoryService>,
-) {
-    let mut buf: Vec<u8> = vec![];
-
-    write_nar(
-        &mut buf,
-        &Node::Symlink {
-            target: "/nix/store/somewhereelse".try_into().unwrap(),
-        },
-        // don't put anything in the stores, as we don't actually do any requests.
-        blob_service,
-        directory_service,
-    )
-    .await
-    .expect("must succeed");
-
-    assert_eq!(buf, NAR_CONTENTS_SYMLINK.to_vec());
-}
 
 /// Make sure the NARRenderer fails if a referred blob doesn't exist.
 #[rstest]
@@ -44,11 +18,7 @@ async fn single_file_missing_blob(
 ) {
     let e = write_nar(
         sink(),
-        &Node::File {
-            digest: HELLOWORLD_BLOB_DIGEST.clone(),
-            size: HELLOWORLD_BLOB_CONTENTS.len() as u64,
-            executable: false,
-        },
+        &CASTORE_NODE_HELLOWORLD,
         // the blobservice is empty intentionally, to provoke the error.
         blob_service,
         directory_service,
@@ -64,158 +34,44 @@ async fn single_file_missing_blob(
     }
 }
 
-/// Make sure the NAR Renderer fails if the returned blob meta has another size
-/// than specified in the proto node.
-#[rstest]
+#[apply(castore_fixtures_template)]
 #[tokio::test]
-async fn single_file_wrong_blob_size(
-    blob_service: Arc<dyn BlobService>,
-    directory_service: Arc<dyn DirectoryService>,
+async fn seekable(
+    #[future] blob_service_with_contents: Arc<dyn BlobService>,
+    #[future] directory_service_with_contents: Arc<dyn DirectoryService>,
+    #[case] test_input: &Node,
+    #[case] test_output: Result<Result<&Vec<u8>, io::ErrorKind>, crate::nar::RenderError>,
 ) {
-    // insert blob into the store
-    let mut writer = blob_service.open_write().await;
-    tokio::io::copy(
-        &mut io::Cursor::new(HELLOWORLD_BLOB_CONTENTS.to_vec()),
-        &mut writer,
-    )
-    .await
-    .unwrap();
-    assert_eq!(
-        HELLOWORLD_BLOB_DIGEST.clone(),
-        writer.close().await.unwrap()
-    );
-
-    // Test with a root FileNode of a too big size
-    let e = write_nar(
-        sink(),
-        &Node::File {
-            digest: HELLOWORLD_BLOB_DIGEST.clone(),
-            size: 42, // <- note the wrong size here!
-            executable: false,
-        },
-        blob_service.clone(),
-        directory_service.clone(),
-    )
-    .await
-    .expect_err("must fail");
-
-    match e {
-        crate::nar::RenderError::NARWriterError(e) => {
-            assert_eq!(io::ErrorKind::UnexpectedEof, e.kind());
-        }
-        _ => panic!("unexpected error: {:?}", e),
-    }
-
-    // Test with a root FileNode of a too small size
-    let e = write_nar(
-        sink(),
-        &Node::File {
-            digest: HELLOWORLD_BLOB_DIGEST.clone(),
-            size: 2, // <- note the wrong size here!
-            executable: false,
-        },
-        blob_service,
-        directory_service,
-    )
-    .await
-    .expect_err("must fail");
-
-    match e {
-        crate::nar::RenderError::NARWriterError(e) => {
-            assert_eq!(io::ErrorKind::InvalidInput, e.kind());
-        }
-        _ => panic!("unexpected error: {:?}", e),
-    }
-}
-
-#[rstest]
-#[tokio::test]
-async fn single_file(
-    blob_service: Arc<dyn BlobService>,
-    directory_service: Arc<dyn DirectoryService>,
-) {
-    // insert blob into the store
-    let mut writer = blob_service.open_write().await;
-    tokio::io::copy(&mut io::Cursor::new(HELLOWORLD_BLOB_CONTENTS), &mut writer)
-        .await
-        .unwrap();
-
-    assert_eq!(
-        HELLOWORLD_BLOB_DIGEST.clone(),
-        writer.close().await.unwrap()
-    );
+    let blob_service = blob_service_with_contents.await;
+    let directory_service = directory_service_with_contents.await;
 
     let mut buf: Vec<u8> = vec![];
-
-    write_nar(
+    let read_result = write_nar(
         &mut buf,
-        &Node::File {
-            digest: HELLOWORLD_BLOB_DIGEST.clone(),
-            size: HELLOWORLD_BLOB_CONTENTS.len() as u64,
-            executable: false,
-        },
+        test_input,
+        // don't put anything in the stores, as we don't actually do any requests.
         blob_service,
         directory_service,
     )
-    .await
-    .expect("must succeed");
+    .await;
 
-    assert_eq!(buf, NAR_CONTENTS_HELLOWORLD.to_vec());
-}
-
-#[rstest]
-#[tokio::test]
-async fn test_complicated(
-    blob_service: Arc<dyn BlobService>,
-    directory_service: Arc<dyn DirectoryService>,
-) {
-    // put all data into the stores.
-    // insert blob into the store
-    let mut writer = blob_service.open_write().await;
-    tokio::io::copy(&mut io::Cursor::new(EMPTY_BLOB_CONTENTS), &mut writer)
-        .await
-        .unwrap();
-    assert_eq!(EMPTY_BLOB_DIGEST.clone(), writer.close().await.unwrap());
-
-    // insert directories
-    directory_service
-        .put(DIRECTORY_WITH_KEEP.clone())
-        .await
-        .unwrap();
-    directory_service
-        .put(DIRECTORY_COMPLICATED.clone())
-        .await
-        .unwrap();
-
-    let mut buf: Vec<u8> = vec![];
-
-    write_nar(
-        &mut buf,
-        &Node::Directory {
-            digest: DIRECTORY_COMPLICATED.digest(),
-            size: DIRECTORY_COMPLICATED.size(),
-        },
-        blob_service.clone(),
-        directory_service.clone(),
-    )
-    .await
-    .expect("must succeed");
-
-    assert_eq!(buf, NAR_CONTENTS_COMPLICATED.to_vec());
-
-    // ensure calculate_nar does return the correct sha256 digest and sum.
-    let (nar_size, nar_digest) = calculate_size_and_sha256(
-        &Node::Directory {
-            digest: DIRECTORY_COMPLICATED.digest(),
-            size: DIRECTORY_COMPLICATED.size(),
-        },
-        blob_service,
-        directory_service,
-    )
-    .await
-    .expect("must succeed");
-
-    assert_eq!(NAR_CONTENTS_COMPLICATED.len() as u64, nar_size);
-    let d = Sha256::digest(NAR_CONTENTS_COMPLICATED.clone());
-    assert_eq!(d.as_slice(), nar_digest);
+    match (read_result, test_output) {
+        (Ok(_), Err(_)) => panic!("creating reader should have failed but succeeded"),
+        (Ok(_), Ok(Err(_))) => panic!("creating reader should have failed but succeeded"),
+        (Err(err), Ok(Ok(_))) => {
+            panic!("creating reader should have succeeded but failed: {}", err)
+        }
+        (Err(reader_err), Err(expected_err)) => {
+            assert_eq!(format!("{}", reader_err), format!("{}", expected_err));
+        }
+        (Err(reader_err), Ok(Err(expected_err))) => {
+            let crate::nar::RenderError::NARWriterError(e) = reader_err else {
+                panic!("expected nar writer error")
+            };
+            assert_eq!(e.kind(), expected_err);
+        }
+        (Ok(_n), Ok(Ok(expected_read_result))) => {
+            assert_eq!(buf, expected_read_result.to_vec());
+        }
+    }
 }
