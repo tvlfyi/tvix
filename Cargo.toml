@@ -46,6 +46,8 @@ async-process = "2.2.4"
 async-stream = "0.3.5"
 async-tempfile = "0.4.0"
 axum = "0.7.5"
+axum-extra = "0.9.3"
+axum-range = "0.4.0"
 # https://github.com/liufuyang/bigtable_rs/pull/86
 bigtable_rs = { git = "https://github.com/liufuyang/bigtable_rs", rev = "1818355a5373a5bc2c84287e3a4e3807154ac8ef" }
 bitflags = "2.6.0"

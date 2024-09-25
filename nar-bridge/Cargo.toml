@@ -5,6 +5,8 @@ edition = "2021"
 
 [dependencies]
 axum = { workspace = true, features = ["http2"] }
+axum-extra = { workspace = true }
+axum-range = { workspace = true }
 tower = { workspace = true }
 tower-http = { workspace = true, features = ["trace"] }
 bytes = { workspace = true }

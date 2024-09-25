@@ -1338,6 +1338,173 @@ rec {
         };
         resolvedDefaultFeatures = [ "tracing" ];
       };
+      "axum-extra" = rec {
+        crateName = "axum-extra";
+        version = "0.9.3";
+        edition = "2021";
+        sha256 = "0cyp22wy0lykpmkikkr7z0c0rg6j7cw2xpphd83vav5rr44ymrhb";
+        libName = "axum_extra";
+        dependencies = [
+          {
+            name = "axum";
+            packageId = "axum";
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "axum-core";
+            packageId = "axum-core";
+          }
+          {
+            name = "bytes";
+            packageId = "bytes";
+          }
+          {
+            name = "futures-util";
+            packageId = "futures-util";
+            usesDefaultFeatures = false;
+            features = [ "alloc" ];
+          }
+          {
+            name = "headers";
+            packageId = "headers";
+            optional = true;
+          }
+          {
+            name = "http";
+            packageId = "http";
+          }
+          {
+            name = "http-body";
+            packageId = "http-body";
+          }
+          {
+            name = "http-body-util";
+            packageId = "http-body-util";
+          }
+          {
+            name = "mime";
+            packageId = "mime";
+          }
+          {
+            name = "pin-project-lite";
+            packageId = "pin-project-lite";
+          }
+          {
+            name = "serde";
+            packageId = "serde";
+          }
+          {
+            name = "tower";
+            packageId = "tower";
+            usesDefaultFeatures = false;
+            features = [ "util" ];
+          }
+          {
+            name = "tower-layer";
+            packageId = "tower-layer";
+          }
+          {
+            name = "tower-service";
+            packageId = "tower-service";
+          }
+          {
+            name = "tracing";
+            packageId = "tracing";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
+        ];
+        devDependencies = [
+          {
+            name = "axum";
+            packageId = "axum";
+          }
+          {
+            name = "serde";
+            packageId = "serde";
+            features = [ "derive" ];
+          }
+          {
+            name = "tower";
+            packageId = "tower";
+            features = [ "util" ];
+          }
+        ];
+        features = {
+          "async-read-body" = [ "dep:tokio-util" "tokio-util?/io" "dep:tokio" ];
+          "cookie" = [ "dep:cookie" ];
+          "cookie-key-expansion" = [ "cookie" "cookie?/key-expansion" ];
+          "cookie-private" = [ "cookie" "cookie?/private" ];
+          "cookie-signed" = [ "cookie" "cookie?/signed" ];
+          "default" = [ "tracing" ];
+          "erased-json" = [ "dep:serde_json" ];
+          "form" = [ "dep:serde_html_form" ];
+          "json-deserializer" = [ "dep:serde_json" "dep:serde_path_to_error" ];
+          "json-lines" = [ "dep:serde_json" "dep:tokio-util" "dep:tokio-stream" "tokio-util?/io" "tokio-stream?/io-util" "dep:tokio" ];
+          "multipart" = [ "dep:multer" ];
+          "protobuf" = [ "dep:prost" ];
+          "query" = [ "dep:serde_html_form" ];
+          "tracing" = [ "dep:tracing" "axum-core/tracing" ];
+          "typed-header" = [ "dep:headers" ];
+          "typed-routing" = [ "dep:axum-macros" "dep:percent-encoding" "dep:serde_html_form" "dep:form_urlencoded" ];
+        };
+        resolvedDefaultFeatures = [ "default" "tracing" "typed-header" ];
+      };
+      "axum-range" = rec {
+        crateName = "axum-range";
+        version = "0.4.0";
+        edition = "2021";
+        sha256 = "1gb4r3x00yiaggapy002w0q8mx3dg9x4z2iwgzfyn5pplyc07hxi";
+        libName = "axum_range";
+        dependencies = [
+          {
+            name = "axum";
+            packageId = "axum";
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "axum-extra";
+            packageId = "axum-extra";
+            features = [ "typed-header" ];
+          }
+          {
+            name = "bytes";
+            packageId = "bytes";
+          }
+          {
+            name = "futures";
+            packageId = "futures";
+            usesDefaultFeatures = false;
+            features = [ "std" ];
+          }
+          {
+            name = "http-body";
+            packageId = "http-body";
+          }
+          {
+            name = "pin-project";
+            packageId = "pin-project";
+          }
+          {
+            name = "tokio";
+            packageId = "tokio";
+            features = [ "fs" "io-util" ];
+          }
+        ];
+        devDependencies = [
+          {
+            name = "axum";
+            packageId = "axum";
+            features = [ "macros" ];
+          }
+          {
+            name = "tokio";
+            packageId = "tokio";
+            features = [ "rt" "rt-multi-thread" "macros" ];
+          }
+        ];
+        features = { };
+      };
       "backtrace" = rec {
         crateName = "backtrace";
         version = "0.3.69";
@@ -1412,7 +1579,7 @@ rec {
           "default" = [ "std" ];
           "std" = [ "alloc" ];
         };
-        resolvedDefaultFeatures = [ "alloc" "std" ];
+        resolvedDefaultFeatures = [ "alloc" "default" "std" ];
       };
       "base64 0.22.1" = rec {
         crateName = "base64";
@@ -4734,6 +4901,63 @@ rec {
         };
         resolvedDefaultFeatures = [ "ahash" "allocator-api2" "default" "inline-more" "raw" ];
       };
+      "headers" = rec {
+        crateName = "headers";
+        version = "0.4.0";
+        edition = "2015";
+        sha256 = "1abari69kjl2yv2dg06g2x17qgd1a20xp7aqmmg2vfhcppk0c89j";
+        authors = [
+          "Sean McArthur <sean@seanmonstar.com>"
+        ];
+        dependencies = [
+          {
+            name = "base64";
+            packageId = "base64 0.21.7";
+          }
+          {
+            name = "bytes";
+            packageId = "bytes";
+          }
+          {
+            name = "headers-core";
+            packageId = "headers-core";
+          }
+          {
+            name = "http";
+            packageId = "http";
+          }
+          {
+            name = "httpdate";
+            packageId = "httpdate";
+          }
+          {
+            name = "mime";
+            packageId = "mime";
+          }
+          {
+            name = "sha1";
+            packageId = "sha1";
+          }
+        ];
+        features = { };
+      };
+      "headers-core" = rec {
+        crateName = "headers-core";
+        version = "0.3.0";
+        edition = "2015";
+        sha256 = "1r1w80i2bhmyh8s5mjr2dz6baqlrm6cak6yvzm4jq96lacjs5d2l";
+        libName = "headers_core";
+        authors = [
+          "Sean McArthur <sean@seanmonstar.com>"
+        ];
+        dependencies = [
+          {
+            name = "http";
+            packageId = "http";
+          }
+        ];
+
+      };
       "heck 0.4.1" = rec {
         crateName = "heck";
         version = "0.4.1";
@@ -6614,6 +6838,14 @@ rec {
             name = "axum";
             packageId = "axum";
             features = [ "http2" ];
+          }
+          {
+            name = "axum-extra";
+            packageId = "axum-extra";
+          }
+          {
+            name = "axum-range";
+            packageId = "axum-range";
           }
           {
             name = "bytes";
