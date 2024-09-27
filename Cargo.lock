@@ -4510,6 +4510,7 @@ dependencies = [
  "object_store",
  "parking_lot 0.12.3",
  "petgraph",
+ "pin-project",
  "pin-project-lite",
  "prost",
  "prost-build",
@@ -4529,6 +4530,7 @@ dependencies = [
  "tokio-retry",
  "tokio-stream",
  "tokio-tar",
+ "tokio-test",
  "tokio-util",
  "tonic",
  "tonic-build",
@@ -4545,6 +4547,7 @@ dependencies = [
  "vm-memory",
  "vmm-sys-util",
  "walkdir",
+ "wu-manber",
  "xattr",
  "zstd",
 ]
@@ -4658,7 +4661,6 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-tar",
- "tokio-test",
  "tokio-util",
  "tracing",
  "tracing-indicatif",
@@ -4669,7 +4671,6 @@ dependencies = [
  "tvix-tracing",
  "url",
  "walkdir",
- "wu-manber",
 ]
 
 [[package]]

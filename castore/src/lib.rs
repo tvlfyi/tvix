@@ -6,6 +6,7 @@ pub mod blobservice;
 pub mod composition;
 pub mod directoryservice;
 pub mod fixtures;
+pub mod refscan;
 
 #[cfg(feature = "fs")]
 pub mod fs;

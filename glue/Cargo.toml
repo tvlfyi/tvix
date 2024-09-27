@@ -32,7 +32,6 @@ md-5 = { workspace = true }
 url = { workspace = true }
 walkdir = { workspace = true }
 clap = { workspace = true }
-wu-manber = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true, features = ["html_reports"] }
@@ -43,7 +42,6 @@ nix = { workspace = true, features = ["fs"] }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
 tempfile = { workspace = true }
-tokio-test = { workspace = true }
 
 [features]
 default = ["nix_tests"]

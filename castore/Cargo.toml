@@ -37,6 +37,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_with = { workspace = true }
 serde_qs = { workspace = true }
 petgraph = { workspace = true }
+pin-project = { workspace = true }
 erased-serde = { workspace = true }
 serde_tagged = { workspace = true }
 hyper-util = { workspace = true }
@@ -52,6 +53,7 @@ virtio-queue = { workspace = true, optional = true }
 vm-memory = { workspace = true, optional = true }
 vmm-sys-util = { workspace = true, optional = true }
 virtio-bindings = { workspace = true, optional = true }
+wu-manber = { workspace = true }
 
 [build-dependencies]
 prost-build = { workspace = true }
@@ -66,6 +68,7 @@ hex-literal = { workspace = true }
 rstest_reuse = { workspace = true }
 xattr = { workspace = true }
 serde_json = { workspace = true }
+tokio-test = { workspace = true }
 
 [features]
 default = ["cloud"]
