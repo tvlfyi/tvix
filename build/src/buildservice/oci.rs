@@ -5,14 +5,18 @@ use tokio::process::{Child, Command};
 use tonic::async_trait;
 use tracing::{debug, instrument, warn, Span};
 use tvix_castore::{
-    blobservice::BlobService, directoryservice::DirectoryService, fs::fuse::FuseDaemon,
-    import::fs::ingest_path, Node, PathComponent,
+    blobservice::BlobService,
+    directoryservice::DirectoryService,
+    fs::fuse::FuseDaemon,
+    import::fs::ingest_path,
+    refscan::{ReferencePattern, ReferenceScanner},
+    Node, PathComponent,
 };
 use uuid::Uuid;
 
 use crate::{
     oci::{get_host_output_paths, make_bundle, make_spec},
-    proto::{Build, BuildRequest},
+    proto::{build::OutputNeedles, Build, BuildRequest},
 };
 use std::{collections::BTreeMap, ffi::OsStr, path::PathBuf, process::Stdio};
 
@@ -123,16 +127,17 @@ where
             .context("failed to calculate host output paths")
             .map_err(std::io::Error::other)?;
 
+        // assemble a BTreeMap of Nodes to pass into TvixStoreFs.
+        let root_nodes: BTreeMap<PathComponent, Node> =
+            BTreeMap::from_iter(request.inputs.iter().map(|input| {
+                // We know from validation this is Some.
+                input.clone().into_name_and_node().unwrap()
+            }));
+        let patterns = ReferencePattern::new(request.refscan_needles.clone());
         // NOTE: impl Drop for FuseDaemon unmounts, so if the call is cancelled, umount.
         let _fuse_daemon = tokio::task::spawn_blocking({
             let blob_service = self.blob_service.clone();
             let directory_service = self.directory_service.clone();
-            // assemble a BTreeMap of Nodes to pass into TvixStoreFs.
-            let root_nodes: BTreeMap<PathComponent, Node> =
-                BTreeMap::from_iter(request.inputs.iter().map(|input| {
-                    // We know from validation this is Some.
-                    input.clone().into_name_and_node().unwrap()
-                }));
 
             debug!(inputs=?root_nodes.keys(), "got inputs");
 
@@ -184,17 +189,19 @@ where
         // Ingest build outputs into the castore.
         // We use try_join_all here. No need to spawn new tasks, as this is
         // mostly IO bound.
-        let outputs = futures::future::try_join_all(host_output_paths.into_iter().enumerate().map(
-            |(i, p)| {
+        let (outputs, outputs_needles) = futures::future::try_join_all(
+            host_output_paths.into_iter().enumerate().map(|(i, p)| {
                 let output_path = request.outputs[i].clone();
+                let patterns = patterns.clone();
                 async move {
                     debug!(host.path=?p, output.path=?output_path, "ingesting path");
 
-                    let output_node = ingest_path::<_, _, _, &[u8]>(
+                    let scanner = ReferenceScanner::new(patterns);
+                    let output_node = ingest_path(
                         self.blob_service.clone(),
                         &self.directory_service,
                         p,
-                        None,
+                        Some(&scanner),
                     )
                     .await
                     .map_err(|e| {
@@ -204,19 +211,39 @@ where
                         )
                     })?;
 
-                    Ok::<_, std::io::Error>(tvix_castore::proto::Node::from_name_and_node(
-                        "".into(),
-                        output_node,
+                    let needles = OutputNeedles {
+                        needles: scanner
+                            .matches()
+                            .into_iter()
+                            .enumerate()
+                            .filter(|(_, val)| *val)
+                            .map(|(idx, _)| idx as u64)
+                            .collect(),
+                    };
+
+                    Ok::<_, std::io::Error>((
+                        tvix_castore::proto::Node::from_name_and_node(
+                            PathBuf::from(output_path)
+                                .file_name()
+                                .and_then(|s| s.to_str())
+                                .map(|s| s.to_string())
+                                .unwrap_or("".into())
+                                .into(),
+                            output_node,
+                        ),
+                        needles,
                     ))
                 }
-            },
-        ))
-        .await?;
+            }),
+        )
+        .await?
+        .into_iter()
+        .unzip();
 
         Ok(Build {
             build_request: Some(request.clone()),
             outputs,
-            outputs_needles: vec![], // TODO refscanning
+            outputs_needles,
         })
     }
 }
