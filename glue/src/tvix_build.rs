@@ -100,6 +100,7 @@ pub(crate) fn derivation_to_build_request(
     });
 
     let build_request = BuildRequest {
+        refscan_needles: vec![], // TODO refscan
         command_args,
         outputs: output_paths,
 
@@ -276,6 +277,7 @@ mod test {
                 additional_files: vec![],
                 working_dir: "build".into(),
                 scratch_paths: vec!["build".into(), "nix/store".into()],
+                refscan_needles: vec![],
             },
             build_request
         );
@@ -345,6 +347,7 @@ mod test {
                 additional_files: vec![],
                 working_dir: "build".into(),
                 scratch_paths: vec!["build".into(), "nix/store".into()],
+                refscan_needles: vec![],
             },
             build_request
         );
@@ -431,6 +434,7 @@ mod test {
                 ],
                 working_dir: "build".into(),
                 scratch_paths: vec!["build".into(), "nix/store".into()],
+                refscan_needles: vec![],
             },
             build_request
         );

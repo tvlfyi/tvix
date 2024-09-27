@@ -144,6 +144,12 @@ message BuildRequest {
     bytes contents = 2;
   }
 
+  // If this is an non-empty list, all paths in `outputs` are scanned for these.
+  // For Nix, `refscan_needles` would be populated with the nixbase32 hash parts of
+  // every input store path and output store path. The latter is necessary to scan
+  // for references between multi-output derivations.
+  repeated string refscan_needles = 10;
+
   // TODO: allow describing something like "preferLocal", to influence composition?
 }
 
@@ -155,6 +161,14 @@ message Build {
   // The outputs that were produced after successfully building.
   // They are sorted by their names.
   repeated tvix.castore.v1.Node outputs = 2;
+
+  message OutputNeedles {
+    // The numbers are indexing into `refscan_needles` originally specified in the BuildRequest.
+    repeated uint64 needles = 1;
+  }
+
+  // Contains the same number of elements as the `outputs` field.
+  repeated OutputNeedles outputs_needles = 3;
 
   // TODO: where did this run, how long, logs, …
 }
