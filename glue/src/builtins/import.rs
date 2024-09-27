@@ -89,10 +89,11 @@ async fn filtered_ingest(
     let dir_entries = entries.into_iter().rev().map(Ok);
 
     state.tokio_handle.block_on(async {
-        let entries = tvix_castore::import::fs::dir_entries_to_ingestion_stream(
+        let entries = tvix_castore::import::fs::dir_entries_to_ingestion_stream::<'_, _, _, &[u8]>(
             &state.blob_service,
             dir_entries,
             path,
+            None, // TODO re-scan
         );
         ingest_entries(&state.directory_service, entries)
             .await

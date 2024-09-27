@@ -16,6 +16,7 @@ use walkdir::WalkDir;
 
 use crate::blobservice::BlobService;
 use crate::directoryservice::DirectoryService;
+use crate::refscan::{ReferenceReader, ReferenceScanner};
 use crate::{B3Digest, Node};
 
 use super::ingest_entries;
@@ -29,16 +30,18 @@ use super::IngestionError;
 ///
 /// This function will walk the filesystem using `walkdir` and will consume
 /// `O(#number of entries)` space.
-#[instrument(skip(blob_service, directory_service), fields(path, indicatif.pb_show=1), err)]
-pub async fn ingest_path<BS, DS, P>(
+#[instrument(skip(blob_service, directory_service, reference_scanner), fields(path, indicatif.pb_show=1), err)]
+pub async fn ingest_path<BS, DS, P, P2>(
     blob_service: BS,
     directory_service: DS,
     path: P,
+    reference_scanner: Option<&ReferenceScanner<P2>>,
 ) -> Result<Node, IngestionError<Error>>
 where
     P: AsRef<std::path::Path> + std::fmt::Debug,
     BS: BlobService + Clone,
     DS: DirectoryService,
+    P2: AsRef<[u8]> + Send + Sync,
 {
     let span = Span::current();
     span.pb_set_message(&format!("Ingesting {:?}", path));
@@ -50,7 +53,8 @@ where
         .contents_first(true)
         .into_iter();
 
-    let entries = dir_entries_to_ingestion_stream(blob_service, iter, path.as_ref());
+    let entries =
+        dir_entries_to_ingestion_stream(blob_service, iter, path.as_ref(), reference_scanner);
     ingest_entries(
         directory_service,
         entries.inspect({
@@ -71,14 +75,16 @@ where
 /// The produced stream is buffered, so uploads can happen concurrently.
 ///
 /// The root is the [Path] in the filesystem that is being ingested into the castore.
-pub fn dir_entries_to_ingestion_stream<'a, BS, I>(
+pub fn dir_entries_to_ingestion_stream<'a, BS, I, P>(
     blob_service: BS,
     iter: I,
     root: &'a std::path::Path,
+    reference_scanner: Option<&'a ReferenceScanner<P>>,
 ) -> BoxStream<'a, Result<IngestionEntry, Error>>
 where
     BS: BlobService + Clone + 'a,
     I: Iterator<Item = Result<DirEntry, walkdir::Error>> + Send + 'a,
+    P: AsRef<[u8]> + Send + Sync,
 {
     let prefix = root.parent().unwrap_or_else(|| std::path::Path::new(""));
 
@@ -89,7 +95,13 @@ where
                 async move {
                     match x {
                         Ok(dir_entry) => {
-                            dir_entry_to_ingestion_entry(blob_service, &dir_entry, prefix).await
+                            dir_entry_to_ingestion_entry(
+                                blob_service,
+                                &dir_entry,
+                                prefix,
+                                reference_scanner,
+                            )
+                            .await
                         }
                         Err(e) => Err(Error::Stat(
                             prefix.to_path_buf(),
@@ -107,13 +119,15 @@ where
 ///
 /// The prefix path is stripped from the path of each entry. This is usually the parent path
 /// of the path being ingested so that the last element of the stream only has one component.
-pub async fn dir_entry_to_ingestion_entry<BS>(
+pub async fn dir_entry_to_ingestion_entry<BS, P>(
     blob_service: BS,
     entry: &DirEntry,
     prefix: &std::path::Path,
+    reference_scanner: Option<&ReferenceScanner<P>>,
 ) -> Result<IngestionEntry, Error>
 where
     BS: BlobService,
+    P: AsRef<[u8]>,
 {
     let file_type = entry.file_type();
 
@@ -134,13 +148,18 @@ where
             .into_os_string()
             .into_vec();
 
+        if let Some(reference_scanner) = &reference_scanner {
+            reference_scanner.scan(&target);
+        }
+
         Ok(IngestionEntry::Symlink { path, target })
     } else if file_type.is_file() {
         let metadata = entry
             .metadata()
             .map_err(|e| Error::Stat(entry.path().to_path_buf(), e.into()))?;
 
-        let digest = upload_blob(blob_service, entry.path().to_path_buf()).await?;
+        let digest =
+            upload_blob(blob_service, entry.path().to_path_buf(), reference_scanner).await?;
 
         Ok(IngestionEntry::Regular {
             path,
@@ -156,13 +175,15 @@ where
 }
 
 /// Uploads the file at the provided [Path] the the [BlobService].
-#[instrument(skip(blob_service), fields(path, indicatif.pb_show=1), err)]
-async fn upload_blob<BS>(
+#[instrument(skip(blob_service, reference_scanner), fields(path, indicatif.pb_show=1), err)]
+async fn upload_blob<BS, P>(
     blob_service: BS,
     path: impl AsRef<std::path::Path>,
+    reference_scanner: Option<&ReferenceScanner<P>>,
 ) -> Result<B3Digest, Error>
 where
     BS: BlobService,
+    P: AsRef<[u8]>,
 {
     let span = Span::current();
     span.pb_set_style(&tvix_tracing::PB_TRANSFER_STYLE);
@@ -184,9 +205,16 @@ where
     });
 
     let mut writer = blob_service.open_write().await;
-    tokio::io::copy(&mut BufReader::new(reader), &mut writer)
-        .await
-        .map_err(|e| Error::BlobRead(path.as_ref().to_path_buf(), e))?;
+    if let Some(reference_scanner) = reference_scanner {
+        let mut reader = ReferenceReader::new(reference_scanner, BufReader::new(reader));
+        tokio::io::copy(&mut reader, &mut writer)
+            .await
+            .map_err(|e| Error::BlobRead(path.as_ref().to_path_buf(), e))?;
+    } else {
+        tokio::io::copy(&mut BufReader::new(reader), &mut writer)
+            .await
+            .map_err(|e| Error::BlobRead(path.as_ref().to_path_buf(), e))?;
+    }
 
     let digest = writer
         .close()

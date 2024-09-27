@@ -339,10 +339,11 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error + Send + Sync
                     async move {
                         // Ingest the given path.
 
-                        ingest_path(
+                        ingest_path::<_, _, _, &[u8]>(
                             blob_service,
                             directory_service,
                             PathBuf::from(elem.path.to_absolute_path()),
+                            None,
                         )
                         .await
                         .map(|root_node| (elem, root_node))

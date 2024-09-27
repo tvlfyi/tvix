@@ -123,9 +123,10 @@ where
     PS: AsRef<dyn PathInfoService>,
     NS: NarCalculationService,
 {
-    let root_node = ingest_path(blob_service, directory_service, path.as_ref())
-        .await
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    let root_node =
+        ingest_path::<_, _, _, &[u8]>(blob_service, directory_service, path.as_ref(), None)
+            .await
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
     // Ask for the NAR size and sha256
     let (nar_size, nar_sha256) = nar_calculation_service.calculate_nar(&root_node).await?;

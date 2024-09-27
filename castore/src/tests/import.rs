@@ -21,10 +21,11 @@ async fn symlink() {
     )
     .unwrap();
 
-    let root_node = ingest_path(
+    let root_node = ingest_path::<_, _, _, &[u8]>(
         blob_service,
         directory_service,
         tmpdir.path().join("doesntmatter"),
+        None,
     )
     .await
     .expect("must succeed");
@@ -46,10 +47,11 @@ async fn single_file() {
 
     std::fs::write(tmpdir.path().join("root"), HELLOWORLD_BLOB_CONTENTS).unwrap();
 
-    let root_node = ingest_path(
+    let root_node = ingest_path::<_, _, _, &[u8]>(
         blob_service.clone(),
         directory_service,
         tmpdir.path().join("root"),
+        None,
     )
     .await
     .expect("must succeed");
@@ -84,9 +86,14 @@ async fn complicated() {
     // File ``keep/.keep`
     std::fs::write(tmpdir.path().join("keep").join(".keep"), vec![]).unwrap();
 
-    let root_node = ingest_path(blob_service.clone(), &directory_service, tmpdir.path())
-        .await
-        .expect("must succeed");
+    let root_node = ingest_path::<_, _, _, &[u8]>(
+        blob_service.clone(),
+        &directory_service,
+        tmpdir.path(),
+        None,
+    )
+    .await
+    .expect("must succeed");
 
     // ensure root_node matched expectations
     assert_eq!(
