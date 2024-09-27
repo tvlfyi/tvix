@@ -2,18 +2,22 @@ use super::{grpc::GRPCBuildService, BuildService, DummyBuildService};
 use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService};
 use url::Url;
 
+#[cfg(target_os = "linux")]
+use super::oci::OCIBuildService;
+
 /// Constructs a new instance of a [BuildService] from an URI.
 ///
 /// The following schemes are supported by the following services:
 /// - `dummy://` ([DummyBuildService])
+/// - `oci://` ([OCIBuildService])
 /// - `grpc+*://` ([GRPCBuildService])
 ///
 /// As some of these [BuildService] need to talk to a [BlobService] and
 /// [DirectoryService], these also need to be passed in.
 pub async fn from_addr<BS, DS>(
     uri: &str,
-    _blob_service: BS,
-    _directory_service: DS,
+    blob_service: BS,
+    directory_service: DS,
 ) -> std::io::Result<Box<dyn BuildService>>
 where
     BS: AsRef<dyn BlobService> + Send + Sync + Clone + 'static,
@@ -25,6 +29,21 @@ where
     Ok(match url.scheme() {
         // dummy doesn't care about parameters.
         "dummy" => Box::<DummyBuildService>::default(),
+        #[cfg(target_os = "linux")]
+        "oci" => {
+            // oci wants a path in which it creates bundles.
+            if url.path().is_empty() {
+                Err(std::io::Error::other("oci needs a bundle dir as path"))?
+            }
+
+            // TODO: make sandbox shell and rootless_uid_gid
+
+            Box::new(OCIBuildService::new(
+                url.path().into(),
+                blob_service,
+                directory_service,
+            ))
+        }
         scheme => {
             if scheme.starts_with("grpc+") {
                 let client = crate::proto::build_service_client::BuildServiceClient::new(
@@ -50,11 +69,17 @@ mod tests {
     use std::sync::Arc;
 
     use super::from_addr;
+    use lazy_static::lazy_static;
     use rstest::rstest;
+    use tempfile::TempDir;
     use tvix_castore::{
         blobservice::{BlobService, MemoryBlobService},
         directoryservice::{DirectoryService, MemoryDirectoryService},
     };
+
+    lazy_static! {
+        static ref TMPDIR_OCI_1: TempDir = TempDir::new().unwrap();
+    }
 
     #[rstest]
     /// This uses an unsupported scheme.
@@ -73,6 +98,10 @@ mod tests {
     #[case::grpc_valid_https_host_without_port("grpc+https://localhost", true)]
     /// Correct scheme to connect to localhost over http, but with additional path, which is invalid.
     #[case::grpc_invalid_host_and_path("grpc+http://localhost/some-path", false)]
+    /// This configures OCI, but doesn't specify the bundle path
+    #[case::oci_missing_bundle_dir("oci://", false)]
+    /// This configures OCI, specifying the bundle path
+    #[case::oci_bundle_path(&format!("oci://{}", TMPDIR_OCI_1.path().to_str().unwrap()), true)]
     #[tokio::test]
     async fn test_from_addr(#[case] uri_str: &str, #[case] exp_succeed: bool) {
         let blob_service: Arc<dyn BlobService> = Arc::from(MemoryBlobService::default());

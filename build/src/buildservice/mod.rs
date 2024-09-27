@@ -6,6 +6,9 @@ mod dummy;
 mod from_addr;
 mod grpc;
 
+#[cfg(target_os = "linux")]
+mod oci;
+
 pub use dummy::DummyBuildService;
 pub use from_addr::from_addr;
 

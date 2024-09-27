@@ -2956,7 +2956,32 @@ rec {
         ];
 
       };
-      "darling" = rec {
+      "darling 0.14.4" = rec {
+        crateName = "darling";
+        version = "0.14.4";
+        edition = "2018";
+        sha256 = "0l1qrn805bsxa0iy7x8bmdwr8c10hlw0yiqs8ckv7lbz86rhqxbv";
+        authors = [
+          "Ted Driggs <ted.driggs@outlook.com>"
+        ];
+        dependencies = [
+          {
+            name = "darling_core";
+            packageId = "darling_core 0.14.4";
+          }
+          {
+            name = "darling_macro";
+            packageId = "darling_macro 0.14.4";
+          }
+        ];
+        features = {
+          "default" = [ "suggestions" ];
+          "diagnostics" = [ "darling_core/diagnostics" ];
+          "suggestions" = [ "darling_core/suggestions" ];
+        };
+        resolvedDefaultFeatures = [ "default" "suggestions" ];
+      };
+      "darling 0.20.8" = rec {
         crateName = "darling";
         version = "0.20.8";
         edition = "2018";
@@ -2967,11 +2992,11 @@ rec {
         dependencies = [
           {
             name = "darling_core";
-            packageId = "darling_core";
+            packageId = "darling_core 0.20.8";
           }
           {
             name = "darling_macro";
-            packageId = "darling_macro";
+            packageId = "darling_macro 0.20.8";
           }
         ];
         features = {
@@ -2981,7 +3006,49 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "suggestions" ];
       };
-      "darling_core" = rec {
+      "darling_core 0.14.4" = rec {
+        crateName = "darling_core";
+        version = "0.14.4";
+        edition = "2018";
+        sha256 = "1w4b2ndxmkwghwq84yphk8x15jnpivm08w596g12ry5pwsk1r70h";
+        authors = [
+          "Ted Driggs <ted.driggs@outlook.com>"
+        ];
+        dependencies = [
+          {
+            name = "fnv";
+            packageId = "fnv";
+          }
+          {
+            name = "ident_case";
+            packageId = "ident_case";
+          }
+          {
+            name = "proc-macro2";
+            packageId = "proc-macro2";
+          }
+          {
+            name = "quote";
+            packageId = "quote";
+          }
+          {
+            name = "strsim";
+            packageId = "strsim 0.10.0";
+            optional = true;
+          }
+          {
+            name = "syn";
+            packageId = "syn 1.0.109";
+            features = [ "full" "extra-traits" ];
+          }
+        ];
+        features = {
+          "strsim" = [ "dep:strsim" ];
+          "suggestions" = [ "strsim" ];
+        };
+        resolvedDefaultFeatures = [ "strsim" "suggestions" ];
+      };
+      "darling_core 0.20.8" = rec {
         crateName = "darling_core";
         version = "0.20.8";
         edition = "2018";
@@ -3023,7 +3090,32 @@ rec {
         };
         resolvedDefaultFeatures = [ "strsim" "suggestions" ];
       };
-      "darling_macro" = rec {
+      "darling_macro 0.14.4" = rec {
+        crateName = "darling_macro";
+        version = "0.14.4";
+        edition = "2018";
+        sha256 = "13mlyd5w275c815k0ijf6g4c446hs8b3m2h4an5isqgpr7dv9am4";
+        procMacro = true;
+        authors = [
+          "Ted Driggs <ted.driggs@outlook.com>"
+        ];
+        dependencies = [
+          {
+            name = "darling_core";
+            packageId = "darling_core 0.14.4";
+          }
+          {
+            name = "quote";
+            packageId = "quote";
+          }
+          {
+            name = "syn";
+            packageId = "syn 1.0.109";
+          }
+        ];
+
+      };
+      "darling_macro 0.20.8" = rec {
         crateName = "darling_macro";
         version = "0.20.8";
         edition = "2018";
@@ -3035,7 +3127,7 @@ rec {
         dependencies = [
           {
             name = "darling_core";
-            packageId = "darling_core";
+            packageId = "darling_core 0.20.8";
           }
           {
             name = "quote";
@@ -3130,6 +3222,88 @@ rec {
           "std" = [ "alloc" ];
         };
         resolvedDefaultFeatures = [ "alloc" "powerfmt" "serde" "std" ];
+      };
+      "derive_builder" = rec {
+        crateName = "derive_builder";
+        version = "0.12.0";
+        edition = "2015";
+        sha256 = "1y4p569zcvpmly5s5hmjp9h83drxvdp6kj6bb61h225mhj3pfrwd";
+        authors = [
+          "Colin Kiegel <kiegel@gmx.de>"
+          "Pascal Hertleif <killercup@gmail.com>"
+          "Jan-Erik Rediger <janerik@fnordig.de>"
+          "Ted Driggs <ted.driggs@outlook.com>"
+        ];
+        dependencies = [
+          {
+            name = "derive_builder_macro";
+            packageId = "derive_builder_macro";
+          }
+        ];
+        features = {
+          "clippy" = [ "derive_builder_macro/clippy" ];
+          "default" = [ "std" ];
+        };
+        resolvedDefaultFeatures = [ "default" "std" ];
+      };
+      "derive_builder_core" = rec {
+        crateName = "derive_builder_core";
+        version = "0.12.0";
+        edition = "2015";
+        sha256 = "03vvmw3mfg370swq0dh2h5kcjjb8va2m4asqgp9wfyy4l08xq6y1";
+        authors = [
+          "Colin Kiegel <kiegel@gmx.de>"
+          "Pascal Hertleif <killercup@gmail.com>"
+          "Jan-Erik Rediger <janerik@fnordig.de>"
+          "Ted Driggs <ted.driggs@outlook.com>"
+        ];
+        dependencies = [
+          {
+            name = "darling";
+            packageId = "darling 0.14.4";
+          }
+          {
+            name = "proc-macro2";
+            packageId = "proc-macro2";
+          }
+          {
+            name = "quote";
+            packageId = "quote";
+          }
+          {
+            name = "syn";
+            packageId = "syn 1.0.109";
+            features = [ "full" "extra-traits" ];
+          }
+        ];
+        features = { };
+      };
+      "derive_builder_macro" = rec {
+        crateName = "derive_builder_macro";
+        version = "0.12.0";
+        edition = "2015";
+        sha256 = "17p71qzh7x1q2yxzz3xrg73zw3xl0h479b7ybyjm0s1rg9fa7kgb";
+        procMacro = true;
+        authors = [
+          "Colin Kiegel <kiegel@gmx.de>"
+          "Pascal Hertleif <killercup@gmail.com>"
+          "Jan-Erik Rediger <janerik@fnordig.de>"
+          "Ted Driggs <ted.driggs@outlook.com>"
+        ];
+        dependencies = [
+          {
+            name = "derive_builder_core";
+            packageId = "derive_builder_core";
+          }
+          {
+            name = "syn";
+            packageId = "syn 1.0.109";
+            features = [ "full" "extra-traits" ];
+          }
+        ];
+        features = {
+          "clippy" = [ "derive_builder_core/clippy" ];
+        };
       };
       "diff" = rec {
         crateName = "diff";
@@ -4723,6 +4897,36 @@ rec {
           "wasm-bindgen" = [ "dep:wasm-bindgen" ];
         };
         resolvedDefaultFeatures = [ "js" "js-sys" "std" "wasm-bindgen" ];
+      };
+      "getset" = rec {
+        crateName = "getset";
+        version = "0.1.2";
+        edition = "2018";
+        sha256 = "1f8yc83hm5b7vzscxq20ivdv7wlfvabn79j653zh9k3m1qjjfmz4";
+        procMacro = true;
+        authors = [
+          "Ana Hobden <ana@hoverbear.org>"
+        ];
+        dependencies = [
+          {
+            name = "proc-macro-error";
+            packageId = "proc-macro-error";
+          }
+          {
+            name = "proc-macro2";
+            packageId = "proc-macro2";
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "quote";
+            packageId = "quote";
+          }
+          {
+            name = "syn";
+            packageId = "syn 1.0.109";
+          }
+        ];
+
       };
       "gimli" = rec {
         crateName = "gimli";
@@ -7779,6 +7983,54 @@ rec {
         };
         resolvedDefaultFeatures = [ "aws" "azure" "base64" "cloud" "gcp" "http" "hyper" "md-5" "quick-xml" "rand" "reqwest" "ring" "rustls-pemfile" "serde" "serde_json" ];
       };
+      "oci-spec" = rec {
+        crateName = "oci-spec";
+        version = "0.6.4";
+        edition = "2021";
+        sha256 = "02b3vsvsagd1h5gf4kb9z5b080kr0y8z34d9zgxblm1ry7pzi143";
+        libName = "oci_spec";
+        authors = [
+          "Furisto"
+          "Sascha Grunert <sgrunert@redhat.com>"
+          "Toru Komatsu <k0ma@utam0k.jp>"
+        ];
+        dependencies = [
+          {
+            name = "derive_builder";
+            packageId = "derive_builder";
+          }
+          {
+            name = "getset";
+            packageId = "getset";
+          }
+          {
+            name = "serde";
+            packageId = "serde";
+            features = [ "derive" ];
+          }
+          {
+            name = "serde_json";
+            packageId = "serde_json";
+          }
+          {
+            name = "thiserror";
+            packageId = "thiserror";
+          }
+        ];
+        devDependencies = [
+          {
+            name = "serde_json";
+            packageId = "serde_json";
+            features = [ "preserve_order" ];
+          }
+        ];
+        features = {
+          "default" = [ "distribution" "image" "runtime" ];
+          "proptests" = [ "quickcheck" ];
+          "quickcheck" = [ "dep:quickcheck" ];
+        };
+        resolvedDefaultFeatures = [ "default" "distribution" "image" "runtime" ];
+      };
       "once_cell" = rec {
         crateName = "once_cell";
         version = "1.19.0";
@@ -8968,6 +9220,76 @@ rec {
         features = {
           "verbatim" = [ "syn/parsing" ];
         };
+      };
+      "proc-macro-error" = rec {
+        crateName = "proc-macro-error";
+        version = "1.0.4";
+        edition = "2018";
+        sha256 = "1373bhxaf0pagd8zkyd03kkx6bchzf6g0dkwrwzsnal9z47lj9fs";
+        libName = "proc_macro_error";
+        authors = [
+          "CreepySkeleton <creepy-skeleton@yandex.ru>"
+        ];
+        dependencies = [
+          {
+            name = "proc-macro-error-attr";
+            packageId = "proc-macro-error-attr";
+          }
+          {
+            name = "proc-macro2";
+            packageId = "proc-macro2";
+          }
+          {
+            name = "quote";
+            packageId = "quote";
+          }
+          {
+            name = "syn";
+            packageId = "syn 1.0.109";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
+        ];
+        buildDependencies = [
+          {
+            name = "version_check";
+            packageId = "version_check";
+          }
+        ];
+        features = {
+          "default" = [ "syn-error" ];
+          "syn" = [ "dep:syn" ];
+          "syn-error" = [ "syn" ];
+        };
+        resolvedDefaultFeatures = [ "default" "syn" "syn-error" ];
+      };
+      "proc-macro-error-attr" = rec {
+        crateName = "proc-macro-error-attr";
+        version = "1.0.4";
+        edition = "2018";
+        sha256 = "0sgq6m5jfmasmwwy8x4mjygx5l7kp8s4j60bv25ckv2j1qc41gm1";
+        procMacro = true;
+        libName = "proc_macro_error_attr";
+        authors = [
+          "CreepySkeleton <creepy-skeleton@yandex.ru>"
+        ];
+        dependencies = [
+          {
+            name = "proc-macro2";
+            packageId = "proc-macro2";
+          }
+          {
+            name = "quote";
+            packageId = "quote";
+          }
+        ];
+        buildDependencies = [
+          {
+            name = "version_check";
+            packageId = "version_check";
+          }
+        ];
+
       };
       "proc-macro2" = rec {
         crateName = "proc-macro2";
@@ -11822,7 +12144,7 @@ rec {
         dependencies = [
           {
             name = "darling";
-            packageId = "darling";
+            packageId = "darling 0.20.8";
           }
           {
             name = "proc-macro2";
@@ -12976,7 +13298,7 @@ rec {
           "tracing" = [ "dep:tracing" ];
           "windows-sys" = [ "dep:windows-sys" ];
         };
-        resolvedDefaultFeatures = [ "bytes" "default" "fs" "io-std" "io-util" "libc" "macros" "mio" "net" "rt" "rt-multi-thread" "signal" "signal-hook-registry" "socket2" "sync" "test-util" "time" "tokio-macros" "windows-sys" ];
+        resolvedDefaultFeatures = [ "bytes" "default" "fs" "io-std" "io-util" "libc" "macros" "mio" "net" "process" "rt" "rt-multi-thread" "signal" "signal-hook-registry" "socket2" "sync" "test-util" "time" "tokio-macros" "windows-sys" ];
       };
       "tokio-listener" = rec {
         crateName = "tokio-listener";
@@ -14879,6 +15201,18 @@ rec {
         libName = "tvix_build";
         dependencies = [
           {
+            name = "anyhow";
+            packageId = "anyhow";
+          }
+          {
+            name = "blake3";
+            packageId = "blake3";
+          }
+          {
+            name = "bstr";
+            packageId = "bstr";
+          }
+          {
             name = "bytes";
             packageId = "bytes";
           }
@@ -14886,6 +15220,14 @@ rec {
             name = "clap";
             packageId = "clap";
             features = [ "derive" "env" ];
+          }
+          {
+            name = "data-encoding";
+            packageId = "data-encoding";
+          }
+          {
+            name = "futures";
+            packageId = "futures";
           }
           {
             name = "itertools";
@@ -14896,8 +15238,16 @@ rec {
             packageId = "mimalloc";
           }
           {
+            name = "oci-spec";
+            packageId = "oci-spec";
+          }
+          {
             name = "prost";
             packageId = "prost";
+          }
+          {
+            name = "serde_json";
+            packageId = "serde_json";
           }
           {
             name = "thiserror";
@@ -14906,6 +15256,7 @@ rec {
           {
             name = "tokio";
             packageId = "tokio";
+            features = [ "process" ];
           }
           {
             name = "tokio-listener";
@@ -14929,6 +15280,7 @@ rec {
           {
             name = "tvix-castore";
             packageId = "tvix-castore";
+            features = [ "fuse" ];
           }
           {
             name = "tvix-tracing";
@@ -14937,6 +15289,11 @@ rec {
           {
             name = "url";
             packageId = "url";
+          }
+          {
+            name = "uuid";
+            packageId = "uuid";
+            features = [ "v4" ];
           }
         ];
         buildDependencies = [
@@ -14951,8 +15308,16 @@ rec {
         ];
         devDependencies = [
           {
+            name = "lazy_static";
+            packageId = "lazy_static";
+          }
+          {
             name = "rstest";
             packageId = "rstest";
+          }
+          {
+            name = "tempfile";
+            packageId = "tempfile";
           }
         ];
         features = {

@@ -79,6 +79,7 @@
         PROTO_ROOT = depot.tvix.build.protos.protos;
         nativeBuildInputs = [ pkgs.protobuf ];
         buildInputs = lib.optional pkgs.stdenv.isDarwin commonDarwinDeps;
+        TVIX_BUILD_SANDBOX_SHELL = "${pkgs.pkgsStatic.busybox}/bin/sh";
       };
 
       tvix-castore = prev: {

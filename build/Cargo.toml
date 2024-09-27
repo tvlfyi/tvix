@@ -9,15 +9,25 @@ clap = { workspace = true, features = ["derive", "env"] }
 itertools = { workspace = true }
 prost = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["process"] }
 tokio-listener = { workspace = true, features = ["tonic012"] }
 tonic = { workspace = true, features = ["tls", "tls-roots"] }
-tvix-castore = { path = "../castore" }
-tvix-tracing = { path = "../tracing" }
+# TODO: put the fuse dep behind a feature flag?
+tvix-castore = { path = "../castore", features = ["fuse"]}
 tracing = { workspace = true }
 url = { workspace = true }
 mimalloc = { workspace = true }
 tonic-reflection = { workspace = true, optional = true }
+
+anyhow = "1.0.79"
+blake3 = "1.5.0"
+bstr = "1.6.0"
+data-encoding = "2.5.0"
+futures = "0.3.30"
+oci-spec = "0.6.4"
+serde_json = "1.0.111"
+tvix-tracing = { path = "../tracing" }
+uuid = { version = "1.7.0", features = ["v4"] }
 
 [build-dependencies]
 prost-build = { workspace = true }
@@ -29,6 +39,8 @@ tonic-reflection = ["dep:tonic-reflection", "tvix-castore/tonic-reflection"]
 
 [dev-dependencies]
 rstest = { workspace = true }
+lazy_static = "1.4.0"
+tempfile = "3.3.0"
 
 [lints]
 workspace = true
