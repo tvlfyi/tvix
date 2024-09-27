@@ -296,12 +296,37 @@ impl TvixStoreIO {
                             .await
                             .map_err(|e| std::io::Error::new(io::ErrorKind::Other, e))?;
 
-                        // TODO: refscan
+                        // Maps from the index in refscan_needles to the full store path
+                        // Used to map back to the actual store path from the found needles
+                        // Importantly, this must match the order of the needles generated in derivation_to_build_request
+                        let refscan_needles =
+                            crate::tvix_build::get_refscan_needles(&drv).collect::<Vec<_>>();
 
                         // For each output, insert a PathInfo.
-                        for output in &build_result.outputs {
-                            let (output_name, output_node) =
-                                output.clone().into_name_and_node().expect("invalid node");
+                        for ((output, output_needles), drv_output) in build_result
+                            .outputs
+                            .iter()
+                            .zip(build_result.outputs_needles.iter())
+                            .zip(drv.outputs.iter())
+                        {
+                            let (_, output_node) = output
+                                .clone()
+                                .into_name_bytes_and_node()
+                                .expect("invalid node");
+
+                            let output_needles: Vec<_> = output_needles
+                                .needles
+                                .iter()
+                                // Map each output needle index back to the refscan_needle
+                                .map(|idx| {
+                                    refscan_needles
+                                        .get(*idx as usize)
+                                        .ok_or(std::io::Error::new(
+                                            std::io::ErrorKind::Other,
+                                            "invalid build response",
+                                        ))
+                                })
+                                .collect::<Result<_, std::io::Error>>()?;
 
                             // calculate the nar representation
                             let (nar_size, nar_sha256) = self
@@ -312,15 +337,30 @@ impl TvixStoreIO {
                             // assemble the PathInfo to persist
                             let path_info = PathInfo {
                                 node: Some(tvix_castore::proto::Node::from_name_and_node(
-                                    output_name.into(),
+                                    drv_output
+                                        .1
+                                        .path
+                                        .as_ref()
+                                        .ok_or(std::io::Error::new(
+                                            std::io::ErrorKind::Other,
+                                            "missing output store path",
+                                        ))?
+                                        .to_string()
+                                        .into(),
                                     output_node,
                                 )),
-                                references: vec![], // TODO: refscan
+                                references: output_needles
+                                    .iter()
+                                    .map(|path| Bytes::from(path.digest().as_slice().to_vec()))
+                                    .collect(),
                                 narinfo: Some(tvix_store::proto::NarInfo {
                                     nar_size,
                                     nar_sha256: Bytes::from(nar_sha256.to_vec()),
                                     signatures: vec![],
-                                    reference_names: vec![], // TODO: refscan
+                                    reference_names: output_needles
+                                        .iter()
+                                        .map(|path| path.to_string())
+                                        .collect(),
                                     deriver: Some(tvix_store::proto::StorePath {
                                         name: drv_path
                                             .name()

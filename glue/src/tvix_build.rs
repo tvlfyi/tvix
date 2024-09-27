@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 
 use bytes::Bytes;
-use nix_compat::{derivation::Derivation, nixbase32};
+use nix_compat::{derivation::Derivation, nixbase32, store_path::StorePath};
 use sha2::{Digest, Sha256};
 use tvix_build::proto::{
     build_request::{AdditionalFile, BuildConstraints, EnvVar},
@@ -28,6 +28,20 @@ const NIX_ENVIRONMENT_VARS: [(&str, &str); 12] = [
     ("TMP", "/build"),
     ("TMPDIR", "/build"),
 ];
+
+/// Get an iterator of store paths whose nixbase32 hashes will be the needles for refscanning
+/// Importantly, the returned order will match the one used by derivation_to_build_request
+/// so users may use this function to map back from the found needles to a store path
+pub(crate) fn get_refscan_needles(
+    derivation: &Derivation,
+) -> impl Iterator<Item = &StorePath<String>> {
+    derivation
+        .outputs
+        .values()
+        .filter_map(|output| output.path.as_ref())
+        .chain(derivation.input_sources.iter())
+        .chain(derivation.input_derivations.keys())
+}
 
 /// Takes a [Derivation] and turns it into a [BuildRequest].
 /// It assumes the Derivation has been validated.
@@ -100,7 +114,11 @@ pub(crate) fn derivation_to_build_request(
     });
 
     let build_request = BuildRequest {
-        refscan_needles: vec![], // TODO refscan
+        // Importantly, this must match the order of get_refscan_needles, since users may use that
+        // function to map back from the found needles to a store path
+        refscan_needles: get_refscan_needles(derivation)
+            .map(|path| nixbase32::encode(path.digest()))
+            .collect(),
         command_args,
         outputs: output_paths,
 
@@ -277,7 +295,10 @@ mod test {
                 additional_files: vec![],
                 working_dir: "build".into(),
                 scratch_paths: vec!["build".into(), "nix/store".into()],
-                refscan_needles: vec![],
+                refscan_needles: vec![
+                    "fhaj6gmwns62s6ypkcldbaj2ybvkhx3p".into(),
+                    "ss2p4wmxijn652haqyd7dckxwl4c7hxx".into()
+                ],
             },
             build_request
         );
@@ -347,7 +368,7 @@ mod test {
                 additional_files: vec![],
                 working_dir: "build".into(),
                 scratch_paths: vec!["build".into(), "nix/store".into()],
-                refscan_needles: vec![],
+                refscan_needles: vec!["4q0pg5zpfmznxscq3avycvf9xdvx50n3".into()],
             },
             build_request
         );
@@ -434,7 +455,7 @@ mod test {
                 ],
                 working_dir: "build".into(),
                 scratch_paths: vec!["build".into(), "nix/store".into()],
-                refscan_needles: vec![],
+                refscan_needles: vec!["pp17lwra2jkx8rha15qabg2q3wij72lj".into()],
             },
             build_request
         );
