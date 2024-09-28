@@ -3833,9 +3833,9 @@ rec {
       };
       "fuse-backend-rs" = rec {
         crateName = "fuse-backend-rs";
-        version = "0.11.0";
+        version = "0.12.0";
         edition = "2018";
-        sha256 = "0jyldvp0kvjk21j5vqga42lkksaf7zg8jkj3l6h2dv20kyl66nif";
+        sha256 = "06yimnygx8k1mx7wgbs6fg8id346zgnanxbzdhx28rg1ra038rp1";
         libName = "fuse_backend_rs";
         authors = [
           "Liu Bo <bo.liu@linux.alibaba.com>"
@@ -3883,6 +3883,10 @@ rec {
           {
             name = "nix";
             packageId = "nix 0.24.3";
+          }
+          {
+            name = "radix_trie";
+            packageId = "radix_trie";
           }
           {
             name = "vhost";
@@ -8876,11 +8880,11 @@ rec {
           }
           {
             name = "heck";
-            packageId = "heck 0.4.1";
+            packageId = "heck 0.5.0";
           }
           {
             name = "itertools";
-            packageId = "itertools 0.10.5";
+            packageId = "itertools 0.13.0";
             usesDefaultFeatures = false;
             features = [ "use_alloc" ];
           }
@@ -8972,7 +8976,7 @@ rec {
           }
           {
             name = "itertools";
-            packageId = "itertools 0.10.5";
+            packageId = "itertools 0.13.0";
           }
           {
             name = "proc-macro2";
@@ -9071,7 +9075,7 @@ rec {
         dependencies = [
           {
             name = "heck";
-            packageId = "heck 0.4.1";
+            packageId = "heck 0.5.0";
           }
           {
             name = "prost";

@@ -644,6 +644,7 @@ where
     ) -> io::Result<(
         Option<Self::Handle>,
         fuse_backend_rs::api::filesystem::OpenOptions,
+        Option<u32>,
     )> {
         if inode == ROOT_ID {
             return Err(io::Error::from_raw_os_error(libc::ENOSYS));
@@ -687,6 +688,7 @@ where
                         Ok((
                             Some(fh),
                             fuse_backend_rs::api::filesystem::OpenOptions::empty(),
+                            None,
                         ))
                     }
                 }

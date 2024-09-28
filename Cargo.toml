@@ -66,7 +66,7 @@ enum-primitive-derive = "0.3.0"
 erased-serde = "0.4.5"
 expect-test = "1.5.0"
 fastcdc = "3.1.0"
-fuse-backend-rs = "0.11.0"
+fuse-backend-rs = "0.12.0"
 futures = "0.3.30"
 genawaiter = { version = "0.99.1", default-features = false }
 glob = "0.3.1"
