@@ -24,7 +24,7 @@ use crate::{
 use bstr::ByteVec;
 use fuse_backend_rs::abi::fuse_abi::{stat64, OpenOptions};
 use fuse_backend_rs::api::filesystem::{
-    Context, FileSystem, FsOptions, GetxattrReply, ListxattrReply, ROOT_ID,
+    Context, FileSystem, FsOptions, GetxattrReply, Layer, ListxattrReply, ROOT_ID,
 };
 use futures::StreamExt;
 use parking_lot::RwLock;
@@ -299,6 +299,17 @@ const ROOT_NODES_BUFFER_SIZE: usize = 16;
 
 const XATTR_NAME_DIRECTORY_DIGEST: &[u8] = b"user.tvix.castore.directory.digest";
 const XATTR_NAME_BLOB_DIGEST: &[u8] = b"user.tvix.castore.blob.digest";
+
+impl<BS, DS, RN> Layer for TvixStoreFs<BS, DS, RN>
+where
+    BS: AsRef<dyn BlobService> + Clone + Send + 'static,
+    DS: AsRef<dyn DirectoryService> + Send + Clone + 'static,
+    RN: RootNodes + Clone + 'static,
+{
+    fn root_inode(&self) -> Self::Inode {
+        ROOT_ID
+    }
+}
 
 impl<BS, DS, RN> FileSystem for TvixStoreFs<BS, DS, RN>
 where
