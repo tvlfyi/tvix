@@ -23,7 +23,8 @@ pub(crate) struct GetNARParams {
 }
 
 #[instrument(skip(blob_service, directory_service))]
-pub async fn get(
+pub async fn get_head(
+    method: axum::http::Method,
     ranges: Option<TypedHeader<Range>>,
     axum::extract::Path(root_node_enc): axum::extract::Path<String>,
     axum::extract::Query(GetNARParams { nar_size }): Query<GetNARParams>,
@@ -71,8 +72,15 @@ pub async fn get(
             ("cache-control", "max-age=31536000, immutable"),
             ("content-type", nix_http::MIME_TYPE_NAR),
         ],
-        // If this is a range request, construct a seekable NAR reader
-        if let Some(TypedHeader(ranges)) = ranges {
+        if method == axum::http::Method::HEAD {
+            // If this is a HEAD request, construct a response returning back the
+            // user-provided content-length, but don't actually talk to castore.
+            Response::builder()
+                .header("content-length", nar_size)
+                .body(Body::empty())
+                .unwrap()
+        } else if let Some(TypedHeader(ranges)) = ranges {
+            // If this is a range request, construct a seekable NAR reader.
             let r =
                 tvix_store::nar::seekable::Reader::new(root_node, blob_service, directory_service)
                     .await
