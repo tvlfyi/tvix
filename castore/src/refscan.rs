@@ -192,7 +192,15 @@ where
         self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<std::io::Result<&[u8]>> {
-        let overlap = self.scanner.pattern.longest_candidate() - 1;
+        #[allow(clippy::manual_saturating_arithmetic)] // for clarity
+        let overlap = self
+            .scanner
+            .pattern
+            .longest_candidate()
+            .checked_sub(1)
+            // If this overflows (longest_candidate = 0), that means there are no needles,
+            // so there is no need to have any overlap
+            .unwrap_or(0);
         let mut this = self.project();
         // Still data in buffer
         if *this.consumed < this.buffer.len() {
