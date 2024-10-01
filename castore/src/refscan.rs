@@ -334,5 +334,21 @@ mod tests {
         }
     }
 
+    #[tokio::test]
+    async fn test_reference_reader_no_patterns() {
+        let pattern = ReferencePattern::new(Vec::<&str>::new());
+        let scanner = ReferenceScanner::new(pattern);
+        let mut mock = Builder::new();
+        mock.read(HELLO_DRV.as_bytes());
+        let mock = mock.build();
+        let mut reader = ReferenceReader::new(&scanner, mock);
+        let mut s = String::new();
+        reader.read_to_string(&mut s).await.unwrap();
+        assert_eq!(s, HELLO_DRV);
+
+        let result = scanner.finalise();
+        assert_eq!(result.len(), 0);
+    }
+
     // FUTUREWORK: Test with large file
 }
