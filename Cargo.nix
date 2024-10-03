@@ -10063,6 +10063,11 @@ rec {
             packageId = "libc";
             target = { target, features }: (target."unix" or false);
           }
+          {
+            name = "log";
+            packageId = "log";
+            optional = true;
+          }
         ];
         devDependencies = [
           {
@@ -10075,6 +10080,7 @@ rec {
           "logging" = [ "dep:log" ];
           "python" = [ "dep:pyo3" "dep:pyo3-build-config" ];
         };
+        resolvedDefaultFeatures = [ "logging" ];
       };
       "redox_syscall 0.3.5" = rec {
         crateName = "redox_syscall";
@@ -15219,6 +15225,7 @@ rec {
           {
             name = "redb";
             packageId = "redb";
+            features = [ "logging" ];
           }
           {
             name = "serde";
@@ -16010,6 +16017,7 @@ rec {
           {
             name = "redb";
             packageId = "redb";
+            features = [ "logging" ];
           }
           {
             name = "reqwest";

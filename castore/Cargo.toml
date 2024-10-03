@@ -40,7 +40,7 @@ pin-project = { workspace = true }
 erased-serde = { workspace = true }
 serde_tagged = { workspace = true }
 hyper-util = { workspace = true }
-redb = { workspace = true }
+redb = { workspace = true, features = ["logging"] }
 bigtable_rs = { workspace = true, optional = true }
 fuse-backend-rs = { workspace = true, optional = true }
 libc = { workspace = true, optional = true }

@@ -46,7 +46,7 @@ tracing-indicatif = { workspace = true }
 hyper-util = { workspace = true }
 toml = { version = "0.8.19", optional = true }
 tonic-health = { workspace = true }
-redb = { workspace = true }
+redb = { workspace = true, features = ["logging"] }
 mimalloc = { workspace = true }
 tonic-reflection = { workspace = true, optional = true }
 bigtable_rs = { workspace = true, optional = true }
