@@ -36,8 +36,8 @@ Now, spin up tvix-daemon, connecting to some (local) backends:
 ```
 tvix-store --otlp=false daemon \
   --blob-service-addr=objectstore+file://$PWD/blobs \
-  --directory-service-addr=sled://$PWD/directories.sled \
-  --path-info-service-addr=sled://$PWD/pathinfo.sled &
+  --directory-service-addr=redb://$PWD/directories.redb \
+  --path-info-service-addr=redb://$PWD/pathinfo.redb &
 ```
 
 Copy some data into tvix-store (we use `nar-bridge` for this for now):
@@ -58,8 +58,8 @@ In case you want to have `tvix-store virtiofs` open the stores directly, kill
 ```
 pkill tvix-store
 export BLOB_SERVICE_ADDR=objectstore+file://$PWD/blobs
-export DIRECTORY_SERVICE_ADDR=sled://$PWD/directories.sled
-export PATH_INFO_SERVICE_ADDR=sled://$PWD/pathinfo.sled
+export DIRECTORY_SERVICE_ADDR=redb://$PWD/directories.redb
+export PATH_INFO_SERVICE_ADDR=redb://$PWD/pathinfo.redb
 ```
 
 #### Interactive shell

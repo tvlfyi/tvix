@@ -12,7 +12,6 @@ mod object_store;
 mod order_validator;
 mod redb;
 mod simple_putter;
-mod sled;
 #[cfg(test)]
 pub mod tests;
 mod traverse;
@@ -27,7 +26,6 @@ pub use self::object_store::{ObjectStoreDirectoryService, ObjectStoreDirectorySe
 pub use self::order_validator::{LeavesToRootValidator, OrderValidator, RootToLeavesValidator};
 pub use self::redb::{RedbDirectoryService, RedbDirectoryServiceConfig};
 pub use self::simple_putter::SimplePutter;
-pub use self::sled::{SledDirectoryService, SledDirectoryServiceConfig};
 pub use self::traverse::descend_to;
 pub use self::utils::traverse_directory;
 
@@ -138,7 +136,6 @@ pub(crate) fn register_directory_services(reg: &mut Registry) {
     reg.register::<Box<dyn ServiceBuilder<Output = dyn DirectoryService>>, super::directoryservice::MemoryDirectoryServiceConfig>("memory");
     reg.register::<Box<dyn ServiceBuilder<Output = dyn DirectoryService>>, super::directoryservice::CacheConfig>("cache");
     reg.register::<Box<dyn ServiceBuilder<Output = dyn DirectoryService>>, super::directoryservice::GRPCDirectoryServiceConfig>("grpc");
-    reg.register::<Box<dyn ServiceBuilder<Output = dyn DirectoryService>>, super::directoryservice::SledDirectoryServiceConfig>("sled");
     reg.register::<Box<dyn ServiceBuilder<Output = dyn DirectoryService>>, super::directoryservice::RedbDirectoryServiceConfig>("redb");
     #[cfg(feature = "cloud")]
     {

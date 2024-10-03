@@ -19,7 +19,6 @@ object_store = { workspace = true, features = ["http"] }
 parking_lot = { workspace = true }
 pin-project-lite = { workspace = true }
 prost = { workspace = true }
-sled = { workspace = true }
 thiserror = { workspace = true }
 tokio-stream = { workspace = true, features = ["fs", "net"] }
 tokio-util = { workspace = true, features = ["io", "io-util", "codec"] }

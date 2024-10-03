@@ -13,10 +13,6 @@ use super::DirectoryService;
 /// The following URIs are supported:
 /// - `memory:`
 ///   Uses a in-memory implementation.
-/// - `sled:`
-///   Uses a in-memory sled implementation.
-/// - `sled:///absolute/path/to/somewhere`
-///   Uses sled, using a path on the disk for persistency. Can be only opened
 ///   from one process at the same time.
 /// - `redb:`
 ///   Uses a in-memory redb implementation.
@@ -55,8 +51,6 @@ mod tests {
     use tempfile::TempDir;
 
     lazy_static! {
-        static ref TMPDIR_SLED_1: TempDir = TempDir::new().unwrap();
-        static ref TMPDIR_SLED_2: TempDir = TempDir::new().unwrap();
         static ref TMPDIR_REDB_1: TempDir = TempDir::new().unwrap();
         static ref TMPDIR_REDB_2: TempDir = TempDir::new().unwrap();
     }
@@ -64,16 +58,6 @@ mod tests {
     #[rstest]
     /// This uses an unsupported scheme.
     #[case::unsupported_scheme("http://foo.example/test", false)]
-    /// This configures sled in temporary mode.
-    #[case::sled_valid_temporary("sled://", true)]
-    /// This configures sled with /, which should fail.
-    #[case::sled_invalid_root("sled:///", false)]
-    /// This configures sled with a host, not path, which should fail.
-    #[case::sled_invalid_host("sled://foo.example", false)]
-    /// This configures sled with a valid path path, which should succeed.
-    #[case::sled_valid_path(&format!("sled://{}", &TMPDIR_SLED_1.path().to_str().unwrap()), true)]
-    /// This configures sled with a host, and a valid path path, which should fail.
-    #[case::sled_invalid_host_with_valid_path(&format!("sled://foo.example{}", &TMPDIR_SLED_2.path().to_str().unwrap()), false)]
     /// This correctly sets the scheme, and doesn't set a path.
     #[case::memory_valid("memory://", true)]
     /// This sets a memory url host to `foo`

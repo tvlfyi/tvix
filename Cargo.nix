@@ -1911,19 +1911,6 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" ];
       };
-      "byteorder" = rec {
-        crateName = "byteorder";
-        version = "1.5.0";
-        edition = "2021";
-        sha256 = "0jzncxyf404mwqdbspihyzpkndfgda450l0893pz5xj685cg5l0z";
-        authors = [
-          "Andrew Gallant <jamslam@gmail.com>"
-        ];
-        features = {
-          "default" = [ "std" ];
-        };
-        resolvedDefaultFeatures = [ "default" "std" ];
-      };
       "bytes" = rec {
         crateName = "bytes";
         version = "1.7.1";
@@ -2820,7 +2807,7 @@ rec {
           "nightly" = [ "crossbeam-utils/nightly" ];
           "std" = [ "alloc" "crossbeam-utils/std" ];
         };
-        resolvedDefaultFeatures = [ "alloc" "default" "std" ];
+        resolvedDefaultFeatures = [ "alloc" "std" ];
       };
       "crossbeam-utils" = rec {
         crateName = "crossbeam-utils";
@@ -4149,29 +4136,6 @@ rec {
         };
         resolvedDefaultFeatures = [ "alloc" "default" "std" ];
       };
-      "fs2" = rec {
-        crateName = "fs2";
-        version = "0.4.3";
-        edition = "2015";
-        sha256 = "04v2hwk7035c088f19mfl5b1lz84gnvv2hv6m935n0hmirszqr4m";
-        authors = [
-          "Dan Burkert <dan@danburkert.com>"
-        ];
-        dependencies = [
-          {
-            name = "libc";
-            packageId = "libc";
-            target = { target, features }: (target."unix" or false);
-          }
-          {
-            name = "winapi";
-            packageId = "winapi";
-            target = { target, features }: (target."windows" or false);
-            features = [ "handleapi" "processthreadsapi" "winerror" "fileapi" "winbase" "std" ];
-          }
-        ];
-
-      };
       "fuse-backend-rs" = rec {
         crateName = "fuse-backend-rs";
         version = "0.12.0";
@@ -4624,23 +4588,6 @@ rec {
           "write-all-vectored" = [ "io" ];
         };
         resolvedDefaultFeatures = [ "alloc" "async-await" "async-await-macro" "channel" "default" "futures-channel" "futures-io" "futures-macro" "futures-sink" "io" "memchr" "sink" "slab" "std" ];
-      };
-      "fxhash" = rec {
-        crateName = "fxhash";
-        version = "0.2.1";
-        edition = "2015";
-        sha256 = "037mb9ichariqi45xm6mz0b11pa92gj38ba0409z3iz239sns6y3";
-        libPath = "lib.rs";
-        authors = [
-          "cbreeden <github@u.breeden.cc>"
-        ];
-        dependencies = [
-          {
-            name = "byteorder";
-            packageId = "byteorder";
-          }
-        ];
-
       };
       "gcp_auth" = rec {
         crateName = "gcp_auth";
@@ -7087,7 +7034,7 @@ rec {
           }
           {
             name = "parking_lot";
-            packageId = "parking_lot 0.12.3";
+            packageId = "parking_lot";
           }
           {
             name = "prost";
@@ -7877,7 +7824,7 @@ rec {
           }
           {
             name = "parking_lot";
-            packageId = "parking_lot 0.12.3";
+            packageId = "parking_lot";
           }
           {
             name = "percent-encoding";
@@ -8625,40 +8572,7 @@ rec {
           "loom" = [ "dep:loom" ];
         };
       };
-      "parking_lot 0.11.2" = rec {
-        crateName = "parking_lot";
-        version = "0.11.2";
-        edition = "2018";
-        sha256 = "16gzf41bxmm10x82bla8d6wfppy9ym3fxsmdjyvn61m66s0bf5vx";
-        authors = [
-          "Amanieu d'Antras <amanieu@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "instant";
-            packageId = "instant";
-          }
-          {
-            name = "lock_api";
-            packageId = "lock_api";
-          }
-          {
-            name = "parking_lot_core";
-            packageId = "parking_lot_core 0.8.6";
-          }
-        ];
-        features = {
-          "arc_lock" = [ "lock_api/arc_lock" ];
-          "deadlock_detection" = [ "parking_lot_core/deadlock_detection" ];
-          "nightly" = [ "parking_lot_core/nightly" "lock_api/nightly" ];
-          "owning_ref" = [ "lock_api/owning_ref" ];
-          "serde" = [ "lock_api/serde" ];
-          "stdweb" = [ "instant/stdweb" ];
-          "wasm-bindgen" = [ "instant/wasm-bindgen" ];
-        };
-        resolvedDefaultFeatures = [ "default" ];
-      };
-      "parking_lot 0.12.3" = rec {
+      "parking_lot" = rec {
         crateName = "parking_lot";
         version = "0.12.3";
         edition = "2021";
@@ -8673,7 +8587,7 @@ rec {
           }
           {
             name = "parking_lot_core";
-            packageId = "parking_lot_core 0.9.9";
+            packageId = "parking_lot_core";
           }
         ];
         features = {
@@ -8685,52 +8599,7 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" ];
       };
-      "parking_lot_core 0.8.6" = rec {
-        crateName = "parking_lot_core";
-        version = "0.8.6";
-        edition = "2018";
-        sha256 = "1p2nfcbr0b9lm9rglgm28k6mwyjwgm4knipsmqbgqaxdy3kcz8k0";
-        authors = [
-          "Amanieu d'Antras <amanieu@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "cfg-if";
-            packageId = "cfg-if";
-          }
-          {
-            name = "instant";
-            packageId = "instant";
-          }
-          {
-            name = "libc";
-            packageId = "libc";
-            target = { target, features }: (target."unix" or false);
-          }
-          {
-            name = "redox_syscall";
-            packageId = "redox_syscall 0.2.16";
-            target = { target, features }: ("redox" == target."os" or null);
-          }
-          {
-            name = "smallvec";
-            packageId = "smallvec";
-          }
-          {
-            name = "winapi";
-            packageId = "winapi";
-            target = { target, features }: (target."windows" or false);
-            features = [ "winnt" "ntstatus" "minwindef" "winerror" "winbase" "errhandlingapi" "handleapi" ];
-          }
-        ];
-        features = {
-          "backtrace" = [ "dep:backtrace" ];
-          "deadlock_detection" = [ "petgraph" "thread-id" "backtrace" ];
-          "petgraph" = [ "dep:petgraph" ];
-          "thread-id" = [ "dep:thread-id" ];
-        };
-      };
-      "parking_lot_core 0.9.9" = rec {
+      "parking_lot_core" = rec {
         crateName = "parking_lot_core";
         version = "0.9.9";
         edition = "2018";
@@ -10206,23 +10075,6 @@ rec {
           "logging" = [ "dep:log" ];
           "python" = [ "dep:pyo3" "dep:pyo3-build-config" ];
         };
-      };
-      "redox_syscall 0.2.16" = rec {
-        crateName = "redox_syscall";
-        version = "0.2.16";
-        edition = "2018";
-        sha256 = "16jicm96kjyzm802cxdd1k9jmcph0db1a4lhslcnhjsvhp0mhnpv";
-        libName = "syscall";
-        authors = [
-          "Jeremy Soller <jackpot51@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "bitflags";
-            packageId = "bitflags 1.3.2";
-          }
-        ];
-
       };
       "redox_syscall 0.3.5" = rec {
         crateName = "redox_syscall";
@@ -12339,69 +12191,6 @@ rec {
           "serde" = [ "dep:serde" ];
         };
         resolvedDefaultFeatures = [ "default" "std" ];
-      };
-      "sled" = rec {
-        crateName = "sled";
-        version = "0.34.7";
-        edition = "2018";
-        sha256 = "0dcr2s7cylj5mb33ci3kpx7fz797jwvysnl5airrir9cgirv95kz";
-        authors = [
-          "Tyler Neely <t@jujit.su>"
-        ];
-        dependencies = [
-          {
-            name = "crc32fast";
-            packageId = "crc32fast";
-          }
-          {
-            name = "crossbeam-epoch";
-            packageId = "crossbeam-epoch";
-          }
-          {
-            name = "crossbeam-utils";
-            packageId = "crossbeam-utils";
-          }
-          {
-            name = "fs2";
-            packageId = "fs2";
-            target = { target, features }: (("linux" == target."os" or null) || ("macos" == target."os" or null) || ("windows" == target."os" or null));
-          }
-          {
-            name = "fxhash";
-            packageId = "fxhash";
-          }
-          {
-            name = "libc";
-            packageId = "libc";
-          }
-          {
-            name = "log";
-            packageId = "log";
-          }
-          {
-            name = "parking_lot";
-            packageId = "parking_lot 0.11.2";
-          }
-        ];
-        devDependencies = [
-          {
-            name = "log";
-            packageId = "log";
-          }
-        ];
-        features = {
-          "backtrace" = [ "dep:backtrace" ];
-          "color-backtrace" = [ "dep:color-backtrace" ];
-          "compression" = [ "zstd" ];
-          "default" = [ "no_metrics" ];
-          "io_uring" = [ "rio" ];
-          "no_logs" = [ "log/max_level_off" ];
-          "pretty_backtrace" = [ "color-backtrace" ];
-          "rio" = [ "dep:rio" ];
-          "testing" = [ "event_log" "lock_free_delays" "compression" "failpoints" "backtrace" ];
-          "zstd" = [ "dep:zstd" ];
-        };
-        resolvedDefaultFeatures = [ "default" "no_metrics" ];
       };
       "smallvec" = rec {
         crateName = "smallvec";
@@ -15409,7 +15198,7 @@ rec {
           }
           {
             name = "parking_lot";
-            packageId = "parking_lot 0.12.3";
+            packageId = "parking_lot";
           }
           {
             name = "petgraph";
@@ -15447,10 +15236,6 @@ rec {
           {
             name = "serde_with";
             packageId = "serde_with";
-          }
-          {
-            name = "sled";
-            packageId = "sled";
           }
           {
             name = "thiserror";
@@ -16212,7 +15997,7 @@ rec {
           }
           {
             name = "parking_lot";
-            packageId = "parking_lot 0.12.3";
+            packageId = "parking_lot";
           }
           {
             name = "pin-project-lite";
@@ -16256,10 +16041,6 @@ rec {
           {
             name = "sha2";
             packageId = "sha2";
-          }
-          {
-            name = "sled";
-            packageId = "sled";
           }
           {
             name = "thiserror";
@@ -17930,7 +17711,7 @@ rec {
         features = {
           "debug" = [ "impl-debug" ];
         };
-        resolvedDefaultFeatures = [ "basetsd" "consoleapi" "errhandlingapi" "fileapi" "handleapi" "knownfolders" "minwindef" "ntstatus" "objbase" "processenv" "processthreadsapi" "shellapi" "shlobj" "std" "stringapiset" "synchapi" "sysinfoapi" "winbase" "wincon" "winerror" "winnt" "winuser" ];
+        resolvedDefaultFeatures = [ "basetsd" "consoleapi" "errhandlingapi" "fileapi" "handleapi" "knownfolders" "minwindef" "objbase" "processenv" "shellapi" "shlobj" "std" "stringapiset" "synchapi" "sysinfoapi" "winbase" "wincon" "winerror" "winnt" "winuser" ];
       };
       "winapi-i686-pc-windows-gnu" = rec {
         crateName = "winapi-i686-pc-windows-gnu";

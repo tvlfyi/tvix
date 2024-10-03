@@ -23,7 +23,6 @@ use self::utils::make_grpc_directory_service_client;
 #[rstest]
 #[case::grpc(make_grpc_directory_service_client().await)]
 #[case::memory(directoryservice::from_addr("memory://").await.unwrap())]
-#[case::sled(directoryservice::from_addr("sled://").await.unwrap())]
 #[case::redb(directoryservice::from_addr("redb://").await.unwrap())]
 #[case::objectstore(directoryservice::from_addr("objectstore+memory://").await.unwrap())]
 #[cfg_attr(all(feature = "cloud", feature = "integration"), case::bigtable(directoryservice::from_addr("bigtable://instance-1?project_id=project-1&table_name=table-1&family_name=cf1").await.unwrap()))]
