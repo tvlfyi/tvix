@@ -262,9 +262,6 @@ This requires some more designing. Some goals:
 - Some work ongoing on the worker operation parsing (griff, picnoir)
 
 ### O11Y
- - Maybe drop `--log-level` entirely, and only use `RUST_LOG` env exclusively?
-   `debug`,`trace` level across all crates is a bit useless, and `RUST_LOG` can
-   be much more granular…
  - Trace propagation for object_store once they support a way to register a
    middleware, so we can use that to register a tracing middleware.
    https://github.com/apache/arrow-rs/issues/5990

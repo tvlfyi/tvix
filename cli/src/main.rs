@@ -53,7 +53,6 @@ fn main() {
     let args = Args::parse();
 
     let _ = tvix_tracing::TracingBuilder::default()
-        .level(args.log_level)
         .enable_progressbar()
         .build()
         .expect("unable to set up tracing subscriber");

@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use tracing::Level;
 use tvix_store::utils::ServiceUrlsMemory;
 
 /// Provides a CLI interface to trigger evaluation using tvix-eval.
@@ -14,13 +13,6 @@ use tvix_store::utils::ServiceUrlsMemory;
 /// The CLI interface is not stable and subject to change.
 #[derive(Parser, Clone)]
 pub struct Args {
-    /// A global log level to use when printing logs.
-    /// It's also possible to set `RUST_LOG` according to
-    /// `tracing_subscriber::filter::EnvFilter`, which will always have
-    /// priority.
-    #[arg(long, default_value_t=Level::INFO)]
-    pub log_level: Level,
-
     /// Path to a script to evaluate
     pub script: Option<PathBuf>,
 
