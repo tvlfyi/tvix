@@ -257,8 +257,8 @@ impl Derivation {
 
             // For fixed output derivation we use [build_ca_path], otherwise we
             // use [build_output_path] with [hash_derivation_modulo].
-            let abs_store_path = if let Some(ref hwm) = output.ca_hash {
-                build_ca_path(&path_name, hwm, Vec::<String>::new(), false).map_err(|e| {
+            let store_path = if let Some(ref hwm) = output.ca_hash {
+                build_ca_path(&path_name, hwm, Vec::<&str>::new(), false).map_err(|e| {
                     DerivationError::InvalidOutputDerivationPath(output_name.to_string(), e)
                 })?
             } else {
@@ -270,11 +270,11 @@ impl Derivation {
                 })?
             };
 
-            output.path = Some(abs_store_path.to_owned());
             self.environment.insert(
                 output_name.to_string(),
-                abs_store_path.to_absolute_path().into(),
+                store_path.to_absolute_path().into(),
             );
+            output.path = Some(store_path);
         }
 
         Ok(())

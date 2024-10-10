@@ -139,7 +139,7 @@ where
         S: From<&'a str>,
     {
         Ok(Self {
-            name: validate_name(name.as_bytes())?.into(),
+            name: validate_name(name)?.into(),
             digest,
         })
     }

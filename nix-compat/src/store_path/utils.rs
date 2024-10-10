@@ -134,11 +134,14 @@ pub fn build_nar_based_store_path<'a>(
 ///
 /// Input-addresed store paths are always derivation outputs, the "input" in question is the
 /// derivation and its closure.
-pub fn build_output_path<'a>(
+pub fn build_output_path<'a, SP>(
     drv_sha256: &[u8; 32],
     output_name: &str,
     output_path_name: &'a str,
-) -> Result<StorePathRef<'a>, Error> {
+) -> Result<StorePath<SP>, Error>
+where
+    SP: std::cmp::Eq + std::ops::Deref<Target = str> + std::convert::From<&'a str>,
+{
     build_store_path_from_fingerprint_parts(
         &(String::from("output:") + output_name),
         drv_sha256,
@@ -156,13 +159,13 @@ pub fn build_output_path<'a>(
 /// bytes.
 /// Inside a StorePath, that digest is printed nixbase32-encoded
 /// (32 characters).
-fn build_store_path_from_fingerprint_parts<'a, S>(
+fn build_store_path_from_fingerprint_parts<'a, SP>(
     ty: &str,
     inner_digest: &[u8; 32],
     name: &'a str,
-) -> Result<StorePath<S>, Error>
+) -> Result<StorePath<SP>, Error>
 where
-    S: std::cmp::Eq + std::ops::Deref<Target = str> + std::convert::From<&'a str>,
+    SP: std::cmp::Eq + std::ops::Deref<Target = str> + std::convert::From<&'a str>,
 {
     let fingerprint = format!(
         "{ty}:sha256:{}:{STORE_DIR}:{name}",
