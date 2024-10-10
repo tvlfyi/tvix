@@ -1,7 +1,6 @@
 //! This module provides an implementation of EvalIO talking to tvix-store.
 use bytes::Bytes;
 use futures::{StreamExt, TryStreamExt};
-use nix_compat::nixhash::NixHash;
 use nix_compat::store_path::StorePathRef;
 use nix_compat::{nixhash::CAHash, store_path::StorePath};
 use std::collections::BTreeMap;
@@ -387,13 +386,13 @@ impl TvixStoreIO {
             .map_err(|e| std::io::Error::new(io::ErrorKind::Other, e))
     }
 
-    pub(crate) async fn node_to_path_info<'a>(
+    async fn node_to_path_info<'a>(
         &self,
         name: &'a str,
         path: &Path,
-        ca: &CAHash,
+        ca: CAHash,
         root_node: Node,
-    ) -> io::Result<(PathInfo, NixHash, StorePathRef<'a>)> {
+    ) -> io::Result<PathInfo> {
         // Ask the PathInfoService for the NAR size and sha256
         // We always need it no matter what is the actual hash mode
         // because the [PathInfo] needs to contain nar_{sha256,size}.
@@ -405,7 +404,7 @@ impl TvixStoreIO {
 
         // Calculate the output path. This might still fail, as some names are illegal.
         let output_path =
-            nix_compat::store_path::build_ca_path(name, ca, Vec::<&str>::new(), false).map_err(
+            nix_compat::store_path::build_ca_path(name, &ca, Vec::<&str>::new(), false).map_err(
                 |_| {
                     std::io::Error::new(
                         std::io::ErrorKind::InvalidData,
@@ -417,28 +416,24 @@ impl TvixStoreIO {
         tvix_store::import::log_node(name.as_bytes(), &root_node, path);
 
         // construct a PathInfo
-        let path_info = tvix_store::import::derive_nar_ca_path_info(
+        Ok(tvix_store::import::derive_nar_ca_path_info(
             nar_size,
             nar_sha256,
-            Some(ca.clone()),
-            output_path.to_owned(),
+            Some(ca),
+            output_path,
             root_node,
-        );
-
-        Ok((path_info, NixHash::Sha256(nar_sha256), output_path))
+        ))
     }
 
-    pub(crate) async fn register_node_in_path_info_service<'a>(
+    pub(crate) async fn register_in_path_info_service<'a>(
         &self,
         name: &'a str,
         path: &Path,
-        ca: &CAHash,
+        ca: CAHash,
         root_node: Node,
-    ) -> io::Result<StorePathRef<'a>> {
-        let (path_info, _, output_path) = self.node_to_path_info(name, path, ca, root_node).await?;
-        let _path_info = self.path_info_service.as_ref().put(path_info).await?;
-
-        Ok(output_path)
+    ) -> io::Result<PathInfo> {
+        let path_info = self.node_to_path_info(name, path, ca, root_node).await?;
+        Ok(self.path_info_service.as_ref().put(path_info).await?)
     }
 
     pub async fn store_path_exists<'a>(&'a self, store_path: StorePathRef<'a>) -> io::Result<bool> {

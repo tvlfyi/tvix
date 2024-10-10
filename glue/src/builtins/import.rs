@@ -287,12 +287,6 @@ mod import_builtins {
             }
         };
 
-        let (path_info, _hash, output_path) = state.tokio_handle.block_on(async {
-            state
-                .node_to_path_info(name.as_ref(), path.as_ref(), &ca_hash, root_node)
-                .await
-        })?;
-
         if let Some(expected_sha256) = expected_sha256 {
             if *ca_hash.hash() != expected_sha256 {
                 Err(ImportError::HashMismatch(
@@ -303,16 +297,20 @@ mod import_builtins {
             }
         }
 
-        state
+        let path_info = state
             .tokio_handle
-            .block_on(async { state.path_info_service.as_ref().put(path_info).await })
+            .block_on(async {
+                state
+                    .register_in_path_info_service(name.as_ref(), path.as_ref(), ca_hash, root_node)
+                    .await
+            })
             .map_err(|e| tvix_eval::ErrorKind::IO {
                 path: Some(path.to_path_buf()),
-                error: Rc::new(e.into()),
+                error: Rc::new(e),
             })?;
 
         // We need to attach context to the final output path.
-        let outpath = output_path.to_absolute_path();
+        let outpath = path_info.store_path.to_absolute_path();
 
         Ok(
             NixString::new_context_from(NixContextElement::Plain(outpath.clone()).into(), outpath)
@@ -331,7 +329,7 @@ mod import_builtins {
         let root_node = filtered_ingest(Rc::clone(&state), co, &p, Some(&filter)).await?;
         let name = tvix_store::import::path_to_name(&p)?;
 
-        let outpath = state
+        let path_info = state
             .tokio_handle
             .block_on(async {
                 let (_, nar_sha256) = state
@@ -341,10 +339,10 @@ mod import_builtins {
                     .await?;
 
                 state
-                    .register_node_in_path_info_service(
+                    .register_in_path_info_service(
                         name,
                         &p,
-                        &CAHash::Nar(NixHash::Sha256(nar_sha256)),
+                        CAHash::Nar(NixHash::Sha256(nar_sha256)),
                         root_node,
                     )
                     .await
@@ -352,8 +350,10 @@ mod import_builtins {
             .map_err(|err| ErrorKind::IO {
                 path: Some(p.to_path_buf()),
                 error: err.into(),
-            })?
-            .to_absolute_path();
+            })?;
+
+        // We need to attach context to the final output path.
+        let outpath = path_info.store_path.to_absolute_path();
 
         Ok(
             NixString::new_context_from(NixContextElement::Plain(outpath.clone()).into(), outpath)
