@@ -155,8 +155,8 @@ fn configure_process<'a>(
                 .ambient(caps)
                 .build()?
         })
-        .rlimits([oci_spec::runtime::LinuxRlimitBuilder::default()
-            .typ(oci_spec::runtime::LinuxRlimitType::RlimitNofile)
+        .rlimits([oci_spec::runtime::PosixRlimitBuilder::default()
+            .typ(oci_spec::runtime::PosixRlimitType::RlimitNofile)
             .hard(1024_u64)
             .soft(1024_u64)
             .build()?])
