@@ -4,7 +4,7 @@ use clap::Subcommand;
 use futures::future::try_join_all;
 use futures::StreamExt;
 use futures::TryStreamExt;
-use nix_compat::path_info::ExportedPathInfo;
+use nix_compat::{path_info::ExportedPathInfo, store_path::StorePath};
 use serde::Deserialize;
 use serde::Serialize;
 use std::path::PathBuf;
@@ -16,15 +16,13 @@ use tracing::{info, info_span, instrument, Level, Span};
 use tracing_indicatif::span_ext::IndicatifSpanExt as _;
 use tvix_castore::import::fs::ingest_path;
 use tvix_store::nar::NarCalculationService;
-use tvix_store::proto::NarInfo;
-use tvix_store::proto::PathInfo;
 use tvix_store::utils::{ServiceUrls, ServiceUrlsGrpc};
 
 use tvix_castore::proto::blob_service_server::BlobServiceServer;
 use tvix_castore::proto::directory_service_server::DirectoryServiceServer;
 use tvix_castore::proto::GRPCBlobServiceWrapper;
 use tvix_castore::proto::GRPCDirectoryServiceWrapper;
-use tvix_store::pathinfoservice::PathInfoService;
+use tvix_store::pathinfoservice::{PathInfo, PathInfoService};
 use tvix_store::proto::path_info_service_server::PathInfoServiceServer;
 use tvix_store::proto::GRPCPathInfoServiceWrapper;
 
@@ -359,23 +357,14 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error + Send + Sync
                 // Create and upload a PathInfo pointing to the root_node,
                 // annotated with information we have from the reference graph.
                 let path_info = PathInfo {
-                    node: Some(tvix_castore::proto::Node::from_name_and_node(
-                        elem.path.to_string().into(),
-                        root_node,
-                    )),
-                    references: Vec::from_iter(
-                        elem.references.iter().map(|e| e.digest().to_vec().into()),
-                    ),
-                    narinfo: Some(NarInfo {
-                        nar_size: elem.nar_size,
-                        nar_sha256: elem.nar_sha256.to_vec().into(),
-                        signatures: vec![],
-                        reference_names: Vec::from_iter(
-                            elem.references.iter().map(|e| e.to_string()),
-                        ),
-                        deriver: None,
-                        ca: None,
-                    }),
+                    store_path: elem.path.to_owned(),
+                    node: root_node,
+                    references: elem.references.iter().map(StorePath::to_owned).collect(),
+                    nar_size: elem.nar_size,
+                    nar_sha256: elem.nar_sha256,
+                    signatures: vec![],
+                    deriver: None,
+                    ca: None,
                 };
 
                 path_info_service.put(path_info).await?;

@@ -6,12 +6,10 @@ use futures::TryStreamExt;
 use rstest::*;
 use rstest_reuse::{self, *};
 
-use super::PathInfoService;
+use super::{PathInfo, PathInfoService};
 use crate::pathinfoservice::redb::RedbPathInfoService;
 use crate::pathinfoservice::MemoryPathInfoService;
-use crate::proto::PathInfo;
-use crate::tests::fixtures::DUMMY_PATH_DIGEST;
-use tvix_castore::proto as castorepb;
+use crate::tests::fixtures::{DUMMY_PATH_DIGEST, PATH_INFO};
 
 use crate::pathinfoservice::test_signing_service;
 
@@ -52,32 +50,35 @@ async fn not_found(svc: impl PathInfoService) {
 #[apply(path_info_services)]
 #[tokio::test]
 async fn put_get(svc: impl PathInfoService) {
-    let path_info = PathInfo {
-        node: Some(castorepb::Node {
-            node: Some(castorepb::node::Node::Symlink(castorepb::SymlinkNode {
-                name: "00000000000000000000000000000000-foo".into(),
-                target: "doesntmatter".into(),
-            })),
-        }),
-        ..Default::default()
-    };
-
     // insert
-    let resp = svc.put(path_info.clone()).await.expect("must succeed");
+    let resp = svc.put(PATH_INFO.clone()).await.expect("must succeed");
 
-    // expect the returned PathInfo to be equal (for now)
-    // in the future, some stores might add additional fields/signatures.
-    assert_eq!(path_info, resp);
+    // expect the returned PathInfo to be equal,
+    // remove the signatures as the SigningPathInfoService adds them
+    assert_eq!(*PATH_INFO, strip_signatures(resp));
 
     // get it back
     let resp = svc.get(DUMMY_PATH_DIGEST).await.expect("must succeed");
 
-    assert_eq!(Some(path_info.clone()), resp);
+    assert_eq!(Some(PATH_INFO.clone()), resp.map(strip_signatures));
 
     // Ensure the listing endpoint works, and returns the same path_info.
     // FUTUREWORK: split this, some impls might (rightfully) not support listing
     let pathinfos: Vec<PathInfo> = svc.list().try_collect().await.expect("must succeed");
 
     // We should get a single pathinfo back, the one we inserted.
-    assert_eq!(vec![path_info], pathinfos);
+    assert_eq!(
+        vec![PATH_INFO.clone()],
+        pathinfos
+            .into_iter()
+            .map(strip_signatures)
+            .collect::<Vec<_>>()
+    );
+}
+
+fn strip_signatures(path_info: PathInfo) -> PathInfo {
+    PathInfo {
+        signatures: vec![],
+        ..path_info
+    }
 }

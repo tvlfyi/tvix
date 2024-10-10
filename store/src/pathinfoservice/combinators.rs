@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use crate::proto::PathInfo;
 use futures::stream::BoxStream;
 use nix_compat::nixbase32;
 use tonic::async_trait;
@@ -8,7 +7,7 @@ use tracing::{debug, instrument};
 use tvix_castore::composition::{CompositionContext, ServiceBuilder};
 use tvix_castore::Error;
 
-use super::PathInfoService;
+use super::{PathInfo, PathInfoService};
 
 /// Asks near first, if not found, asks far.
 /// If found in there, returns it, and *inserts* it into
@@ -105,10 +104,8 @@ mod test {
 
     use crate::{
         pathinfoservice::{LruPathInfoService, MemoryPathInfoService, PathInfoService},
-        tests::fixtures::PATH_INFO_WITH_NARINFO,
+        tests::fixtures::PATH_INFO,
     };
-
-    const PATH_INFO_DIGEST: [u8; 20] = [0; 20];
 
     /// Helper function setting up an instance of a "far" and "near"
     /// PathInfoService.
@@ -129,21 +126,25 @@ mod test {
         let svc = create_pathinfoservice().await;
 
         // query the PathInfo, things should not be there.
-        assert!(svc.get(PATH_INFO_DIGEST).await.unwrap().is_none());
+        assert!(svc
+            .get(*PATH_INFO.store_path.digest())
+            .await
+            .unwrap()
+            .is_none());
 
         // insert it into the far one.
-        svc.far.put(PATH_INFO_WITH_NARINFO.clone()).await.unwrap();
+        svc.far.put(PATH_INFO.clone()).await.unwrap();
 
         // now try getting it again, it should succeed.
         assert_eq!(
-            Some(PATH_INFO_WITH_NARINFO.clone()),
-            svc.get(PATH_INFO_DIGEST).await.unwrap()
+            Some(PATH_INFO.clone()),
+            svc.get(*PATH_INFO.store_path.digest()).await.unwrap()
         );
 
         // peek near, it should now be there.
         assert_eq!(
-            Some(PATH_INFO_WITH_NARINFO.clone()),
-            svc.near.get(PATH_INFO_DIGEST).await.unwrap()
+            Some(PATH_INFO.clone()),
+            svc.near.get(*PATH_INFO.store_path.digest()).await.unwrap()
         );
     }
 }

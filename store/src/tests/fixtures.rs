@@ -1,24 +1,27 @@
+use crate::pathinfoservice::PathInfo;
 use lazy_static::lazy_static;
+use nix_compat::nixhash::{CAHash, NixHash};
+use nix_compat::store_path::StorePath;
 use rstest::{self, *};
 use rstest_reuse::*;
 use std::io;
 use std::sync::Arc;
-pub use tvix_castore::fixtures::*;
+use tvix_castore::fixtures::{
+    DIRECTORY_COMPLICATED, DIRECTORY_WITH_KEEP, DUMMY_DIGEST, EMPTY_BLOB_CONTENTS,
+    EMPTY_BLOB_DIGEST, HELLOWORLD_BLOB_CONTENTS, HELLOWORLD_BLOB_DIGEST,
+};
 use tvix_castore::{
     blobservice::{BlobService, MemoryBlobService},
     directoryservice::{DirectoryService, MemoryDirectoryService},
-    proto as castorepb, Node,
+    Node,
 };
 
-use crate::proto::{
-    nar_info::{ca, Ca},
-    NarInfo, PathInfo,
-};
-
-pub const DUMMY_PATH: &str = "00000000000000000000000000000000-dummy";
+pub const DUMMY_PATH_STR: &str = "00000000000000000000000000000000-dummy";
 pub const DUMMY_PATH_DIGEST: [u8; 20] = [0; 20];
 
 lazy_static! {
+    pub static ref DUMMY_PATH: StorePath<String> = StorePath::from_name_and_digest_fixed("dummy", DUMMY_PATH_DIGEST).unwrap();
+
     pub static ref CASTORE_NODE_SYMLINK: Node = Node::Symlink {
         target: "/nix/store/somewhereelse".try_into().unwrap(),
     };
@@ -130,32 +133,19 @@ lazy_static! {
         1, 0, 0, 0, 0, 0, 0, 0, b')', 0, 0, 0, 0, 0, 0, 0, // ")"
     ];
 
-    /// A PathInfo message without .narinfo populated.
-    pub static ref PATH_INFO_WITHOUT_NARINFO : PathInfo = PathInfo {
-        node: Some(castorepb::Node {
-            node: Some(castorepb::node::Node::Directory(castorepb::DirectoryNode {
-                name: DUMMY_PATH.into(),
-                digest: DUMMY_DIGEST.clone().into(),
-                size: 0,
-            })),
-        }),
-        references: vec![DUMMY_PATH_DIGEST.as_slice().into()],
-        narinfo: None,
-    };
-
-    /// A PathInfo message with .narinfo populated.
-    /// The references in `narinfo.reference_names` aligns with what's in
-    /// `references`.
-    pub static ref PATH_INFO_WITH_NARINFO : PathInfo = PathInfo {
-        narinfo: Some(NarInfo {
-            nar_size: 0,
-            nar_sha256: DUMMY_DIGEST.clone().into(),
-            signatures: vec![],
-            reference_names: vec![DUMMY_PATH.to_string()],
-            deriver: None,
-            ca: Some(Ca { r#type: ca::Hash::NarSha256.into(), digest:  DUMMY_DIGEST.clone().into() })
-        }),
-      ..PATH_INFO_WITHOUT_NARINFO.clone()
+    /// A PathInfo message
+    pub static ref PATH_INFO: PathInfo = PathInfo {
+        store_path: DUMMY_PATH.clone(),
+        node: tvix_castore::Node::Directory {
+            digest: DUMMY_DIGEST.clone(),
+            size: 0,
+        },
+        references: vec![DUMMY_PATH.clone()],
+        nar_sha256: [0; 32],
+        nar_size: 0,
+        signatures: vec![],
+        deriver: None,
+        ca: Some(CAHash::Nar(NixHash::Sha256([0; 32]))),
     };
 }
 

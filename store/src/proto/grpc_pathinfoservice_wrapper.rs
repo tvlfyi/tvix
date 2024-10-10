@@ -1,5 +1,5 @@
 use crate::nar::{NarCalculationService, RenderError};
-use crate::pathinfoservice::PathInfoService;
+use crate::pathinfoservice::{PathInfo, PathInfoService};
 use crate::proto;
 use futures::{stream::BoxStream, TryStreamExt};
 use std::ops::Deref;
@@ -44,7 +44,7 @@ where
                     .map_err(|_e| Status::invalid_argument("invalid output digest length"))?;
                 match self.path_info_service.get(digest).await {
                     Ok(None) => Err(Status::not_found("PathInfo not found")),
-                    Ok(Some(path_info)) => Ok(Response::new(path_info)),
+                    Ok(Some(path_info)) => Ok(Response::new(proto::PathInfo::from(path_info))),
                     Err(e) => {
                         warn!(err = %e, "failed to get PathInfo");
                         Err(e.into())
@@ -56,12 +56,15 @@ where
 
     #[instrument(skip_all)]
     async fn put(&self, request: Request<proto::PathInfo>) -> Result<Response<proto::PathInfo>> {
-        let path_info = request.into_inner();
+        let path_info_proto = request.into_inner();
+
+        let path_info = PathInfo::try_from(path_info_proto)
+            .map_err(|e| Status::invalid_argument(format!("Invalid path info: {e}")))?;
 
         // Store the PathInfo in the client. Clients MUST validate the data
         // they receive, so we don't validate additionally here.
         match self.path_info_service.put(path_info).await {
-            Ok(path_info_new) => Ok(Response::new(path_info_new)),
+            Ok(path_info_new) => Ok(Response::new(proto::PathInfo::from(path_info_new))),
             Err(e) => {
                 warn!(err = %e, "failed to put PathInfo");
                 Err(e.into())
@@ -99,6 +102,7 @@ where
         let stream = Box::pin(
             self.path_info_service
                 .list()
+                .map_ok(proto::PathInfo::from)
                 .map_err(|e| Status::internal(e.to_string())),
         );
 

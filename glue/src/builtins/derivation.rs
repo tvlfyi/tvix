@@ -182,7 +182,7 @@ pub(crate) mod derivation_builtins {
     use tvix_castore::Node;
     use tvix_eval::generators::Gen;
     use tvix_eval::{NixContext, NixContextElement, NixString};
-    use tvix_store::proto::{NarInfo, PathInfo};
+    use tvix_store::pathinfoservice::PathInfo;
 
     #[builtin("placeholder")]
     async fn builtin_placeholder(co: GenCo, input: Value) -> Result<Value, ErrorKind> {
@@ -568,15 +568,6 @@ pub(crate) mod derivation_builtins {
             let blob_digest = blob_writer.close().await?;
             let ca_hash = CAHash::Text(Sha256::digest(&content).into());
 
-            let store_path: StorePathRef =
-                build_ca_path(name.to_str()?, &ca_hash, content.iter_ctx_plain(), false)
-                    .map_err(|_e| {
-                        nix_compat::derivation::DerivationError::InvalidOutputName(
-                            name.to_str_lossy().into_owned(),
-                        )
-                    })
-                    .map_err(DerivationError::InvalidDerivation)?;
-
             let root_node = Node::File {
                 digest: blob_digest,
                 size: blob_size,
@@ -590,41 +581,38 @@ pub(crate) mod derivation_builtins {
                 .await
                 .map_err(|e| ErrorKind::TvixError(Rc::new(e)))?;
 
-            // assemble references from plain context.
-            let reference_paths: Vec<StorePathRef> = content
-                .iter_ctx_plain()
-                .map(|elem| StorePathRef::from_absolute_path(elem.as_bytes()))
-                .collect::<Result<_, _>>()
-                .map_err(|e| ErrorKind::TvixError(Rc::new(e)))?;
-
             // persist via pathinfo service.
             state
                 .path_info_service
                 .put(PathInfo {
-                    node: Some(tvix_castore::proto::Node::from_name_and_node(
-                        store_path.to_string().into(),
-                        root_node,
-                    )),
-                    references: reference_paths
-                        .iter()
-                        .map(|x| bytes::Bytes::copy_from_slice(x.digest()))
-                        .collect(),
-                    narinfo: Some(NarInfo {
-                        nar_size,
-                        nar_sha256: nar_sha256.to_vec().into(),
-                        signatures: vec![],
-                        reference_names: reference_paths
-                            .into_iter()
-                            .map(|x| x.to_string())
-                            .collect(),
-                        deriver: None,
-                        ca: Some(ca_hash.into()),
-                    }),
+                    store_path: build_ca_path(
+                        name.to_str()?,
+                        &ca_hash,
+                        content.iter_ctx_plain(),
+                        false,
+                    )
+                    .map_err(|_e| {
+                        nix_compat::derivation::DerivationError::InvalidOutputName(
+                            name.to_str_lossy().into_owned(),
+                        )
+                    })
+                    .map_err(DerivationError::InvalidDerivation)?,
+                    node: root_node,
+                    // assemble references from plain context.
+                    references: content
+                        .iter_ctx_plain()
+                        .map(|elem| StorePath::from_absolute_path(elem.as_bytes()))
+                        .collect::<Result<_, _>>()
+                        .map_err(|e| ErrorKind::TvixError(Rc::new(e)))?,
+                    nar_size,
+                    nar_sha256,
+                    signatures: vec![],
+                    deriver: None,
+                    ca: Some(ca_hash),
                 })
                 .await
-                .map_err(|e| ErrorKind::TvixError(Rc::new(e)))?;
-
-            Ok::<_, ErrorKind>(store_path)
+                .map_err(|e| ErrorKind::TvixError(Rc::new(e)))
+                .map(|path_info| path_info.store_path)
         })?;
 
         let abs_path = store_path.to_absolute_path();

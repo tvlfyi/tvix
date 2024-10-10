@@ -8,11 +8,10 @@ use tokio::sync::RwLock;
 use tonic::async_trait;
 use tracing::instrument;
 
-use crate::proto::PathInfo;
 use tvix_castore::composition::{CompositionContext, ServiceBuilder};
 use tvix_castore::Error;
 
-use super::PathInfoService;
+use super::{PathInfo, PathInfoService};
 
 pub struct LruPathInfoService {
     lru: Arc<RwLock<LruCache<[u8; 20], PathInfo>>>,
@@ -35,15 +34,10 @@ impl PathInfoService for LruPathInfoService {
 
     #[instrument(level = "trace", skip_all, fields(path_info.root_node = ?path_info.node))]
     async fn put(&self, path_info: PathInfo) -> Result<PathInfo, Error> {
-        // call validate
-        let store_path = path_info
-            .validate()
-            .map_err(|e| Error::InvalidRequest(format!("invalid PathInfo: {}", e)))?;
-
         self.lru
             .write()
             .await
-            .put(*store_path.digest(), path_info.clone());
+            .put(*path_info.store_path.digest(), path_info.clone());
 
         Ok(path_info)
     }
@@ -91,40 +85,22 @@ impl ServiceBuilder for LruPathInfoServiceConfig {
 
 #[cfg(test)]
 mod test {
+    use nix_compat::store_path::StorePath;
     use std::num::NonZeroUsize;
 
     use crate::{
-        pathinfoservice::{LruPathInfoService, PathInfoService},
-        proto::PathInfo,
-        tests::fixtures::PATH_INFO_WITH_NARINFO,
+        pathinfoservice::{LruPathInfoService, PathInfo, PathInfoService},
+        tests::fixtures::PATH_INFO,
     };
     use lazy_static::lazy_static;
-    use tvix_castore::proto as castorepb;
 
     lazy_static! {
-        static ref PATHINFO_1: PathInfo = PATH_INFO_WITH_NARINFO.clone();
-        static ref PATHINFO_1_DIGEST: [u8; 20] = [0; 20];
         static ref PATHINFO_2: PathInfo = {
-            let mut p = PATHINFO_1.clone();
-            let root_node = p.node.as_mut().unwrap();
-            if let castorepb::Node { node: Some(node) } = root_node {
-                match node {
-                    castorepb::node::Node::Directory(n) => {
-                        n.name = "11111111111111111111111111111111-dummy2".into()
-                    }
-                    castorepb::node::Node::File(n) => {
-                        n.name = "11111111111111111111111111111111-dummy2".into()
-                    }
-                    castorepb::node::Node::Symlink(n) => {
-                        n.name = "11111111111111111111111111111111-dummy2".into()
-                    }
-                }
-            } else {
-                unreachable!()
-            }
+            let mut p = PATH_INFO.clone();
+            p.store_path = StorePath::from_name_and_digest_fixed("dummy", [1; 20]).unwrap();
             p
         };
-        static ref PATHINFO_2_DIGEST: [u8; 20] = *(PATHINFO_2.validate().unwrap()).digest();
+        static ref PATHINFO_2_DIGEST: [u8; 20] = *PATHINFO_2.store_path.digest();
     }
 
     #[tokio::test]
@@ -133,18 +109,20 @@ mod test {
 
         // pathinfo_1 should not be there
         assert!(svc
-            .get(*PATHINFO_1_DIGEST)
+            .get(*PATH_INFO.store_path.digest())
             .await
             .expect("no error")
             .is_none());
 
         // insert it
-        svc.put(PATHINFO_1.clone()).await.expect("no error");
+        svc.put(PATH_INFO.clone()).await.expect("no error");
 
         // now it should be there.
         assert_eq!(
-            Some(PATHINFO_1.clone()),
-            svc.get(*PATHINFO_1_DIGEST).await.expect("no error")
+            Some(PATH_INFO.clone()),
+            svc.get(*PATH_INFO.store_path.digest())
+                .await
+                .expect("no error")
         );
 
         // insert pathinfo_2. This will evict pathinfo 1
@@ -158,7 +136,7 @@ mod test {
 
         // … but pathinfo 1 not anymore.
         assert!(svc
-            .get(*PATHINFO_1_DIGEST)
+            .get(*PATH_INFO.store_path.digest())
             .await
             .expect("no error")
             .is_none());

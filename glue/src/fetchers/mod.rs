@@ -11,7 +11,10 @@ use tokio_util::io::{InspectReader, InspectWriter};
 use tracing::{instrument, warn, Span};
 use tracing_indicatif::span_ext::IndicatifSpanExt;
 use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService, Node};
-use tvix_store::{nar::NarCalculationService, pathinfoservice::PathInfoService, proto::PathInfo};
+use tvix_store::{
+    nar::NarCalculationService,
+    pathinfoservice::{PathInfo, PathInfoService},
+};
 use url::Url;
 
 use crate::builtins::FetcherError;
@@ -571,19 +574,14 @@ where
 
         // Construct the PathInfo and persist it.
         let path_info = PathInfo {
-            node: Some(tvix_castore::proto::Node::from_name_and_node(
-                store_path.to_string().into(),
-                node.clone(),
-            )),
+            store_path: store_path.to_owned(),
+            node: node.clone(),
             references: vec![],
-            narinfo: Some(tvix_store::proto::NarInfo {
-                nar_size,
-                nar_sha256: nar_sha256.to_vec().into(),
-                signatures: vec![],
-                reference_names: vec![],
-                deriver: None,
-                ca: Some(ca_hash.into()),
-            }),
+            nar_size,
+            nar_sha256,
+            signatures: vec![],
+            deriver: None,
+            ca: Some(ca_hash),
         };
 
         self.path_info_service

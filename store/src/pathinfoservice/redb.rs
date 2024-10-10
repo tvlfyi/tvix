@@ -1,5 +1,5 @@
-use super::PathInfoService;
-use crate::proto::PathInfo;
+use super::{PathInfo, PathInfoService};
+use crate::proto;
 use data_encoding::BASE64;
 use futures::{stream::BoxStream, StreamExt};
 use prost::Message;
@@ -78,10 +78,13 @@ impl PathInfoService for RedbPathInfoService {
                 let table = txn.open_table(PATHINFO_TABLE)?;
                 match table.get(digest)? {
                     Some(pathinfo_bytes) => Ok(Some(
-                        PathInfo::decode(pathinfo_bytes.value().as_slice()).map_err(|e| {
-                            warn!(err=%e, "failed to decode stored PathInfo");
-                            Error::StorageError("failed to decode stored PathInfo".to_string())
-                        })?,
+                        proto::PathInfo::decode(pathinfo_bytes.value().as_slice())
+                            .map_err(|e| {
+                                warn!(err=%e, "failed to decode stored PathInfo");
+                                Error::StorageError("failed to decode stored PathInfo".to_string())
+                            })?
+                            .try_into()
+                            .map_err(|e| Error::StorageError(format!("Invalid path info: {e}")))?,
                     )),
                     None => Ok(None),
                 }
@@ -92,25 +95,19 @@ impl PathInfoService for RedbPathInfoService {
 
     #[instrument(level = "trace", skip_all, fields(path_info.root_node = ?path_info.node))]
     async fn put(&self, path_info: PathInfo) -> Result<PathInfo, Error> {
-        // Call validate on the received PathInfo message.
-        let store_path = path_info
-            .validate()
-            .map_err(|e| {
-                warn!(err=%e, "failed to validate PathInfo");
-                Error::StorageError("failed to validate PathInfo".to_string())
-            })?
-            .to_owned();
-
-        let path_info_encoded = path_info.encode_to_vec();
         let db = self.db.clone();
 
         tokio::task::spawn_blocking({
+            let path_info = path_info.clone();
             move || -> Result<(), Error> {
                 let txn = db.begin_write()?;
                 {
                     let mut table = txn.open_table(PATHINFO_TABLE)?;
                     table
-                        .insert(store_path.digest(), path_info_encoded)
+                        .insert(
+                            *path_info.store_path.digest(),
+                            proto::PathInfo::from(path_info).encode_to_vec(),
+                        )
                         .map_err(|e| {
                             warn!(err=%e, "failed to insert PathInfo");
                             Error::StorageError("failed to insert PathInfo".to_string())
@@ -137,12 +134,18 @@ impl PathInfoService for RedbPathInfoService {
                 for elem in table.iter()? {
                     let elem = elem?;
                     tokio::runtime::Handle::current()
-                        .block_on(tx.send(Ok(
-                            PathInfo::decode(elem.1.value().as_slice()).map_err(|e| {
+                        .block_on(tx.send(Ok({
+                            let path_info_proto = proto::PathInfo::decode(
+                                elem.1.value().as_slice(),
+                            )
+                            .map_err(|e| {
                                 warn!(err=%e, "invalid PathInfo");
                                 Error::StorageError("invalid PathInfo".to_string())
-                            })?,
-                        )))
+                            })?;
+                            PathInfo::try_from(path_info_proto).map_err(|e| {
+                                Error::StorageError(format!("Invalid path info: {e}"))
+                            })?
+                        })))
                         .map_err(|e| Error::StorageError(e.to_string()))?;
                 }
 

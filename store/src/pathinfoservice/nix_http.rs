@@ -1,10 +1,11 @@
-use super::PathInfoService;
-use crate::{nar::ingest_nar_and_hash, proto::PathInfo};
+use super::{PathInfo, PathInfoService};
+use crate::nar::ingest_nar_and_hash;
 use futures::{stream::BoxStream, TryStreamExt};
 use nix_compat::{
-    narinfo::{self, NarInfo},
+    narinfo::{self, NarInfo, Signature},
     nixbase32,
     nixhash::NixHash,
+    store_path::StorePath,
 };
 use reqwest::StatusCode;
 use std::sync::Arc;
@@ -12,9 +13,7 @@ use tokio::io::{self, AsyncRead};
 use tonic::async_trait;
 use tracing::{debug, instrument, warn};
 use tvix_castore::composition::{CompositionContext, ServiceBuilder};
-use tvix_castore::{
-    blobservice::BlobService, directoryservice::DirectoryService, proto as castorepb, Error,
-};
+use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService, Error};
 use url::Url;
 
 /// NixHTTPPathInfoService acts as a bridge in between the Nix HTTP Binary cache
@@ -137,12 +136,11 @@ where
             }
         }
 
-        // Convert to a (sparse) PathInfo. We still need to populate the node field,
-        // and for this we need to download the NAR file.
+        // To construct the full PathInfo, we also need to populate the node field,
+        // and for this we need to download the NAR file and ingest it into castore.
         // FUTUREWORK: Keep some database around mapping from narsha256 to
         // (unnamed) rootnode, so we can use that (and the name from the
         // StorePath) and avoid downloading the same NAR a second time.
-        let pathinfo: PathInfo = (&narinfo).into();
 
         // create a request for the NAR file itself.
         let nar_url = self.base_url.join(narinfo.url).map_err(|e| {
@@ -228,12 +226,18 @@ where
         }
 
         Ok(Some(PathInfo {
-            node: Some(castorepb::Node::from_name_and_node(
-                narinfo.store_path.to_string().into(),
-                root_node,
-            )),
-            references: pathinfo.references,
-            narinfo: pathinfo.narinfo,
+            store_path: narinfo.store_path.to_owned(),
+            node: root_node,
+            references: narinfo.references.iter().map(StorePath::to_owned).collect(),
+            nar_size: narinfo.nar_size,
+            nar_sha256: narinfo.nar_hash,
+            deriver: narinfo.deriver.as_ref().map(StorePath::to_owned),
+            signatures: narinfo
+                .signatures
+                .into_iter()
+                .map(|s| Signature::<String>::new(s.name().to_string(), s.bytes().to_owned()))
+                .collect(),
+            ca: narinfo.ca,
         }))
     }
 

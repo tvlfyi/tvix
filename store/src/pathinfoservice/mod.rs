@@ -19,7 +19,7 @@ use tvix_castore::composition::{Registry, ServiceBuilder};
 use tvix_castore::Error;
 
 use crate::nar::NarCalculationService;
-use crate::proto::PathInfo;
+pub use crate::path_info::PathInfo;
 
 pub use self::combinators::{
     Cache as CachePathInfoService, CacheConfig as CachePathInfoServiceConfig,

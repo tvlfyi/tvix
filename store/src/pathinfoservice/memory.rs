@@ -1,5 +1,4 @@
-use super::PathInfoService;
-use crate::proto::PathInfo;
+use super::{PathInfo, PathInfoService};
 use async_stream::try_stream;
 use futures::stream::BoxStream;
 use nix_compat::nixbase32;
@@ -29,22 +28,11 @@ impl PathInfoService for MemoryPathInfoService {
 
     #[instrument(level = "trace", skip_all, fields(path_info.root_node = ?path_info.node))]
     async fn put(&self, path_info: PathInfo) -> Result<PathInfo, Error> {
-        // Call validate on the received PathInfo message.
-        match path_info.validate() {
-            Err(e) => Err(Error::InvalidRequest(format!(
-                "failed to validate PathInfo: {}",
-                e
-            ))),
+        // This overwrites existing PathInfo objects with the same store path digest.
+        let mut db = self.db.write().await;
+        db.insert(*path_info.store_path.digest(), path_info.clone());
 
-            // In case the PathInfo is valid, and we were able to extract a NixPath, store it in the database.
-            // This overwrites existing PathInfo objects.
-            Ok(nix_path) => {
-                let mut db = self.db.write().await;
-                db.insert(*nix_path.digest(), path_info.clone());
-
-                Ok(path_info)
-            }
-        }
+        Ok(path_info)
     }
 
     fn list(&self) -> BoxStream<'static, Result<PathInfo, Error>> {

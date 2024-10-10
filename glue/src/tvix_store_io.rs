@@ -23,7 +23,7 @@ use tvix_castore::{
     directoryservice::{self, DirectoryService},
     Node,
 };
-use tvix_store::{pathinfoservice::PathInfoService, proto::PathInfo};
+use tvix_store::pathinfoservice::{PathInfo, PathInfoService};
 
 use crate::fetchers::Fetcher;
 use crate::known_paths::KnownPaths;
@@ -119,23 +119,8 @@ impl TvixStoreIO {
             .get(*store_path.digest())
             .await?
         {
-            // if we have a PathInfo, we know there will be a root_node (due to validation)
             // TODO: use stricter typed BuildRequest here.
-            Some(path_info) => {
-                let (name, node) = path_info
-                    .node
-                    .expect("no node")
-                    .into_name_and_node()
-                    .expect("invalid node");
-
-                assert_eq!(
-                    store_path.to_string().as_bytes(),
-                    name.as_ref(),
-                    "returned node basename must match requested store path"
-                );
-
-                node
-            }
+            Some(path_info) => path_info.node,
             // If there's no PathInfo found, this normally means we have to
             // trigger the build (and insert into PathInfoService, after
             // reference scanning).
@@ -336,47 +321,37 @@ impl TvixStoreIO {
 
                             // assemble the PathInfo to persist
                             let path_info = PathInfo {
-                                node: Some(tvix_castore::proto::Node::from_name_and_node(
-                                    drv_output
-                                        .1
-                                        .path
-                                        .as_ref()
-                                        .ok_or(std::io::Error::new(
-                                            std::io::ErrorKind::Other,
-                                            "missing output store path",
-                                        ))?
-                                        .to_string()
-                                        .into(),
-                                    output_node,
-                                )),
+                                store_path: drv_output
+                                    .1
+                                    .path
+                                    .as_ref()
+                                    .ok_or(std::io::Error::new(
+                                        std::io::ErrorKind::Other,
+                                        "Tvix bug: missing output store path",
+                                    ))?
+                                    .to_owned(),
+                                node: output_node,
                                 references: output_needles
                                     .iter()
-                                    .map(|path| Bytes::from(path.digest().as_slice().to_vec()))
+                                    .map(|s| (**s).to_owned())
                                     .collect(),
-                                narinfo: Some(tvix_store::proto::NarInfo {
-                                    nar_size,
-                                    nar_sha256: Bytes::from(nar_sha256.to_vec()),
-                                    signatures: vec![],
-                                    reference_names: output_needles
-                                        .iter()
-                                        .map(|path| path.to_string())
-                                        .collect(),
-                                    deriver: Some(tvix_store::proto::StorePath {
-                                        name: drv_path
+                                nar_size,
+                                nar_sha256,
+                                signatures: vec![],
+                                deriver: Some(
+                                    StorePath::from_name_and_digest_fixed(
+                                        drv_path
                                             .name()
                                             .strip_suffix(".drv")
-                                            .expect("missing .drv suffix")
-                                            .to_string(),
-                                        digest: drv_path.digest().to_vec().into(),
-                                    }),
-                                    ca: drv.fod_digest().map(
-                                        |fod_digest| -> tvix_store::proto::nar_info::Ca {
-                                            (&CAHash::Nar(nix_compat::nixhash::NixHash::Sha256(
-                                                fod_digest,
-                                            )))
-                                                .into()
-                                        },
+                                            .expect("missing .drv suffix"),
+                                        *drv_path.digest(),
+                                    )
+                                    .expect(
+                                        "Tvix bug: StorePath without .drv suffix must be valid",
                                     ),
+                                ),
+                                ca: drv.fod_digest().map(|fod_digest| {
+                                    CAHash::Nar(nix_compat::nixhash::NixHash::Sha256(fod_digest))
                                 }),
                             };
 
@@ -421,8 +396,7 @@ impl TvixStoreIO {
     ) -> io::Result<(PathInfo, NixHash, StorePathRef<'a>)> {
         // Ask the PathInfoService for the NAR size and sha256
         // We always need it no matter what is the actual hash mode
-        // because the path info construct a narinfo which *always*
-        // require a SHA256 of the NAR representation and the NAR size.
+        // because the [PathInfo] needs to contain nar_{sha256,size}.
         let (nar_size, nar_sha256) = self
             .nar_calculation_service
             .as_ref()
@@ -431,7 +405,7 @@ impl TvixStoreIO {
 
         // Calculate the output path. This might still fail, as some names are illegal.
         let output_path =
-            nix_compat::store_path::build_ca_path(name, ca, Vec::<String>::new(), false).map_err(
+            nix_compat::store_path::build_ca_path(name, ca, Vec::<&str>::new(), false).map_err(
                 |_| {
                     std::io::Error::new(
                         std::io::ErrorKind::InvalidData,
@@ -446,8 +420,8 @@ impl TvixStoreIO {
         let path_info = tvix_store::import::derive_nar_ca_path_info(
             nar_size,
             nar_sha256,
-            Some(ca),
-            output_path.to_string().into(),
+            Some(ca.clone()),
+            output_path.to_owned(),
             root_node,
         );
 

@@ -58,32 +58,20 @@ where
             .as_ref()
             .get(*store_path.digest())
             .await?
-            .map(|path_info| {
-                let node = path_info
-                    .node
-                    .as_ref()
-                    .expect("missing root node")
-                    .to_owned();
-
-                match node.into_name_and_node() {
-                    Ok((_name, node)) => Ok(node),
-                    Err(e) => Err(Error::StorageError(e.to_string())),
-                }
-            })
-            .transpose()?)
+            .map(|path_info| path_info.node))
     }
 
     fn list(&self) -> BoxStream<Result<(PathComponent, Node), Error>> {
         Box::pin(self.0.as_ref().list().map(|result| {
-            result.and_then(|path_info| {
-                let node = path_info
-                    .node
-                    .as_ref()
-                    .expect("missing root node")
-                    .to_owned();
-
-                node.into_name_and_node()
-                    .map_err(|e| Error::StorageError(e.to_string()))
+            result.map(|path_info| {
+                let basename = path_info.store_path.to_string();
+                (
+                    basename
+                        .as_str()
+                        .try_into()
+                        .expect("Tvix bug: StorePath must be PathComponent"),
+                    path_info.node,
+                )
             })
         }))
     }

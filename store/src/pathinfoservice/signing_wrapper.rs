@@ -1,7 +1,6 @@
 //! This module provides a [PathInfoService] implementation that signs narinfos
 
-use super::PathInfoService;
-use crate::proto::PathInfo;
+use super::{PathInfo, PathInfoService};
 use futures::stream::BoxStream;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -11,9 +10,9 @@ use tvix_castore::composition::{CompositionContext, ServiceBuilder};
 
 use tvix_castore::Error;
 
-use nix_compat::narinfo::{parse_keypair, SigningKey};
+use nix_compat::narinfo::{parse_keypair, Signature, SigningKey};
 use nix_compat::nixbase32;
-use tracing::{instrument, warn};
+use tracing::instrument;
 
 #[cfg(test)]
 use super::MemoryPathInfoService;
@@ -52,22 +51,15 @@ where
     }
 
     async fn put(&self, path_info: PathInfo) -> Result<PathInfo, Error> {
-        let store_path = path_info.validate().map_err(|e| {
-            warn!(err=%e, "invalid PathInfo");
-            Error::StorageError(e.to_string())
-        })?;
-        let root_node = path_info.node.clone();
-        // If we have narinfo then sign it, else passthrough to the upper pathinfoservice
-        let path_info_to_put = match path_info.to_narinfo(store_path.as_ref()) {
-            Some(mut nar_info) => {
-                nar_info.add_signature(self.signing_key.as_ref());
-                let mut signed_path_info = PathInfo::from(&nar_info);
-                signed_path_info.node = root_node;
-                signed_path_info
-            }
-            None => path_info,
-        };
-        self.inner.put(path_info_to_put).await
+        let mut path_info = path_info.clone();
+        let mut nar_info = path_info.to_narinfo();
+        nar_info.add_signature(self.signing_key.as_ref());
+        path_info.signatures = nar_info
+            .signatures
+            .into_iter()
+            .map(|s| Signature::<String>::new(s.name().to_string(), s.bytes().to_owned()))
+            .collect();
+        self.inner.put(path_info).await
     }
 
     fn list(&self) -> BoxStream<'static, Result<PathInfo, Error>> {
@@ -134,20 +126,8 @@ pub const DUMMY_VERIFYING_KEY: &str = "do.not.use:cuXqnuzlWfGTKmfzBPx2kXShjRryZM
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        pathinfoservice::PathInfoService,
-        proto::PathInfo,
-        tests::fixtures::{DUMMY_PATH, PATH_INFO_WITH_NARINFO},
-    };
+    use crate::{pathinfoservice::PathInfoService, tests::fixtures::PATH_INFO};
     use nix_compat::narinfo::VerifyingKey;
-
-    use lazy_static::lazy_static;
-    use nix_compat::store_path::StorePath;
-
-    lazy_static! {
-        static ref PATHINFO_1: PathInfo = PATH_INFO_WITH_NARINFO.clone();
-        static ref PATHINFO_1_DIGEST: [u8; 20] = [0; 20];
-    }
 
     #[tokio::test]
     async fn put_and_verify_signature() {
@@ -155,30 +135,26 @@ mod test {
 
         // pathinfo_1 should not be there ...
         assert!(svc
-            .get(*PATHINFO_1_DIGEST)
+            .get(*PATH_INFO.store_path.digest())
             .await
             .expect("no error")
             .is_none());
 
         // ... and not be signed
-        assert!(PATHINFO_1.narinfo.clone().unwrap().signatures.is_empty());
+        assert!(PATH_INFO.signatures.is_empty());
 
         // insert it
-        svc.put(PATHINFO_1.clone()).await.expect("no error");
+        svc.put(PATH_INFO.clone()).await.expect("no error");
 
         // now it should be there ...
         let signed = svc
-            .get(*PATHINFO_1_DIGEST)
+            .get(*PATH_INFO.store_path.digest())
             .await
             .expect("no error")
             .unwrap();
 
         // and signed
-        let narinfo = signed
-            .to_narinfo(
-                StorePath::from_bytes(DUMMY_PATH.as_bytes()).expect("DUMMY_PATH to be parsed"),
-            )
-            .expect("no error");
+        let narinfo = signed.to_narinfo();
         let fp = narinfo.fingerprint();
 
         // load our keypair from the fixtures

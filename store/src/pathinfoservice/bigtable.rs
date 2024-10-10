@@ -1,6 +1,5 @@
-use super::PathInfoService;
+use super::{PathInfo, PathInfoService};
 use crate::proto;
-use crate::proto::PathInfo;
 use async_stream::try_stream;
 use bigtable_rs::{bigtable, google::bigtable::v2 as bigtable_v2};
 use bytes::Bytes;
@@ -232,14 +231,13 @@ impl PathInfoService for BigtablePathInfoService {
         }
 
         // Try to parse the value into a PathInfo message
-        let path_info = proto::PathInfo::decode(Bytes::from(cell.value))
+        let path_info_proto = proto::PathInfo::decode(Bytes::from(cell.value))
             .map_err(|e| Error::StorageError(format!("unable to decode pathinfo proto: {}", e)))?;
 
-        let store_path = path_info
-            .validate()
-            .map_err(|e| Error::StorageError(format!("invalid PathInfo: {}", e)))?;
+        let path_info = PathInfo::try_from(path_info_proto)
+            .map_err(|e| Error::StorageError(format!("Invalid path info: {e}")))?;
 
-        if store_path.digest() != &digest {
+        if path_info.store_path.digest() != &digest {
             return Err(Error::StorageError("PathInfo has unexpected digest".into()));
         }
 
@@ -248,14 +246,10 @@ impl PathInfoService for BigtablePathInfoService {
 
     #[instrument(level = "trace", skip_all, fields(path_info.root_node = ?path_info.node))]
     async fn put(&self, path_info: PathInfo) -> Result<PathInfo, Error> {
-        let store_path = path_info
-            .validate()
-            .map_err(|e| Error::InvalidRequest(format!("pathinfo failed validation: {}", e)))?;
-
         let mut client = self.client.clone();
-        let path_info_key = derive_pathinfo_key(store_path.digest());
+        let path_info_key = derive_pathinfo_key(path_info.store_path.digest());
 
-        let data = path_info.encode_to_vec();
+        let data = proto::PathInfo::from(path_info.clone()).encode_to_vec();
         if data.len() as u64 > CELL_SIZE_LIMIT {
             return Err(Error::StorageError(
                 "PathInfo exceeds cell limit on Bigtable".into(),
@@ -340,16 +334,12 @@ impl PathInfoService for BigtablePathInfoService {
                 }
 
                 // Try to parse the value into a PathInfo message.
-                let path_info = proto::PathInfo::decode(Bytes::from(cell.value))
+                let path_info_proto = proto::PathInfo::decode(Bytes::from(cell.value))
                     .map_err(|e| Error::StorageError(format!("unable to decode pathinfo proto: {}", e)))?;
 
-                // Validate the containing PathInfo, ensure its StorePath digest
-                // matches row key.
-                let store_path = path_info
-                    .validate()
-                    .map_err(|e| Error::StorageError(format!("invalid PathInfo: {}", e)))?;
+                let path_info = PathInfo::try_from(path_info_proto).map_err(|e| Error::StorageError(format!("Invalid path info: {e}")))?;
 
-                let exp_path_info_key = derive_pathinfo_key(store_path.digest());
+                let exp_path_info_key = derive_pathinfo_key(path_info.store_path.digest());
 
                 if exp_path_info_key.as_bytes() != row_key.as_slice() {
                     Err(Error::StorageError("PathInfo has unexpected digest".into()))?

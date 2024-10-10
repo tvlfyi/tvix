@@ -1,10 +1,14 @@
 use axum::{http::StatusCode, response::IntoResponse};
 use bytes::Bytes;
-use nix_compat::{narinfo::NarInfo, nix_http, nixbase32};
+use nix_compat::{
+    narinfo::{NarInfo, Signature},
+    nix_http, nixbase32,
+    store_path::StorePath,
+};
 use prost::Message;
 use tracing::{instrument, warn, Span};
 use tvix_castore::proto::{self as castorepb};
-use tvix_store::proto::PathInfo;
+use tvix_store::pathinfoservice::PathInfo;
 
 use crate::AppState;
 
@@ -57,35 +61,15 @@ pub async fn get(
         })?
         .ok_or(StatusCode::NOT_FOUND)?;
 
-    let store_path = path_info.validate().map_err(|e| {
-        warn!(err=%e, "invalid PathInfo");
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    let mut narinfo = path_info.to_narinfo(store_path.as_ref()).ok_or_else(|| {
-        warn!(path_info=?path_info, "PathInfo contained no NAR data");
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    // encode the (unnamed) root node in the NAR url itself.
-    // We strip the name from the proto node before sending it out.
-    // It's not needed to render the NAR, it'll make the URL shorter, and it
-    // will make caching these requests easier.
-    let (_, root_node) = path_info
-        .node
-        .as_ref()
-        .expect("invalid pathinfo")
-        .to_owned()
-        .into_name_and_node()
-        .expect("invalid pathinfo");
-
     let url = format!(
         "nar/tvix-castore/{}?narsize={}",
-        data_encoding::BASE64URL_NOPAD
-            .encode(&castorepb::Node::from_name_and_node("".into(), root_node).encode_to_vec()),
-        narinfo.nar_size,
+        data_encoding::BASE64URL_NOPAD.encode(
+            &castorepb::Node::from_name_and_node("".into(), path_info.node.clone()).encode_to_vec()
+        ),
+        path_info.nar_size,
     );
 
+    let mut narinfo = path_info.to_narinfo();
     narinfo.url = &url;
 
     Ok((
@@ -128,9 +112,6 @@ pub async fn put(
     // Extract the NARHash from the PathInfo.
     Span::current().record("path_info.nar_info", nixbase32::encode(&narinfo.nar_hash));
 
-    // populate the pathinfo.
-    let mut pathinfo = PathInfo::from(&narinfo);
-
     // Lookup root node with peek, as we don't want to update the LRU list.
     // We need to be careful to not hold the RwLock across the await point.
     let maybe_root_node: Option<tvix_castore::Node> =
@@ -138,19 +119,29 @@ pub async fn put(
 
     match maybe_root_node {
         Some(root_node) => {
-            // Set the root node from the lookup.
-            // We need to rename the node to the narinfo storepath basename, as
-            // that's where it's stored in PathInfo.
-            pathinfo.node = Some(castorepb::Node::from_name_and_node(
-                narinfo.store_path.to_string().into(),
-                root_node,
-            ));
-
             // Persist the PathInfo.
-            path_info_service.put(pathinfo).await.map_err(|e| {
-                warn!(err=%e, "failed to persist the PathInfo");
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
+            path_info_service
+                .put(PathInfo {
+                    store_path: narinfo.store_path.to_owned(),
+                    node: root_node,
+                    references: narinfo.references.iter().map(StorePath::to_owned).collect(),
+                    nar_sha256: narinfo.nar_hash,
+                    nar_size: narinfo.nar_size,
+                    signatures: narinfo
+                        .signatures
+                        .into_iter()
+                        .map(|s| {
+                            Signature::<String>::new(s.name().to_string(), s.bytes().to_owned())
+                        })
+                        .collect(),
+                    deriver: narinfo.deriver.as_ref().map(StorePath::to_owned),
+                    ca: narinfo.ca,
+                })
+                .await
+                .map_err(|e| {
+                    warn!(err=%e, "failed to persist the PathInfo");
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
 
             Ok("")
         }

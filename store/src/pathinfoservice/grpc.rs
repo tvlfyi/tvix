@@ -1,7 +1,7 @@
-use super::PathInfoService;
+use super::{PathInfo, PathInfoService};
 use crate::{
     nar::NarCalculationService,
-    proto::{self, ListPathInfoRequest, PathInfo},
+    proto::{self, ListPathInfoRequest},
 };
 use async_stream::try_stream;
 use futures::stream::BoxStream;
@@ -53,15 +53,10 @@ where
             .await;
 
         match path_info {
-            Ok(path_info) => {
-                let path_info = path_info.into_inner();
-
-                path_info
-                    .validate()
-                    .map_err(|e| Error::StorageError(format!("invalid pathinfo: {}", e)))?;
-
-                Ok(Some(path_info))
-            }
+            Ok(path_info) => Ok(Some(
+                PathInfo::try_from(path_info.into_inner())
+                    .map_err(|e| Error::StorageError(format!("Invalid path info: {e}")))?,
+            )),
             Err(e) if e.code() == Code::NotFound => Ok(None),
             Err(e) => Err(Error::StorageError(e.to_string())),
         }
@@ -72,12 +67,12 @@ where
         let path_info = self
             .grpc_client
             .clone()
-            .put(path_info)
+            .put(proto::PathInfo::from(path_info))
             .await
             .map_err(|e| Error::StorageError(e.to_string()))?
             .into_inner();
-
-        Ok(path_info)
+        Ok(PathInfo::try_from(path_info)
+            .map_err(|e| Error::StorageError(format!("Invalid path info: {e}")))?)
     }
 
     #[instrument(level = "trace", skip_all)]
@@ -91,21 +86,8 @@ where
 
             loop {
                 match stream.message().await {
-                    Ok(o) => match o {
-                        Some(pathinfo) => {
-                            // validate the pathinfo
-                            if let Err(e) = pathinfo.validate() {
-                                Err(Error::StorageError(format!(
-                                    "pathinfo {:?} failed validation: {}",
-                                    pathinfo, e
-                                )))?;
-                            }
-                            yield pathinfo
-                        }
-                        None => {
-                            return;
-                        },
-                    },
+                    Ok(Some(path_info)) => yield PathInfo::try_from(path_info).map_err(|e| Error::StorageError(format!("Invalid path info: {e}")))?,
+                    Ok(None) => return,
                     Err(e) => Err(Error::StorageError(e.to_string()))?,
                 }
             }

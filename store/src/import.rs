@@ -3,18 +3,17 @@ use std::path::Path;
 use tracing::{debug, instrument};
 use tvix_castore::{
     blobservice::BlobService, directoryservice::DirectoryService, import::fs::ingest_path, Node,
-    PathComponent,
 };
 
 use nix_compat::{
     nixhash::{CAHash, NixHash},
-    store_path::{self, StorePathRef},
+    store_path::{self, StorePath, StorePathRef},
 };
 
 use crate::{
     nar::NarCalculationService,
-    pathinfoservice::PathInfoService,
-    proto::{nar_info, NarInfo, PathInfo},
+    pathinfoservice::{PathInfo, PathInfoService},
+    proto::nar_info,
 };
 
 impl From<CAHash> for nar_info::Ca {
@@ -74,33 +73,29 @@ pub fn path_to_name(path: &Path) -> std::io::Result<&str> {
 /// Takes the NAR size, SHA-256 of the NAR representation, the root node and optionally
 /// a CA hash information.
 ///
-/// Returns the path information object for a NAR-style object.
+/// Constructs a [PathInfo] for a NAR-style object.
 ///
-/// This [`PathInfo`] can be further filled for signatures, deriver or verified for the expected
-/// hashes.
+/// The user can then further fill the fields (like deriver, signatures), and/or
+/// verify to have the expected hashes.
 #[inline]
 pub fn derive_nar_ca_path_info(
     nar_size: u64,
     nar_sha256: [u8; 32],
-    ca: Option<&CAHash>,
-    name: bytes::Bytes,
+    ca: Option<CAHash>,
+    store_path: StorePath<String>,
     root_node: Node,
 ) -> PathInfo {
     // assemble the [crate::proto::PathInfo] object.
     PathInfo {
-        node: Some(tvix_castore::proto::Node::from_name_and_node(
-            name, root_node,
-        )),
+        store_path,
+        node: root_node,
         // There's no reference scanning on path contents ingested like this.
         references: vec![],
-        narinfo: Some(NarInfo {
-            nar_size,
-            nar_sha256: nar_sha256.to_vec().into(),
-            signatures: vec![],
-            reference_names: vec![],
-            deriver: None,
-            ca: ca.map(|ca_hash| ca_hash.into()),
-        }),
+        nar_size,
+        nar_sha256,
+        signatures: vec![],
+        deriver: None,
+        ca,
     }
 }
 
@@ -141,19 +136,13 @@ where
         )
     })?;
 
-    let name: PathComponent = output_path
-        .to_string()
-        .as_str()
-        .try_into()
-        .expect("Tvix bug: StorePath must be PathComponent");
-
     log_node(name.as_ref(), &root_node, path.as_ref());
 
     let path_info = derive_nar_ca_path_info(
         nar_size,
         nar_sha256,
-        Some(&CAHash::Nar(NixHash::Sha256(nar_sha256))),
-        name.into(),
+        Some(CAHash::Nar(NixHash::Sha256(nar_sha256))),
+        output_path.to_owned(),
         root_node,
     );
 

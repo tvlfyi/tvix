@@ -136,22 +136,6 @@ Similarly, we also don't properly populate the build environment for
 `fetchClosure` yet. (Note there already is `ExportedPathInfo`, so once
 `structuredAttrs` is there this should be easy.
 
-### PathInfo Data types
-Similar to the refactors done in tvix-castore, we want a stricter type for
-PathInfo, and use the `tvix_castore::nodes::Node` type we now have as the root
-node.
-
-This allows removing some checks, conversions and handling for invalid data in
-many different places in different store implementations.
-
-Steps:
-
- - Define the stricter `PathInfo` type
- - Update the `PathInfoService` trait to use the stricter types
- - Update the grpc client impl to convert from the proto types to the
-   stricter types (and reject invalid ones)
- - Update the grpc server wrapper to convert to the proto types
-
 ### PathInfo: include references by content
 In the PathInfo struct, we currently only store references by their names and
 store path hash. Getting the castore node for the content at that store path
