@@ -133,39 +133,41 @@ mod test {
     async fn put_and_verify_signature() {
         let svc = super::test_signing_service();
 
-        // pathinfo_1 should not be there ...
+        // Pick a PATH_INFO with 0 signatures…
+        assert!(
+            PATH_INFO.signatures.is_empty(),
+            "PathInfo from fixtures should have no signatures"
+        );
+
+        // Asking PathInfoService, it should not be there ...
         assert!(svc
             .get(*PATH_INFO.store_path.digest())
             .await
             .expect("no error")
             .is_none());
 
-        // ... and not be signed
-        assert!(PATH_INFO.signatures.is_empty());
-
         // insert it
         svc.put(PATH_INFO.clone()).await.expect("no error");
 
         // now it should be there ...
-        let signed = svc
+        let path_info = svc
             .get(*PATH_INFO.store_path.digest())
             .await
             .expect("no error")
             .unwrap();
 
-        // and signed
-        let narinfo = signed.to_narinfo();
-        let fp = narinfo.fingerprint();
+        // Ensure there's a signature now
+        let new_sig = path_info
+            .signatures
+            .last()
+            .expect("The retrieved narinfo to be signed")
+            .as_ref();
 
         // load our keypair from the fixtures
         let (signing_key, _verifying_key) =
             super::parse_keypair(super::DUMMY_KEYPAIR).expect("must succeed");
 
-        // ensure the signature is added
-        let new_sig = narinfo
-            .signatures
-            .last()
-            .expect("The retrieved narinfo to be signed");
+        // ensure that the new signature is using this key name
         assert_eq!(signing_key.name(), *new_sig.name());
 
         // verify the new signature against the verifying key
@@ -173,7 +175,7 @@ mod test {
             VerifyingKey::parse(super::DUMMY_VERIFYING_KEY).expect("parsing dummy verifying key");
 
         assert!(
-            verifying_key.verify(&fp, new_sig),
+            verifying_key.verify(&path_info.to_narinfo().fingerprint(), &new_sig),
             "expect signature to be valid"
         );
     }
