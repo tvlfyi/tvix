@@ -18,7 +18,7 @@ fn main() -> Result<()> {
         .emit_rerun_if_changed(false)
         .bytes(["."])
         .type_attribute(".", "#[derive(Eq, Hash)]")
-        .compile(
+        .compile_protos(
             &[
                 "tvix/castore/protos/castore.proto",
                 "tvix/castore/protos/rpc_blobstore.proto",

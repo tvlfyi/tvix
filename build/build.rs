@@ -18,7 +18,7 @@ fn main() -> Result<()> {
         .emit_rerun_if_changed(false)
         .bytes(["."])
         .extern_path(".tvix.castore.v1", "::tvix_castore::proto")
-        .compile(
+        .compile_protos(
             &[
                 "tvix/build/protos/build.proto",
                 "tvix/build/protos/rpc_build.proto",
