@@ -4673,7 +4673,6 @@ dependencies = [
  "dirs",
  "genawaiter",
  "itertools 0.12.1",
- "lazy_static",
  "lexical-core",
  "md-5",
  "mimalloc",

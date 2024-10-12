@@ -9,9 +9,9 @@ use std::borrow::Borrow;
 use std::collections::{btree_map, BTreeMap};
 use std::iter::FromIterator;
 use std::rc::Rc;
+use std::sync::LazyLock;
 
 use bstr::BStr;
-use lazy_static::lazy_static;
 use serde::de::{Deserializer, Error, Visitor};
 use serde::Deserialize;
 
@@ -22,12 +22,8 @@ use super::Value;
 use crate::errors::ErrorKind;
 use crate::CatchableErrorKind;
 
-lazy_static! {
-    static ref NAME_S: NixString = "name".into();
-    static ref NAME_REF: &'static NixString = &NAME_S;
-    static ref VALUE_S: NixString = "value".into();
-    static ref VALUE_REF: &'static NixString = &VALUE_S;
-}
+static NAME: LazyLock<NixString> = LazyLock::new(|| "name".into());
+static VALUE: LazyLock<NixString> = LazyLock::new(|| "value".into());
 
 #[cfg(test)]
 mod tests;
@@ -201,13 +197,13 @@ impl NixAttrs {
         // Slightly more advanced, but still optimised updates
         match (Rc::unwrap_or_clone(self.0), Rc::unwrap_or_clone(other.0)) {
             (AttrsRep::Map(mut m), AttrsRep::KV { name, value }) => {
-                m.insert(NAME_S.clone(), name);
-                m.insert(VALUE_S.clone(), value);
+                m.insert(NAME.clone(), name);
+                m.insert(VALUE.clone(), value);
                 AttrsRep::Map(m).into()
             }
 
             (AttrsRep::KV { name, value }, AttrsRep::Map(mut m)) => {
-                match m.entry(NAME_S.clone()) {
+                match m.entry(NAME.clone()) {
                     btree_map::Entry::Vacant(e) => {
                         e.insert(name);
                     }
@@ -215,7 +211,7 @@ impl NixAttrs {
                     btree_map::Entry::Occupied(_) => { /* name from `m` has precedence */ }
                 };
 
-                match m.entry(VALUE_S.clone()) {
+                match m.entry(VALUE.clone()) {
                     btree_map::Entry::Vacant(e) => {
                         e.insert(value);
                     }
@@ -387,7 +383,7 @@ impl IntoIterator for NixAttrs {
         match Rc::unwrap_or_clone(self.0) {
             AttrsRep::Empty => OwnedAttrsIterator(IntoIterRepr::Empty),
             AttrsRep::KV { name, value } => OwnedAttrsIterator(IntoIterRepr::Finite(
-                vec![(NAME_REF.clone(), name), (VALUE_REF.clone(), value)].into_iter(),
+                vec![(NAME.clone(), name), (VALUE.clone(), value)].into_iter(),
             )),
             AttrsRep::Map(map) => OwnedAttrsIterator(IntoIterRepr::Map(map.into_iter())),
         }
@@ -410,8 +406,8 @@ impl IntoIterator for NixAttrs {
 fn attempt_optimise_kv(slice: &mut [Value]) -> Option<NixAttrs> {
     let (name_idx, value_idx) = {
         match (&slice[2], &slice[0]) {
-            (Value::String(s1), Value::String(s2)) if (*s1 == *NAME_S && *s2 == *VALUE_S) => (3, 1),
-            (Value::String(s1), Value::String(s2)) if (*s1 == *VALUE_S && *s2 == *NAME_S) => (1, 3),
+            (Value::String(s1), Value::String(s2)) if (*s1 == *NAME && *s2 == *VALUE) => (3, 1),
+            (Value::String(s1), Value::String(s2)) if (*s1 == *VALUE && *s2 == *NAME) => (1, 3),
 
             // Technically this branch lets type errors pass,
             // but they will be caught during normal attribute
@@ -496,12 +492,12 @@ impl<'a> Iterator for Iter<KeyValue<'a>> {
             KeyValue::KV { name, value, at } => match at {
                 IterKV::Name => {
                     at.next();
-                    Some((&NAME_REF, name))
+                    Some((&NAME, name))
                 }
 
                 IterKV::Value => {
                     at.next();
-                    Some((&VALUE_REF, value))
+                    Some((&VALUE, value))
                 }
 
                 IterKV::Done => None,
@@ -536,11 +532,11 @@ impl<'a> Iterator for Keys<'a> {
             KeysInner::Empty => None,
             KeysInner::KV(at @ IterKV::Name) => {
                 at.next();
-                Some(&NAME_REF)
+                Some(&NAME)
             }
             KeysInner::KV(at @ IterKV::Value) => {
                 at.next();
-                Some(&VALUE_REF)
+                Some(&VALUE)
             }
             KeysInner::KV(IterKV::Done) => None,
             KeysInner::Map(m) => m.next(),

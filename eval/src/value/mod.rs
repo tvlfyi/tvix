@@ -5,6 +5,7 @@ use std::fmt::Display;
 use std::num::{NonZeroI32, NonZeroUsize};
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::LazyLock;
 
 use bstr::{BString, ByteVec};
 use codemap::Span;
@@ -36,8 +37,6 @@ pub use string::{NixContext, NixContextElement, NixString};
 pub use thunk::Thunk;
 
 pub use self::thunk::ThunkSet;
-
-use lazy_static::lazy_static;
 
 #[warn(variant_size_differences)]
 #[derive(Clone, Debug, Deserialize)]
@@ -107,16 +106,15 @@ where
     }
 }
 
-lazy_static! {
-    static ref WRITE_FLOAT_OPTIONS: lexical_core::WriteFloatOptions =
-        lexical_core::WriteFloatOptionsBuilder::new()
-            .trim_floats(true)
-            .round_mode(lexical_core::write_float_options::RoundMode::Round)
-            .positive_exponent_break(Some(NonZeroI32::new(5).unwrap()))
-            .max_significant_digits(Some(NonZeroUsize::new(6).unwrap()))
-            .build()
-            .unwrap();
-}
+static WRITE_FLOAT_OPTIONS: LazyLock<lexical_core::WriteFloatOptions> = LazyLock::new(|| {
+    lexical_core::WriteFloatOptionsBuilder::new()
+        .trim_floats(true)
+        .round_mode(lexical_core::write_float_options::RoundMode::Round)
+        .positive_exponent_break(Some(NonZeroI32::new(5).unwrap()))
+        .max_significant_digits(Some(NonZeroUsize::new(6).unwrap()))
+        .build()
+        .unwrap()
+});
 
 // Helper macros to generate the to_*/as_* macros while accounting for
 // thunks.

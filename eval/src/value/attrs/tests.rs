@@ -84,10 +84,10 @@ fn test_kv_attrs_iter() {
 
     let mut iter = kv_attrs.iter().collect::<Vec<_>>().into_iter();
     let (k, v) = iter.next().unwrap();
-    assert!(k == *NAME_REF);
+    assert!(*k == *NAME);
     assert!(v.to_str().unwrap() == meaning_val.to_str().unwrap());
     let (k, v) = iter.next().unwrap();
-    assert!(k == *VALUE_REF);
+    assert!(*k == *VALUE);
     assert!(v.as_int().unwrap() == forty_two_val.as_int().unwrap());
     assert!(iter.next().is_none());
 }

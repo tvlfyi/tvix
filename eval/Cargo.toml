@@ -15,7 +15,6 @@ codemap-diagnostic = { workspace = true }
 dirs = { workspace = true }
 genawaiter = { workspace = true }
 itertools = { workspace = true }
-lazy_static = { workspace = true }
 lexical-core = { workspace = true, features = ["format", "parse-floats"] }
 os_str_bytes = { workspace = true, features = ["conversions"] }
 path-clean = { workspace = true }
