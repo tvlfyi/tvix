@@ -271,15 +271,7 @@ impl ValidatedDirectoryGraph {
             .filter_map(move |i| nodes[i.index()].weight.take())
     }
 }
-/*
-        pub static ref BROKEN_DIRECTORY : Directory = Directory {
-            symlinks: vec![SymlinkNode {
-                name: "".into(), // invalid name!
-                target: "doesntmatter".into(),
-            }],
-            ..Default::default()
-        };
-*/
+
 #[cfg(test)]
 mod tests {
     use crate::fixtures::{DIRECTORY_A, DIRECTORY_B, DIRECTORY_C};
