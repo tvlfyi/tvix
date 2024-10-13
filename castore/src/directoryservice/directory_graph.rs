@@ -276,23 +276,21 @@ impl ValidatedDirectoryGraph {
 mod tests {
     use crate::fixtures::{DIRECTORY_A, DIRECTORY_B, DIRECTORY_C};
     use crate::{Directory, Node};
-    use lazy_static::lazy_static;
     use rstest::rstest;
+    use std::sync::LazyLock;
 
     use super::{DirectoryGraph, LeavesToRootValidator, RootToLeavesValidator};
 
-    lazy_static! {
-        pub static ref BROKEN_PARENT_DIRECTORY: Directory =
-            Directory::try_from_iter([
-                (
-                    "foo".try_into().unwrap(),
-                    Node::Directory{
-                        digest: DIRECTORY_A.digest(),
-                        size: DIRECTORY_A.size() + 42, // wrong!
-                    }
-                )
-            ]).unwrap();
-    }
+    pub static BROKEN_PARENT_DIRECTORY: LazyLock<Directory> = LazyLock::new(|| {
+        Directory::try_from_iter([(
+            "foo".try_into().unwrap(),
+            Node::Directory {
+                digest: DIRECTORY_A.digest(),
+                size: DIRECTORY_A.size() + 42, // wrong!
+            },
+        )])
+        .unwrap()
+    });
 
     #[rstest]
     /// Uploading an empty directory should succeed.

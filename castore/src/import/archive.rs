@@ -292,44 +292,43 @@ impl IngestionEntryGraph {
 
 #[cfg(test)]
 mod test {
+    use std::sync::LazyLock;
+
+    use super::{Error, IngestionEntryGraph};
     use crate::import::IngestionEntry;
     use crate::B3Digest;
 
-    use super::{Error, IngestionEntryGraph};
-
-    use lazy_static::lazy_static;
     use rstest::rstest;
 
-    lazy_static! {
-        pub static ref EMPTY_DIGEST: B3Digest = blake3::hash(&[]).as_bytes().into();
-        pub static ref DIR_A: IngestionEntry = IngestionEntry::Dir {
-            path: "a".parse().unwrap()
-        };
-        pub static ref DIR_B: IngestionEntry = IngestionEntry::Dir {
-            path: "b".parse().unwrap()
-        };
-        pub static ref DIR_A_B: IngestionEntry = IngestionEntry::Dir {
-            path: "a/b".parse().unwrap()
-        };
-        pub static ref FILE_A: IngestionEntry = IngestionEntry::Regular {
-            path: "a".parse().unwrap(),
-            size: 0,
-            executable: false,
-            digest: EMPTY_DIGEST.clone(),
-        };
-        pub static ref FILE_A_B: IngestionEntry = IngestionEntry::Regular {
-            path: "a/b".parse().unwrap(),
-            size: 0,
-            executable: false,
-            digest: EMPTY_DIGEST.clone(),
-        };
-        pub static ref FILE_A_B_C: IngestionEntry = IngestionEntry::Regular {
-            path: "a/b/c".parse().unwrap(),
-            size: 0,
-            executable: false,
-            digest: EMPTY_DIGEST.clone(),
-        };
-    }
+    pub static EMPTY_DIGEST: LazyLock<B3Digest> =
+        LazyLock::new(|| blake3::hash(&[]).as_bytes().into());
+    pub static DIR_A: LazyLock<IngestionEntry> = LazyLock::new(|| IngestionEntry::Dir {
+        path: "a".parse().unwrap(),
+    });
+    pub static DIR_B: LazyLock<IngestionEntry> = LazyLock::new(|| IngestionEntry::Dir {
+        path: "b".parse().unwrap(),
+    });
+    pub static DIR_A_B: LazyLock<IngestionEntry> = LazyLock::new(|| IngestionEntry::Dir {
+        path: "a/b".parse().unwrap(),
+    });
+    pub static FILE_A: LazyLock<IngestionEntry> = LazyLock::new(|| IngestionEntry::Regular {
+        path: "a".parse().unwrap(),
+        size: 0,
+        executable: false,
+        digest: EMPTY_DIGEST.clone(),
+    });
+    pub static FILE_A_B: LazyLock<IngestionEntry> = LazyLock::new(|| IngestionEntry::Regular {
+        path: "a/b".parse().unwrap(),
+        size: 0,
+        executable: false,
+        digest: EMPTY_DIGEST.clone(),
+    });
+    pub static FILE_A_B_C: LazyLock<IngestionEntry> = LazyLock::new(|| IngestionEntry::Regular {
+        path: "a/b/c".parse().unwrap(),
+        size: 0,
+        executable: false,
+        digest: EMPTY_DIGEST.clone(),
+    });
 
     #[rstest]
     #[case::implicit_directories(&[&*FILE_A_B_C], &[&*FILE_A_B_C, &*DIR_A_B, &*DIR_A])]

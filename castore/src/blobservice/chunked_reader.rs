@@ -253,14 +253,16 @@ where
 
 #[cfg(test)]
 mod test {
-    use std::{io::SeekFrom, sync::Arc};
+    use std::{
+        io::SeekFrom,
+        sync::{Arc, LazyLock},
+    };
 
     use crate::{
         blobservice::{chunked_reader::ChunkedReader, BlobService, MemoryBlobService},
         B3Digest,
     };
     use hex_literal::hex;
-    use lazy_static::lazy_static;
     use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
     const CHUNK_1: [u8; 2] = hex!("0001");
@@ -269,21 +271,26 @@ mod test {
     const CHUNK_4: [u8; 2] = hex!("0708");
     const CHUNK_5: [u8; 7] = hex!("090a0b0c0d0e0f");
 
-    lazy_static! {
-        // `[ 0 1 ] [ 2 3 4 5 ] [ 6 ] [ 7 8 ] [ 9 10 11 12 13 14 15 ]`
-        pub static ref CHUNK_1_DIGEST: B3Digest = blake3::hash(&CHUNK_1).as_bytes().into();
-        pub static ref CHUNK_2_DIGEST: B3Digest = blake3::hash(&CHUNK_2).as_bytes().into();
-        pub static ref CHUNK_3_DIGEST: B3Digest = blake3::hash(&CHUNK_3).as_bytes().into();
-        pub static ref CHUNK_4_DIGEST: B3Digest = blake3::hash(&CHUNK_4).as_bytes().into();
-        pub static ref CHUNK_5_DIGEST: B3Digest = blake3::hash(&CHUNK_5).as_bytes().into();
-        pub static ref BLOB_1_LIST: [(B3Digest, u64); 5] = [
+    // `[ 0 1 ] [ 2 3 4 5 ] [ 6 ] [ 7 8 ] [ 9 10 11 12 13 14 15 ]`
+    pub static CHUNK_1_DIGEST: LazyLock<B3Digest> =
+        LazyLock::new(|| blake3::hash(&CHUNK_1).as_bytes().into());
+    pub static CHUNK_2_DIGEST: LazyLock<B3Digest> =
+        LazyLock::new(|| blake3::hash(&CHUNK_2).as_bytes().into());
+    pub static CHUNK_3_DIGEST: LazyLock<B3Digest> =
+        LazyLock::new(|| blake3::hash(&CHUNK_3).as_bytes().into());
+    pub static CHUNK_4_DIGEST: LazyLock<B3Digest> =
+        LazyLock::new(|| blake3::hash(&CHUNK_4).as_bytes().into());
+    pub static CHUNK_5_DIGEST: LazyLock<B3Digest> =
+        LazyLock::new(|| blake3::hash(&CHUNK_5).as_bytes().into());
+    pub static BLOB_1_LIST: LazyLock<[(B3Digest, u64); 5]> = LazyLock::new(|| {
+        [
             (CHUNK_1_DIGEST.clone(), 2),
             (CHUNK_2_DIGEST.clone(), 4),
             (CHUNK_3_DIGEST.clone(), 1),
             (CHUNK_4_DIGEST.clone(), 2),
             (CHUNK_5_DIGEST.clone(), 7),
-        ];
-    }
+        ]
+    });
 
     use super::ChunkedBlob;
 

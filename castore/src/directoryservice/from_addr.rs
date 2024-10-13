@@ -45,15 +45,14 @@ pub async fn from_addr(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::LazyLock;
+
     use super::from_addr;
-    use lazy_static::lazy_static;
     use rstest::rstest;
     use tempfile::TempDir;
 
-    lazy_static! {
-        static ref TMPDIR_REDB_1: TempDir = TempDir::new().unwrap();
-        static ref TMPDIR_REDB_2: TempDir = TempDir::new().unwrap();
-    }
+    static TMPDIR_REDB_1: LazyLock<TempDir> = LazyLock::new(|| TempDir::new().unwrap());
+    static TMPDIR_REDB_2: LazyLock<TempDir> = LazyLock::new(|| TempDir::new().unwrap());
 
     #[rstest]
     /// This uses an unsupported scheme.
