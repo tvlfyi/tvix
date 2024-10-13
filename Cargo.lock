@@ -4544,7 +4544,6 @@ dependencies = [
  "data-encoding",
  "futures",
  "itertools 0.12.1",
- "lazy_static",
  "mimalloc",
  "oci-spec",
  "prost",

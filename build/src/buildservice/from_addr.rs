@@ -66,20 +66,16 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use super::from_addr;
-    use lazy_static::lazy_static;
     use rstest::rstest;
+    use std::sync::{Arc, LazyLock};
     use tempfile::TempDir;
     use tvix_castore::{
         blobservice::{BlobService, MemoryBlobService},
         directoryservice::{DirectoryService, MemoryDirectoryService},
     };
 
-    lazy_static! {
-        static ref TMPDIR_OCI_1: TempDir = TempDir::new().unwrap();
-    }
+    static TMPDIR_OCI_1: LazyLock<TempDir> = LazyLock::new(|| TempDir::new().unwrap());
 
     #[rstest]
     /// This uses an unsupported scheme.

@@ -39,7 +39,6 @@ tonic-reflection = ["dep:tonic-reflection", "tvix-castore/tonic-reflection"]
 
 [dev-dependencies]
 rstest = { workspace = true }
-lazy_static = "1.4.0"
 tempfile = "3.3.0"
 
 [lints]
