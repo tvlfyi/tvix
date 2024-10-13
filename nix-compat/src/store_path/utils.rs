@@ -1,6 +1,6 @@
 use crate::nixbase32;
 use crate::nixhash::{CAHash, NixHash};
-use crate::store_path::{Error, StorePath, StorePathRef, STORE_DIR};
+use crate::store_path::{Error, StorePath, STORE_DIR};
 use data_encoding::HEXLOWER;
 use sha2::{Digest, Sha256};
 use thiserror;
@@ -119,12 +119,15 @@ where
         .map_err(BuildStorePathError::InvalidStorePath)
 }
 
-/// For given NAR sha256 digest and name, return the new [StorePathRef] this
-/// would have, or an error, in case the name is invalid.
-pub fn build_nar_based_store_path<'a>(
+/// For given NAR sha256 digest and name, return the new [StorePath] this would
+/// have, or an error, in case the name is invalid.
+pub fn build_nar_based_store_path<'a, SP>(
     nar_sha256_digest: &[u8; 32],
     name: &'a str,
-) -> Result<StorePathRef<'a>, BuildStorePathError> {
+) -> Result<StorePath<SP>, BuildStorePathError>
+where
+    SP: std::cmp::Eq + std::ops::Deref<Target = str> + std::convert::From<&'a str>,
+{
     let nar_hash_with_mode = CAHash::Nar(NixHash::Sha256(nar_sha256_digest.to_owned()));
 
     build_ca_path(name, &nar_hash_with_mode, Vec::<String>::new(), false)
@@ -224,7 +227,10 @@ mod test {
     use hex_literal::hex;
 
     use super::*;
-    use crate::nixhash::{CAHash, NixHash};
+    use crate::{
+        nixhash::{CAHash, NixHash},
+        store_path::StorePathRef,
+    };
 
     #[test]
     fn build_text_path_with_zero_references() {
