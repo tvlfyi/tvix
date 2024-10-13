@@ -1,8 +1,9 @@
+use std::sync::LazyLock;
+use std::{io, str};
+
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
-use lazy_static::lazy_static;
 use mimalloc::MiMalloc;
 use nix_compat::narinfo::NarInfo;
-use std::{io, str};
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -19,18 +20,16 @@ Deriver: 2ch8jx910qk6721mp4yqsmvdfgj5c8ir-banking-0.3.0.drv
 Sig: cache.nixos.org-1:xcL67rBZPcdVZudDLpLeddkBa0KaFTw5A0udnaa0axysjrQ6Nvd9p3BLZ4rhKgl52/cKiU3c6aq60L8+IcE5Dw==
 "#;
 
-lazy_static! {
-    static ref CASES: &'static [&'static str] = {
-        let data =
-            zstd::decode_all(io::Cursor::new(include_bytes!("../testdata/narinfo.zst"))).unwrap();
-        let data = str::from_utf8(Vec::leak(data)).unwrap();
-        Vec::leak(
-            data.split_inclusive("\n\n")
-                .map(|s| s.strip_suffix('\n').unwrap())
-                .collect::<Vec<_>>(),
-        )
-    };
-}
+static CASES: LazyLock<&'static [&'static str]> = LazyLock::new(|| {
+    let data =
+        zstd::decode_all(io::Cursor::new(include_bytes!("../testdata/narinfo.zst"))).unwrap();
+    let data = str::from_utf8(Vec::leak(data)).unwrap();
+    Vec::leak(
+        data.split_inclusive("\n\n")
+            .map(|s| s.strip_suffix('\n').unwrap())
+            .collect::<Vec<_>>(),
+    )
+});
 
 pub fn parse(c: &mut Criterion) {
     let mut g = c.benchmark_group("parse");

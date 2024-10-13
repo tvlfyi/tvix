@@ -333,6 +333,7 @@ where
 mod tests {
     use crate::store_path::StorePathRef;
     use std::collections::{BTreeMap, BTreeSet};
+    use std::sync::LazyLock;
 
     use crate::{
         derivation::{
@@ -342,49 +343,48 @@ mod tests {
     };
     use bstr::{BString, ByteSlice};
     use hex_literal::hex;
-    use lazy_static::lazy_static;
     use rstest::rstest;
 
     const DIGEST_SHA256: [u8; 32] =
         hex!("a5ce9c155ed09397614646c9717fc7cd94b1023d7b76b618d409e4fefd6e9d39");
 
-    lazy_static! {
-        pub static ref NIXHASH_SHA256: NixHash = NixHash::Sha256(DIGEST_SHA256);
-        static ref EXP_MULTI_OUTPUTS: BTreeMap<String, Output> = {
-            let mut b = BTreeMap::new();
-            b.insert(
-                "lib".to_string(),
-                Output {
-                    path: Some(
-                        StorePath::from_bytes(
-                            b"2vixb94v0hy2xc6p7mbnxxcyc095yyia-has-multi-out-lib",
-                        )
+    static NIXHASH_SHA256: NixHash = NixHash::Sha256(DIGEST_SHA256);
+    static EXP_MULTI_OUTPUTS: LazyLock<BTreeMap<String, Output>> = LazyLock::new(|| {
+        let mut b = BTreeMap::new();
+        b.insert(
+            "lib".to_string(),
+            Output {
+                path: Some(
+                    StorePath::from_bytes(b"2vixb94v0hy2xc6p7mbnxxcyc095yyia-has-multi-out-lib")
                         .unwrap(),
-                    ),
-                    ca_hash: None,
-                },
-            );
-            b.insert(
-                "out".to_string(),
-                Output {
-                    path: Some(
-                        StorePath::from_bytes(
-                            b"55lwldka5nyxa08wnvlizyqw02ihy8ic-has-multi-out".as_bytes(),
-                        )
-                        .unwrap(),
-                    ),
-                    ca_hash: None,
-                },
-            );
-            b
-        };
-        static ref EXP_AB_MAP: BTreeMap<String, BString> = {
-            let mut b = BTreeMap::new();
-            b.insert("a".to_string(), b"1".into());
-            b.insert("b".to_string(), b"2".into());
-            b
-        };
-        static ref EXP_INPUT_DERIVATIONS_SIMPLE: BTreeMap<StorePath<String>, BTreeSet<String>> = {
+                ),
+                ca_hash: None,
+            },
+        );
+        b.insert(
+            "out".to_string(),
+            Output {
+                path: Some(
+                    StorePath::from_bytes(
+                        b"55lwldka5nyxa08wnvlizyqw02ihy8ic-has-multi-out".as_bytes(),
+                    )
+                    .unwrap(),
+                ),
+                ca_hash: None,
+            },
+        );
+        b
+    });
+
+    static EXP_AB_MAP: LazyLock<BTreeMap<String, BString>> = LazyLock::new(|| {
+        let mut b = BTreeMap::new();
+        b.insert("a".to_string(), b"1".into());
+        b.insert("b".to_string(), b"2".into());
+        b
+    });
+
+    static EXP_INPUT_DERIVATIONS_SIMPLE: LazyLock<BTreeMap<StorePath<String>, BTreeSet<String>>> =
+        LazyLock::new(|| {
             let mut b = BTreeMap::new();
             b.insert(
                 StorePath::from_bytes(b"8bjm87p310sb7r2r0sg4xrynlvg86j8k-hello-2.12.1.tar.gz.drv")
@@ -406,21 +406,22 @@ mod tests {
                 },
             );
             b
-        };
-        static ref EXP_INPUT_DERIVATIONS_SIMPLE_ATERM: String = {
-            format!(
-                "[(\"{0}\",[\"out\"]),(\"{1}\",[\"out\",\"lib\"])]",
-                "/nix/store/8bjm87p310sb7r2r0sg4xrynlvg86j8k-hello-2.12.1.tar.gz.drv",
-                "/nix/store/p3jc8aw45dza6h52v81j7lk69khckmcj-bash-5.2-p15.drv"
-            )
-        };
-        static ref EXP_INPUT_SOURCES_SIMPLE: BTreeSet<String> = {
-            let mut b = BTreeSet::new();
-            b.insert("/nix/store/55lwldka5nyxa08wnvlizyqw02ihy8ic-has-multi-out".to_string());
-            b.insert("/nix/store/2vixb94v0hy2xc6p7mbnxxcyc095yyia-has-multi-out-lib".to_string());
-            b
-        };
-    }
+        });
+
+    static EXP_INPUT_DERIVATIONS_SIMPLE_ATERM: LazyLock<String> = LazyLock::new(|| {
+        format!(
+            "[(\"{0}\",[\"out\"]),(\"{1}\",[\"out\",\"lib\"])]",
+            "/nix/store/8bjm87p310sb7r2r0sg4xrynlvg86j8k-hello-2.12.1.tar.gz.drv",
+            "/nix/store/p3jc8aw45dza6h52v81j7lk69khckmcj-bash-5.2-p15.drv"
+        )
+    });
+
+    static EXP_INPUT_SOURCES_SIMPLE: LazyLock<BTreeSet<String>> = LazyLock::new(|| {
+        let mut b = BTreeSet::new();
+        b.insert("/nix/store/55lwldka5nyxa08wnvlizyqw02ihy8ic-has-multi-out".to_string());
+        b.insert("/nix/store/2vixb94v0hy2xc6p7mbnxxcyc095yyia-has-multi-out-lib".to_string());
+        b
+    });
 
     /// Ensure parsing KVs works
     #[rstest]

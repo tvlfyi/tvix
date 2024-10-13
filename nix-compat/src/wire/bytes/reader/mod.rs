@@ -299,11 +299,11 @@ fn with_limited<R>(buf: &mut ReadBuf, n: u64, f: impl FnOnce(&mut ReadBuf) -> R)
 
 #[cfg(test)]
 mod tests {
+    use std::sync::LazyLock;
     use std::time::Duration;
 
     use crate::wire::bytes::{padding_len, write_bytes};
     use hex_literal::hex;
-    use lazy_static::lazy_static;
     use rstest::rstest;
     use tokio::io::{AsyncReadExt, BufReader};
     use tokio_test::io::Builder;
@@ -314,9 +314,8 @@ mod tests {
     /// cases.
     const MAX_LEN: u64 = 1024;
 
-    lazy_static! {
-        pub static ref LARGE_PAYLOAD: Vec<u8> = (0..255).collect::<Vec<u8>>().repeat(4 * 1024);
-    }
+    pub static LARGE_PAYLOAD: LazyLock<Vec<u8>> =
+        LazyLock::new(|| (0..255).collect::<Vec<u8>>().repeat(4 * 1024));
 
     /// Helper function, calling the (simpler) write_bytes with the payload.
     /// We use this to create data we want to read from the wire.

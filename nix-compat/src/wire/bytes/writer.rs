@@ -232,19 +232,18 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::sync::LazyLock;
     use std::time::Duration;
 
     use crate::wire::bytes::write_bytes;
     use hex_literal::hex;
-    use lazy_static::lazy_static;
     use tokio::io::AsyncWriteExt;
     use tokio_test::{assert_err, assert_ok, io::Builder};
 
     use super::*;
 
-    lazy_static! {
-        pub static ref LARGE_PAYLOAD: Vec<u8> = (0..255).collect::<Vec<u8>>().repeat(4 * 1024);
-    }
+    pub static LARGE_PAYLOAD: LazyLock<Vec<u8>> =
+        LazyLock::new(|| (0..255).collect::<Vec<u8>>().repeat(4 * 1024));
 
     /// Helper function, calling the (simpler) write_bytes with the payload.
     /// We use this to create data we want to see on the wire.

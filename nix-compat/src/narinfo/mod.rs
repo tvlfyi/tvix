@@ -417,8 +417,8 @@ const DUMMY_VERIFYING_KEY: &str =
 #[cfg(test)]
 mod test {
     use hex_literal::hex;
-    use lazy_static::lazy_static;
     use pretty_assertions::assert_eq;
+    use std::sync::LazyLock;
     use std::{io, str};
 
     use crate::{
@@ -428,20 +428,18 @@ mod test {
 
     use super::{Flags, NarInfo};
 
-    lazy_static! {
-        static ref CASES: &'static [&'static str] = {
-            let data = zstd::decode_all(io::Cursor::new(include_bytes!(
-                "../../testdata/narinfo.zst"
-            )))
-            .unwrap();
-            let data = str::from_utf8(Vec::leak(data)).unwrap();
-            Vec::leak(
-                data.split_inclusive("\n\n")
-                    .map(|s| s.strip_suffix('\n').unwrap())
-                    .collect::<Vec<_>>(),
-            )
-        };
-    }
+    static CASES: LazyLock<&'static [&'static str]> = LazyLock::new(|| {
+        let data = zstd::decode_all(io::Cursor::new(include_bytes!(
+            "../../testdata/narinfo.zst"
+        )))
+        .unwrap();
+        let data = str::from_utf8(Vec::leak(data)).unwrap();
+        Vec::leak(
+            data.split_inclusive("\n\n")
+                .map(|s| s.strip_suffix('\n').unwrap())
+                .collect::<Vec<_>>(),
+        )
+    });
 
     #[test]
     fn roundtrip() {

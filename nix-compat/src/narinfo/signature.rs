@@ -150,32 +150,24 @@ mod test {
     use data_encoding::BASE64;
     use ed25519_dalek::VerifyingKey;
     use hex_literal::hex;
-    use lazy_static::lazy_static;
+    use std::sync::LazyLock;
 
     use super::Signature;
     use rstest::rstest;
 
     const FINGERPRINT: &str = "1;/nix/store/syd87l2rxw8cbsxmxl853h0r6pdwhwjr-curl-7.82.0-bin;sha256:1b4sb93wp679q4zx9k1ignby1yna3z7c4c2ri3wphylbc2dwsys0;196040;/nix/store/0jqd0rlxzra1rs38rdxl43yh6rxchgc6-curl-7.82.0,/nix/store/6w8g7njm4mck5dmjxws0z1xnrxvl81xa-glibc-2.34-115,/nix/store/j5jxw3iy7bbz4a57fh9g2xm2gxmyal8h-zlib-1.2.12,/nix/store/yxvjs9drzsphm9pcf42a4byzj1kb9m7k-openssl-1.1.1n";
 
-    // The signing key labelled as `cache.nixos.org-1`,
-    lazy_static! {
-        static ref PUB_CACHE_NIXOS_ORG_1: VerifyingKey = ed25519_dalek::VerifyingKey::from_bytes(
+    /// The signing key labelled as `cache.nixos.org-1`,
+    static PUB_CACHE_NIXOS_ORG_1: LazyLock<VerifyingKey> = LazyLock::new(|| {
+        ed25519_dalek::VerifyingKey::from_bytes(
             BASE64
                 .decode(b"6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=")
                 .unwrap()[..]
                 .try_into()
-                .unwrap()
+                .unwrap(),
         )
-        .unwrap();
-        static ref PUB_TEST_1: VerifyingKey = ed25519_dalek::VerifyingKey::from_bytes(
-            BASE64
-                .decode(b"tLAEn+EeaBUJYqEpTd2yeerr7Ic6+0vWe+aXL/vYUpE=")
-                .unwrap()[..]
-                .try_into()
-                .unwrap()
-        )
-        .unwrap();
-    }
+        .expect("embedded public key is valid")
+    });
 
     #[rstest]
     #[case::valid_cache_nixos_org_1(&PUB_CACHE_NIXOS_ORG_1, &"cache.nixos.org-1:TsTTb3WGTZKphvYdBHXwo6weVILmTytUjLB+vcX89fOjjRicCHmKA4RCPMVLkj6TMJ4GMX3HPVWRdD1hkeKZBQ==", FINGERPRINT, true)]

@@ -7254,10 +7254,6 @@ rec {
             packageId = "hex-literal";
           }
           {
-            name = "lazy_static";
-            packageId = "lazy_static";
-          }
-          {
             name = "mimalloc";
             packageId = "mimalloc";
           }
