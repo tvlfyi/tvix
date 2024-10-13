@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-lazy_static = { workspace = true }
 tracing = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 indicatif = { workspace = true }

@@ -16179,10 +16179,6 @@ rec {
             packageId = "indicatif";
           }
           {
-            name = "lazy_static";
-            packageId = "lazy_static";
-          }
-          {
             name = "opentelemetry";
             packageId = "opentelemetry 0.24.0";
             optional = true;

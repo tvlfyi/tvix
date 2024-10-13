@@ -1,5 +1,5 @@
 use indicatif::ProgressStyle;
-use lazy_static::lazy_static;
+use std::sync::LazyLock;
 use tokio::sync::{mpsc, oneshot};
 use tracing::Level;
 use tracing_indicatif::{filter::IndicatifFilter, writer, IndicatifLayer, IndicatifWriter};
@@ -22,20 +22,24 @@ use tracing_tracy::TracyLayer;
 
 pub mod propagate;
 
-lazy_static! {
-    pub static ref PB_PROGRESS_STYLE: ProgressStyle = ProgressStyle::with_template(
-        "{span_child_prefix} {wide_msg} {bar:10} ({elapsed}) {pos:>7}/{len:7}"
+pub static PB_PROGRESS_STYLE: LazyLock<ProgressStyle> = LazyLock::new(|| {
+    ProgressStyle::with_template(
+        "{span_child_prefix} {wide_msg} {bar:10} ({elapsed}) {pos:>7}/{len:7}",
     )
-    .expect("invalid progress template");
-    pub static ref PB_TRANSFER_STYLE: ProgressStyle = ProgressStyle::with_template(
+    .expect("invalid progress template")
+});
+pub static PB_TRANSFER_STYLE: LazyLock<ProgressStyle> = LazyLock::new(|| {
+    ProgressStyle::with_template(
         "{span_child_prefix} {wide_msg} {binary_bytes:>7}/{binary_total_bytes:7}@{decimal_bytes_per_sec} ({elapsed}) {bar:10} "
     )
-    .expect("invalid progress template");
-    pub static ref PB_SPINNER_STYLE: ProgressStyle = ProgressStyle::with_template(
-        "{span_child_prefix}{spinner} {wide_msg} ({elapsed}) {pos:>7}/{len:7}"
+    .expect("invalid progress template")
+});
+pub static PB_SPINNER_STYLE: LazyLock<ProgressStyle> = LazyLock::new(|| {
+    ProgressStyle::with_template(
+        "{span_child_prefix}{spinner} {wide_msg} ({elapsed}) {pos:>7}/{len:7}",
     )
-    .expect("invalid progress template");
-}
+    .expect("invalid progress template")
+});
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

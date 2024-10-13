@@ -4824,7 +4824,6 @@ dependencies = [
  "axum",
  "http",
  "indicatif",
- "lazy_static",
  "opentelemetry 0.24.0",
  "opentelemetry-http",
  "opentelemetry-otlp",
