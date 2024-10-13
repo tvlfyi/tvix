@@ -144,48 +144,69 @@ impl KnownPaths {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::LazyLock;
+
+    use hex_literal::hex;
     use nix_compat::{derivation::Derivation, nixbase32, nixhash, store_path::StorePath};
     use url::Url;
 
+    use super::KnownPaths;
     use crate::fetchers::Fetch;
 
-    use super::KnownPaths;
-    use hex_literal::hex;
-    use lazy_static::lazy_static;
-
-    lazy_static! {
-        static ref BAR_DRV: Derivation = Derivation::from_aterm_bytes(include_bytes!(
+    static BAR_DRV: LazyLock<Derivation> = LazyLock::new(|| {
+        Derivation::from_aterm_bytes(include_bytes!(
             "tests/ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv"
         ))
-        .expect("must parse");
-        static ref FOO_DRV: Derivation = Derivation::from_aterm_bytes(include_bytes!(
+        .expect("must parse")
+    });
+
+    static FOO_DRV: LazyLock<Derivation> = LazyLock::new(|| {
+        Derivation::from_aterm_bytes(include_bytes!(
             "tests/ch49594n9avinrf8ip0aslidkc4lxkqv-foo.drv"
         ))
-        .expect("must parse");
-        static ref BAR_DRV_PATH: StorePath<String> =
-            StorePath::from_bytes(b"ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv").expect("must parse");
-        static ref FOO_DRV_PATH: StorePath<String> =
-            StorePath::from_bytes(b"ch49594n9avinrf8ip0aslidkc4lxkqv-foo.drv").expect("must parse");
-        static ref BAR_OUT_PATH: StorePath<String> =
-            StorePath::from_bytes(b"mp57d33657rf34lzvlbpfa1gjfv5gmpg-bar").expect("must parse");
-        static ref FOO_OUT_PATH: StorePath<String> =
-            StorePath::from_bytes(b"fhaj6gmwns62s6ypkcldbaj2ybvkhx3p-foo").expect("must parse");
+        .expect("must parse")
+    });
 
-        static ref FETCH_URL : Fetch = Fetch::URL{
-            url: Url::parse("https://raw.githubusercontent.com/aaptel/notmuch-extract-patch/f732a53e12a7c91a06755ebfab2007adc9b3063b/notmuch-extract-patch").unwrap(),
-            exp_hash: Some(nixhash::from_sri_str("sha256-Xa1Jbl2Eq5+L0ww+Ph1osA3Z/Dxe/RkN1/dITQCdXFk=").unwrap())
-        };
-        static ref FETCH_URL_OUT_PATH: StorePath<String> = StorePath::from_bytes(b"06qi00hylriyfm0nl827crgjvbax84mz-notmuch-extract-patch").unwrap();
+    static BAR_DRV_PATH: LazyLock<StorePath<String>> = LazyLock::new(|| {
+        StorePath::from_bytes(b"ss2p4wmxijn652haqyd7dckxwl4c7hxx-bar.drv").expect("must parse")
+    });
 
-        static ref FETCH_TARBALL : Fetch = Fetch::Tarball{
-            url: Url::parse("https://github.com/NixOS/nixpkgs/archive/91050ea1e57e50388fa87a3302ba12d188ef723a.tar.gz").unwrap(),
-            exp_nar_sha256: Some(nixbase32::decode_fixed("1hf6cgaci1n186kkkjq106ryf8mmlq9vnwgfwh625wa8hfgdn4dm").unwrap())
-        };
-        static ref FETCH_TARBALL_OUT_PATH: StorePath<String> = StorePath::from_bytes(b"7adgvk5zdfq4pwrhsm3n9lzypb12gw0g-source").unwrap();
+    static FOO_DRV_PATH: LazyLock<StorePath<String>> = LazyLock::new(|| {
+        StorePath::from_bytes(b"ch49594n9avinrf8ip0aslidkc4lxkqv-foo.drv").expect("must parse")
+    });
+
+    static BAR_OUT_PATH: LazyLock<StorePath<String>> = LazyLock::new(|| {
+        StorePath::from_bytes(b"mp57d33657rf34lzvlbpfa1gjfv5gmpg-bar").expect("must parse")
+    });
+
+    static FOO_OUT_PATH: LazyLock<StorePath<String>> = LazyLock::new(|| {
+        StorePath::from_bytes(b"fhaj6gmwns62s6ypkcldbaj2ybvkhx3p-foo").expect("must parse")
+    });
+
+    static FETCH_URL: LazyLock<Fetch> = LazyLock::new(|| {
+        Fetch::URL {
+        url: Url::parse("https://raw.githubusercontent.com/aaptel/notmuch-extract-patch/f732a53e12a7c91a06755ebfab2007adc9b3063b/notmuch-extract-patch").unwrap(),
+        exp_hash: Some(nixhash::from_sri_str("sha256-Xa1Jbl2Eq5+L0ww+Ph1osA3Z/Dxe/RkN1/dITQCdXFk=").unwrap())
     }
+    });
 
-    /// ensure we don't allow acdding a Derivation that depends on another,
-    /// not-yet-added Derivation.
+    static FETCH_URL_OUT_PATH: LazyLock<StorePath<String>> = LazyLock::new(|| {
+        StorePath::from_bytes(b"06qi00hylriyfm0nl827crgjvbax84mz-notmuch-extract-patch").unwrap()
+    });
+
+    static FETCH_TARBALL: LazyLock<Fetch> = LazyLock::new(|| {
+        Fetch::Tarball {
+        url: Url::parse("https://github.com/NixOS/nixpkgs/archive/91050ea1e57e50388fa87a3302ba12d188ef723a.tar.gz").unwrap(),
+        exp_nar_sha256: Some(nixbase32::decode_fixed("1hf6cgaci1n186kkkjq106ryf8mmlq9vnwgfwh625wa8hfgdn4dm").unwrap())
+    }
+    });
+
+    static FETCH_TARBALL_OUT_PATH: LazyLock<StorePath<String>> = LazyLock::new(|| {
+        StorePath::from_bytes(b"7adgvk5zdfq4pwrhsm3n9lzypb12gw0g-source").unwrap()
+    });
+
+    /// Ensure that we don't allow adding a derivation that depends on another,
+    /// not-yet-added derivation.
     #[test]
     #[should_panic]
     fn drv_reject_if_missing_input_drv() {

@@ -213,6 +213,7 @@ mod test {
     use bytes::Bytes;
     use nix_compat::derivation::Derivation;
     use std::collections::BTreeMap;
+    use std::sync::LazyLock;
     use tvix_build::proto::{
         build_request::{AdditionalFile, BuildConstraints, EnvVar},
         BuildRequest,
@@ -223,15 +224,14 @@ mod test {
     use crate::tvix_build::NIX_ENVIRONMENT_VARS;
 
     use super::derivation_to_build_request;
-    use lazy_static::lazy_static;
 
-    lazy_static! {
-        static ref INPUT_NODE_FOO_NAME: Bytes = "mp57d33657rf34lzvlbpfa1gjfv5gmpg-bar".into();
-        static ref INPUT_NODE_FOO: Node = Node::Directory {
-            digest: DUMMY_DIGEST.clone(),
-            size: 42
-        };
-    }
+    static INPUT_NODE_FOO_NAME: LazyLock<Bytes> =
+        LazyLock::new(|| "mp57d33657rf34lzvlbpfa1gjfv5gmpg-bar".into());
+
+    static INPUT_NODE_FOO: LazyLock<Node> = LazyLock::new(|| Node::Directory {
+        digest: DUMMY_DIGEST.clone(),
+        size: 42,
+    });
 
     #[test]
     fn test_derivation_to_build_request() {

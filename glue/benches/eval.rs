@@ -1,7 +1,7 @@
 use clap::Parser;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use lazy_static::lazy_static;
 use mimalloc::MiMalloc;
+use std::sync::LazyLock;
 use std::{env, rc::Rc, sync::Arc, time::Duration};
 use tvix_build::buildservice::DummyBuildService;
 use tvix_eval::{builtins::impure_builtins, EvalIO};
@@ -16,9 +16,8 @@ use tvix_store::utils::{construct_services, ServiceUrlsMemory};
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
-lazy_static! {
-    static ref TOKIO_RUNTIME: tokio::runtime::Runtime = tokio::runtime::Runtime::new().unwrap();
-}
+static TOKIO_RUNTIME: LazyLock<tokio::runtime::Runtime> =
+    LazyLock::new(|| tokio::runtime::Runtime::new().unwrap());
 
 fn interpret(code: &str) {
     // TODO: this is a bit annoying.
