@@ -15180,10 +15180,6 @@ rec {
             packageId = "hyper-util";
           }
           {
-            name = "lazy_static";
-            packageId = "lazy_static";
-          }
-          {
             name = "libc";
             packageId = "libc";
             optional = true;

@@ -99,7 +99,6 @@
 use erased_serde::deserialize;
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use lazy_static::lazy_static;
 use serde::de::DeserializeOwned;
 use serde_tagged::de::{BoxFnSeed, SeedFactory};
 use serde_tagged::util::TagString;
@@ -108,7 +107,7 @@ use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use tonic::async_trait;
 
 /// Resolves tag names to the corresponding Config type.
@@ -261,14 +260,13 @@ pub fn with_registry<R>(reg: &'static Registry, f: impl FnOnce() -> R) -> R {
     result
 }
 
-lazy_static! {
-    /// The provided registry of tvix_castore, with all builtin BlobStore/DirectoryStore implementations
-    pub static ref REG: Registry = {
-        let mut reg = Default::default();
-        add_default_services(&mut reg);
-        reg
-    };
-}
+/// The provided registry of tvix_castore, with all builtin BlobStore/DirectoryStore implementations
+pub static REG: LazyLock<&'static Registry> = LazyLock::new(|| {
+    let mut reg = Default::default();
+    add_default_services(&mut reg);
+    // explicitly leak to get an &'static, so that we gain `&Registry: Send` from `Registry: Sync`
+    Box::leak(Box::new(reg))
+});
 
 // ---------- End of generic registry code --------- //
 
