@@ -4776,7 +4776,6 @@ dependencies = [
  "ed25519-dalek",
  "futures",
  "hyper-util",
- "lazy_static",
  "lru",
  "mimalloc",
  "nix-compat",

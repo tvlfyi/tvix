@@ -57,16 +57,14 @@ pub async fn from_addr(
 mod tests {
     use super::from_addr;
     use crate::composition::{Composition, DeserializeWithRegistry, ServiceBuilder, REG};
-    use lazy_static::lazy_static;
     use rstest::rstest;
+    use std::sync::LazyLock;
     use tempfile::TempDir;
     use tvix_castore::blobservice::{BlobService, MemoryBlobServiceConfig};
     use tvix_castore::directoryservice::{DirectoryService, MemoryDirectoryServiceConfig};
 
-    lazy_static! {
-        static ref TMPDIR_REDB_1: TempDir = TempDir::new().unwrap();
-        static ref TMPDIR_REDB_2: TempDir = TempDir::new().unwrap();
-    }
+    static TMPDIR_REDB_1: LazyLock<TempDir> = LazyLock::new(|| TempDir::new().unwrap());
+    static TMPDIR_REDB_2: LazyLock<TempDir> = LazyLock::new(|| TempDir::new().unwrap());
 
     // the gRPC tests below don't fail, because we connect lazily.
 

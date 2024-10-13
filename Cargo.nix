@@ -15965,10 +15965,6 @@ rec {
             packageId = "hyper-util";
           }
           {
-            name = "lazy_static";
-            packageId = "lazy_static";
-          }
-          {
             name = "lru";
             packageId = "lru";
           }

@@ -1,37 +1,39 @@
+use std::sync::LazyLock;
+
 use crate::pathinfoservice::PathInfo;
 use crate::proto::{self, ValidatePathInfoError};
 use crate::tests::fixtures::{DUMMY_PATH, DUMMY_PATH_DIGEST, DUMMY_PATH_STR};
 use bytes::Bytes;
-use lazy_static::lazy_static;
 use nix_compat::store_path;
 use rstest::rstest;
 use tvix_castore::fixtures::DUMMY_DIGEST;
 use tvix_castore::proto as castorepb;
 use tvix_castore::{DirectoryError, ValidateNodeError};
 
-lazy_static! {
-    /// A valid PathInfo message
-    /// The references in `narinfo.reference_names` aligns with what's in
-    /// `references`.
-    static ref PROTO_PATH_INFO : proto::PathInfo = proto::PathInfo {
-        node: Some(castorepb::Node {
-            node: Some(castorepb::node::Node::Directory(castorepb::DirectoryNode {
-                name: DUMMY_PATH_STR.into(),
-                digest: DUMMY_DIGEST.clone().into(),
-                size: 0,
-            })),
+/// A valid PathInfo message
+/// The references in `narinfo.reference_names` aligns with what's in
+/// `references`.
+static PROTO_PATH_INFO: LazyLock<proto::PathInfo> = LazyLock::new(|| proto::PathInfo {
+    node: Some(castorepb::Node {
+        node: Some(castorepb::node::Node::Directory(castorepb::DirectoryNode {
+            name: DUMMY_PATH_STR.into(),
+            digest: DUMMY_DIGEST.clone().into(),
+            size: 0,
+        })),
+    }),
+    references: vec![DUMMY_PATH_DIGEST.as_slice().into()],
+    narinfo: Some(proto::NarInfo {
+        nar_size: 0,
+        nar_sha256: DUMMY_DIGEST.clone().into(),
+        signatures: vec![],
+        reference_names: vec![DUMMY_PATH_STR.to_string()],
+        deriver: None,
+        ca: Some(proto::nar_info::Ca {
+            r#type: proto::nar_info::ca::Hash::NarSha256.into(),
+            digest: DUMMY_DIGEST.clone().into(),
         }),
-        references: vec![DUMMY_PATH_DIGEST.as_slice().into()],
-        narinfo: Some(proto::NarInfo {
-            nar_size: 0,
-            nar_sha256: DUMMY_DIGEST.clone().into(),
-            signatures: vec![],
-            reference_names: vec![DUMMY_PATH_STR.to_string()],
-            deriver: None,
-            ca: Some(proto::nar_info::Ca { r#type: proto::nar_info::ca::Hash::NarSha256.into(), digest:  DUMMY_DIGEST.clone().into() })
-        }),
-    };
-}
+    }),
+});
 
 #[test]
 fn convert_valid() {

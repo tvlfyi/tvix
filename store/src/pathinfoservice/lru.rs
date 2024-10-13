@@ -86,22 +86,20 @@ impl ServiceBuilder for LruPathInfoServiceConfig {
 #[cfg(test)]
 mod test {
     use nix_compat::store_path::StorePath;
-    use std::num::NonZeroUsize;
+    use std::{num::NonZeroUsize, sync::LazyLock};
 
     use crate::{
         pathinfoservice::{LruPathInfoService, PathInfo, PathInfoService},
         tests::fixtures::PATH_INFO,
     };
-    use lazy_static::lazy_static;
+    static PATHINFO_2: LazyLock<PathInfo> = LazyLock::new(|| {
+        let mut p = PATH_INFO.clone();
+        p.store_path = StorePath::from_name_and_digest_fixed("dummy", [1; 20]).unwrap();
+        p
+    });
 
-    lazy_static! {
-        static ref PATHINFO_2: PathInfo = {
-            let mut p = PATH_INFO.clone();
-            p.store_path = StorePath::from_name_and_digest_fixed("dummy", [1; 20]).unwrap();
-            p
-        };
-        static ref PATHINFO_2_DIGEST: [u8; 20] = *PATHINFO_2.store_path.digest();
-    }
+    static PATHINFO_2_DIGEST: LazyLock<[u8; 20]> =
+        LazyLock::new(|| *PATHINFO_2.store_path.digest());
 
     #[tokio::test]
     async fn evict() {
