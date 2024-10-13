@@ -136,33 +136,6 @@ Similarly, we also don't properly populate the build environment for
 `fetchClosure` yet. (Note there already is `ExportedPathInfo`, so once
 `structuredAttrs` is there this should be easy.
 
-### PathInfo: include references by content
-In the PathInfo struct, we currently only store references by their names and
-store path hash. Getting the castore node for the content at that store path
-requires another lookup to the PathInfoService.
-
-Due to this information missing, this also means we currently cannot preserve
-information necessary to detect/prevent
-[Frankenbuilds](https://tvl.fyi/blog/tvix-update-february-24#builder-protocol-drv-builder).
-
-We should extend/change the `PathInfo` type to maintain references in a
-`BTreeMap` from store path basename to castore node. Should probably be done
-after PathInfo uses its own data type.
-
-The `NixHTTPPathInfoService` needs to get some more logic to populate the ca
-bits of the references:
-
- - If the referenced store path if not present in our PathInfoService hierarchy,
-   it needs to be ingested too, and persisted.
- - If the referenced store path is present, we can use the castore root from there.
-   In an optional mode, we should parse the .narinfo file for the reference, and
-   compare the nar hash with our local one, to detect Frankenbuilds in a binary
-cache.
-
-As `NixHTTPPathInfoService` now needs to interact with "the PathInfoService"
-hierarchy, we need to accept a pointer to a PathInfoService (hierarchy) that's
-used to check for presence, and PathInfos are inserted into.
-
 ### Builders
 Once builds are proven to work with real-world builds, and the corner cases
 there are ruled out, adding other types of builders might be interesting.
