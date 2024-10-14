@@ -1,7 +1,6 @@
 //! This module provides an implementation of EvalIO talking to tvix-store.
 use bytes::Bytes;
 use futures::{StreamExt, TryStreamExt};
-use nix_compat::store_path::StorePathRef;
 use nix_compat::{nixhash::CAHash, store_path::StorePath};
 use std::collections::BTreeMap;
 use std::{
@@ -434,15 +433,6 @@ impl TvixStoreIO {
     ) -> io::Result<PathInfo> {
         let path_info = self.node_to_path_info(name, path, ca, root_node).await?;
         Ok(self.path_info_service.as_ref().put(path_info).await?)
-    }
-
-    pub async fn store_path_exists<'a>(&'a self, store_path: StorePathRef<'a>) -> io::Result<bool> {
-        Ok(self
-            .path_info_service
-            .as_ref()
-            .get(*store_path.digest())
-            .await?
-            .is_some())
     }
 }
 

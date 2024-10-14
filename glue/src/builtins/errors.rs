@@ -69,8 +69,8 @@ pub enum ImportError {
     #[error("hash mismatch at ingestion of '{0}', expected: '{1}', got: '{2}'")]
     HashMismatch(String, NixHash, NixHash),
 
-    #[error("path '{}' is not in the Nix store", .0.display())]
-    PathNotInStore(PathBuf),
+    #[error("path '{}' is not absolute or invalid", .0.display())]
+    PathNotAbsoluteOrInvalid(PathBuf),
 }
 
 impl From<ImportError> for tvix_eval::ErrorKind {

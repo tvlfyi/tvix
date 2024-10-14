@@ -1,6 +1,6 @@
 //! Implements builtins used to import paths in the store.
 
-use crate::builtins::errors::ImportError;
+use crate::tvix_store_io::TvixStoreIO;
 use std::path::Path;
 use tvix_castore::import::ingest_entries;
 use tvix_castore::Node;
@@ -106,15 +106,15 @@ async fn filtered_ingest(
 
 #[builtins(state = "Rc<TvixStoreIO>")]
 mod import_builtins {
-    use std::os::unix::ffi::OsStrExt;
-    use std::rc::Rc;
-
     use super::*;
 
+    use crate::builtins::ImportError;
     use crate::tvix_store_io::TvixStoreIO;
+    use bstr::ByteSlice;
     use nix_compat::nixhash::{CAHash, NixHash};
     use nix_compat::store_path::StorePathRef;
     use sha2::Digest;
+    use std::rc::Rc;
     use tokio::io::AsyncWriteExt;
     use tvix_eval::builtins::coerce_value_to_path;
     use tvix_eval::generators::Gen;
@@ -367,39 +367,33 @@ mod import_builtins {
         co: GenCo,
         path: Value,
     ) -> Result<Value, ErrorKind> {
-        let p = std::str::from_utf8(match &path {
-            Value::String(s) => s.as_bytes(),
-            Value::Path(p) => p.as_os_str().as_bytes(),
+        let p = match &path {
+            Value::String(s) => Path::new(s.as_bytes().to_os_str()?),
+            Value::Path(p) => p.as_path(),
             _ => {
                 return Err(ErrorKind::TypeError {
                     expected: "string or path",
                     actual: path.type_of(),
                 })
             }
-        })?;
+        };
 
-        let path_exists =
-            if let Ok((store_path, sub_path)) = StorePathRef::from_absolute_path_full(p) {
-                if !sub_path.as_os_str().is_empty() {
-                    false
-                } else {
-                    state.store_path_exists(store_path.as_ref()).await?
-                }
-            } else {
-                false
-            };
+        // For this builtin, the path needs to start with an absolute store path.
+        let (store_path, _sub_path) = StorePathRef::from_absolute_path_full(p)
+            .map_err(|_e| ImportError::PathNotAbsoluteOrInvalid(p.to_path_buf()))?;
 
-        if !path_exists {
-            return Err(ImportError::PathNotInStore(p.into()).into());
+        if state.path_exists(p)? {
+            Ok(Value::String(NixString::new_context_from(
+                [NixContextElement::Plain(store_path.to_absolute_path())].into(),
+                p.as_os_str().as_encoded_bytes(),
+            )))
+        } else {
+            Err(ErrorKind::IO {
+                path: Some(p.to_path_buf()),
+                error: Rc::new(std::io::ErrorKind::NotFound.into()),
+            })
         }
-
-        Ok(Value::String(NixString::new_context_from(
-            [NixContextElement::Plain(p.into())].into(),
-            p,
-        )))
     }
 }
 
 pub use import_builtins::builtins as import_builtins;
-
-use crate::tvix_store_io::TvixStoreIO;
