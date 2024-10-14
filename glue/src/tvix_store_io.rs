@@ -449,9 +449,7 @@ impl TvixStoreIO {
 impl EvalIO for TvixStoreIO {
     #[instrument(skip(self), ret(level = Level::TRACE), err)]
     fn path_exists(&self, path: &Path) -> io::Result<bool> {
-        if let Ok((store_path, sub_path)) =
-            StorePath::from_absolute_path_full(&path.to_string_lossy())
-        {
+        if let Ok((store_path, sub_path)) = StorePath::from_absolute_path_full(path) {
             if self
                 .tokio_handle
                 .block_on(self.store_path_to_node(&store_path, sub_path))?
@@ -471,9 +469,7 @@ impl EvalIO for TvixStoreIO {
 
     #[instrument(skip(self), err)]
     fn open(&self, path: &Path) -> io::Result<Box<dyn io::Read>> {
-        if let Ok((store_path, sub_path)) =
-            StorePath::from_absolute_path_full(&path.to_string_lossy())
-        {
+        if let Ok((store_path, sub_path)) = StorePath::from_absolute_path_full(path) {
             if let Some(node) = self
                 .tokio_handle
                 .block_on(async { self.store_path_to_node(&store_path, sub_path).await })?
@@ -527,9 +523,7 @@ impl EvalIO for TvixStoreIO {
 
     #[instrument(skip(self), ret(level = Level::TRACE), err)]
     fn file_type(&self, path: &Path) -> io::Result<FileType> {
-        if let Ok((store_path, sub_path)) =
-            StorePath::from_absolute_path_full(&path.to_string_lossy())
-        {
+        if let Ok((store_path, sub_path)) = StorePath::from_absolute_path_full(path) {
             if let Some(node) = self
                 .tokio_handle
                 .block_on(async { self.store_path_to_node(&store_path, sub_path).await })?
@@ -549,9 +543,7 @@ impl EvalIO for TvixStoreIO {
 
     #[instrument(skip(self), ret(level = Level::TRACE), err)]
     fn read_dir(&self, path: &Path) -> io::Result<Vec<(bytes::Bytes, FileType)>> {
-        if let Ok((store_path, sub_path)) =
-            StorePath::from_absolute_path_full(&path.to_string_lossy())
-        {
+        if let Ok((store_path, sub_path)) = StorePath::from_absolute_path_full(path) {
             if let Some(node) = self
                 .tokio_handle
                 .block_on(async { self.store_path_to_node(&store_path, sub_path).await })?

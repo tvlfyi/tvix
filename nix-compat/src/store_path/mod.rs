@@ -9,9 +9,6 @@ use std::{
 };
 use thiserror;
 
-#[cfg(target_family = "unix")]
-use std::os::unix::ffi::OsStrExt;
-
 mod utils;
 
 pub use utils::*;
@@ -160,31 +157,27 @@ where
     /// Decompose a string into a [StorePath] and a [PathBuf] containing the
     /// rest of the path, or an error.
     #[cfg(target_family = "unix")]
-    pub fn from_absolute_path_full<'a>(s: &'a str) -> Result<(Self, &'a Path), Error>
+    pub fn from_absolute_path_full<'a, P>(path: &'a P) -> Result<(Self, &'a Path), Error>
     where
         S: From<&'a str>,
+        P: AsRef<std::path::Path> + ?Sized,
     {
         // strip [STORE_DIR_WITH_SLASH] from s
+        let p = path
+            .as_ref()
+            .strip_prefix(STORE_DIR_WITH_SLASH)
+            .map_err(|_e| Error::MissingStoreDir)?;
 
-        match s.strip_prefix(STORE_DIR_WITH_SLASH) {
-            None => Err(Error::MissingStoreDir),
-            Some(rest) => {
-                let mut it = Path::new(rest).components();
+        let mut it = Path::new(p).components();
 
-                // The first component of the rest must be parse-able as a [StorePath]
-                if let Some(first_component) = it.next() {
-                    // convert first component to StorePath
-                    let store_path = StorePath::from_bytes(first_component.as_os_str().as_bytes())?;
+        // The first component of the rest must be parse-able as a [StorePath]
+        let first_component = it.next().ok_or(Error::InvalidLength)?;
+        let store_path = StorePath::from_bytes(first_component.as_os_str().as_encoded_bytes())?;
 
-                    // collect rest
-                    let rest_buf = it.as_path();
+        // collect rest
+        let rest_buf = it.as_path();
 
-                    Ok((store_path, rest_buf))
-                } else {
-                    Err(Error::InvalidLength) // Well, or missing "/"?
-                }
-            }
-        }
+        Ok((store_path, rest_buf))
     }
 
     /// Returns an absolute store path string.
