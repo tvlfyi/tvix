@@ -8,7 +8,7 @@ use futures::stream::BoxStream;
 use nix_compat::nixbase32;
 use std::sync::Arc;
 use tonic::{async_trait, Code};
-use tracing::{instrument, Span};
+use tracing::{instrument, warn, Span};
 use tracing_indicatif::span_ext::IndicatifSpanExt;
 use tvix_castore::composition::{CompositionContext, ServiceBuilder};
 use tvix_castore::Error;
@@ -94,6 +94,13 @@ where
         };
 
         Box::pin(stream)
+    }
+
+    #[instrument(level = "trace", skip_all)]
+    fn nar_calculation_service(&self) -> Option<Box<dyn NarCalculationService>> {
+        Some(Box::new(GRPCPathInfoService {
+            grpc_client: self.grpc_client.clone(),
+        }) as Box<dyn NarCalculationService>)
     }
 }
 
