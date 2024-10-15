@@ -48,6 +48,20 @@ impl std::fmt::Display for FileType {
     }
 }
 
+impl From<std::fs::FileType> for FileType {
+    fn from(value: std::fs::FileType) -> Self {
+        if value.is_file() {
+            Self::Regular
+        } else if value.is_dir() {
+            Self::Directory
+        } else if value.is_symlink() {
+            Self::Symlink
+        } else {
+            Self::Unknown
+        }
+    }
+}
+
 /// Represents all possible filesystem interactions that exist in the Nix
 /// language, and that need to be executed somehow.
 ///
