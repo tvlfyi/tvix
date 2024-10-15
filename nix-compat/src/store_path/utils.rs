@@ -119,20 +119,6 @@ where
         .map_err(BuildStorePathError::InvalidStorePath)
 }
 
-/// For given NAR sha256 digest and name, return the new [StorePath] this would
-/// have, or an error, in case the name is invalid.
-pub fn build_nar_based_store_path<'a, SP>(
-    nar_sha256_digest: &[u8; 32],
-    name: &'a str,
-) -> Result<StorePath<SP>, BuildStorePathError>
-where
-    SP: std::cmp::Eq + std::ops::Deref<Target = str> + std::convert::From<&'a str>,
-{
-    let nar_hash_with_mode = CAHash::Nar(NixHash::Sha256(nar_sha256_digest.to_owned()));
-
-    build_ca_path(name, &nar_hash_with_mode, Vec::<String>::new(), false)
-}
-
 /// This builds an input-addressed store path.
 ///
 /// Input-addresed store paths are always derivation outputs, the "input" in question is the

@@ -99,11 +99,13 @@ where
     // Ask for the NAR size and sha256
     let (nar_size, nar_sha256) = nar_calculation_service.calculate_nar(&root_node).await?;
 
+    let ca = CAHash::Nar(NixHash::Sha256(nar_sha256));
+
     // Calculate the output path. This might still fail, as some names are illegal.
     // FUTUREWORK: express the `name` at the type level to be valid and move the conversion
     // at the caller level.
-    let output_path: StorePath<String> = store_path::build_nar_based_store_path(&nar_sha256, name)
-        .map_err(|_| {
+    let output_path: StorePath<String> =
+        store_path::build_ca_path(name, &ca, std::iter::empty::<&str>(), false).map_err(|_| {
             std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 format!("invalid name: {}", name),
@@ -122,7 +124,7 @@ where
             nar_sha256,
             signatures: vec![],
             deriver: None,
-            ca: Some(CAHash::Nar(NixHash::Sha256(nar_sha256))),
+            ca: Some(ca),
         })
         .await?)
 }
