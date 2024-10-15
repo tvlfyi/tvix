@@ -537,14 +537,13 @@ mod tests {
         assert!(eval_result.errors.is_empty(), "errors should be empty");
     }
 
-    // Space is an illegal character.
+    /// Space is an illegal character, but if we specify a name without spaces, it's ok.
     #[rstest]
-    #[case(
+    #[case::rename_success(
         r#"(builtins.path { name = "valid-name"; path = @fixtures + "/te st"; recursive = true; })"#,
         true
     )]
-    // Space is still an illegal character.
-    #[case(
+    #[case::rename_with_spaces_fail(
         r#"(builtins.path { name = "invalid name"; path = @fixtures + "/te st"; recursive = true; })"#,
         false
     )]
@@ -583,14 +582,13 @@ mod tests {
         }
     }
 
-    // Space is an illegal character.
+    /// Space is an illegal character, but if we specify a name without spaces, it's ok.
     #[rstest]
-    #[case(
+    #[case::rename_success(
         r#"(builtins.path { name = "valid-name"; path = @fixtures + "/te st"; recursive = false; })"#,
         true
     )]
-    // Space is still an illegal character.
-    #[case(
+    #[case::rename_with_spaces_fail(
         r#"(builtins.path { name = "invalid name"; path = @fixtures + "/te st"; recursive = false; })"#,
         false
     )]
@@ -631,20 +629,20 @@ mod tests {
     }
 
     #[rstest]
-    #[case(
+    #[case::flat_success(
         r#"(builtins.path { name = "valid-name"; path = @fixtures + "/te st"; recursive = false; sha256 = "sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="; })"#,
         true
     )]
-    #[case(
-        r#"(builtins.path { name = "valid-name"; path = @fixtures + "/te st"; recursive = true; sha256 = "sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="; })"#,
+    #[case::flat_fail(
+        r#"(builtins.path { name = "valid-name"; path = @fixtures + "/te st"; recursive = false; sha256 = "sha256-d6xi4mKdjkX2JFicDIv5niSzpyI0m/Hnm8GGAIU04kY="; })"#,
         false
     )]
-    #[case(
+    #[case::recursive_success(
         r#"(builtins.path { name = "valid-name"; path = @fixtures + "/te st"; recursive = true; sha256 = "sha256-d6xi4mKdjkX2JFicDIv5niSzpyI0m/Hnm8GGAIU04kY="; })"#,
         true
     )]
-    #[case(
-        r#"(builtins.path { name = "valid-name"; path = @fixtures + "/te st"; recursive = false; sha256 = "sha256-d6xi4mKdjkX2JFicDIv5niSzpyI0m/Hnm8GGAIU04kY="; })"#,
+    #[case::recursive_fail(
+        r#"(builtins.path { name = "valid-name"; path = @fixtures + "/te st"; recursive = true; sha256 = "sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="; })"#,
         false
     )]
     fn builtins_path_fod_locking(#[case] code: &str, #[case] exp_success: bool) {
