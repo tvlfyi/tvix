@@ -122,73 +122,35 @@ mod import_builtins {
     use tvix_eval::{FileType, NixContextElement, NixString};
     use tvix_store::path_info::PathInfo;
 
-    #[builtin("path")]
-    async fn builtin_path(
+    // This is a helper used by both builtins.path and builtins.filterSource.
+    async fn import_helper(
         state: Rc<TvixStoreIO>,
         co: GenCo,
-        args: Value,
+        path: std::path::PathBuf,
+        name: Option<&Value>,
+        filter: Option<&Value>,
+        recursive_ingestion: bool,
+        expected_sha256: Option<[u8; 32]>,
     ) -> Result<Value, ErrorKind> {
-        let args = args.to_attrs()?;
-        let path = args.select_required("path")?;
-        let path =
-            match coerce_value_to_path(&co, generators::request_force(&co, path.clone()).await)
-                .await?
-            {
-                Ok(path) => path,
-                Err(cek) => return Ok(cek.into()),
-            };
-        let name: String = if let Some(name) = args.select("name") {
-            generators::request_force(&co, name.clone())
+        let name: String = match name {
+            Some(name) => generators::request_force(&co, name.clone())
                 .await
                 .to_str()?
                 .as_bstr()
-                .to_string()
-        } else {
-            tvix_store::import::path_to_name(&path)
+                .to_string(),
+            None => tvix_store::import::path_to_name(&path)
                 .expect("Failed to derive the default name out of the path")
-                .to_string()
+                .to_string(),
         };
-
-        let filter = args.select("filter");
-
-        // Construct a sha256 hasher, which is needed for flat ingestion.
-        let recursive_ingestion = args
-            .select("recursive")
-            .map(|r| r.as_bool())
-            .transpose()?
-            .unwrap_or(true); // Yes, yes, Nix, by default, puts `recursive = true;`.
-
-        let expected_sha256 = args
-            .select("sha256")
-            .map(|h| {
-                h.to_str().and_then(|expected| {
-                    match nix_compat::nixhash::from_str(expected.to_str()?, Some("sha256")) {
-                        Ok(NixHash::Sha256(digest)) => Ok(digest),
-                        Ok(_) => unreachable!(),
-                        Err(_e) => {
-                            // TODO: a better error would be nice, we use
-                            // DerivationError::InvalidOutputHash usually for derivation construction.
-                            // This is not a derivation construction, should we move it outside and
-                            // generalize?
-                            Err(ErrorKind::TypeError {
-                                expected: "sha256",
-                                actual: "not a sha256",
-                            })
-                        }
-                    }
-                })
-            })
-            .transpose()?;
-
         // As a first step, we ingest the contents, and get back a root node,
         // and optionally the sha256 a flat file.
-        let (root_node, ca) = match state.file_type(path.as_ref())? {
+        let (root_node, ca) = match std::fs::metadata(&path)?.file_type().into() {
             // Check if the path points to a regular file.
             // If it does, the filter function is never executed, and we copy to the blobservice directly.
             // If recursive is false, we need to calculate the sha256 digest of the raw contents,
             // as that affects the output path calculation.
             FileType::Regular => {
-                let mut file = state.open(path.as_ref())?;
+                let mut file = state.open(&path)?;
 
                 let mut flat_sha256 = (!recursive_ingestion).then(sha2::Sha256::new);
                 let mut blob_size = 0;
@@ -271,7 +233,7 @@ mod import_builtins {
                 // FUTUREWORK: Nix follows a symlink if it's at the root,
                 // except if it's not resolve-able (NixOS/nix#7761).i
                 return Err(tvix_eval::ErrorKind::IO {
-                    path: Some(path.to_path_buf()),
+                    path: Some(path),
                     error: Rc::new(std::io::Error::new(
                         std::io::ErrorKind::Unsupported,
                         "builtins.path pointing to a symlink is ill-defined.",
@@ -280,7 +242,7 @@ mod import_builtins {
             }
             FileType::Unknown => {
                 return Err(tvix_eval::ErrorKind::IO {
-                    path: Some(path.to_path_buf()),
+                    path: Some(path),
                     error: Rc::new(std::io::Error::new(
                         std::io::ErrorKind::Unsupported,
                         "unsupported file type",
@@ -344,7 +306,7 @@ mod import_builtins {
                     .await
             })
             .map_err(|e| tvix_eval::ErrorKind::IO {
-                path: Some(path.to_path_buf()),
+                path: Some(path),
                 error: Rc::new(e.into()),
             })?;
 
@@ -357,6 +319,67 @@ mod import_builtins {
         )
     }
 
+    #[builtin("path")]
+    async fn builtin_path(
+        state: Rc<TvixStoreIO>,
+        co: GenCo,
+        args: Value,
+    ) -> Result<Value, ErrorKind> {
+        let args = args.to_attrs()?;
+
+        let path = match coerce_value_to_path(
+            &co,
+            generators::request_force(&co, args.select_required("path")?.clone()).await,
+        )
+        .await?
+        {
+            Ok(path) => path,
+            Err(cek) => return Ok(cek.into()),
+        };
+
+        let filter = args.select("filter");
+
+        // Construct a sha256 hasher, which is needed for flat ingestion.
+        let recursive_ingestion = args
+            .select("recursive")
+            .map(|r| r.as_bool())
+            .transpose()?
+            .unwrap_or(true); // Yes, yes, Nix, by default, puts `recursive = true;`.
+
+        let expected_sha256 = args
+            .select("sha256")
+            .map(|h| {
+                h.to_str().and_then(|expected| {
+                    match nix_compat::nixhash::from_str(expected.to_str()?, Some("sha256")) {
+                        Ok(NixHash::Sha256(digest)) => Ok(digest),
+                        Ok(_) => unreachable!(),
+                        Err(_e) => {
+                            // TODO: a better error would be nice, we use
+                            // DerivationError::InvalidOutputHash usually for derivation construction.
+                            // This is not a derivation construction, should we move it outside and
+                            // generalize?
+                            Err(ErrorKind::TypeError {
+                                expected: "sha256",
+                                actual: "not a sha256",
+                            })
+                        }
+                    }
+                })
+            })
+            .transpose()?;
+
+        import_helper(
+            state,
+            co,
+            path,
+            args.select("name"),
+            filter,
+            recursive_ingestion,
+            expected_sha256,
+        )
+        .await
+    }
+
     #[builtin("filterSource")]
     async fn builtin_filter_source(
         state: Rc<TvixStoreIO>,
@@ -364,62 +387,13 @@ mod import_builtins {
         #[lazy] filter: Value,
         path: Value,
     ) -> Result<Value, ErrorKind> {
-        let p = path.to_path()?;
-        let root_node = filtered_ingest(Rc::clone(&state), co, &p, Some(&filter)).await?;
-        let name = tvix_store::import::path_to_name(&p)?;
+        let path =
+            match coerce_value_to_path(&co, generators::request_force(&co, path).await).await? {
+                Ok(path) => path,
+                Err(cek) => return Ok(cek.into()),
+            };
 
-        let path_info = state
-            .tokio_handle
-            .block_on(async {
-                // Ask the PathInfoService for the NAR size and sha256
-                // We always need it no matter what is the actual hash mode
-                // because the [PathInfo] needs to contain nar_{sha256,size}.
-                let (nar_size, nar_sha256) = state
-                    .nar_calculation_service
-                    .as_ref()
-                    .calculate_nar(&root_node)
-                    .await?;
-
-                let ca = CAHash::Nar(NixHash::Sha256(nar_sha256));
-
-                // Calculate the output path. This might still fail, as some names are illegal.
-                let output_path =
-                    nix_compat::store_path::build_ca_path(name, &ca, Vec::<&str>::new(), false)
-                        .map_err(|_| {
-                            std::io::Error::new(
-                                std::io::ErrorKind::InvalidData,
-                                format!("invalid name: {}", name),
-                            )
-                        })?;
-
-                state
-                    .path_info_service
-                    .as_ref()
-                    .put(PathInfo {
-                        store_path: output_path,
-                        node: root_node,
-                        // There's no reference scanning on path contents ingested like this.
-                        references: vec![],
-                        nar_size,
-                        nar_sha256,
-                        signatures: vec![],
-                        deriver: None,
-                        ca: Some(ca),
-                    })
-                    .await
-            })
-            .map_err(|e| ErrorKind::IO {
-                path: Some(p.to_path_buf()),
-                error: Rc::new(e.into()),
-            })?;
-
-        // We need to attach context to the final output path.
-        let outpath = path_info.store_path.to_absolute_path();
-
-        Ok(
-            NixString::new_context_from(NixContextElement::Plain(outpath.clone()).into(), outpath)
-                .into(),
-        )
+        import_helper(state, co, path, None, Some(&filter), true, None).await
     }
 
     #[builtin("storePath")]
