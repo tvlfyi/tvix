@@ -8,7 +8,9 @@ use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::PermissionsExt;
 use tokio::io::BufReader;
 use tokio_util::io::InspectReader;
+use tracing::info_span;
 use tracing::instrument;
+use tracing::Instrument;
 use tracing::Span;
 use tracing_indicatif::span_ext::IndicatifSpanExt;
 use walkdir::DirEntry;
@@ -30,7 +32,11 @@ use super::IngestionError;
 ///
 /// This function will walk the filesystem using `walkdir` and will consume
 /// `O(#number of entries)` space.
-#[instrument(skip(blob_service, directory_service, reference_scanner), fields(path, indicatif.pb_show=1), err)]
+#[instrument(
+    skip(blob_service, directory_service, reference_scanner),
+    fields(path),
+    err
+)]
 pub async fn ingest_path<BS, DS, P, P2>(
     blob_service: BS,
     directory_service: DS,
@@ -44,8 +50,6 @@ where
     P2: AsRef<[u8]> + Send + Sync,
 {
     let span = Span::current();
-    span.pb_set_message(&format!("Ingesting {:?}", path));
-    span.pb_start();
 
     let iter = WalkDir::new(path.as_ref())
         .follow_links(false)
@@ -158,8 +162,15 @@ where
             .metadata()
             .map_err(|e| Error::Stat(entry.path().to_path_buf(), e.into()))?;
 
-        let digest =
-            upload_blob(blob_service, entry.path().to_path_buf(), reference_scanner).await?;
+        let digest = upload_blob(blob_service, entry.path().to_path_buf(), reference_scanner)
+            .instrument({
+                let span = info_span!("upload_blob", "indicatif.pb_show" = tracing::field::Empty);
+                span.pb_set_message(&format!("Uploading blob for {:?}", fs_path));
+                span.pb_set_style(&tvix_tracing::PB_TRANSFER_STYLE);
+
+                span
+            })
+            .await?;
 
         Ok(IngestionEntry::Regular {
             path,
@@ -175,7 +186,7 @@ where
 }
 
 /// Uploads the file at the provided [Path] the the [BlobService].
-#[instrument(skip(blob_service, reference_scanner), fields(path, indicatif.pb_show=1), err)]
+#[instrument(skip(blob_service, reference_scanner), fields(path), err)]
 async fn upload_blob<BS, P>(
     blob_service: BS,
     path: impl AsRef<std::path::Path>,
@@ -186,8 +197,6 @@ where
     P: AsRef<[u8]>,
 {
     let span = Span::current();
-    span.pb_set_style(&tvix_tracing::PB_TRANSFER_STYLE);
-    span.pb_set_message(&format!("Uploading blob for {:?}", path.as_ref()));
     span.pb_start();
 
     let file = tokio::fs::File::open(path.as_ref())

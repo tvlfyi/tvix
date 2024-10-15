@@ -6,8 +6,7 @@ use nix_compat::nar::writer::r#async as nar_writer;
 use sha2::{Digest, Sha256};
 use tokio::io::{self, AsyncWrite, BufReader};
 use tonic::async_trait;
-use tracing::{instrument, Span};
-use tracing_indicatif::span_ext::IndicatifSpanExt;
+use tracing::instrument;
 use tvix_castore::{blobservice::BlobService, directoryservice::DirectoryService, Node};
 
 pub struct SimpleRenderer<BS, DS> {
@@ -46,7 +45,7 @@ where
 
 /// Invoke [write_nar], and return the size and sha256 digest of the produced
 /// NAR output.
-#[instrument(skip_all, fields(indicatif.pb_show=1))]
+#[instrument(skip_all)]
 pub async fn calculate_size_and_sha256<BS, DS>(
     root_node: &Node,
     blob_service: BS,
@@ -58,10 +57,6 @@ where
 {
     let mut h = Sha256::new();
     let mut cw = CountWrite::from(&mut h);
-
-    let span = Span::current();
-    span.pb_set_message("Calculating NAR");
-    span.pb_start();
 
     write_nar(
         // The hasher doesn't speak async. It doesn't
