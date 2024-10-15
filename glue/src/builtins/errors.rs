@@ -64,10 +64,10 @@ pub enum FetcherError {
 #[derive(Debug, Error)]
 pub enum ImportError {
     #[error("non-file '{0}' cannot be imported in 'flat' mode")]
-    FlatImportOfNonFile(String),
+    FlatImportOfNonFile(PathBuf),
 
     #[error("hash mismatch at ingestion of '{0}', expected: '{1}', got: '{2}'")]
-    HashMismatch(String, NixHash, NixHash),
+    HashMismatch(PathBuf, NixHash, NixHash),
 
     #[error("path '{}' is not absolute or invalid", .0.display())]
     PathNotAbsoluteOrInvalid(PathBuf),

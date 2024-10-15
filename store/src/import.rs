@@ -7,7 +7,7 @@ use tvix_castore::{
 
 use nix_compat::{
     nixhash::{CAHash, NixHash},
-    store_path::{self, StorePath, StorePathRef},
+    store_path::{self, StorePath},
 };
 
 use crate::{
@@ -70,38 +70,10 @@ pub fn path_to_name(path: &Path) -> std::io::Result<&str> {
         })
 }
 
-/// Takes the NAR size, SHA-256 of the NAR representation, the root node and optionally
-/// a CA hash information.
-///
-/// Constructs a [PathInfo] for a NAR-style object.
-///
-/// The user can then further fill the fields (like deriver, signatures), and/or
-/// verify to have the expected hashes.
-#[inline]
-pub fn derive_nar_ca_path_info(
-    nar_size: u64,
-    nar_sha256: [u8; 32],
-    ca: Option<CAHash>,
-    store_path: StorePath<String>,
-    root_node: Node,
-) -> PathInfo {
-    // assemble the [crate::proto::PathInfo] object.
-    PathInfo {
-        store_path,
-        node: root_node,
-        // There's no reference scanning on path contents ingested like this.
-        references: vec![],
-        nar_size,
-        nar_sha256,
-        signatures: vec![],
-        deriver: None,
-        ca,
-    }
-}
-
 /// Ingest the contents at the given path `path` into castore, and registers the
 /// resulting root node in the passed PathInfoService, using the "NAR sha256
 /// digest" and the passed name for output path calculation.
+/// Inserts the PathInfo into the PathInfoService and returns it back to the caller.
 #[instrument(skip_all, fields(store_name=name, path=?path), err)]
 pub async fn import_path_as_nar_ca<BS, DS, PS, NS, P>(
     path: P,
@@ -110,7 +82,7 @@ pub async fn import_path_as_nar_ca<BS, DS, PS, NS, P>(
     directory_service: DS,
     path_info_service: PS,
     nar_calculation_service: NS,
-) -> Result<StorePathRef, std::io::Error>
+) -> Result<PathInfo, std::io::Error>
 where
     P: AsRef<Path> + std::fmt::Debug,
     BS: BlobService + Clone,
@@ -118,6 +90,7 @@ where
     PS: AsRef<dyn PathInfoService>,
     NS: NarCalculationService,
 {
+    // Ingest the contents at the given path `path` into castore.
     let root_node =
         ingest_path::<_, _, _, &[u8]>(blob_service, directory_service, path.as_ref(), None)
             .await
@@ -129,29 +102,29 @@ where
     // Calculate the output path. This might still fail, as some names are illegal.
     // FUTUREWORK: express the `name` at the type level to be valid and move the conversion
     // at the caller level.
-    let output_path = store_path::build_nar_based_store_path(&nar_sha256, name).map_err(|_| {
-        std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            format!("invalid name: {}", name),
-        )
-    })?;
+    let output_path: StorePath<String> = store_path::build_nar_based_store_path(&nar_sha256, name)
+        .map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("invalid name: {}", name),
+            )
+        })?;
 
-    log_node(name.as_ref(), &root_node, path.as_ref());
-
-    let path_info = derive_nar_ca_path_info(
-        nar_size,
-        nar_sha256,
-        Some(CAHash::Nar(NixHash::Sha256(nar_sha256))),
-        output_path.to_owned(),
-        root_node,
-    );
-
-    // This new [`PathInfo`] that we get back from there might contain additional signatures or
-    // information set by the service itself. In this function, we silently swallow it because
-    // callers don't really need it.
-    let _path_info = path_info_service.as_ref().put(path_info).await?;
-
-    Ok(output_path)
+    // Insert a PathInfo. On success, return it back to the caller.
+    Ok(path_info_service
+        .as_ref()
+        .put(PathInfo {
+            store_path: output_path.to_owned(),
+            node: root_node,
+            // There's no reference scanning on imported paths
+            references: vec![],
+            nar_size,
+            nar_sha256,
+            signatures: vec![],
+            deriver: None,
+            ca: Some(CAHash::Nar(NixHash::Sha256(nar_sha256))),
+        })
+        .await?)
 }
 
 #[cfg(test)]

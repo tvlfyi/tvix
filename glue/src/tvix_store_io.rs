@@ -384,56 +384,6 @@ impl TvixStoreIO {
             .await
             .map_err(|e| std::io::Error::new(io::ErrorKind::Other, e))
     }
-
-    async fn node_to_path_info<'a>(
-        &self,
-        name: &'a str,
-        path: &Path,
-        ca: CAHash,
-        root_node: Node,
-    ) -> io::Result<PathInfo> {
-        // Ask the PathInfoService for the NAR size and sha256
-        // We always need it no matter what is the actual hash mode
-        // because the [PathInfo] needs to contain nar_{sha256,size}.
-        let (nar_size, nar_sha256) = self
-            .nar_calculation_service
-            .as_ref()
-            .calculate_nar(&root_node)
-            .await?;
-
-        // Calculate the output path. This might still fail, as some names are illegal.
-        let output_path =
-            nix_compat::store_path::build_ca_path(name, &ca, Vec::<&str>::new(), false).map_err(
-                |_| {
-                    std::io::Error::new(
-                        std::io::ErrorKind::InvalidData,
-                        format!("invalid name: {}", name),
-                    )
-                },
-            )?;
-
-        tvix_store::import::log_node(name.as_bytes(), &root_node, path);
-
-        // construct a PathInfo
-        Ok(tvix_store::import::derive_nar_ca_path_info(
-            nar_size,
-            nar_sha256,
-            Some(ca),
-            output_path,
-            root_node,
-        ))
-    }
-
-    pub(crate) async fn register_in_path_info_service<'a>(
-        &self,
-        name: &'a str,
-        path: &Path,
-        ca: CAHash,
-        root_node: Node,
-    ) -> io::Result<PathInfo> {
-        let path_info = self.node_to_path_info(name, path, ca, root_node).await?;
-        Ok(self.path_info_service.as_ref().put(path_info).await?)
-    }
 }
 
 impl EvalIO for TvixStoreIO {
@@ -589,7 +539,7 @@ impl EvalIO for TvixStoreIO {
 
     #[instrument(skip(self), ret(level = Level::TRACE), err)]
     fn import_path(&self, path: &Path) -> io::Result<PathBuf> {
-        let output_path = self.tokio_handle.block_on(async {
+        let path_info = self.tokio_handle.block_on({
             tvix_store::import::import_path_as_nar_ca(
                 path,
                 tvix_store::import::path_to_name(path)?,
@@ -598,10 +548,10 @@ impl EvalIO for TvixStoreIO {
                 &self.path_info_service,
                 &self.nar_calculation_service,
             )
-            .await
         })?;
 
-        Ok(output_path.to_absolute_path().into())
+        // From the returned PathInfo, extract the store path and return it.
+        Ok(path_info.store_path.to_absolute_path().into())
     }
 
     #[instrument(skip(self), ret(level = Level::TRACE))]

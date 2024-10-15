@@ -77,20 +77,6 @@ correctness:
    "some amount of outgoing bytes" in memory.
    This is somewhat blocked until the {Chunk/Blob}Service split is done, as then
    prefetching would only be a matter of adding it into the one `BlobReader`.
- - The import builtins (`builtins.path` and `builtins.filterSource`) use(d) some
-   helper functions in TvixStoreIO that deals with constructing the `PathInfo`
-   structs and inserting them, but some of the abstractions where probably done
-   at the wrong layer:
-    - Some ways of importing calculate the NAR representation twice
-    - The code isn't very usable from other consumers that also create structs
-      `PathInfo`.
-    - `node_to_path_info` is ony called by `register_in_path_info_service` (due
-      to this marked as private for now).
-   Instead of fighting these abstractions, maybe it's best to explicitly add the
-   code back to the two builtins, remove redundant calls and calculations. A
-   later phase could then see how/if some of this can be reasonably factored out in
-   a way it's also usable for other places having a node and wanting to persist
-   it (if at all).
 
 ### Error cleanup
  - Currently, all services use tvix_castore::Error, which only has two kinds

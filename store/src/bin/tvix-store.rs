@@ -262,9 +262,9 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error + Send + Sync
                                     nar_calculation_service,
                                 )
                                 .await;
-                                if let Ok(output_path) = resp {
+                                if let Ok(path_info) = resp {
                                     // If the import was successful, print the path to stdout.
-                                    println!("{}", output_path.to_absolute_path());
+                                    println!("{}", path_info.store_path.to_absolute_path());
                                 }
                             }
                         }
