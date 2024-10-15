@@ -281,31 +281,45 @@ pub fn builtins(args: TokenStream, item: TokenStream) -> TokenStream {
                     let ty = &arg.ty;
                     let ident = &arg.name;
 
-                    if arg.strict {
-                        if arg.catch {
-                            f.block = Box::new(parse_quote_spanned! {arg.span=> {
-                                let #ident: #ty = tvix_eval::generators::request_force(&co, values.pop()
-                                  .expect("Tvix bug: builtin called with incorrect number of arguments")).await;
+                    f.block = Box::new(match arg {
+                        BuiltinArgument {
+                            strict: true,
+                            catch: true,
+                            ..
+                        } => parse_quote_spanned! {
+                            arg.span => {
+                                let #ident: #ty = tvix_eval::generators::request_force(
+                                    &co, values.pop().expect("Tvix bug: builtin called with incorrect number of arguments")
+                                ).await;
                                 #block
-                            }});
-                        } else {
-                            f.block = Box::new(parse_quote_spanned! {arg.span=> {
-                                let #ident: #ty = tvix_eval::generators::request_force(&co, values.pop()
-                                  .expect("Tvix bug: builtin called with incorrect number of arguments")).await;
+                            }
+                        },
+                        BuiltinArgument {
+                            strict: true,
+                            catch: false,
+                            ..
+                        } => parse_quote_spanned! {
+                            arg.span => {
+                                let #ident: #ty = tvix_eval::generators::request_force(
+                                    &co, values.pop().expect("Tvix bug: builtin called with incorrect number of arguments")
+                                ).await;
                                 if #ident.is_catchable() {
                                     return Ok(#ident);
                                 }
                                 #block
-                            }});
-                        }
-                    } else {
-                        f.block = Box::new(parse_quote_spanned! {arg.span=> {
-                            let #ident: #ty = values.pop()
-                              .expect("Tvix bug: builtin called with incorrect number of arguments");
-
-                            #block
-                        }})
-                    }
+                            }
+                        },
+                        BuiltinArgument {
+                            strict: false,
+                            catch: _,
+                            ..
+                        } => parse_quote_spanned! {
+                            arg.span => {
+                                let #ident: #ty = values.pop().expect("Tvix bug: builtin called with incorrect number of arguments");
+                                #block
+                            }
+                        },
+                    });
                 }
 
                 let fn_name = f.sig.ident.clone();
