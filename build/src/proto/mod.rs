@@ -118,90 +118,6 @@ where
     data.tuple_windows().all(|(a, b)| a <= b)
 }
 
-impl BuildRequest {
-    /// Ensures the build request is valid.
-    /// This means, all input nodes need to be valid, paths in lists need to be sorted,
-    /// and all restrictions around paths themselves (relative, clean, …) need
-    // to be fulfilled.
-    pub fn validate(&self) -> Result<(), ValidateBuildRequestError> {
-        // validate names. Make sure they're sorted
-
-        let mut last_name: bytes::Bytes = "".into();
-        for (i, node) in self.inputs.iter().enumerate() {
-            // TODO(flokli): store result somewhere
-            let (name, _node) = node
-                .clone()
-                .into_name_and_node()
-                .map_err(|e| ValidateBuildRequestError::InvalidInputNode(i, e))?;
-
-            if name.as_ref() <= last_name.as_ref() {
-                return Err(ValidateBuildRequestError::InputNodesNotSorted);
-            } else {
-                last_name = name.into()
-            }
-        }
-
-        // validate working_dir
-        if !is_clean_relative_path(&self.working_dir) {
-            Err(ValidateBuildRequestError::InvalidWorkingDir)?;
-        }
-
-        // validate scratch paths
-        for (i, p) in self.scratch_paths.iter().enumerate() {
-            if !is_clean_relative_path(p) {
-                Err(ValidateBuildRequestError::InvalidScratchPath(i))?
-            }
-        }
-        if !is_sorted(self.scratch_paths.iter().map(|e| e.as_bytes())) {
-            Err(ValidateBuildRequestError::ScratchPathsNotSorted)?;
-        }
-
-        // validate inputs_dir
-        if !is_clean_relative_path(&self.inputs_dir) {
-            Err(ValidateBuildRequestError::InvalidInputsDir)?;
-        }
-
-        // validate outputs
-        for (i, p) in self.outputs.iter().enumerate() {
-            if !is_clean_relative_path(p) {
-                Err(ValidateBuildRequestError::InvalidOutputPath(i))?
-            }
-        }
-        if !is_sorted(self.outputs.iter().map(|e| e.as_bytes())) {
-            Err(ValidateBuildRequestError::OutputsNotSorted)?;
-        }
-
-        // validate environment_vars.
-        for (i, e) in self.environment_vars.iter().enumerate() {
-            if e.key.is_empty() || e.key.contains('=') {
-                Err(ValidateBuildRequestError::InvalidEnvVar(i))?
-            }
-        }
-        if !is_sorted(self.environment_vars.iter().map(|e| e.key.as_bytes())) {
-            Err(ValidateBuildRequestError::EnvVarNotSorted)?;
-        }
-
-        // validate build constraints
-        if let Some(constraints) = self.constraints.as_ref() {
-            constraints
-                .validate()
-                .map_err(ValidateBuildRequestError::InvalidBuildConstraints)?;
-        }
-
-        // validate additional_files
-        for (i, additional_file) in self.additional_files.iter().enumerate() {
-            if !is_clean_relative_path(&additional_file.path) {
-                Err(ValidateBuildRequestError::InvalidAdditionalFilePath(i))?
-            }
-        }
-        if !is_sorted(self.additional_files.iter().map(|e| e.path.as_bytes())) {
-            Err(ValidateBuildRequestError::AdditionalFilesNotSorted)?;
-        }
-
-        Ok(())
-    }
-}
-
 impl TryFrom<BuildRequest> for crate::buildservice::BuildRequest {
     type Error = ValidateBuildRequestError;
     fn try_from(value: BuildRequest) -> Result<Self, Self::Error> {
@@ -309,26 +225,6 @@ pub enum ValidateBuildConstraintsError {
 
     #[error("available_ro_paths not sorted")]
     AvailableRoPathsNotSorted,
-}
-
-impl build_request::BuildConstraints {
-    pub fn validate(&self) -> Result<(), ValidateBuildConstraintsError> {
-        // validate system
-        if self.system.is_empty() {
-            Err(ValidateBuildConstraintsError::InvalidSystem)?;
-        }
-        // validate available_ro_paths
-        for (i, p) in self.available_ro_paths.iter().enumerate() {
-            if !is_clean_absolute_path(p) {
-                Err(ValidateBuildConstraintsError::InvalidAvailableRoPaths(i))?
-            }
-        }
-        if !is_sorted(self.available_ro_paths.iter().map(|e| e.as_bytes())) {
-            Err(ValidateBuildConstraintsError::AvailableRoPathsNotSorted)?;
-        }
-
-        Ok(())
-    }
 }
 
 impl From<build_request::EnvVar> for crate::buildservice::EnvVar {

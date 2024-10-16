@@ -6,9 +6,10 @@ use std::collections::BTreeMap;
 use bytes::Bytes;
 use nix_compat::{derivation::Derivation, nixbase32, store_path::StorePath};
 use sha2::{Digest, Sha256};
+use tvix_build::buildservice::BuildRequest;
 use tvix_build::proto::{
+    self,
     build_request::{AdditionalFile, BuildConstraints, EnvVar},
-    BuildRequest,
 };
 use tvix_castore::Node;
 
@@ -43,7 +44,7 @@ pub(crate) fn get_refscan_needles(
         .chain(derivation.input_derivations.keys())
 }
 
-/// Takes a [Derivation] and turns it into a [BuildRequest].
+/// Takes a [Derivation] and turns it into a [proto::BuildRequest].
 /// It assumes the Derivation has been validated.
 /// It needs two lookup functions:
 /// - one translating input sources to a castore node
@@ -53,7 +54,7 @@ pub(crate) fn get_refscan_needles(
 pub(crate) fn derivation_to_build_request(
     derivation: &Derivation,
     inputs: BTreeMap<bytes::Bytes, Node>,
-) -> std::io::Result<BuildRequest> {
+) -> std::io::Result<proto::BuildRequest> {
     debug_assert!(derivation.validate(true).is_ok(), "drv must validate");
 
     // produce command_args, which is builder and arguments in a Vec.
@@ -113,7 +114,7 @@ pub(crate) fn derivation_to_build_request(
         provide_bin_sh: true,
     });
 
-    let build_request = BuildRequest {
+    let build_request = proto::BuildRequest {
         // Importantly, this must match the order of get_refscan_needles, since users may use that
         // function to map back from the found needles to a store path
         refscan_needles: get_refscan_needles(derivation)
@@ -141,10 +142,10 @@ pub(crate) fn derivation_to_build_request(
             .collect(),
     };
 
+    // FUTUREWORK: switch this function to construct the stricter BuildRequest directly.
     debug_assert!(
-        build_request.validate().is_ok(),
-        "invalid BuildRequest: {}",
-        build_request.validate().unwrap_err()
+        BuildRequest::try_from(build_request.clone()).is_ok(),
+        "Tvix bug: BuildRequest would not be valid"
     );
 
     Ok(build_request)

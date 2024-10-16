@@ -35,7 +35,7 @@ use tvix_castore::{Node, PathComponent};
 ///
 /// As of now, we're okay to accept this, but it prevents uploading an
 /// entirely-non-IFD subgraph of BuildRequests eagerly.
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BuildRequest {
     /// The list of all root nodes that should be visible in `inputs_dir` at the
     /// time of the build.
@@ -94,7 +94,7 @@ pub struct BuildRequest {
     pub refscan_needles: Vec<String>,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct EnvVar {
     /// name of the environment variable. Must not contain =.
     pub key: String,
@@ -105,7 +105,7 @@ pub struct EnvVar {
 /// Constraints can be things like required architecture and minimum amount of memory.
 /// The required input paths are *not* represented in here, because it
 /// wouldn't be hermetic enough - see the comment around inputs too.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum BuildConstraints {
     /// The system that's needed to execute the build.
     /// Must not be empty.
@@ -124,7 +124,7 @@ pub enum BuildConstraints {
     ProvideBinSh,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AdditionalFile {
     pub path: PathBuf,
     pub contents: Bytes,
