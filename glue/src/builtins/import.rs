@@ -162,10 +162,7 @@ mod import_builtins {
             .select("sha256")
             .map(|h| {
                 h.to_str().and_then(|expected| {
-                    match nix_compat::nixhash::from_str(
-                        expected.into_bstring().to_str()?,
-                        Some("sha256"),
-                    ) {
+                    match nix_compat::nixhash::from_str(expected.to_str()?, Some("sha256")) {
                         Ok(NixHash::Sha256(digest)) => Ok(digest),
                         Ok(_) => unreachable!(),
                         Err(_e) => {
