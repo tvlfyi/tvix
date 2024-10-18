@@ -50,15 +50,23 @@ where
         self.inner.get(digest).await
     }
 
-    async fn put(&self, path_info: PathInfo) -> Result<PathInfo, Error> {
-        let mut path_info = path_info.clone();
-        let mut nar_info = path_info.to_narinfo();
-        nar_info.add_signature(self.signing_key.as_ref());
-        path_info.signatures = nar_info
-            .signatures
-            .into_iter()
-            .map(|s| Signature::<String>::new(s.name().to_string(), s.bytes().to_owned()))
-            .collect();
+    async fn put(&self, mut path_info: PathInfo) -> Result<PathInfo, Error> {
+        path_info.signatures.push({
+            let mut nar_info = path_info.to_narinfo();
+            nar_info.signatures.clear();
+            nar_info.add_signature(self.signing_key.as_ref());
+
+            let s = nar_info
+                .signatures
+                .pop()
+                .expect("Tvix bug: no signature after signing op");
+            debug_assert!(
+                nar_info.signatures.is_empty(),
+                "Tvix bug: more than one signature appeared"
+            );
+
+            Signature::new(s.name().to_string(), *s.bytes())
+        });
         self.inner.put(path_info).await
     }
 
