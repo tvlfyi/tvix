@@ -124,7 +124,7 @@ impl TryFrom<Directory> for crate::Directory {
                 Node {
                     node: Some(node::Node::Directory(e)),
                 }
-                .into_name_and_node()?,
+                .try_into_name_and_node()?,
             );
         }
 
@@ -133,7 +133,7 @@ impl TryFrom<Directory> for crate::Directory {
                 Node {
                     node: Some(node::Node::File(e)),
                 }
-                .into_name_and_node()?,
+                .try_into_name_and_node()?,
             )
         }
 
@@ -142,7 +142,7 @@ impl TryFrom<Directory> for crate::Directory {
                 Node {
                     node: Some(node::Node::Symlink(e)),
                 }
-                .into_name_and_node()?,
+                .try_into_name_and_node()?,
             )
         }
 
@@ -191,22 +191,20 @@ impl From<crate::Directory> for Directory {
 }
 
 impl Node {
-    /// Converts a proto [Node] to a [crate::Node], and splits off the name.
-    pub fn into_name_and_node(self) -> Result<(PathComponent, crate::Node), DirectoryError> {
-        let (unvalidated_name, node) = self.into_name_bytes_and_node()?;
+    /// Converts a proto [Node] to a [crate::Node], and splits off the name as a [PathComponent].
+    pub fn try_into_name_and_node(self) -> Result<(PathComponent, crate::Node), DirectoryError> {
+        let (name_bytes, node) = self.try_into_unchecked_name_and_checked_node()?;
         Ok((
-            unvalidated_name
-                .try_into()
-                .map_err(DirectoryError::InvalidName)?,
+            name_bytes.try_into().map_err(DirectoryError::InvalidName)?,
             node,
         ))
     }
 
-    /// Converts a proto [Node] to a [crate::Node], and splits off the name and returns it as a
-    /// [bytes::Bytes].
-    ///
-    /// Note: the returned name is not validated.
-    pub fn into_name_bytes_and_node(self) -> Result<(bytes::Bytes, crate::Node), DirectoryError> {
+    /// Converts a proto [Node] to a [crate::Node], and splits off the name as a
+    /// [bytes::Bytes] without doing any checking of it.
+    fn try_into_unchecked_name_and_checked_node(
+        self,
+    ) -> Result<(bytes::Bytes, crate::Node), DirectoryError> {
         match self.node.ok_or_else(|| DirectoryError::NoNodeSet)? {
             node::Node::Directory(n) => {
                 let digest = B3Digest::try_from(n.digest)
@@ -245,6 +243,20 @@ impl Node {
                 Ok((n.name, node))
             }
         }
+    }
+
+    /// Converts a proto [Node] to a [crate::Node], and splits off the name and returns it as a
+    /// [bytes::Bytes].
+    ///
+    /// The name must be empty.
+    pub fn try_into_anonymous_node(self) -> Result<crate::Node, DirectoryError> {
+        let (name, node) = Self::try_into_unchecked_name_and_checked_node(self)?;
+
+        if !name.is_empty() {
+            return Err(DirectoryError::NameInAnonymousNode);
+        }
+
+        Ok(node)
     }
 
     /// Constructs a [Node] from a name and [crate::Node].

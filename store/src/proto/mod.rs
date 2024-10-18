@@ -274,7 +274,7 @@ impl TryFrom<PathInfo> for crate::pathinfoservice::PathInfo {
         let (name, node) = value
             .node
             .ok_or_else(|| ValidatePathInfoError::NoNodePresent)?
-            .into_name_and_node()
+            .try_into_name_and_node()
             .map_err(ValidatePathInfoError::InvalidRootNode)?;
 
         Ok(Self {

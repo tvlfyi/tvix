@@ -1,4 +1,5 @@
 use super::{node, Node, SymlinkNode};
+use crate::DirectoryError;
 
 mod directory;
 
@@ -11,7 +12,7 @@ fn convert_symlink_empty_target_invalid() {
             target: "".into(),
         })),
     }
-    .into_name_and_node()
+    .try_into_name_and_node()
     .expect_err("must fail validation");
 }
 
@@ -25,6 +26,22 @@ fn convert_symlink_target_null_byte_invalid() {
             target: "foo\0".into(),
         })),
     }
-    .into_name_and_node()
+    .try_into_name_and_node()
     .expect_err("must fail validation");
+}
+
+/// Create a node with a name, and ensure our ano
+#[test]
+fn convert_anonymous_with_name_fail() {
+    assert_eq!(
+        DirectoryError::NameInAnonymousNode,
+        Node {
+            node: Some(node::Node::Symlink(SymlinkNode {
+                name: "foo".into(),
+                target: "somewhereelse".into(),
+            })),
+        }
+        .try_into_anonymous_node()
+        .expect_err("must fail")
+    )
 }

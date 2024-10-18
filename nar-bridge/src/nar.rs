@@ -56,15 +56,10 @@ pub async fn get_head(
             StatusCode::NOT_FOUND
         })?;
 
-    let (root_name, root_node) = root_node.into_name_bytes_and_node().map_err(|e| {
+    let root_node = root_node.try_into_anonymous_node().map_err(|e| {
         warn!(err=%e, "root node validation failed");
         StatusCode::BAD_REQUEST
     })?;
-
-    if !root_name.as_ref().is_empty() {
-        warn!("root node has name, which it shouldn't");
-        return Err(StatusCode::BAD_REQUEST);
-    }
 
     Ok((
         // headers

@@ -266,7 +266,7 @@ fn configure_mounts<'a>(
     for input in inputs {
         let (input_name, _input) = input
             .clone()
-            .into_name_and_node()
+            .try_into_name_and_node()
             .expect("invalid input name");
 
         let input_name = std::str::from_utf8(input_name.as_ref()).expect("invalid input name");

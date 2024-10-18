@@ -131,7 +131,7 @@ where
         let root_nodes: BTreeMap<PathComponent, Node> =
             BTreeMap::from_iter(request.inputs.iter().map(|input| {
                 // We know from validation this is Some.
-                input.clone().into_name_and_node().unwrap()
+                input.clone().try_into_name_and_node().unwrap()
             }));
         let patterns = ReferencePattern::new(request.refscan_needles.clone());
         // NOTE: impl Drop for FuseDaemon unmounts, so if the call is cancelled, umount.

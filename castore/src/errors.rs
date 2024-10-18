@@ -52,6 +52,10 @@ pub enum DirectoryError {
     /// Invalid name encountered
     #[error("Invalid name: {0}")]
     InvalidName(PathComponentError),
+    /// This can occur if a protobuf node with a name is passed where we expect
+    /// it to be anonymous.
+    #[error("Name is set when it shouldn't")]
+    NameInAnonymousNode,
     /// Elements are not in sorted order. Can only happen on protos
     #[error("{:?} is not sorted", .0.as_bstr())]
     WrongSorting(bytes::Bytes),

@@ -77,9 +77,9 @@ where
         &self,
         request: Request<castorepb::Node>,
     ) -> Result<Response<proto::CalculateNarResponse>> {
-        let (_, root_node) = request
+        let root_node = request
             .into_inner()
-            .into_name_bytes_and_node()
+            .try_into_anonymous_node()
             .map_err(|e| {
                 warn!(err = %e, "invalid root node");
                 Status::invalid_argument("invalid root node")

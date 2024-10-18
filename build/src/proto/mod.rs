@@ -128,7 +128,7 @@ impl TryFrom<BuildRequest> for crate::buildservice::BuildRequest {
         for (i, node) in value.inputs.iter().enumerate() {
             let (name, node) = node
                 .clone()
-                .into_name_and_node()
+                .try_into_name_and_node()
                 .map_err(|e| ValidateBuildRequestError::InvalidInputNode(i, e))?;
 
             if name.as_ref() <= last_name.as_ref() {

@@ -292,9 +292,9 @@ impl TvixStoreIO {
                             .zip(build_result.outputs_needles.iter())
                             .zip(drv.outputs.iter())
                         {
-                            let (_, output_node) = output
+                            let output_node = output
                                 .clone()
-                                .into_name_bytes_and_node()
+                                .try_into_anonymous_node()
                                 .expect("invalid node");
 
                             let output_needles: Vec<_> = output_needles
@@ -365,7 +365,7 @@ impl TvixStoreIO {
                         build_result
                             .outputs
                             .into_iter()
-                            .map(|e| e.into_name_and_node().expect("invalid node"))
+                            .map(|e| e.try_into_name_and_node().expect("invalid node"))
                             .find(|(output_name, _output_node)| {
                                 output_name.as_ref() == s.as_bytes()
                             })
