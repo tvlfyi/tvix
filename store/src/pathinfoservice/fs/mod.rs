@@ -20,9 +20,9 @@ pub fn make_fs<BS, DS, PS>(
     show_xattr: bool,
 ) -> TvixStoreFs<BS, DS, RootNodesWrapper<PS>>
 where
-    BS: AsRef<dyn BlobService> + Send + Clone + 'static,
-    DS: AsRef<dyn DirectoryService> + Send + Clone + 'static,
-    PS: AsRef<dyn PathInfoService> + Send + Sync + Clone + 'static,
+    BS: BlobService + Send + Clone + 'static,
+    DS: DirectoryService + Send + Clone + 'static,
+    PS: PathInfoService + Send + Sync + Clone + 'static,
 {
     TvixStoreFs::new(
         blob_service,
@@ -46,7 +46,7 @@ pub struct RootNodesWrapper<T>(pub(crate) T);
 #[async_trait]
 impl<T> RootNodes for RootNodesWrapper<T>
 where
-    T: AsRef<dyn PathInfoService> + Send + Sync,
+    T: PathInfoService + Send + Sync,
 {
     async fn get_by_basename(&self, name: &PathComponent) -> Result<Option<Node>, Error> {
         let Ok(store_path) = StorePathRef::from_bytes(name.as_ref()) else {
@@ -55,14 +55,13 @@ where
 
         Ok(self
             .0
-            .as_ref()
             .get(*store_path.digest())
             .await?
             .map(|path_info| path_info.node))
     }
 
     fn list(&self) -> BoxStream<Result<(PathComponent, Node), Error>> {
-        Box::pin(self.0.as_ref().list().map(|result| {
+        Box::pin(self.0.list().map(|result| {
             result.map(|path_info| {
                 let basename = path_info.store_path.to_string();
                 (

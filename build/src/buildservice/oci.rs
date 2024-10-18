@@ -91,8 +91,8 @@ impl<BS, DS> OCIBuildService<BS, DS> {
 #[async_trait]
 impl<BS, DS> BuildService for OCIBuildService<BS, DS>
 where
-    BS: AsRef<dyn BlobService> + Send + Sync + Clone + 'static,
-    DS: AsRef<dyn DirectoryService> + Send + Sync + Clone + 'static,
+    BS: BlobService + Clone + 'static,
+    DS: DirectoryService + Clone + 'static,
 {
     #[instrument(skip_all, err)]
     async fn do_build(&self, request: BuildRequest) -> std::io::Result<Build> {

@@ -20,8 +20,8 @@ pub async fn from_addr<BS, DS>(
     directory_service: DS,
 ) -> std::io::Result<Box<dyn BuildService>>
 where
-    BS: AsRef<dyn BlobService> + Send + Sync + Clone + 'static,
-    DS: AsRef<dyn DirectoryService> + Send + Sync + Clone + 'static,
+    BS: BlobService + Send + Sync + Clone + 'static,
+    DS: DirectoryService + Send + Sync + Clone + 'static,
 {
     let url = Url::parse(uri)
         .map_err(|e| std::io::Error::other(format!("unable to parse url: {}", e)))?;

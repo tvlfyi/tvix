@@ -52,6 +52,7 @@ vm-memory = { workspace = true, optional = true }
 vmm-sys-util = { workspace = true, optional = true }
 virtio-bindings = { workspace = true, optional = true }
 wu-manber = { workspace = true }
+auto_impl = "1.2.0"
 
 [build-dependencies]
 prost-build = { workspace = true }

@@ -66,8 +66,8 @@ impl<BS, DS> NixHTTPPathInfoService<BS, DS> {
 #[async_trait]
 impl<BS, DS> PathInfoService for NixHTTPPathInfoService<BS, DS>
 where
-    BS: AsRef<dyn BlobService> + Send + Sync + Clone + 'static,
-    DS: AsRef<dyn DirectoryService> + Send + Sync + Clone + 'static,
+    BS: BlobService + Send + Sync + Clone + 'static,
+    DS: DirectoryService + Send + Sync + Clone + 'static,
 {
     #[instrument(skip_all, err, fields(path.digest=nixbase32::encode(&digest)))]
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
@@ -316,10 +316,10 @@ impl ServiceBuilder for NixHTTPPathInfoServiceConfig {
         &'a self,
         _instance_name: &str,
         context: &CompositionContext,
-    ) -> Result<Arc<dyn PathInfoService>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+    ) -> Result<Arc<Self::Output>, Box<dyn std::error::Error + Send + Sync + 'static>> {
         let (blob_service, directory_service) = futures::join!(
-            context.resolve(self.blob_service.clone()),
-            context.resolve(self.directory_service.clone())
+            context.resolve::<dyn BlobService>(self.blob_service.clone()),
+            context.resolve::<dyn DirectoryService>(self.directory_service.clone())
         );
         let mut svc = NixHTTPPathInfoService::new(
             Url::parse(&self.base_url)?,

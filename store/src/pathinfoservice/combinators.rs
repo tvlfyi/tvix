@@ -88,8 +88,8 @@ impl ServiceBuilder for CacheConfig {
         context: &CompositionContext,
     ) -> Result<Arc<dyn PathInfoService>, Box<dyn std::error::Error + Send + Sync + 'static>> {
         let (near, far) = futures::join!(
-            context.resolve(self.near.clone()),
-            context.resolve(self.far.clone())
+            context.resolve::<Self::Output>(self.near.clone()),
+            context.resolve::<Self::Output>(self.far.clone())
         );
         Ok(Arc::new(Cache {
             near: near?,

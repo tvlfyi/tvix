@@ -121,8 +121,8 @@ pub struct TvixStoreFs<BS, DS, RN> {
 
 impl<BS, DS, RN> TvixStoreFs<BS, DS, RN>
 where
-    BS: AsRef<dyn BlobService> + Clone + Send,
-    DS: AsRef<dyn DirectoryService> + Clone + Send + 'static,
+    BS: BlobService + Clone + Send,
+    DS: DirectoryService + Clone + Send + 'static,
     RN: RootNodes + Clone + 'static,
 {
     pub fn new(
@@ -186,7 +186,7 @@ where
                     .block_on({
                         let directory_service = self.directory_service.clone();
                         let parent_digest = parent_digest.to_owned();
-                        async move { directory_service.as_ref().get(&parent_digest).await }
+                        async move { directory_service.get(&parent_digest).await }
                     })?
                     .ok_or_else(|| {
                         warn!(directory.digest=%parent_digest, "directory not found");
@@ -302,8 +302,8 @@ const XATTR_NAME_BLOB_DIGEST: &[u8] = b"user.tvix.castore.blob.digest";
 
 impl<BS, DS, RN> Layer for TvixStoreFs<BS, DS, RN>
 where
-    BS: AsRef<dyn BlobService> + Clone + Send + 'static,
-    DS: AsRef<dyn DirectoryService> + Send + Clone + 'static,
+    BS: BlobService + Clone + Send + 'static,
+    DS: DirectoryService + Send + Clone + 'static,
     RN: RootNodes + Clone + 'static,
 {
     fn root_inode(&self) -> Self::Inode {
@@ -313,8 +313,8 @@ where
 
 impl<BS, DS, RN> FileSystem for TvixStoreFs<BS, DS, RN>
 where
-    BS: AsRef<dyn BlobService> + Clone + Send + 'static,
-    DS: AsRef<dyn DirectoryService> + Send + Clone + 'static,
+    BS: BlobService + Clone + Send + 'static,
+    DS: DirectoryService + Send + Clone + 'static,
     RN: RootNodes + Clone + 'static,
 {
     type Handle = u64;
@@ -674,7 +674,7 @@ where
                 match self.tokio_handle.block_on({
                     let blob_service = self.blob_service.clone();
                     let blob_digest = blob_digest.clone();
-                    async move { blob_service.as_ref().open_read(&blob_digest).await }
+                    async move { blob_service.open_read(&blob_digest).await }
                 }) {
                     Ok(None) => {
                         warn!("blob not found");

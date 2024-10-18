@@ -1,5 +1,6 @@
 use std::io;
 
+use auto_impl::auto_impl;
 use tonic::async_trait;
 
 use crate::composition::{Registry, ServiceBuilder};
@@ -29,6 +30,7 @@ pub use self::object_store::{ObjectStoreBlobService, ObjectStoreBlobServiceConfi
 /// which will implement a writer interface, and also provides a close funtion,
 /// to finalize a blob and get its digest.
 #[async_trait]
+#[auto_impl(&, &mut, Arc, Box)]
 pub trait BlobService: Send + Sync {
     /// Check if the service has the blob, by its content hash.
     /// On implementations returning chunks, this must also work for chunks.
@@ -57,28 +59,6 @@ pub trait BlobService: Send + Sync {
         // default implementation, signalling the backend does not have more
         // granular chunks available.
         Ok(Some(vec![]))
-    }
-}
-
-#[async_trait]
-impl<A> BlobService for A
-where
-    A: AsRef<dyn BlobService> + Send + Sync,
-{
-    async fn has(&self, digest: &B3Digest) -> io::Result<bool> {
-        self.as_ref().has(digest).await
-    }
-
-    async fn open_read(&self, digest: &B3Digest) -> io::Result<Option<Box<dyn BlobReader>>> {
-        self.as_ref().open_read(digest).await
-    }
-
-    async fn open_write(&self) -> Box<dyn BlobWriter> {
-        self.as_ref().open_write().await
-    }
-
-    async fn chunks(&self, digest: &B3Digest) -> io::Result<Option<Vec<ChunkMeta>>> {
-        self.as_ref().chunks(digest).await
     }
 }
 

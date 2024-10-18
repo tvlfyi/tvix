@@ -278,6 +278,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
+name = "auto_impl"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c87f3f15e7794432337fc718554eaa4dc8f04c9677a950ffe366f20a162ae42"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.79",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4572,6 +4583,7 @@ dependencies = [
  "async-process",
  "async-stream",
  "async-tempfile",
+ "auto_impl",
  "bigtable_rs",
  "blake3",
  "bstr",
@@ -4765,6 +4777,7 @@ dependencies = [
  "async-compression",
  "async-process",
  "async-stream",
+ "auto_impl",
  "bigtable_rs",
  "blake3",
  "bstr",

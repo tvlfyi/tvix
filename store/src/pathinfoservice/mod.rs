@@ -13,6 +13,7 @@ mod fs;
 #[cfg(test)]
 mod tests;
 
+use auto_impl::auto_impl;
 use futures::stream::BoxStream;
 use tonic::async_trait;
 use tvix_castore::composition::{Registry, ServiceBuilder};
@@ -45,6 +46,7 @@ pub use self::fs::make_fs;
 
 /// The base trait all PathInfo services need to implement.
 #[async_trait]
+#[auto_impl(&, &mut, Arc, Box)]
 pub trait PathInfoService: Send + Sync {
     /// Retrieve a PathInfo message by the output digest.
     async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error>;
@@ -66,28 +68,6 @@ pub trait PathInfoService: Send + Sync {
     /// This can be used to offload NAR calculation to the remote side.
     fn nar_calculation_service(&self) -> Option<Box<dyn NarCalculationService>> {
         None
-    }
-}
-
-#[async_trait]
-impl<A> PathInfoService for A
-where
-    A: AsRef<dyn PathInfoService> + Send + Sync + 'static,
-{
-    async fn get(&self, digest: [u8; 20]) -> Result<Option<PathInfo>, Error> {
-        self.as_ref().get(digest).await
-    }
-
-    async fn put(&self, path_info: PathInfo) -> Result<PathInfo, Error> {
-        self.as_ref().put(path_info).await
-    }
-
-    fn list(&self) -> BoxStream<'static, Result<PathInfo, Error>> {
-        self.as_ref().list()
-    }
-
-    fn nar_calculation_service(&self) -> Option<Box<dyn NarCalculationService>> {
-        self.as_ref().nar_calculation_service()
     }
 }
 

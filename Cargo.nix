@@ -992,6 +992,33 @@ rec {
           "portable-atomic" = [ "dep:portable-atomic" ];
         };
       };
+      "auto_impl" = rec {
+        crateName = "auto_impl";
+        version = "1.2.0";
+        edition = "2021";
+        sha256 = "0hmfcahj0vrnzq7rayk7r428zp54x9a8awgw6wil753pbvqz71rw";
+        procMacro = true;
+        authors = [
+          "Ashley Mannix <ashleymannix@live.com.au>"
+          "Lukas Kalbertodt <lukas.kalbertodt@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "proc-macro2";
+            packageId = "proc-macro2";
+          }
+          {
+            name = "quote";
+            packageId = "quote";
+          }
+          {
+            name = "syn";
+            packageId = "syn 2.0.79";
+            features = [ "full" "visit" "visit-mut" ];
+          }
+        ];
+
+      };
       "autocfg" = rec {
         crateName = "autocfg";
         version = "1.4.0";
@@ -15132,6 +15159,10 @@ rec {
             packageId = "async-tempfile";
           }
           {
+            name = "auto_impl";
+            packageId = "auto_impl";
+          }
+          {
             name = "bigtable_rs";
             packageId = "bigtable_rs";
             optional = true;
@@ -15916,6 +15947,10 @@ rec {
           {
             name = "async-stream";
             packageId = "async-stream";
+          }
+          {
+            name = "auto_impl";
+            packageId = "auto_impl";
           }
           {
             name = "bigtable_rs";

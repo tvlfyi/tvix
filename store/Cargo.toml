@@ -49,6 +49,7 @@ redb = { workspace = true, features = ["logging"] }
 mimalloc = { workspace = true }
 tonic-reflection = { workspace = true, optional = true }
 bigtable_rs = { workspace = true, optional = true }
+auto_impl = "1.2.0"
 
 [build-dependencies]
 prost-build = { workspace = true }
