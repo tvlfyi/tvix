@@ -100,7 +100,7 @@ impl TvixStoreIO {
     ///
     /// In case there is no PathInfo yet, this means we need to build it
     /// (which currently is stubbed out still).
-    #[instrument(skip(self, store_path), fields(store_path=%store_path, indicatif.pb_show=1), ret(level = Level::TRACE), err)]
+    #[instrument(skip(self, store_path), fields(store_path=%store_path, indicatif.pb_show=1), ret(level = Level::TRACE), err(level = Level::TRACE))]
     async fn store_path_to_node(
         &self,
         store_path: &StorePath<String>,
