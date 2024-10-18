@@ -77,10 +77,13 @@ where
         &self,
         request: Request<castorepb::Node>,
     ) -> Result<Response<proto::CalculateNarResponse>> {
-        let (_, root_node) = request.into_inner().into_name_and_node().map_err(|e| {
-            warn!(err = %e, "invalid root node");
-            Status::invalid_argument("invalid root node")
-        })?;
+        let (_, root_node) = request
+            .into_inner()
+            .into_name_bytes_and_node()
+            .map_err(|e| {
+                warn!(err = %e, "invalid root node");
+                Status::invalid_argument("invalid root node")
+            })?;
 
         match self.nar_calculation_service.calculate_nar(&root_node).await {
             Ok((nar_size, nar_sha256)) => Ok(Response::new(proto::CalculateNarResponse {
