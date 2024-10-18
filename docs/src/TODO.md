@@ -186,6 +186,10 @@ This requires some more designing. Some goals:
      - Maybe add a ?cache=$other_url parameter support to the URL syntax, to
        easily wrap a store with a caching frontend, using $other_url as the
       "near" store URL.
+    - Each store should get its instance name passed down, and add this as a
+      field in the instrumentation calls. This causes log messages and
+      per-instance store metrics to be traceable back to the specific instance
+      (if multiple backends of the same type are present).
 
 ### Store Config
    There's already serde for some store options (bigtable uses `serde_qs`).
