@@ -118,6 +118,57 @@ where
     data.tuple_windows().all(|(a, b)| a <= b)
 }
 
+fn path_to_string(path: &Path) -> String {
+    path.to_str()
+        .expect("Tvix Bug: unable to convert Path to String")
+        .to_string()
+}
+
+impl From<crate::buildservice::BuildRequest> for BuildRequest {
+    fn from(value: crate::buildservice::BuildRequest) -> Self {
+        let constraints = if value.constraints.is_empty() {
+            None
+        } else {
+            let mut constraints = build_request::BuildConstraints::default();
+            for constraint in value.constraints {
+                use crate::buildservice::BuildConstraints;
+                match constraint {
+                    BuildConstraints::System(system) => constraints.system = system,
+                    BuildConstraints::MinMemory(min_memory) => constraints.min_memory = min_memory,
+                    BuildConstraints::AvailableReadOnlyPath(path) => {
+                        constraints.available_ro_paths.push(path_to_string(&path))
+                    }
+                    BuildConstraints::ProvideBinSh => constraints.provide_bin_sh = true,
+                    BuildConstraints::NetworkAccess => constraints.network_access = true,
+                }
+            }
+            Some(constraints)
+        };
+        Self {
+            inputs: value
+                .inputs
+                .into_iter()
+                .map(|(name, node)| {
+                    tvix_castore::proto::Node::from_name_and_node(name.into(), node)
+                })
+                .collect(),
+            command_args: value.command_args,
+            working_dir: path_to_string(&value.working_dir),
+            scratch_paths: value
+                .scratch_paths
+                .iter()
+                .map(|p| path_to_string(p))
+                .collect(),
+            inputs_dir: path_to_string(&value.inputs_dir),
+            outputs: value.outputs.iter().map(|p| path_to_string(p)).collect(),
+            environment_vars: value.environment_vars.into_iter().map(Into::into).collect(),
+            constraints,
+            additional_files: value.additional_files.into_iter().map(Into::into).collect(),
+            refscan_needles: value.refscan_needles,
+        }
+    }
+}
+
 impl TryFrom<BuildRequest> for crate::buildservice::BuildRequest {
     type Error = ValidateBuildRequestError;
     fn try_from(value: BuildRequest) -> Result<Self, Self::Error> {

@@ -5,7 +5,7 @@ use std::{
 };
 
 use super::scratch_name;
-use crate::proto::BuildRequest;
+use crate::buildservice::BuildRequest;
 use anyhow::{bail, Context};
 use tracing::{debug, instrument};
 
@@ -60,12 +60,10 @@ pub(crate) fn get_host_output_paths(
 
     for output_path in request.outputs.iter() {
         // calculate the location of the path.
-        if let Some((mp, relpath)) =
-            find_path_in_scratchs(output_path, request.scratch_paths.as_slice())
-        {
+        if let Some((mp, relpath)) = find_path_in_scratchs(output_path, &request.scratch_paths) {
             host_output_paths.push(scratch_root.join(scratch_name(mp)).join(relpath));
         } else {
-            bail!("unable to find path {}", output_path);
+            bail!("unable to find path {output_path:?}");
         }
     }
 
@@ -77,16 +75,18 @@ pub(crate) fn get_host_output_paths(
 /// relative path from there to the search_path.
 /// mountpoints must be sorted, so we can iterate over the list from the back
 /// and match on the prefix.
-fn find_path_in_scratchs<'a, 'b>(
-    search_path: &'a str,
-    mountpoints: &'b [String],
-) -> Option<(&'b str, &'a str)> {
-    mountpoints.iter().rev().find_map(|mp| {
-        Some((
-            mp.as_str(),
-            search_path.strip_prefix(mp)?.strip_prefix('/')?,
-        ))
-    })
+fn find_path_in_scratchs<'a, 'b, I>(
+    search_path: &'a Path,
+    mountpoints: I,
+) -> Option<(&'b Path, &'a Path)>
+where
+    I: IntoIterator<Item = &'b PathBuf>,
+    I::IntoIter: DoubleEndedIterator,
+{
+    mountpoints
+        .into_iter()
+        .rev()
+        .find_map(|mp| Some((mp.as_path(), search_path.strip_prefix(mp).ok()?)))
 }
 
 #[cfg(test)]
@@ -95,7 +95,7 @@ mod tests {
 
     use rstest::rstest;
 
-    use crate::{oci::scratch_name, proto::BuildRequest};
+    use crate::{buildservice::BuildRequest, oci::scratch_name};
 
     use super::{find_path_in_scratchs, get_host_output_paths};
 
@@ -108,7 +108,18 @@ mod tests {
         #[case] mountpoints: &[String],
         #[case] expected: Option<(&str, &str)>,
     ) {
-        assert_eq!(find_path_in_scratchs(search_path, mountpoints), expected);
+        let expected = expected.map(|e| (Path::new(e.0), Path::new(e.1)));
+        assert_eq!(
+            find_path_in_scratchs(
+                Path::new(search_path),
+                mountpoints
+                    .iter()
+                    .map(PathBuf::from)
+                    .collect::<Vec<_>>()
+                    .as_slice()
+            ),
+            expected
+        );
     }
 
     #[test]
@@ -125,7 +136,7 @@ mod tests {
         let mut expected_path = PathBuf::new();
         expected_path.push("bundle-root");
         expected_path.push("scratch");
-        expected_path.push(scratch_name("nix/store"));
+        expected_path.push(scratch_name(Path::new("nix/store")));
         expected_path.push("fhaj6gmwns62s6ypkcldbaj2ybvkhx3p-foo");
 
         assert_eq!(vec![expected_path], paths)

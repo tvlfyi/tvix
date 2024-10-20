@@ -35,7 +35,7 @@ use tvix_castore::{Node, PathComponent};
 ///
 /// As of now, we're okay to accept this, but it prevents uploading an
 /// entirely-non-IFD subgraph of BuildRequests eagerly.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct BuildRequest {
     /// The list of all root nodes that should be visible in `inputs_dir` at the
     /// time of the build.

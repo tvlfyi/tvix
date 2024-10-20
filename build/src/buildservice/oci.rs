@@ -10,15 +10,15 @@ use tvix_castore::{
     fs::fuse::FuseDaemon,
     import::fs::ingest_path,
     refscan::{ReferencePattern, ReferenceScanner},
-    Node, PathComponent,
 };
 use uuid::Uuid;
 
+use crate::buildservice::BuildRequest;
 use crate::{
     oci::{get_host_output_paths, make_bundle, make_spec},
-    proto::{build::OutputNeedles, Build, BuildRequest},
+    proto::{self, build::OutputNeedles},
 };
-use std::{collections::BTreeMap, ffi::OsStr, path::PathBuf, process::Stdio};
+use std::{ffi::OsStr, path::PathBuf, process::Stdio};
 
 use super::BuildService;
 
@@ -95,7 +95,7 @@ where
     DS: DirectoryService + Clone + 'static,
 {
     #[instrument(skip_all, err)]
-    async fn do_build(&self, request: BuildRequest) -> std::io::Result<Build> {
+    async fn do_build(&self, request: BuildRequest) -> std::io::Result<proto::Build> {
         let _permit = self.concurrent_builds.acquire().await.unwrap();
 
         let bundle_name = Uuid::new_v4();
@@ -128,26 +128,20 @@ where
             .map_err(std::io::Error::other)?;
 
         // assemble a BTreeMap of Nodes to pass into TvixStoreFs.
-        let root_nodes: BTreeMap<PathComponent, Node> =
-            BTreeMap::from_iter(request.inputs.iter().map(|input| {
-                // We know from validation this is Some.
-                input.clone().try_into_name_and_node().unwrap()
-            }));
         let patterns = ReferencePattern::new(request.refscan_needles.clone());
         // NOTE: impl Drop for FuseDaemon unmounts, so if the call is cancelled, umount.
         let _fuse_daemon = tokio::task::spawn_blocking({
             let blob_service = self.blob_service.clone();
             let directory_service = self.directory_service.clone();
 
-            debug!(inputs=?root_nodes.keys(), "got inputs");
-
             let dest = bundle_path.join("inputs");
 
+            let root_nodes = Box::new(request.inputs.clone());
             move || {
                 let fs = tvix_castore::fs::TvixStoreFs::new(
                     blob_service,
                     directory_service,
-                    Box::new(root_nodes),
+                    root_nodes,
                     true,
                     false,
                 );
@@ -223,7 +217,7 @@ where
 
                     Ok::<_, std::io::Error>((
                         tvix_castore::proto::Node::from_name_and_node(
-                            PathBuf::from(output_path)
+                            output_path
                                 .file_name()
                                 .and_then(|s| s.to_str())
                                 .map(|s| s.to_string())
@@ -240,8 +234,8 @@ where
         .into_iter()
         .unzip();
 
-        Ok(Build {
-            build_request: Some(request.clone()),
+        Ok(proto::Build {
+            build_request: Some(request.into()),
             outputs,
             outputs_needles,
         })

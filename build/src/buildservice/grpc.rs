@@ -1,6 +1,7 @@
 use tonic::{async_trait, transport::Channel};
 
-use crate::proto::{build_service_client::BuildServiceClient, Build, BuildRequest};
+use crate::buildservice::BuildRequest;
+use crate::proto::{self, build_service_client::BuildServiceClient};
 
 use super::BuildService;
 
@@ -17,10 +18,10 @@ impl GRPCBuildService {
 
 #[async_trait]
 impl BuildService for GRPCBuildService {
-    async fn do_build(&self, request: BuildRequest) -> std::io::Result<Build> {
+    async fn do_build(&self, request: BuildRequest) -> std::io::Result<proto::Build> {
         let mut client = self.client.clone();
         client
-            .do_build(request)
+            .do_build(Into::<proto::BuildRequest>::into(request))
             .await
             .map(|resp| resp.into_inner())
             .map_err(std::io::Error::other)

@@ -1,5 +1,4 @@
 //! This module provides an implementation of EvalIO talking to tvix-store.
-use bytes::Bytes;
 use futures::{StreamExt, TryStreamExt};
 use nix_compat::{nixhash::CAHash, store_path::StorePath};
 use std::collections::BTreeMap;
@@ -181,7 +180,7 @@ impl TvixStoreIO {
                         // derivation_to_build_request needs castore nodes for all inputs.
                         // Provide them, which means, here is where we recursively build
                         // all dependencies.
-                        let mut inputs: BTreeMap<Bytes, Node> =
+                        let mut inputs: BTreeMap<StorePath<String>, Node> =
                             futures::stream::iter(drv.input_derivations.iter())
                                 .map(|(input_drv_path, output_names)| {
                                     // look up the derivation object
@@ -224,7 +223,7 @@ impl TvixStoreIO {
                                                 .await?;
 
                                             if let Some(node) = node {
-                                                Ok((output_path.to_string().into(), node))
+                                                Ok((output_path, node))
                                             } else {
                                                 Err(io::Error::other("no node produced"))
                                             }
@@ -250,7 +249,7 @@ impl TvixStoreIO {
                                                 .store_path_to_node(&input_source, Path::new(""))
                                                 .await?;
                                             if let Some(node) = node {
-                                                Ok((input_source.to_string().into(), node))
+                                                Ok((input_source, node))
                                             } else {
                                                 Err(io::Error::other("no node produced"))
                                             }
