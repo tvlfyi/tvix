@@ -4,7 +4,7 @@
     inherit (derivation {
       name = "test";
       builder = "/bin/sh";
-      system = builtins.currentSystem;
+      system = "x86_64-linux";
     }) drvPath;
   }))
 
