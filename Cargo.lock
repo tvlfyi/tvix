@@ -4661,7 +4661,6 @@ dependencies = [
  "tracing",
  "tracing-indicatif",
  "tvix-build",
- "tvix-castore",
  "tvix-eval",
  "tvix-glue",
  "tvix-store",

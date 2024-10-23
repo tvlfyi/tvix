@@ -15497,10 +15497,6 @@ rec {
             packageId = "tvix-build";
           }
           {
-            name = "tvix-castore";
-            packageId = "tvix-castore";
-          }
-          {
             name = "tvix-eval";
             packageId = "tvix-eval";
           }
