@@ -15453,10 +15453,6 @@ rec {
             packageId = "mimalloc";
           }
           {
-            name = "nix-compat";
-            packageId = "nix-compat";
-          }
-          {
             name = "rnix";
             packageId = "rnix";
           }

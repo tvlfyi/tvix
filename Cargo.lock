@@ -4650,7 +4650,6 @@ dependencies = [
  "dirs",
  "expect-test",
  "mimalloc",
- "nix-compat",
  "rnix",
  "rowan",
  "rustc-hash 2.0.0",

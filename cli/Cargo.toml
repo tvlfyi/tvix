@@ -8,7 +8,6 @@ name = "tvix"
 path = "src/main.rs"
 
 [dependencies]
-nix-compat = { path = "../nix-compat" }
 tvix-build = { path = "../build" }
 tvix-store = { path = "../store", default-features = false, features = []}
 tvix-eval = { path = "../eval" }
