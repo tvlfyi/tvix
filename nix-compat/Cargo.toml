@@ -14,7 +14,7 @@ daemon = ["tokio", "nix-compat-derive", "futures"]
 test = []
 
 # Enable all features by default.
-default = ["async", "daemon", "wire", "nix-compat-derive"]
+default = ["async", "daemon", "wire", "nix-compat-derive", "mimalloc"]
 
 [dependencies]
 bitflags.workspace = true
@@ -24,7 +24,7 @@ ed25519.workspace = true
 ed25519-dalek.workspace = true
 
 futures = { workspace = true, optional = true }
-mimalloc.workspace = true
+mimalloc = { workspace = true, optional = true }
 nom.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
