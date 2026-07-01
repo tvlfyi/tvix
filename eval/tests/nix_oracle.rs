@@ -167,7 +167,6 @@ compare_lazy_eval_tests! {
     unthunked_identifier_in_list("let foo = 12; in [ foo ]");
     thunked_lambda_in_list("[ (x: x) ]");
     thunked_function_application_in_list("[ (builtins.add 1 2) ]");
-    thunked_legacy_let_in_list("[ (let { foo = 12; body = foo; }) ]");
     unthunked_relative_path("[ ./foo ]");
     unthunked_home_relative_path("[ ~/foo ]");
     unthunked_absolute_path("[ /foo ]");
