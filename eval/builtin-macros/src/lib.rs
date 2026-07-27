@@ -311,11 +311,7 @@ pub fn builtins(args: TokenStream, item: TokenStream) -> TokenStream {
                                 #block
                             }
                         },
-                        BuiltinArgument {
-                            strict: false,
-                            catch: _,
-                            ..
-                        } => parse_quote_spanned! {
+                        BuiltinArgument { strict: false, .. } => parse_quote_spanned! {
                             arg.span => {
                                 let #ident: #ty = values.pop().expect("Tvix bug: builtin called with incorrect number of arguments");
                                 #block

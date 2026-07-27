@@ -188,7 +188,7 @@ impl Serialize for CAHash {
             }
             CAHash::Nar(h) => {
                 map.serialize_entry("hash", &nixbase32::encode(h.digest_as_bytes()))?;
-                map.serialize_entry("hashAlgo", &format!("r:{}", &h.algo()))?;
+                map.serialize_entry("hashAlgo", &format!("r:{}", h.algo()))?;
             }
             // It is not legal for derivations to use this (which is where
             // we're currently exercising [Serialize] mostly,

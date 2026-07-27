@@ -1063,7 +1063,7 @@ mod tests {
                 assert_eq!(
                     expected, &buf,
                     "{} should be formatted as {}, but got {}",
-                    n, expected, &buf
+                    n, expected, buf
                 );
             }
         }
