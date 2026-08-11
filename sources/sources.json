@@ -122,15 +122,15 @@
       "type": "Git",
       "repository": {
         "type": "Forgejo",
-        "server": "https://git.syndicate-lang.org/",
-        "owner": "synit",
+        "server": "https://git.informatics.coop/",
+        "owner": "nix",
         "repo": "slam"
       },
       "branch": "trunk",
       "submodules": false,
-      "revision": "bd19f2fb26daa543f42246e4743eb6e6ca40f121",
-      "url": "https://git.syndicate-lang.org/synit/slam/archive/bd19f2fb26daa543f42246e4743eb6e6ca40f121.tar.gz",
-      "hash": "sha256-OWhQrV7fAWWPXQncvTL2qN/Z5wAm1ApisBVKdD1IVgw="
+      "revision": "d2592c8782a850964c307a0d1357482017f7ce3f",
+      "url": "https://git.informatics.coop/nix/slam/archive/d2592c8782a850964c307a0d1357482017f7ce3f.tar.gz",
+      "hash": "sha256-caOSPwWBT+K9feur/uWNX2CuQiyByudtR4sQYkAoxJQ="
     }
   },
   "version": 8

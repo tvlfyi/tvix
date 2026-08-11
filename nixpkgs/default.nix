@@ -59,18 +59,6 @@ let
   stableOverlay = _unstableSelf: unstableSuper: {
     tpm2-pkcs11 = stableNixpkgs.tpm2-pkcs11;
   };
-
-  # Overlay to introduce a lazy `alt` namespace.
-  altOverlay = final: prev: {
-    alt = prev.alt or { } // {
-      sam =
-        let
-          sources' = import "${depot.third_party.sources.slam}/lon.nix";
-          pkgs' = import "${sources'.sampkgs}/overlay.nix" final prev;
-        in
-        pkgs'.alt.sam;
-    };
-  };
 in
 import nixpkgsSrc (commonNixpkgsArgs // {
   overlays = [
@@ -81,6 +69,5 @@ import nixpkgsSrc (commonNixpkgsArgs // {
     depot.third_party.overlays.ecl-static
     depot.third_party.overlays.dhall
     (import depot.third_party.sources.rust-overlay)
-    altOverlay
   ] else [ ] ++ additionalOverlays);
 })
