@@ -128,9 +128,9 @@
       },
       "branch": "trunk",
       "submodules": false,
-      "revision": "d2592c8782a850964c307a0d1357482017f7ce3f",
-      "url": "https://git.informatics.coop/nix/slam/archive/d2592c8782a850964c307a0d1357482017f7ce3f.tar.gz",
-      "hash": "sha256-caOSPwWBT+K9feur/uWNX2CuQiyByudtR4sQYkAoxJQ="
+      "revision": "d124f0af5007a9aa74260e3bc2097500b083e953",
+      "url": "https://git.informatics.coop/nix/slam/archive/d124f0af5007a9aa74260e3bc2097500b083e953.tar.gz",
+      "hash": "sha256-X2+rKsN5Ptxz34mirq+XbJXwc/1uDm9B1zqnwfJFR6U="
     }
   },
   "version": 8
