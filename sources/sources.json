@@ -26,6 +26,20 @@
       "url": "https://github.com/mlochbaum/bqn-libs/archive/32f07809431af37e60ca1b6faeb9315b871f4a5d.tar.gz",
       "hash": "sha256-EJcY2r4bZBrkEeepiNZlUwEX9j2TDa4lYxddvDAc2Sg="
     },
+    "emacs-gpu": {
+      "type": "Git",
+      "repository": {
+        "type": "Forgejo",
+        "server": "https://codeberg.org/",
+        "owner": "ezemtsov",
+        "repo": "emacs"
+      },
+      "branch": "wayland-31",
+      "submodules": false,
+      "revision": "bb45e153552eeec64a30787387fc7c3e4afad325",
+      "url": "https://codeberg.org/ezemtsov/emacs/archive/bb45e153552eeec64a30787387fc7c3e4afad325.tar.gz",
+      "hash": "sha256-moPIHtDxCKaTGU7ZHxTWBuu0sy/qenpm1wq3Ile0KZY="
+    },
     "home-manager": {
       "type": "Git",
       "repository": {
