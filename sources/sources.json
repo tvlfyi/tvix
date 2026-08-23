@@ -36,9 +36,9 @@
       },
       "branch": "wayland-31",
       "submodules": false,
-      "revision": "bb45e153552eeec64a30787387fc7c3e4afad325",
-      "url": "https://codeberg.org/ezemtsov/emacs/archive/bb45e153552eeec64a30787387fc7c3e4afad325.tar.gz",
-      "hash": "sha256-moPIHtDxCKaTGU7ZHxTWBuu0sy/qenpm1wq3Ile0KZY="
+      "revision": "c0d51e2af2e0a45d90b23b99e29144d902fca3bc",
+      "url": "https://codeberg.org/ezemtsov/emacs/archive/c0d51e2af2e0a45d90b23b99e29144d902fca3bc.tar.gz",
+      "hash": "sha256-146MEn3RJWsVdcFOeIFwpGiBmcLBd31/9sVlrG4Arhk="
     },
     "home-manager": {
       "type": "Git",
