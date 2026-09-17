@@ -54,7 +54,7 @@ pkgs.mkShell {
   # should also benchmark with a more static nixpkgs checkout, so nixpkgs
   # refactorings are not observed as eval perf changes.
   shellHook = ''
-    export TVIX_BUILD_SANDBOX_SHELL=${if pkgs.stdenv.isLinux then pkgs.busybox-sandbox-shell + "/bin/busybox" else "/bin/sh"}
+    export TVIX_BUILD_SANDBOX_SHELL=${if pkgs.stdenv.hostPlatform.isLinux then pkgs.busybox-sandbox-shell + "/bin/busybox" else "/bin/sh"}
     export TVIX_BENCH_NIX_PATH=nixpkgs=${pkgs.path}
   '' + pkgs.lib.optionalString (nix.pname == "lix") ''
     export NIX_INSTANTIATE_BINARY_PATH="${lix-instantiate-wrapper}"
