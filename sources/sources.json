@@ -27,18 +27,21 @@
       "hash": "sha256-EJcY2r4bZBrkEeepiNZlUwEX9j2TDa4lYxddvDAc2Sg="
     },
     "emacs-gpu": {
-      "type": "Git",
+      "type": "GitRelease",
       "repository": {
         "type": "Forgejo",
         "server": "https://codeberg.org/",
         "owner": "ezemtsov",
         "repo": "emacs"
       },
-      "branch": "wayland-31",
+      "pre_releases": false,
+      "release_prefix": null,
+      "version_upper_bound": null,
       "submodules": false,
-      "revision": "d44c25a5d802e9fb5674071ac41340afd41c5ed7",
-      "url": "https://codeberg.org/ezemtsov/emacs/archive/d44c25a5d802e9fb5674071ac41340afd41c5ed7.tar.gz",
-      "hash": "sha256-qc8V+nD9t+jmosHRQ49a8k0YozHbcs/mQCxEMav9TZw="
+      "version": "wayland-31.1",
+      "revision": "e894df42ff8b7e32ecc5e1684456a81a92d1dc5c",
+      "url": "https://codeberg.org/api/v1/repos/ezemtsov/emacs/archive/wayland-31.1.tar.gz",
+      "hash": "sha256-GuvBXTrHWkBBiEsSVD3zbsDbsH9J4aAP9d8sCoNTuWM="
     },
     "home-manager": {
       "type": "Git",
