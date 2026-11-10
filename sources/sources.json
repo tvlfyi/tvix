@@ -35,8 +35,8 @@
         "repo": "emacs"
       },
       "pre_releases": false,
-      "release_prefix": null,
       "version_upper_bound": null,
+      "release_prefix": null,
       "submodules": false,
       "version": "wayland-31.1",
       "revision": "e894df42ff8b7e32ecc5e1684456a81a92d1dc5c",
@@ -145,9 +145,9 @@
       },
       "branch": "trunk",
       "submodules": false,
-      "revision": "c4b7b52636e0a3352cb2e444fc26db5560eba890",
-      "url": "https://git.informatics.coop/nix/slam/archive/c4b7b52636e0a3352cb2e444fc26db5560eba890.tar.gz",
-      "hash": "sha256-sGsQfigZgU4Dx/sZvIsQtCM/QVm+9JrP9TMJnJeKHrg="
+      "revision": "cdd2d15eb58155b22562e5557ac787ab17d31515",
+      "url": "https://git.informatics.coop/nix/slam/archive/cdd2d15eb58155b22562e5557ac787ab17d31515.tar.gz",
+      "hash": "sha256-YURpKR0XALsHc6Fp2OwOAu8Ex1CJCMIbNi2QSDABwG4="
     }
   },
   "version": 8
